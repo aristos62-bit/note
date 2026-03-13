@@ -1,0 +1,47 @@
+name: super_note
+description: A powerful all-in-one note taking and productivity app.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ─── DATABASE ─────────────────────────────────────────────
+  isar: ^3.1.0
+  isar_flutter_libs: ^3.1.0
+  path_provider: ^2.1.2
+
+  # ─── STATE MANAGEMENT ─────────────────────────────────────
+  riverpod: ^2.5.1
+  flutter_riverpod: ^2.5.1
+
+  # ─── UTILITIES ────────────────────────────────────────────
+  uuid: ^4.4.0
+  intl: ^0.19.0
+  collection: ^1.18.0
+  rxdart: ^0.27.7
+
+  # ─── NOTIFICATIONS ────────────────────────────────────────
+  flutter_local_notifications: ^17.2.2
+  timezone: ^0.9.4
+
+  # ─── FILE HANDLING ────────────────────────────────────────
+  file_picker: ^8.0.7
+  mime: ^1.0.5
+  path: ^1.9.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.9
+  isar_generator: ^3.1.0
+
+flutter:
+  uses-material-design: true

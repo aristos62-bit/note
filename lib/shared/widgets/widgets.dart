@@ -1,0 +1,12 @@
+// lib/shared/widgets/widgets.dart
+//
+// Barrel file για όλα τα shared widgets.
+// Χρήση:
+//   import 'package:super_note/shared/widgets/widgets.dart';
+//
+export 'item_card.dart';
+export 'empty_state.dart';
+export 'priority_badge.dart';
+export 'tag_chip.dart';
+export 'confirm_dialog.dart';
+export 'item_type_icon.dart';
