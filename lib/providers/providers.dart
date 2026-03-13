@@ -14,3 +14,4 @@ export 'tag_provider.dart';
 export 'reminder_provider.dart';
 export 'attachment_provider.dart';
 export 'settings_provider.dart';
+export 'property_provider.dart';
