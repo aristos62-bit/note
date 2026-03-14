@@ -297,7 +297,8 @@ class ItemRepository {
   /// Stream που εκπέμπει κάθε φορά που αλλάζει κάποιο item
   Stream<void> watchAll() => _isar.items.watchLazy();
 
-  Stream<Item?> watchById(int id) => _isar.items.watchObject(id);
+  Stream<Item?> watchById(int id) =>
+      _isar.items.watchObject(id, fireImmediately: true);
 
   // ── BULK OPERATIONS ──────────────────────────────────────
 

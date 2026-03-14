@@ -13,6 +13,8 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'task_detail_screen.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 
 // ── Local providers ───────────────────────────────────────────────
 
@@ -91,11 +93,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   void _openDetail(int id) {
     DebugConfig.nav('TaskList → TaskDetail id=$id');
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => TaskDetailScreen(itemId: id)),
-    );
+    context.push(AppRoutes.task(id));
   }
-
   // ── Toggle done ──────────────────────────────────────────────
 
   Future<void> _toggleDone(Item item) async {
