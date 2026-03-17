@@ -14,22 +14,6 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'note_detail_screen.dart';
 
-// ── Local providers ───────────────────────────────────────────────
-
-/// Notes του active workspace (πάντα ItemType.note)
-final _notesProvider = FutureProvider<List<Item>>((ref) async {
-  final db    = ref.watch(dbProvider);
-  final wsId  = ref.watch(activeWorkspaceIdProvider);
-  final showArchived = ref.watch(showArchivedProvider);
-  if (wsId == null) return [];
-  DebugConfig.db('_notesProvider load wsId=$wsId archived=$showArchived');
-  return db.items.getByWorkspace(
-    wsId,
-    type: ItemType.note,
-    includeArchived: showArchived,
-  );
-});
-
 /// Search query τοπικό state
 final _searchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -90,7 +74,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     final notifier = ref.read(itemNotifierProvider.notifier);
     final item = await notifier.create(type: ItemType.note);
     if (item == null || !mounted) return;
-    ref.invalidate(_notesProvider);
+    ref.invalidate(itemNotifierProvider);
     _openDetail(item.id);
   }
 
@@ -128,14 +112,14 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     Navigator.pop(context);
     DebugConfig.provider('NoteList togglePin id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
-    ref.invalidate(_notesProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _toggleFav(Item item) async {
     Navigator.pop(context);
     DebugConfig.provider('NoteList toggleFav id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
-    ref.invalidate(_notesProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _archive(Item item) async {
@@ -145,7 +129,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     if (!ok || !mounted) return;
     DebugConfig.db('NoteList archive id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
-    ref.invalidate(_notesProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _delete(Item item) async {
@@ -155,7 +139,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     if (!ok || !mounted) return;
     DebugConfig.db('NoteList delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    ref.invalidate(_notesProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   // ── Build ────────────────────────────────────────────────────
@@ -164,7 +148,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
   Widget build(BuildContext context) {
     DebugConfig.provider('NoteListScreen build');
 
-    final notesAsync   = ref.watch(_notesProvider);
+    final notesAsync   = ref.watch(itemNotifierProvider);
     final searchQuery  = ref.watch(_searchQueryProvider);
     final activeTag    = ref.watch(_activeTagFilterProvider);
     final tagsAsync    = ref.watch(tagsProvider);
@@ -202,12 +186,12 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
           // ── Notes list ─────────────────────────────────────────
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(_notesProvider),
+              onRefresh: () async => ref.invalidate(itemNotifierProvider),
               child: notesAsync.when(
                 loading: () => _LoadingList(),
                 error:   (e, _) {
                   DebugConfig.error('NoteList load failed', e);
-                  return EmptyState.error(onRetry: () => ref.invalidate(_notesProvider));
+                  return EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
                 data: (notes) {
                   // Φιλτράρισμα: search + tag
@@ -256,7 +240,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
             if (value == 'archived') {
               final show = ref.read(showArchivedProvider);
               ref.read(showArchivedProvider.notifier).state = !show;
-              ref.invalidate(_notesProvider);
+              ref.invalidate(itemNotifierProvider);
             }
           },
           itemBuilder: (_) => [

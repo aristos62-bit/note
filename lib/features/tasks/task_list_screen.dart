@@ -12,24 +12,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
-import 'task_detail_screen.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/router/app_router.dart';
-
-// ── Local providers ───────────────────────────────────────────────
-
-final _tasksProvider = FutureProvider<List<Item>>((ref) async {
-  final db          = ref.watch(dbProvider);
-  final wsId        = ref.watch(activeWorkspaceIdProvider);
-  final showArchived = ref.watch(showArchivedProvider);
-  if (wsId == null) return [];
-  DebugConfig.db('_tasksProvider load wsId=$wsId');
-  return db.items.getByWorkspace(
-    wsId,
-    type: ItemType.task,
-    includeArchived: showArchived,
-  );
-});
 
 final _statusFilterProvider  = StateProvider<ItemStatus?>((ref) => null);
 final _priorityFilterProvider = StateProvider<ItemPriority?>((ref) => null);
@@ -87,7 +70,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     final item = await ref.read(itemNotifierProvider.notifier)
         .create(type: ItemType.task);
     if (item == null || !mounted) return;
-    ref.invalidate(_tasksProvider);
+    ref.invalidate(itemNotifierProvider);
     _openDetail(item.id);
   }
 
@@ -104,7 +87,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     DebugConfig.db('TaskList toggleDone id=${item.id} → ${newStatus.name}');
     await ref.read(itemNotifierProvider.notifier)
         .updateItem(item.id, status: newStatus);
-    ref.invalidate(_tasksProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   // ── Item actions ─────────────────────────────────────────────
@@ -134,7 +117,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     Navigator.pop(context);
     await ref.read(itemNotifierProvider.notifier)
         .togglePin(item.id, item.pinned);
-    ref.invalidate(_tasksProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _archive(Item item) async {
@@ -144,7 +127,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier)
         .toggleArchive(item.id, item.archived);
-    ref.invalidate(_tasksProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _delete(Item item) async {
@@ -155,7 +138,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     if (!ok || !mounted) return;
     DebugConfig.db('TaskList delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    ref.invalidate(_tasksProvider);
+    ref.invalidate(itemNotifierProvider);
   }
 
   // ── Build ────────────────────────────────────────────────────
@@ -164,7 +147,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Widget build(BuildContext context) {
     DebugConfig.provider('TaskListScreen build');
 
-    final tasksAsync     = ref.watch(_tasksProvider);
+    final tasksAsync     = ref.watch(itemNotifierProvider);
     final statusFilter   = ref.watch(_statusFilterProvider);
     final priorityFilter = ref.watch(_priorityFilterProvider);
     final searchQuery    = ref.watch(_searchQueryProvider);
@@ -214,13 +197,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
           // ── Task list ─────────────────────────────────────────
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(_tasksProvider),
+              onRefresh: () async => ref.invalidate(itemNotifierProvider),
               child: tasksAsync.when(
                 loading: () => _LoadingList(),
                 error: (e, _) {
                   DebugConfig.error('TaskList load failed', e);
                   return EmptyState.error(
-                      onRetry: () => ref.invalidate(_tasksProvider));
+                      onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
                 data: (tasks) {
                   final filtered = _filter(tasks, searchQuery,
@@ -268,7 +251,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             if (v == 'archived') {
               final show = ref.read(showArchivedProvider);
               ref.read(showArchivedProvider.notifier).state = !show;
-              ref.invalidate(_tasksProvider);
+              ref.invalidate(itemNotifierProvider);
             }
           },
           itemBuilder: (_) => [

@@ -28,6 +28,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Timer? _titleDebounce;
   Timer? _locationDebounce;
   bool  _isSaving = false;
+  bool _isEditingTitle = false;
+  String _lastSavedTitle = '';
 
   @override
   void initState() {
@@ -49,10 +51,19 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   // ── Save helpers ─────────────────────────────────────────────
 
   void _onTitleChanged(String v) {
+    _isEditingTitle = true;
     _titleDebounce?.cancel();
-    _titleDebounce = Timer(const Duration(milliseconds: 600),
-            () => _saveTitle(v.trim()));
+
+    _titleDebounce = Timer(const Duration(milliseconds: 600), () async {
+      final title = _titleCtrl.text.trim(); // ΠΑΝΤΑ από τον controller
+      await _saveTitle(title);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      _isEditingTitle = false;
+    });
   }
+
+
 
   void _onLocationChanged(String v) {
     _locationDebounce?.cancel();
@@ -62,13 +73,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
+    if (title == _lastSavedTitle) return;
+
     setState(() => _isSaving = true);
     DebugConfig.db('EventDetail saveTitle id=${widget.itemId} "$title"');
     await ref.read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+    _lastSavedTitle = title;
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
+
 
   Future<void> _saveLocation(String location) async {
     DebugConfig.db('EventDetail saveLocation id=${widget.itemId}');
@@ -85,6 +100,28 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       _locationDebounce!.cancel();
       await _saveLocation(_locationCtrl.text.trim());
     }
+  }
+
+  // ── Pop guard — αποθήκευση / διαγραφή πριν φύγουμε ────────────
+
+  Future<bool> _onPopInvoked() async {
+    _titleDebounce?.cancel();
+    _locationDebounce?.cancel();
+
+    final title    = _titleCtrl.text.trim();
+    final hasTitle = title.isNotEmpty;
+
+    if (!hasTitle) {
+      DebugConfig.db(
+          'EventDetail auto-delete empty event id=${widget.itemId}');
+      await ref
+          .read(itemNotifierProvider.notifier)
+          .deleteItem(widget.itemId);
+      return true;
+    }
+
+    await _flushSaves();
+    return true;
   }
 
   // ── Date/time pickers ────────────────────────────────────────
@@ -180,21 +217,35 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         if (item == null) return _buildNotFound();
 
         // Sync title
-        if (!_titleCtrl.selection.isValid ||
-            _titleCtrl.text != (item.title ?? '')) {
-          _titleCtrl.text = item.title ?? '';
-          _titleCtrl.selection = TextSelection.collapsed(
-              offset: _titleCtrl.text.length);
+        // Sync title από DB μόνο όταν ΔΕΝ editάρουμε χειροκίνητα
+        final itemTitle = item.title ?? '';
+
+// Αρχικοποίηση lastSavedTitle
+        if (_lastSavedTitle.isEmpty && itemTitle.isNotEmpty) {
+          _lastSavedTitle = itemTitle;
         }
+
+        if (!_isEditingTitle &&
+            _titleCtrl.text != itemTitle) {
+          final cursorAtEnd =
+              _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
+          _titleCtrl.text = itemTitle;
+          if (cursorAtEnd) {
+            _titleCtrl.selection =
+                TextSelection.collapsed(offset: _titleCtrl.text.length);
+          }
+        }
+
 
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context);
-            await _flushSaves();
-            nav.pop();
+            final nav    = Navigator.of(context);
+            final canPop = await _onPopInvoked();
+            if (canPop) nav.pop();
           },
+
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
             tablet: _buildTablet(context, item),

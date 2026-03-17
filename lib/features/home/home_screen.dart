@@ -23,38 +23,61 @@ import '../tasks/task_list_screen.dart';
 import '../search/search.dart';
 import '../settings/settings.dart';
 
-// ── Local providers ───────────────────────────────────────────────
+// ── Local providers (με autoDispose για να μην ξανατρέχουν άσκοπα) ─────
 
-final _todayTasksProvider = FutureProvider<List<Item>>((ref) async {
+final _todayTasksProvider = FutureProvider.autoDispose<List<Item>>((ref) async {
+  DebugConfig.provider('_todayTasksProvider BUILD');
   final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
+  if (wsId == null) {
+    DebugConfig.warning('_todayTasksProvider workspace NULL');
+    return [];
+  }
   DebugConfig.db('_todayTasksProvider wsId=$wsId');
-  return db.items.getByWorkspace(wsId, type: ItemType.task);
+  final tasks = await db.items.getByWorkspace(wsId, type: ItemType.task);
+  DebugConfig.db('_todayTasksProvider loaded ${tasks.length} tasks');
+  return tasks;
 });
 
-final _recentNotesProvider = FutureProvider<List<Item>>((ref) async {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  DebugConfig.db('_recentNotesProvider wsId=$wsId');
-  final notes = await db.items.getByWorkspace(wsId, type: ItemType.note);
-  notes.sort((a, b) =>
-      (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt));
-  return notes.take(8).toList();
+final _recentItemsProvider =
+Provider.autoDispose<List<Item>>((ref) {
+  // Παίρνουμε ΟΛΑ τα items από το ItemNotifier
+  final itemsAsync = ref.watch(itemNotifierProvider);
+
+  return itemsAsync.maybeWhen(
+    data: (items) {
+      // Φιλτράρουμε: χωρίς archived
+      final active = items.where((i) => !i.archived).toList();
+
+      // Ταξινόμηση κατά updatedAt ?? createdAt (φθίνουσα)
+      active.sort((a, b) {
+        final aDate = a.updatedAt ?? a.createdAt;
+        final bDate = b.updatedAt ?? b.createdAt;
+        return bDate.compareTo(aDate);
+      });
+
+      // Top 8
+      return active.take(8).toList();
+    },
+    orElse: () => const [],
+  );
 });
 
-final _statsProvider = FutureProvider<Map<ItemType, int>>((ref) async {
+
+final _statsProvider = FutureProvider.autoDispose<Map<ItemType, int>>((ref) async {
   final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
   if (wsId == null) return {};
   DebugConfig.db('_statsProvider wsId=$wsId');
+  DebugConfig.provider('_statsProvider BUILD');
   final counts = <ItemType, int>{};
   for (final type in [
     ItemType.note, ItemType.task, ItemType.event,
     ItemType.habit, ItemType.project, ItemType.goal,
   ]) {
-    counts[type] = await db.items.count(workspaceId: wsId, type: type);
+    final count = await db.items.count(workspaceId: wsId, type: type);
+    DebugConfig.db('stats $type = $count');
+    counts[type] = count;
   }
   return counts;
 });
@@ -68,68 +91,52 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    DebugConfig.provider('HomeScreen build');
-    final pinnedAsync    = ref.watch(pinnedItemsProvider);
-    final todayAsync     = ref.watch(_todayTasksProvider);
-    final recentAsync    = ref.watch(_recentNotesProvider);
-    final statsAsync     = ref.watch(_statsProvider);
-    final workspaceAsync = ref.watch(defaultWorkspaceProvider);
+    DebugConfig.provider('HomeScreen build');   // ← τώρα μόνο 1 φορά!
 
     return Scaffold(
       backgroundColor: context.cBg,
       body: RefreshIndicator(
         onRefresh: () async {
+          DebugConfig.provider('Home refresh triggered');
           ref.invalidate(pinnedItemsProvider);
           ref.invalidate(_todayTasksProvider);
-          ref.invalidate(_recentNotesProvider);
           ref.invalidate(_statsProvider);
+          DebugConfig.provider('Home providers invalidated');
         },
         child: ResponsiveLayout(
-          mobile: _buildScrollView(context, ref,
-              pinnedAsync, todayAsync, recentAsync, statsAsync,
-              workspaceAsync, isTablet: false),
-          tablet: _buildScrollView(context, ref,
-              pinnedAsync, todayAsync, recentAsync, statsAsync,
-              workspaceAsync, isTablet: true),
+          mobile: _buildScrollView(context, ref, isTablet: false),
+          tablet: _buildScrollView(context, ref, isTablet: true),
         ),
       ),
     );
   }
 
   // ── Shared CustomScrollView ──────────────────────────────────
-
   Widget _buildScrollView(
       BuildContext context,
-      WidgetRef ref,
-      AsyncValue<List<Item>> pinnedAsync,
-      AsyncValue<List<Item>> todayAsync,
-      AsyncValue<List<Item>> recentAsync,
-      AsyncValue<Map<ItemType, int>> statsAsync,
-      AsyncValue<Workspace?> workspaceAsync, {
+      WidgetRef ref, {
         required bool isTablet,
       }) {
     return CustomScrollView(
       slivers: [
-        // ── AppBar ────────────────────────────────────────────
-        // SliverAppBar → sliver ✅
-        _HomeAppBar(workspaceAsync: workspaceAsync),
+        const _HomeAppBar(),
 
-        // ── Greeting ──────────────────────────────────────────
-        // _GreetingSection → plain Widget → SliverToBoxAdapter ✅
         SliverToBoxAdapter(child: _GreetingSection()),
 
-        // ── Stats ─────────────────────────────────────────────
-        // _StatsRow/_StatsRowSkeleton → plain Widget → SliverToBoxAdapter ✅
+        // Stats – μόνο αυτό το section rebuild
         SliverToBoxAdapter(
-          child: statsAsync.when(
-            loading: () => const _StatsRowSkeleton(),
-            error:   (_, __) => const SizedBox.shrink(),
-            data:    (stats) => _StatsRow(stats: stats),
+          child: Consumer(
+            builder: (context, ref, _) {
+              final statsAsync = ref.watch(_statsProvider);
+              return statsAsync.when(
+                loading: () => const _StatsRowSkeleton(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (stats) => _StatsRow(stats: stats),
+              );
+            },
           ),
         ),
 
-        // ── Quick Actions ─────────────────────────────────────
-        // _QuickActions → plain Widget → SliverToBoxAdapter ✅
         SliverToBoxAdapter(
           child: _QuickActions(
             onNewNote: () => _createAndOpenNote(context, ref),
@@ -137,19 +144,22 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
 
-        // ── Pinned ────────────────────────────────────────────
-        // _PinnedSection → SliverMainAxisGroup → sliver ✅
-        // SliverToBoxAdapter(empty) → sliver ✅
-        pinnedAsync.when(
-          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          error:   (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          data: (pinned) => pinned.isEmpty
-              ? const SliverToBoxAdapter(child: SizedBox.shrink())
-              : _PinnedSection(items: pinned),
+        // Pinned – μόνο αυτό το section rebuild
+        Consumer(
+          builder: (context, ref, _) {
+            final pinnedAsync = ref.watch(pinnedItemsProvider);
+            return pinnedAsync.when(
+              loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              data: (pinned) => pinned.isEmpty
+                  ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                  : _PinnedSection(items: pinned),
+            );
+          },
         ),
 
-        if (!isTablet) ..._buildMobileSections(context, ref, todayAsync, recentAsync),
-        if (isTablet)   _buildTabletSection(context, ref, todayAsync, recentAsync),
+        if (!isTablet) ..._buildMobileSections(context, ref),
+        if (isTablet) _buildTabletSection(context, ref),
 
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
@@ -157,80 +167,85 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ── Mobile sections ──────────────────────────────────────────
-
-  List<Widget> _buildMobileSections(
-      BuildContext context, WidgetRef ref,
-      AsyncValue<List<Item>> todayAsync,
-      AsyncValue<List<Item>> recentAsync,
-      ) {
+  List<Widget> _buildMobileSections(BuildContext context, WidgetRef ref) {
     return [
-      // _SectionTitle → plain Widget → SliverToBoxAdapter ✅
       SliverToBoxAdapter(
         child: _SectionTitle(
           title: 'Σήμερα',
           icon: Icons.today_rounded,
-          onSeeAll: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const TaskListScreen())),
+          onSeeAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen())),
         ),
       ),
-      // _TodayTasksSliver → returns SliverToBoxAdapter or SliverPadding → sliver ✅
-      todayAsync.when(
-        loading: () => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: Spacing.md),
-              child: ItemCardSkeleton(),
-            )),
-        error: (e, _) {
-          DebugConfig.error('HomeScreen todayTasks', e);
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
+      Consumer(
+        builder: (context, ref, _) {
+          final todayAsync = ref.watch(_todayTasksProvider);
+          return todayAsync.when(
+            loading: () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: Spacing.md),
+                  child: ItemCardSkeleton(),
+                )),
+            error: (e, _) {
+              DebugConfig.error('HomeScreen todayTasks', e);
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            },
+            data: (tasks) => _TodayTasksSliver(
+              tasks: tasks,
+              onTap: (id) => _openTask(Navigator.of(context), id),
+              onToggle: (item) => _toggleDone(ref, item),
+            ),
+          );
         },
-        data: (tasks) => _TodayTasksSliver(
-          tasks: tasks,
-          onTap: (id) => _openTask(Navigator.of(context), id),
-          onToggle: (item) => _toggleDone(ref, item),
-        ),
       ),
 
       SliverToBoxAdapter(
         child: _SectionTitle(
           title: 'Πρόσφατα',
           icon: Icons.history_rounded,
-          onSeeAll: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const NoteListScreen())),
+          onSeeAll: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NoteListScreen()),
+          ),
         ),
       ),
-      // _RecentNotesSliver → returns SliverToBoxAdapter or SliverPadding → sliver ✅
-      recentAsync.when(
-        loading: () => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: Spacing.md),
-              child: ItemCardSkeleton(),
-            )),
-        error: (e, _) {
-          DebugConfig.error('HomeScreen recentNotes', e);
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
+      Consumer(
+        builder: (context, ref, _) {
+          final recentItems = ref.watch(_recentItemsProvider);
+
+          // Loading state: όταν το ItemNotifier είναι σε φόρτωση
+          final itemsAsync = ref.watch(itemNotifierProvider);
+          if (itemsAsync.isLoading) {
+            return const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: Spacing.md),
+                child: ItemCardSkeleton(),
+              ),
+            );
+          }
+
+          return _RecentItemsSliver(
+            items: recentItems,
+            onTap: (item) {
+              final nav = Navigator.of(context);
+              if (item.type == ItemType.task) {
+                _openTask(nav, item.id);
+              } else {
+                _openNote(nav, item.id);
+              }
+            },
+          );
         },
-        data: (notes) => _RecentNotesSliver(
-          notes: notes,
-          onTap: (id) => _openNote(Navigator.of(context), id),
-        ),
       ),
     ];
   }
 
   // ── Tablet section — 2-col Row ───────────────────────────────
-
-  Widget _buildTabletSection(
-      BuildContext context, WidgetRef ref,
-      AsyncValue<List<Item>> todayAsync,
-      AsyncValue<List<Item>> recentAsync,
-      ) {
-    // Tablet: ολα μεσα σε SliverToBoxAdapter (plain Row) ✅
+  Widget _buildTabletSection(BuildContext context, WidgetRef ref) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: context.responsiveHPadding,
-          vertical:   Spacing.sm,
+          vertical: Spacing.sm,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,18 +257,21 @@ class HomeScreen extends ConsumerWidget {
                   _SectionTitle(
                     title: 'Σήμερα',
                     icon: Icons.today_rounded,
-                    onSeeAll: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const TaskListScreen())),
+                    onSeeAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskListScreen())),
                   ),
-                  todayAsync.when(
-                    loading: () => const ItemCardSkeleton(),
-                    error:   (_, __) => const SizedBox.shrink(),
-                    data: (tasks) => _TodayTasksColumn(
-                      tasks: tasks,
-                      onTap: (id) => _openTask(Navigator.of(context), id),
-                      onToggle: (item) => _toggleDone(ref, item),
-                    ),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final todayAsync = ref.watch(_todayTasksProvider);
+                      return todayAsync.when(
+                        loading: () => const ItemCardSkeleton(),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (tasks) => _TodayTasksColumn(
+                          tasks: tasks,
+                          onTap: (id) => _openTask(Navigator.of(context), id),
+                          onToggle: (item) => _toggleDone(ref, item),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -266,18 +284,34 @@ class HomeScreen extends ConsumerWidget {
                   _SectionTitle(
                     title: 'Πρόσφατα',
                     icon: Icons.history_rounded,
-                    onSeeAll: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const NoteListScreen())),
-                  ),
-                  recentAsync.when(
-                    loading: () => const ItemCardSkeleton(),
-                    error:   (_, __) => const SizedBox.shrink(),
-                    data: (notes) => _RecentNotesColumn(
-                      notes: notes,
-                      onTap: (id) => _openNote(Navigator.of(context), id),
+                    onSeeAll: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NoteListScreen()),
                     ),
                   ),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final recentItems = ref.watch(_recentItemsProvider);
+
+                      final itemsAsync = ref.watch(itemNotifierProvider);
+                      if (itemsAsync.isLoading) {
+                        return const ItemCardSkeleton();
+                      }
+
+                      return _RecentItemsColumn(
+                        items: recentItems,
+                        onTap: (item) {
+                          final nav = Navigator.of(context);
+                          if (item.type == ItemType.task) {
+                            _openTask(nav, item.id);
+                          } else {
+                            _openNote(nav, item.id);
+                          }
+                        },
+                      );
+                    },
+                  ),
+
                 ],
               ),
             ),
@@ -288,74 +322,71 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ── Navigation helpers ───────────────────────────────────────
-
   void _openNote(NavigatorState nav, int id) {
     DebugConfig.nav('Home → NoteDetail id=$id');
-    nav.push(MaterialPageRoute(
-        builder: (_) => NoteDetailScreen(itemId: id)));
+    nav.push(MaterialPageRoute(builder: (_) => NoteDetailScreen(itemId: id)));
   }
 
   void _openTask(NavigatorState nav, int id) {
     DebugConfig.nav('Home → TaskDetail id=$id');
-    nav.push(MaterialPageRoute(
-        builder: (_) => TaskDetailScreen(itemId: id)));
+    nav.push(MaterialPageRoute(builder: (_) => TaskDetailScreen(itemId: id)));
   }
 
   Future<void> _createAndOpenNote(BuildContext context, WidgetRef ref) async {
     DebugConfig.nav('Home: createNote');
-    final nav  = Navigator.of(context);
+    final nav = Navigator.of(context);
     final item = await ref.read(itemNotifierProvider.notifier)
         .create(type: ItemType.note);
+    DebugConfig.db('note created id=${item?.id}');
     if (item == null) return;
-    ref.invalidate(_recentNotesProvider);
     _openNote(nav, item.id);
   }
 
+
   Future<void> _createAndOpenTask(BuildContext context, WidgetRef ref) async {
     DebugConfig.nav('Home: createTask');
-    final nav  = Navigator.of(context);
-    final item = await ref.read(itemNotifierProvider.notifier)
-        .create(type: ItemType.task);
+    final nav = Navigator.of(context);
+    final item = await ref.read(itemNotifierProvider.notifier).create(type: ItemType.task);
+    DebugConfig.db('task created id=${item?.id}');
     if (item == null) return;
     ref.invalidate(_todayTasksProvider);
     _openTask(nav, item.id);
   }
 
   Future<void> _toggleDone(WidgetRef ref, Item item) async {
-    final next = item.status == ItemStatus.done
-        ? ItemStatus.active : ItemStatus.done;
-    DebugConfig.db('Home toggleDone id=${item.id} → ${next.name}');
-    await ref.read(itemNotifierProvider.notifier)
-        .updateItem(item.id, status: next);
+    final next = item.status == ItemStatus.done ? ItemStatus.active : ItemStatus.done;
+    DebugConfig.db('Home toggleDone id=${item.id} ${item.status.name} -> ${next.name}');
+    await ref.read(itemNotifierProvider.notifier).updateItem(item.id, status: next);
+    DebugConfig.provider('invalidate todayTasks + stats');
     ref.invalidate(_todayTasksProvider);
+    ref.invalidate(_statsProvider);
   }
 }
 
 // ════════════════════════════════════════════════════════════════
-// HOME APP BAR — SliverAppBar (sliver)
+// HOME APP BAR — ConsumerWidget (χωρίς παράμετρο)
 // ════════════════════════════════════════════════════════════════
 
-class _HomeAppBar extends StatelessWidget {
-  final AsyncValue<Workspace?> workspaceAsync;
-  const _HomeAppBar({required this.workspaceAsync});
+class _HomeAppBar extends ConsumerWidget {
+  const _HomeAppBar({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final workspaceAsync = ref.watch(defaultWorkspaceProvider);
     final wsName = workspaceAsync.valueOrNull?.name ?? 'SuperNote';
+
     return SliverAppBar(
-      backgroundColor:          context.cBg,
-      surfaceTintColor:         Colors.transparent,
-      floating:                 true,
-      snap:                     true,
-      elevation:                0,
-      scrolledUnderElevation:   1,
+      backgroundColor: context.cBg,
+      surfaceTintColor: Colors.transparent,
+      floating: true,
+      snap: true,
+      elevation: 0,
+      scrolledUnderElevation: 1,
       title: Text(wsName, style: context.titleLg),
       actions: [
-        // 2. Search button στο _HomeAppBar (γραμμή ~354)
         IconButton(
           icon: Icon(Icons.search_rounded, color: context.cText2),
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const SearchScreen())),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
           tooltip: 'Αναζήτηση',
         ),
         IconButton(
@@ -365,8 +396,7 @@ class _HomeAppBar extends StatelessWidget {
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
         ),
       ],
     );
@@ -986,6 +1016,88 @@ class _RecentNotesColumn extends StatelessWidget {
           onTap:   () => onTap(n.id),
         ),
       )).toList(),
+    );
+  }
+}
+
+// RECENT ITEMS SLIVER — για mobile
+class _RecentItemsSliver extends StatelessWidget {
+  final List<Item> items;
+  final ValueChanged<Item> onTap;
+
+  const _RecentItemsSliver({
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.responsiveHPadding,
+          ),
+          child: EmptyState.forType(
+            ItemType.note,
+            compact: true,
+          ),
+        ),
+      );
+    }
+
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveHPadding,
+        vertical: Spacing.xs,
+      ),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+              (_, i) => Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.sm),
+            child: ItemCard(
+              item: items[i],
+              compact: true,
+              onTap: () => onTap(items[i]),
+            ),
+          ),
+          childCount: items.length,
+        ),
+      ),
+    );
+  }
+}
+
+// RECENT ITEMS COLUMN — για tablet
+class _RecentItemsColumn extends StatelessWidget {
+  final List<Item> items;
+  final ValueChanged<Item> onTap;
+
+  const _RecentItemsColumn({
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return EmptyState.forType(
+        ItemType.note,
+        compact: true,
+      );
+    }
+
+    return Column(
+      children: items.map((item) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: Spacing.sm),
+          child: ItemCard(
+            item: item,
+            compact: true,
+            onTap: () => onTap(item),
+          ),
+        );
+      }).toList(),
     );
   }
 }

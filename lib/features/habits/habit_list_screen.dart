@@ -10,21 +10,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/core.dart';
-import '../../core/router/app_router.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/habit_service.dart';
 import '../../shared/widgets/widgets.dart';
 
 // ── Local providers ───────────────────────────────────────────────
-
-final _habitsProvider = FutureProvider<List<Item>>((ref) async {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  DebugConfig.db('_habitsProvider load wsId=$wsId');
-  return db.items.getByWorkspace(wsId, type: ItemType.habit);
-});
 
 final _habitStatsProvider =
 FutureProvider.family<HabitStats, int>((ref, habitId) async {
@@ -45,12 +36,21 @@ class HabitListScreen extends ConsumerStatefulWidget {
 
 class _HabitListScreenState extends ConsumerState<HabitListScreen> {
 
+  @override
+  void initState() {
+    super.initState();
+    // Όταν μπαίνουμε στη λίστα συνηθειών, φιλτράρουμε global σε habits
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(activeItemTypeFilterProvider.notifier).state = ItemType.habit;
+    });
+  }
+
   Future<void> _createHabit() async {
     DebugConfig.nav('HabitList: create habit');
     final item = await ref.read(itemNotifierProvider.notifier)
         .create(type: ItemType.habit, title: 'Νέα Συνήθεια');
     if (item == null || !mounted) return;
-    ref.invalidate(_habitsProvider);
+    // Δεν χρειάζεται invalidate: create() κάνει ref.invalidateSelf()
     context.push(AppRoutes.habit(item.id));
   }
 
@@ -58,7 +58,9 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
     DebugConfig.db('HabitList: markDone id=$habitId');
     await HabitService.instance.markCompleted(habitId);
     ref.invalidate(_habitStatsProvider(habitId));
-    ref.invalidate(_habitsProvider);
+    // Αν το HabitService αλλάζει και το Item (π.χ. κάποιο flag),
+    // μπορείς προαιρετικά:
+    // ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _delete(BuildContext context, Item item) async {
@@ -67,13 +69,14 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
     final ok = await future;
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    ref.invalidate(_habitsProvider);
+    // Δεν χρειάζεται invalidate: deleteItem() κάνει ref.invalidateSelf()
   }
+
 
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('HabitListScreen build');
-    final habitsAsync = ref.watch(_habitsProvider);
+    final habitsAsync = ref.watch(itemNotifierProvider);
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -96,13 +99,13 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
         child: const Icon(Icons.add_rounded),
       ),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(_habitsProvider),
+        onRefresh: () async => ref.invalidate(itemNotifierProvider),
         child: habitsAsync.when(
           loading: () => _LoadingList(),
           error: (e, _) {
             DebugConfig.error('HabitList load failed', e);
             return EmptyState.error(
-                onRetry: () => ref.invalidate(_habitsProvider));
+                onRetry: () => ref.invalidate(itemNotifierProvider));
           },
           data: (habits) {
             if (habits.isEmpty) {

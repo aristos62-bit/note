@@ -11,21 +11,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/core.dart';
-import '../../core/router/app_router.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import '../../shared/widgets/widgets.dart';
 
-// ── Local providers ───────────────────────────────────────────────
-
-/// Όλα τα events του workspace
+/// Όλα τα events του workspace (μέσα από το itemsProvider)
 final _eventsProvider = FutureProvider<List<Item>>((ref) async {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  DebugConfig.db('_eventsProvider wsId=$wsId');
-  return db.items.getByWorkspace(wsId, type: ItemType.event);
+  final items = await ref.watch(itemsProvider.future);
+  final events = items.where((i) => i.type == ItemType.event).toList();
+  DebugConfig.db('_eventsProvider events=${events.length}');
+  return events;
 });
+
+
 
 /// Events ενός συγκεκριμένου μήνα (μετά φόρτωση start_time)
 final _monthEventsProvider =
@@ -47,6 +44,7 @@ FutureProvider.family<Map<DateTime, List<Item>>, DateTime>(
         final day = DateTime(start.year, start.month, start.day);
         result.putIfAbsent(day, () => []).add(event);
       }
+      DebugConfig.db('_monthEventsProvider month=$month days=${result.length}');
       return result;
     });
 
@@ -239,7 +237,9 @@ class CalendarScreen extends ConsumerWidget {
     await ref.read(propertyNotifierProvider(item.id).notifier)
         .setDate('start_time', startTime);
 
-    ref.invalidate(_eventsProvider);
+    // ΕΔΩ:
+    ref.invalidate(itemsProvider);
+
     // ignore: use_build_context_synchronously
     context.push('/calendar/${item.id}');
   }
@@ -493,16 +493,32 @@ class _EventTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(event.title ?? 'Χωρίς τίτλο',
-                      style: context.titleSm,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  // Title με safe fallback
+                  Builder(
+                    builder: (_) {
+                      final rawTitle = event.title ?? '';
+                      final hasTitle = rawTitle.trim().isNotEmpty;
+                      final title    = hasTitle ? rawTitle : '(χωρίς τίτλο)';
+
+                      return Text(
+                        title,
+                        style: context.titleSm.withColor(
+                          hasTitle ? context.cText : context.cText2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    },
+                  ),
+
                   const SizedBox(height: 4),
+
                   // Time
                   if (allDay)
-                    Text('Ολοήμερο',
-                        style: context.bodySm
-                            .withColor(context.cText2))
+                    Text(
+                      'Ολοήμερο',
+                      style: context.bodySm.withColor(context.cText2),
+                    )
                   else if (startTime != null)
                     Text(
                       endTime != null
@@ -510,26 +526,34 @@ class _EventTile extends ConsumerWidget {
                           : startTime.timeOnly,
                       style: context.bodySm.withColor(context.cText2),
                     ),
+
                   // Location
-                  if (location != null &&
-                      location.isNotEmpty) ...[
+                  if (location != null && location.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Row(children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 12, color: context.cText2),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(location,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 12,
+                          color: context.cText2,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            location,
                             style: context.bodySm
                                 .withColor(context.cText2),
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    ]),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ],
               ),
             ),
+
             Icon(Icons.chevron_right_rounded,
                 size: 18, color: context.cDisabled),
           ],

@@ -29,6 +29,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   late final TextEditingController _titleCtrl;
   Timer? _saveDebounce;
   bool _isSaving = false;
+  bool _isEditingTitle = false;
+  String _lastSavedTitle = '';
 
   @override
   void initState() {
@@ -47,21 +49,39 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   // ── Auto-save title ──────────────────────────────────────────
 
   void _onTitleChanged(String value) {
+    _isEditingTitle = true;
     _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 600), () {
-      _saveTitle(value.trim());
+
+    _saveDebounce = Timer(const Duration(milliseconds: 600), () async {
+      final title = value.trim();
+      await _saveTitle(title);
+
+      // Μικρή καθυστέρηση για να προλάβει το stream να φέρει update
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      _isEditingTitle = false;
     });
   }
 
+
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
+
+    // Επιτρέπουμε να σωθεί και κενό, και αν είναι ίδιο με το τελευταίο, αλλάζει μόνο όταν:
+    if (title == _lastSavedTitle) {
+      return;
+    }
+
     setState(() => _isSaving = true);
     DebugConfig.db('NoteDetail saveTitle id=${widget.itemId} "$title"');
     await ref.read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+    _lastSavedTitle = title;
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
+
+
 
   // ── AppBar actions ───────────────────────────────────────────
 
@@ -96,9 +116,22 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   Future<bool> _onPopInvoked() async {
     _saveDebounce?.cancel();
     final title = _titleCtrl.text.trim();
+
+    // 1. Αν είναι άδεια (και η σημείωση είναι “καινούρια” / χωρίς blocks),
+    // την διαγράφεις αντί να την κρατάς.
+    final hasContent = title.isNotEmpty; // μπορούμε να βάλουμε και blocks check
+    if (!hasContent) {
+      DebugConfig.db('NoteDetail auto-delete empty note id=${widget.itemId}');
+      await ref.read(itemNotifierProvider.notifier)
+          .deleteItem(widget.itemId);
+      return true;
+    }
+
+    // 2. Αλλιώς, απλά κάνε save όπως τώρα
     await _saveTitle(title);
     return true;
   }
+
 
   // ── Build ────────────────────────────────────────────────────
 
@@ -115,23 +148,33 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
       data: (item) {
         if (item == null) return _buildNotFound();
 
-        // Sync title controller (μόνο αν δεν έχει focus ο χρήστης)
-        if (!_titleCtrl.selection.isValid ||
-            _titleCtrl.text != (item.title ?? '')) {
-          final cursorAtEnd = _titleCtrl.selection.baseOffset ==
-              _titleCtrl.text.length;
-          _titleCtrl.text = item.title ?? '';
+        final itemTitle = item.title ?? '';
+
+        // Κρατάμε _lastSavedTitle sync με το DB
+        if (_lastSavedTitle.isEmpty && itemTitle.isNotEmpty) {
+          _lastSavedTitle = itemTitle;
+        }
+
+        // Sync title ΜΟΝΟ αν δεν γράφει ο χρήστης
+        if (!_isEditingTitle &&
+            _titleCtrl.text != itemTitle) {
+
+          final cursorAtEnd =
+              _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
+
+          _titleCtrl.text = itemTitle;
+
           if (cursorAtEnd) {
-            _titleCtrl.selection = TextSelection.collapsed(
-                offset: _titleCtrl.text.length);
+            _titleCtrl.selection =
+                TextSelection.collapsed(offset: _titleCtrl.text.length);
           }
         }
 
         return PopScope(
           canPop: false,
-          onPopInvokedWithResult: (didPop, _) async {
+          onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
-            final nav    = Navigator.of(context); // cache πριν το await
+            final nav    = Navigator.of(context);
             final canPop = await _onPopInvoked();
             if (canPop) nav.pop();
           },
