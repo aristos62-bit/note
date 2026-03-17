@@ -117,6 +117,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       await ref
           .read(itemNotifierProvider.notifier)
           .deleteItem(widget.itemId);
+
+      ref.invalidate(itemsProvider);
       return true;
     }
 
@@ -195,10 +197,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     if (!ok || !mounted) return;
     DebugConfig.db('EventDetail delete id=${widget.itemId}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-    if (!mounted) return;
-    // ignore: use_build_context_synchronously
+
+    // ΝΕΟ: refresh λίστες items (άρα και events στο calendar)
+    ref.invalidate(itemsProvider);
+
+    if (!context.mounted) return;
     Navigator.of(context).pop();
   }
+
 
   // ── Build ────────────────────────────────────────────────────
 
