@@ -817,6 +817,8 @@ class FolderRepository {
       await _isar.folders.delete(id);
     });
   }
+  /// Stream που εκπέμπει σε κάθε αλλαγή folder
+  Stream<void> watchAll() => _isar.folders.watchLazy();
 }
 
 // ─────────────────────────────────────────────────────────────────

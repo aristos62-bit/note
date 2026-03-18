@@ -14,13 +14,21 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 
-/// Όλα τα events του workspace (μέσα από το itemsProvider)
+/// Όλα τα events του workspace (real-time μέσα από το itemsStreamProvider)
 final _eventsProvider = FutureProvider<List<Item>>((ref) async {
-  final items = await ref.watch(itemsProvider.future);
+  final itemsAsync = ref.watch(itemsStreamProvider);
+
+  // Αν ήδη έχουμε data, χρησιμοποίησέ τα
+  final items = itemsAsync.maybeWhen(
+    data: (list) => list,
+    orElse: () => <Item>[],
+  );
+
   final events = items.where((i) => i.type == ItemType.event).toList();
   DebugConfig.db('_eventsProvider events=${events.length}');
   return events;
 });
+
 
 
 
@@ -237,11 +245,11 @@ class CalendarScreen extends ConsumerWidget {
     await ref.read(propertyNotifierProvider(item.id).notifier)
         .setDate('start_time', startTime);
 
-    // ΕΔΩ:
-    ref.invalidate(itemsProvider);
+    // Δεν χρειάζεται invalidate: το itemsStreamProvider θα δώσει νέο snapshot
 
     // ignore: use_build_context_synchronously
     context.push('/calendar/${item.id}');
+
   }
 }
 

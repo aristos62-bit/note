@@ -18,21 +18,51 @@ final showArchivedProvider = StateProvider<bool>((ref) => false);
 // Items του active workspace (με φίλτρα)
 // ─────────────────────────────────────────────────────────────────
 
-/// Όλα τα items του active workspace με τα τρέχοντα φίλτρα
-final itemsProvider = FutureProvider<List<Item>>((ref) async {
-  final db = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
+final itemsStreamProvider = StreamProvider<List<Item>>((ref) async* {
+  final db         = ref.watch(dbProvider);
+  final wsId       = ref.watch(activeWorkspaceIdProvider);
   final typeFilter = ref.watch(activeItemTypeFilterProvider);
   final showArchived = ref.watch(showArchivedProvider);
 
-  if (wsId == null) return [];
+  if (wsId == null) {
+    yield const [];
+    return;
+  }
 
-  return db.items.getByWorkspace(
+  // 1) Στείλε άμεσα το τρέχον snapshot (όπως παλιά ο FutureProvider)
+  final initial = await db.items.getByWorkspace(
     wsId,
     type: typeFilter,
     includeArchived: showArchived,
   );
+  yield initial;
+
+  // 2) Και μετά άκου τις αλλαγές από Isar
+  final changesStream = db.items.watchAll();
+
+  yield* changesStream.asyncMap((_) {
+    return db.items.getByWorkspace(
+      wsId,
+      type: typeFilter,
+      includeArchived: showArchived,
+    );
+  });
 });
+
+
+// /// Backwards-compatible provider: Future<List<Item>> πάνω από το real-time stream
+// final itemsProvider = FutureProvider<List<Item>>((ref) async {
+//   // Περιμένουμε μέχρι ο itemsStreamProvider να έχει data
+//   final asyncValue = ref.watch(itemsStreamProvider);
+//
+//   // Αν ήδη έχουμε data, το επιστρέφουμε
+//   if (asyncValue.hasValue) {
+//     return asyncValue.value!;
+//   }
+//
+//   // Αλλιώς, περιμένουμε το πρώτο data event
+//   return await ref.watch(itemsStreamProvider.future);
+// });
 
 /// Items ενός συγκεκριμένου folder
 final itemsByFolderProvider =

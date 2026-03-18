@@ -148,7 +148,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
   Widget build(BuildContext context) {
     DebugConfig.provider('NoteListScreen build');
 
-    final notesAsync   = ref.watch(itemNotifierProvider);
+    final notesAsync   = ref.watch(itemsStreamProvider);
     final searchQuery  = ref.watch(_searchQueryProvider);
     final activeTag    = ref.watch(_activeTagFilterProvider);
     final tagsAsync    = ref.watch(tagsProvider);

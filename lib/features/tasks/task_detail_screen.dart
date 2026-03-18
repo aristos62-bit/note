@@ -19,11 +19,13 @@ import '../../shared/widgets/widgets.dart';
 /// δημιουργηθεί ως subtasks (θα συνδεθούν μέσω RelationRepository)
 final _subtasksProvider =
 FutureProvider.family<List<Item>, int>((ref, parentId) async {
-  // TODO: όταν υλοποιηθεί RelationRepository
-  // return db.relations.getChildren(parentId, type: ItemType.task);
   DebugConfig.db('_subtasksProvider parentId=$parentId (stub)');
-  return [];
+  // TODO: όταν υλοποιηθεί RelationRepository, δέσε εδώ τα real subtasks
+  // final db = ref.watch(dbProvider);
+  // return db.relations.getChildren(parentId, type: ItemType.task);
+  return <Item>[];
 });
+
 
 // ════════════════════════════════════════════════════════════════
 // TASK DETAIL SCREEN
@@ -186,8 +188,24 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context); // cache πριν await
+
+            final nav   = Navigator.of(context); // cache πριν await
+            final title = _titleCtrl.text.trim();
+            final hasTitle = title.isNotEmpty;
+
+            if (!hasTitle) {
+              DebugConfig.db(
+                  'TaskDetail auto-delete empty task id=${widget.itemId}');
+              await ref
+                  .read(itemNotifierProvider.notifier)
+                  .deleteItem(widget.itemId);
+              if (!nav.mounted) return;
+              nav.pop();
+              return;
+            }
+
             await _flushPendingSaves();
+            if (!nav.mounted) return;
             nav.pop();
           },
           child: ResponsiveLayout(
@@ -195,6 +213,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             tablet: _buildTablet(context, item),
           ),
         );
+
       },
     );
   }

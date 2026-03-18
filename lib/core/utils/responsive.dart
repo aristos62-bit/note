@@ -141,11 +141,12 @@ class ResponsiveLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    DebugConfig.print('ResponsiveLayout: ${context.screenSize.name} (${context.screenWidth.toInt()}px)');
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Breakpoints.of(constraints.maxWidth);
+        DebugConfig.print(
+          'ResponsiveLayout: ${size.name} (${constraints.maxWidth.toInt()}px)',
+        );
         switch (size) {
           case ScreenSize.desktop:
             return desktop ?? tablet ?? mobile;
@@ -212,7 +213,11 @@ class ResponsiveGrid extends StatelessWidget {
           spacing: spacing,
           runSpacing: runSpacing,
           children: children
-              .map((w) => SizedBox(width: itemWidth, child: w))
+              .map((w) => SizedBox(
+            key: w.key, // διασώζεις υπάρχον key
+            width: itemWidth,
+            child: w,
+          ))
               .toList(),
         );
       },

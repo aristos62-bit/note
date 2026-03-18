@@ -281,12 +281,20 @@ class AppThemeData {
       // ── Checkbox ───────────────────────────────────────────
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return ColorsUI.getTextDisabled(b);
+          }
           if (states.contains(WidgetState.selected)) {
             return ColorsUI.getPrimary(b);
           }
-          return Colors.transparent;
+          return ColorsUI.getSurface(b); // unselected
         }),
-        checkColor: WidgetStateProperty.all(ColorsUI.getOnPrimary(b)),
+        checkColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return ColorsUI.getTextSecondary(b);
+          }
+          return ColorsUI.getOnPrimary(b);
+        }),
         side: BorderSide(color: ColorsUI.getBorder(b), width: 2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.xs),

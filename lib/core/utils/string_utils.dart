@@ -17,10 +17,15 @@ class AppStringUtils {
   // ─────────────────────────────────────────────────────────────
 
   static String truncate(String? text, int maxLength, {String ellipsis = '...'}) {
-    if (text == null || text.isEmpty) return '';
+    if (text == null || text.isEmpty || maxLength <= 0) return '';
     if (text.length <= maxLength) return text;
+    if (maxLength <= ellipsis.length) {
+      // Δώσε μόνο ellipsis αν δεν χωράει τίποτα άλλο
+      return ellipsis.substring(0, maxLength);
+    }
     return '${text.substring(0, maxLength - ellipsis.length)}$ellipsis';
   }
+
 
   /// Κόβει σε λέξη (δεν κόβει στη μέση λέξης)
   static String truncateWords(String? text, int maxWords) {
@@ -39,9 +44,10 @@ class AppStringUtils {
 
     final words = name.trim().split(RegExp(r'\s+'));
     if (words.length == 1) {
-      return words[0].substring(0, maxChars.clamp(0, words[0].length)).toUpperCase();
+      final w = words[0];
+      final end = maxChars.clamp(1, w.length);
+      return w.substring(0, end).toUpperCase();
     }
-
     return words
         .take(maxChars)
         .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
@@ -59,11 +65,14 @@ class AppStringUtils {
         TextStyle? normalStyle,
         TextStyle? highlightStyle,
       }) {
-    if (query.isEmpty) return [TextSpan(text: text, style: normalStyle)];
+    if (text.isEmpty || query.trim().isEmpty) {
+      return [TextSpan(text: text, style: normalStyle)];
+    }
 
     final spans = <TextSpan>[];
     final lowerText  = text.toLowerCase();
-    final lowerQuery = query.toLowerCase();
+    final trimmedQuery = query.trim();
+    final lowerQuery = trimmedQuery.toLowerCase();
 
     int start = 0;
     int idx = lowerText.indexOf(lowerQuery);
@@ -76,13 +85,13 @@ class AppStringUtils {
         ));
       }
       spans.add(TextSpan(
-        text: text.substring(idx, idx + query.length),
+        text: text.substring(idx, idx + trimmedQuery.length),
         style: highlightStyle ?? const TextStyle(
           fontWeight: FontWeight.bold,
           backgroundColor: Color(0x336750A4),
         ),
       ));
-      start = idx + query.length;
+      start = idx + trimmedQuery.length;
       idx = lowerText.indexOf(lowerQuery, start);
     }
 
@@ -92,6 +101,7 @@ class AppStringUtils {
 
     return spans;
   }
+
 
   // ─────────────────────────────────────────────────────────────
   // CURRENCY — για finance feature
@@ -176,12 +186,14 @@ class AppStringUtils {
       text?.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
 
   /// Είναι URL;
-  static bool isUrl(String text) =>
-      Uri.tryParse(text)?.hasAbsolutePath ?? false;
+  static bool isUrl(String text) {
+    final uri = Uri.tryParse(text.trim());
+    return uri != null && uri.hasScheme && uri.host.isNotEmpty;
+  }
 
   /// Είναι email;
   static bool isEmail(String text) =>
-      RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(text);
+      RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(text.trim());
 
   /// Είναι τηλέφωνο;
   static bool isPhone(String text) =>
@@ -210,14 +222,14 @@ extension StringX on String? {
   bool get isNotNullOrEmpty => this != null && this!.isNotEmpty;
 
   String get orEmpty => this ?? '';
-  String orDefault(String def) => (this == null || this!.isEmpty) ? def : this!;
+  String orDefault(String def) => isNullOrEmpty ? def : this!;
 
   String truncate(int max) => AppStringUtils.truncate(this, max);
   String get capitalize => AppStringUtils.capitalize(this);
   String get initials => AppStringUtils.initials(this);
   int get wordCount => AppStringUtils.wordCount(this);
 
-  bool get isUrl   => this != null && AppStringUtils.isUrl(this!);
+  bool get isUrl => this != null && AppStringUtils.isUrl(this!);
   bool get isEmail => this != null && AppStringUtils.isEmail(this!);
   bool get isPhone => this != null && AppStringUtils.isPhone(this!);
 }

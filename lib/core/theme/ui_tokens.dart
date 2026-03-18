@@ -188,7 +188,8 @@ class ColorsUI {
     if (streak >= 30) return b == Brightness.light ? const Color(0xFFC62828) : const Color(0xFFE57373);
     if (streak >= 14) return b == Brightness.light ? const Color(0xFFED6C02) : const Color(0xFFFFB74D);
     if (streak >= 7)  return b == Brightness.light ? const Color(0xFFF57F17) : const Color(0xFFFFF176);
-    return b == Brightness.light ? const Color(0xFF2E7D32) : const Color(0xFF81C784);
+    if (streak >= 0)  return b == Brightness.light ? const Color(0xFF2E7D32) : const Color(0xFF81C784);
+    return b == Brightness.light ? const Color(0xFF2E7D32) : const Color(0xFF81C784); // fallback
   }
 
   // ════════════════════════════════════════════════════════════

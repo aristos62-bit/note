@@ -17,10 +17,16 @@ import '../../shared/widgets/widgets.dart';
 // ── Local providers ───────────────────────────────────────────────
 
 final _habitStatsDetailProvider =
-FutureProvider.family<HabitStats, int>((ref, habitId) {
+FutureProvider.family<HabitStats, int>((ref, habitId) async {
   DebugConfig.db('_habitStatsDetailProvider id=$habitId');
+
+  // Εξάρτηση από το ίδιο το habit για τυχόν μελλοντικό real-time
+  // (π.χ. αν αλλάξει workspace, διαγραφεί κτλ.)
+  ref.watch(itemStreamProvider(habitId));
+
   return HabitService.instance.getStats(habitId);
 });
+
 
 // ════════════════════════════════════════════════════════════════
 // HABIT DETAIL SCREEN
@@ -102,21 +108,40 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       data: (item) {
         if (item == null) return _buildNotFound();
 
-        // Sync title
-        if (!_titleCtrl.selection.isValid ||
-            _titleCtrl.text != (item.title ?? '')) {
-          _titleCtrl.text = item.title ?? '';
+        // Sync title ΜΟΝΟ όταν ο χρήστης δεν γράφει ήδη κάτι
+        final itemTitle = item.title ?? '';
+
+        if (!_titleCtrl.selection.isValid && _titleCtrl.text != itemTitle) {
+          _titleCtrl.text = itemTitle;
           _titleCtrl.selection = TextSelection.collapsed(
-              offset: _titleCtrl.text.length);
+            offset: _titleCtrl.text.length,
+          );
         }
+
 
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context);
+
+            final nav      = Navigator.of(context);
             _titleDebounce?.cancel();
-            await _saveTitle(_titleCtrl.text.trim());
+            final title    = _titleCtrl.text.trim();
+            final hasTitle = title.isNotEmpty;
+
+            if (!hasTitle) {
+              DebugConfig.db(
+                  'HabitDetail auto-delete empty habit id=${widget.itemId}');
+              await ref
+                  .read(itemNotifierProvider.notifier)
+                  .deleteItem(widget.itemId);
+              if (!nav.mounted) return;
+              nav.pop();
+              return;
+            }
+
+            await _saveTitle(title);
+            if (!nav.mounted) return;
             nav.pop();
           },
           child: ResponsiveLayout(
@@ -124,6 +149,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             tablet: _buildTablet(context, item),
           ),
         );
+
       },
     );
   }

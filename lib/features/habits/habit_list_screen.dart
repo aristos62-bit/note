@@ -48,7 +48,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   Future<void> _createHabit() async {
     DebugConfig.nav('HabitList: create habit');
     final item = await ref.read(itemNotifierProvider.notifier)
-        .create(type: ItemType.habit, title: 'Νέα Συνήθεια');
+        .create(type: ItemType.habit);
     if (item == null || !mounted) return;
     // Δεν χρειάζεται invalidate: create() κάνει ref.invalidateSelf()
     context.push(AppRoutes.habit(item.id));

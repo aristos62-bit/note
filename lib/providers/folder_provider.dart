@@ -1,63 +1,60 @@
-// lib/providers/folder_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/folder.dart';
 import 'db_provider.dart';
 import 'workspace_provider.dart';
 
-// ─────────────────────────────────────────────────────────────────
-// Folders του active workspace
-// ─────────────────────────────────────────────────────────────────
-
-/// Φέρνει τα root folders (χωρίς parent) του active workspace
-final foldersProvider = FutureProvider<List<Folder>>((ref) async {
-  final db = ref.watch(dbProvider);
+/// Root folders (χωρίς parent) του active workspace – real-time
+final foldersStreamProvider = StreamProvider<List<Folder>>((ref) async* {
+  final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  return db.folders.getByWorkspace(wsId);
-});
 
-/// Φέρνει τα sub-folders ενός συγκεκριμένου folder
-final subFoldersProvider =
-FutureProvider.family<List<Folder>, int>((ref, parentId) async {
-  final db = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  return db.folders.getByWorkspace(wsId, parentId: parentId);
-});
+  if (wsId == null) {
+    yield const [];
+    return;
+  }
 
-/// Notifier για CRUD operations
-class FolderNotifier extends AsyncNotifier<List<Folder>> {
-  @override
-  Future<List<Folder>> build() async {
-    final db = ref.watch(dbProvider);
-    final wsId = ref.watch(activeWorkspaceIdProvider);
-    if (wsId == null) return [];
+  // 1) Αρχικό snapshot
+  final initial = await db.folders.getByWorkspace(wsId);
+  yield initial;
+
+  // 2) Reactive updates από Isar
+  final changes = db.folders.watchAll();
+
+  yield* changes.asyncMap((_) {
     return db.folders.getByWorkspace(wsId);
+  });
+});
+
+/// Sub-folders ενός parent – real-time
+final subFoldersStreamProvider =
+StreamProvider.family<List<Folder>, int>((ref, parentId) async* {
+  final db   = ref.watch(dbProvider);
+  final wsId = ref.watch(activeWorkspaceIdProvider);
+
+  if (wsId == null) {
+    yield const [];
+    return;
   }
 
-  Future<void> create(
-      String name, {
-        String? icon,
-        String? color,
-        int? parentFolderId,
-      }) async {
-    final wsId = ref.read(activeWorkspaceIdProvider);
-    if (wsId == null) return;
-    await ref.read(dbProvider).folders.create(
-      name: name,
-      workspaceId: wsId,
-      icon: icon,
-      color: color,
-      parentFolderId: parentFolderId,
+  final initial = await db.folders.getByWorkspace(
+    wsId,
+    parentId: parentId,
+  );
+  yield initial;
+
+  final changes = db.folders.watchAll();
+
+  yield* changes.asyncMap((_) {
+    return db.folders.getByWorkspace(
+      wsId,
+      parentId: parentId,
     );
-    ref.invalidateSelf();
-  }
+  });
+});
 
-  Future<void> delete(int id) async {
-    await ref.read(dbProvider).folders.delete(id);
-    ref.invalidateSelf();
-  }
-}
-
-final folderNotifierProvider =
-AsyncNotifierProvider<FolderNotifier, List<Folder>>(FolderNotifier.new);
+/// Αν χρειαστεί one-shot Future<List<Folder>>
+final foldersProvider = FutureProvider<List<Folder>>((ref) async {
+  final asyncValue = ref.watch(foldersStreamProvider);
+  if (asyncValue.hasValue) return asyncValue.value!;
+  return await ref.watch(foldersStreamProvider.future);
+});

@@ -268,24 +268,17 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           onPressed: () => _togglePin(item),
           tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
         ),
-        // More
-        PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert_rounded, color: context.cText2),
-          onSelected: (v) {
-            if (v == 'delete') _deleteNote(context, item);
-          },
-          itemBuilder: (_) => [
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(children: [
-                Icon(Icons.delete_outline_rounded, color: context.cError, size: 18),
-                const SizedBox(width: Spacing.sm),
-                Text('Διαγραφή', style: TextStyle(color: context.cError)),
-              ]),
-            ),
-          ],
+        // Delete (αντί για 3 τελείες)
+        IconButton(
+          icon: Icon(
+            Icons.delete_outline_rounded,
+            color: context.cError,
+          ),
+          tooltip: 'Διαγραφή',
+          onPressed: () => _deleteNote(context, item),
         ),
       ],
+
     );
   }
 

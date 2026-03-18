@@ -7,7 +7,6 @@ import 'models/models.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
 import 'core/core.dart';
-import 'core/router/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +21,11 @@ void main() async {
 
   final container = ProviderContainer();
   DebugConfig.startup('ProviderContainer created');
+
+// Dispose όταν κλείσει το app (καλό practice)
+  WidgetsBinding.instance.addObserver(
+    _AppLifecycleObserver(container),
+  );
 
   final defaultWs = await container.read(defaultWorkspaceProvider.future);
   if (defaultWs != null) {
@@ -48,14 +52,13 @@ class SuperNoteApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appTheme = ref
-        .watch(settingsStreamProvider)
-        .whenData((s) => s?.theme)
-        .value ?? AppTheme.system;
-
+    final settings = ref.watch(settingsStreamProvider);
+    final appTheme = settings.value?.theme ?? AppTheme.system;
     final router = ref.watch(appRouterProvider);
 
-    DebugConfig.provider('SuperNoteApp.build theme=${appTheme.name}');
+    DebugConfig.provider(
+      'SuperNoteApp.build theme=${appTheme.name}',
+    );
 
     return MaterialApp.router(
       title:                     'SuperNote',
@@ -72,6 +75,23 @@ class SuperNoteApp extends ConsumerWidget {
       case AppTheme.light:  return ThemeMode.light;
       case AppTheme.dark:   return ThemeMode.dark;
       case AppTheme.system: return ThemeMode.system;
+    }
+  }
+}
+
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  final ProviderContainer container;
+
+  _AppLifecycleObserver(this.container);
+
+  bool _disposed = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_disposed && state == AppLifecycleState.detached) {
+      _disposed = true;
+      container.dispose();
+      DebugConfig.startup('ProviderContainer disposed');
     }
   }
 }

@@ -29,7 +29,6 @@ import '../../features/notes/notes.dart';
 import '../../features/tasks/tasks.dart';
 import '../../features/search/search.dart';
 import '../../features/settings/settings.dart';
-import '../../providers/providers.dart';
 import '../../features/habits/habits.dart';
 import '../../features/calendar/calendar.dart';
 
@@ -89,7 +88,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'note-detail',
                 builder: (context, state) {
                   final id =
-                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  int.tryParse(state.pathParameters['id'] ?? '');
+
+                  if (id == null) {
+                    return const _RouterErrorScreen();
+                  }
+
                   DebugConfig.nav('Router → NoteDetail id=$id');
                   return NoteDetailScreen(itemId: id);
                 },
@@ -106,7 +110,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'task-detail',
                 builder: (context, state) {
                   final id =
-                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  int.tryParse(state.pathParameters['id'] ?? '');
+
+                  if (id == null) {
+                    return const _RouterErrorScreen();
+                  }
+
                   DebugConfig.nav('Router → TaskDetail id=$id');
                   return TaskDetailScreen(itemId: id);
                 },
@@ -138,7 +147,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'habit-detail',
                 builder: (context, state) {
                   final id =
-                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  int.tryParse(state.pathParameters['id'] ?? '');
+
+                  if (id == null) {
+                    return const _RouterErrorScreen();
+                  }
+
                   DebugConfig.nav('Router → HabitDetail id=$id');
                   return HabitDetailScreen(itemId: id);
                 },
@@ -155,7 +169,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'event-detail',
                 builder: (context, state) {
                   final id =
-                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  int.tryParse(state.pathParameters['id'] ?? '');
+
+                  if (id == null) {
+                    return const _RouterErrorScreen();
+                  }
+
                   DebugConfig.nav('Router → EventDetail id=$id');
                   return EventDetailScreen(itemId: id);
                 },
@@ -351,8 +370,11 @@ class _TabletShell extends StatelessWidget {
                 : NavigationRailLabelType.selected,
             leading: Padding(
               padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-              child: Icon(Icons.note_alt_rounded,
-                  color: context.cPrimary, size: 28),
+              child: IconButton(
+                icon: Icon(Icons.note_alt_rounded,
+                    color: context.cPrimary, size: 28),
+                onPressed: () => context.go(AppRoutes.home),
+              ),
             ),
             destinations: navItems
                 .map((item) => NavigationRailDestination(

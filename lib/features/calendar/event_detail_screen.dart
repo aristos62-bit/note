@@ -118,13 +118,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           .read(itemNotifierProvider.notifier)
           .deleteItem(widget.itemId);
 
-      ref.invalidate(itemsProvider);
       return true;
     }
 
     await _flushSaves();
     return true;
   }
+
 
   // ── Date/time pickers ────────────────────────────────────────
 
@@ -184,26 +184,31 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         .setDate('end_time', dt);
   }
 
-  Future<void> _toggleAllDay(bool current) async {
-    DebugConfig.db('EventDetail allDay=${!current}');
-    await ref.read(propertyNotifierProvider(widget.itemId).notifier)
-        .setText('all_day', (!current).toString());
+  Future<void> _toggleAllDay(bool value) async {
+    DebugConfig.db('EventDetail allDay=$value');
+    await ref
+        .read(propertyNotifierProvider(widget.itemId).notifier)
+        .setText('all_day', value ? 'true' : 'false');
   }
 
+
+
   Future<void> _delete(BuildContext context) async {
-    final future = ConfirmDialog.delete(context,
-        title: 'Διαγραφή συμβάντος;');
+    final future = ConfirmDialog.delete(
+      context,
+      title: 'Διαγραφή συμβάντος;',
+    );
     final ok = await future;
     if (!ok || !mounted) return;
+
     DebugConfig.db('EventDetail delete id=${widget.itemId}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-
-    // ΝΕΟ: refresh λίστες items (άρα και events στο calendar)
-    ref.invalidate(itemsProvider);
+    // Δεν χρειάζεται invalidate: itemsStreamProvider θα ενημερώσει calendar
 
     if (!context.mounted) return;
     Navigator.of(context).pop();
   }
+
 
 
   // ── Build ────────────────────────────────────────────────────
@@ -223,7 +228,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         if (item == null) return _buildNotFound();
 
         // Sync title
-        // Sync title από DB μόνο όταν ΔΕΝ editάρουμε χειροκίνητα
+        // Sync title από DB μόνο όταν ΔΕΝ edittext χειροκίνητα
         final itemTitle = item.title ?? '';
 
 // Αρχικοποίηση lastSavedTitle
@@ -546,8 +551,11 @@ class _EventPropertiesPanel extends ConsumerWidget {
           icon:  Icons.wb_sunny_rounded,
           label: 'Ολοήμερο',
           child: Switch(
-            value:           allDay,
-            onChanged:       onToggleAllDay,
+            value: allDay,
+            onChanged: (value) {
+              // Γράφουμε ΠΑΝΤΑ την τιμή που ζήτησε ο χρήστης
+              onToggleAllDay(value);
+            },
             activeThumbColor: context.cPrimary,
           ),
         ),
