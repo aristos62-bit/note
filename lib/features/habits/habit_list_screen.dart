@@ -14,13 +14,16 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/habit_service.dart';
 import '../../shared/widgets/widgets.dart';
+import 'habit_detail_screen.dart';
 
 // ── Local providers ───────────────────────────────────────────────
 
 final _habitStatsProvider =
 FutureProvider.family<HabitStats, int>((ref, habitId) async {
   DebugConfig.db('_habitStatsProvider id=$habitId');
-  return HabitService.instance.getStats(habitId);
+  final stats = await HabitService.instance.getStats(habitId);
+  DebugConfig.db('stats id=$habitId today=${stats.completedToday} total=${stats.completedCount}');
+  return stats;
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -45,13 +48,37 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
     });
   }
 
+  // HabitListScreen
   Future<void> _createHabit() async {
     DebugConfig.nav('HabitList: create habit');
-    final item = await ref.read(itemNotifierProvider.notifier)
-        .create(type: ItemType.habit);
+    final notifier = ref.read(itemNotifierProvider.notifier);
+    final item = await notifier.create(type: ItemType.habit);
     if (item == null || !mounted) return;
-    // Δεν χρειάζεται invalidate: create() κάνει ref.invalidateSelf()
-    context.push(AppRoutes.habit(item.id));
+
+    // Optional: refresh list provider, όπως στις σημειώσεις
+    ref.invalidate(itemNotifierProvider);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => HabitDetailScreen(
+          itemId: item.id,
+          isNew: true, // νέα συνήθεια
+        ),
+      ),
+    );
+  }
+
+
+  void _openDetail(int id) {
+    DebugConfig.nav('HabitList → HabitDetail id=$id');
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => HabitDetailScreen(
+          itemId: id,
+          isNew: false, // υπάρχουσα συνήθεια
+        ),
+      ),
+    );
   }
 
   Future<void> _markDone(int habitId) async {
@@ -107,28 +134,33 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
             return EmptyState.error(
                 onRetry: () => ref.invalidate(itemNotifierProvider));
           },
-          data: (habits) {
-            if (habits.isEmpty) {
+          data: (items) {
+            // Κρατάμε μόνο συνήθειες (όπως στη NoteList κάνεις για σημειώσεις)
+            final habitsOnly = items.where((it) => it.type == ItemType.habit).toList();
+
+            if (habitsOnly.isEmpty) {
               return EmptyState.forType(
-                  ItemType.habit, onAction: _createHabit);
+                ItemType.habit,
+                onAction: _createHabit,
+              );
             }
 
             // Σήμερα progress header
             return Column(
               children: [
-                _TodayProgress(habits: habits),
+                _TodayProgress(habits: habitsOnly),
                 Expanded(
                   child: ResponsiveLayout(
-                    mobile:  _HabitListMobile(
-                      habits:   habits,
-                      onTap:    (id) => context.push(AppRoutes.habit(id)),
-                      onDone:   _markDone,
+                    mobile: _HabitListMobile(
+                      habits: habitsOnly,
+                      onTap: (id) => _openDetail(id),
+                      onDone: _markDone,
                       onDelete: (item) => _delete(context, item),
                     ),
                     tablet: _HabitGrid(
-                      habits:   habits,
-                      onTap:    (id) => context.push(AppRoutes.habit(id)),
-                      onDone:   _markDone,
+                      habits: habitsOnly,
+                      onTap: (id) => _openDetail(id),
+                      onDone: _markDone,
                       onDelete: (item) => _delete(context, item),
                     ),
                   ),
@@ -236,6 +268,12 @@ class HabitCard extends ConsumerWidget {
     final stats      = statsAsync.valueOrNull;
     final isDoneToday = stats?.completedToday ?? false;
     final color = ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
+    final activeColor   = ColorsUI.getSuccess(context.brightness); // πράσινο
+    final lockedColor   = ColorsUI.getError(context.brightness);   // κόκκινο
+    final buttonColor   = isDoneToday ? lockedColor : activeColor;
+    final buttonBorder  = isDoneToday ? lockedColor : activeColor;
+    final iconColor     = ColorsUI.getAccessibleTextColor(buttonColor);
+
 
     return GestureDetector(
       onTap: onTap,
@@ -267,26 +305,26 @@ class HabitCard extends ConsumerWidget {
                     onTap: isDoneToday ? null : onDone,
                     child: AnimatedContainer(
                       duration: AppDuration.normal,
-                      width: 32, height: 32,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
-                        color: isDoneToday
-                            ? color
-                            : Colors.transparent,
+                        color: buttonColor,          // πράσινο όταν ενεργό, κόκκινο όταν κλειδωμένο
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDoneToday
-                              ? color
-                              : ColorsUI.getBorder(context.brightness),
+                          color: buttonBorder,
                           width: 2,
                         ),
                       ),
-                      child: isDoneToday
-                          ? Icon(Icons.check_rounded, size: 18,
-                          color: ColorsUI.getAccessibleTextColor(color))
-                          : Icon(Icons.loop_rounded, size: 16,
-                          color: context.cText2),
+                      child: Center(
+                        child: Icon(
+                          isDoneToday ? Icons.lock_rounded : Icons.check_rounded,
+                          size: 18,
+                          color: iconColor,
+                        ),
+                      ),
                     ),
                   ),
+
                   const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(

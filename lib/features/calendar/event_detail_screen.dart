@@ -15,12 +15,19 @@ import '../../shared/widgets/widgets.dart';
 
 class EventDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
-  const EventDetailScreen({super.key, required this.itemId});
+  final bool isNew; // <= ΠΡΟΣΘΗΚΗ
+
+  const EventDetailScreen({
+    super.key,
+    required this.itemId,
+    this.isNew = false, // default για υπάρχοντα
+  });
 
   @override
   ConsumerState<EventDetailScreen> createState() =>
       _EventDetailScreenState();
 }
+
 
 class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   late final TextEditingController _titleCtrl;
@@ -30,6 +37,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   bool  _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
+  bool _hasEverBeenSaved = false;
 
   @override
   void initState() {
@@ -53,23 +61,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   void _onTitleChanged(String v) {
     _isEditingTitle = true;
     _titleDebounce?.cancel();
-
-    _titleDebounce = Timer(const Duration(milliseconds: 600), () async {
-      final title = _titleCtrl.text.trim(); // ΠΑΝΤΑ από τον controller
-      await _saveTitle(title);
-
-      await Future.delayed(const Duration(milliseconds: 100));
-      _isEditingTitle = false;
-    });
+    // Δεν κάνουμε πια auto-save εδώ, μόνο local state
   }
-
-
 
   void _onLocationChanged(String v) {
     _locationDebounce?.cancel();
-    _locationDebounce = Timer(const Duration(milliseconds: 800),
-            () => _saveLocation(v.trim()));
+    // Δεν κάνουμε auto-save εδώ, μόνο local state
   }
+
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
@@ -77,12 +76,18 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
     setState(() => _isSaving = true);
     DebugConfig.db('EventDetail saveTitle id=${widget.itemId} "$title"');
-    await ref.read(itemNotifierProvider.notifier)
+
+    await ref
+        .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
-    _lastSavedTitle = title;
+
+    _lastSavedTitle   = title;
+    _hasEverBeenSaved = true; // <= εδώ μαρκάρουμε ότι έγινε manual save
+
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
+
 
 
   Future<void> _saveLocation(String location) async {
@@ -91,37 +96,28 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         .setText('location', location.isEmpty ? null : location);
   }
 
-  Future<void> _flushSaves() async {
-    if (_titleDebounce?.isActive == true) {
-      _titleDebounce!.cancel();
-      await _saveTitle(_titleCtrl.text.trim());
-    }
-    if (_locationDebounce?.isActive == true) {
-      _locationDebounce!.cancel();
-      await _saveLocation(_locationCtrl.text.trim());
-    }
-  }
-
-  // ── Pop guard — αποθήκευση / διαγραφή πριν φύγουμε ────────────
+    // ── Pop guard — αποθήκευση / διαγραφή πριν φύγουμε ────────────
 
   Future<bool> _onPopInvoked() async {
     _titleDebounce?.cancel();
     _locationDebounce?.cancel();
 
-    final title    = _titleCtrl.text.trim();
-    final hasTitle = title.isNotEmpty;
-
-    if (!hasTitle) {
+    // Case 1: ΝΕΟ event, δεν έχει γίνει ποτέ manual save
+    if (widget.isNew && !_hasEverBeenSaved) {
       DebugConfig.db(
-          'EventDetail auto-delete empty event id=${widget.itemId}');
+        'EventDetail auto-delete NEW event without manual save id=${widget.itemId}',
+      );
       await ref
           .read(itemNotifierProvider.notifier)
           .deleteItem(widget.itemId);
-
       return true;
     }
 
-    await _flushSaves();
+    // Case 2: υπάρχον event ή νέο που έχει ήδη σωθεί με save
+    // → δεν κάνουμε ούτε auto-save ούτε delete στο back
+    DebugConfig.nav(
+      'EventDetail back keep event id=${widget.itemId} isNew=${widget.isNew} hasEverSaved=$_hasEverBeenSaved',
+    );
     return true;
   }
 
@@ -129,60 +125,93 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   // ── Date/time pickers ────────────────────────────────────────
 
   Future<void> _pickStartTime(
-      BuildContext context, DateTime? current) async {
-    final now   = DateTime.now();
-    final init  = current ?? now;
-    // cache πριν await
-    final datePicker = showDatePicker(
+      BuildContext context, DateTime? current, bool allDay) async {
+    final now  = DateTime.now();
+    final init = current ?? now;
+
+    // 1. Επιλογή ημερομηνίας
+    final date = await showDatePicker(
       context:     context,
       initialDate: init,
       firstDate:   DateTime(now.year - 1),
       lastDate:    DateTime(now.year + 5),
     );
-    final date = await datePicker;
     if (date == null || !mounted) return;
-    // ignore: use_build_context_synchronously
-    if (!context.mounted) return;
-    final timePicker = showTimePicker(
-      context:     context,
-      initialTime: TimeOfDay.fromDateTime(init),
-    );
-    final time = await timePicker;
-    if (time == null) return;
-    final dt = DateTime(
-        date.year, date.month, date.day, time.hour, time.minute);
-    DebugConfig.db('EventDetail setStartTime $dt');
-    await ref.read(propertyNotifierProvider(widget.itemId).notifier)
+
+    DateTime dt;
+
+    if (allDay) {
+      // Ολοήμερο → κρατάμε ΜΟΝΟ την ημερομηνία (00:00)
+      dt = DateTime(date.year, date.month, date.day);
+    } else {
+      // Κανονικό → ζητάμε και ώρα
+      if (!context.mounted) return;
+      final time = await showTimePicker(
+        context:     context,
+        initialTime: TimeOfDay.fromDateTime(init),
+      );
+      if (time == null) return;
+      dt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    }
+
+    DebugConfig.db('EventDetail setStartTime $dt allDay=$allDay');
+    await ref
+        .read(propertyNotifierProvider(widget.itemId).notifier)
         .setDate('start_time', dt);
   }
 
+
   Future<void> _pickEndTime(
-      BuildContext context, DateTime? current, DateTime? start) async {
-    final now   = DateTime.now();
-    final init  = current ?? start?.add(const Duration(hours: 1)) ?? now;
-    // cache πριν await
-    final datePicker = showDatePicker(
+      BuildContext context,
+      DateTime? current,
+      DateTime? start,
+      bool allDay,
+      ) async {
+    final now  = DateTime.now();
+    final init = current ?? start?.add(const Duration(hours: 1)) ?? now;
+
+    // 1. Επιλογή ημερομηνίας
+    final date = await showDatePicker(
       context:     context,
       initialDate: init,
       firstDate:   start ?? DateTime(now.year - 1),
       lastDate:    DateTime(now.year + 5),
     );
-    final date = await datePicker;
     if (date == null || !mounted) return;
-    // ignore: use_build_context_synchronously
-    if (!context.mounted) return;
-    final timePicker = showTimePicker(
-      context:     context,
-      initialTime: TimeOfDay.fromDateTime(init),
-    );
-    final time = await timePicker;
-    if (time == null) return;
-    final dt = DateTime(
-        date.year, date.month, date.day, time.hour, time.minute);
-    DebugConfig.db('EventDetail setEndTime $dt');
-    await ref.read(propertyNotifierProvider(widget.itemId).notifier)
+
+    DateTime dt;
+
+    if (allDay) {
+      // Ολοήμερο → μόνο ημερομηνία
+      dt = DateTime(date.year, date.month, date.day);
+    } else {
+      if (!context.mounted) return;
+      final time = await showTimePicker(
+        context:     context,
+        initialTime: TimeOfDay.fromDateTime(init),
+      );
+      if (time == null) return;
+      dt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    }
+
+    DebugConfig.db('EventDetail setEndTime $dt allDay=$allDay');
+    await ref
+        .read(propertyNotifierProvider(widget.itemId).notifier)
         .setDate('end_time', dt);
   }
+
 
   Future<void> _toggleAllDay(bool value) async {
     DebugConfig.db('EventDetail allDay=$value');
@@ -276,8 +305,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       isSaving:           _isSaving,
       onTitleChange:      _onTitleChanged,
       onLocationChange:   _onLocationChanged,
-      onPickStart:        (cur) => _pickStartTime(context, cur),
-      onPickEnd:          (cur, start) => _pickEndTime(context, cur, start),
+      onPickStart:        (cur, allDay) => _pickStartTime(context, cur, allDay),
+      onPickEnd:          (cur, start, allDay) =>
+          _pickEndTime(context, cur, start, allDay),
       onToggleAllDay:     _toggleAllDay,
     ),
   );
@@ -290,34 +320,38 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         SizedBox(
           width: 280,
           child: _EventPropertiesPanel(
-            item:           item,
-            onPickStart:    (cur) => _pickStartTime(context, cur),
-            onPickEnd:      (cur, start) =>
-                _pickEndTime(context, cur, start),
+            item: item,
+            onPickStart: (cur, allDay) =>
+                _pickStartTime(context, cur, allDay),
+            onPickEnd: (cur, start, allDay) =>
+                _pickEndTime(context, cur, start, allDay),
             onToggleAllDay: _toggleAllDay,
           ),
         ),
         VerticalDivider(
-            width: 1,
-            color: ColorsUI.getBorder(context.brightness)),
+          width: 1,
+          color: ColorsUI.getBorder(context.brightness),
+        ),
         Expanded(
           child: _EventBody(
-            item:             item,
-            titleCtrl:        _titleCtrl,
-            locationCtrl:     _locationCtrl,
-            isSaving:         _isSaving,
+            item:         item,
+            titleCtrl:    _titleCtrl,
+            locationCtrl: _locationCtrl,
+            isSaving:     _isSaving,
             onTitleChange:    _onTitleChanged,
             onLocationChange: _onLocationChanged,
-            onPickStart:      (cur) => _pickStartTime(context, cur),
-            onPickEnd:        (cur, start) =>
-                _pickEndTime(context, cur, start),
-            onToggleAllDay:   _toggleAllDay,
-            hideProperties:   true,
+            onPickStart: (cur, allDay) =>
+                _pickStartTime(context, cur, allDay),
+            onPickEnd: (cur, start, allDay) =>
+                _pickEndTime(context, cur, start, allDay),
+            onToggleAllDay: _toggleAllDay,
+            hideProperties:  true,
           ),
         ),
       ],
     ),
   );
+
 
   AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
     backgroundColor:        context.cBg,
@@ -328,20 +362,54 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       SizedBox(
         width: 14, height: 14,
         child: CircularProgressIndicator(
-            strokeWidth: 2, color: context.cText2),
+          strokeWidth: 2,
+          color: context.cText2,
+        ),
       ),
       const SizedBox(width: Spacing.xs),
-      Text('Αποθήκευση...',
-          style: context.bodySm.withColor(context.cText2)),
+      Text(
+        'Αποθήκευση...',
+        style: context.bodySm.withColor(context.cText2),
+      ),
     ])
         : null,
     actions: [
+      // Save
+      IconButton(
+        icon: Icon(Icons.save_rounded, color: context.cPrimary),
+        tooltip: 'Αποθήκευση',
+        onPressed: () async {
+          final title    = _titleCtrl.text.trim();
+          final location = _locationCtrl.text.trim();
+
+          DebugConfig.db(
+            'EventDetail manual save pressed id=${item.id} title="$title" location="$location"',
+          );
+
+          // 1. Αποθήκευση τίτλου
+          await _saveTitle(title);
+
+          // 2. Αποθήκευση τοποθεσίας
+          await _saveLocation(location);
+
+          // 3. Αν είναι ΝΕΟ event, μετά το πρώτο manual save γύρνα πίσω στο Calendar
+          if (widget.isNew) {
+            final nav = Navigator.of(context);
+            nav.pop();
+          }
+        },
+      ),
+
+
+      // Delete
       IconButton(
         icon: Icon(Icons.delete_outline_rounded, color: context.cText2),
+        tooltip: 'Διαγραφή',
         onPressed: () => _delete(context),
       ),
     ],
   );
+
 
   Widget _buildLoading() => Scaffold(
     backgroundColor: context.cBg,
@@ -376,8 +444,8 @@ class _EventBody extends ConsumerWidget {
   final bool isSaving;
   final ValueChanged<String> onTitleChange;
   final ValueChanged<String> onLocationChange;
-  final ValueChanged<DateTime?> onPickStart;
-  final void Function(DateTime?, DateTime?) onPickEnd;
+  final void Function(DateTime?, bool) onPickStart;
+  final void Function(DateTime?, DateTime?, bool) onPickEnd;
   final ValueChanged<bool> onToggleAllDay;
   final bool hideProperties;
 
@@ -516,8 +584,9 @@ class _EventBody extends ConsumerWidget {
 
 class _EventPropertiesPanel extends ConsumerWidget {
   final Item item;
-  final ValueChanged<DateTime?> onPickStart;
-  final void Function(DateTime?, DateTime?) onPickEnd;
+  final void Function(DateTime?, bool) onPickStart;
+  final void Function(DateTime?, DateTime?, bool) onPickEnd;
+
   final ValueChanged<bool> onToggleAllDay;
 
   const _EventPropertiesPanel({
@@ -565,7 +634,7 @@ class _EventPropertiesPanel extends ConsumerWidget {
           icon:  Icons.schedule_rounded,
           label: 'Έναρξη',
           child: GestureDetector(
-            onTap: () => onPickStart(startTime),
+            onTap: () => onPickStart(startTime, allDay),
             child: Text(
               startTime != null
                   ? (allDay
@@ -583,7 +652,7 @@ class _EventPropertiesPanel extends ConsumerWidget {
           icon:  Icons.schedule_outlined,
           label: 'Λήξη',
           child: GestureDetector(
-            onTap: () => onPickEnd(endTime, startTime),
+            onTap: () => onPickEnd(endTime, startTime, allDay),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

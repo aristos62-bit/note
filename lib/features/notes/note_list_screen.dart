@@ -75,15 +75,25 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     final item = await notifier.create(type: ItemType.note);
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
-    _openDetail(item.id);
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => NoteDetailScreen(
+        itemId: item.id,
+        isNew: true, // <= ΝΕΑ σημείωση
+      )),
+    );
   }
+
 
   void _openDetail(int id) {
     DebugConfig.nav('NoteList → NoteDetail id=$id');
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NoteDetailScreen(itemId: id)),
+      MaterialPageRoute(builder: (_) => NoteDetailScreen(
+        itemId: id,
+        isNew: false, // existing note
+      )),
     );
   }
+
 
   // ── Item actions (long press) ────────────────────────────────
 
@@ -194,8 +204,11 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
                   return EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
                 data: (notes) {
+                  // Κρατάμε μόνο σημειώσεις
+                  final notesOnly = notes.where((n) => n.type == ItemType.note).toList();
+
                   // Φιλτράρισμα: search + tag
-                  final filtered = _filterNotes(notes, searchQuery, activeTag);
+                  final filtered = _filterNotes(notesOnly, searchQuery, activeTag);
 
                   if (filtered.isEmpty) {
                     return searchQuery.isNotEmpty || activeTag != null
@@ -218,6 +231,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
                   );
                 },
               ),
+
             ),
           ),
         ],

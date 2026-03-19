@@ -31,6 +31,8 @@ import '../../features/search/search.dart';
 import '../../features/settings/settings.dart';
 import '../../features/habits/habits.dart';
 import '../../features/calendar/calendar.dart';
+import '../../features/journal/journal.dart';
+import '../../features/contacts/contacts.dart';
 
 // ── Route paths ────────────────────────────────────────────────
 
@@ -88,12 +90,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'note-detail',
                 builder: (context, state) {
                   final id =
-                  int.tryParse(state.pathParameters['id'] ?? '');
-
-                  if (id == null) {
-                    return const _RouterErrorScreen();
-                  }
-
+                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   DebugConfig.nav('Router → NoteDetail id=$id');
                   return NoteDetailScreen(itemId: id);
                 },
@@ -110,12 +107,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'task-detail',
                 builder: (context, state) {
                   final id =
-                  int.tryParse(state.pathParameters['id'] ?? '');
-
-                  if (id == null) {
-                    return const _RouterErrorScreen();
-                  }
-
+                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   DebugConfig.nav('Router → TaskDetail id=$id');
                   return TaskDetailScreen(itemId: id);
                 },
@@ -147,12 +139,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'habit-detail',
                 builder: (context, state) {
                   final id =
-                  int.tryParse(state.pathParameters['id'] ?? '');
-
-                  if (id == null) {
-                    return const _RouterErrorScreen();
-                  }
-
+                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   DebugConfig.nav('Router → HabitDetail id=$id');
                   return HabitDetailScreen(itemId: id);
                 },
@@ -169,12 +156,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'event-detail',
                 builder: (context, state) {
                   final id =
-                  int.tryParse(state.pathParameters['id'] ?? '');
-
-                  if (id == null) {
-                    return const _RouterErrorScreen();
-                  }
-
+                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   DebugConfig.nav('Router → EventDetail id=$id');
                   return EventDetailScreen(itemId: id);
                 },
@@ -191,14 +173,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.journal,
             name: 'journal',
-            builder: (context, state) => const _ComingSoonScreen(
-                title: 'Ημερολόγιο', icon: Icons.auto_stories_rounded),
+            builder: (context, state) => const JournalListScreen(),
           ),
           GoRoute(
             path: AppRoutes.contacts,
             name: 'contacts',
-            builder: (context, state) => const _ComingSoonScreen(
-                title: 'Επαφές', icon: Icons.people_rounded),
+            builder: (context, state) => const ContactListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'contact-detail',
+                builder: (context, state) {
+                  final id = int.tryParse(
+                      state.pathParameters['id'] ?? '') ?? 0;
+                  return ContactDetailScreen(itemId: id);
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -217,40 +208,64 @@ class _AppShell extends ConsumerWidget {
 
   static const _navItems = [
     _NavItem(
-      path: AppRoutes.home,
-      icon: Icons.home_outlined,
+      path:         AppRoutes.home,
+      icon:         Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
-      label: 'Αρχική',
+      label:        'Αρχική',
     ),
     _NavItem(
-      path: AppRoutes.notes,
-      icon: Icons.note_outlined,
+      path:         AppRoutes.notes,
+      icon:         Icons.note_outlined,
       selectedIcon: Icons.note_rounded,
-      label: 'Σημειώσεις',
+      label:        'Σημειώσεις',
     ),
     _NavItem(
-      path: AppRoutes.tasks,
-      icon: Icons.check_circle_outline_rounded,
+      path:         AppRoutes.tasks,
+      icon:         Icons.check_circle_outline_rounded,
       selectedIcon: Icons.check_circle_rounded,
-      label: 'Εργασίες',
+      label:        'Εργασίες',
     ),
     _NavItem(
-      path: AppRoutes.habits,
-      icon: Icons.loop_outlined,
+      path:         AppRoutes.habits,
+      icon:         Icons.loop_outlined,
       selectedIcon: Icons.loop_rounded,
-      label: 'Συνήθειες',
+      label:        'Συνήθειες',
     ),
     _NavItem(
-      path: AppRoutes.calendar, // ← ΣΩΣΤΟ
-      icon: Icons.calendar_month_outlined,
+      path:         AppRoutes.calendar,
+      icon:         Icons.calendar_month_outlined,
       selectedIcon: Icons.calendar_month_rounded,
-      label: 'Ημερολόγιο',
+      label:        'Συμβάντα',
     ),
     _NavItem(
-      path: AppRoutes.settings,
-      icon: Icons.settings_outlined,
+      path:         AppRoutes.journal,
+      icon:         Icons.auto_stories_outlined,
+      selectedIcon: Icons.auto_stories_rounded,
+      label:        'Ημερολόγιο',
+    ),
+    _NavItem(
+      path:         AppRoutes.contacts,
+      icon:         Icons.people_outline_rounded,
+      selectedIcon: Icons.people_rounded,
+      label:        'Επαφές',
+    ),
+    _NavItem(
+      path:         AppRoutes.finance,
+      icon:         Icons.account_balance_wallet_outlined,
+      selectedIcon: Icons.account_balance_wallet_rounded,
+      label:        'Οικονομικά',
+    ),
+    _NavItem(
+      path:         AppRoutes.search,
+      icon:         Icons.search_rounded,
+      selectedIcon: Icons.search_rounded,
+      label:        'Αναζήτηση',
+    ),
+    _NavItem(
+      path:         AppRoutes.settings,
+      icon:         Icons.settings_outlined,
       selectedIcon: Icons.settings_rounded,
-      label: 'Ρυθμίσεις',
+      label:        'Ρυθμίσεις',
     ),
   ];
 
@@ -306,7 +321,7 @@ class _NavItem {
   });
 }
 
-// ── Mobile — BottomNavigationBar ─────────────────────────────────
+// ── Mobile — Scrollable custom bottom nav ─────────────────────────
 
 class _MobileShell extends StatelessWidget {
   final int selectedIndex;
@@ -325,17 +340,95 @@ class _MobileShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _ScrollableBottomNav(
         selectedIndex: selectedIndex,
-        onDestinationSelected: onTap,
-        backgroundColor: ColorsUI.getSurface(context.brightness),
-        destinations: navItems
-            .map((item) => NavigationDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.selectedIcon),
-                  label: item.label,
-                ))
-            .toList(),
+        onTap:         onTap,
+        navItems:      navItems,
+      ),
+    );
+  }
+}
+
+class _ScrollableBottomNav extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+  final List<_NavItem> navItems;
+
+  const _ScrollableBottomNav({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.navItems,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorsUI.getSurface(context.brightness),
+        border: Border(
+          top: BorderSide(
+            color: ColorsUI.getBorder(context.brightness),
+            width: 1,
+          ),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: IntrinsicHeight(
+          child: Row(
+            children: List.generate(navItems.length, (i) {
+              final item       = navItems[i];
+              final isSelected = i == selectedIndex;
+              final color      = isSelected
+                  ? context.cPrimary
+                  : context.cText2;
+
+              return GestureDetector(
+                onTap: () => onTap(i),
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: AppDuration.fast,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.md,
+                    vertical:   Spacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: isSelected
+                            ? context.cPrimary
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isSelected ? item.selectedIcon : item.icon,
+                        color: color,
+                        size:  22,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.label,
+                        style: context.labelSm.withColor(color).copyWith(
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
@@ -370,18 +463,15 @@ class _TabletShell extends StatelessWidget {
                 : NavigationRailLabelType.selected,
             leading: Padding(
               padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-              child: IconButton(
-                icon: Icon(Icons.note_alt_rounded,
-                    color: context.cPrimary, size: 28),
-                onPressed: () => context.go(AppRoutes.home),
-              ),
+              child: Icon(Icons.note_alt_rounded,
+                  color: context.cPrimary, size: 28),
             ),
             destinations: navItems
                 .map((item) => NavigationRailDestination(
-                      icon: Icon(item.icon),
-                      selectedIcon: Icon(item.selectedIcon),
-                      label: Text(item.label),
-                    ))
+              icon: Icon(item.icon),
+              selectedIcon: Icon(item.selectedIcon),
+              label: Text(item.label),
+            ))
                 .toList(),
           ),
           VerticalDivider(

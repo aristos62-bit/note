@@ -34,12 +34,19 @@ FutureProvider.family<HabitStats, int>((ref, habitId) async {
 
 class HabitDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
-  const HabitDetailScreen({super.key, required this.itemId});
+  final bool isNew; // ΝΕΟ
+
+  const HabitDetailScreen({
+    super.key,
+    required this.itemId,
+    this.isNew = false,
+  });
 
   @override
   ConsumerState<HabitDetailScreen> createState() =>
       _HabitDetailScreenState();
 }
+
 
 class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   late final TextEditingController _titleCtrl;
@@ -75,6 +82,17 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
     if (!mounted) return;
     setState(() => _isSaving = false);
+  }
+
+  Future<void> _save() async {
+    // σταματάμε pending debounce για τίτλο
+    _titleDebounce?.cancel();
+    final title = _titleCtrl.text.trim();
+
+    DebugConfig.db(
+        'HabitDetail manualSave id=${widget.itemId} title="$title"');
+
+    await _saveTitle(title);
   }
 
   Future<void> _markDone() async {
@@ -124,14 +142,38 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
 
-            final nav      = Navigator.of(context);
+            final nav   = Navigator.of(context);
             _titleDebounce?.cancel();
-            final title    = _titleCtrl.text.trim();
-            final hasTitle = title.isNotEmpty;
+            final title = _titleCtrl.text.trim();
 
-            if (!hasTitle) {
+            // Φέρνουμε properties για να δούμε αν η συνήθεια έχει “ουσία”
+            final props = ref
+                .read(itemPropertiesProvider(widget.itemId))
+                .valueOrNull ??
+                [];
+
+            // Από props μας ενδιαφέρουν όσα δίνουν επιπλέον περιεχόμενο
+            final goalCount = props
+                .where((p) => p.key == 'goal_count')
+                .firstOrNull
+                ?.value ??
+                '0';
+            final unit = props
+                .where((p) => p.key == 'unit')
+                .firstOrNull
+                ?.value ??
+                '';
+
+            final hasGoal = goalCount != '0';
+            final hasUnit = unit.trim().isNotEmpty;
+
+            // “Άδεια” συνήθεια = καμία ρύθμιση (ούτε goal, ούτε unit)
+            final isEffectivelyEmpty = !hasGoal && !hasUnit;
+
+            // Auto-delete ΜΟΝΟ για νέες συνήθειες
+            if (widget.isNew && isEffectivelyEmpty) {
               DebugConfig.db(
-                  'HabitDetail auto-delete empty habit id=${widget.itemId}');
+                  'HabitDetail auto-delete empty/only-title habit id=${widget.itemId}');
               await ref
                   .read(itemNotifierProvider.notifier)
                   .deleteItem(widget.itemId);
@@ -140,6 +182,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
               return;
             }
 
+            // Αν ΔΕΝ είναι (νέα + άδεια), αποθηκεύουμε τον τίτλο και κάνουμε pop
             await _saveTitle(title);
             if (!nav.mounted) return;
             nav.pop();
@@ -149,6 +192,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             tablet: _buildTablet(context, item),
           ),
         );
+
+
 
       },
     );
@@ -212,16 +257,35 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       title: _isSaving
           ? Row(mainAxisSize: MainAxisSize.min, children: [
         SizedBox(
-          width: 14, height: 14,
+          width: 14,
+          height: 14,
           child: CircularProgressIndicator(
-              strokeWidth: 2, color: context.cText2),
+            strokeWidth: 2,
+            color: context.cText2,
+          ),
         ),
         const SizedBox(width: Spacing.xs),
-        Text('Αποθήκευση...',
-            style: context.bodySm.withColor(context.cText2)),
+        Text(
+          'Αποθήκευση...',
+          style: context.bodySm.withColor(context.cText2),
+        ),
       ])
           : null,
       actions: [
+        // Save
+        IconButton(
+          icon: Icon(Icons.save_rounded, color: context.cPrimary),
+          tooltip: 'Αποθήκευση',
+          onPressed: () async {
+            final nav = Navigator.of(context); // cache πριν το await
+            await _save();
+            if (nav.mounted) {
+              nav.pop(); // πάντα πίσω στη λίστα
+            }
+          },
+        ),
+
+        // Delete
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: context.cText2),
           onPressed: () => _delete(context),
@@ -230,6 +294,9 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       ],
     );
   }
+
+
+
 
   Widget _buildLoading() => Scaffold(
     backgroundColor: context.cBg,
@@ -763,7 +830,7 @@ class _HabitSettings extends ConsumerWidget {
   void _editGoal(BuildContext context, WidgetRef ref, String current) {
     _showTextEditor(
       context: context,
-      title:   'Στόχος (αριθμός φορών)',
+      title:   'Στόχος (αριθμός φορών την ημέρα)',
       initial: current == '0' ? '' : current,
       keyboardType: TextInputType.number,
       onSave: (val) async {

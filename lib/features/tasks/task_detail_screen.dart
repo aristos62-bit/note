@@ -106,6 +106,24 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
   }
 
+  Future<void> _save() async {
+    // Κάνει flush ό,τι pending auto‑save υπάρχει
+    await _flushPendingSaves();
+
+    // Μικρό visual feedback στο AppBar
+    if (!mounted) return;
+    setState(() => _isSaving = true);
+
+    final title = _titleCtrl.text.trim();
+    DebugConfig.db('TaskDetail manualSave id=${widget.itemId} title="$title"');
+
+    // Αν θες, μπορείς εδώ να αναγκάσεις ένα extra updateItem,
+    // αλλά επειδή _saveTitle ήδη κάνει update, συνήθως δεν χρειάζεται.
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+  }
+
   // ── Item actions ─────────────────────────────────────────────
 
   Future<void> _toggleDone(Item item) async {
@@ -191,11 +209,31 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
             final nav   = Navigator.of(context); // cache πριν await
             final title = _titleCtrl.text.trim();
-            final hasTitle = title.isNotEmpty;
 
-            if (!hasTitle) {
+            // Φέρνουμε τα τελευταία props για να δούμε αν υπάρχει “περιεχόμενο”
+            final props = ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
+            final notes = props.where((p) => p.key == 'notes')
+                .firstOrNull?.value ?? '';
+            final due   = props.where((p) => p.key == 'due_date')
+                .firstOrNull?.dateValue;
+
+            final hasNotes    = notes.trim().isNotEmpty;
+            final hasDueDate  = due != null;
+            final hasPriority = item.priority != ItemPriority.none;
+            final hasNonActiveStatus = item.status != ItemStatus.active;
+
+            // “Άδειο” σημαίνει:
+            // - μπορεί να έχει ή να μην έχει τίτλο,
+            // - αλλά ΔΕΝ έχει notes, due date, priority, ούτε αλλαγμένο status.
+            final isEffectivelyEmpty =
+                !hasNotes &&
+                    !hasDueDate &&
+                    !hasPriority &&
+                    !hasNonActiveStatus;
+
+            if (isEffectivelyEmpty) {
               DebugConfig.db(
-                  'TaskDetail auto-delete empty task id=${widget.itemId}');
+                  'TaskDetail auto-delete empty/only-title task id=${widget.itemId}');
               await ref
                   .read(itemNotifierProvider.notifier)
                   .deleteItem(widget.itemId);
@@ -204,6 +242,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               return;
             }
 
+            // Αν ΔΕΝ είναι “άδειο”, αποθηκεύουμε ό,τι pending υπάρχει και γυρνάμε πίσω
             await _flushPendingSaves();
             if (!nav.mounted) return;
             nav.pop();
@@ -213,6 +252,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             tablet: _buildTablet(context, item),
           ),
         );
+
 
       },
     );
@@ -296,16 +336,34 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       title: _isSaving
           ? Row(mainAxisSize: MainAxisSize.min, children: [
         SizedBox(
-          width: 14, height: 14,
+          width: 14,
+          height: 14,
           child: CircularProgressIndicator(
-              strokeWidth: 2, color: context.cText2),
+            strokeWidth: 2,
+            color: context.cText2,
+          ),
         ),
         const SizedBox(width: Spacing.xs),
-        Text('Αποθήκευση...',
-            style: context.bodySm.withColor(context.cText2)),
+        Text(
+          'Αποθήκευση...',
+          style: context.bodySm.withColor(context.cText2),
+        ),
       ])
           : null,
       actions: [
+        // Save
+        IconButton(
+          icon: Icon(Icons.save_rounded, color: context.cPrimary),
+          tooltip: 'Αποθήκευση',
+          onPressed: () async {
+            await _save();
+            // εδώ ΔΕΝ κάνουμε pop, γιατί το TaskDetail δεν έχει isNew flag.
+            // Αν αργότερα προσθέσεις isNew, μπορείς να βάλεις:
+            // if (widget.isNew && mounted) Navigator.of(context).pop();
+          },
+        ),
+
+        // Done / Active toggle
         TextButton.icon(
           onPressed: () => _toggleDone(item),
           icon: Icon(
@@ -321,6 +379,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 .withColor(isDone ? context.cPrimary : context.cText2),
           ),
         ),
+
+        // Delete
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: context.cText2),
           onPressed: () => _deleteTask(context, item),
@@ -329,6 +389,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       ],
     );
   }
+
 
   // ── Fallbacks ────────────────────────────────────────────────
 

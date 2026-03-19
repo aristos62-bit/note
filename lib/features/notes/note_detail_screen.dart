@@ -19,11 +19,18 @@ import '../../shared/widgets/widgets.dart';
 
 class NoteDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
-  const NoteDetailScreen({super.key, required this.itemId});
+  final bool isNew; // <= ΠΡΟΣΘΗΚΗ
+
+  const NoteDetailScreen({
+    super.key,
+    required this.itemId,
+    this.isNew = false, // default για παλιές κλήσεις
+  });
 
   @override
   ConsumerState<NoteDetailScreen> createState() => _NoteDetailScreenState();
 }
+
 
 class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   late final TextEditingController _titleCtrl;
@@ -31,6 +38,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
+  bool _hasEverBeenSaved = false;
 
   @override
   void initState() {
@@ -46,41 +54,37 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     super.dispose();
   }
 
-  // ── Auto-save title ──────────────────────────────────────────
+  // ── Title change (μόνο local, χωρίς auto-save) ───────────────
 
   void _onTitleChanged(String value) {
     _isEditingTitle = true;
     _saveDebounce?.cancel();
 
-    _saveDebounce = Timer(const Duration(milliseconds: 600), () async {
-      final title = value.trim();
-      await _saveTitle(title);
-
-      // Μικρή καθυστέρηση για να προλάβει το stream να φέρει update
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      _isEditingTitle = false;
-    });
+    // Δεν κάνουμε πια κανένα save εδώ, κρατάμε μόνο local state.
+    // Το _isEditingTitle μας βοηθά να μη μας πατήσει το stream.
   }
 
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
 
-    // Επιτρέπουμε να σωθεί και κενό, και αν είναι ίδιο με το τελευταίο, αλλάζει μόνο όταν:
     if (title == _lastSavedTitle) {
       return;
     }
 
     setState(() => _isSaving = true);
     DebugConfig.db('NoteDetail saveTitle id=${widget.itemId} "$title"');
-    await ref.read(itemNotifierProvider.notifier)
+
+    await ref
+        .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+
     _lastSavedTitle = title;
+    _hasEverBeenSaved = true; // <= σημαδεύουμε ότι έγινε manual save
+
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
-
 
 
   // ── AppBar actions ───────────────────────────────────────────
@@ -111,26 +115,29 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     Navigator.of(context).pop();
   }
 
-  // ── Pop guard — άποθήκευση πριν φύγουμε ────────────────────
+  // ── Pop guard — μόνο auto-delete εντελώς κενής σημείωσης ──────
 
   Future<bool> _onPopInvoked() async {
     _saveDebounce?.cancel();
-    final title = _titleCtrl.text.trim();
 
-    // 1. Αν είναι άδεια (και η σημείωση είναι “καινούρια” / χωρίς blocks),
-    // την διαγράφεις αντί να την κρατάς.
-    final hasContent = title.isNotEmpty; // μπορούμε να βάλουμε και blocks check
-    if (!hasContent) {
-      DebugConfig.db('NoteDetail auto-delete empty note id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier)
+    // Αν είναι νέα σημείωση ΚΑΙ δεν έχει γίνει ποτέ manual save,
+    // τη θεωρούμε draft και τη διαγράφουμε πάντα όταν βγούμε.
+    if (widget.isNew && !_hasEverBeenSaved) {
+      DebugConfig.db(
+        'NoteDetail auto-delete NEW note without manual save id=${widget.itemId}',
+      );
+      await ref
+          .read(itemNotifierProvider.notifier)
           .deleteItem(widget.itemId);
       return true;
     }
 
-    // 2. Αλλιώς, απλά κάνε save όπως τώρα
-    await _saveTitle(title);
+    // Για υπάρχουσες σημειώσεις (ή νέες που έχουν ήδη σωθεί),
+    // δεν κάνουμε ούτε save ούτε delete αυτόματα στο back.
+    DebugConfig.nav('NoteDetail back keep note id=${widget.itemId}');
     return true;
   }
+
 
 
   // ── Build ────────────────────────────────────────────────────
@@ -236,18 +243,47 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
       elevation: 0,
       scrolledUnderElevation: 1,
       title: _isSaving
-          ? Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          width: 14, height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2,
-              color: context.cText2),
-        ),
-        const SizedBox(width: Spacing.xs),
-        Text('Αποθήκευση...',
-            style: context.bodySm.withColor(context.cText2)),
-      ])
+          ? Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: context.cText2,
+            ),
+          ),
+          const SizedBox(width: Spacing.xs),
+          Text(
+            'Αποθήκευση...',
+            style: context.bodySm.withColor(context.cText2),
+          ),
+        ],
+      )
           : null,
       actions: [
+        // Save
+        IconButton(
+          icon: Icon(
+            Icons.save_rounded,
+            color: context.cPrimary,
+          ),
+          tooltip: 'Αποθήκευση',
+          onPressed: () async {
+            final title = _titleCtrl.text.trim();
+            DebugConfig.db(
+                'NoteDetail manual save pressed id=${item.id} title="$title"');
+            await _saveTitle(title);
+
+            // Αν είναι νέα σημείωση, μετά το πρώτο save γύρνα πίσω στη λίστα
+            if (widget.isNew) {
+              final nav = Navigator.of(context);
+              nav.pop();
+            }
+          },
+        ),
+
         // Favorite
         IconButton(
           icon: Icon(
@@ -259,6 +295,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           onPressed: () => _toggleFav(item),
           tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
         ),
+
         // Pin
         IconButton(
           icon: Icon(
@@ -268,6 +305,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           onPressed: () => _togglePin(item),
           tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
         ),
+
         // Delete (αντί για 3 τελείες)
         IconButton(
           icon: Icon(
@@ -278,9 +316,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           onPressed: () => _deleteNote(context, item),
         ),
       ],
-
     );
   }
+
 
   // ── Fallback screens ─────────────────────────────────────────
 
@@ -354,6 +392,7 @@ class _NoteBody extends ConsumerWidget {
         ),
 
         // ── Meta: updated at + tags ──────────────────────────────
+        // ── Meta: updated at + tags + content header ────────────────
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(
@@ -371,7 +410,30 @@ class _NoteBody extends ConsumerWidget {
 
                 const SizedBox(height: Spacing.sm),
 
-                // Tags
+                // Tags header + add button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Tags',
+                      style: context.labelSm.withColor(context.cText2),
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Προσθήκη'),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 0),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () => _showTagPicker(context, ref, item.id),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: Spacing.xs),
+
+                // Tags list
                 tagsAsync.when(
                   loading: () => const SizedBox.shrink(),
                   error:   (_, __) => const SizedBox.shrink(),
@@ -390,11 +452,46 @@ class _NoteBody extends ConsumerWidget {
                 ),
 
                 const SizedBox(height: Spacing.md),
+
+                // Content header + quick actions
+                Row(
+                  children: [
+                    Text(
+                      'Περιεχόμενο',
+                      style: context.labelSm.withColor(context.cText2),
+                    ),
+                    const Spacer(),
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.text_fields_rounded, size: 18),
+                      tooltip: 'Προσθήκη κειμένου',
+                      onPressed: () {
+                        DebugConfig.db('NoteDetail quickAdd text');
+                        ref
+                            .read(blockNotifierProvider(item.id).notifier)
+                            .addBlock(type: BlockType.text);
+                      },
+                    ),
+                    const SizedBox(width: Spacing.xs),
+                    IconButton.outlined(
+                      icon: const Icon(Icons.check_box_outlined, size: 18),
+                      tooltip: 'Προσθήκη λίστας',
+                      onPressed: () {
+                        DebugConfig.db('NoteDetail quickAdd checklist');
+                        ref
+                            .read(blockNotifierProvider(item.id).notifier)
+                            .addBlock(type: BlockType.checklist);
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: Spacing.sm),
                 Divider(color: ColorsUI.getBorder(context.brightness)),
               ],
             ),
           ),
         ),
+
 
         // ── Blocks ──────────────────────────────────────────────
         blocksAsync.when(
@@ -500,11 +597,46 @@ class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: context.responsiveHPadding,
-              vertical:   Spacing.sm,
+              vertical:   Spacing.lg,
             ),
-            child: Text(
-              'Άρχισε να γράφεις...',
-              style: context.bodyMd.withColor(context.cDisabled),
+            child: Card(
+              color: ColorsUI.getSurface(context.brightness),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(Spacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Νέα σημείωση',
+                      style: context.titleMd,
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Text(
+                      'Γράψε έναν τίτλο ή πρόσθεσε ένα πρώτο μπλοκ για να ξεκινήσεις.',
+                      style: context.bodySm.withColor(context.cDisabled),
+                    ),
+                    const SizedBox(height: Spacing.md),
+                    Wrap(
+                      spacing: Spacing.sm,
+                      children: [
+                        FilledButton.icon(
+                          icon: const Icon(Icons.text_fields_rounded, size: 18),
+                          label: const Text('Κείμενο'),
+                          onPressed: () => _addBlock(BlockType.text),
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.check_box_outlined, size: 18),
+                          label: const Text('Λίστα'),
+                          onPressed: () => _addBlock(BlockType.checklist),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

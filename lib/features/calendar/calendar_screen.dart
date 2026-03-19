@@ -248,8 +248,10 @@ class CalendarScreen extends ConsumerWidget {
     // Δεν χρειάζεται invalidate: το itemsStreamProvider θα δώσει νέο snapshot
 
     // ignore: use_build_context_synchronously
-    context.push('/calendar/${item.id}');
-
+    context.push(
+      '/calendar/${item.id}',
+      extra: true, // νέο event
+    );
   }
 }
 

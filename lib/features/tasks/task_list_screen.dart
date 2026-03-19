@@ -191,7 +191,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
           tasksAsync.when(
             loading: () => const SizedBox.shrink(),
             error:   (_, __) => const SizedBox.shrink(),
-            data: (tasks) => _StatsBar(tasks: tasks),
+            data: (items) {
+              final tasksOnly = items.where((i) => i.type == ItemType.task).toList();
+              return _StatsBar(tasks: tasksOnly);
+            },
           ),
 
           // ── Task list ─────────────────────────────────────────
@@ -205,9 +208,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   return EmptyState.error(
                       onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
-                data: (tasks) {
-                  final filtered = _filter(tasks, searchQuery,
-                      statusFilter, priorityFilter);
+                data: (items) {
+                  // Κρατάμε μόνο tasks
+                  final tasksOnly = items.where((i) => i.type == ItemType.task).toList();
+
+                  final filtered = _filter(
+                    tasksOnly,
+                    searchQuery,
+                    statusFilter,
+                    priorityFilter,
+                  );
 
                   if (filtered.isEmpty) {
                     return searchQuery.isNotEmpty ||
@@ -215,20 +225,23 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                         priorityFilter != null
                         ? EmptyState.search(query: searchQuery)
                         : EmptyState.forType(
-                        ItemType.task, onAction: _createTask);
+                      ItemType.task,
+                      onAction: _createTask,
+                    );
                   }
 
                   // Ομαδοποίηση: Overdue / Today / Upcoming / No date / Done
                   return _TaskListBody(
-                    tasks:       filtered,
-                    onTap:       (item) => _openDetail(item.id),
-                    onLongPress: (item) => _showItemActions(context, item),
+                    tasks:        filtered,
+                    onTap:        (item) => _openDetail(item.id),
+                    onLongPress:  (item) => _showItemActions(context, item),
                     onToggleDone: _toggleDone,
                   );
                 },
               ),
             ),
           ),
+
         ],
       ),
     );
