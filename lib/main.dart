@@ -20,6 +20,9 @@ void main() async {
   await NotificationService.instance.init();
   DebugConfig.startup('Notifications initialized');
 
+  await NotificationService.instance.requestPermission();
+  DebugConfig.startup('Notifications requestPermission');
+
   final container = ProviderContainer();
   DebugConfig.startup('ProviderContainer created');
 

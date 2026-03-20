@@ -33,6 +33,7 @@ import '../../features/habits/habits.dart';
 import '../../features/calendar/calendar.dart';
 import '../../features/journal/journal.dart';
 import '../../features/contacts/contacts.dart';
+import '../../features/collections/collections.dart';
 
 // ── Route paths ────────────────────────────────────────────────
 
@@ -50,7 +51,8 @@ class AppRoutes {
   // Βήμα 3 — ετοιμάζουμε για τα advanced features
   static const habits = '/habits';
   static const calendar = '/calendar';
-  static const finance = '/finance';
+  static const finance      = '/finance';
+  static const collections  = '/collections';
   static const journal = '/journal';
   static const contacts = '/contacts';
 
@@ -164,11 +166,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
-            path: AppRoutes.finance,
-            name: 'finance',
-            builder: (context, state) => const _ComingSoonScreen(
-                title: 'Οικονομικά',
-                icon: Icons.account_balance_wallet_rounded),
+            path: AppRoutes.collections,
+            name: 'collections',
+            builder: (context, state) => const CollectionsScreen(),
           ),
           GoRoute(
             path: AppRoutes.journal,
@@ -250,10 +250,10 @@ class _AppShell extends ConsumerWidget {
       label:        'Επαφές',
     ),
     _NavItem(
-      path:         AppRoutes.finance,
-      icon:         Icons.account_balance_wallet_outlined,
-      selectedIcon: Icons.account_balance_wallet_rounded,
-      label:        'Οικονομικά',
+      path:         AppRoutes.collections,
+      icon:         Icons.inventory_2_outlined,
+      selectedIcon: Icons.inventory_2_rounded,
+      label:        'Συλλογές',
     ),
     _NavItem(
       path:         AppRoutes.search,
@@ -349,7 +349,7 @@ class _MobileShell extends StatelessWidget {
   }
 }
 
-class _ScrollableBottomNav extends StatelessWidget {
+class _ScrollableBottomNav extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final List<_NavItem> navItems;
@@ -361,78 +361,212 @@ class _ScrollableBottomNav extends StatelessWidget {
   });
 
   @override
+  State<_ScrollableBottomNav> createState() => _ScrollableBottomNavState();
+}
+
+class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
+  late final ScrollController _controller;
+  bool _canScrollLeft  = false;
+  bool _canScrollRight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController();
+    _controller.addListener(_handleScroll);
+
+    // Μόλις γίνει layout, υπολογίζουμε αν μπορεί να scrollάρει
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateScrollFlags();
+    });
+  }
+
+  void _handleScroll() {
+    _updateScrollFlags();
+  }
+
+  void _updateScrollFlags() {
+    if (!_controller.hasClients) return;
+
+    final position = _controller.position;
+
+    // Χρησιμοποιούμε στοχευμένο epsilon
+    const epsilon = 1.0;
+
+    final atStart = (position.pixels - position.minScrollExtent).abs() < epsilon;
+    final atEnd   = (position.maxScrollExtent - position.pixels).abs() < epsilon;
+
+    setState(() {
+      _canScrollLeft  = !atStart;
+      _canScrollRight = !atEnd;
+    });
+
+    DebugConfig.nav(
+      'BOTTOM NAV FLAGS → left=$_canScrollLeft, right=$_canScrollRight, '
+          'pixels=${position.pixels.toStringAsFixed(1)}, '
+          'min=${position.minScrollExtent.toStringAsFixed(1)}, '
+          'max=${position.maxScrollExtent.toStringAsFixed(1)}, '
+          'atStart=$atStart, atEnd=$atEnd',
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_handleScroll);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: ColorsUI.getSurface(context.brightness),
-        border: Border(
-          top: BorderSide(
-            color: ColorsUI.getBorder(context.brightness),
-            width: 1,
+    return Stack(
+      children: [
+        // Η υπάρχουσα μπάρα, απλά με controller
+        Container(
+          decoration: BoxDecoration(
+            color: ColorsUI.getSurface(context.brightness),
+            border: Border(
+              top: BorderSide(
+                color: ColorsUI.getBorder(context.brightness),
+                width: 1,
+              ),
+            ),
           ),
-        ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.only(bottom: bottomPadding),
-        child: IntrinsicHeight(
-          child: Row(
-            children: List.generate(navItems.length, (i) {
-              final item       = navItems[i];
-              final isSelected = i == selectedIndex;
-              final color      = isSelected
-                  ? context.cPrimary
-                  : context.cText2;
+          child: SingleChildScrollView(
+            controller: _controller,
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: IntrinsicHeight(
+              child: Row(
+                children: List.generate(widget.navItems.length, (i) {
+                  final item       = widget.navItems[i];
+                  final isSelected = i == widget.selectedIndex;
+                  final color      = isSelected
+                      ? context.cPrimary
+                      : context.cText2;
 
-              return GestureDetector(
-                onTap: () => onTap(i),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: AppDuration.fast,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.md,
-                    vertical:   Spacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: isSelected
-                            ? context.cPrimary
-                            : Colors.transparent,
-                        width: 2,
+                  return GestureDetector(
+                    onTap: () => widget.onTap(i),
+                    behavior: HitTestBehavior.opaque,
+                    child: AnimatedContainer(
+                      duration: AppDuration.fast,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.md,
+                        vertical:   Spacing.sm,
                       ),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isSelected ? item.selectedIcon : item.icon,
-                        color: color,
-                        size:  22,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        style: context.labelSm.withColor(color).copyWith(
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.normal,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: isSelected
+                                ? context.cPrimary
+                                : Colors.transparent,
+                            width: 2,
+                          ),
                         ),
                       ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isSelected ? item.selectedIcon : item.icon,
+                            color: color,
+                            size:  22,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.label,
+                            style: context.labelSm.withColor(color).copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+
+        // Αριστερό arrow (φαίνεται μόνο όταν υπάρχει κρυφό περιεχόμενο αριστερά)
+        if (_canScrollLeft)
+          Positioned(
+            left: 0,
+            top: 4,
+            bottom: 4,
+            child: IgnorePointer(
+              child: Container(
+                width: 24,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      ColorsUI.getSurface(context.brightness),
+                      ColorsUI.getSurface(context.brightness)
+                          .withValues(alpha:0.0),
                     ],
                   ),
                 ),
-              );
-            }),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 2),
+                    child: Icon(
+                      Icons.arrow_back_ios_rounded,
+                      size: 12,
+                      color: context.cSuccess,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+
+        // Δεξί arrow (φαίνεται μόνο όταν υπάρχει κρυφό περιεχόμενο δεξιά)
+        if (_canScrollRight)
+          Positioned(
+            right: 0,
+            top: 4,
+            bottom: 4,
+            child: IgnorePointer(
+              child: Container(
+                width: 24,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerRight,
+                    end: Alignment.centerLeft,
+                    colors: [
+                      ColorsUI.getSurface(context.brightness),
+                      ColorsUI.getSurface(context.brightness)
+                          .withValues(alpha:0.0),
+                    ],
+                  ),
+                ),
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4, top: 2),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 10,
+                      color: context.cSuccess,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
+
 
 // ── Tablet/Desktop — NavigationRail ──────────────────────────────
 
@@ -485,45 +619,45 @@ class _TabletShell extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// COMING SOON SCREEN — placeholder για Βήμα 3 features
-// ════════════════════════════════════════════════════════════════
-
-class _ComingSoonScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _ComingSoonScreen({
-    required this.title,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.cBg,
-      appBar: AppBar(
-        backgroundColor: context.cBg,
-        elevation: 0,
-        title: Text(title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 72, color: context.cDisabled),
-            const SizedBox(height: Spacing.md),
-            Text('Σύντομα διαθέσιμο', style: context.titleMd),
-            const SizedBox(height: Spacing.sm),
-            Text('Αυτή η λειτουργία βρίσκεται\nυπό ανάπτυξη.',
-                style: context.bodyMd.withColor(context.cText2),
-                textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// // ════════════════════════════════════════════════════════════════
+// // COMING SOON SCREEN — placeholder για Βήμα 3 features
+// // ════════════════════════════════════════════════════════════════
+//
+// class _ComingSoonScreen extends StatelessWidget {
+//   final String title;
+//   final IconData icon;
+//
+//   const _ComingSoonScreen({
+//     required this.title,
+//     required this.icon,
+//   });
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: context.cBg,
+//       appBar: AppBar(
+//         backgroundColor: context.cBg,
+//         elevation: 0,
+//         title: Text(title),
+//       ),
+//       body: Center(
+//         child: Column(
+//           mainAxisSize: MainAxisSize.min,
+//           children: [
+//             Icon(icon, size: 72, color: context.cDisabled),
+//             const SizedBox(height: Spacing.md),
+//             Text('Σύντομα διαθέσιμο', style: context.titleMd),
+//             const SizedBox(height: Spacing.sm),
+//             Text('Αυτή η λειτουργία βρίσκεται\nυπό ανάπτυξη.',
+//                 style: context.bodyMd.withColor(context.cText2),
+//                 textAlign: TextAlign.center),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
 
 // ════════════════════════════════════════════════════════════════
 // ROUTER ERROR SCREEN
