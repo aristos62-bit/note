@@ -221,3 +221,77 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
 
 final itemNotifierProvider =
 AsyncNotifierProvider<ItemNotifier, List<Item>>(ItemNotifier.new);
+// ─────────────────────────────────────────────────────────────────
+// Real-time items ανά folder (για home folder view)
+// ─────────────────────────────────────────────────────────────────
+
+/// Stream items ενός folder — real-time
+final itemsByFolderStreamProvider =
+StreamProvider.family<List<Item>, int>((ref, folderId) async* {
+  final db = ref.watch(dbProvider);
+
+  // 1) Αρχικό snapshot
+  final initial = await db.items.getByFolder(folderId);
+  yield initial;
+
+  // 2) Reactive updates
+  yield* db.items.watchAll().asyncMap((_) {
+    return db.items.getByFolder(folderId);
+  });
+});
+
+/// Pinned items ενός folder — real-time (derived από itemsByFolderStreamProvider)
+final pinnedByFolderStreamProvider =
+StreamProvider.family<List<Item>, int>((ref, folderId) async* {
+  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map(
+        (items) => items.where((i) => i.pinned && i.deletedAt == null).toList(),
+  );
+});
+
+/// Pinned items ΟΛΩΝ των folders — real-time
+final allPinnedStreamProvider = StreamProvider<List<Item>>((ref) async* {
+  yield* ref.watch(itemsStreamProvider.stream).map(
+        (items) => items.where((i) => i.pinned && i.deletedAt == null).toList(),
+  );
+});
+
+/// Stats ανά τύπο για συγκεκριμένο folder — real-time
+final folderStatsProvider =
+StreamProvider.family<Map<ItemType, int>, int>((ref, folderId) async* {
+  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map((items) {
+    final counts = <ItemType, int>{};
+    for (final type in ItemType.values) {
+      counts[type] = items.where((i) => i.type == type && i.deletedAt == null).length;
+    }
+    return counts;
+  });
+});
+
+/// Today's tasks για συγκεκριμένο folder (due today ή overdue, μη completed)
+final todayTasksByFolderProvider =
+StreamProvider.family<List<Item>, int>((ref, folderId) async* {
+  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map((items) {
+    final now   = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return items.where((i) {
+      if (i.type != ItemType.task) return false;
+      if (i.status == ItemStatus.done) return false;
+      if (i.deletedAt != null) return false;
+      return true; // Θα φιλτράρουμε per due date στο UI
+    }).toList();
+  });
+});
+
+/// Recent items ενός folder (τελευταία 10, ταξινομημένα κατά updatedAt)
+final recentByFolderProvider =
+StreamProvider.family<List<Item>, int>((ref, folderId) async* {
+  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map((items) {
+    final active = items.where((i) => !i.archived && i.deletedAt == null).toList();
+    active.sort((a, b) {
+      final aDate = a.updatedAt ?? a.createdAt;
+      final bDate = b.updatedAt ?? b.createdAt;
+      return bDate.compareTo(aDate);
+    });
+    return active.take(10).toList();
+  });
+});

@@ -276,12 +276,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
                 'NoteDetail manual save pressed id=${item.id} title="$title"');
             await _saveTitle(title);
 
-            // Αν είναι νέα σημείωση, μετά το πρώτο save γύρνα πίσω στη λίστα
-            if (widget.isNew) {
-              if(!context.mounted)return;
-              final nav = Navigator.of(context);
-              nav.pop();
-            }
+            // Μετά από save γύρνα πάντα πίσω
+            if (!context.mounted) return;
+            Navigator.of(context).pop();
           },
         ),
 

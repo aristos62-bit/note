@@ -392,12 +392,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           // 2. Αποθήκευση τοποθεσίας
           await _saveLocation(location);
 
-          // 3. Αν είναι ΝΕΟ event, μετά το πρώτο manual save γύρνα πίσω στο Calendar
-          if (widget.isNew) {
-            if (!context.mounted)return;
-            final nav = Navigator.of(context, rootNavigator: false);
-            nav.pop();
-          }
+          // 3. Μετά από save γύρνα πάντα πίσω
+          if (!context.mounted) return;
+          Navigator.of(context, rootNavigator: false).pop();
         },
       ),
 

@@ -273,7 +273,7 @@ class _JournalDetailScreenState
                 'JournalDetail manual save pressed id=${widget.itemId}');
             await _save();
             // Αν είναι νέα καταχώρηση, μετά το πρώτο save γύρνα πίσω
-            if (widget.isNew && mounted) {
+            if (mounted) {
               if(!context.mounted)return;
               Navigator.of(context).pop();
             }

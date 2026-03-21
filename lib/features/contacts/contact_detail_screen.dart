@@ -259,108 +259,108 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   // ── Mobile ───────────────────────────────────────────────────
 
   Widget _buildMobile(BuildContext context, Item item) => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: _buildAppBar(context, item),
-        body: _ContactBody(
-          item: item,
-          nameCtrl: _nameCtrl,
-          phoneCtrl: _phoneCtrl,
-          emailCtrl: _emailCtrl,
-          companyCtrl: _companyCtrl,
-          websiteCtrl: _websiteCtrl,
-          addressCtrl: _addressCtrl,
-          notesCtrl: _notesCtrl,
-          birthday: _lastBirthday,
-          onNameChanged: _onNameChanged,
-          onPickBirthday: () => _pickBirthday(context),
-          onClearBirthday: _clearBirthday,
-          onSyncProps: _syncPropsFromDB,
-        ),
-      );
+    backgroundColor: context.cBg,
+    appBar: _buildAppBar(context, item),
+    body: _ContactBody(
+      item: item,
+      nameCtrl: _nameCtrl,
+      phoneCtrl: _phoneCtrl,
+      emailCtrl: _emailCtrl,
+      companyCtrl: _companyCtrl,
+      websiteCtrl: _websiteCtrl,
+      addressCtrl: _addressCtrl,
+      notesCtrl: _notesCtrl,
+      birthday: _lastBirthday,
+      onNameChanged: _onNameChanged,
+      onPickBirthday: () => _pickBirthday(context),
+      onClearBirthday: _clearBirthday,
+      onSyncProps: _syncPropsFromDB,
+    ),
+  );
 
   // ── Tablet ───────────────────────────────────────────────────
 
   Widget _buildTablet(BuildContext context, Item item) => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: _buildAppBar(context, item),
-        body: Row(
-          children: [
-            // Left: avatar + summary
-            SizedBox(
-              width: context.isDesktop ? 280 : 240,
-              child: _ContactSummaryPanel(item: item),
-            ),
-            VerticalDivider(
-                width: 1, color: ColorsUI.getBorder(context.brightness)),
-            // Right: form
-            Expanded(
-              child: _ContactBody(
-                item: item,
-                nameCtrl: _nameCtrl,
-                phoneCtrl: _phoneCtrl,
-                emailCtrl: _emailCtrl,
-                companyCtrl: _companyCtrl,
-                websiteCtrl: _websiteCtrl,
-                addressCtrl: _addressCtrl,
-                notesCtrl: _notesCtrl,
-                birthday: _lastBirthday,
-                onNameChanged: _onNameChanged,
-                onPickBirthday: () => _pickBirthday(context),
-                onClearBirthday: _clearBirthday,
-                onSyncProps: _syncPropsFromDB,
-              ),
-            ),
-          ],
+    backgroundColor: context.cBg,
+    appBar: _buildAppBar(context, item),
+    body: Row(
+      children: [
+        // Left: avatar + summary
+        SizedBox(
+          width: context.isDesktop ? 280 : 240,
+          child: _ContactSummaryPanel(item: item),
         ),
-      );
+        VerticalDivider(
+            width: 1, color: ColorsUI.getBorder(context.brightness)),
+        // Right: form
+        Expanded(
+          child: _ContactBody(
+            item: item,
+            nameCtrl: _nameCtrl,
+            phoneCtrl: _phoneCtrl,
+            emailCtrl: _emailCtrl,
+            companyCtrl: _companyCtrl,
+            websiteCtrl: _websiteCtrl,
+            addressCtrl: _addressCtrl,
+            notesCtrl: _notesCtrl,
+            birthday: _lastBirthday,
+            onNameChanged: _onNameChanged,
+            onPickBirthday: () => _pickBirthday(context),
+            onClearBirthday: _clearBirthday,
+            onSyncProps: _syncPropsFromDB,
+          ),
+        ),
+      ],
+    ),
+  );
 
   // ── AppBar ───────────────────────────────────────────────────
 
   AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
-        backgroundColor: context.cBg,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        title: _isSaving
-            ? Row(mainAxisSize: MainAxisSize.min, children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: context.cText2),
-                ),
-                const SizedBox(width: Spacing.xs),
-                Text('Αποθήκευση...',
-                    style: context.bodySm.withColor(context.cText2)),
-              ])
-            : null,
-        actions: [
-          // Save
-          IconButton(
-            icon: Icon(Icons.save_rounded, color: context.cPrimary),
-            tooltip: 'Αποθήκευση',
-            onPressed: () async {
-              await _save();
-              if (!context.mounted) return;
-              Navigator.of(context).pop();
-            },
-          ),
-          // Favorite
-          IconButton(
-            icon: Icon(
-              item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: item.favorite
-                  ? ColorsUI.getWarning(context.brightness)
-                  : context.cText2,
-            ),
-            onPressed: () => _toggleFav(item),
-          ),
-          // Delete
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-            onPressed: () => _delete(context),
-          ),
-        ],
-      );
+    backgroundColor: context.cBg,
+    elevation: 0,
+    scrolledUnderElevation: 1,
+    title: _isSaving
+        ? Row(mainAxisSize: MainAxisSize.min, children: [
+      SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(
+            strokeWidth: 2, color: context.cText2),
+      ),
+      const SizedBox(width: Spacing.xs),
+      Text('Αποθήκευση...',
+          style: context.bodySm.withColor(context.cText2)),
+    ])
+        : null,
+    actions: [
+      // Save
+      IconButton(
+        icon: Icon(Icons.save_rounded, color: context.cPrimary),
+        tooltip: 'Αποθήκευση',
+        onPressed: () async {
+          await _save();
+          if (!context.mounted) return;
+          Navigator.of(context).pop();
+        },
+      ),
+      // Favorite
+      IconButton(
+        icon: Icon(
+          item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+          color: item.favorite
+              ? ColorsUI.getWarning(context.brightness)
+              : context.cText2,
+        ),
+        onPressed: () => _toggleFav(item),
+      ),
+      // Delete
+      IconButton(
+        icon: Icon(Icons.delete_outline_rounded, color: context.cError),
+        onPressed: () => _delete(context),
+      ),
+    ],
+  );
 
   // ── Sync props από DB (καλείται μόνο μια φορά) ───────────────
 
@@ -381,11 +381,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     if (_phoneCtrl.text.isEmpty && phone.isNotEmpty) _phoneCtrl.text = phone;
     if (_emailCtrl.text.isEmpty && email.isNotEmpty) _emailCtrl.text = email;
     if (_companyCtrl.text.isEmpty && company.isNotEmpty)
-      {_companyCtrl.text = company;}
+    {_companyCtrl.text = company;}
     if (_websiteCtrl.text.isEmpty && website.isNotEmpty)
-      {_websiteCtrl.text = website;}
+    {_websiteCtrl.text = website;}
     if (_addressCtrl.text.isEmpty && address.isNotEmpty)
-      {_addressCtrl.text = address;}
+    {_addressCtrl.text = address;}
     if (_notesCtrl.text.isEmpty && notes.isNotEmpty) _notesCtrl.text = notes;
 
     _lastPhone = phone;
@@ -400,26 +400,26 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   // ── Fallbacks ────────────────────────────────────────────────
 
   Widget _buildLoading() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(backgroundColor: context.cBg),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(backgroundColor: context.cBg),
+    body: const Center(child: CircularProgressIndicator()),
+  );
 
   Widget _buildError() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(backgroundColor: context.cBg),
-        body: EmptyState.error(
-            onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(backgroundColor: context.cBg),
+    body: EmptyState.error(
+        onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
+  );
 
   Widget _buildNotFound() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(backgroundColor: context.cBg),
-        body: const EmptyState(
-          icon: Icons.person_off_rounded,
-          title: 'Η επαφή δεν βρέθηκε',
-        ),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(backgroundColor: context.cBg),
+    body: const EmptyState(
+      icon: Icons.person_off_rounded,
+      title: 'Η επαφή δεν βρέθηκε',
+    ),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -649,12 +649,12 @@ class _ContactField extends StatelessWidget {
                 border: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
                   borderSide:
-                      BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                  BorderSide(color: ColorsUI.getBorder(context.brightness)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
                   borderSide:
-                      BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                  BorderSide(color: ColorsUI.getBorder(context.brightness)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
@@ -708,7 +708,7 @@ class _BirthdayField extends StatelessWidget {
                   color: ColorsUI.getSurface(context.brightness),
                   borderRadius: AppRadius.inputBR,
                   border:
-                      Border.all(color: ColorsUI.getBorder(context.brightness)),
+                  Border.all(color: ColorsUI.getBorder(context.brightness)),
                 ),
                 child: Row(children: [
                   Expanded(

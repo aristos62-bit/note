@@ -403,7 +403,7 @@ class _CollectionDetailScreenState
         onPressed: () async {
           await _save();
           if(!context.mounted)return;
-          if (widget.isNew && mounted) Navigator.of(context).pop();
+          if (mounted) Navigator.of(context).pop();
         },
       ),
     ],

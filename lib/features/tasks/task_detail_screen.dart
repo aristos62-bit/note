@@ -356,10 +356,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
           tooltip: 'Αποθήκευση',
           onPressed: () async {
+            final nav = Navigator.of(context);
             await _save();
-            // εδώ ΔΕΝ κάνουμε pop, γιατί το TaskDetail δεν έχει isNew flag.
-            // Αν αργότερα προσθέσεις isNew, μπορείς να βάλεις:
-            // if (widget.isNew && mounted) Navigator.of(context).pop();
+            if (!mounted) return;
+            nav.pop();
           },
         ),
 
