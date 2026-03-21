@@ -29,11 +29,18 @@ class ReminderScheduler {
   // ─────────────────────────────────────────────────────────
 
   Future<void> scheduleAll() async {
+    final settings = await SuperNoteHelper.instance.settings.get();
+    if (!settings.notificationsEnabled) return;
+
     final pending =
     await SuperNoteHelper.instance.reminders.getPending();
 
     for (final reminder in pending) {
-      await _scheduleOne(reminder);
+      await _scheduleOne(
+        reminder,
+        sound:     settings.soundEnabled,
+        vibration: settings.vibrationEnabled,
+      );
     }
   }
 
@@ -43,7 +50,13 @@ class ReminderScheduler {
   // ─────────────────────────────────────────────────────────
 
   Future<void> scheduleReminder(Reminder reminder) async {
-    await _scheduleOne(reminder);
+    final settings = await SuperNoteHelper.instance.settings.get();
+    if (!settings.notificationsEnabled) return;
+    await _scheduleOne(
+      reminder,
+      sound:     settings.soundEnabled,
+      vibration: settings.vibrationEnabled,
+    );
   }
 
   // ─────────────────────────────────────────────────────────
@@ -66,7 +79,11 @@ class ReminderScheduler {
   // PRIVATE
   // ─────────────────────────────────────────────────────────
 
-  Future<void> _scheduleOne(Reminder reminder) async {
+  Future<void> _scheduleOne(
+      Reminder reminder, {
+        bool sound     = true,
+        bool vibration = true,
+      }) async {
     // Αγνόησε αν έχει ήδη περάσει
     if (reminder.triggerAt.isBefore(DateTime.now())) return;
 
@@ -85,11 +102,13 @@ class ReminderScheduler {
     }
 
     await NotificationService.instance.schedule(
-      id: reminder.id,
-      title: title,
-      body: body,
+      id:          reminder.id,
+      title:       title,
+      body:        body,
       scheduledAt: reminder.triggerAt,
-      payload: reminder.itemId.toString(), // Για navigation στο tap
+      payload:     reminder.itemId.toString(),
+      sound:       sound,
+      vibration:   vibration,
     );
   }
 }

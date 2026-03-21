@@ -123,8 +123,14 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
+    bool sound     = true,
+    bool vibration = true,
   }) async {
-    await _plugin.show(id, title, body, _details(), payload: payload);
+    await _plugin.show(
+      id, title, body,
+      _details(sound: sound, vibration: vibration),
+      payload: payload,
+    );
   }
 
   Future<void> schedule({
@@ -133,13 +139,15 @@ class NotificationService {
     required String body,
     required DateTime scheduledAt,
     String? payload,
+    bool sound     = true,
+    bool vibration = true,
   }) async {
     await _plugin.zonedSchedule(
       id,
       title,
       body,
       tz.TZDateTime.from(scheduledAt, tz.local),
-      _details(),
+      _details(sound: sound, vibration: vibration),
       payload: payload,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
@@ -167,18 +175,23 @@ class NotificationService {
         ?.createNotificationChannel(channel);
   }
 
-  NotificationDetails _details() => const NotificationDetails(
+  NotificationDetails _details({
+    bool sound     = true,
+    bool vibration = true,
+  }) => NotificationDetails(
     android: AndroidNotificationDetails(
       _channelId, _channelName,
       channelDescription: _channelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
-      enableVibration: true,
+      importance:      Importance.high,
+      priority:        Priority.high,
+      enableVibration: vibration,
+      playSound:       sound,
+      silent:          !sound,
     ),
     iOS: DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
-      presentSound: true,
+      presentSound: sound,
     ),
   );
 

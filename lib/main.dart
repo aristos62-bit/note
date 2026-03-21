@@ -57,7 +57,8 @@ class SuperNoteApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsStreamProvider);
-    final appTheme = settings.value?.theme ?? AppTheme.system;
+    final appTheme  = settings.value?.theme     ?? AppTheme.system;
+    final fontScale = settings.value?.fontScale ?? 1.0;
     final router = ref.watch(appRouterProvider);
 
     DebugConfig.provider(
@@ -71,6 +72,14 @@ class SuperNoteApp extends ConsumerWidget {
       theme:                     AppThemeData.light,
       darkTheme:                 AppThemeData.dark,
       routerConfig:              router,
+
+      // Εφαρμογή fontScale από ρυθμίσεις
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(fontScale),
+        ),
+        child: child!,
+      ),
 
       // Localization για Material / Cupertino / Widgets
       localizationsDelegates: const [
