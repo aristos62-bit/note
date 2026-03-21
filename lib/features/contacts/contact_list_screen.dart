@@ -74,18 +74,14 @@ class _ContactListScreenState
         .create(type: ItemType.contact);
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          ContactDetailScreen(itemId: item.id, isNew: true),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        ContactDetailScreen(itemId: item.id, isNew: true)));
   }
 
   void _openDetail(int id) {
     DebugConfig.nav('ContactList → ContactDetail id=$id');
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          ContactDetailScreen(itemId: id, isNew: false),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        ContactDetailScreen(itemId: id, isNew: false)));
   }
 
   // ── Delete ───────────────────────────────────────────────────
@@ -221,7 +217,7 @@ class _ContactListMobile extends StatelessWidget {
     final letters = groups.keys.toList()..sort();
 
     return ListView.builder(
-      padding: EdgeInsets.only(bottom: 80,
+      padding: const EdgeInsets.only(bottom: 80,
           top: Spacing.xs),
       itemCount: letters.length,
       itemBuilder: (_, i) {

@@ -37,6 +37,7 @@ class _JournalDetailScreenState
   // ── Νέα λογική save (ίδια με NoteDetailScreen) ────────────────
   bool   _isSaving         = false;
   bool   _isEditingTitle   = false;
+  // ignore: unused_field
   bool   _isEditingContent = false;
   String _lastSavedTitle   = '';
   String _lastSavedContent = '';
@@ -273,6 +274,7 @@ class _JournalDetailScreenState
             await _save();
             // Αν είναι νέα καταχώρηση, μετά το πρώτο save γύρνα πίσω
             if (widget.isNew && mounted) {
+              if(!context.mounted)return;
               Navigator.of(context).pop();
             }
           },

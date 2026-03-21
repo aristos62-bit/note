@@ -331,12 +331,12 @@ class _CollectionDetailScreenState
         body: EmptyState.error(),
       ),
       data: (item) {
-        if (item == null) return Scaffold(
+        if (item == null) {return Scaffold(
           backgroundColor: context.cBg,
           appBar: AppBar(backgroundColor: context.cBg),
           body: const EmptyState(icon: Icons.inventory_2_rounded,
               title: 'Η συλλογή δεν βρέθηκε'),
-        );
+        );}
 
         // Sync title
         if (!_isEditingTitle && _titleCtrl.text != (item.title ?? '')) {
@@ -402,6 +402,7 @@ class _CollectionDetailScreenState
         tooltip: 'Αποθήκευση',
         onPressed: () async {
           await _save();
+          if(!context.mounted)return;
           if (widget.isNew && mounted) Navigator.of(context).pop();
         },
       ),
@@ -444,7 +445,7 @@ class _CollectionDetailScreenState
                           color:  accentColor,
                           shape:  BoxShape.circle,
                         ),
-                        child: Icon(Icons.edit_rounded,
+                        child: const Icon(Icons.edit_rounded,
                             size: 11, color: Colors.white),
                       ),
                     ),
@@ -502,7 +503,7 @@ class _CollectionDetailScreenState
                   ),
                 ),
                 child: isActive
-                    ? Icon(Icons.check_rounded, size: 18,
+                    ? const Icon(Icons.check_rounded, size: 18,
                     color: Colors.white)
                     : null,
               ),

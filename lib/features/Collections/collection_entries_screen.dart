@@ -86,14 +86,13 @@ class CollectionEntriesScreen extends ConsumerWidget {
 
     ref.invalidate(itemNotifierProvider);
     // ignore: use_build_context_synchronously
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CollectionEntryDetailScreen(
-        entryId:      item.id,
-        collectionId: collection.id,
-        fields:       fields,
-        isNew:        true,
-      ),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        CollectionEntryDetailScreen(
+          entryId:      item.id,
+          collectionId: collection.id,
+          fields:       fields,
+          isNew:        true,
+        )));
   }
 
   static Color _colorFromItem(Item item) {
@@ -207,14 +206,13 @@ class _FilteredEntriesList extends ConsumerWidget {
         entry:        entries[i],
         fields:       fields,
         accentColor:  accentColor,
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => CollectionEntryDetailScreen(
-            entryId:      entries[i].id,
-            collectionId: collectionId,
-            fields:       fields,
-            isNew:        false,
-          ),
-        )),
+        onTap: () => Navigator.of(context).push(AppTransitions.slideRoute(
+            CollectionEntryDetailScreen(
+              entryId:      entries[i].id,
+              collectionId: collectionId,
+              fields:       fields,
+              isNew:        false,
+            ))),
         onDelete: () async {
           final future = ConfirmDialog.delete(context,
               title: 'Διαγραφή εγγραφής;');

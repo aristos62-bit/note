@@ -8,4 +8,5 @@ export 'utils/date_utils.dart';
 export 'utils/string_utils.dart';
 export 'utils/debug_config.dart';
 export 'utils/responsive.dart';
+export 'utils/transitions.dart';
 export 'router/app_router.dart';

@@ -89,8 +89,8 @@ class AttachmentService {
   // ─────────────────────────────────────────────────────────
 
   Future<void> delete(int attachmentId) async {
-    final attachments = await SuperNoteHelper.instance.attachments
-        .getForItem(0); // Placeholder — φέρνουμε by id παρακάτω
+    // final attachments = await SuperNoteHelper.instance.attachments
+    //     .getForItem(0); // Placeholder — φέρνουμε by id παρακάτω
     // TODO: Πρόσθεσε getById στο AttachmentRepository αν χρειαστεί
 
     await SuperNoteHelper.instance.attachments.delete(attachmentId);

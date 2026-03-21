@@ -16,13 +16,13 @@ import 'package:flutter/material.dart';
 import '../../models/item.dart';
 
 // ════════════════════════════════════════════════════════════════
-// COLORS
+// COLORS 0xFF6750A4  --  0xFFD0BCFF
 // ════════════════════════════════════════════════════════════════
 
 class ColorsUI {
   // ── Primary ──────────────────────────────────────────────────
-  static const Color primaryLight = Color(0xFF6750A4);
-  static const Color primaryDark  = Color(0xFFD0BCFF);
+  static const Color primaryLight = Color(0xC00A30F1);
+  static const Color primaryDark  = Color(0xFFDD8A8A);
 
   static const Color secondaryLight = Color(0xFF625B71);
   static const Color secondaryDark  = Color(0xFFCCC2DC);
@@ -61,14 +61,14 @@ class ColorsUI {
   static const Color transferDark = Color(0xFF64B5F6);
 
   // ── Background / Surface ─────────────────────────────────────
-  static const Color backgroundLight = Color(0xFFE1E0E0);
-  static const Color backgroundDark  = Color(0xFF1C1B1F);
+  static const Color backgroundLight = Color(0xFFA2BFBF);
+  static const Color backgroundDark  = Color(0xFF0A201A);
 
-  static const Color surfaceLight = Color(0xFFE8EBFA);
-  static const Color surfaceDark  = Color(0xFF2B2930);
+  static const Color surfaceLight = Color(0xA9B2CCA8);
+  static const Color surfaceDark  = Color(0x8448474C);
 
-  static const Color cardLight = Color(0xFFE8EBFA);
-  static const Color cardDark  = Color(0xFF2B2930);
+  static const Color cardLight = Color(0x74ECF4F4);
+  static const Color cardDark  = Color(0x932A2A5A);
 
   // ── Text ─────────────────────────────────────────────────────
   static const Color textPrimaryLight   = Color(0xFF1C1B1F);

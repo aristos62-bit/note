@@ -817,7 +817,23 @@ class FolderRepository {
       await _isar.folders.delete(id);
     });
   }
-  /// Stream που εκπέμπει σε κάθε αλλαγή folder
+
+  Future<Folder?> update(int id, {
+    String? name,
+    String? icon,
+    String? color,
+  }) async {
+    final folder = await _isar.folders.get(id);
+    if (folder == null) return null;
+    if (name  != null) folder.name  = name;
+    if (icon  != null) folder.icon  = icon;
+    if (color != null) folder.color = color;
+    await _isar.writeTxn(() async {
+      await _isar.folders.put(folder);
+    });
+    return folder;
+  }
+
   Stream<void> watchAll() => _isar.folders.watchLazy();
 }
 

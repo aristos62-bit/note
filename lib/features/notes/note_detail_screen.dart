@@ -278,6 +278,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
 
             // Αν είναι νέα σημείωση, μετά το πρώτο save γύρνα πίσω στη λίστα
             if (widget.isNew) {
+              if(!context.mounted)return;
               final nav = Navigator.of(context);
               nav.pop();
             }

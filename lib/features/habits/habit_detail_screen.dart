@@ -287,7 +287,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 
         // Delete
         IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: context.cText2),
+          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
           onPressed: () => _delete(context),
           tooltip: 'Διαγραφή',
         ),

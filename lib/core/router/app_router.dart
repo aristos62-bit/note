@@ -80,21 +80,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.home,
             name: 'home',
-            builder: (context, state) => const HomeScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const HomeScreen()),
           ),
           GoRoute(
             path: AppRoutes.notes,
             name: 'notes',
-            builder: (context, state) => const NoteListScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const NoteListScreen()),
             routes: [
               GoRoute(
                 path: ':id',
                 name: 'note-detail',
-                builder: (context, state) {
+                pageBuilder: (context, state) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   DebugConfig.nav('Router → NoteDetail id=$id');
-                  return NoteDetailScreen(itemId: id);
+                  return AppTransitions.slideRight(
+                      state, NoteDetailScreen(itemId: id));
                 },
               ),
             ],
@@ -102,16 +105,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.tasks,
             name: 'tasks',
-            builder: (context, state) => const TaskListScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const TaskListScreen()),
             routes: [
               GoRoute(
                 path: ':id',
                 name: 'task-detail',
-                builder: (context, state) {
+                pageBuilder: (context, state) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   DebugConfig.nav('Router → TaskDetail id=$id');
-                  return TaskDetailScreen(itemId: id);
+                  return AppTransitions.slideRight(
+                      state, TaskDetailScreen(itemId: id));
                 },
               ),
             ],
@@ -119,31 +124,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.search,
             name: 'search',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final q = state.uri.queryParameters['q'];
-              return SearchScreen(initialQuery: q);
+              return AppTransitions.fade(state, SearchScreen(initialQuery: q));
             },
           ),
           GoRoute(
             path: AppRoutes.settings,
             name: 'settings',
-            builder: (context, state) => const SettingsScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.slideUp(state, const SettingsScreen()),
           ),
 
           // ── Βήμα 3 — Placeholder routes ────────────────────
           GoRoute(
             path: AppRoutes.habits,
             name: 'habits',
-            builder: (context, state) => const HabitListScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const HabitListScreen()),
             routes: [
               GoRoute(
                 path: ':id',
                 name: 'habit-detail',
-                builder: (context, state) {
+                pageBuilder: (context, state) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   DebugConfig.nav('Router → HabitDetail id=$id');
-                  return HabitDetailScreen(itemId: id);
+                  return AppTransitions.slideRight(
+                      state, HabitDetailScreen(itemId: id));
                 },
               ),
             ],
@@ -151,16 +159,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.calendar,
             name: 'calendar',
-            builder: (context, state) => const CalendarScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const CalendarScreen()),
             routes: [
               GoRoute(
                 path: ':id',
                 name: 'event-detail',
-                builder: (context, state) {
+                pageBuilder: (context, state) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-                  DebugConfig.nav('Router → EventDetail id=$id');
-                  return EventDetailScreen(itemId: id);
+                  final isNew = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → EventDetail id=$id isNew=\$isNew');
+                  return AppTransitions.slideUp(
+                      state, EventDetailScreen(itemId: id, isNew: isNew));
                 },
               ),
             ],
@@ -168,25 +179,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.collections,
             name: 'collections',
-            builder: (context, state) => const CollectionsScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const CollectionsScreen()),
           ),
           GoRoute(
             path: AppRoutes.journal,
             name: 'journal',
-            builder: (context, state) => const JournalListScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const JournalListScreen()),
           ),
           GoRoute(
             path: AppRoutes.contacts,
             name: 'contacts',
-            builder: (context, state) => const ContactListScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const ContactListScreen()),
             routes: [
               GoRoute(
                 path: ':id',
                 name: 'contact-detail',
-                builder: (context, state) {
+                pageBuilder: (context, state) {
                   final id = int.tryParse(
                       state.pathParameters['id'] ?? '') ?? 0;
-                  return ContactDetailScreen(itemId: id);
+                  return AppTransitions.slideRight(
+                      state, ContactDetailScreen(itemId: id));
                 },
               ),
             ],

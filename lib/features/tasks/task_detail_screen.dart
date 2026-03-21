@@ -208,7 +208,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             if (didPop) return;
 
             final nav   = Navigator.of(context); // cache πριν await
-            final title = _titleCtrl.text.trim();
+            // final title = _titleCtrl.text.trim();
 
             // Φέρνουμε τα τελευταία props για να δούμε αν υπάρχει “περιεχόμενο”
             final props = ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
@@ -382,7 +382,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
         // Delete
         IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: context.cText2),
+          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
           onPressed: () => _deleteTask(context, item),
           tooltip: 'Διαγραφή',
         ),

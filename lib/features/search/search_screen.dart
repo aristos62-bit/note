@@ -163,11 +163,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     switch (result.item.type) {
       case ItemType.task:
       case ItemType.checklist:
-        Navigator.push(context, MaterialPageRoute(
-            builder: (_) => TaskDetailScreen(itemId: result.item.id)));
+        Navigator.push(context,
+            AppTransitions.slideRoute(
+                TaskDetailScreen(itemId: result.item.id)));
       default:
-        Navigator.push(context, MaterialPageRoute(
-            builder: (_) => NoteDetailScreen(itemId: result.item.id)));
+        Navigator.push(context,
+            AppTransitions.slideRoute(
+                NoteDetailScreen(itemId: result.item.id)));
     }
   }
 

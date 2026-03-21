@@ -72,16 +72,14 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
         .create(type: ItemType.journal);
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => JournalDetailScreen(itemId: item.id, isNew: true),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        JournalDetailScreen(itemId: item.id, isNew: true)));
   }
 
   void _openDetail(int id) {
     DebugConfig.nav('JournalList → JournalDetail id=$id');
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => JournalDetailScreen(itemId: id, isNew: false),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        JournalDetailScreen(itemId: id, isNew: false)));
   }
 
   // ── Actions ──────────────────────────────────────────────────

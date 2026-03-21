@@ -8,7 +8,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -39,16 +38,7 @@ class HabitListScreen extends ConsumerStatefulWidget {
 
 class _HabitListScreenState extends ConsumerState<HabitListScreen> {
 
-  @override
-  void initState() {
-    super.initState();
-    // Όταν μπαίνουμε στη λίστα συνηθειών, φιλτράρουμε global σε habits
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(activeItemTypeFilterProvider.notifier).state = ItemType.habit;
-    });
-  }
-
-  // HabitListScreen
+    // HabitListScreen
   Future<void> _createHabit() async {
     DebugConfig.nav('HabitList: create habit');
     final notifier = ref.read(itemNotifierProvider.notifier);

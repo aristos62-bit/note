@@ -153,24 +153,19 @@ class CollectionsScreen extends ConsumerWidget {
     if (item == null || !context.mounted) return;
     ref.invalidate(itemNotifierProvider);
     // ignore: use_build_context_synchronously
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CollectionDetailScreen(
-          collectionId: item.id, isNew: true),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        CollectionDetailScreen(collectionId: item.id, isNew: true)));
   }
 
   void _openCollection(BuildContext context, Item item) {
     DebugConfig.nav('Collections: open id=${item.id}');
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CollectionEntriesScreen(collection: item),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        CollectionEntriesScreen(collection: item)));
   }
 
   void _editCollection(BuildContext context, WidgetRef ref, Item item) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CollectionDetailScreen(
-          collectionId: item.id, isNew: false),
-    ));
+    Navigator.of(context).push(AppTransitions.slideRoute(
+        CollectionDetailScreen(collectionId: item.id, isNew: false)));
   }
 
   Future<void> _delete(

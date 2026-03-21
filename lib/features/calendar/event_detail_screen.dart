@@ -9,10 +9,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
-import '../../helpers/super_note_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
 
 class EventDetailScreen extends ConsumerStatefulWidget {
@@ -41,33 +39,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   String _lastSavedTitle = '';
   bool _hasEverBeenSaved = false;
 
-  // ── Reminder state ───────────────────────────────────────────
-  bool      _reminderEnabled  = false;
-  DateTime? _reminderDateTime;
-  int?      _existingReminderId; // id αν υπάρχει ήδη reminder στη DB
-
   @override
   void initState() {
     super.initState();
     _titleCtrl    = TextEditingController();
     _locationCtrl = TextEditingController();
     DebugConfig.nav('EventDetailScreen init id=${widget.itemId}');
-    _loadExistingReminder();
-  }
-
-  Future<void> _loadExistingReminder() async {
-    final reminders = await SuperNoteHelper.instance.reminders
-        .getForItem(widget.itemId);
-    if (reminders.isNotEmpty && mounted) {
-      final r = reminders.first;
-      setState(() {
-        _reminderEnabled    = true;
-        _reminderDateTime   = r.triggerAt;
-        _existingReminderId = r.id;
-      });
-      DebugConfig.db(
-          'EventDetail loaded reminder id=${r.id} at=${r.triggerAt}');
-    }
   }
 
   @override
@@ -130,11 +107,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       DebugConfig.db(
         'EventDetail auto-delete NEW event without manual save id=${widget.itemId}',
       );
-      // Ακύρωση τυχόν reminder αν υπάρχει
-      if (_existingReminderId != null) {
-        await ReminderScheduler.instance
-            .cancelReminder(_existingReminderId!);
-      }
       await ref
           .read(itemNotifierProvider.notifier)
           .deleteItem(widget.itemId);
@@ -149,92 +121,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     return true;
   }
 
-
-  // ── Reminder methods ─────────────────────────────────────────
-
-  /// Toggle υπενθύμισης — ανοίγει picker αν ενεργοποιείται
-  Future<void> _toggleReminder(bool value, DateTime? startTime) async {
-    if (value) {
-      // Default: 15 λεπτά πριν την έναρξη, ή +1 ώρα από τώρα
-      final defaultDt = startTime != null
-          ? startTime.subtract(const Duration(minutes: 15))
-          : DateTime.now().add(const Duration(hours: 1));
-      await _pickReminderDateTime(defaultDt);
-    } else {
-      await _cancelReminder();
-    }
-  }
-
-  Future<void> _pickReminderDateTime(DateTime initial) async {
-    final now      = DateTime.now();
-    final safeInit = initial.isAfter(now) ? initial : now;
-
-    final date = await showDatePicker(
-      context:     context,
-      initialDate: safeInit,
-      firstDate:   now,
-      lastDate:    DateTime(now.year + 5),
-      helpText:    'Ημερομηνία υπενθύμισης',
-      locale:      const Locale('el'),
-    );
-    if (date == null || !mounted) return;
-
-    // ignore: use_build_context_synchronously
-    final time = await showTimePicker(
-      context:     context,
-      initialTime: TimeOfDay.fromDateTime(safeInit),
-      helpText:    'Ώρα υπενθύμισης',
-    );
-    if (time == null || !mounted) return;
-
-    final dt = DateTime(
-        date.year, date.month, date.day, time.hour, time.minute);
-    setState(() {
-      _reminderEnabled  = true;
-      _reminderDateTime = dt;
-    });
-    DebugConfig.db('EventDetail reminderSet at=$dt');
-  }
-
-  Future<void> _cancelReminder() async {
-    if (_existingReminderId != null) {
-      await ReminderScheduler.instance
-          .cancelReminder(_existingReminderId!);
-      DebugConfig.db(
-          'EventDetail cancelReminder id=$_existingReminderId');
-    }
-    if (mounted) {
-      setState(() {
-        _reminderEnabled    = false;
-        _reminderDateTime   = null;
-        _existingReminderId = null;
-      });
-    }
-  }
-
-  Future<void> _saveReminder(String eventTitle) async {
-    if (!_reminderEnabled || _reminderDateTime == null) return;
-    if (_reminderDateTime!.isBefore(DateTime.now())) {
-      DebugConfig.warning('EventDetail reminder in past, skip');
-      return;
-    }
-    // Ακύρωση παλιού αν υπάρχει
-    if (_existingReminderId != null) {
-      await ReminderScheduler.instance
-          .cancelReminder(_existingReminderId!);
-    }
-    final title    = eventTitle.isNotEmpty ? eventTitle : 'Συμβάν';
-    final reminder = await SuperNoteHelper.instance.reminders.create(
-      itemId:    widget.itemId,
-      triggerAt: _reminderDateTime!,
-      title:     title,
-      body:      'Υπενθύμιση: $title',
-    );
-    await ReminderScheduler.instance.scheduleReminder(reminder);
-    setState(() => _existingReminderId = reminder.id);
-    DebugConfig.db(
-        'EventDetail reminder saved id=${reminder.id} at=${_reminderDateTime!}');
-  }
 
   // ── Date/time pickers ────────────────────────────────────────
 
@@ -345,16 +231,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     if (!ok || !mounted) return;
 
     DebugConfig.db('EventDetail delete id=${widget.itemId}');
-    // Ακύρωση τυχόν reminder
-    if (_existingReminderId != null) {
-      await ReminderScheduler.instance
-          .cancelReminder(_existingReminderId!);
-    }
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
     // Δεν χρειάζεται invalidate: itemsStreamProvider θα ενημερώσει calendar
 
     if (!context.mounted) return;
-    Navigator.of(context).pop();
+    Navigator.of(context, rootNavigator: false).pop();
   }
 
 
@@ -400,7 +281,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav    = Navigator.of(context);
+            final nav    = Navigator.of(context, rootNavigator: false);
             final canPop = await _onPopInvoked();
             if (canPop) nav.pop();
           },
@@ -428,11 +309,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       onPickEnd:          (cur, start, allDay) =>
           _pickEndTime(context, cur, start, allDay),
       onToggleAllDay:     _toggleAllDay,
-      reminderEnabled:    _reminderEnabled,
-      reminderDateTime:   _reminderDateTime,
-      onToggleReminder:   (v, st) => _toggleReminder(v, st),
-      onEditReminder:     () => _pickReminderDateTime(
-          _reminderDateTime ?? DateTime.now().add(const Duration(hours: 1))),
     ),
   );
 
@@ -444,18 +320,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         SizedBox(
           width: 280,
           child: _EventPropertiesPanel(
-            item:             item,
-            onPickStart:      (cur, allDay) =>
+            item: item,
+            onPickStart: (cur, allDay) =>
                 _pickStartTime(context, cur, allDay),
-            onPickEnd:        (cur, start, allDay) =>
+            onPickEnd: (cur, start, allDay) =>
                 _pickEndTime(context, cur, start, allDay),
-            onToggleAllDay:   _toggleAllDay,
-            reminderEnabled:  _reminderEnabled,
-            reminderDateTime: _reminderDateTime,
-            onToggleReminder: (v, st) => _toggleReminder(v, st),
-            onEditReminder:   () => _pickReminderDateTime(
-                _reminderDateTime ??
-                    DateTime.now().add(const Duration(hours: 1))),
+            onToggleAllDay: _toggleAllDay,
           ),
         ),
         VerticalDivider(
@@ -464,24 +334,18 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         ),
         Expanded(
           child: _EventBody(
-            item:             item,
-            titleCtrl:        _titleCtrl,
-            locationCtrl:     _locationCtrl,
-            isSaving:         _isSaving,
+            item:         item,
+            titleCtrl:    _titleCtrl,
+            locationCtrl: _locationCtrl,
+            isSaving:     _isSaving,
             onTitleChange:    _onTitleChanged,
             onLocationChange: _onLocationChanged,
-            onPickStart:      (cur, allDay) =>
+            onPickStart: (cur, allDay) =>
                 _pickStartTime(context, cur, allDay),
-            onPickEnd:        (cur, start, allDay) =>
+            onPickEnd: (cur, start, allDay) =>
                 _pickEndTime(context, cur, start, allDay),
-            onToggleAllDay:   _toggleAllDay,
-            hideProperties:   true,
-            reminderEnabled:  _reminderEnabled,
-            reminderDateTime: _reminderDateTime,
-            onToggleReminder: (v, st) => _toggleReminder(v, st),
-            onEditReminder:   () => _pickReminderDateTime(
-                _reminderDateTime ??
-                    DateTime.now().add(const Duration(hours: 1))),
+            onToggleAllDay: _toggleAllDay,
+            hideProperties:  true,
           ),
         ),
       ],
@@ -528,16 +392,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           // 2. Αποθήκευση τοποθεσίας
           await _saveLocation(location);
 
-          // 3. Αποθήκευση/ακύρωση reminder
-          if (_reminderEnabled) {
-            await _saveReminder(title);
-          } else if (_existingReminderId != null) {
-            await _cancelReminder();
-          }
-
-          // 4. Αν είναι ΝΕΟ event, μετά το πρώτο manual save γύρνα πίσω στο Calendar
+          // 3. Αν είναι ΝΕΟ event, μετά το πρώτο manual save γύρνα πίσω στο Calendar
           if (widget.isNew) {
-            final nav = Navigator.of(context);
+            if (!context.mounted)return;
+            final nav = Navigator.of(context, rootNavigator: false);
             nav.pop();
           }
         },
@@ -591,11 +449,6 @@ class _EventBody extends ConsumerWidget {
   final void Function(DateTime?, DateTime?, bool) onPickEnd;
   final ValueChanged<bool> onToggleAllDay;
   final bool hideProperties;
-  // ── Reminder ────────────────────────────────────────────────
-  final bool      reminderEnabled;
-  final DateTime? reminderDateTime;
-  final void Function(bool, DateTime?) onToggleReminder;
-  final VoidCallback onEditReminder;
 
   const _EventBody({
     required this.item,
@@ -607,11 +460,7 @@ class _EventBody extends ConsumerWidget {
     required this.onPickStart,
     required this.onPickEnd,
     required this.onToggleAllDay,
-    this.hideProperties   = false,
-    this.reminderEnabled  = false,
-    this.reminderDateTime,
-    required this.onToggleReminder,
-    required this.onEditReminder,
+    this.hideProperties = false,
   });
 
   @override
@@ -620,10 +469,6 @@ class _EventBody extends ConsumerWidget {
     final props      = propsAsync.valueOrNull ?? [];
     final location   = props.where((p) => p.key == 'location')
         .firstOrNull?.value ?? '';
-    // Χρειάζεται για το reminder toggle (default = 15' πριν start)
-    final startStr  = props.where((p) => p.key == 'start_time')
-        .firstOrNull?.value;
-    final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
 
     // Sync location controller
     if (!locationCtrl.selection.isValid &&
@@ -679,14 +524,10 @@ class _EventBody extends ConsumerWidget {
               padding: EdgeInsets.symmetric(
                   horizontal: context.responsiveHPadding),
               child: _EventPropertiesPanel(
-                item:             item,
-                onPickStart:      onPickStart,
-                onPickEnd:        onPickEnd,
-                onToggleAllDay:   onToggleAllDay,
-                reminderEnabled:  reminderEnabled,
-                reminderDateTime: reminderDateTime,
-                onToggleReminder: onToggleReminder,
-                onEditReminder:   onEditReminder,
+                item:           item,
+                onPickStart:    onPickStart,
+                onPickEnd:      onPickEnd,
+                onToggleAllDay: onToggleAllDay,
               ),
             ),
           ),
@@ -746,22 +587,14 @@ class _EventPropertiesPanel extends ConsumerWidget {
   final Item item;
   final void Function(DateTime?, bool) onPickStart;
   final void Function(DateTime?, DateTime?, bool) onPickEnd;
+
   final ValueChanged<bool> onToggleAllDay;
-  // ── Reminder ────────────────────────────────────────────────
-  final bool      reminderEnabled;
-  final DateTime? reminderDateTime;
-  final void Function(bool, DateTime?) onToggleReminder;
-  final VoidCallback onEditReminder;
 
   const _EventPropertiesPanel({
     required this.item,
     required this.onPickStart,
     required this.onPickEnd,
     required this.onToggleAllDay,
-    this.reminderEnabled  = false,
-    this.reminderDateTime,
-    required this.onToggleReminder,
-    required this.onEditReminder,
   });
 
   @override
@@ -847,91 +680,7 @@ class _EventPropertiesPanel extends ConsumerWidget {
           ),
         ),
 
-        // Divider + Reminder (tablet panel)
-        Divider(color: ColorsUI.getBorder(context.brightness)),
-        _ReminderSection(
-          enabled:  reminderEnabled,
-          dateTime: reminderDateTime,
-          onToggle: (v) => onToggleReminder(v, startTime),
-          onEdit:   onEditReminder,
-        ),
-
         const SizedBox(height: Spacing.sm),
-      ],
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// REMINDER SECTION
-// ════════════════════════════════════════════════════════════════
-
-class _ReminderSection extends StatelessWidget {
-  final bool      enabled;
-  final DateTime? dateTime;
-  final ValueChanged<bool> onToggle;
-  final VoidCallback       onEdit;
-
-  const _ReminderSection({
-    required this.enabled,
-    required this.dateTime,
-    required this.onToggle,
-    required this.onEdit,
-  });
-
-  /// Ελληνικό format: "Τετ 14 Μαρ, 09:00"
-  String _formatReminder(DateTime dt) {
-    const wd = ['', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
-    const mo = [
-      '', 'Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαΐ', 'Ιουν',
-      'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ',
-    ];
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '${wd[dt.weekday]} ${dt.day} ${mo[dt.month]}, $h:$m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Toggle
-        _PropRow(
-          icon:  Icons.notifications_outlined,
-          label: 'Υπενθύμιση',
-          child: Switch(
-            value:            enabled,
-            onChanged:        onToggle,
-            activeThumbColor: context.cPrimary,
-          ),
-        ),
-
-        // Ώρα (εμφανίζεται μόνο αν είναι ενεργό)
-        if (enabled)
-          _PropRow(
-            icon:  Icons.alarm_rounded,
-            label: 'Ώρα',
-            child: GestureDetector(
-              onTap: onEdit,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    dateTime != null
-                        ? _formatReminder(dateTime!)
-                        : 'Επιλογή...',
-                    style: context.bodyMd.withColor(
-                        dateTime != null
-                            ? context.cPrimary
-                            : context.cText2),
-                  ),
-                  const SizedBox(width: Spacing.xs),
-                  Icon(Icons.edit_rounded,
-                      size: 13, color: context.cText2),
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }
