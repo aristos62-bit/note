@@ -760,6 +760,11 @@ class ReminderRepository {
       await _isar.reminders.put(r);
     });
   }
+  Future<void> delete(int id) async {
+    await _isar.writeTxn(() async {
+      await _isar.reminders.delete(id);
+    });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────

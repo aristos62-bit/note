@@ -75,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Greeting
           SliverToBoxAdapter(child: _GreetingSection()),
 
-          // Folder Selector
+          // Folder Selector (with heading)
           SliverToBoxAdapter(
             child: Consumer(
               builder: (context, ref, _) {
@@ -857,7 +857,7 @@ class _HomeAppBar extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// GREETING
+// GREETING (με εικονίδιο εφαρμογής στα δεξιά)
 // ════════════════════════════════════════════════════════════════
 
 class _GreetingSection extends StatelessWidget {
@@ -884,25 +884,53 @@ class _GreetingSection extends StatelessWidget {
         context.responsiveHPadding, Spacing.md,
         context.responsiveHPadding, Spacing.xs,
       ),
-      child: Row(children: [
-        Icon(greetIcon, size: 22,
-            color: ColorsUI.getWarning(context.brightness)),
-        const SizedBox(width: Spacing.sm),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(greeting, style: context.titleLg),
-            Text(now.dateTime,
-                style: context.bodySm.withColor(context.cText2)),
-          ],
-        ),
-      ]),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Αριστερή πλευρά: εικονίδιο καιρού + κείμενο
+          Expanded(
+            child: Row(
+              children: [
+                Icon(greetIcon, size: 22,
+                    color: ColorsUI.getWarning(context.brightness)),
+                const SizedBox(width: Spacing.sm),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(greeting, style: context.titleLg),
+                    Text(now.dateTime,
+                        style: context.bodySm.withColor(context.cText2)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Δεξιά πλευρά: εικονίδιο εφαρμογής
+          ClipOval(
+            child: Image.asset(
+              'assets/icons/app_icon.webp',
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: context.cSurface,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.error_outline, size: 24),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 // ════════════════════════════════════════════════════════════════
-// FOLDER SELECTOR
+// FOLDER SELECTOR (με επικεφαλίδα "Φάκελοι")
 // ════════════════════════════════════════════════════════════════
 
 class _FolderSelector extends StatelessWidget {
@@ -932,64 +960,81 @@ class _FolderSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: Spacing.sm),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: ColorsUI.getBorder(context.brightness),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Επικεφαλίδα "Φάκελοι"
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.responsiveHPadding,
+            vertical: Spacing.xs,
+          ),
+          child: Text(
+            'Φάκελοι',
+            style: context.labelMd.withColor(context.cText2),
           ),
         ),
-      ),
-      child: SizedBox(
-        height: 44,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(
-              horizontal: context.responsiveHPadding),
-          children: [
-            // "Όλοι"
-            _Tab(
-              label: 'Όλοι',
-              icon: '🗂️',
-              isSelected: selectedFolderId == null,
-              color: context.cPrimary,
-              onTap: () => onSelect(null),
-            ),
-            const SizedBox(width: Spacing.xs),
-
-            // Folders
-            ...folders.map((f) => Padding(
-              padding: const EdgeInsets.only(right: Spacing.xs),
-              child: _Tab(
-                label: f.name,
-                icon: f.icon ?? '📁',
-                isSelected: selectedFolderId == f.id,
-                color: _colorFromHex(f.color, context.cPrimary),
-                onTap: () => onSelect(f.id),
-                onMoreTap: () => onFolderLongPress(f),
-              ),
-            )),
-
-            // "+ Νέος"
-            GestureDetector(
-              onTap: onCreateFolder,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.sm, vertical: Spacing.xs),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.create_new_folder_rounded,
-                      size: 16, color: context.cText2),
-                  const SizedBox(width: 4),
-                  Text('Νέος',
-                      style:
-                      context.labelMd.withColor(context.cText2)),
-                ]),
+        // Τα ταμπάκια
+        Container(
+          margin: const EdgeInsets.only(top: Spacing.xs),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: ColorsUI.getBorder(context.brightness),
               ),
             ),
-          ],
+          ),
+          child: SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(
+                  horizontal: context.responsiveHPadding),
+              children: [
+                // "Όλοι"
+                _Tab(
+                  label: 'Όλοι',
+                  icon: '🗂️',
+                  isSelected: selectedFolderId == null,
+                  color: context.cPrimary,
+                  onTap: () => onSelect(null),
+                ),
+                const SizedBox(width: Spacing.xs),
+
+                // Folders
+                ...folders.map((f) => Padding(
+                  padding: const EdgeInsets.only(right: Spacing.xs),
+                  child: _Tab(
+                    label: f.name,
+                    icon: f.icon ?? '📁',
+                    isSelected: selectedFolderId == f.id,
+                    color: _colorFromHex(f.color, context.cPrimary),
+                    onTap: () => onSelect(f.id),
+                    onMoreTap: () => onFolderLongPress(f),
+                  ),
+                )),
+
+                // "+ Νέος"
+                GestureDetector(
+                  onTap: onCreateFolder,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.sm, vertical: Spacing.xs),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.create_new_folder_rounded,
+                          size: 16, color: context.cText2),
+                      const SizedBox(width: 4),
+                      Text('Νέος',
+                          style:
+                          context.labelMd.withColor(context.cText2)),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }

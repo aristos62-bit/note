@@ -49,6 +49,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icons/app_icon.png
+    - assets/icons/app_icon.webp
 
 flutter_icons:
   android: true
