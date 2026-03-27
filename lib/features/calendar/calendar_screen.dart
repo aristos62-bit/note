@@ -9,10 +9,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import 'event_detail_screen.dart';
 
 /// Όλα τα events του workspace (real-time μέσα από το itemsStreamProvider)
 final _eventsProvider = FutureProvider<List<Item>>((ref) async {
@@ -72,32 +72,70 @@ final _focusedMonthProvider = StateProvider<DateTime>((ref) {
 // CALENDAR SCREEN
 // ════════════════════════════════════════════════════════════════
 
-class CalendarScreen extends ConsumerWidget {
+class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends ConsumerState<CalendarScreen> {
+  int? _selectedFolderId;
+
+  @override
+  Widget build(BuildContext context) {
     DebugConfig.provider('CalendarScreen build');
 
-    final focusedMonth  = ref.watch(_focusedMonthProvider);
-    final selectedDay   = ref.watch(_selectedDayProvider);
-    final monthAsync    = ref.watch(_monthEventsProvider(focusedMonth));
+    final focusedMonth = ref.watch(_focusedMonthProvider);
+    final selectedDay  = ref.watch(_selectedDayProvider);
+    final monthAsync   = ref.watch(_monthEventsProvider(focusedMonth));
+    final foldersAsync = ref.watch(foldersStreamProvider);
+    final folders      = foldersAsync.valueOrNull ?? [];
 
-    final eventsForDay  = monthAsync.valueOrNull?[selectedDay] ?? [];
+    // Φιλτράρισμα events ανά folder
+    final allEventsForDay = monthAsync.valueOrNull?[selectedDay] ?? [];
+    final eventsForDay = _selectedFolderId == null
+        ? allEventsForDay
+        : allEventsForDay
+        .where((e) => e.folderId == _selectedFolderId)
+        .toList();
 
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(context, ref, focusedMonth),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _createEvent(context, ref, selectedDay),
+      floatingActionButton: _selectedFolderId != null
+          ? FloatingActionButton(
+        onPressed: () =>
+            _createEvent(context, ref, selectedDay),
         tooltip: 'Νέο συμβάν',
         child: const Icon(Icons.add_rounded),
-      ),
-      body: ResponsiveLayout(
-        mobile:  _buildMobile(context, ref, focusedMonth,
-            selectedDay, monthAsync, eventsForDay),
-        tablet:  _buildTablet(context, ref, focusedMonth,
-            selectedDay, monthAsync, eventsForDay),
+      )
+          : null,
+      body: Column(
+        children: [
+          // ── Folder selector ───────────────────────────────
+          if (folders.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+              child: _CalendarFolderChips(
+                folders:          folders,
+                selectedFolderId: _selectedFolderId,
+                onSelect: (id) {
+                  setState(() => _selectedFolderId = id);
+                  DebugConfig.nav('Calendar: select folder id=\$id');
+                },
+              ),
+            ),
+          // ── Calendar body ─────────────────────────────────
+          Expanded(
+            child: ResponsiveLayout(
+              mobile: _buildMobile(context, ref, focusedMonth,
+                  selectedDay, monthAsync, eventsForDay),
+              tablet: _buildTablet(context, ref, focusedMonth,
+                  selectedDay, monthAsync, eventsForDay),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -182,7 +220,9 @@ class CalendarScreen extends ConsumerWidget {
           child: _EventsList(
             day:    selectedDay,
             events: eventsForDay,
-            onTap:  (id) => context.push('/calendar/$id'),
+            onTap:  (id) => Navigator.of(context).push(
+                AppTransitions.slideRoute(
+                    EventDetailScreen(itemId: id))),
           ),
         ),
       ],
@@ -223,7 +263,9 @@ class CalendarScreen extends ConsumerWidget {
           child: _EventsList(
             day:    selectedDay,
             events: eventsForDay,
-            onTap:  (id) => context.push('/calendar/$id'),
+            onTap:  (id) => Navigator.of(context).push(
+                AppTransitions.slideRoute(
+                    EventDetailScreen(itemId: id))),
           ),
         ),
       ],
@@ -236,21 +278,22 @@ class CalendarScreen extends ConsumerWidget {
       DateTime selectedDay) async {
     DebugConfig.nav('Calendar: createEvent for $selectedDay');
     final item = await ref.read(itemNotifierProvider.notifier)
-        .create(type: ItemType.event);
+        .create(
+      type:     ItemType.event,
+      folderId: _selectedFolderId,
+    );
     if (item == null || !context.mounted) return;
 
-    // Set start_time = selected day 09:00
     final startTime = DateTime(
         selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
     await ref.read(propertyNotifierProvider(item.id).notifier)
         .setDate('start_time', startTime);
 
-    // Δεν χρειάζεται invalidate: το itemsStreamProvider θα δώσει νέο snapshot
-
+    if (!context.mounted) return;
     // ignore: use_build_context_synchronously
-    context.push(
-      '/calendar/${item.id}',
-      extra: true, // νέο event
+    Navigator.of(context).push(
+      AppTransitions.slideRoute(
+          EventDetailScreen(itemId: item.id, isNew: true)),
     );
   }
 }
@@ -568,6 +611,62 @@ class _EventTile extends ConsumerWidget {
                 size: 18, color: context.cDisabled),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// CALENDAR FOLDER CHIPS — ίδιο pattern με NoteListScreen
+// ════════════════════════════════════════════════════════════════
+
+class _CalendarFolderChips extends StatelessWidget {
+  final List<Folder> folders;
+  final int?         selectedFolderId;
+  final ValueChanged<int?> onSelect;
+
+  const _CalendarFolderChips({
+    required this.folders,
+    required this.selectedFolderId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(
+            horizontal: context.responsiveHPadding),
+        itemCount:        folders.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
+        itemBuilder: (ctx, index) {
+          if (index == 0) {
+            return ChoiceChip(
+              label: const Text('Όλοι'),
+              selected: selectedFolderId == null,
+              onSelected: (_) => onSelect(null),
+            );
+          }
+          final folder     = folders[index - 1];
+          final isSelected = selectedFolderId == folder.id;
+          return ChoiceChip(
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(folder.icon ?? '📁'),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(folder.name,
+                      overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            selected: isSelected,
+            onSelected: (_) => onSelect(folder.id),
+          );
+        },
       ),
     );
   }

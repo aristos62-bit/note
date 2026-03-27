@@ -73,6 +73,7 @@ class NotificationService {
     if (_initialized) return;
 
     tz_data.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Europe/Athens'));
 
     const androidSettings =
     AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -126,6 +127,7 @@ class NotificationService {
     bool sound     = true,
     bool vibration = true,
   }) async {
+    if (!_initialized) return;
     await _plugin.show(
       id, title, body,
       _details(sound: sound, vibration: vibration),
@@ -142,6 +144,7 @@ class NotificationService {
     bool sound     = true,
     bool vibration = true,
   }) async {
+    if (!_initialized) return;
     await _plugin.zonedSchedule(
       id,
       title,
@@ -155,8 +158,16 @@ class NotificationService {
     );
   }
 
-  Future<void> cancel(int id) => _plugin.cancel(id);
-  Future<void> cancelAll() => _plugin.cancelAll();
+  Future<void> cancel(int id) async {
+    if (!_initialized) return;
+    await _plugin.cancel(id);
+  }
+
+  Future<void> cancelAll() async {
+    if (!_initialized) return;
+    await _plugin.cancelAll();
+  }
+
 
   // ─────────────────────────────────────────────────────────
   // PRIVATE

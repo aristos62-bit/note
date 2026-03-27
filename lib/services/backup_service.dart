@@ -36,7 +36,7 @@ class BackupService {
   // EXPORT — Αντίγραψε το .isar αρχείο σε downloads
   // ─────────────────────────────────────────────────────────
 
-  Future<String> export() async {
+  Future<String> export({String? toDirectory}) async {
     final dbDir   = await getApplicationDocumentsDirectory();
     final srcPath = p.join(dbDir.path, _dbFileName);
     final srcFile = File(srcPath);
@@ -45,37 +45,51 @@ class BackupService {
       throw Exception('Δεν βρέθηκε η βάση δεδομένων');
     }
 
-    // Αποθήκευσε στα Documents με timestamp
+    // Αν ο χρήστης έδωσε φάκελο, χρησιμοποίησέ τον, αλλιώς default app dir
+    final targetDir = toDirectory != null
+        ? Directory(toDirectory)
+        : dbDir;
+
+    if (!await targetDir.exists()) {
+      await targetDir.create(recursive: true);
+    }
+
     final timestamp = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
         .split('.').first;
     final destName = 'super_note_backup_$timestamp.isar';
-    final destPath = p.join(dbDir.path, destName);
+    final destPath = p.join(targetDir.path, destName);
 
     await srcFile.copy(destPath);
-    return destPath; // Επέστρεψε το path για share
+    return destPath;
   }
+
 
   // ─────────────────────────────────────────────────────────
   // IMPORT — Επαναφορά από backup αρχείο
   // ΠΡΟΣΟΧΗ: Αντικαθιστά ΟΛΟΚΛΗΡΗ την τρέχουσα DB
   // ─────────────────────────────────────────────────────────
 
-  Future<bool> import() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      withData: false,
-    );
+  Future<bool> import({String? fromPath}) async {
+    String? srcPath = fromPath;
 
-    if (result == null || result.files.isEmpty) return false;
-    final srcPath = result.files.first.path;
-    if (srcPath == null) return false;
+    // Αν δεν δόθηκε path, άσε τον χρήστη να διαλέξει αρχείο
+    if (srcPath == null) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: false,
+      );
+
+      if (result == null || result.files.isEmpty) return false;
+      srcPath = result.files.first.path;
+      if (srcPath == null) return false;
+    }
 
     // Κλείσε την DB πριν αντικατάσταση
     await SuperNoteHelper.instance.close();
 
-    final dbDir   = await getApplicationDocumentsDirectory();
+    final dbDir    = await getApplicationDocumentsDirectory();
     final destPath = p.join(dbDir.path, _dbFileName);
 
     await File(srcPath).copy(destPath);

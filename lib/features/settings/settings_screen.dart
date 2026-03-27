@@ -12,6 +12,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/backup_service.dart';
 import '../../shared/widgets/widgets.dart';
+import 'package:file_picker/file_picker.dart';
 
 // ════════════════════════════════════════════════════════════════
 // SETTINGS SCREEN
@@ -212,11 +213,24 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
     DebugConfig.db('Settings: export backup');
-    final messenger  = ScaffoldMessenger.of(context); // cache πριν await
+    final messenger  = ScaffoldMessenger.of(context);
     final successBg  = context.cSuccess;
     final errorBg    = context.cError;
+
     try {
-      final path = await BackupService.instance.export();
+      // 1. Ο χρήστης επιλέγει φάκελο
+      final dirPath = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Επιλογή φακέλου για το backup',
+      );
+
+      if (dirPath == null) {
+        // ακύρωση
+        return;
+      }
+
+      // 2. Export στον επιλεγμένο φάκελο
+      final path = await BackupService.instance.export(toDirectory: dirPath);
+
       messenger.showSnackBar(SnackBar(
         content: Text('Εξαγωγή επιτυχής:\n$path'),
         backgroundColor: successBg,
@@ -243,10 +257,35 @@ class SettingsScreen extends ConsumerWidget {
     if (!ok || !context.mounted) return;
 
     DebugConfig.db('Settings: import backup');
-    final messenger = ScaffoldMessenger.of(context); // cache πριν await
+    final messenger = ScaffoldMessenger.of(context);
     final errorBg   = context.cError;
+
     try {
-      await BackupService.instance.import();
+      // 1. Επιλογή αρχείου .isar
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+        dialogTitle: 'Επιλογή αρχείου backup (.isar)',
+      );
+
+      if (result == null || result.files.single.path == null) {
+        return;
+      }
+
+      final filePath = result.files.single.path!;
+
+// Προαιρετικός έλεγχος επέκτασης για ασφάλεια
+      if (!filePath.toLowerCase().endsWith('.isar')) {
+        messenger.showSnackBar(SnackBar(
+          content: const Text('Μη έγκυρο αρχείο backup (πρέπει να είναι .isar)'),
+          backgroundColor: errorBg,
+        ));
+        return;
+      }
+
+      await BackupService.instance.import(fromPath: filePath);
+
+
       messenger.showSnackBar(
         const SnackBar(content: Text('Εισαγωγή επιτυχής — επανεκκίνηση...')),
       );
@@ -258,6 +297,7 @@ class SettingsScreen extends ConsumerWidget {
       ));
     }
   }
+
 
   Future<void> _clearData(BuildContext context, WidgetRef ref) async {
     final future = ConfirmDialog.delete(

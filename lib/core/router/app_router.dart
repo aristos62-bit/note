@@ -34,6 +34,7 @@ import '../../features/calendar/calendar.dart';
 import '../../features/journal/journal.dart';
 import '../../features/contacts/contacts.dart';
 import '../../features/collections/collections.dart';
+import 'package:flutter/gestures.dart';
 
 // ── Route paths ────────────────────────────────────────────────
 
@@ -51,8 +52,8 @@ class AppRoutes {
   // Βήμα 3 — ετοιμάζουμε για τα advanced features
   static const habits = '/habits';
   static const calendar = '/calendar';
-  static const finance      = '/finance';
-  static const collections  = '/collections';
+  static const finance = '/finance';
+  static const collections = '/collections';
   static const journal = '/journal';
   static const contacts = '/contacts';
 
@@ -198,8 +199,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: ':id',
                 name: 'contact-detail',
                 pageBuilder: (context, state) {
-                  final id = int.tryParse(
-                      state.pathParameters['id'] ?? '') ?? 0;
+                  final id =
+                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   return AppTransitions.slideRight(
                       state, ContactDetailScreen(itemId: id));
                 },
@@ -223,64 +224,64 @@ class _AppShell extends ConsumerWidget {
 
   static const _navItems = [
     _NavItem(
-      path:         AppRoutes.home,
-      icon:         Icons.home_outlined,
+      path: AppRoutes.home,
+      icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
-      label:        'Αρχική',
+      label: 'Αρχική',
     ),
     _NavItem(
-      path:         AppRoutes.notes,
-      icon:         Icons.note_outlined,
+      path: AppRoutes.notes,
+      icon: Icons.note_outlined,
       selectedIcon: Icons.note_rounded,
-      label:        'Σημειώσεις',
+      label: 'Σημειώσεις',
     ),
     _NavItem(
-      path:         AppRoutes.tasks,
-      icon:         Icons.check_circle_outline_rounded,
+      path: AppRoutes.tasks,
+      icon: Icons.check_circle_outline_rounded,
       selectedIcon: Icons.check_circle_rounded,
-      label:        'Εργασίες',
+      label: 'Εργασίες',
     ),
     _NavItem(
-      path:         AppRoutes.habits,
-      icon:         Icons.loop_outlined,
+      path: AppRoutes.habits,
+      icon: Icons.loop_outlined,
       selectedIcon: Icons.loop_rounded,
-      label:        'Συνήθειες',
+      label: 'Συνήθειες',
     ),
     _NavItem(
-      path:         AppRoutes.calendar,
-      icon:         Icons.calendar_month_outlined,
+      path: AppRoutes.calendar,
+      icon: Icons.calendar_month_outlined,
       selectedIcon: Icons.calendar_month_rounded,
-      label:        'Συμβάντα',
+      label: 'Συμβάντα',
     ),
     _NavItem(
-      path:         AppRoutes.journal,
-      icon:         Icons.auto_stories_outlined,
+      path: AppRoutes.journal,
+      icon: Icons.auto_stories_outlined,
       selectedIcon: Icons.auto_stories_rounded,
-      label:        'Ημερολόγιο',
+      label: 'Ημερολόγιο',
     ),
     _NavItem(
-      path:         AppRoutes.contacts,
-      icon:         Icons.people_outline_rounded,
+      path: AppRoutes.contacts,
+      icon: Icons.people_outline_rounded,
       selectedIcon: Icons.people_rounded,
-      label:        'Επαφές',
+      label: 'Επαφές',
     ),
     _NavItem(
-      path:         AppRoutes.collections,
-      icon:         Icons.inventory_2_outlined,
+      path: AppRoutes.collections,
+      icon: Icons.inventory_2_outlined,
       selectedIcon: Icons.inventory_2_rounded,
-      label:        'Συλλογές',
+      label: 'Συλλογές',
     ),
     _NavItem(
-      path:         AppRoutes.search,
-      icon:         Icons.search_rounded,
+      path: AppRoutes.search,
+      icon: Icons.search_rounded,
       selectedIcon: Icons.search_rounded,
-      label:        'Αναζήτηση',
+      label: 'Αναζήτηση',
     ),
     _NavItem(
-      path:         AppRoutes.settings,
-      icon:         Icons.settings_outlined,
+      path: AppRoutes.settings,
+      icon: Icons.settings_outlined,
       selectedIcon: Icons.settings_rounded,
-      label:        'Ρυθμίσεις',
+      label: 'Ρυθμίσεις',
     ),
   ];
 
@@ -357,8 +358,8 @@ class _MobileShell extends StatelessWidget {
       body: child,
       bottomNavigationBar: _ScrollableBottomNav(
         selectedIndex: selectedIndex,
-        onTap:         onTap,
-        navItems:      navItems,
+        onTap: onTap,
+        navItems: navItems,
       ),
     );
   }
@@ -381,7 +382,7 @@ class _ScrollableBottomNav extends StatefulWidget {
 
 class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
   late final ScrollController _controller;
-  bool _canScrollLeft  = false;
+  bool _canScrollLeft = false;
   bool _canScrollRight = false;
 
   @override
@@ -408,20 +409,21 @@ class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
     // Χρησιμοποιούμε στοχευμένο epsilon
     const epsilon = 1.0;
 
-    final atStart = (position.pixels - position.minScrollExtent).abs() < epsilon;
-    final atEnd   = (position.maxScrollExtent - position.pixels).abs() < epsilon;
+    final atStart =
+        (position.pixels - position.minScrollExtent).abs() < epsilon;
+    final atEnd = (position.maxScrollExtent - position.pixels).abs() < epsilon;
 
     setState(() {
-      _canScrollLeft  = !atStart;
+      _canScrollLeft = !atStart;
       _canScrollRight = !atEnd;
     });
 
     DebugConfig.nav(
       'BOTTOM NAV FLAGS → left=$_canScrollLeft, right=$_canScrollRight, '
-          'pixels=${position.pixels.toStringAsFixed(1)}, '
-          'min=${position.minScrollExtent.toStringAsFixed(1)}, '
-          'max=${position.maxScrollExtent.toStringAsFixed(1)}, '
-          'atStart=$atStart, atEnd=$atEnd',
+      'pixels=${position.pixels.toStringAsFixed(1)}, '
+      'min=${position.minScrollExtent.toStringAsFixed(1)}, '
+      'max=${position.maxScrollExtent.toStringAsFixed(1)}, '
+      'atStart=$atStart, atEnd=$atEnd',
     );
   }
 
@@ -449,63 +451,71 @@ class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
               ),
             ),
           ),
-          child: SingleChildScrollView(
-            controller: _controller,
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: IntrinsicHeight(
-              child: Row(
-                children: List.generate(widget.navItems.length, (i) {
-                  final item       = widget.navItems[i];
-                  final isSelected = i == widget.selectedIndex;
-                  final color      = isSelected
-                      ? context.cPrimary
-                      : context.cText2;
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: SingleChildScrollView(
+              controller: _controller,
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.only(bottom: bottomPadding),
+              child: IntrinsicHeight(
+                child: Row(
+                  children: List.generate(widget.navItems.length, (i) {
+                    final item = widget.navItems[i];
+                    final isSelected = i == widget.selectedIndex;
+                    final color = isSelected ? context.cPrimary : context.cText2;
 
-                  return GestureDetector(
-                    onTap: () => widget.onTap(i),
-                    behavior: HitTestBehavior.opaque,
-                    child: AnimatedContainer(
-                      duration: AppDuration.fast,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Spacing.md,
-                        vertical:   Spacing.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: isSelected
-                                ? context.cPrimary
-                                : Colors.transparent,
-                            width: 2,
-                          ),
+                    return GestureDetector(
+                      onTap: () => widget.onTap(i),
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        duration: AppDuration.fast,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.md,
+                          vertical: Spacing.sm,
                         ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isSelected ? item.selectedIcon : item.icon,
-                            color: color,
-                            size:  22,
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            item.label,
-                            style: context.labelSm.withColor(color).copyWith(
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: isSelected
+                                  ? context.cPrimary
+                                  : Colors.transparent,
+                              width: 2,
                             ),
                           ),
-                        ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isSelected ? item.selectedIcon : item.icon,
+                              color: color,
+                              size: 22,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item.label,
+                              style: context.labelSm.withColor(color).copyWith(
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ),
               ),
             ),
           ),
+
         ),
 
         // Αριστερό arrow (φαίνεται μόνο όταν υπάρχει κρυφό περιεχόμενο αριστερά)
@@ -524,7 +534,7 @@ class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
                     colors: [
                       ColorsUI.getSurface(context.brightness),
                       ColorsUI.getSurface(context.brightness)
-                          .withValues(alpha:0.0),
+                          .withValues(alpha: 0.0),
                     ],
                   ),
                 ),
@@ -559,7 +569,7 @@ class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
                     colors: [
                       ColorsUI.getSurface(context.brightness),
                       ColorsUI.getSurface(context.brightness)
-                          .withValues(alpha:0.0),
+                          .withValues(alpha: 0.0),
                     ],
                   ),
                 ),
@@ -582,7 +592,6 @@ class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
   }
 }
 
-
 // ── Tablet/Desktop — NavigationRail ──────────────────────────────
 
 class _TabletShell extends StatelessWidget {
@@ -603,25 +612,49 @@ class _TabletShell extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          NavigationRail(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onTap,
-            backgroundColor: ColorsUI.getSurface(context.brightness),
-            labelType: context.isDesktop
-                ? NavigationRailLabelType.all
-                : NavigationRailLabelType.selected,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-              child: Icon(Icons.note_alt_rounded,
-                  color: context.cPrimary, size: 28),
+          // Scrollable NavigationRail για όταν δεν χωράει σε ύψος (Windows κ.λπ.)
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 80, maxWidth: 120),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: NavigationRail(
+                        selectedIndex: selectedIndex,
+                        onDestinationSelected: onTap,
+                        backgroundColor:
+                            ColorsUI.getSurface(context.brightness),
+                        labelType: context.isDesktop
+                            ? NavigationRailLabelType.all
+                            : NavigationRailLabelType.selected,
+                        leading: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: Spacing.md),
+                          child: Icon(
+                            Icons.note_alt_rounded,
+                            color: context.cPrimary,
+                            size: 28,
+                          ),
+                        ),
+                        destinations: navItems
+                            .map(
+                              (item) => NavigationRailDestination(
+                                icon: Icon(item.icon),
+                                selectedIcon: Icon(item.selectedIcon),
+                                label: Text(item.label),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            destinations: navItems
-                .map((item) => NavigationRailDestination(
-              icon: Icon(item.icon),
-              selectedIcon: Icon(item.selectedIcon),
-              label: Text(item.label),
-            ))
-                .toList(),
           ),
           VerticalDivider(
             width: 1,

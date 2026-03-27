@@ -243,55 +243,158 @@ StreamProvider.family<List<Item>, int>((ref, folderId) async* {
 /// Pinned items ενός folder — real-time (derived από itemsByFolderStreamProvider)
 final pinnedByFolderStreamProvider =
 StreamProvider.family<List<Item>, int>((ref, folderId) async* {
-  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map(
-        (items) => items.where((i) => i.pinned && i.deletedAt == null).toList(),
+  // Παρακολουθούμε το AsyncValue<List<Item>>
+  final asyncItems = ref.watch(itemsByFolderStreamProvider(folderId));
+
+  // Όταν έχει τιμή, κάνουμε yield το φιλτραρισμένο αποτέλεσμα
+  if (asyncItems.hasValue) {
+    final items = asyncItems.value ?? [];
+    final pinned = items
+        .where((i) => i.pinned && i.deletedAt == null)
+        .toList();
+    yield pinned;
+  }
+
+  // Και μετά ακούμε όλες τις επόμενες αλλαγές του base stream
+  yield* asyncItems.when(
+    data: (items) async* {
+      yield items.where((i) => i.pinned && i.deletedAt == null).toList();
+    },
+    loading: () async* {
+      // προαιρετικά: yield [];
+    },
+    error: (_, __) async* {
+      // προαιρετικά: yield [];
+    },
   );
 });
 
+
 /// Pinned items ΟΛΩΝ των folders — real-time
 final allPinnedStreamProvider = StreamProvider<List<Item>>((ref) async* {
-  yield* ref.watch(itemsStreamProvider.stream).map(
-        (items) => items.where((i) => i.pinned && i.deletedAt == null).toList(),
+  final asyncItems = ref.watch(itemsStreamProvider);
+
+  // Αρχικό snapshot όταν υπάρχουν data
+  if (asyncItems.hasValue) {
+    final items = asyncItems.value ?? [];
+    yield items
+        .where((i) => i.pinned && i.deletedAt == null)
+        .toList();
+  }
+
+  // Reactive updates από το base stream
+  yield* asyncItems.when(
+    data: (items) async* {
+      yield items
+          .where((i) => i.pinned && i.deletedAt == null)
+          .toList();
+    },
+    loading: () async* {
+      // optionally: yield [];
+    },
+    error: (_, __) async* {
+      // optionally: yield [];
+    },
   );
 });
+
 
 /// Stats ανά τύπο για συγκεκριμένο folder — real-time
 final folderStatsProvider =
 StreamProvider.family<Map<ItemType, int>, int>((ref, folderId) async* {
-  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map((items) {
+  final asyncItems = ref.watch(itemsByFolderStreamProvider(folderId));
+
+  Map<ItemType, int> computeCounts(List<Item> items) {
     final counts = <ItemType, int>{};
     for (final type in ItemType.values) {
-      counts[type] = items.where((i) => i.type == type && i.deletedAt == null).length;
+      counts[type] =
+          items.where((i) => i.type == type && i.deletedAt == null).length;
     }
     return counts;
-  });
+  }
+
+  // Αρχικό snapshot
+  if (asyncItems.hasValue) {
+    final items = asyncItems.value ?? [];
+    yield computeCounts(items);
+  }
+
+  // Reactive updates
+  yield* asyncItems.when(
+    data: (items) async* {
+      yield computeCounts(items);
+    },
+    loading: () async* {
+      // optionally: yield {};
+    },
+    error: (_, __) async* {
+      // optionally: yield {};
+    },
+  );
 });
+
 
 /// Today's tasks για συγκεκριμένο folder (due today ή overdue, μη completed)
 final todayTasksByFolderProvider =
 StreamProvider.family<List<Item>, int>((ref, folderId) async* {
-  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map((items) {
-    final now   = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  final asyncItems = ref.watch(itemsByFolderStreamProvider(folderId));
+
+  List<Item> filter(List<Item> items) {
     return items.where((i) {
       if (i.type != ItemType.task) return false;
       if (i.status == ItemStatus.done) return false;
       if (i.deletedAt != null) return false;
       return true; // Θα φιλτράρουμε per due date στο UI
     }).toList();
-  });
+  }
+
+  if (asyncItems.hasValue) {
+    yield filter(asyncItems.value ?? []);
+  }
+
+  yield* asyncItems.when(
+    data: (items) async* {
+      yield filter(items);
+    },
+    loading: () async* {
+      // optionally: yield [];
+    },
+    error: (_, __) async* {
+      // optionally: yield [];
+    },
+  );
 });
+
 
 /// Recent items ενός folder (τελευταία 10, ταξινομημένα κατά updatedAt)
 final recentByFolderProvider =
 StreamProvider.family<List<Item>, int>((ref, folderId) async* {
-  yield* ref.watch(itemsByFolderStreamProvider(folderId).stream).map((items) {
-    final active = items.where((i) => !i.archived && i.deletedAt == null).toList();
+  final asyncItems = ref.watch(itemsByFolderStreamProvider(folderId));
+
+  List<Item> compute(List<Item> items) {
+    final active =
+    items.where((i) => !i.archived && i.deletedAt == null).toList();
     active.sort((a, b) {
       final aDate = a.updatedAt ?? a.createdAt;
       final bDate = b.updatedAt ?? b.createdAt;
       return bDate.compareTo(aDate);
     });
     return active.take(10).toList();
-  });
+  }
+
+  if (asyncItems.hasValue) {
+    yield compute(asyncItems.value ?? []);
+  }
+
+  yield* asyncItems.when(
+    data: (items) async* {
+      yield compute(items);
+    },
+    loading: () async* {
+      // optionally: yield [];
+    },
+    error: (_, __) async* {
+      // optionally: yield [];
+    },
+  );
 });

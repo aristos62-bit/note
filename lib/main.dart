@@ -91,6 +91,7 @@ class SuperNoteApp extends ConsumerWidget {
         Locale('en'),
         Locale('el'),
       ],
+      locale: const Locale('el'),
     );
 
   }
@@ -112,7 +113,12 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   bool _disposed = false;
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.resumed) {
+      DebugConfig.startup('App resumed — scheduling reminders');
+      await ReminderScheduler.instance.scheduleAll();
+    }
+
     if (!_disposed && state == AppLifecycleState.detached) {
       _disposed = true;
       container.dispose();

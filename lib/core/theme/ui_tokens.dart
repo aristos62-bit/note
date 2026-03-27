@@ -21,8 +21,8 @@ import '../../models/item.dart';
 
 class ColorsUI {
   // ── Primary ──────────────────────────────────────────────────
-  static const Color primaryLight = Color(0xC00A30F1);
-  static const Color primaryDark  = Color(0xFFDD8A8A);
+  static const Color primaryLight = Color(0xFF5EAAA7);
+  static const Color primaryDark  = Color(0xC2CFFA1C);
 
   static const Color secondaryLight = Color(0xFF625B71);
   static const Color secondaryDark  = Color(0xFFCCC2DC);
@@ -61,14 +61,14 @@ class ColorsUI {
   static const Color transferDark = Color(0xFF64B5F6);
 
   // ── Background / Surface ─────────────────────────────────────
-  static const Color backgroundLight = Color(0xFFA2BFBF);
-  static const Color backgroundDark  = Color(0xFF0A201A);
+  static const Color backgroundLight = Color(0xFFD7DACD);
+  static const Color backgroundDark  = Color(0xFF242525);
 
   static const Color surfaceLight = Color(0xA9B2CCA8);
   static const Color surfaceDark  = Color(0x8448474C);
 
-  static const Color cardLight = Color(0x74ECF4F4);
-  static const Color cardDark  = Color(0x932A2A5A);
+  static const Color cardLight = Color(0xFFF6F6F1);
+  static const Color cardDark  = Color(0x935F5F65);
 
   // ── Text ─────────────────────────────────────────────────────
   static const Color textPrimaryLight   = Color(0xFF1C1B1F);

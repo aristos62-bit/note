@@ -14,20 +14,6 @@ import '../../providers/providers.dart';
 import '../../services/habit_service.dart';
 import '../../shared/widgets/widgets.dart';
 
-// ── Local providers ───────────────────────────────────────────────
-
-final _habitStatsDetailProvider =
-FutureProvider.family<HabitStats, int>((ref, habitId) async {
-  DebugConfig.db('_habitStatsDetailProvider id=$habitId');
-
-  // Εξάρτηση από το ίδιο το habit για τυχόν μελλοντικό real-time
-  // (π.χ. αν αλλάξει workspace, διαγραφεί κτλ.)
-  ref.watch(itemStreamProvider(habitId));
-
-  return HabitService.instance.getStats(habitId);
-});
-
-
 // ════════════════════════════════════════════════════════════════
 // HABIT DETAIL SCREEN
 // ════════════════════════════════════════════════════════════════
@@ -43,15 +29,13 @@ class HabitDetailScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<HabitDetailScreen> createState() =>
-      _HabitDetailScreenState();
+  ConsumerState<HabitDetailScreen> createState() => _HabitDetailScreenState();
 }
-
 
 class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   late final TextEditingController _titleCtrl;
   Timer? _titleDebounce;
-  bool  _isSaving = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -78,7 +62,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     if (!mounted) return;
     setState(() => _isSaving = true);
     DebugConfig.db('HabitDetail saveTitle id=${widget.itemId} "$title"');
-    await ref.read(itemNotifierProvider.notifier)
+    await ref
+        .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
     if (!mounted) return;
     setState(() => _isSaving = false);
@@ -89,8 +74,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     _titleDebounce?.cancel();
     final title = _titleCtrl.text.trim();
 
-    DebugConfig.db(
-        'HabitDetail manualSave id=${widget.itemId} title="$title"');
+    DebugConfig.db('HabitDetail manualSave id=${widget.itemId} title="$title"');
 
     await _saveTitle(title);
   }
@@ -98,18 +82,38 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   Future<void> _markDone() async {
     DebugConfig.db('HabitDetail markDone id=${widget.itemId}');
     await HabitService.instance.markCompleted(widget.itemId);
-    ref.invalidate(_habitStatsDetailProvider(widget.itemId));
+    ref.invalidate(habitStatsProvider(widget.itemId));
   }
 
   Future<void> _delete(BuildContext context) async {
-    final future = ConfirmDialog.delete(context,
-        title: 'Διαγραφή συνήθειας;');
+    final future = ConfirmDialog.delete(context, title: 'Διαγραφή συνήθειας;');
     final ok = await future;
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
     if (!mounted) return;
     // ignore: use_build_context_synchronously
     Navigator.of(context).pop();
+  }
+
+  Future<void> _togglePin(Item item) async {
+    DebugConfig.provider('HabitDetail togglePin id=${item.id}');
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .togglePin(item.id, item.pinned);
+  }
+
+  Future<void> _toggleFav(Item item) async {
+    DebugConfig.provider('HabitDetail toggleFav id=${item.id}');
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .toggleFavorite(item.id, item.favorite);
+  }
+
+  Future<void> _toggleArchive(Item item) async {
+    DebugConfig.provider('HabitDetail toggleArchive id=${item.id}');
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .toggleArchive(item.id, item.archived);
   }
 
   @override
@@ -136,33 +140,26 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           );
         }
 
-
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
 
-            final nav   = Navigator.of(context);
+            final nav = Navigator.of(context);
             _titleDebounce?.cancel();
             final title = _titleCtrl.text.trim();
 
             // Φέρνουμε properties για να δούμε αν η συνήθεια έχει “ουσία”
-            final props = ref
-                .read(itemPropertiesProvider(widget.itemId))
-                .valueOrNull ??
-                [];
+            final props =
+                ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ??
+                    [];
 
             // Από props μας ενδιαφέρουν όσα δίνουν επιπλέον περιεχόμενο
-            final goalCount = props
-                .where((p) => p.key == 'goal_count')
-                .firstOrNull
-                ?.value ??
-                '0';
-            final unit = props
-                .where((p) => p.key == 'unit')
-                .firstOrNull
-                ?.value ??
-                '';
+            final goalCount =
+                props.where((p) => p.key == 'goal_count').firstOrNull?.value ??
+                    '0';
+            final unit =
+                props.where((p) => p.key == 'unit').firstOrNull?.value ?? '';
 
             final hasGoal = goalCount != '0';
             final hasUnit = unit.trim().isNotEmpty;
@@ -192,9 +189,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             tablet: _buildTablet(context, item),
           ),
         );
-
-
-
       },
     );
   }
@@ -206,12 +200,12 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       backgroundColor: context.cBg,
       appBar: _buildAppBar(context, item),
       body: _HabitBody(
-        item:          item,
-        titleCtrl:     _titleCtrl,
-        isSaving:      _isSaving,
+        item: item,
+        titleCtrl: _titleCtrl,
+        isSaving: _isSaving,
         onTitleChange: _onTitleChanged,
-        onMarkDone:    _markDone,
-        onDelete:      () => _delete(context),
+        onMarkDone: _markDone,
+        onDelete: () => _delete(context),
       ),
     );
   }
@@ -230,18 +224,17 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             child: _StatsPanel(habitId: item.id),
           ),
           VerticalDivider(
-              width: 1,
-              color: ColorsUI.getBorder(context.brightness)),
+              width: 1, color: ColorsUI.getBorder(context.brightness)),
           // Right: body
           Expanded(
             child: _HabitBody(
-              item:          item,
-              titleCtrl:     _titleCtrl,
-              isSaving:      _isSaving,
+              item: item,
+              titleCtrl: _titleCtrl,
+              isSaving: _isSaving,
               onTitleChange: _onTitleChanged,
-              onMarkDone:    _markDone,
-              onDelete:      () => _delete(context),
-              hideStats:     true,
+              onMarkDone: _markDone,
+              onDelete: () => _delete(context),
+              hideStats: true,
             ),
           ),
         ],
@@ -250,43 +243,77 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   }
 
   AppBar _buildAppBar(BuildContext context, Item item) {
+
     return AppBar(
-      backgroundColor:        context.cBg,
-      elevation:              0,
+      backgroundColor: context.cBg,
+      elevation: 0,
       scrolledUnderElevation: 1,
+      // μαζεύει τον χώρο ανάμεσα σε back και title
+      titleSpacing: 0,
+      // μαζεύει οριζόντιο padding των actions
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 4),
       title: _isSaving
           ? Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: context.cText2,
-          ),
-        ),
-        const SizedBox(width: Spacing.xs),
-        Text(
-          'Αποθήκευση...',
-          style: context.bodySm.withColor(context.cText2),
-        ),
-      ])
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: context.cText2,
+                ),
+              ),
+              const SizedBox(width: Spacing.xs),
+              Text(
+                'Αποθήκευση...',
+                style: context.bodySm.withColor(context.cText2),
+              ),
+            ])
           : null,
       actions: [
-        // Save
         IconButton(
+          visualDensity: VisualDensity.compact,
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
           tooltip: 'Αποθήκευση',
           onPressed: () async {
-            final nav = Navigator.of(context); // cache πριν το await
+            final nav = Navigator.of(context);
             await _save();
             if (nav.mounted) {
-              nav.pop(); // πάντα πίσω στη λίστα
+              nav.pop();
             }
           },
         ),
-
-        // Delete
         IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+          ),
+          color: item.favorite
+              ? ColorsUI.getWarning(context.brightness)
+              : context.cText2,
+          tooltip:
+              item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένη συνήθεια',
+          onPressed: () => _toggleFav(item),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+          ),
+          color: item.pinned ? context.cPrimary : context.cText2,
+          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+          onPressed: () => _togglePin(item),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+          ),
+          color: context.cText2,
+          tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
+          onPressed: () => _toggleArchive(item),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
           icon: Icon(Icons.delete_outline_rounded, color: context.cError),
           onPressed: () => _delete(context),
           tooltip: 'Διαγραφή',
@@ -295,30 +322,27 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     );
   }
 
-
-
-
   Widget _buildLoading() => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: AppBar(backgroundColor: context.cBg),
-    body: const Center(child: CircularProgressIndicator()),
-  );
+        backgroundColor: context.cBg,
+        appBar: AppBar(backgroundColor: context.cBg),
+        body: const Center(child: CircularProgressIndicator()),
+      );
 
   Widget _buildError() => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: AppBar(backgroundColor: context.cBg),
-    body: EmptyState.error(onRetry: () =>
-        ref.invalidate(itemStreamProvider(widget.itemId))),
-  );
+        backgroundColor: context.cBg,
+        appBar: AppBar(backgroundColor: context.cBg),
+        body: EmptyState.error(
+            onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
+      );
 
   Widget _buildNotFound() => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: AppBar(backgroundColor: context.cBg),
-    body: const EmptyState(
-      icon:  Icons.loop_rounded,
-      title: 'Η συνήθεια δεν βρέθηκε',
-    ),
-  );
+        backgroundColor: context.cBg,
+        appBar: AppBar(backgroundColor: context.cBg),
+        body: const EmptyState(
+          icon: Icons.loop_rounded,
+          title: 'Η συνήθεια δεν βρέθηκε',
+        ),
+      );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -346,8 +370,8 @@ class _HabitBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statsAsync  = ref.watch(_habitStatsDetailProvider(item.id));
-    final stats       = statsAsync.valueOrNull;
+    final statsAsync = ref.watch(habitStatsProvider(item.id));
+    final stats = statsAsync.valueOrNull;
     final isDoneToday = stats?.completedToday ?? false;
     final color = ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
 
@@ -357,13 +381,15 @@ class _HabitBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              context.responsiveHPadding, Spacing.lg,
-              context.responsiveHPadding, Spacing.md,
+              context.responsiveHPadding,
+              Spacing.lg,
+              context.responsiveHPadding,
+              Spacing.md,
             ),
             child: _MarkDoneButton(
               isDone: isDoneToday,
-              color:  color,
-              onTap:  isDoneToday ? null : onMarkDone,
+              color: color,
+              onTap: isDoneToday ? null : onMarkDone,
             ),
           ),
         ),
@@ -371,17 +397,17 @@ class _HabitBody extends ConsumerWidget {
         // ── Title ────────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: context.responsiveHPadding),
+            padding:
+                EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
             child: TextField(
               controller: titleCtrl,
-              onChanged:  onTitleChange,
-              style:      context.h2.copyWith(fontWeight: FontWeight.w600),
-              maxLines:   null,
+              onChanged: onTitleChange,
+              style: context.h2.copyWith(fontWeight: FontWeight.w600),
+              maxLines: null,
               decoration: InputDecoration(
-                hintText:  'Τίτλος συνήθειας...',
+                hintText: 'Τίτλος συνήθειας...',
                 hintStyle: context.h2.withColor(context.cDisabled),
-                border:    InputBorder.none,
+                border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -394,8 +420,8 @@ class _HabitBody extends ConsumerWidget {
         if (!hideStats && stats != null)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: context.responsiveHPadding),
+              padding:
+                  EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
               child: _StatsRow(stats: stats, color: color),
             ),
           ),
@@ -403,10 +429,9 @@ class _HabitBody extends ConsumerWidget {
         // ── Divider ──────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: context.responsiveHPadding),
-            child: Divider(
-                color: ColorsUI.getBorder(context.brightness)),
+            padding:
+                EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+            child: Divider(color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
 
@@ -414,8 +439,10 @@ class _HabitBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              context.responsiveHPadding, Spacing.md,
-              context.responsiveHPadding, Spacing.sm,
+              context.responsiveHPadding,
+              Spacing.md,
+              context.responsiveHPadding,
+              Spacing.sm,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,8 +451,7 @@ class _HabitBody extends ConsumerWidget {
                   Icon(Icons.calendar_month_rounded,
                       size: 16, color: context.cText2),
                   const SizedBox(width: Spacing.xs),
-                  Text('Ιστορικό',
-                      style: context.titleSm),
+                  Text('Ιστορικό', style: context.titleSm),
                 ]),
                 const SizedBox(height: Spacing.md),
                 _HeatmapCalendar(
@@ -441,8 +467,10 @@ class _HabitBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              context.responsiveHPadding, Spacing.md,
-              context.responsiveHPadding, Spacing.sm,
+              context.responsiveHPadding,
+              Spacing.md,
+              context.responsiveHPadding,
+              Spacing.sm,
             ),
             child: _HabitSettings(habitId: item.id),
           ),
@@ -478,13 +506,10 @@ class _MarkDoneButton extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: Spacing.md),
         decoration: BoxDecoration(
-          color: isDone
-              ? color.withValues(alpha: 0.12)
-              : color,
+          color: isDone ? color.withValues(alpha: 0.12) : color,
           borderRadius: AppRadius.cardBR,
-          border: isDone
-              ? Border.all(color: color.withValues(alpha: 0.4))
-              : null,
+          border:
+              isDone ? Border.all(color: color.withValues(alpha: 0.4)) : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -522,32 +547,36 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _StatCard(
-          icon:  Icons.local_fire_department_rounded,
+        Expanded(
+            child: _StatCard(
+          icon: Icons.local_fire_department_rounded,
           value: '${stats.streak}',
-          label: 'Streak',
+          label: 'Σερί Ημερών',
           color: stats.streak > 0
               ? ColorsUI.getWarning(context.brightness)
               : context.cDisabled,
         )),
         const SizedBox(width: Spacing.sm),
-        Expanded(child: _StatCard(
-          icon:  Icons.emoji_events_rounded,
+        Expanded(
+            child: _StatCard(
+          icon: Icons.emoji_events_rounded,
           value: '${stats.bestStreak}',
-          label: 'Best',
+          label: 'Μεγαλύτερο Σερι',
           color: color,
         )),
         const SizedBox(width: Spacing.sm),
-        Expanded(child: _StatCard(
-          icon:  Icons.check_circle_outline_rounded,
+        Expanded(
+            child: _StatCard(
+          icon: Icons.check_circle_outline_rounded,
           value: '${stats.completedCount}',
-          label: 'Σύνολο',
+          label: 'Ολοκληρωμένες',
           color: context.cText2,
         )),
         if (stats.goalCount > 0) ...[
           const SizedBox(width: Spacing.sm),
-          Expanded(child: _StatCard(
-            icon:  Icons.flag_rounded,
+          Expanded(
+              child: _StatCard(
+            icon: Icons.flag_rounded,
             value: '${stats.progressPercent.toInt()}%',
             label: 'Στόχος',
             color: color,
@@ -564,8 +593,10 @@ class _StatCard extends StatelessWidget {
   final String label;
   final Color color;
   const _StatCard({
-    required this.icon, required this.value,
-    required this.label, required this.color,
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
   });
 
   @override
@@ -574,7 +605,7 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
           vertical: Spacing.sm, horizontal: Spacing.xs),
       decoration: BoxDecoration(
-        color:        ColorsUI.getSurface(context.brightness),
+        color: ColorsUI.getSurface(context.brightness),
         borderRadius: AppRadius.cardBR,
         border: Border.all(color: ColorsUI.getBorder(context.brightness)),
       ),
@@ -582,10 +613,8 @@ class _StatCard extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(height: 4),
-          Text(value,
-              style: context.titleMd.withColor(color)),
-          Text(label,
-              style: context.labelSm.withColor(context.cText2)),
+          Text(value, style: context.titleMd.withColor(color)),
+          Text(label, style: context.labelSm.withColor(context.cText2)),
         ],
       ),
     );
@@ -603,25 +632,23 @@ class _HeatmapCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now   = DateTime.now();
+    final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
     // Set με μοναδικές ημέρες
-    final doneDays = completions
-        .map((d) => DateTime(d.year, d.month, d.day))
-        .toSet();
+    final doneDays =
+        completions.map((d) => DateTime(d.year, d.month, d.day)).toSet();
 
     // 84 ημέρες (12 εβδομάδες) πίσω
     const weeks = 12;
-    const days  = weeks * 7;
+    const days = weeks * 7;
     final start = today.subtract(const Duration(days: days - 1));
 
     // Εβδομάδες
-    final allDays = List.generate(
-        days, (i) => start.add(Duration(days: i)));
+    final allDays = List.generate(days, (i) => start.add(Duration(days: i)));
 
-    final cellSize = context.responsive<double>(
-        mobile: 16, tablet: 20, desktop: 22);
+    final cellSize =
+        context.responsive<double>(mobile: 16, tablet: 20, desktop: 22);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,11 +657,11 @@ class _HeatmapCalendar extends StatelessWidget {
         Row(
           children: ['Δ', 'Τ', 'Τ', 'Π', 'Π', 'Σ', 'Κ']
               .map((d) => SizedBox(
-            width:  cellSize + 3,
-            child:  Text(d,
-                style: context.labelSm.withColor(context.cDisabled),
-                textAlign: TextAlign.center),
-          ))
+                    width: cellSize + 3,
+                    child: Text(d,
+                        style: context.labelSm.withColor(context.cDisabled),
+                        textAlign: TextAlign.center),
+                  ))
               .toList(),
         ),
         const SizedBox(height: Spacing.xs),
@@ -644,24 +671,22 @@ class _HeatmapCalendar extends StatelessWidget {
           spacing: 3,
           runSpacing: 3,
           children: allDays.map((day) {
-            final isDone  = doneDays.contains(day);
+            final isDone = doneDays.contains(day);
             final isToday = day == today;
             final isFuture = day.isAfter(today);
 
             return Container(
-              width:  cellSize,
+              width: cellSize,
               height: cellSize,
               decoration: BoxDecoration(
                 color: isFuture
                     ? Colors.transparent
                     : isDone
-                    ? color
-                    : ColorsUI.getBorder(context.brightness)
-                    .withValues(alpha: 0.5),
+                        ? color
+                        : ColorsUI.getBorder(context.brightness)
+                            .withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(3),
-                border: isToday
-                    ? Border.all(color: color, width: 2)
-                    : null,
+                border: isToday ? Border.all(color: color, width: 2) : null,
               ),
             );
           }).toList(),
@@ -676,16 +701,19 @@ class _HeatmapCalendar extends StatelessWidget {
             Text('Λιγότερο',
                 style: context.labelSm.withColor(context.cDisabled)),
             const SizedBox(width: Spacing.xs),
-            ...List.generate(4, (i) => Padding(
-              padding: const EdgeInsets.only(left: 3),
-              child: Container(
-                width: 12, height: 12,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2 + i * 0.25),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            )),
+            ...List.generate(
+                4,
+                (i) => Padding(
+                      padding: const EdgeInsets.only(left: 3),
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.2 + i * 0.25),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    )),
             const SizedBox(width: Spacing.xs),
             Text('Περισσότερο',
                 style: context.labelSm.withColor(context.cDisabled)),
@@ -706,7 +734,7 @@ class _StatsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statsAsync = ref.watch(_habitStatsDetailProvider(habitId));
+    final statsAsync = ref.watch(habitStatsProvider(habitId));
     final color = ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
 
     return Container(
@@ -714,14 +742,14 @@ class _StatsPanel extends ConsumerWidget {
       padding: const EdgeInsets.all(Spacing.md),
       child: statsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:   (_, __) => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
         data: (stats) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Στατιστικά', style: context.titleSm),
             const SizedBox(height: Spacing.md),
             _StatCard(
-              icon:  Icons.local_fire_department_rounded,
+              icon: Icons.local_fire_department_rounded,
               value: '${stats.streak}',
               label: 'Τρέχον Streak',
               color: stats.streak > 0
@@ -730,14 +758,14 @@ class _StatsPanel extends ConsumerWidget {
             ),
             const SizedBox(height: Spacing.sm),
             _StatCard(
-              icon:  Icons.emoji_events_rounded,
+              icon: Icons.emoji_events_rounded,
               value: '${stats.bestStreak}',
               label: 'Καλύτερο Streak',
               color: color,
             ),
             const SizedBox(height: Spacing.sm),
             _StatCard(
-              icon:  Icons.check_circle_outline_rounded,
+              icon: Icons.check_circle_outline_rounded,
               value: '${stats.completedCount}',
               label: 'Συνολικές ολοκληρώσεις',
               color: context.cText2,
@@ -745,7 +773,7 @@ class _StatsPanel extends ConsumerWidget {
             if (stats.goalCount > 0) ...[
               const SizedBox(height: Spacing.sm),
               _StatCard(
-                icon:  Icons.flag_rounded,
+                icon: Icons.flag_rounded,
                 value: '${stats.progressPercent.toInt()}%',
                 label: 'Πρόοδος στόχου',
                 color: color,
@@ -756,8 +784,7 @@ class _StatsPanel extends ConsumerWidget {
               Text('Τελευταία ολοκλήρωση',
                   style: context.labelMd.withColor(context.cText2)),
               const SizedBox(height: Spacing.xs),
-              Text(stats.lastCompleted!.relative,
-                  style: context.bodyMd),
+              Text(stats.lastCompleted!.relative, style: context.bodyMd),
             ],
           ],
         ),
@@ -777,13 +804,10 @@ class _HabitSettings extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(habitId));
-    final props      = propsAsync.valueOrNull ?? [];
-    final goalCount  = props
-        .where((p) => p.key == 'goal_count')
-        .firstOrNull?.value ?? '0';
-    final unit       = props
-        .where((p) => p.key == 'unit')
-        .firstOrNull?.value ?? '';
+    final props = propsAsync.valueOrNull ?? [];
+    final goalCount =
+        props.where((p) => p.key == 'goal_count').firstOrNull?.value ?? '0';
+    final unit = props.where((p) => p.key == 'unit').firstOrNull?.value ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -794,28 +818,25 @@ class _HabitSettings extends ConsumerWidget {
           Text('Ρυθμίσεις', style: context.titleSm),
         ]),
         const SizedBox(height: Spacing.sm),
-
         Container(
           decoration: BoxDecoration(
-            color:        ColorsUI.getSurface(context.brightness),
+            color: ColorsUI.getSurface(context.brightness),
             borderRadius: AppRadius.cardBR,
-            border: Border.all(
-                color: ColorsUI.getBorder(context.brightness)),
+            border: Border.all(color: ColorsUI.getBorder(context.brightness)),
           ),
           child: Column(
             children: [
               // Goal
               _SettingsRow(
-                icon:  Icons.flag_rounded,
+                icon: Icons.flag_rounded,
                 label: 'Στόχος',
                 value: goalCount == '0' ? 'Χωρίς στόχο' : '$goalCount φορές',
                 onTap: () => _editGoal(context, ref, goalCount),
               ),
-              Divider(height: 1,
-                  color: ColorsUI.getBorder(context.brightness)),
+              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
               // Unit
               _SettingsRow(
-                icon:  Icons.straighten_rounded,
+                icon: Icons.straighten_rounded,
                 label: 'Μονάδα',
                 value: unit.isEmpty ? 'Χωρίς μονάδα' : unit,
                 onTap: () => _editUnit(context, ref, unit),
@@ -830,13 +851,14 @@ class _HabitSettings extends ConsumerWidget {
   void _editGoal(BuildContext context, WidgetRef ref, String current) {
     _showTextEditor(
       context: context,
-      title:   'Στόχος (αριθμός φορών την ημέρα)',
+      title: 'Στόχος (αριθμός φορών την ημέρα)',
       initial: current == '0' ? '' : current,
       keyboardType: TextInputType.number,
       onSave: (val) async {
         final n = double.tryParse(val) ?? 0;
         DebugConfig.db('HabitSettings setGoal=$n id=$habitId');
-        await ref.read(propertyNotifierProvider(habitId).notifier)
+        await ref
+            .read(propertyNotifierProvider(habitId).notifier)
             .setNumber('goal_count', n);
       },
     );
@@ -845,11 +867,12 @@ class _HabitSettings extends ConsumerWidget {
   void _editUnit(BuildContext context, WidgetRef ref, String current) {
     _showTextEditor(
       context: context,
-      title:   'Μονάδα (π.χ. λεπτά, ποτήρια)',
+      title: 'Μονάδα (π.χ. λεπτά, ποτήρια)',
       initial: current,
       onSave: (val) async {
         DebugConfig.db('HabitSettings setUnit="$val" id=$habitId');
-        await ref.read(propertyNotifierProvider(habitId).notifier)
+        await ref
+            .read(propertyNotifierProvider(habitId).notifier)
             .setText('unit', val);
       },
     );
@@ -869,16 +892,16 @@ class _HabitSettings extends ConsumerWidget {
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
+          topLeft: Radius.circular(AppRadius.bottomSheet),
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(ctx).viewInsets.bottom + Spacing.md,
-          left:   Spacing.lg,
-          right:  Spacing.lg,
-          top:    Spacing.md,
+          left: Spacing.lg,
+          right: Spacing.lg,
+          top: Spacing.md,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -887,17 +910,17 @@ class _HabitSettings extends ConsumerWidget {
             Text(title, style: context.titleMd),
             const SizedBox(height: Spacing.md),
             TextField(
-              controller:  ctrl,
-              autofocus:   true,
+              controller: ctrl,
+              autofocus: true,
               keyboardType: keyboardType,
               decoration: InputDecoration(
-                hintText:  title,
-                filled:    true,
+                hintText: title,
+                filled: true,
                 fillColor: ColorsUI.getSurface(context.brightness),
                 border: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
-                  borderSide: BorderSide(
-                      color: ColorsUI.getBorder(context.brightness)),
+                  borderSide:
+                      BorderSide(color: ColorsUI.getBorder(context.brightness)),
                 ),
               ),
             ),
@@ -934,15 +957,17 @@ class _SettingsRow extends StatelessWidget {
   final String value;
   final VoidCallback onTap;
   const _SettingsRow({
-    required this.icon, required this.label,
-    required this.value, required this.onTap,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, size: 18, color: context.cText2),
-      title:   Text(label, style: context.bodyMd),
+      title: Text(label, style: context.bodyMd),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

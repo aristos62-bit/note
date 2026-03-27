@@ -18,6 +18,7 @@
 import '../helpers/super_note_helper.dart';
 import '../models/reminder.dart';
 import 'notification_service.dart';
+import 'package:flutter/foundation.dart';
 
 class ReminderScheduler {
   ReminderScheduler._internal();
@@ -29,8 +30,20 @@ class ReminderScheduler {
   // ─────────────────────────────────────────────────────────
 
   Future<void> scheduleAll() async {
+    // Δεν υποστηρίζονται notifications σε Windows/Web → κάνε skip
+    if (![
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+      TargetPlatform.linux,
+    ].contains(defaultTargetPlatform)) {
+      return;
+    }
+
     final settings = await SuperNoteHelper.instance.settings.get();
     if (!settings.notificationsEnabled) return;
+
+    await NotificationService.instance.cancelAll();
 
     final pending =
     await SuperNoteHelper.instance.reminders.getPending();

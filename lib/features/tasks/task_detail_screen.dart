@@ -178,7 +178,24 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     Navigator.of(context).pop();
   }
 
+  // ── Pin / Favorite ───────────────────────────────────────────
+
+  Future<void> _togglePin(Item item) async {
+    DebugConfig.provider('TaskDetail togglePin id=${item.id}');
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .togglePin(item.id, item.pinned);
+  }
+
+  Future<void> _toggleFav(Item item) async {
+    DebugConfig.provider('TaskDetail toggleFav id=${item.id}');
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .toggleFavorite(item.id, item.favorite);
+  }
+
   // ── Build ────────────────────────────────────────────────────
+
 
   @override
   Widget build(BuildContext context) {
@@ -194,12 +211,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       data: (item) {
         if (item == null) return _buildNotFound();
 
-        // Sync title (μόνο αν δεν έχει focus)
-        if (!_titleCtrl.selection.isValid ||
-            _titleCtrl.text != (item.title ?? '')) {
+        // Αρχικοποίηση τίτλου ΜΟΝΟ αν ο controller είναι άδειος
+        if (_titleCtrl.text.isEmpty && (item.title ?? '').isNotEmpty) {
           _titleCtrl.text = item.title ?? '';
           _titleCtrl.selection = TextSelection.collapsed(
-              offset: _titleCtrl.text.length);
+            offset: _titleCtrl.text.length,
+          );
         }
 
         return PopScope(
@@ -363,6 +380,30 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           },
         ),
 
+        // Favorite
+        IconButton(
+          icon: Icon(
+            item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+          ),
+          color: item.favorite
+              ? ColorsUI.getWarning(context.brightness)
+              : context.cText2,
+          tooltip: item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένο',
+          onPressed: () => _toggleFav(item),
+        ),
+
+        // Pin
+        IconButton(
+          icon: Icon(
+            item.pinned
+                ? Icons.push_pin_rounded
+                : Icons.push_pin_outlined,
+          ),
+          color: item.pinned ? context.cPrimary : context.cText2,
+          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+          onPressed: () => _togglePin(item),
+        ),
+
         // Done / Active toggle
         TextButton.icon(
           onPressed: () => _toggleDone(item),
@@ -380,13 +421,32 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           ),
         ),
 
+        // Archive
+        IconButton(
+          icon: Icon(
+            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+          ),
+          color: context.cText2,
+          tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
+          onPressed: () async {
+            DebugConfig.provider(
+              'TaskDetail toggleArchive id=${item.id}',
+            );
+            await ref
+                .read(itemNotifierProvider.notifier)
+                .toggleArchive(item.id, item.archived);
+          },
+        ),
+
         // Delete
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: context.cError),
           onPressed: () => _deleteTask(context, item),
           tooltip: 'Διαγραφή',
         ),
+
       ],
+
     );
   }
 

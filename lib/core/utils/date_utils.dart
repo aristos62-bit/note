@@ -93,7 +93,8 @@ class AppDateUtils {
   // ─────────────────────────────────────────────────────────────
 
   static String formatTime(DateTime date) =>
-      DateFormat('HH:mm').format(date);
+      DateFormat('HH:mm', 'el').format(date);
+
 
   // ─────────────────────────────────────────────────────────────
   // DATETIME — "14 Μαρ, 14:30"

@@ -15,3 +15,4 @@ export 'reminder_provider.dart';
 export 'attachment_provider.dart';
 export 'settings_provider.dart';
 export 'property_provider.dart';
+export 'habit_provider.dart';
