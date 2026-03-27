@@ -1,7 +1,7 @@
 // lib/features/contacts/contact_list_screen.dart
 //
-// Λίστα επαφών — alphabet index, search, avatar.
-// Νέα λογική: itemsStreamProvider + Navigator.push + isNew.
+// Λίστα επαφών με folder selector, search, real-time updates.
+// ✅ Folder-based: FAB μόνο όταν επιλεγεί φάκελος
 // ✅ Responsive: list mobile / grid tablet+desktop
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
@@ -27,13 +27,13 @@ class ContactListScreen extends ConsumerStatefulWidget {
       _ContactListScreenState();
 }
 
-class _ContactListScreenState
-    extends ConsumerState<ContactListScreen> {
-  final _searchCtrl  = TextEditingController();
+class _ContactListScreenState extends ConsumerState<ContactListScreen> {
+  final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
-  bool  _searchActive = false;
+  bool _searchActive = false;
   Timer? _debounce;
   String _searchQuery = '';
+  int? _selectedFolderId;
 
   @override
   void dispose() {
@@ -64,24 +64,49 @@ class _ContactListScreenState
     if (_searchActive) {
       Future.microtask(() => _searchFocus.requestFocus());
     }
+    DebugConfig.nav('ContactList toggleSearch: $_searchActive');
   }
 
-  // ── Create ───────────────────────────────────────────────────
+  // ── Create contact ──────────────────────────────────────────
 
   Future<void> _createContact() async {
-    DebugConfig.nav('ContactList: create contact');
+    if (_selectedFolderId == null) {
+      DebugConfig.error('ContactList: createContact without selected folder');
+      return;
+    }
+
+    DebugConfig.nav('ContactList: create contact in folder id=$_selectedFolderId');
+
     final item = await ref.read(itemNotifierProvider.notifier)
-        .create(type: ItemType.contact);
+        .create(
+      type: ItemType.contact,
+      folderId: _selectedFolderId, // ⬅️ folder assignment
+    );
+
     if (item == null || !mounted) return;
+
     ref.invalidate(itemNotifierProvider);
-    Navigator.of(context).push(AppTransitions.slideRoute(
-        ContactDetailScreen(itemId: item.id, isNew: true)));
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ContactDetailScreen(
+          itemId: item.id,
+          isNew: true,
+        ),
+      ),
+    );
   }
 
   void _openDetail(int id) {
     DebugConfig.nav('ContactList → ContactDetail id=$id');
-    Navigator.of(context).push(AppTransitions.slideRoute(
-        ContactDetailScreen(itemId: id, isNew: false)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ContactDetailScreen(
+          itemId: id,
+          isNew: false,
+        ),
+      ),
+    );
   }
 
   // ── Delete ───────────────────────────────────────────────────
@@ -101,23 +126,45 @@ class _ContactListScreenState
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('ContactListScreen build');
+
     final allAsync = ref.watch(itemsStreamProvider);
+    final foldersAsync = ref.watch(foldersStreamProvider);
 
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createContact,
-        tooltip: 'Νέα επαφή',
-        child: const Icon(Icons.person_add_rounded),
-      ),
+      floatingActionButton: _selectedFolderId != null ? _buildFab() : null,
       body: Column(
         children: [
-          if (_searchActive) _SearchBar(
-            controller: _searchCtrl,
-            focusNode:  _searchFocus,
-            onChanged:  _onSearchChanged,
+          // ── Search bar ────────────────────────────────────────
+          if (_searchActive)
+            _SearchBar(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              onChanged: _onSearchChanged,
+            ),
+
+          // ── Folder selector ("Όλοι" ή συγκεκριμένος φάκελος) ──
+          foldersAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (folders) {
+              if (folders.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+                child: _ContactFolderChips(
+                  folders: folders,
+                  selectedFolderId: _selectedFolderId,
+                  onSelect: (id) {
+                    setState(() => _selectedFolderId = id);
+                    DebugConfig.nav('ContactList: select folder id=$id');
+                  },
+                ),
+              );
+            },
           ),
+
+          // ── Contacts list ──────────────────────────────────────
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemNotifierProvider),
@@ -134,6 +181,13 @@ class _ContactListScreenState
                       .where((i) => i.type == ItemType.contact)
                       .toList();
 
+                  // Φιλτράρισμα: φάκελος ("Όλοι" ή συγκεκριμένος)
+                  if (_selectedFolderId != null) {
+                    contacts = contacts
+                        .where((c) => c.folderId == _selectedFolderId)
+                        .toList();
+                  }
+
                   // Search
                   if (_searchQuery.isNotEmpty) {
                     final q = _searchQuery.toLowerCase();
@@ -146,21 +200,34 @@ class _ContactListScreenState
                       (a.title ?? '').compareTo(b.title ?? ''));
 
                   if (contacts.isEmpty) {
-                    return _searchQuery.isNotEmpty
-                        ? EmptyState.search(query: _searchQuery)
-                        : EmptyState.forType(ItemType.contact,
-                        onAction: _createContact);
+                    if (_searchQuery.isNotEmpty) {
+                      return EmptyState.search(query: _searchQuery);
+                    }
+
+                    // Αν είμαστε σε "Όλοι" (null φάκελος) → χωρίς CTA
+                    if (_selectedFolderId == null) {
+                      return EmptyState.forType(
+                        ItemType.contact,
+                        onAction: null,
+                      );
+                    }
+
+                    // Αν έχεις συγκεκριμένο φάκελο → δείξε CTA "Νέα επαφή"
+                    return EmptyState.forType(
+                      ItemType.contact,
+                      onAction: _createContact,
+                    );
                   }
 
                   return ResponsiveLayout(
-                    mobile:  _ContactListMobile(
+                    mobile: _ContactListMobile(
                       contacts: contacts,
-                      onTap:    (id) => _openDetail(id),
+                      onTap: (id) => _openDetail(id),
                       onDelete: _delete,
                     ),
                     tablet: _ContactGrid(
                       contacts: contacts,
-                      onTap:    (id) => _openDetail(id),
+                      onTap: (id) => _openDetail(id),
                       onDelete: _delete,
                     ),
                   );
@@ -174,8 +241,8 @@ class _ContactListScreenState
   }
 
   AppBar _buildAppBar() => AppBar(
-    backgroundColor:        context.cBg,
-    elevation:              0,
+    backgroundColor: context.cBg,
+    elevation: 0,
     scrolledUnderElevation: 1,
     title: const Text('Επαφές'),
     actions: [
@@ -184,9 +251,80 @@ class _ContactListScreenState
             ? Icons.search_off_rounded
             : Icons.search_rounded),
         onPressed: _toggleSearch,
+        tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
       ),
     ],
   );
+
+  Widget _buildFab() {
+    return FloatingActionButton(
+      onPressed: _createContact,
+      tooltip: 'Νέα επαφή',
+      child: const Icon(Icons.person_add_rounded),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// FOLDER CHIPS (όπως στο NoteListScreen)
+// ════════════════════════════════════════════════════════════════
+
+class _ContactFolderChips extends StatelessWidget {
+  final List<Folder> folders;
+  final int? selectedFolderId;
+  final ValueChanged<int?> onSelect;
+
+  const _ContactFolderChips({
+    required this.folders,
+    required this.selectedFolderId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(
+          horizontal: context.responsiveHPadding,
+        ),
+        itemCount: folders.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
+        itemBuilder: (ctx, index) {
+          if (index == 0) {
+            final isSelected = selectedFolderId == null;
+            return ChoiceChip(
+              label: const Text('Όλοι'),
+              selected: isSelected,
+              onSelected: (_) => onSelect(null),
+            );
+          }
+
+          final folder = folders[index - 1];
+          final isSelected = selectedFolderId == folder.id;
+
+          return ChoiceChip(
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(folder.icon ?? '📁'),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    folder.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            selected: isSelected,
+            onSelected: (_) => onSelect(folder.id),
+          );
+        },
+      ),
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -217,12 +355,11 @@ class _ContactListMobile extends StatelessWidget {
     final letters = groups.keys.toList()..sort();
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80,
-          top: Spacing.xs),
+      padding: const EdgeInsets.only(bottom: 80, top: Spacing.xs),
       itemCount: letters.length,
       itemBuilder: (_, i) {
-        final letter  = letters[i];
-        final group   = groups[letter]!;
+        final letter = letters[i];
+        final group = groups[letter]!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -237,8 +374,8 @@ class _ContactListMobile extends StatelessWidget {
             ),
             // Contacts
             ...group.map((item) => _ContactTile(
-              contact:  item,
-              onTap:    () => onTap(item.id),
+              contact: item,
+              onTap: () => onTap(item.id),
               onDelete: () => onDelete(item),
             )),
           ],
@@ -268,18 +405,18 @@ class _ContactGrid extends StatelessWidget {
     return GridView.builder(
       padding: EdgeInsets.symmetric(
         horizontal: context.responsiveHPadding,
-        vertical:   Spacing.sm,
+        vertical: Spacing.sm,
       ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:   context.gridColumns,
-        mainAxisSpacing:  Spacing.sm,
+        crossAxisCount: context.gridColumns,
+        mainAxisSpacing: Spacing.sm,
         crossAxisSpacing: Spacing.sm,
-        mainAxisExtent:   90,
+        mainAxisExtent: 90,
       ),
       itemCount: contacts.length,
       itemBuilder: (_, i) => _ContactTile(
-        contact:  contacts[i],
-        onTap:    () => onTap(contacts[i].id),
+        contact: contacts[i],
+        onTap: () => onTap(contacts[i].id),
         onDelete: () => onDelete(contacts[i]),
       ),
     );
@@ -287,7 +424,7 @@ class _ContactGrid extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// CONTACT TILE
+// CONTACT TILE (με properties)
 // ════════════════════════════════════════════════════════════════
 
 class _ContactTile extends ConsumerWidget {
@@ -305,15 +442,15 @@ class _ContactTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Φόρτωσε phone/email από properties
     final propsAsync = ref.watch(itemPropertiesProvider(contact.id));
-    final props      = propsAsync.valueOrNull ?? [];
-    final phone      = props.where((p) => p.key == 'phone')
+    final props = propsAsync.valueOrNull ?? [];
+    final phone = props.where((p) => p.key == 'phone')
         .firstOrNull?.value;
-    final email      = props.where((p) => p.key == 'email')
+    final email = props.where((p) => p.key == 'email')
         .firstOrNull?.value;
 
-    final name   = contact.title ?? 'Χωρίς όνομα';
+    final name = contact.title ?? 'Χωρίς όνομα';
     final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final color  = ColorsUI.itemTypeColor(
+    final color = ColorsUI.itemTypeColor(
         ItemType.contact, context.brightness);
 
     return GestureDetector(
@@ -322,14 +459,14 @@ class _ContactTile extends ConsumerWidget {
       child: Container(
         margin: EdgeInsets.symmetric(
           horizontal: context.responsiveHPadding,
-          vertical:   Spacing.xs / 2,
+          vertical: Spacing.xs / 2,
         ),
         padding: const EdgeInsets.symmetric(
           horizontal: Spacing.md,
-          vertical:   Spacing.sm,
+          vertical: Spacing.sm,
         ),
         decoration: BoxDecoration(
-          color:        ColorsUI.getSurface(context.brightness),
+          color: ColorsUI.getSurface(context.brightness),
           borderRadius: AppRadius.cardBR,
           border: Border.all(
               color: ColorsUI.getBorder(context.brightness)),
@@ -377,7 +514,7 @@ class _ContactTile extends ConsumerWidget {
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
+          topLeft: Radius.circular(AppRadius.bottomSheet),
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
@@ -389,21 +526,27 @@ class _ContactTile extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color:        context.cBorder,
+                color: context.cBorder,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             ListTile(
               leading: const Icon(Icons.edit_rounded),
-              title:   const Text('Επεξεργασία'),
-              onTap: () { Navigator.pop(context); onTap(); },
+              title: const Text('Επεξεργασία'),
+              onTap: () {
+                Navigator.pop(context);
+                onTap();
+              },
             ),
             ListTile(
               leading: Icon(Icons.delete_outline_rounded,
                   color: context.cError),
               title: Text('Διαγραφή',
                   style: TextStyle(color: context.cError)),
-              onTap: () { Navigator.pop(context); onDelete(); },
+              onTap: () {
+                Navigator.pop(context);
+                onDelete();
+              },
             ),
             const SizedBox(height: Spacing.sm),
           ],
@@ -419,7 +562,7 @@ class _ContactTile extends ConsumerWidget {
 
 class _ContactAvatar extends StatelessWidget {
   final String letter;
-  final Color  color;
+  final Color color;
   const _ContactAvatar({required this.letter, required this.color});
 
   @override
@@ -427,8 +570,8 @@ class _ContactAvatar extends StatelessWidget {
     return Container(
       width: 44, height: 44,
       decoration: BoxDecoration(
-        color:  color.withValues(alpha: 0.15),
-        shape:  BoxShape.circle,
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
       ),
       child: Center(
         child: Text(
@@ -441,7 +584,7 @@ class _ContactAvatar extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SEARCH BAR
+// SEARCH BAR (ίδιο με NoteListScreen)
 // ════════════════════════════════════════════════════════════════
 
 class _SearchBar extends StatelessWidget {
@@ -465,24 +608,27 @@ class _SearchBar extends StatelessWidget {
       ),
       child: TextField(
         controller: controller,
-        focusNode:  focusNode,
-        onChanged:  onChanged,
-        style:      context.bodyMd,
+        focusNode: focusNode,
+        onChanged: onChanged,
+        style: context.bodyMd,
         decoration: InputDecoration(
-          hintText:  'Αναζήτηση επαφών...',
+          hintText: 'Αναζήτηση επαφών...',
           hintStyle: context.bodyMd.withColor(context.cDisabled),
           prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
             icon: Icon(Icons.close_rounded, color: context.cText2),
-            onPressed: () { controller.clear(); onChanged(''); },
+            onPressed: () {
+              controller.clear();
+              onChanged('');
+            },
           )
               : null,
-          filled:    true,
+          filled: true,
           fillColor: ColorsUI.getSurface(context.brightness),
           border: OutlineInputBorder(
             borderRadius: AppRadius.inputBR,
-            borderSide:   BorderSide.none,
+            borderSide: BorderSide.none,
           ),
           contentPadding: const EdgeInsets.symmetric(
               horizontal: Spacing.md, vertical: Spacing.sm),
@@ -502,11 +648,11 @@ class _LoadingList extends StatelessWidget {
     return ListView.separated(
       padding: EdgeInsets.symmetric(
         horizontal: context.responsiveHPadding,
-        vertical:   Spacing.sm,
+        vertical: Spacing.sm,
       ),
-      itemCount:        5,
+      itemCount: 5,
       separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
-      itemBuilder:      (_, __) => const ItemCardSkeleton(),
+      itemBuilder: (_, __) => const ItemCardSkeleton(),
     );
   }
 }

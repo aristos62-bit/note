@@ -269,6 +269,59 @@ StreamProvider.family<List<Item>, int>((ref, folderId) async* {
   );
 });
 
+/// Favorite items ενός συγκεκριμένου folder — real-time
+final favoritesByFolderStreamProvider =
+StreamProvider.family<List<Item>, int>((ref, folderId) async* {
+  final asyncItems = ref.watch(itemsByFolderStreamProvider(folderId));
+
+  if (asyncItems.hasValue) {
+    final items = asyncItems.value ?? [];
+    yield items
+        .where((i) => i.favorite && i.deletedAt == null)
+        .toList();
+  }
+
+  yield* asyncItems.when(
+    data: (items) async* {
+      yield items
+          .where((i) => i.favorite && i.deletedAt == null)
+          .toList();
+    },
+    loading: () async* {},
+    error: (_, __) async* {},
+  );
+});
+
+
+/// Stream με όλα τα soft‑deleted items του active workspace
+final trashedItemsStreamProvider = StreamProvider<List<Item>>((ref) async* {
+  final db   = ref.watch(dbProvider);
+  final wsId = ref.watch(activeWorkspaceIdProvider);
+  if (wsId == null) {
+    yield const [];
+    return;
+  }
+
+  // Αρχικό snapshot: όλα τα διαγραμμένα
+  final initial = await db.items.getByWorkspace(
+    wsId,
+    includeDeleted: true,   // συμπεριλαμβάνει deleted
+    includeArchived: true,  // δείχνουμε και archived αν υπάρχουν
+  );
+  // φιλτράρουμε μόνο αυτά με deletedAt != null
+  yield initial.where((i) => i.deletedAt != null).toList();
+
+  // Reactive updates
+  final changes = db.items.watchAll();
+  yield* changes.asyncMap((_) async {
+    final all = await db.items.getByWorkspace(
+      wsId,
+      includeDeleted: true,
+      includeArchived: true,
+    );
+    return all.where((i) => i.deletedAt != null).toList();
+  });
+});
 
 /// Pinned items ΟΛΩΝ των folders — real-time
 final allPinnedStreamProvider = StreamProvider<List<Item>>((ref) async* {
@@ -298,7 +351,33 @@ final allPinnedStreamProvider = StreamProvider<List<Item>>((ref) async* {
   );
 });
 
+/// Favorite items ΟΛΩΝ των folders — real-time
+final allFavoritesStreamProvider = StreamProvider<List<Item>>((ref) async* {
+  final asyncItems = ref.watch(itemsStreamProvider);
 
+  // Αρχικό snapshot όταν υπάρχουν data
+  if (asyncItems.hasValue) {
+    final items = asyncItems.value ?? [];
+    yield items
+        .where((i) => i.favorite && i.deletedAt == null)
+        .toList();
+  }
+
+  // Reactive updates από το base stream
+  yield* asyncItems.when(
+    data: (items) async* {
+      yield items
+          .where((i) => i.favorite && i.deletedAt == null)
+          .toList();
+    },
+    loading: () async* {
+      // optionally: yield [];
+    },
+    error: (_, __) async* {
+      // optionally: yield [];
+    },
+  );
+});
 /// Stats ανά τύπο για συγκεκριμένο folder — real-time
 final folderStatsProvider =
 StreamProvider.family<Map<ItemType, int>, int>((ref, folderId) async* {
@@ -398,3 +477,4 @@ StreamProvider.family<List<Item>, int>((ref, folderId) async* {
     },
   );
 });
+

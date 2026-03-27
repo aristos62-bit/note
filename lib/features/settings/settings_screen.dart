@@ -13,6 +13,7 @@ import '../../providers/providers.dart';
 import '../../services/backup_service.dart';
 import '../../shared/widgets/widgets.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../features/trash/trash_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 // SETTINGS SCREEN
@@ -142,29 +143,19 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
 
-      // ── Γενικά ────────────────────────────────────────────
+      // ── Κάδος Ανακύκλωσης ───────────────────────────────────
       _SettingsSection(
-        title: 'Γενικά',
-        icon:  Icons.tune_rounded,
+        title: 'Κάδος Ανακύκλωσης',
+        icon:  Icons.delete_outline_rounded,
         children: [
-          _SwitchTile(
-            label:   'Αυτόματη αποθήκευση',
-            subtitle: 'Αποθήκευση κατά την πληκτρολόγηση',
-            value:   settings.autoSave,
-            onChanged: (v) => ref.read(settingsNotifierProvider.notifier)
-                .updateSettings((s) => s.autoSave = v),
-          ),
-          _SettingsDivider(),
-          _SwitchTile(
-            label:   'Επιβεβαίωση διαγραφής',
-            subtitle: 'Ερώτηση πριν τη διαγραφή',
-            value:   settings.confirmBeforeDelete,
-            onChanged: (v) => ref.read(settingsNotifierProvider.notifier)
-                .updateSettings((s) => s.confirmBeforeDelete = v),
+          _ActionTile(
+            label:    'Διαγραμμένα στοιχεία',
+            subtitle: 'Επαναφορά ή οριστική διαγραφή',
+            icon:     Icons.restore_from_trash_rounded,
+            onTap:    () => _navigateToTrash(context),
           ),
         ],
       ),
-
       // ── Δεδομένα & Backup ─────────────────────────────────
       _SettingsSection(
         title: 'Δεδομένα & Backup',
@@ -516,6 +507,12 @@ class _LanguageTile extends StatelessWidget {
       ),
     );
   }
+}
+
+void _navigateToTrash(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const TrashScreen()),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════

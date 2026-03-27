@@ -1,6 +1,7 @@
 // lib/features/calendar/event_detail_screen.dart
 //
 // Detail screen συμβάντος: τίτλος, ημερομηνία, ώρα, τοποθεσία, υπενθύμιση.
+// ✅ Favorite toggle στο AppBar
 // ✅ Responsive: single col mobile / two-panel tablet+desktop
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
@@ -39,6 +40,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   bool   _isEditingTitle = false;
   String _lastSavedTitle = '';
   bool   _hasEverBeenSaved = false;
+
+  // ── Favorite state ───────────────────────────────────────────
+  bool _isFavorite = false;
 
   // ── Reminder state ───────────────────────────────────────────
   bool      _reminderEnabled   = false;
@@ -125,6 +129,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       _locationDebounce!.cancel();
       await _saveLocation(_locationCtrl.text.trim());
     }
+  }
+
+  // ── Favorite toggle ─────────────────────────────────────────
+
+  Future<void> _toggleFavorite() async {
+    DebugConfig.provider('EventDetail toggleFavorite id=${widget.itemId}');
+    await ref.read(itemNotifierProvider.notifier)
+        .toggleFavorite(widget.itemId, _isFavorite);
+    setState(() => _isFavorite = !_isFavorite);
+    ref.invalidate(itemNotifierProvider);
   }
 
   // ── Pop guard ─────────────────────────────────────────────────
@@ -340,6 +354,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           }
         }
 
+        // Sync favorite state
+        if (_isFavorite != item.favorite) {
+          _isFavorite = item.favorite;
+        }
+
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
@@ -463,6 +482,19 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           if (!context.mounted) return;
           Navigator.of(context, rootNavigator: false).pop();
         },
+      ),
+      // Favorite
+      IconButton(
+        icon: Icon(
+          _isFavorite
+              ? Icons.star_rounded
+              : Icons.star_outline_rounded,
+          color: _isFavorite
+              ? ColorsUI.getWarning(context.brightness)
+              : context.cText2,
+        ),
+        onPressed: _toggleFavorite,
+        tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
       ),
       // Delete
       IconButton(

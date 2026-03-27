@@ -1,7 +1,7 @@
 // lib/features/collections/collections_screen.dart
 //
 // Αρχική σελίδα Συλλογών — εμφανίζει όλες τις συλλογές του χρήστη.
-// Κάθε συλλογή = Item με ItemType.project + property 'schema' (JSON).
+// ✅ Folder-based: FAB μόνο όταν επιλεγεί φάκελος
 // ✅ Responsive: grid mobile / grid tablet
 // ✅ Dark mode
 // ✅ DebugConfig
@@ -85,72 +85,30 @@ class FieldDef {
 // COLLECTIONS SCREEN
 // ════════════════════════════════════════════════════════════════
 
-class CollectionsScreen extends ConsumerWidget {
+class CollectionsScreen extends ConsumerStatefulWidget {
   const CollectionsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    DebugConfig.provider('CollectionsScreen build');
-    final allAsync = ref.watch(itemsStreamProvider);
+  ConsumerState<CollectionsScreen> createState() => _CollectionsScreenState();
+}
 
-    return Scaffold(
-      backgroundColor: context.cBg,
-      appBar: AppBar(
-        backgroundColor:        context.cBg,
-        elevation:              0,
-        scrolledUnderElevation: 1,
-        title: const Text('Συλλογές'),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createCollection(context, ref),
-        icon:  const Icon(Icons.add_rounded),
-        label: const Text('Νέα Συλλογή'),
-      ),
-      body: allAsync.when(
-        loading: () => _LoadingGrid(),
-        error: (e, _) {
-          DebugConfig.error('CollectionsScreen load', e);
-          return EmptyState.error(
-              onRetry: () => ref.invalidate(itemNotifierProvider));
-        },
-        data: (allItems) {
-          final collections = allItems
-              .where((i) => i.type == ItemType.project)
-              .toList()
-            ..sort((a, b) =>
-                (a.title ?? '').compareTo(b.title ?? ''));
+class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
+  int? _selectedFolderId;
 
-          if (collections.isEmpty) {
-            return _EmptyCollections(
-                onCreate: () => _createCollection(context, ref));
-          }
+  Future<void> _createCollection() async {
+    if (_selectedFolderId == null) {
+      DebugConfig.error('Collections: createCollection without selected folder');
+      return;
+    }
 
-          return ResponsiveLayout(
-            mobile:  _CollectionsGrid(
-              collections: collections,
-              cols: 2,
-              onTap: (item) => _openCollection(context, item),
-              onEdit: (item) => _editCollection(context, ref, item),
-              onDelete: (item) => _delete(context, ref, item),
-            ),
-            tablet: _CollectionsGrid(
-              collections: collections,
-              cols: context.gridColumns + 1,
-              onTap: (item) => _openCollection(context, item),
-              onEdit: (item) => _editCollection(context, ref, item),
-              onDelete: (item) => _delete(context, ref, item),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _createCollection(BuildContext context, WidgetRef ref) async {
-    DebugConfig.nav('Collections: create');
+    DebugConfig.nav('Collections: create in folder id=$_selectedFolderId');
     final item = await ref.read(itemNotifierProvider.notifier)
-        .create(type: ItemType.project, title: 'Νέα Συλλογή');
-    if (item == null || !context.mounted) return;
+        .create(
+      type: ItemType.project,
+      title: 'Νέα Συλλογή',
+      folderId: _selectedFolderId,
+    );
+    if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
     // ignore: use_build_context_synchronously
     Navigator.of(context).push(AppTransitions.slideRoute(
@@ -179,6 +137,168 @@ class CollectionsScreen extends ConsumerWidget {
     // Οι εγγραφές διαγράφονται μέσω cascade στη DB
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
     ref.invalidate(itemNotifierProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    DebugConfig.provider('CollectionsScreen build');
+    final allAsync = ref.watch(itemsStreamProvider);
+    final foldersAsync = ref.watch(foldersStreamProvider);
+
+    return Scaffold(
+      backgroundColor: context.cBg,
+      appBar: AppBar(
+        backgroundColor:        context.cBg,
+        elevation:              0,
+        scrolledUnderElevation: 1,
+        title: const Text('Συλλογές'),
+      ),
+      floatingActionButton: _selectedFolderId != null
+          ? FloatingActionButton.extended(
+        onPressed: _createCollection,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Νέα Συλλογή'),
+      )
+          : null,
+      body: Column(
+        children: [
+          // ── Folder selector ("Όλοι" ή συγκεκριμένος φάκελος) ──
+          foldersAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (folders) {
+              if (folders.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+                child: _CollectionFolderChips(
+                  folders: folders,
+                  selectedFolderId: _selectedFolderId,
+                  onSelect: (id) {
+                    setState(() => _selectedFolderId = id);
+                    DebugConfig.nav('Collections: select folder id=$id');
+                  },
+                ),
+              );
+            },
+          ),
+
+          // ── Collections grid ───────────────────────────────────
+          Expanded(
+            child: allAsync.when(
+              loading: () => _LoadingGrid(),
+              error: (e, _) {
+                DebugConfig.error('CollectionsScreen load', e);
+                return EmptyState.error(
+                    onRetry: () => ref.invalidate(itemNotifierProvider));
+              },
+              data: (allItems) {
+                var collections = allItems
+                    .where((i) => i.type == ItemType.project)
+                    .toList();
+
+                // Φιλτράρισμα: φάκελος ("Όλοι" ή συγκεκριμένος)
+                if (_selectedFolderId != null) {
+                  collections = collections
+                      .where((c) => c.folderId == _selectedFolderId)
+                      .toList();
+                }
+
+                collections.sort((a, b) =>
+                    (a.title ?? '').compareTo(b.title ?? ''));
+
+                if (collections.isEmpty) {
+                  // Αν είμαστε σε "Όλοι" (null φάκελος) → χωρίς CTA
+                  if (_selectedFolderId == null) {
+                    return const _EmptyCollections(onCreate: null);
+                  }
+                  // Αν έχεις συγκεκριμένο φάκελο → δείξε CTA
+                  return _EmptyCollections(onCreate: _createCollection);
+                }
+
+                return ResponsiveLayout(
+                  mobile: _CollectionsGrid(
+                    collections: collections,
+                    cols: 2,
+                    onTap: (item) => _openCollection(context, item),
+                    onEdit: (item) => _editCollection(context, ref, item),
+                    onDelete: (item) => _delete(context, ref, item),
+                  ),
+                  tablet: _CollectionsGrid(
+                    collections: collections,
+                    cols: context.gridColumns + 1,
+                    onTap: (item) => _openCollection(context, item),
+                    onEdit: (item) => _editCollection(context, ref, item),
+                    onDelete: (item) => _delete(context, ref, item),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// FOLDER CHIPS (ίδιο με NoteListScreen)
+// ════════════════════════════════════════════════════════════════
+
+class _CollectionFolderChips extends StatelessWidget {
+  final List<Folder> folders;
+  final int? selectedFolderId;
+  final ValueChanged<int?> onSelect;
+
+  const _CollectionFolderChips({
+    required this.folders,
+    required this.selectedFolderId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(
+          horizontal: context.responsiveHPadding,
+        ),
+        itemCount: folders.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
+        itemBuilder: (ctx, index) {
+          if (index == 0) {
+            final isSelected = selectedFolderId == null;
+            return ChoiceChip(
+              label: const Text('Όλοι'),
+              selected: isSelected,
+              onSelected: (_) => onSelect(null),
+            );
+          }
+
+          final folder = folders[index - 1];
+          final isSelected = selectedFolderId == folder.id;
+
+          return ChoiceChip(
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(folder.icon ?? '📁'),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    folder.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            selected: isSelected,
+            onSelected: (_) => onSelect(folder.id),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -392,7 +512,7 @@ class _CollectionCard extends ConsumerWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _EmptyCollections extends StatelessWidget {
-  final VoidCallback onCreate;
+  final VoidCallback? onCreate;
   const _EmptyCollections({required this.onCreate});
 
   @override
@@ -413,12 +533,14 @@ class _EmptyCollections extends StatelessWidget {
               style: context.bodyMd.withColor(context.cText2),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: Spacing.xl),
-            FilledButton.icon(
-              onPressed: onCreate,
-              icon:  const Icon(Icons.add_rounded),
-              label: const Text('Νέα Συλλογή'),
-            ),
+            if (onCreate != null) ...[
+              const SizedBox(height: Spacing.xl),
+              FilledButton.icon(
+                onPressed: onCreate,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Νέα Συλλογή'),
+              ),
+            ],
           ],
         ),
       ),

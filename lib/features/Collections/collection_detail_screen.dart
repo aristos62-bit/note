@@ -2,6 +2,7 @@
 //
 // Δημιουργία/επεξεργασία συλλογής: όνομα, εικονίδιο, χρώμα, πεδία.
 // ✅ Save pattern ίδιο με NoteDetailScreen (isNew + manual save)
+// ✅ Favorite toggle στο AppBar
 // ✅ Dark mode
 // ✅ DebugConfig
 //
@@ -50,6 +51,9 @@ class _CollectionDetailScreenState
   bool   _isEditingTitle   = false;
   String _lastSavedTitle   = '';
   bool   _hasEverBeenSaved = false;
+
+  // Favorite state
+  bool _isFavorite = false;
 
   // Collection state
   List<FieldDef> _fields    = [];
@@ -110,6 +114,16 @@ class _CollectionDetailScreenState
     setState(() => _isSaving = false);
     ref.invalidate(itemNotifierProvider);
     DebugConfig.db('CollectionDetail saved');
+  }
+
+  // ── Favorite toggle ─────────────────────────────────────────
+
+  Future<void> _toggleFavorite() async {
+    DebugConfig.provider('CollectionDetail toggleFavorite id=${widget.collectionId}');
+    await ref.read(itemNotifierProvider.notifier)
+        .toggleFavorite(widget.collectionId, _isFavorite);
+    setState(() => _isFavorite = !_isFavorite);
+    ref.invalidate(itemNotifierProvider);
   }
 
   // ── Pop guard ────────────────────────────────────────────────
@@ -346,6 +360,11 @@ class _CollectionDetailScreenState
           }
         }
 
+        // Sync favorite state
+        if (_isFavorite != item.favorite) {
+          _isFavorite = item.favorite;
+        }
+
         // Sync schema από DB (μόνο μια φορά)
         final propsAsync = ref.watch(itemPropertiesProvider(item.id));
         final props      = propsAsync.valueOrNull ?? [];
@@ -397,6 +416,7 @@ class _CollectionDetailScreenState
     ])
         : null,
     actions: [
+      // Save button
       IconButton(
         icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
@@ -405,6 +425,19 @@ class _CollectionDetailScreenState
           if(!context.mounted)return;
           if (mounted) Navigator.of(context).pop();
         },
+      ),
+      // Favorite button
+      IconButton(
+        icon: Icon(
+          _isFavorite
+              ? Icons.star_rounded
+              : Icons.star_outline_rounded,
+          color: _isFavorite
+              ? ColorsUI.getWarning(context.brightness)
+              : context.cText2,
+        ),
+        onPressed: _toggleFavorite,
+        tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
       ),
     ],
   );

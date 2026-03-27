@@ -1,7 +1,7 @@
 // lib/features/home/home_folder_view.dart
 //
 // Περιεχόμενο home όταν ο χρήστης επιλέξει συγκεκριμένο φάκελο.
-// Εμφανίζει: Stats φακέλου | Σήμερα | Πρόσφατα
+// ✅ ViewMode: pinned | favorites | both
 // ✅ Real-time (itemsByFolderStreamProvider)
 // ✅ Responsive
 // ✅ Dark mode + DebugConfig
@@ -20,6 +20,9 @@ import '../contacts/contact_detail_screen.dart';
 import '../journal/journal_detail_screen.dart';
 import '../collections/collection_detail_screen.dart';
 
+// ── View Mode για το φάκελο ───────────────────────────────────
+enum FolderViewMode { pinned, favorites, both }
+
 // ════════════════════════════════════════════════════════════════
 // HOME FOLDER VIEW
 // ════════════════════════════════════════════════════════════════
@@ -35,6 +38,7 @@ class HomeFolderView extends ConsumerStatefulWidget {
 
 class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Folder get folder => widget.folder;
+  FolderViewMode _viewMode = FolderViewMode.pinned;
 
   // ── FAB: Δημιουργία νέου στοιχείου ─────────────────────────
 
@@ -120,9 +124,9 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Widget build(BuildContext context) {
     DebugConfig.provider('HomeFolderView build folder=${folder.id}');
 
-    final itemsAsync  = ref.watch(itemsByFolderStreamProvider(folder.id));
     final statsAsync  = ref.watch(folderStatsProvider(folder.id));
-    final recentAsync = ref.watch(recentByFolderProvider(folder.id));
+    final pinnedAsync = ref.watch(pinnedByFolderStreamProvider(folder.id));
+    final favoritesAsync = ref.watch(favoritesByFolderStreamProvider(folder.id));
 
     final folderColor = _colorFromHex(folder.color, context.cPrimary);
 
@@ -132,7 +136,8 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
           onRefresh: () async {
             ref.invalidate(itemsByFolderStreamProvider(folder.id));
             ref.invalidate(folderStatsProvider(folder.id));
-            ref.invalidate(recentByFolderProvider(folder.id));
+            ref.invalidate(pinnedByFolderStreamProvider(folder.id));
+            ref.invalidate(favoritesByFolderStreamProvider(folder.id));
           },
           child: CustomScrollView(
             slivers: [
@@ -145,55 +150,19 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
                 ),
               ),
 
-              // ── Σήμερα ────────────────────────────────────────────
-              const SliverToBoxAdapter(
-                child: _SectionHeader(
-                  icon:  Icons.today_rounded,
-                  title: 'Σήμερα',
-                ),
-              ),
-              itemsAsync.when(
-                loading: () => const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: Spacing.md),
-                    child: ItemCardSkeleton(),
-                  ),
-                ),
-                error: (e, _) => const SliverToBoxAdapter(
-                    child: SizedBox.shrink()),
-                data: (items) => _TodaySectionSliver(
-                  items:    items,
-                  folder:   folder,
-                  onTap:    (item) => _openItem(context, item),
-                  onToggle: (item) => _toggleDone(ref, item),
+              // ── View Mode Toggle ──────────────────────────────────
+              SliverToBoxAdapter(
+                child: _FolderViewModeToggle(
+                  current: _viewMode,
+                  onChanged: (mode) {
+                    DebugConfig.nav('HomeFolderView: mode changed to $mode');
+                    setState(() => _viewMode = mode);
+                  },
                 ),
               ),
 
-              // ── Πρόσφατα ─────────────────────────────────────────
-              const SliverToBoxAdapter(
-                child: _SectionHeader(
-                  icon:  Icons.history_rounded,
-                  title: 'Πρόσφατα',
-                ),
-              ),
-              recentAsync.when(
-                loading: () => const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: Spacing.md),
-                    child: ItemCardSkeleton(),
-                  ),
-                ),
-                error: (e, _) => const SliverToBoxAdapter(
-                    child: SizedBox.shrink()),
-                data: (items) => _RecentSectionSliver(
-                  items: items,
-                  folder: folder,
-                  onTap:  (item) => _openItem(context, item),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              // ── Content based on view mode ────────────────────────
+              _buildContent(context, pinnedAsync, favoritesAsync),
             ],
           ),
         ),
@@ -212,6 +181,183 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       ],
     );
   }
+
+  // ── Content based on view mode ───────────────────────────────
+
+  Widget _buildContent(
+      BuildContext context,
+      AsyncValue<List<Item>> pinnedAsync,
+      AsyncValue<List<Item>> favoritesAsync,
+      ) {
+    if (_viewMode == FolderViewMode.both) {
+      return _buildCombinedContent(context, pinnedAsync, favoritesAsync);
+    }
+
+    if (_viewMode == FolderViewMode.pinned) {
+      return pinnedAsync.when(
+        loading: () => const SliverToBoxAdapter(
+            child: Center(child: CircularProgressIndicator())),
+        error: (e, _) {
+          DebugConfig.error('HomeFolderView pinned', e);
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        },
+        data: (items) => _buildItemsList(context, items),
+      );
+    }
+
+    // favorites mode
+    return favoritesAsync.when(
+      loading: () => const SliverToBoxAdapter(
+          child: Center(child: CircularProgressIndicator())),
+      error: (e, _) {
+        DebugConfig.error('HomeFolderView favorites', e);
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      },
+      data: (items) => _buildItemsList(context, items),
+    );
+  }
+
+  Widget _buildCombinedContent(
+      BuildContext context,
+      AsyncValue<List<Item>> pinnedAsync,
+      AsyncValue<List<Item>> favoritesAsync,
+      ) {
+    final pinned = pinnedAsync.valueOrNull ?? [];
+    final favorites = favoritesAsync.valueOrNull ?? [];
+
+    final combined = <Item>[...pinned];
+    for (final fav in favorites) {
+      if (!combined.any((i) => i.id == fav.id)) {
+        combined.add(fav);
+      }
+    }
+
+    // Ταξινόμηση: pinned first, then favorites (by updatedAt)
+    combined.sort((a, b) {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      final aDate = a.updatedAt ?? a.createdAt;
+      final bDate = b.updatedAt ?? b.createdAt;
+      return bDate.compareTo(aDate);
+    });
+
+    final isLoading = pinnedAsync.isLoading && favoritesAsync.isLoading;
+    final hasError = pinnedAsync.hasError || favoritesAsync.hasError;
+
+    if (isLoading) {
+      return const SliverToBoxAdapter(
+          child: Center(child: CircularProgressIndicator()));
+    }
+
+    if (hasError) {
+      DebugConfig.error('HomeFolderView combined', pinnedAsync.error ?? favoritesAsync.error);
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    if (combined.isEmpty) {
+      return _buildEmptyState(context);
+    }
+
+    return _buildItemsList(context, combined);
+  }
+
+  // ── Build items list (mobile list / tablet grid) ─────────────
+
+  Widget _buildItemsList(BuildContext context, List<Item> items) {
+    if (items.isEmpty) {
+      return _buildEmptyState(context);
+    }
+
+    if (context.isMobile) {
+      return SliverPadding(
+        padding: EdgeInsets.fromLTRB(
+          context.responsiveHPadding, Spacing.md,
+          context.responsiveHPadding, 100,
+        ),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+                (_, i) => Padding(
+              padding: const EdgeInsets.only(bottom: Spacing.sm),
+              child: _FolderItemCard(
+                item: items[i],
+                onTap: () => _openItem(context, items[i]),
+              ),
+            ),
+            childCount: items.length,
+          ),
+        ),
+      );
+    }
+
+    // Tablet grid
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveHPadding, Spacing.md,
+        context.responsiveHPadding, 100,
+      ),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: context.gridColumns,
+          mainAxisSpacing: Spacing.sm,
+          crossAxisSpacing: Spacing.sm,
+          mainAxisExtent: 100,
+        ),
+        delegate: SliverChildBuilderDelegate(
+              (_, i) => _FolderItemCard(
+            item: items[i],
+            onTap: () => _openItem(context, items[i]),
+          ),
+          childCount: items.length,
+        ),
+      ),
+    );
+  }
+
+  // ── Empty state ──────────────────────────────────────────────
+
+  Widget _buildEmptyState(BuildContext context) {
+    String message;
+    IconData icon;
+
+    switch (_viewMode) {
+      case FolderViewMode.pinned:
+        message = 'Δεν υπάρχουν καρφιτσωμένα στοιχεία σε αυτόν τον φάκελο';
+        icon = Icons.push_pin_outlined;
+        break;
+      case FolderViewMode.favorites:
+        message = 'Δεν υπάρχουν αγαπημένα στοιχεία σε αυτόν τον φάκελο';
+        icon = Icons.star_outline_rounded;
+        break;
+      case FolderViewMode.both:
+        message = 'Δεν υπάρχουν καρφιτσωμένα ή αγαπημένα στοιχεία';
+        icon = Icons.inbox_rounded;
+        break;
+    }
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          context.responsiveHPadding, Spacing.xl,
+          context.responsiveHPadding, 0,
+        ),
+        child: Column(children: [
+          Icon(icon, size: 56, color: context.cDisabled),
+          const SizedBox(height: Spacing.md),
+          Text(message, style: context.titleMd),
+          const SizedBox(height: Spacing.sm),
+          Text(
+            _viewMode == FolderViewMode.pinned
+                ? 'Καρφίτσωσε στοιχεία για να τα βλέπεις εδώ.'
+                : 'Πρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
+            style: context.bodyMd.withColor(context.cText2),
+            textAlign: TextAlign.center,
+          ),
+        ]),
+      ),
+    );
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
 
   static Color _colorFromHex(String? hex, Color fallback) {
     if (hex == null || hex.isEmpty) return fallback;
@@ -246,19 +392,110 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
             NoteDetailScreen(itemId: item.id, isNew: isNew)));
     }
   }
+}
 
-  Future<void> _toggleDone(WidgetRef ref, Item item) async {
-    final next = item.status == ItemStatus.done
-        ? ItemStatus.active
-        : ItemStatus.done;
-    DebugConfig.db('HomeFolderView toggleDone id=${item.id} → ${next.name}');
-    await ref.read(itemNotifierProvider.notifier)
-        .updateItem(item.id, status: next);
+// ════════════════════════════════════════════════════════════════
+// FOLDER VIEW MODE TOGGLE
+// ════════════════════════════════════════════════════════════════
+
+class _FolderViewModeToggle extends StatelessWidget {
+  final FolderViewMode current;
+  final ValueChanged<FolderViewMode> onChanged;
+
+  const _FolderViewModeToggle({
+    required this.current,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: Spacing.sm),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveHPadding,
+        vertical: Spacing.xs,
+      ),
+      child: Row(
+        children: [
+          _ToggleButton(
+            icon: Icons.push_pin_rounded,
+            label: 'Καρφιτσωμένα',
+            isSelected: current == FolderViewMode.pinned,
+            onTap: () => onChanged(FolderViewMode.pinned),
+          ),
+          const SizedBox(width: Spacing.xs),
+          _ToggleButton(
+            icon: Icons.star_rounded,
+            label: 'Αγαπημένα',
+            isSelected: current == FolderViewMode.favorites,
+            onTap: () => onChanged(FolderViewMode.favorites),
+          ),
+          const SizedBox(width: Spacing.xs),
+          _ToggleButton(
+            icon: Icons.merge_type_rounded,
+            label: 'Όλα',
+            isSelected: current == FolderViewMode.both,
+            onTap: () => onChanged(FolderViewMode.both),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ToggleButton({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected ? context.cPrimary : context.cText2;
+    final bgColor = isSelected
+        ? context.cPrimary.withValues(alpha: 0.12)
+        : ColorsUI.getSurface(context.brightness);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppDuration.fast,
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm + 2,
+          vertical: Spacing.xs + 2,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(AppRadius.badge),
+          border: Border.all(
+            color: isSelected ? color : ColorsUI.getBorder(context.brightness),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: context.labelSm.withColor(color),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 // ════════════════════════════════════════════════════════════════
-// FOLDER STATS ROW
+// FOLDER STATS ROW (unchanged)
 // ════════════════════════════════════════════════════════════════
 
 class _FolderStatsRow extends StatelessWidget {
@@ -272,7 +509,6 @@ class _FolderStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Φίλτρο: μόνο τύποι με count > 0
     final activeTypes = _shown.where((t) => (stats[t] ?? 0) > 0).toList();
     if (activeTypes.isEmpty) return const SizedBox.shrink();
 
@@ -348,233 +584,65 @@ class _StatsRowSkeleton extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// TODAY SECTION SLIVER
+// FOLDER ITEM CARD (με badges)
 // ════════════════════════════════════════════════════════════════
 
-class _TodaySectionSliver extends ConsumerWidget {
-  final List<Item>  items;
-  final Folder      folder;
-  final ValueChanged<Item> onTap;
-  final ValueChanged<Item> onToggle;
-
-  const _TodaySectionSliver({
-    required this.items,
-    required this.folder,
-    required this.onTap,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Tasks: μη completed που έχουν due date σήμερα ή παλαιότερα
-    final now   = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    final todayTasks = <Item>[];
-    for (final item in items) {
-      if (item.type != ItemType.task) continue;
-      if (item.status == ItemStatus.done) continue;
-      if (item.deletedAt != null) continue;
-      final due = ref.watch(dueDateProvider(item.id)).valueOrNull;
-      if (due == null) continue;
-      if (!DateTime(due.year, due.month, due.day).isAfter(today)) {
-        todayTasks.add(item);
-      }
-    }
-
-    if (todayTasks.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.responsiveHPadding,
-            vertical:   Spacing.xs,
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(Spacing.md),
-            decoration: BoxDecoration(
-              color:        ColorsUI.getSurface(context.brightness),
-              borderRadius: AppRadius.cardBR,
-            ),
-            child: Row(children: [
-              Icon(Icons.check_circle_rounded,
-                  color: context.cSuccess, size: 20),
-              const SizedBox(width: Spacing.sm),
-              Text('Όλα έτοιμα για σήμερα! 🎉',
-                  style: context.bodyMd),
-            ]),
-          ),
-        ),
-      );
-    }
-
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical:   Spacing.xs,
-      ),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-              (_, i) => Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.sm),
-            child: _TaskTile(
-              task:     todayTasks[i],
-              onTap:    () => onTap(todayTasks[i]),
-              onToggle: () => onToggle(todayTasks[i]),
-            ),
-          ),
-          childCount: todayTasks.take(5).length,
-        ),
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// RECENT SECTION SLIVER
-// ════════════════════════════════════════════════════════════════
-
-class _RecentSectionSliver extends StatelessWidget {
-  final List<Item>  items;
-  final Folder      folder;
-  final ValueChanged<Item> onTap;
-
-  const _RecentSectionSliver({
-    required this.items,
-    required this.folder,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: context.responsiveHPadding),
-          child: EmptyState.forType(ItemType.note, compact: true),
-        ),
-      );
-    }
-
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical:   Spacing.xs,
-      ),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-              (_, i) => Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.sm),
-            child: ItemCard(
-              item:    items[i],
-              compact: true,
-              onTap:   () => onTap(items[i]),
-            ),
-          ),
-          childCount: items.length,
-        ),
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// SECTION HEADER
-// ════════════════════════════════════════════════════════════════
-
-class _SectionHeader extends StatelessWidget {
-  final IconData icon;
-  final String   title;
-
-  const _SectionHeader({required this.icon, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding, Spacing.lg,
-        context.responsiveHPadding, Spacing.sm,
-      ),
-      child: Row(children: [
-        Icon(icon, size: 16, color: context.cText2),
-        const SizedBox(width: Spacing.xs),
-        Text(title, style: context.titleSm),
-      ]),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// TASK TILE
-// ════════════════════════════════════════════════════════════════
-
-class _TaskTile extends StatelessWidget {
-  final Item task;
+class _FolderItemCard extends StatelessWidget {
+  final Item item;
   final VoidCallback onTap;
-  final VoidCallback onToggle;
 
-  const _TaskTile({
-    required this.task,
+  const _FolderItemCard({
+    required this.item,
     required this.onTap,
-    required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDone = task.status == ItemStatus.done;
+    final itemColor = ColorsUI.itemTypeColor(item.type, context.brightness);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.sm, vertical: Spacing.sm),
+        padding: const EdgeInsets.all(Spacing.sm),
         decoration: BoxDecoration(
-          color:        ColorsUI.getSurface(context.brightness),
+          color: ColorsUI.getCard(context.brightness),
           borderRadius: AppRadius.cardBR,
           border: Border.all(
-              color: ColorsUI.getBorder(context.brightness)),
+              color: itemColor.withValues(alpha: 0.25)),
         ),
-        child: Row(children: [
-          GestureDetector(
-            onTap: onToggle,
-            child: AnimatedContainer(
-              duration: AppDuration.fast,
-              width: 22, height: 22,
-              decoration: BoxDecoration(
-                color: isDone ? context.cPrimary : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-                border: Border.all(
-                  color: isDone
-                      ? context.cPrimary
-                      : ColorsUI.getBorder(context.brightness),
-                  width: 2,
-                ),
-              ),
-              child: isDone
-                  ? Icon(Icons.check_rounded, size: 14,
-                  color: ColorsUI.getAccessibleTextColor(
-                      context.cPrimary))
-                  : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Type + Badges (pinned & favorite)
+            Row(
+              children: [
+                ItemTypeIcon(item.type, size: 13, color: itemColor),
+                const SizedBox(width: Spacing.xs),
+                Text(ItemTypeIcon.labelFor(item.type),
+                    style: context.labelSm.withColor(itemColor)),
+                const Spacer(),
+                if (item.pinned)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(Icons.push_pin_rounded,
+                        size: 12, color: context.cPrimary),
+                  ),
+                if (item.favorite)
+                  Icon(Icons.star_rounded,
+                      size: 12, color: ColorsUI.getWarning(context.brightness)),
+              ],
             ),
-          ),
-          const SizedBox(width: Spacing.sm),
-          Expanded(
-            child: Text(
-              task.title ?? 'Χωρίς τίτλο',
-              style: context.bodyMd.copyWith(
-                decoration: isDone
-                    ? TextDecoration.lineThrough : null,
-                decorationColor: context.cDisabled,
-                color: isDone ? context.cDisabled : context.cText,
-              ),
-              maxLines: 1,
+            const SizedBox(height: Spacing.xs),
+
+            // Τίτλος
+            Text(
+              item.title ?? 'Χωρίς τίτλο',
+              style: context.bodyMd,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-          ),
-          if (task.priority != ItemPriority.none) ...[
-            const SizedBox(width: Spacing.xs),
-            PriorityBadge.dot(priority: task.priority),
           ],
-        ]),
+        ),
       ),
     );
   }

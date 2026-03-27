@@ -1,7 +1,8 @@
 // lib/features/contacts/contact_detail_screen.dart
 //
 // Detail screen επαφής: όνομα, τηλέφωνο, email, εταιρεία, κ.α.
-// Νέα λογική save: isNew + manual Save button.
+// ✅ Folder-aware: δείχνει φάκελο
+// ✅ Save logic: isNew + manual Save button (ίδια με NoteDetailScreen)
 // ✅ Responsive: single col mobile / two-panel tablet
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
@@ -40,13 +41,13 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   late final TextEditingController _addressCtrl;
   late final TextEditingController _notesCtrl;
 
-  // ── Save state (νέα λογική) ──────────────────────────────────
+  // ── Save state (ίδια λογική με NoteDetailScreen) ───────────
   bool _isSaving = false;
   bool _isEditingName = false;
   String _lastSavedName = '';
   bool _hasEverBeenSaved = false;
 
-  // ── Cached props (για να ξέρουμε τι άλλαξε) ─────────────────
+  // ── Cached props ───────────────────────────────────────────
   String _lastPhone = '';
   String _lastEmail = '';
   String _lastCompany = '';
@@ -81,11 +82,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     super.dispose();
   }
 
-  // ── Name editing flag (ίδια λογική με NoteDetailScreen) ─────
+  // ── Name editing flag ──────────────────────────────────────
 
   void _onNameChanged(String _) => _isEditingName = true;
 
-  // ── Manual Save ──────────────────────────────────────────────
+  // ── Manual Save (ίδια λογική με NoteDetailScreen) ───────────
 
   Future<void> _save() async {
     if (!mounted) return;
@@ -106,7 +107,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: name.isEmpty ? null : name);
 
-    // Αποθήκευση properties (μόνο αν άλλαξαν)
+    // Αποθήκευση properties
     final notifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
 
     if (phone != _lastPhone) {
@@ -146,7 +147,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     DebugConfig.db('ContactDetail saved successfully');
   }
 
-  // ── Birthday picker ──────────────────────────────────────────
+  // ── Birthday picker ─────────────────────────────────────────
 
   Future<void> _pickBirthday(BuildContext context) async {
     final now = DateTime.now();
@@ -175,7 +176,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     setState(() => _lastBirthday = null);
   }
 
-  // ── Pop guard ────────────────────────────────────────────────
+  // ── Pop guard (ίδια λογική με NoteDetailScreen) ─────────────
 
   Future<bool> _onPopInvoked() async {
     if (widget.isNew && !_hasEverBeenSaved) {
@@ -188,7 +189,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     return true;
   }
 
-  // ── Delete ───────────────────────────────────────────────────
+  // ── Delete ──────────────────────────────────────────────────
 
   Future<void> _delete(BuildContext context) async {
     final future = ConfirmDialog.delete(context, title: 'Διαγραφή επαφής;');
@@ -202,7 +203,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     Navigator.of(context).pop();
   }
 
-  // ── Favorite ─────────────────────────────────────────────────
+  // ── Favorite ────────────────────────────────────────────────
 
   Future<void> _toggleFav(Item item) async {
     await ref
@@ -210,7 +211,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         .toggleFavorite(item.id, item.favorite);
   }
 
-  // ── Build ────────────────────────────────────────────────────
+  // ── Build ───────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +257,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     );
   }
 
-  // ── Mobile ───────────────────────────────────────────────────
+  // ── Mobile ──────────────────────────────────────────────────
 
   Widget _buildMobile(BuildContext context, Item item) => Scaffold(
     backgroundColor: context.cBg,
@@ -278,7 +279,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     ),
   );
 
-  // ── Tablet ───────────────────────────────────────────────────
+  // ── Tablet ──────────────────────────────────────────────────
 
   Widget _buildTablet(BuildContext context, Item item) => Scaffold(
     backgroundColor: context.cBg,
@@ -314,7 +315,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     ),
   );
 
-  // ── AppBar ───────────────────────────────────────────────────
+  // ── AppBar (ίδιο με NoteDetailScreen) ───────────────────────
 
   AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
     backgroundColor: context.cBg,
@@ -353,16 +354,18 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
               : context.cText2,
         ),
         onPressed: () => _toggleFav(item),
+        tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
       ),
       // Delete
       IconButton(
         icon: Icon(Icons.delete_outline_rounded, color: context.cError),
         onPressed: () => _delete(context),
+        tooltip: 'Διαγραφή',
       ),
     ],
   );
 
-  // ── Sync props από DB (καλείται μόνο μια φορά) ───────────────
+  // ── Sync props από DB ───────────────────────────────────────
 
   void _syncPropsFromDB(List<ItemProperty> props) {
     if (_lastPhone.isNotEmpty) return; // ήδη sync
@@ -380,12 +383,15 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
     if (_phoneCtrl.text.isEmpty && phone.isNotEmpty) _phoneCtrl.text = phone;
     if (_emailCtrl.text.isEmpty && email.isNotEmpty) _emailCtrl.text = email;
-    if (_companyCtrl.text.isEmpty && company.isNotEmpty)
-    {_companyCtrl.text = company;}
-    if (_websiteCtrl.text.isEmpty && website.isNotEmpty)
-    {_websiteCtrl.text = website;}
-    if (_addressCtrl.text.isEmpty && address.isNotEmpty)
-    {_addressCtrl.text = address;}
+    if (_companyCtrl.text.isEmpty && company.isNotEmpty) {
+      _companyCtrl.text = company;
+    }
+    if (_websiteCtrl.text.isEmpty && website.isNotEmpty) {
+      _websiteCtrl.text = website;
+    }
+    if (_addressCtrl.text.isEmpty && address.isNotEmpty) {
+      _addressCtrl.text = address;
+    }
     if (_notesCtrl.text.isEmpty && notes.isNotEmpty) _notesCtrl.text = notes;
 
     _lastPhone = phone;
@@ -397,7 +403,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     if (bdStr != null) _lastBirthday = DateTime.tryParse(bdStr);
   }
 
-  // ── Fallbacks ────────────────────────────────────────────────
+  // ── Fallbacks ───────────────────────────────────────────────
 
   Widget _buildLoading() => Scaffold(
     backgroundColor: context.cBg,
