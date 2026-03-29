@@ -16,6 +16,23 @@ import '../../shared/widgets/widgets.dart';
 import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
 
+// Provider για real‑time αντιστοίχηση collectionId -> πλήθος εγγραφών
+final collectionEntriesCountProvider = FutureProvider<Map<int, int>>((ref) async {
+  final items = await ref.watch(itemNotifierProvider.future);
+  final Map<int, int> counts = {};
+  for (final item in items.where((i) => i.type == ItemType.knowledge)) {
+    final props = await ref.watch(itemPropertiesProvider(item.id).future);
+    final colIdStr = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
+    if (colIdStr != null) {
+      final colId = int.tryParse(colIdStr);
+      if (colId != null) {
+        counts[colId] = (counts[colId] ?? 0) + 1;
+      }
+    }
+  }
+  return counts;
+});
+
 // ── Field types ───────────────────────────────────────────────
 
 enum FieldType {
@@ -383,14 +400,8 @@ class _CollectionCard extends ConsumerWidget {
         .firstOrNull?.value ?? '';
     final fields     = FieldDef.listFromJson(schema);
 
-    // Μέτρηση εγγραφών
-    final allAsync   = ref.watch(itemsStreamProvider);
-    final entryCount = allAsync.valueOrNull
-        ?.where((i) =>
-    i.type == ItemType.knowledge &&
-        // entries που ανήκουν σε αυτή τη συλλογή βρίσκονται μέσω property
-        true)
-        .length ?? 0;
+    // Μέτρηση εγγραφών (real‑time)
+    final countsAsync = ref.watch(collectionEntriesCountProvider);
 
     final color = _colorFromString(item.color);
     final icon  = item.icon ?? '📦';
@@ -442,9 +453,19 @@ class _CollectionCard extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               // Fields count + entries
-              Text(
-                '${fields.length} πεδία  •  $entryCount εγγραφές',
-                style: context.labelSm.withColor(context.cText2),
+              countsAsync.when(
+                loading: () => Text(
+                  '${fields.length} πεδία  •  ...',
+                  style: context.labelSm.withColor(context.cText2),
+                ),
+                error: (_, __) => Text(
+                  '${fields.length} πεδία  •  ?',
+                  style: context.labelSm.withColor(context.cText2),
+                ),
+                data: (counts) => Text(
+                  '${fields.length} πεδία  •  ${counts[item.id] ?? 0} εγγραφές',
+                  style: context.labelSm.withColor(context.cText2),
+                ),
               ),
             ],
           ),

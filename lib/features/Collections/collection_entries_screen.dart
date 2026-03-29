@@ -269,16 +269,33 @@ class _EntryCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Badges row
+            Row(
+              children: [
+                if (entry.pinned)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(Icons.push_pin_rounded,
+                        size: 12, color: context.cPrimary),
+                  ),
+                if (entry.favorite)
+                  Icon(Icons.star_rounded,
+                      size: 12, color: ColorsUI.getWarning(context.brightness)),
+              ],
+            ),
+            const SizedBox(height: Spacing.xs),
             Text(
-              entry.title?.isNotEmpty == true ? entry.title! : '(χωρίς τίτλο)',
+              entry.title?.isNotEmpty == true
+                  ? entry.title!
+                  : '(χωρίς τίτλο)',
               style: context.titleSm.copyWith(
                 color: entry.title?.isNotEmpty == true
-                    ? context.cText
-                    : context.cDisabled,
+                    ? context.cText : context.cDisabled,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            // ... υπόλοιπα (preview fields)
             if (previewFields.isNotEmpty) ...[
               const SizedBox(height: Spacing.xs),
               ...previewFields.map((f) {
@@ -404,6 +421,8 @@ class _CollectionEntryDetailScreenState
   String _lastSavedTitle = '';
   bool _hasEverBeenSaved = false;
   bool _propsLoaded = false;
+  bool _isFavorite = false;
+  bool _isPinned = false;
 
   final Map<String, bool> _boolValues = {};
   final Map<String, DateTime?> _dateValues = {};
@@ -472,6 +491,7 @@ class _CollectionEntryDetailScreenState
         ref.read(propertyNotifierProvider(widget.entryId).notifier);
 
     for (final f in widget.fields) {
+      if (f.key.isEmpty) continue;
       switch (f.type) {
         case FieldType.toggle:
           await notifier.setText(
@@ -482,7 +502,9 @@ class _CollectionEntryDetailScreenState
         case FieldType.numberedList:
           final list = _listValues[f.key] ?? [];
           final json = jsonEncode(list);
+          DebugConfig.db('💾 Saving ${f.key} (${f.type}): $json');
           await notifier.setText(f.key, json);
+          break;
         default:
           final val = _fieldCtrls[f.key]?.text.trim() ?? '';
           await notifier.setText(f.key, val.isEmpty ? null : val);
@@ -500,6 +522,17 @@ class _CollectionEntryDetailScreenState
     if (mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _toggleFavorite() async {
+    await ref.read(itemNotifierProvider.notifier)
+        .toggleFavorite(widget.entryId, _isFavorite);
+    setState(() => _isFavorite = !_isFavorite);
+  }
+
+  Future<void> _togglePin() async {
+    await ref.read(itemNotifierProvider.notifier)
+        .togglePin(widget.entryId, _isPinned);
+    setState(() => _isPinned = !_isPinned);
+  }
   Future<void> _deleteEntry() async {
     final confirm = await ConfirmDialog.delete(
       context,
@@ -520,26 +553,37 @@ class _CollectionEntryDetailScreenState
 
   void _loadProps(List<ItemProperty> props) {
     if (_propsLoaded) return;
+    DebugConfig.db('🔵 _loadProps: loading for entry ${widget.entryId}');
     for (final f in widget.fields) {
       final prop = props.where((p) => p.key == f.key).firstOrNull;
       final val = prop?.value ?? '';
+      DebugConfig.db('   Field: ${f.key}, type: ${f.type}, value: $val');
+      if (f.key.isEmpty) {
+        DebugConfig.db('⚠️ Skipping save for field with empty key: label="${f.label}"');
+        continue;
+      }
       switch (f.type) {
         case FieldType.toggle:
           _boolValues[f.key] = val == 'true';
+          break;
         case FieldType.date:
           _dateValues[f.key] = val.isNotEmpty ? DateTime.tryParse(val) : null;
+          break;
         case FieldType.bulletList:
         case FieldType.numberedList:
           if (val.isNotEmpty) {
             try {
               final list = jsonDecode(val) as List;
               _listValues[f.key] = list.map((e) => e.toString()).toList();
+              DebugConfig.db('   ✅ Loaded list: ${_listValues[f.key]}');
             } catch (_) {
               _listValues[f.key] = [];
+              DebugConfig.db('   ⚠️ Failed to decode JSON for ${f.key}');
             }
           } else {
             _listValues[f.key] = [];
           }
+          break;
         default:
           if (_fieldCtrls[f.key]?.text.isEmpty == true && val.isNotEmpty) {
             _fieldCtrls[f.key]?.text = val;
@@ -582,6 +626,12 @@ class _CollectionEntryDetailScreenState
           if (_lastSavedTitle.isEmpty && (item.title ?? '').isNotEmpty) {
             _lastSavedTitle = item.title ?? '';
           }
+          if (_isFavorite != item.favorite) {
+            _isFavorite = item.favorite;
+          }
+          if (_isPinned != item.pinned) {
+            _isPinned = item.pinned;
+          }
         }
 
         return PopScope(
@@ -612,6 +662,26 @@ class _CollectionEntryDetailScreenState
                     ])
                   : null,
               actions: [
+                // Pin button
+                IconButton(
+                  icon: Icon(
+                    _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                    color: _isPinned ? context.cPrimary : context.cText2,
+                  ),
+                  onPressed: _togglePin,
+                  tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+                ),
+                // Favorite button
+                IconButton(
+                  icon: Icon(
+                    _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: _isFavorite
+                        ? ColorsUI.getWarning(context.brightness)
+                        : context.cText2,
+                  ),
+                  onPressed: _toggleFavorite,
+                  tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+                ),
                 IconButton(
                   // Save button
                   icon: Icon(Icons.save_rounded, color: context.cPrimary),
@@ -711,6 +781,7 @@ class _FieldInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (field.key.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

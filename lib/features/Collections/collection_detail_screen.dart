@@ -290,10 +290,15 @@ class _CollectionDetailScreenState
                     onPressed: () {
                       final label = labelCtrl.text.trim();
                       if (label.isEmpty) return;
-                      final key = label
+                      String key = label
                           .toLowerCase()
                           .replaceAll(' ', '_')
                           .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+                      if (key.isEmpty) key = 'field_${DateTime.now().millisecondsSinceEpoch}';
+                  // Επίσης, αν υπάρχει ήδη ίδιο key, πρόσθεσε timestamp
+                      while (_fields.any((f) => f.key == key)) {
+                        key = '${key}_${DateTime.now().millisecondsSinceEpoch}';
+                      }
                       final options = selectedType == FieldType.select
                           ? optionsCtrl.text
                           .split(',')
@@ -331,6 +336,7 @@ class _CollectionDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+
     final itemAsync = ref.watch(itemStreamProvider(widget.collectionId));
 
     return itemAsync.when(
