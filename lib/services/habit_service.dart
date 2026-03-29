@@ -193,7 +193,7 @@ class HabitService {
   Future<Map<String, String?>> _getAllProps(int habitId) async {
     final props = await SuperNoteHelper.instance.properties.getAll(habitId);
     final map = <String, String?>{};
-    for (final p in props) map[p.key] = p.value;
+    for (final p in props) {map[p.key] = p.value;}
     return map;
   }
 
@@ -258,7 +258,7 @@ class HabitService {
         if (prev!.difference(sorted[i]).inDays == 1) {
           streak++;
           prev = sorted[i];
-        } else break;
+        } else {break;}
       }
       await props.setNumber(habitId, 'streak', streak.toDouble());
 
@@ -367,7 +367,7 @@ class HabitService {
       await props.delete(habitId, 'reminder_time');
       await ReminderScheduler.instance.cancelAllForItem(habitId);
       final reminders = await SuperNoteHelper.instance.reminders.getForItem(habitId);
-      for (final r in reminders) await SuperNoteHelper.instance.reminders.delete(r.id);
+      for (final r in reminders) {await SuperNoteHelper.instance.reminders.delete(r.id);}
     } else {
       DebugConfig.db('🕒 Enabling reminder for habit $habitId at ${time.hour}:${time.minute}');
       // Save reminder time and schedule new reminders
@@ -386,7 +386,7 @@ class HabitService {
     // Cancel existing reminders for this item
     await ReminderScheduler.instance.cancelAllForItem(habitId);
     final old = await SuperNoteHelper.instance.reminders.getForItem(habitId);
-    for (final r in old) await SuperNoteHelper.instance.reminders.delete(r.id);
+    for (final r in old) {await SuperNoteHelper.instance.reminders.delete(r.id);}
 
     final now = DateTime.now();
     final end = now.add(const Duration(days: 60)); // enough for 2 months
@@ -452,7 +452,6 @@ class HabitService {
     final goal = _parseToInt(allProps['goal_per_period']);
 
     await _resetDailyIfNeeded(habitId, recurrence);
-    final periodStart = await _ensurePeriodStart(habitId, recurrence);
 
     final completionsJson = await props.getValue(habitId, 'period_completions');
     List<DateTime> completions = [];
@@ -479,7 +478,7 @@ class HabitService {
         if (prev!.difference(sorted[i]).inDays == 1) {
           streak++;
           prev = sorted[i];
-        } else break;
+        } else {break;}
       }
     }
     final bestStr = allProps['best_streak'];
@@ -495,7 +494,7 @@ class HabitService {
           if (sorted[i-1].difference(sorted[i]).inDays == 1) {
             current++;
             if (current > best) best = current;
-          } else current = 1;
+          } else {current = 1;}
         }
         if (best > bestStreak) {
           bestStreak = best;

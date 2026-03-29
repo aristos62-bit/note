@@ -401,18 +401,7 @@ class _TrashCard extends StatelessWidget {
     final color = ColorsUI.itemTypeColor(item.type, context.brightness);
     final deletedDate = item.deletedAt ?? item.updatedAt ?? item.createdAt;
 
-    // Χρώματα checkbox
-    final checkboxBorderColor = selected
-        ? context.cPrimary
-        : context.cBorder;
-    final checkboxBackgroundColor = selected
-        ? context.cPrimary
-        : Colors.transparent;
-    final checkIconColor = selected
-        ? ColorsUI.getAccessibleTextColor(context.cPrimary)
-        : Colors.transparent;
-
-    return Container(
+   return Container(
       padding: const EdgeInsets.all(Spacing.sm),
       decoration: BoxDecoration(
         color: ColorsUI.getSurface(context.brightness),

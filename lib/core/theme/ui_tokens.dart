@@ -145,6 +145,7 @@ class ColorsUI {
     ItemType.finance:   Color(0xFF2E7D32), // green
     ItemType.bookmark:  Color(0xFF0277BD), // blue
     ItemType.journal:   Color(0xFF7D5260), // pink
+    ItemType.appointment: Color(0xFFF6D605),// yellow
     ItemType.checklist: Color(0xFF00838F), // teal
     ItemType.knowledge: Color(0xFF6750A4), // purple
   };
@@ -160,6 +161,7 @@ class ColorsUI {
     ItemType.finance:   Color(0xFF81C784), // green
     ItemType.bookmark:  Color(0xFF64B5F6), // blue
     ItemType.journal:   Color(0xFFEFB8C8), // pink
+    ItemType.appointment: Color(0xFF81C784),// green
     ItemType.checklist: Color(0xFF4DD0E1), // teal
     ItemType.knowledge: Color(0xFFD0BCFF), // purple
   };

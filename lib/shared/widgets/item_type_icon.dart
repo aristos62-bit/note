@@ -61,6 +61,7 @@ class ItemTypeIcon extends StatelessWidget {
       case ItemType.finance:   return Icons.account_balance_wallet_rounded;
       case ItemType.bookmark:  return Icons.bookmark_rounded;
       case ItemType.journal:   return Icons.auto_stories_rounded;
+      case ItemType.appointment:  return Icons.cases_rounded;
       case ItemType.checklist: return Icons.checklist_rounded;
       case ItemType.knowledge: return Icons.lightbulb_outline_rounded;
     }
@@ -80,6 +81,7 @@ class ItemTypeIcon extends StatelessWidget {
       case ItemType.finance:   return 'Οικονομικά';
       case ItemType.bookmark:  return 'Σελιδοδείκτης';
       case ItemType.journal:   return 'Ημερολόγιο';
+      case ItemType.appointment:return 'Ραντεβου';
       case ItemType.checklist: return 'Λίστα';
       case ItemType.knowledge: return 'Γνώση';
     }

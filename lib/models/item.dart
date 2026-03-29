@@ -22,8 +22,9 @@ enum ItemType {
   finance,
   bookmark,
   journal,
+  appointment,
   checklist,
-  knowledge, // Βάση γνώσης
+  knowledge,
 }
 
 /// Η κατάσταση ενός Item.

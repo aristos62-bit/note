@@ -27,13 +27,13 @@ import '../core.dart';
 import '../../features/home/home.dart';
 import '../../features/notes/notes.dart';
 import '../../features/tasks/tasks.dart';
-import '../../features/search/search.dart';
 import '../../features/settings/settings.dart';
 import '../../features/habits/habits.dart';
 import '../../features/calendar/calendar.dart';
 import '../../features/journal/journal.dart';
 import '../../features/contacts/contacts.dart';
 import '../../features/collections/collections.dart';
+import '../../features/appointments/appointments.dart';
 import 'package:flutter/gestures.dart';
 
 // ── Route paths ────────────────────────────────────────────────
@@ -46,7 +46,7 @@ class AppRoutes {
   static const noteId = '/notes/:id';
   static const tasks = '/tasks';
   static const taskId = '/tasks/:id';
-  static const search = '/search';
+  static const appointments = '/appointments';
   static const settings = '/settings';
 
   // Βήμα 3 — ετοιμάζουμε για τα advanced features
@@ -123,12 +123,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
-            path: AppRoutes.search,
-            name: 'search',
-            pageBuilder: (context, state) {
-              final q = state.uri.queryParameters['q'];
-              return AppTransitions.fade(state, SearchScreen(initialQuery: q));
-            },
+            path: AppRoutes.appointments,
+            name: 'appointments',
+            pageBuilder: (context, state) =>
+                AppTransitions.fade(state, const AppointmentListScreen()),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'appointment-detail',
+                pageBuilder: (context, state) {
+                  final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  return AppTransitions.slideRight(
+                      state, AppointmentDetailScreen(itemId: id));
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.settings,
@@ -272,10 +281,10 @@ class _AppShell extends ConsumerWidget {
       label: 'Συλλογές',
     ),
     _NavItem(
-      path: AppRoutes.search,
-      icon: Icons.search_rounded,
-      selectedIcon: Icons.search_rounded,
-      label: 'Αναζήτηση',
+      path: AppRoutes.appointments,
+      icon: Icons.calendar_today_outlined,
+      selectedIcon: Icons.calendar_today_rounded,
+      label: 'Ραντεβού',
     ),
     _NavItem(
       path: AppRoutes.settings,
@@ -311,14 +320,80 @@ class _AppShell extends ConsumerWidget {
         selectedIndex: selectedIdx,
         onTap: (i) => _onTap(context, i),
         navItems: _navItems,
-        child: child,
+          child: _SwipePager(
+            currentIndex: selectedIdx,
+            navItems: _navItems,
+            child: child,
+          ),
       ),
       tablet: _TabletShell(
         selectedIndex: selectedIdx,
         onTap: (i) => _onTap(context, i),
         navItems: _navItems,
-        child: child,
+        child: _SwipePager(
+          currentIndex: selectedIdx,
+          navItems: _navItems,
+          child: child,
+        ),
       ),
+    );
+  }
+}
+
+class _SwipePager extends StatefulWidget {
+  final int currentIndex;
+  final List<_NavItem> navItems;
+  final Widget child;
+
+  const _SwipePager({
+    required this.currentIndex,
+    required this.navItems,
+    required this.child,
+  });
+
+  @override
+  State<_SwipePager> createState() => _SwipePagerState();
+}
+
+class _SwipePagerState extends State<_SwipePager> {
+  late final PageController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(initialPage: widget.currentIndex);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SwipePager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      _controller.jumpToPage(widget.currentIndex);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView.builder(
+      controller: _controller,
+      itemCount: widget.navItems.length,
+      onPageChanged: (index) {
+        final path = widget.navItems[index].path;
+        DebugConfig.nav('Swipe → $path');
+        context.go(path);
+      },
+      itemBuilder: (context, index) {
+        // 👉 ΜΟΝΟ η τρέχουσα σελίδα δείχνει content
+        if (index == widget.currentIndex) {
+          return widget.child;
+        }
+
+        // 👉 Οι άλλες είναι placeholders για το animation
+        return Container(
+          color: context.cBg,
+        );
+      },
     );
   }
 }

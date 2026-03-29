@@ -238,87 +238,92 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
       scrolledUnderElevation: 1,
       title: _isSaving
           ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: context.cText2,
-                  ),
-                ),
-                const SizedBox(width: Spacing.xs),
-                Text(
-                  'Αποθήκευση...',
-                  style: context.bodySm.withColor(context.cText2),
-                ),
-              ],
-            )
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: context.cText2,
+            ),
+          ),
+          const SizedBox(width: Spacing.xs),
+          Text(
+            'Αποθήκευση...',
+            style: context.bodySm.withColor(context.cText2),
+          ),
+        ],
+      )
           : null,
       actions: [
-        // Save
-        IconButton(
-          icon: Icon(
-            Icons.save_rounded,
-            color: context.cPrimary,
-          ),
-          tooltip: 'Αποθήκευση',
-          onPressed: () async {
-            final title = _titleCtrl.text.trim();
-            DebugConfig.db(
-                'NoteDetail manual save pressed id=${item.id} title="$title"');
-            await _saveTitle(title);
+        // Wrap σε SingleChildScrollView για οριζόντια κύλιση
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              // Save
+              IconButton(
+                icon: Icon(
+                  Icons.save_rounded,
+                  color: context.cPrimary,
+                ),
+                tooltip: 'Αποθήκευση',
+                onPressed: () async {
+                  final title = _titleCtrl.text.trim();
+                  DebugConfig.db(
+                      'NoteDetail manual save pressed id=${item.id} title="$title"');
+                  await _saveTitle(title);
 
-            // Μετά από save γύρνα πάντα πίσω
-            if (!context.mounted) return;
-            Navigator.of(context).pop();
-          },
-        ),
-
-        // Favorite
-        IconButton(
-          icon: Icon(
-            item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: item.favorite
-                ? ColorsUI.getWarning(context.brightness)
-                : context.cText2,
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                },
+              ),
+              // Favorite
+              IconButton(
+                icon: Icon(
+                  item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: item.favorite
+                      ? ColorsUI.getWarning(context.brightness)
+                      : context.cText2,
+                ),
+                onPressed: () => _toggleFav(item),
+                tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+              ),
+              // Pin
+              IconButton(
+                icon: Icon(
+                  item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                  color: item.pinned ? context.cPrimary : context.cText2,
+                ),
+                onPressed: () => _togglePin(item),
+                tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+              ),
+              // Archive
+              IconButton(
+                icon: Icon(
+                  item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+                  color: context.cText2,
+                ),
+                tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
+                onPressed: () async {
+                  DebugConfig.provider('NoteDetail toggleArchive id=${item.id}');
+                  await ref
+                      .read(itemNotifierProvider.notifier)
+                      .toggleArchive(item.id, item.archived);
+                },
+              ),
+              // Delete
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: context.cError,
+                ),
+                tooltip: 'Διαγραφή',
+                onPressed: () => _deleteNote(context, item),
+              ),
+            ],
           ),
-          onPressed: () => _toggleFav(item),
-          tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-        ),
-
-        // Pin
-        IconButton(
-          icon: Icon(
-            item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            color: item.pinned ? context.cPrimary : context.cText2,
-          ),
-          onPressed: () => _togglePin(item),
-          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-        ),
-// Archive
-        IconButton(
-          icon: Icon(
-            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
-            color: context.cText2,
-          ),
-          tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-          onPressed: () async {
-            DebugConfig.provider('NoteDetail toggleArchive id=${item.id}');
-            await ref
-                .read(itemNotifierProvider.notifier)
-                .toggleArchive(item.id, item.archived);
-          },
-        ),
-        // Delete (αντί για 3 τελείες)
-        IconButton(
-          icon: Icon(
-            Icons.delete_outline_rounded,
-            color: context.cError,
-          ),
-          tooltip: 'Διαγραφή',
-          onPressed: () => _deleteNote(context, item),
         ),
       ],
     );

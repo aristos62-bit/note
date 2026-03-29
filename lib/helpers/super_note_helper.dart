@@ -105,7 +105,7 @@ class SuperNoteHelper {
   Future<void> _ensureDefaults() async {
     final wsCount = await _isar.workspaces.count();
     if (wsCount == 0) {
-      await workspaces.create(name: 'SuperNote', icon: '⚡️', isDefault: true);
+      await workspaces.create(name: 'Προσωπικός Βοηθός', icon: '⚡️', isDefault: true);
     }
 
     final settingsExist = await _isar.appSettings.get(1) != null;

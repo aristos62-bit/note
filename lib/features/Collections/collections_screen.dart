@@ -18,7 +18,16 @@ import 'collection_entries_screen.dart';
 
 // ── Field types ───────────────────────────────────────────────
 
-enum FieldType { text, number, date, select, toggle, url }
+enum FieldType {
+  text,
+  number,
+  date,
+  select,
+  toggle,
+  url,
+  bulletList,     // ← νέο
+  numberedList    // ← νέο
+}
 
 class FieldDef {
   final String key;
@@ -63,21 +72,25 @@ class FieldDef {
       jsonEncode(fields.map((f) => f.toJson()).toList());
 
   IconData get icon => switch (type) {
-    FieldType.text   => Icons.text_fields_rounded,
-    FieldType.number => Icons.numbers_rounded,
-    FieldType.date   => Icons.calendar_today_rounded,
-    FieldType.select => Icons.list_rounded,
-    FieldType.toggle => Icons.toggle_on_rounded,
-    FieldType.url    => Icons.link_rounded,
+    FieldType.text        => Icons.text_fields_rounded,
+    FieldType.number      => Icons.numbers_rounded,
+    FieldType.date        => Icons.calendar_today_rounded,
+    FieldType.select      => Icons.list_rounded,
+    FieldType.toggle      => Icons.toggle_on_rounded,
+    FieldType.url         => Icons.link_rounded,
+    FieldType.bulletList  => Icons.format_list_bulleted_rounded,
+    FieldType.numberedList => Icons.format_list_numbered_rounded,
   };
 
   String get typeName => switch (type) {
-    FieldType.text   => 'Κείμενο',
-    FieldType.number => 'Αριθμός',
-    FieldType.date   => 'Ημερομηνία',
-    FieldType.select => 'Επιλογή',
-    FieldType.toggle => 'Ναι/Όχι',
-    FieldType.url    => 'URL',
+    FieldType.text        => 'Κείμενο',
+    FieldType.number      => 'Αριθμός',
+    FieldType.date        => 'Ημερομηνία',
+    FieldType.select      => 'Επιλογή',
+    FieldType.toggle      => 'Ναι/Όχι',
+    FieldType.url         => 'URL',
+    FieldType.bulletList  => 'Λίστα (κουκκίδες)',
+    FieldType.numberedList => 'Λίστα (αρίθμηση)',
   };
 }
 

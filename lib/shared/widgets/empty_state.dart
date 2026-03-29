@@ -317,6 +317,12 @@ const Map<ItemType, _EmptyData> _emptyStateData = {
     subtitle:    'Δημιούργησε λίστες για να θυμάσαι τα πάντα',
     actionLabel: 'Νέα λίστα',
   ),
+  ItemType.appointment: _EmptyData(
+    icon:        Icons.event_available_rounded,
+    title:       'Δεν υπάρχουν ραντεβου',
+    subtitle:    'Δημιούργησε τα ραντεβου σου για να εισαι πάντα έτοιμος',
+    actionLabel: 'Νέο Ραντεβού',
+  ),
   ItemType.knowledge: _EmptyData(
     icon:        Icons.lightbulb_outline_rounded,
     title:       'Δεν υπάρχουν σημειώσεις γνώσης',

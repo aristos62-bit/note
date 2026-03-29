@@ -12,6 +12,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../features/appointments/appointments.dart';
 import '../notes/note_detail_screen.dart';
 import '../tasks/task_detail_screen.dart';
 import '../habits/habit_detail_screen.dart';
@@ -321,15 +322,15 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
 
     switch (_viewMode) {
       case FolderViewMode.pinned:
-        message = 'Δεν υπάρχουν καρφιτσωμένα στοιχεία σε αυτόν τον φάκελο';
+        message = 'Δεν υπάρχουν καρφιτσωμένα στοιχεία';
         icon = Icons.push_pin_outlined;
         break;
       case FolderViewMode.favorites:
-        message = 'Δεν υπάρχουν αγαπημένα στοιχεία σε αυτόν τον φάκελο';
+        message = 'Δεν υπάρχουν αγαπημένα στοιχεία';
         icon = Icons.star_outline_rounded;
         break;
       case FolderViewMode.both:
-        message = 'Δεν υπάρχουν καρφιτσωμένα ή αγαπημένα στοιχεία';
+        message = 'Δεν υπάρχουν στοιχεία';
         icon = Icons.inbox_rounded;
         break;
     }
@@ -387,6 +388,9 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       case ItemType.project:
         Navigator.of(context).push(AppTransitions.slideRoute(
             CollectionDetailScreen(collectionId: item.id, isNew: isNew)));
+      case ItemType.appointment:
+        Navigator.of(context).push(AppTransitions.slideRoute(
+            AppointmentDetailScreen(itemId: item.id, isNew: isNew)));
       default:
         Navigator.of(context).push(AppTransitions.slideRoute(
             NoteDetailScreen(itemId: item.id, isNew: isNew)));

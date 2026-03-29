@@ -1151,6 +1151,7 @@ class _HabitSettings extends ConsumerWidget {
                         initialTime: reminderTime ?? TimeOfDay.now(),
                         helpText: 'Επιλογή ώρας',
                       );
+                      if (!context.mounted)return;
                       if (time != null) Navigator.pop(ctx, time);
                     },
                     child: const Text('Επιλογή ώρας'),

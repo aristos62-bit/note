@@ -458,6 +458,7 @@ const _ItemtypeEnumValueMap = {
   r'finance': r'finance',
   r'bookmark': r'bookmark',
   r'journal': r'journal',
+  r'appointment': r'appointment',
   r'checklist': r'checklist',
   r'knowledge': r'knowledge',
 };
@@ -472,6 +473,7 @@ const _ItemtypeValueEnumMap = {
   r'finance': ItemType.finance,
   r'bookmark': ItemType.bookmark,
   r'journal': ItemType.journal,
+  r'appointment': ItemType.appointment,
   r'checklist': ItemType.checklist,
   r'knowledge': ItemType.knowledge,
 };

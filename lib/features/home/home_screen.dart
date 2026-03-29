@@ -14,6 +14,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../search/search.dart';
+import '../../features/appointments/appointments.dart';
 import '../settings/settings.dart';
 import '../notes/note_detail_screen.dart';
 import '../tasks/task_detail_screen.dart';
@@ -56,7 +57,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int? _selectedFolderId;
 
   // View mode for "Όλοι" section
-  ViewMode _viewMode = ViewMode.pinned;
+  ViewMode _viewMode = ViewMode.both;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return SliverPadding(
         padding: EdgeInsets.fromLTRB(
           context.responsiveHPadding, Spacing.md,
-          context.responsiveHPadding, 100,
+          context.responsiveHPadding, Spacing.md + MediaQuery.of(context).padding.bottom + 80,
         ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
@@ -236,7 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return SliverPadding(
       padding: EdgeInsets.fromLTRB(
         context.responsiveHPadding, Spacing.md,
-        context.responsiveHPadding, 100,
+        context.responsiveHPadding, Spacing.md + MediaQuery.of(context).padding.bottom + 80,
       ),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -273,7 +274,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         icon = Icons.star_outline_rounded;
         break;
       case ViewMode.both:
-        message = 'Δεν υπάρχουν καρφιτσωμένα ή αγαπημένα στοιχεία';
+        message = 'Δεν υπάρχουν στοιχεία';
         icon = Icons.inbox_rounded;
         break;
     }
@@ -290,9 +291,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(message, style: context.titleMd),
           const SizedBox(height: Spacing.sm),
           Text(
-            _viewMode == ViewMode.pinned
-                ? 'Καρφίτσωσε στοιχεία μέσα από τους φακέλους\nγια να τα βλέπεις εδώ.'
-                : 'Πρόσθεσε αγαπημένα στοιχεία μέσα από τους φακέλους\nγια να τα βλέπεις εδώ.',
+            switch (_viewMode) {
+              ViewMode.pinned   => 'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε στοιχεία για να τα βλέπεις εδώ.',
+              ViewMode.favorites => 'Πρώτα δημιούργησε φακέλους\nπρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
+              ViewMode.both     => 'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε ή αποθήκευσε στοιχεία ως αγαπημένα\nγια να τα βλέπεις εδώ.',
+            },
             style: context.bodyMd.withColor(context.cText2),
             textAlign: TextAlign.center,
           ),
@@ -328,21 +331,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case ItemType.task:
         Navigator.of(context).push(AppTransitions.slideRoute(
             TaskDetailScreen(itemId: item.id)));
+        break;
       case ItemType.contact:
         Navigator.of(context).push(AppTransitions.slideRoute(
             ContactDetailScreen(itemId: item.id)));
+        break;
       case ItemType.journal:
         Navigator.of(context).push(AppTransitions.slideRoute(
             JournalDetailScreen(itemId: item.id)));
+        break;
       case ItemType.habit:
         Navigator.of(context).push(AppTransitions.slideRoute(
             HabitDetailScreen(itemId: item.id)));
+        break;
       case ItemType.event:
         Navigator.of(context).push(AppTransitions.slideRoute(
             EventDetailScreen(itemId: item.id)));
+        break;
       case ItemType.project:
         Navigator.of(context).push(AppTransitions.slideRoute(
             CollectionDetailScreen(collectionId: item.id)));
+        break;
+      case ItemType.appointment:   // ← νέα περίπτωση
+        Navigator.of(context).push(AppTransitions.slideRoute(
+            AppointmentDetailScreen(itemId: item.id)));
+        break;
       default:
         Navigator.of(context).push(AppTransitions.slideRoute(
             NoteDetailScreen(itemId: item.id)));
@@ -823,7 +836,7 @@ class _HomeAppBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final workspaceAsync = ref.watch(defaultWorkspaceProvider);
-    final wsName = workspaceAsync.valueOrNull?.name ?? 'SuperNote';
+    final wsName = workspaceAsync.valueOrNull?.name ?? 'Προσωπικός Βοηθός';
 
     return SliverAppBar(
       backgroundColor: context.cBg,
@@ -840,13 +853,7 @@ class _HomeAppBar extends ConsumerWidget {
               AppTransitions.fadeRoute(const SearchScreen())),
           tooltip: 'Αναζήτηση',
         ),
-        IconButton(
-          icon: Icon(Icons.notifications_outlined, color: context.cText2),
-          onPressed: () =>
-              DebugConfig.nav('Home: notifications (TODO)'),
-          tooltip: 'Ειδοποιήσεις',
-        ),
-        IconButton(
+                IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: () => Navigator.push(context,
               AppTransitions.slideUpRoute(const SettingsScreen())),
@@ -913,8 +920,8 @@ class _GreetingSection extends StatelessWidget {
               height: 80,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
-                width: 44,
-                height: 44,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
                   color: context.cSurface,
                   shape: BoxShape.circle,
@@ -971,7 +978,7 @@ class _FolderSelector extends StatelessWidget {
           ),
           child: Text(
             'Φάκελοι',
-            style: context.labelMd.withColor(context.cText2),
+            style: context.labelLg.withColor(context.cText2),
           ),
         ),
         // Τα ταμπάκια
