@@ -59,8 +59,11 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     _isEditingTitle = true;
     _saveDebounce?.cancel();
 
-    // Δεν κάνουμε πια κανένα save εδώ, κρατάμε μόνο local state.
-    // Το _isEditingTitle μας βοηθά να μη μας πατήσει το stream.
+    // Auto-save τίτλου μετά από 2 δευτερόλεπτα αδράνειας
+    _saveDebounce = Timer(const Duration(seconds: 2), () {
+      _isEditingTitle = false;
+      _saveTitle(value.trim());
+    });
   }
 
   Future<void> _saveTitle(String title) async {
@@ -119,18 +122,32 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   Future<bool> _onPopInvoked() async {
     _saveDebounce?.cancel();
 
-    // Αν είναι νέα σημείωση ΚΑΙ δεν έχει γίνει ποτέ manual save,
-    // τη θεωρούμε draft και τη διαγράφουμε πάντα όταν βγούμε.
     if (widget.isNew && !_hasEverBeenSaved) {
-      DebugConfig.db(
-        'NoteDetail auto-delete NEW note without manual save id=${widget.itemId}',
-      );
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      final title = _titleCtrl.text.trim();
+
+      // Ελέγχουμε αν υπάρχουν blocks με περιεχόμενο
+      final blocks =
+          ref.read(blocksStreamProvider(widget.itemId)).valueOrNull ?? [];
+      final hasBlockContent =
+          blocks.any((b) => (b.text ?? '').trim().isNotEmpty);
+      final hasContent = title.isNotEmpty || hasBlockContent;
+
+      if (!hasContent) {
+        // Εντελώς κενή → διαγραφή
+        DebugConfig.db(
+            'NoteDetail auto-delete empty NEW note id=${widget.itemId}');
+        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      } else {
+        // Έχει περιεχόμενο → αποθήκευση τίτλου αν υπάρχει
+        if (title.isNotEmpty) {
+          await _saveTitle(title);
+        }
+        DebugConfig.db(
+            'NoteDetail auto-save NEW note with content id=${widget.itemId}');
+      }
       return true;
     }
 
-    // Για υπάρχουσες σημειώσεις (ή νέες που έχουν ήδη σωθεί),
-    // δεν κάνουμε ούτε save ούτε delete αυτόματα στο back.
     DebugConfig.nav('NoteDetail back keep note id=${widget.itemId}');
     return true;
   }
@@ -237,24 +254,27 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
       elevation: 0,
       scrolledUnderElevation: 1,
       title: _isSaving
-          ? Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: context.cText2,
-            ),
-          ),
-          const SizedBox(width: Spacing.xs),
-          Text(
-            'Αποθήκευση...',
-            style: context.bodySm.withColor(context.cText2),
-          ),
-        ],
-      )
+          ? FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: context.cText2,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Text(
+                    'Αποθήκευση...',
+                    style: context.bodySm.withColor(context.cText2),
+                  ),
+                ],
+              ),
+            )
           : null,
       actions: [
         // Wrap σε SingleChildScrollView για οριζόντια κύλιση
@@ -282,7 +302,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
               // Favorite
               IconButton(
                 icon: Icon(
-                  item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                  item.favorite
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
                   color: item.favorite
                       ? ColorsUI.getWarning(context.brightness)
                       : context.cText2,
@@ -293,7 +315,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
               // Pin
               IconButton(
                 icon: Icon(
-                  item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                  item.pinned
+                      ? Icons.push_pin_rounded
+                      : Icons.push_pin_outlined,
                   color: item.pinned ? context.cPrimary : context.cText2,
                 ),
                 onPressed: () => _togglePin(item),
@@ -302,12 +326,15 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
               // Archive
               IconButton(
                 icon: Icon(
-                  item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+                  item.archived
+                      ? Icons.unarchive_rounded
+                      : Icons.archive_rounded,
                   color: context.cText2,
                 ),
                 tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
                 onPressed: () async {
-                  DebugConfig.provider('NoteDetail toggleArchive id=${item.id}');
+                  DebugConfig.provider(
+                      'NoteDetail toggleArchive id=${item.id}');
                   await ref
                       .read(itemNotifierProvider.notifier)
                       .toggleArchive(item.id, item.archived);
@@ -557,8 +584,23 @@ class _BlocksSliver extends ConsumerStatefulWidget {
 }
 
 class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
-  int? _overrideBlockId; // ποιο block επηρεάζεται
+  int? _overrideBlockId;
   BlockType? _overrideType;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      for (final block in widget.blocks) {
+        if ((block.text ?? '').trim().isEmpty) {
+          DebugConfig.db('BlocksSliver auto-delete empty block id=${block.id}');
+          await ref
+              .read(blockNotifierProvider(widget.item.id).notifier)
+              .delete(block.id);
+        }
+      }
+    });
+  }
 
   Future<void> _addBlock(BlockType type) async {
     if (widget.blocks.isNotEmpty) {
@@ -620,16 +662,23 @@ class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
         ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
-            (ctx, i) => _BlockTile(
-              index: i,
-              block: widget.blocks[i],
-              onDelete: () => _deleteBlock(widget.blocks[i].id),
-              onToggleCheck: () => _toggleCheck(widget.blocks[i].id),
-              onTextChanged: (t) => _updateText(widget.blocks[i].id, t),
-              overrideType: _overrideBlockId == widget.blocks[i].id
-                  ? _overrideType
-                  : null,
-            ),
+            (ctx, i) {
+              // Μετράμε μόνο τα numbered blocks πριν από το τρέχον
+              final numberedIndex = widget.blocks
+                  .sublist(0, i)
+                  .where((b) => b.type == BlockType.numbered)
+                  .length;
+              return _BlockTile(
+                index: numberedIndex,
+                block: widget.blocks[i],
+                onDelete: () => _deleteBlock(widget.blocks[i].id),
+                onToggleCheck: () => _toggleCheck(widget.blocks[i].id),
+                onTextChanged: (t) => _updateText(widget.blocks[i].id, t),
+                overrideType: _overrideBlockId == widget.blocks[i].id
+                    ? _overrideType
+                    : null,
+              );
+            },
             childCount: widget.blocks.length,
           ),
         ),
@@ -649,7 +698,6 @@ class _NewBlockBar extends StatelessWidget {
 
   static const _items = [
     (BlockType.text, Icons.text_fields_rounded, 'Κείμενο'),
-    (BlockType.heading1, Icons.title_rounded, 'Επικεφαλίδα'),
     (BlockType.checklist, Icons.check_box_outlined, 'Λίστα'),
     (BlockType.bulletList, Icons.format_list_bulleted_rounded, 'Bullets'),
     (BlockType.numbered, Icons.format_list_numbered_rounded, 'Αριθμημένα'),
@@ -734,12 +782,22 @@ class _BlockTile extends StatefulWidget {
 
 class _BlockTileState extends State<_BlockTile> {
   late final TextEditingController _ctrl;
+  late final FocusNode _focusNode;
   Timer? _debounce;
   BlockType get effectiveType => widget.overrideType ?? widget.block.type;
+
   @override
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.block.text ?? '');
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      // Όταν ο χρήστης φεύγει από το block ΚΑΙ είναι κενό → διαγραφή
+      if (!_focusNode.hasFocus && _ctrl.text.trim().isEmpty) {
+        _debounce?.cancel();
+        widget.onDelete();
+      }
+    });
   }
 
   @override
@@ -755,13 +813,18 @@ class _BlockTileState extends State<_BlockTile> {
   void dispose() {
     _debounce?.cancel();
     _ctrl.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _onChange(String val) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
-      widget.onTextChanged(val);
+      if (val.trim().isEmpty) {
+        widget.onDelete();
+      } else {
+        widget.onTextChanged(val);
+      }
     });
   }
 
@@ -794,16 +857,46 @@ class _BlockTileState extends State<_BlockTile> {
     final isBullet = effectiveType == BlockType.bulletList;
     final isNumbered = effectiveType == BlockType.numbered;
 
-    return Dismissible(
-      key: ValueKey(widget.block.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: Spacing.md),
-        color: context.cError.withValues(alpha: 0.1),
-        child: Icon(Icons.delete_outline_rounded, color: context.cError),
-      ),
-      onDismissed: (_) => widget.onDelete(),
+    return GestureDetector(
+      onLongPress: () {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: ColorsUI.getSurface(context.brightness),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(AppRadius.bottomSheet),
+              topRight: Radius.circular(AppRadius.bottomSheet),
+            ),
+          ),
+          builder: (_) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: context.cBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading:
+                      Icon(Icons.delete_outline_rounded, color: context.cError),
+                  title: Text('Διαγραφή block',
+                      style: TextStyle(color: context.cError)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    widget.onDelete();
+                  },
+                ),
+                const SizedBox(height: Spacing.sm),
+              ],
+            ),
+          ),
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: Spacing.xs / 2),
         child: Row(
@@ -878,6 +971,7 @@ class _BlockTileState extends State<_BlockTile> {
             Expanded(
               child: TextField(
                 controller: _ctrl,
+                focusNode: _focusNode,
                 onChanged: _onChange,
                 style: _textStyle(context).copyWith(
                   decoration: (isChecklist && widget.block.checked)

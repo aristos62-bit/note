@@ -320,21 +320,13 @@ class _AppShell extends ConsumerWidget {
         selectedIndex: selectedIdx,
         onTap: (i) => _onTap(context, i),
         navItems: _navItems,
-          child: _SwipePager(
-            currentIndex: selectedIdx,
-            navItems: _navItems,
-            child: child,
-          ),
+        child: child, // απλά δείχνουμε το child, χωρίς PageView
       ),
       tablet: _TabletShell(
         selectedIndex: selectedIdx,
         onTap: (i) => _onTap(context, i),
         navItems: _navItems,
-        child: _SwipePager(
-          currentIndex: selectedIdx,
-          navItems: _navItems,
-          child: child,
-        ),
+        child: child,
       ),
     );
   }

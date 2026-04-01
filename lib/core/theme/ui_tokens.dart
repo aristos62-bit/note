@@ -21,7 +21,7 @@ import '../../models/item.dart';
 
 class ColorsUI {
   // ── Primary ──────────────────────────────────────────────────
-  static const Color primaryLight = Color(0xFF5EAAA7);
+  static const Color primaryLight = Color(0xD87C9F67);
   static const Color primaryDark  = Color(0xC2CFFA1C);
 
   static const Color secondaryLight = Color(0xFF625B71);
@@ -64,7 +64,7 @@ class ColorsUI {
   static const Color backgroundLight = Color(0xFFD7DACD);
   static const Color backgroundDark  = Color(0xFF242525);
 
-  static const Color surfaceLight = Color(0xA9B2CCA8);
+  static const Color surfaceLight = Color(0xA9F2F3F1);
   static const Color surfaceDark  = Color(0x8448474C);
 
   static const Color cardLight = Color(0xFFF6F6F1);
@@ -183,7 +183,7 @@ class ColorsUI {
 
   /// Pinned item highlight color
   static Color pinnedColor(Brightness b) =>
-      b == Brightness.light ? const Color(0xFFFFF8E1) : const Color(0xFF3E3820);
+      b == Brightness.light ? const Color(0xFFC3EF9E) : const Color(0xFF856B91);
 
   /// Streak color για habits (gradient από orange σε red)
   static Color streakColor(int streak, Brightness b) {
