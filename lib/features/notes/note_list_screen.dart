@@ -209,16 +209,26 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
             error: (_, __) => const SizedBox.shrink(),
             data: (folders) {
               if (folders.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-                child: _NoteFolderChips(
-                  folders: folders,
-                  selectedFolderId: _selectedFolderId,
-                  onSelect: (id) {
-                    setState(() => _selectedFolderId = id);
-                    DebugConfig.nav('NoteList: select folder id=$id');
-                  },
-                ),
+              return Column(
+                children: [
+                  _NoteFolderChips(
+                    folders: folders,
+                    selectedFolderId: _selectedFolderId,
+                    onSelect: (id) {
+                      setState(() => _selectedFolderId = id);
+                      DebugConfig.nav('NoteList: select folder id=$id');
+                    },
+                  ),
+                  // Προσθήκη hint αν δεν έχει επιλεγεί φάκελος
+                  if (_selectedFolderId == null)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsiveHPadding,
+                        vertical: Spacing.xs,
+                      ),
+                      child: _FolderSelectionHint(),
+                    ),
+                ],
               );
             },
           ),
@@ -731,6 +741,39 @@ class _TagFilterRow extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 // ITEM ACTIONS SHEET
 // ════════════════════════════════════════════════════════════════
+
+class _FolderSelectionHint extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: Spacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: context.cInfo.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 16,
+            color: context.cInfo,
+          ),
+          const SizedBox(width: Spacing.xs),
+          Expanded(
+            child: Text(
+              'Επιλέξτε έναν φάκελο για να δημιουργήσετε νέα σημείωση',
+              style: context.bodySm.withColor(context.cInfo),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ItemActionsSheet extends StatelessWidget {
   final Item item;

@@ -492,36 +492,13 @@ class _NoteBody extends ConsumerWidget {
 
                 const SizedBox(height: Spacing.md),
 
-                // Content header + quick actions
-                Row(
-                  children: [
-                    Text(
-                      'Περιεχόμενο',
-                      style: context.labelSm.withColor(context.cText2),
-                    ),
-                    const Spacer(),
-                    IconButton.filledTonal(
-                      icon: const Icon(Icons.text_fields_rounded, size: 18),
-                      tooltip: 'Προσθήκη κειμένου',
-                      onPressed: () {
-                        DebugConfig.db('NoteDetail quickAdd text');
-                        ref
-                            .read(blockNotifierProvider(item.id).notifier)
-                            .addBlock(type: BlockType.text);
-                      },
-                    ),
-                    const SizedBox(width: Spacing.xs),
-                    IconButton.outlined(
-                      icon: const Icon(Icons.check_box_outlined, size: 18),
-                      tooltip: 'Προσθήκη λίστας',
-                      onPressed: () {
-                        DebugConfig.db('NoteDetail quickAdd checklist');
-                        ref
-                            .read(blockNotifierProvider(item.id).notifier)
-                            .addBlock(type: BlockType.checklist);
-                      },
-                    ),
-                  ],
+                // Content header
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.sm),
+                  child: Text(
+                    'Περιεχόμενο',
+                    style: context.labelSm.withColor(context.cText2),
+                  ),
                 ),
 
                 const SizedBox(height: Spacing.sm),

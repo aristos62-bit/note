@@ -1,4 +1,3 @@
-// lib/features/home/home_screen.dart
 //
 // Home Screen — refactored with Pinned/Favorites toggle.
 // ✅ ViewMode: pinned | favorites | both
@@ -14,16 +13,17 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../search/search.dart';
-import '../../features/appointments/appointments.dart';
+// import '../../features/appointments/appointments.dart';
 import '../settings/settings.dart';
-import '../notes/note_detail_screen.dart';
-import '../tasks/task_detail_screen.dart';
-import '../habits/habit_detail_screen.dart';
-import '../calendar/event_detail_screen.dart';
-import '../contacts/contact_detail_screen.dart';
-import '../journal/journal_detail_screen.dart';
+// import '../notes/note_detail_screen.dart';
+// import '../tasks/task_detail_screen.dart';
+// import '../habits/habit_detail_screen.dart';
+// import '../calendar/event_detail_screen.dart';
+// import '../contacts/contact_detail_screen.dart';
+// import '../journal/journal_detail_screen.dart';
 import '../collections/collections.dart';
 import 'home_folder_view.dart';
+import 'package:go_router/go_router.dart';
 
 // ── View Mode for Home Screen ─────────────────────────────────
 enum ViewMode { pinned, favorites, both }
@@ -53,9 +53,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  // null = "Όλοι", int = folder id
-  int? _selectedFolderId;
-
   // View mode for "Όλοι" section
   ViewMode _viewMode = ViewMode.both;
 
@@ -65,6 +62,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final foldersAsync = ref.watch(foldersStreamProvider);
     final folders      = foldersAsync.valueOrNull ?? [];
+
+    // Διαβάζουμε την επιλογή από τον provider
+    final selectedFolderId = ref.watch(homeSelectedFolderProvider);
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -83,10 +83,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
                 return _FolderSelector(
                   folders:          folders,
-                  selectedFolderId: _selectedFolderId,
+                  selectedFolderId: selectedFolderId,
                   onSelect: (id) {
                     DebugConfig.nav('Home: select folder id=$id');
-                    setState(() => _selectedFolderId = id);
+                    // Αποθηκεύουμε στον provider
+                    ref.read(homeSelectedFolderProvider.notifier).state = id;
                   },
                   onCreateFolder: () =>
                       _showCreateFolderDialog(context, ref),
@@ -98,7 +99,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
 
           // View Mode Toggle (μόνο όταν είναι σε "Όλοι")
-          if (_selectedFolderId == null)
+          if (selectedFolderId == null)
             SliverToBoxAdapter(
               child: _ViewModeToggle(
                 current: _viewMode,
@@ -110,7 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
 
           // Content
-          if (_selectedFolderId == null)
+          if (selectedFolderId == null)
             _buildContentView(context, ref)
           else
             _buildFolderContent(context, folders),
@@ -306,10 +307,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── Folder content ───────────────────────────────────────────
 
-  Widget _buildFolderContent(
-      BuildContext context, List<Folder> folders) {
-    final folder = folders.where((f) => f.id == _selectedFolderId)
-        .firstOrNull;
+  Widget _buildFolderContent(BuildContext context, List<Folder> folders) {
+    final selectedId = ref.watch(homeSelectedFolderProvider);
+    final folder = folders.where((f) => f.id == selectedId).firstOrNull;
     if (folder == null) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
@@ -329,41 +329,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DebugConfig.nav('HomeScreen → ${item.type.name} id=${item.id}');
     switch (item.type) {
       case ItemType.task:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            TaskDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.task(item.id));
         break;
       case ItemType.contact:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            ContactDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.contact(item.id));
         break;
       case ItemType.journal:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            JournalDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.journal_(item.id));
         break;
       case ItemType.habit:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            HabitDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.habit(item.id));
         break;
       case ItemType.event:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            EventDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.note(item.id));
         break;
       case ItemType.project:
-      // Συλλογή -> λίστα εγγραφών
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            CollectionEntriesScreen(collection: item)));
+        context.push('/collections/${item.id}');
         break;
       case ItemType.appointment:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            AppointmentDetailScreen(itemId: item.id)));
+        context.push('/appointments/${item.id}');
         break;
       case ItemType.knowledge:
-      // Εγγραφή συλλογής -> detail screen
         _openKnowledgeEntry(item);
         break;
       default:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            NoteDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.note(item.id));
     }
   }
 
@@ -660,8 +650,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DebugConfig.db('Home deleteFolder id=${folder.id}');
     await ref.read(folderNotifierProvider.notifier).delete(folder.id);
     // Deselect αν ήταν επιλεγμένος
-    if (_selectedFolderId == folder.id) {
-      setState(() => _selectedFolderId = null);
+    if (ref.read(homeSelectedFolderProvider) == folder.id) {
+      ref.read(homeSelectedFolderProvider.notifier).state = null;
     }
   }
 
@@ -886,7 +876,7 @@ class _HomeAppBar extends ConsumerWidget {
               AppTransitions.fadeRoute(const SearchScreen())),
           tooltip: 'Αναζήτηση',
         ),
-                IconButton(
+        IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: () => Navigator.push(context,
               AppTransitions.slideUpRoute(const SettingsScreen())),

@@ -35,6 +35,7 @@ import '../../features/contacts/contacts.dart';
 import '../../features/collections/collections.dart';
 import '../../features/appointments/appointments.dart';
 import 'package:flutter/gestures.dart';
+import '../../providers/providers.dart';
 
 // ── Route paths ────────────────────────────────────────────────
 
@@ -305,26 +306,28 @@ class _AppShell extends ConsumerWidget {
     return 0;
   }
 
-  void _onTap(BuildContext context, int index) {
+  void _onTap(BuildContext context, WidgetRef ref, int index) {
     final path = _navItems[index].path;
     DebugConfig.nav('Shell nav → $path');
     context.go(path);
+    if (path == AppRoutes.home) {
+      ref.read(homeSelectedFolderProvider.notifier).state = null;
+    }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIdx = _selectedIndex(context);
-
     return ResponsiveLayout(
       mobile: _MobileShell(
         selectedIndex: selectedIdx,
-        onTap: (i) => _onTap(context, i),
+        onTap: (i) => _onTap(context, ref, i),   // <-- περνάμε ref
         navItems: _navItems,
-        child: child, // απλά δείχνουμε το child, χωρίς PageView
+        child: child,
       ),
       tablet: _TabletShell(
         selectedIndex: selectedIdx,
-        onTap: (i) => _onTap(context, i),
+        onTap: (i) => _onTap(context, ref, i),   // <-- περνάμε ref
         navItems: _navItems,
         child: child,
       ),

@@ -12,15 +12,16 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
-import '../../features/appointments/appointments.dart';
-import '../notes/note_detail_screen.dart';
-import '../tasks/task_detail_screen.dart';
-import '../habits/habit_detail_screen.dart';
-import '../calendar/event_detail_screen.dart';
-import '../contacts/contact_detail_screen.dart';
-import '../journal/journal_detail_screen.dart';
-import '../collections/collection_detail_screen.dart';
+// import '../../features/appointments/appointments.dart';
+// import '../notes/note_detail_screen.dart';
+// import '../tasks/task_detail_screen.dart';
+// import '../habits/habit_detail_screen.dart';
+// import '../calendar/event_detail_screen.dart';
+// import '../contacts/contact_detail_screen.dart';
+// import '../journal/journal_detail_screen.dart';
+// import '../collections/collection_detail_screen.dart';
 import 'folder_browser_screen.dart';
+import 'package:go_router/go_router.dart';
 
 // ── View Mode για το φάκελο ───────────────────────────────────
 enum FolderViewMode { pinned, favorites, recent, all }
@@ -364,29 +365,28 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
     DebugConfig.nav('HomeFolderView → ${item.type.name} id=${item.id}');
     switch (item.type) {
       case ItemType.task:
-        Navigator.of(context)
-            .push(AppTransitions.slideRoute(TaskDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.task(item.id));
+        break;
       case ItemType.contact:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            ContactDetailScreen(itemId: item.id, isNew: isNew)));
+        context.push(AppRoutes.contact(item.id));
+        break;
       case ItemType.journal:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            JournalDetailScreen(itemId: item.id, isNew: isNew)));
+        context.push(AppRoutes.journal_(item.id));
+        break;
       case ItemType.habit:
-        Navigator.of(context).push(
-            AppTransitions.slideRoute(HabitDetailScreen(itemId: item.id)));
+        context.push(AppRoutes.habit(item.id));
+        break;
       case ItemType.event:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            EventDetailScreen(itemId: item.id, isNew: isNew)));
+        context.push(AppRoutes.note(item.id));
+        break;
       case ItemType.project:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            CollectionDetailScreen(collectionId: item.id, isNew: isNew)));
+        context.push('/collections/${item.id}');
+        break;
       case ItemType.appointment:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            AppointmentDetailScreen(itemId: item.id, isNew: isNew)));
+        context.push('/appointments/${item.id}');
+        break;
       default:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            NoteDetailScreen(itemId: item.id, isNew: isNew)));
+        context.push(AppRoutes.note(item.id));
     }
   }
 }
