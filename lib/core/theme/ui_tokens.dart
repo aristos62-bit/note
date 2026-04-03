@@ -22,7 +22,7 @@ import '../../models/item.dart';
 class ColorsUI {
   // ── Primary ──────────────────────────────────────────────────
   static const Color primaryLight = Color(0xD87C9F67);
-  static const Color primaryDark  = Color(0xC2CFFA1C);
+  static const Color primaryDark  = Color(0xC2D0ED67);
 
   static const Color secondaryLight = Color(0xFF625B71);
   static const Color secondaryDark  = Color(0xFFCCC2DC);

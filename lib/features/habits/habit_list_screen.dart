@@ -129,7 +129,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
               if (folders.isEmpty) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-                child: _FolderChips(
+                child: FolderChipSelector(
                   folders: folders,
                   selectedFolderId: _selectedFolderId,
                   onSelect: (id) {
@@ -253,58 +253,6 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// FOLDER CHIPS
-// ════════════════════════════════════════════════════════════════
-
-class _FolderChips extends StatelessWidget {
-  final List<Folder> folders;
-  final int? selectedFolderId;
-  final ValueChanged<int?> onSelect;
-
-  const _FolderChips({
-    required this.folders,
-    required this.selectedFolderId,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-        itemCount: folders.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-        itemBuilder: (ctx, index) {
-          if (index == 0) {
-            final isSelected = selectedFolderId == null;
-            return ChoiceChip(
-              label: const Text('Όλοι'),
-              selected: isSelected,
-              onSelected: (_) => onSelect(null),
-            );
-          }
-          final folder = folders[index - 1];
-          final isSelected = selectedFolderId == folder.id;
-          return ChoiceChip(
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(folder.icon ?? '📁'),
-                const SizedBox(width: 4),
-                Flexible(child: Text(folder.name, overflow: TextOverflow.ellipsis)),
-              ],
-            ),
-            selected: isSelected,
-            onSelected: (_) => onSelect(folder.id),
-          );
-        },
-      ),
-    );
-  }
-}
 
 // ════════════════════════════════════════════════════════════════
 // TODAY PROGRESS (aggregated)

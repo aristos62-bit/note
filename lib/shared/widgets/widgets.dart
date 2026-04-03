@@ -10,3 +10,5 @@ export 'priority_badge.dart';
 export 'tag_chip.dart';
 export 'confirm_dialog.dart';
 export 'item_type_icon.dart';
+export 'folder_selector.dart';
+export 'folder_selection_hint.dart';

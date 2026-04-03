@@ -17,13 +17,29 @@ import '../../shared/widgets/widgets.dart';
 
 /// Απλοποιημένος provider — επιστρέφει items που έχουν
 /// δημιουργηθεί ως subtasks (θα συνδεθούν μέσω RelationRepository)
-final _subtasksProvider =
-FutureProvider.family<List<Item>, int>((ref, parentId) async {
-  DebugConfig.db('_subtasksProvider parentId=$parentId (stub)');
-  // TODO: όταν υλοποιηθεί RelationRepository, δέσε εδώ τα real subtasks
-  // final db = ref.watch(dbProvider);
-  // return db.relations.getChildren(parentId, type: ItemType.task);
-  return <Item>[];
+final _subtasksProvider = FutureProvider.family<List<Item>, int>((ref, parentId) async {
+  DebugConfig.db('_subtasksProvider parentId=$parentId');
+
+  // Παίρνουμε όλα τα items
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  final allItems = itemsAsync.maybeWhen(
+    data: (list) => list,
+    orElse: () => <Item>[],
+  );
+
+  // Φιλτράρουμε μόνο tasks που έχουν parent_id = parentId
+  final subtasks = <Item>[];
+  for (final item in allItems) {
+    if (item.type != ItemType.task) continue;
+    final props = await ref.read(itemPropertiesProvider(item.id).future);
+    final parentIdStr = props.where((p) => p.key == 'parent_id').firstOrNull?.value;
+    if (parentIdStr != null && int.tryParse(parentIdStr) == parentId) {
+      subtasks.add(item);
+    }
+  }
+
+  DebugConfig.db('_subtasksProvider found ${subtasks.length} subtasks');
+  return subtasks;
 });
 
 
@@ -368,85 +384,81 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       ])
           : null,
       actions: [
-        // Save
-        IconButton(
-          icon: Icon(Icons.save_rounded, color: context.cPrimary),
-          tooltip: 'Αποθήκευση',
-          onPressed: () async {
-            final nav = Navigator.of(context);
-            await _save();
-            if (!mounted) return;
-            nav.pop();
-          },
-        ),
-
-        // Favorite
-        IconButton(
-          icon: Icon(
-            item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              // Save
+              IconButton(
+                icon: Icon(Icons.save_rounded, color: context.cPrimary),
+                tooltip: 'Αποθήκευση',
+                onPressed: () async {
+                  final nav = Navigator.of(context);
+                  await _save();
+                  if (!mounted) return;
+                  nav.pop();
+                },
+              ),
+              // Favorite
+              IconButton(
+                icon: Icon(
+                  item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                ),
+                color: item.favorite
+                    ? ColorsUI.getWarning(context.brightness)
+                    : context.cText2,
+                tooltip: item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένο',
+                onPressed: () => _toggleFav(item),
+              ),
+              // Pin
+              IconButton(
+                icon: Icon(
+                  item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                ),
+                color: item.pinned ? context.cPrimary : context.cText2,
+                tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+                onPressed: () => _togglePin(item),
+              ),
+              // Done / Active toggle
+              TextButton.icon(
+                onPressed: () => _toggleDone(item),
+                icon: Icon(
+                  isDone
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: isDone ? context.cPrimary : context.cText2,
+                  size: 20,
+                ),
+                label: Text(
+                  isDone ? 'Ολοκληρώθηκε' : 'Σε εξέλιξη',
+                  style: context.labelMd
+                      .withColor(isDone ? context.cPrimary : context.cText2),
+                ),
+              ),
+              // Archive
+              IconButton(
+                icon: Icon(
+                  item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+                ),
+                color: context.cText2,
+                tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
+                onPressed: () async {
+                  DebugConfig.provider('TaskDetail toggleArchive id=${item.id}');
+                  await ref
+                      .read(itemNotifierProvider.notifier)
+                      .toggleArchive(item.id, item.archived);
+                },
+              ),
+              // Delete
+              IconButton(
+                icon: Icon(Icons.delete_outline_rounded, color: context.cError),
+                onPressed: () => _deleteTask(context, item),
+                tooltip: 'Διαγραφή',
+              ),
+            ],
           ),
-          color: item.favorite
-              ? ColorsUI.getWarning(context.brightness)
-              : context.cText2,
-          tooltip: item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένο',
-          onPressed: () => _toggleFav(item),
         ),
-
-        // Pin
-        IconButton(
-          icon: Icon(
-            item.pinned
-                ? Icons.push_pin_rounded
-                : Icons.push_pin_outlined,
-          ),
-          color: item.pinned ? context.cPrimary : context.cText2,
-          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-          onPressed: () => _togglePin(item),
-        ),
-
-        // Done / Active toggle
-        TextButton.icon(
-          onPressed: () => _toggleDone(item),
-          icon: Icon(
-            isDone
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked_rounded,
-            color: isDone ? context.cPrimary : context.cText2,
-            size: 20,
-          ),
-          label: Text(
-            isDone ? 'Ολοκληρώθηκε' : 'Σε εξέλιξη',
-            style: context.labelMd
-                .withColor(isDone ? context.cPrimary : context.cText2),
-          ),
-        ),
-
-        // Archive
-        IconButton(
-          icon: Icon(
-            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
-          ),
-          color: context.cText2,
-          tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
-          onPressed: () async {
-            DebugConfig.provider(
-              'TaskDetail toggleArchive id=${item.id}',
-            );
-            await ref
-                .read(itemNotifierProvider.notifier)
-                .toggleArchive(item.id, item.archived);
-          },
-        ),
-
-        // Delete
-        IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-          onPressed: () => _deleteTask(context, item),
-          tooltip: 'Διαγραφή',
-        ),
-
       ],
-
     );
   }
 
@@ -986,9 +998,17 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
   Future<void> _addSubtask(String title) async {
     if (title.trim().isEmpty) return;
     DebugConfig.db('SubtasksSection add "$title" parent=${widget.parentId}');
-    await ref.read(itemNotifierProvider.notifier)
+
+    // Δημιουργούμε την υποεργασία
+    final newItem = await ref.read(itemNotifierProvider.notifier)
         .create(type: ItemType.task, title: title.trim());
-    // TODO: σύνδεση μέσω RelationRepository.createRelation(parentId, childId)
+
+    if (newItem != null) {
+      // Αποθηκεύουμε το parent_id ως property
+      await ref.read(propertyNotifierProvider(newItem.id).notifier)
+          .setText('parent_id', widget.parentId.toString());
+    }
+
     _ctrl.clear();
     if (mounted) setState(() => _adding = false);
     ref.invalidate(_subtasksProvider(widget.parentId));

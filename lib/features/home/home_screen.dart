@@ -30,15 +30,45 @@ enum ViewMode { pinned, favorites, both }
 
 // ── Εικονίδια για νέο φάκελο (24) ─────────────────────────────
 const _kFolderIcons = [
-  '📁','💼','🏠','📚','🎵','🎮','⚽','🌍',
-  '🔬','🎨','✈️','🍕','🏆','🖼️','📝','⭐',
-  '🎬','💡','🛒','🏋️','🌱','📊','🔐','🎯',
+  '📁',
+  '💼',
+  '🏠',
+  '📚',
+  '🎵',
+  '🎮',
+  '⚽',
+  '🌍',
+  '🔬',
+  '🎨',
+  '✈️',
+  '🍕',
+  '🏆',
+  '🖼️',
+  '📝',
+  '⭐',
+  '🎬',
+  '💡',
+  '🛒',
+  '🏋️',
+  '🌱',
+  '📊',
+  '🔐',
+  '🎯',
 ];
 
 const _kFolderColors = [
-  '#6366F1','#8B5CF6','#EC4899','#EF4444',
-  '#F97316','#EAB308','#22C55E','#14B8A6',
-  '#06B6D4','#3B82F6','#64748B','#E11D48',
+  '#6366F1',
+  '#8B5CF6',
+  '#EC4899',
+  '#EF4444',
+  '#F97316',
+  '#EAB308',
+  '#22C55E',
+  '#14B8A6',
+  '#06B6D4',
+  '#3B82F6',
+  '#64748B',
+  '#E11D48',
 ];
 
 // ════════════════════════════════════════════════════════════════
@@ -61,7 +91,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DebugConfig.provider('HomeScreen build');
 
     final foldersAsync = ref.watch(foldersStreamProvider);
-    final folders      = foldersAsync.valueOrNull ?? [];
+    final folders = foldersAsync.valueOrNull ?? [];
 
     // Διαβάζουμε την επιλογή από τον provider
     final selectedFolderId = ref.watch(homeSelectedFolderProvider);
@@ -80,20 +110,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           SliverToBoxAdapter(
             child: Consumer(
               builder: (context, ref, _) {
-                final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
-                return _FolderSelector(
-                  folders:          folders,
-                  selectedFolderId: selectedFolderId,
-                  onSelect: (id) {
-                    DebugConfig.nav('Home: select folder id=$id');
-                    // Αποθηκεύουμε στον provider
-                    ref.read(homeSelectedFolderProvider.notifier).state = id;
-                  },
-                  onCreateFolder: () =>
-                      _showCreateFolderDialog(context, ref),
-                  onFolderLongPress: (folder) =>
-                      _showFolderOptions(context, ref, folder, allItems),
-                );
+                final allItems =
+                    ref.watch(itemsStreamProvider).valueOrNull ?? [];
+                return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.responsiveHPadding,
+                          vertical: Spacing.xs,
+                        ),
+                        child: Text(
+                          'Φάκελοι',
+                          style: context.labelLg.withColor(context.cText2),
+                        ),
+                      ),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.responsiveHPadding),
+                        child: Row(
+                          children: [
+                            FolderChipSelector(
+                              folders: folders,
+                              selectedFolderId: selectedFolderId,
+                              onSelect: (id) {
+                                DebugConfig.nav('Home: select folder id=$id');
+                                ref
+                                    .read(homeSelectedFolderProvider.notifier)
+                                    .state = id;
+                              },
+                              onFolderLongPress: (folder) => _showFolderOptions(
+                                  context, ref, folder, allItems),
+                            ),
+                            const SizedBox(width: Spacing.xs),
+                            FolderChip(
+                              label: 'Νέος',
+                              icon: Icons.create_new_folder_rounded,
+                              isSelected: false,
+                              color: context.cPrimary,
+                              onTap: () =>
+                                  _showCreateFolderDialog(context, ref),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]);
               },
             ),
           ),
@@ -159,10 +221,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── Combined view (both pinned and favorites) ────────────────
 
   Widget _buildCombinedContent(
-      BuildContext context,
-      AsyncValue<List<Item>> pinnedAsync,
-      AsyncValue<List<Item>> favoritesAsync,
-      ) {
+    BuildContext context,
+    AsyncValue<List<Item>> pinnedAsync,
+    AsyncValue<List<Item>> favoritesAsync,
+  ) {
     final pinned = pinnedAsync.valueOrNull ?? [];
     final favorites = favoritesAsync.valueOrNull ?? [];
 
@@ -192,7 +254,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     if (hasError) {
-      DebugConfig.error('HomeScreen combined view', pinnedAsync.error ?? favoritesAsync.error);
+      DebugConfig.error('HomeScreen combined view',
+          pinnedAsync.error ?? favoritesAsync.error);
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
@@ -205,7 +268,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── Build items list (mobile list / tablet grid) ─────────────
 
-  Widget _buildItemsList(BuildContext context, List<Item> items, {required bool isPinnedMode}) {
+  Widget _buildItemsList(BuildContext context, List<Item> items,
+      {required bool isPinnedMode}) {
     if (items.isEmpty) {
       return _buildEmptyState(context);
     }
@@ -215,12 +279,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (context.isMobile) {
       return SliverPadding(
         padding: EdgeInsets.fromLTRB(
-          context.responsiveHPadding, Spacing.md,
-          context.responsiveHPadding, Spacing.md + MediaQuery.of(context).padding.bottom + 80,
+          context.responsiveHPadding,
+          Spacing.md,
+          context.responsiveHPadding,
+          Spacing.md + MediaQuery.of(context).padding.bottom + 80,
         ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
-                (_, i) => Padding(
+            (_, i) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
               child: _ItemCardWithBadges(
                 item: items[i],
@@ -237,8 +303,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Tablet grid
     return SliverPadding(
       padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding, Spacing.md,
-        context.responsiveHPadding, Spacing.md + MediaQuery.of(context).padding.bottom + 80,
+        context.responsiveHPadding,
+        Spacing.md,
+        context.responsiveHPadding,
+        Spacing.md + MediaQuery.of(context).padding.bottom + 80,
       ),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -248,7 +316,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           mainAxisExtent: 120,
         ),
         delegate: SliverChildBuilderDelegate(
-              (_, i) => _ItemCardWithBadges(
+          (_, i) => _ItemCardWithBadges(
             item: items[i],
             folder: _folderFor(items[i], folders),
             onTap: () => _openItem(context, items[i]),
@@ -283,8 +351,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return SliverToBoxAdapter(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          context.responsiveHPadding, Spacing.xl,
-          context.responsiveHPadding, 0,
+          context.responsiveHPadding,
+          Spacing.xl,
+          context.responsiveHPadding,
+          0,
         ),
         child: Column(children: [
           Icon(icon, size: 56, color: context.cDisabled),
@@ -293,9 +363,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: Spacing.sm),
           Text(
             switch (_viewMode) {
-              ViewMode.pinned   => 'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε στοιχεία για να τα βλέπεις εδώ.',
-              ViewMode.favorites => 'Πρώτα δημιούργησε φακέλους\nπρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
-              ViewMode.both     => 'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε ή αποθήκευσε στοιχεία ως αγαπημένα\nγια να τα βλέπεις εδώ.',
+              ViewMode.pinned =>
+                'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε στοιχεία για να τα βλέπεις εδώ.',
+              ViewMode.favorites =>
+                'Πρώτα δημιούργησε φακέλους\nπρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
+              ViewMode.both =>
+                'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε ή αποθήκευσε στοιχεία ως αγαπημένα\nγια να τα βλέπεις εδώ.',
             },
             style: context.bodyMd.withColor(context.cText2),
             textAlign: TextAlign.center,
@@ -360,7 +433,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _openKnowledgeEntry(Item entry) async {
     // Βρίσκουμε τη συλλογή στην οποία ανήκει η εγγραφή μέσω property 'collection_id'
     final props = await ref.read(itemPropertiesProvider(entry.id).future);
-    final collectionIdStr = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
+    final collectionIdStr =
+        props.where((p) => p.key == 'collection_id').firstOrNull?.value;
     if (collectionIdStr == null) {
       DebugConfig.error('Knowledge entry without collection_id', null);
       return;
@@ -371,18 +445,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (collection == null) return;
 
     // Φόρτωση schema της συλλογής
-    final collectionProps = await ref.read(itemPropertiesProvider(collectionId).future);
-    final schemaJson = collectionProps.where((p) => p.key == 'schema').firstOrNull?.value ?? '';
+    final collectionProps =
+        await ref.read(itemPropertiesProvider(collectionId).future);
+    final schemaJson =
+        collectionProps.where((p) => p.key == 'schema').firstOrNull?.value ??
+            '';
     final fields = FieldDef.listFromJson(schemaJson);
 
     if (mounted) {
-      Navigator.of(context).push(AppTransitions.slideRoute(
-          CollectionEntryDetailScreen(
-            entryId: entry.id,
-            collectionId: collectionId,
-            fields: fields,
-            isNew: false,
-          )));
+      Navigator.of(context)
+          .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
+        entryId: entry.id,
+        collectionId: collectionId,
+        fields: fields,
+        isNew: false,
+      )));
     }
   }
   // ── Create folder dialog ─────────────────────────────────────
@@ -414,56 +491,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     fillColor: ColorsUI.getBackground(ctx.brightness),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.inputBR,
-                      borderSide: BorderSide(
-                          color: ColorsUI.getBorder(ctx.brightness)),
+                      borderSide:
+                          BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
                     ),
                   ),
                 ),
                 const SizedBox(height: Spacing.md),
-                Text('Εικονίδιο',
-                    style: ctx.labelMd.withColor(ctx.cText2)),
+                Text('Εικονίδιο', style: ctx.labelMd.withColor(ctx.cText2)),
                 const SizedBox(height: Spacing.xs),
                 Wrap(
                   spacing: Spacing.xs,
                   runSpacing: Spacing.xs,
-                  children: _kFolderIcons.map((e) => GestureDetector(
-                    onTap: () => setDialog(() => selectedIcon = e),
-                    child: AnimatedContainer(
-                      duration: AppDuration.fast,
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: selectedIcon == e
-                            ? ctx.cPrimary.withValues(alpha: 0.12)
-                            : ColorsUI.getSurface(ctx.brightness),
-                        borderRadius:
-                        BorderRadius.circular(AppRadius.sm),
-                        border: Border.all(
-                          color: selectedIcon == e
-                              ? ctx.cPrimary
-                              : ColorsUI.getBorder(ctx.brightness),
-                        ),
-                      ),
-                      child: Center(child: Text(e,
-                          style: const TextStyle(fontSize: 20))),
-                    ),
-                  )).toList(),
+                  children: _kFolderIcons
+                      .map((e) => GestureDetector(
+                            onTap: () => setDialog(() => selectedIcon = e),
+                            child: AnimatedContainer(
+                              duration: AppDuration.fast,
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: selectedIcon == e
+                                    ? ctx.cPrimary.withValues(alpha: 0.12)
+                                    : ColorsUI.getSurface(ctx.brightness),
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.sm),
+                                border: Border.all(
+                                  color: selectedIcon == e
+                                      ? ctx.cPrimary
+                                      : ColorsUI.getBorder(ctx.brightness),
+                                ),
+                              ),
+                              child: Center(
+                                  child: Text(e,
+                                      style: const TextStyle(fontSize: 20))),
+                            ),
+                          ))
+                      .toList(),
                 ),
                 const SizedBox(height: Spacing.md),
-                Text('Χρώμα',
-                    style: ctx.labelMd.withColor(ctx.cText2)),
+                Text('Χρώμα', style: ctx.labelMd.withColor(ctx.cText2)),
                 const SizedBox(height: Spacing.xs),
                 Wrap(
                   spacing: Spacing.sm,
                   runSpacing: Spacing.sm,
                   children: _kFolderColors.map((hex) {
-                    final c = Color(int.parse(
-                        'FF${hex.replaceAll('#', '')}',
-                        radix: 16));
+                    final c = Color(
+                        int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
                     final isActive = selectedColor == hex;
                     return GestureDetector(
-                      onTap: () =>
-                          setDialog(() => selectedColor = hex),
+                      onTap: () => setDialog(() => selectedColor = hex),
                       child: AnimatedContainer(
                         duration: AppDuration.fast,
                         width: 32,
@@ -472,15 +548,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           color: c,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isActive
-                                ? ctx.cText
-                                : Colors.transparent,
+                            color: isActive ? ctx.cText : Colors.transparent,
                             width: 2.5,
                           ),
                         ),
                         child: isActive
                             ? const Icon(Icons.check_rounded,
-                            size: 16, color: Colors.white)
+                                size: 16, color: Colors.white)
                             : null,
                       ),
                     );
@@ -499,9 +573,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final name = ctrl.text.trim();
                 if (name.isEmpty) return;
                 DebugConfig.db('Home createFolder "$name"');
-                await ref.read(folderNotifierProvider.notifier)
-                    .create(name,
-                    icon: selectedIcon, color: selectedColor);
+                await ref
+                    .read(folderNotifierProvider.notifier)
+                    .create(name, icon: selectedIcon, color: selectedColor);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text('Δημιουργία'),
@@ -541,55 +615,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     fillColor: ColorsUI.getBackground(ctx.brightness),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.inputBR,
-                      borderSide: BorderSide(
-                          color: ColorsUI.getBorder(ctx.brightness)),
+                      borderSide:
+                          BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
                     ),
                   ),
                 ),
                 const SizedBox(height: Spacing.md),
-                Text('Εικονίδιο',
-                    style: ctx.labelMd.withColor(ctx.cText2)),
+                Text('Εικονίδιο', style: ctx.labelMd.withColor(ctx.cText2)),
                 const SizedBox(height: Spacing.xs),
                 Wrap(
                   spacing: Spacing.xs,
                   runSpacing: Spacing.xs,
-                  children: _kFolderIcons.map((e) => GestureDetector(
-                    onTap: () => setDialog(() => selectedIcon = e),
-                    child: AnimatedContainer(
-                      duration: AppDuration.fast,
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: selectedIcon == e
-                            ? ctx.cPrimary.withValues(alpha: 0.12)
-                            : ColorsUI.getSurface(ctx.brightness),
-                        borderRadius:
-                        BorderRadius.circular(AppRadius.sm),
-                        border: Border.all(
-                          color: selectedIcon == e
-                              ? ctx.cPrimary
-                              : ColorsUI.getBorder(ctx.brightness),
-                        ),
-                      ),
-                      child: Center(child: Text(e,
-                          style: const TextStyle(fontSize: 20))),
-                    ),
-                  )).toList(),
+                  children: _kFolderIcons
+                      .map((e) => GestureDetector(
+                            onTap: () => setDialog(() => selectedIcon = e),
+                            child: AnimatedContainer(
+                              duration: AppDuration.fast,
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: selectedIcon == e
+                                    ? ctx.cPrimary.withValues(alpha: 0.12)
+                                    : ColorsUI.getSurface(ctx.brightness),
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.sm),
+                                border: Border.all(
+                                  color: selectedIcon == e
+                                      ? ctx.cPrimary
+                                      : ColorsUI.getBorder(ctx.brightness),
+                                ),
+                              ),
+                              child: Center(
+                                  child: Text(e,
+                                      style: const TextStyle(fontSize: 20))),
+                            ),
+                          ))
+                      .toList(),
                 ),
                 const SizedBox(height: Spacing.md),
-                Text('Χρώμα',
-                    style: ctx.labelMd.withColor(ctx.cText2)),
+                Text('Χρώμα', style: ctx.labelMd.withColor(ctx.cText2)),
                 const SizedBox(height: Spacing.xs),
                 Wrap(
                   spacing: Spacing.sm,
                   runSpacing: Spacing.sm,
                   children: _kFolderColors.map((hex) {
-                    final c = Color(int.parse(
-                        'FF${hex.replaceAll('#', '')}', radix: 16));
+                    final c = Color(
+                        int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
                     final isActive = selectedColor == hex;
                     return GestureDetector(
-                      onTap: () =>
-                          setDialog(() => selectedColor = hex),
+                      onTap: () => setDialog(() => selectedColor = hex),
                       child: AnimatedContainer(
                         duration: AppDuration.fast,
                         width: 32,
@@ -598,15 +672,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           color: c,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isActive
-                                ? ctx.cText
-                                : Colors.transparent,
+                            color: isActive ? ctx.cText : Colors.transparent,
                             width: 2.5,
                           ),
                         ),
                         child: isActive
                             ? const Icon(Icons.check_rounded,
-                            size: 16, color: Colors.white)
+                                size: 16, color: Colors.white)
                             : null,
                       ),
                     );
@@ -624,8 +696,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: () async {
                 final name = ctrl.text.trim();
                 if (name.isEmpty) return;
-                await ref.read(folderNotifierProvider.notifier)
-                    .rename(folder.id,
+                await ref.read(folderNotifierProvider.notifier).rename(
+                    folder.id,
                     name: name,
                     icon: selectedIcon,
                     color: selectedColor);
@@ -657,8 +729,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── Show folder options (long press on tab) ───────────────────
 
-  void _showFolderOptions(BuildContext context, WidgetRef ref,
-      Folder folder, List<Item> allItems) {
+  void _showFolderOptions(
+      BuildContext context, WidgetRef ref, Folder folder, List<Item> allItems) {
     // Έλεγχος αν ο φάκελος είναι άδειος
     final folderItems = allItems
         .where((i) => i.folderId == folder.id && i.deletedAt == null)
@@ -691,15 +763,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.symmetric(
                   horizontal: Spacing.lg, vertical: Spacing.xs),
               child: Row(children: [
-                Text(folder.icon ?? '📁',
-                    style: const TextStyle(fontSize: 20)),
+                Text(folder.icon ?? '📁', style: const TextStyle(fontSize: 20)),
                 const SizedBox(width: Spacing.sm),
                 Text(folder.name, style: context.titleSm),
                 if (!isEmpty) ...[
                   const SizedBox(width: Spacing.sm),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: context.cText2.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppRadius.badge),
@@ -725,17 +796,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               leading: Icon(Icons.delete_outline_rounded,
                   color: isEmpty ? context.cError : context.cDisabled),
               title: Text('Διαγραφή',
-                  style: context.bodyMd.withColor(
-                      isEmpty ? context.cError : context.cDisabled)),
+                  style: context.bodyMd
+                      .withColor(isEmpty ? context.cError : context.cDisabled)),
               subtitle: !isEmpty
                   ? Text('Αδείασε πρώτα τον φάκελο',
-                  style: context.bodySm.withColor(context.cText2))
+                      style: context.bodySm.withColor(context.cText2))
                   : null,
               onTap: isEmpty
                   ? () {
-                Navigator.pop(context);
-                _deleteFolder(context, ref, folder);
-              }
+                      Navigator.pop(context);
+                      _deleteFolder(context, ref, folder);
+                    }
                   : null,
             ),
             const SizedBox(height: Spacing.sm),
@@ -763,33 +834,31 @@ class _ViewModeToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: Spacing.sm),
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.xs,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Pinned button
           _ToggleButton(
             icon: Icons.push_pin_rounded,
-            label: 'Καρφιτσωμένα',
+            tooltip: 'Καρφιτσωμένα',
             isSelected: current == ViewMode.pinned,
+            activeColor: Colors.red,
             onTap: () => onChanged(ViewMode.pinned),
           ),
-          const SizedBox(width: Spacing.xs),
-          // Favorites button
+          const SizedBox(width: Spacing.md),
           _ToggleButton(
             icon: Icons.star_rounded,
-            label: 'Αγαπημένα',
+            tooltip: 'Αγαπημένα',
             isSelected: current == ViewMode.favorites,
+            activeColor: Colors.amber,
             onTap: () => onChanged(ViewMode.favorites),
           ),
-          const SizedBox(width: Spacing.xs),
-          // Both button
+          const SizedBox(width: Spacing.md),
           _ToggleButton(
             icon: Icons.merge_type_rounded,
-            label: 'Όλα',
+            tooltip: 'Όλα',
             isSelected: current == ViewMode.both,
+            activeColor: Colors.green,
             onTap: () => onChanged(ViewMode.both),
           ),
         ],
@@ -800,49 +869,45 @@ class _ViewModeToggle extends StatelessWidget {
 
 class _ToggleButton extends StatelessWidget {
   final IconData icon;
-  final String label;
+  final String tooltip;
   final bool isSelected;
+  final Color activeColor;
   final VoidCallback onTap;
 
   const _ToggleButton({
     required this.icon,
-    required this.label,
+    required this.tooltip,
     required this.isSelected,
+    required this.activeColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? context.cPrimary : context.cText2;
+    final color = isSelected ? activeColor : context.cText2;
     final bgColor = isSelected
-        ? context.cPrimary.withValues(alpha: 0.12)
+        ? activeColor.withValues(alpha: 0.12)
         : ColorsUI.getSurface(context.brightness);
+    final borderColor =
+        isSelected ? activeColor : ColorsUI.getBorder(context.brightness);
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppDuration.fast,
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacing.sm + 2,
-          vertical: Spacing.xs + 2,
-        ),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(AppRadius.badge),
-          border: Border.all(
-            color: isSelected ? color : ColorsUI.getBorder(context.brightness),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: context.labelSm.withColor(color),
+      child: Tooltip(
+        message: tooltip,
+        child: AnimatedContainer(
+          duration: AppDuration.fast,
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: bgColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: borderColor,
+              width: 1.5,
             ),
-          ],
+          ),
+          child: Icon(icon, size: 18, color: color),
         ),
       ),
     );
@@ -872,14 +937,14 @@ class _HomeAppBar extends ConsumerWidget {
       actions: [
         IconButton(
           icon: Icon(Icons.search_rounded, color: context.cText2),
-          onPressed: () => Navigator.push(context,
-              AppTransitions.fadeRoute(const SearchScreen())),
+          onPressed: () => Navigator.push(
+              context, AppTransitions.fadeRoute(const SearchScreen())),
           tooltip: 'Αναζήτηση',
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),
-          onPressed: () => Navigator.push(context,
-              AppTransitions.slideUpRoute(const SettingsScreen())),
+          onPressed: () => Navigator.push(
+              context, AppTransitions.slideUpRoute(const SettingsScreen())),
         ),
       ],
     );
@@ -911,8 +976,10 @@ class _GreetingSection extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding, Spacing.md,
-        context.responsiveHPadding, Spacing.xs,
+        context.responsiveHPadding,
+        Spacing.md,
+        context.responsiveHPadding,
+        Spacing.xs,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -921,8 +988,8 @@ class _GreetingSection extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Icon(greetIcon, size: 22,
-                    color: ColorsUI.getWarning(context.brightness)),
+                Icon(greetIcon,
+                    size: 22, color: ColorsUI.getWarning(context.brightness)),
                 const SizedBox(width: Spacing.sm),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -960,184 +1027,6 @@ class _GreetingSection extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// FOLDER SELECTOR (με επικεφαλίδα "Φάκελοι")
-// ════════════════════════════════════════════════════════════════
-
-class _FolderSelector extends StatelessWidget {
-  final List<Folder> folders;
-  final int? selectedFolderId;
-  final ValueChanged<int?> onSelect;
-  final VoidCallback onCreateFolder;
-  final ValueChanged<Folder> onFolderLongPress;
-
-  const _FolderSelector({
-    required this.folders,
-    required this.selectedFolderId,
-    required this.onSelect,
-    required this.onCreateFolder,
-    required this.onFolderLongPress,
-  });
-
-  static Color _colorFromHex(String? hex, Color fallback) {
-    if (hex == null || hex.isEmpty) return fallback;
-    try {
-      return Color(
-          int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return fallback;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Επικεφαλίδα "Φάκελοι"
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.responsiveHPadding,
-            vertical: Spacing.xs,
-          ),
-          child: Text(
-            'Φάκελοι',
-            style: context.labelLg.withColor(context.cText2),
-          ),
-        ),
-        // Τα ταμπάκια
-        Container(
-          margin: const EdgeInsets.only(top: Spacing.xs),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: ColorsUI.getBorder(context.brightness),
-              ),
-            ),
-          ),
-          child: SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(
-                  horizontal: context.responsiveHPadding),
-              children: [
-                // "Όλοι"
-                _Tab(
-                  label: 'Όλοι',
-                  icon: '🗂️',
-                  isSelected: selectedFolderId == null,
-                  color: context.cPrimary,
-                  onTap: () => onSelect(null),
-                ),
-                const SizedBox(width: Spacing.xs),
-
-                // Folders
-                ...folders.map((f) => Padding(
-                  padding: const EdgeInsets.only(right: Spacing.xs),
-                  child: _Tab(
-                    label: f.name,
-                    icon: f.icon ?? '📁',
-                    isSelected: selectedFolderId == f.id,
-                    color: _colorFromHex(f.color, context.cPrimary),
-                    onTap: () => onSelect(f.id),
-                    onMoreTap: () => onFolderLongPress(f),
-                  ),
-                )),
-
-                // "+ Νέος"
-                GestureDetector(
-                  onTap: onCreateFolder,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: Spacing.sm, vertical: Spacing.xs),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.create_new_folder_rounded,
-                          size: 16, color: context.cText2),
-                      const SizedBox(width: 4),
-                      Text('Νέος',
-                          style:
-                          context.labelMd.withColor(context.cText2)),
-                    ]),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Tab extends StatelessWidget {
-  final String label;
-  final String icon;
-  final bool isSelected;
-  final Color color;
-  final VoidCallback onTap;
-  final VoidCallback? onMoreTap;
-
-  const _Tab({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.color,
-    required this.onTap,
-    this.onMoreTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppDuration.fast,
-        padding: EdgeInsets.only(
-            left: Spacing.sm + 2, top: Spacing.xs, bottom: Spacing.xs,
-            right: onMoreTap != null ? 2 : Spacing.sm + 2),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? color : Colors.transparent,
-              width: 2.5,
-            ),
-          ),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(icon, style: const TextStyle(fontSize: 14)),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: context.labelMd.copyWith(
-              color: isSelected ? color : context.cText2,
-              fontWeight:
-              isSelected ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-          // ⋯ button
-          if (onMoreTap != null) ...[
-            const SizedBox(width: 2),
-            GestureDetector(
-              onTap: onMoreTap,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 4, vertical: 4),
-                child: Icon(
-                  Icons.more_vert_rounded,
-                  size: 14,
-                  color: isSelected ? color : context.cText2,
-                ),
-              ),
-            ),
-          ],
-        ]),
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
 // ITEM CARD WITH BADGES (pin + favorite indicators)
 // ════════════════════════════════════════════════════════════════
 
@@ -1155,8 +1044,7 @@ class _ItemCardWithBadges extends StatelessWidget {
   static Color _colorFromHex(String? hex, Color fallback) {
     if (hex == null || hex.isEmpty) return fallback;
     try {
-      return Color(
-          int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
     } catch (_) {
       return fallback;
     }
@@ -1164,8 +1052,7 @@ class _ItemCardWithBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final itemColor =
-    ColorsUI.itemTypeColor(item.type, context.brightness);
+    final itemColor = ColorsUI.itemTypeColor(item.type, context.brightness);
     final folderColor = folder != null
         ? _colorFromHex(folder!.color, context.cText2)
         : context.cText2;
@@ -1177,8 +1064,7 @@ class _ItemCardWithBadges extends StatelessWidget {
         decoration: BoxDecoration(
           color: ColorsUI.getCard(context.brightness),
           borderRadius: AppRadius.cardBR,
-          border: Border.all(
-              color: itemColor.withValues(alpha: 0.25)),
+          border: Border.all(color: itemColor.withValues(alpha: 0.25)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1222,8 +1108,7 @@ class _ItemCardWithBadges extends StatelessWidget {
                 const SizedBox(width: 3),
                 Expanded(
                   child: Text(folder!.name,
-                      style:
-                      context.labelSm.withColor(folderColor),
+                      style: context.labelSm.withColor(folderColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                 ),

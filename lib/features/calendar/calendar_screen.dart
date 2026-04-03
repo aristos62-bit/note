@@ -13,6 +13,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import 'event_detail_screen.dart';
+import '../../shared/widgets/widgets.dart';
 
 /// Όλα τα events του workspace (real-time μέσα από το itemsStreamProvider)
 final _eventsProvider = FutureProvider<List<Item>>((ref) async {
@@ -117,12 +118,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           if (folders.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-              child: _CalendarFolderChips(
-                folders:          folders,
+              child: FolderChipSelector(
+                folders: folders,
                 selectedFolderId: _selectedFolderId,
                 onSelect: (id) {
                   setState(() => _selectedFolderId = id);
-                  DebugConfig.nav('Calendar: select folder id=\$id');
+                  DebugConfig.nav('Calendar: select folder id=$id');
                 },
               ),
             ),
@@ -611,62 +612,6 @@ class _EventTile extends ConsumerWidget {
                 size: 18, color: context.cDisabled),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// CALENDAR FOLDER CHIPS — ίδιο pattern με NoteListScreen
-// ════════════════════════════════════════════════════════════════
-
-class _CalendarFolderChips extends StatelessWidget {
-  final List<Folder> folders;
-  final int?         selectedFolderId;
-  final ValueChanged<int?> onSelect;
-
-  const _CalendarFolderChips({
-    required this.folders,
-    required this.selectedFolderId,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(
-            horizontal: context.responsiveHPadding),
-        itemCount:        folders.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-        itemBuilder: (ctx, index) {
-          if (index == 0) {
-            return ChoiceChip(
-              label: const Text('Όλοι'),
-              selected: selectedFolderId == null,
-              onSelected: (_) => onSelect(null),
-            );
-          }
-          final folder     = folders[index - 1];
-          final isSelected = selectedFolderId == folder.id;
-          return ChoiceChip(
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(folder.icon ?? '📁'),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(folder.name,
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ),
-            selected: isSelected,
-            onSelected: (_) => onSelect(folder.id),
-          );
-        },
       ),
     );
   }

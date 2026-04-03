@@ -211,7 +211,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
               if (folders.isEmpty) return const SizedBox.shrink();
               return Column(
                 children: [
-                  _NoteFolderChips(
+                  FolderChipSelector(
                     folders: folders,
                     selectedFolderId: _selectedFolderId,
                     onSelect: (id) {
@@ -221,13 +221,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
                   ),
                   // Προσθήκη hint αν δεν έχει επιλεγεί φάκελος
                   if (_selectedFolderId == null)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.responsiveHPadding,
-                        vertical: Spacing.xs,
-                      ),
-                      child: _FolderSelectionHint(),
-                    ),
+                    const FolderSelectionHint(itemType: 'σημείωσης'),
                 ],
               );
             },
@@ -246,7 +240,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
                     Spacing.xs,
                   ),
                   child: Text(
-                    'Επιλέξτε tag για φιλτράρισμα σημειώσεων',
+                    'Επιλέξτε tag για φιλτράρισμα',
                     style: context.labelSm.withColor(context.cText2),
                   ),
                 ),
@@ -433,64 +427,6 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
     }
     // Tag φιλτράρισμα γίνεται στο _NoteListBody με itemTagsProvider
     return list;
-  }
-}
-
-class _NoteFolderChips extends StatelessWidget {
-  final List<Folder> folders;
-  final int? selectedFolderId;
-  final ValueChanged<int?> onSelect;
-
-  const _NoteFolderChips({
-    required this.folders,
-    required this.selectedFolderId,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(
-          horizontal: context.responsiveHPadding,
-        ),
-        itemCount: folders.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-        itemBuilder: (ctx, index) {
-          if (index == 0) {
-            final isSelected = selectedFolderId == null;
-            return ChoiceChip(
-              label: const Text('Όλοι'),
-              selected: isSelected,
-              onSelected: (_) => onSelect(null),
-            );
-          }
-
-          final folder = folders[index - 1];
-          final isSelected = selectedFolderId == folder.id;
-
-          return ChoiceChip(
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(folder.icon ?? '📁'),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    folder.name,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            selected: isSelected,
-            onSelected: (_) => onSelect(folder.id),
-          );
-        },
-      ),
-    );
   }
 }
 
@@ -741,39 +677,6 @@ class _TagFilterRow extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 // ITEM ACTIONS SHEET
 // ════════════════════════════════════════════════════════════════
-
-class _FolderSelectionHint extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: Spacing.sm),
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.md,
-        vertical: Spacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: context.cInfo.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: context.cInfo,
-          ),
-          const SizedBox(width: Spacing.xs),
-          Expanded(
-            child: Text(
-              'Επιλέξτε έναν φάκελο για να δημιουργήσετε νέα σημείωση',
-              style: context.bodySm.withColor(context.cInfo),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ItemActionsSheet extends StatelessWidget {
   final Item item;
