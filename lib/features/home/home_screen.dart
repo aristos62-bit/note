@@ -414,7 +414,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         context.push(AppRoutes.habit(item.id));
         break;
       case ItemType.event:
-        context.push(AppRoutes.note(item.id));
+        context.push('/calendar/${item.id}');
         break;
       case ItemType.project:
         context.push('/collections/${item.id}');

@@ -361,7 +361,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   // ── AppBar ───────────────────────────────────────────────────
 
   AppBar _buildAppBar(BuildContext context, Item item) {
-    final isDone = item.status == ItemStatus.done;
     return AppBar(
       backgroundColor: context.cBg,
       elevation: 0,
@@ -418,22 +417,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 color: item.pinned ? context.cPrimary : context.cText2,
                 tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
                 onPressed: () => _togglePin(item),
-              ),
-              // Done / Active toggle
-              TextButton.icon(
-                onPressed: () => _toggleDone(item),
-                icon: Icon(
-                  isDone
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  color: isDone ? context.cPrimary : context.cText2,
-                  size: 20,
-                ),
-                label: Text(
-                  isDone ? 'Ολοκληρώθηκε' : 'Σε εξέλιξη',
-                  style: context.labelMd
-                      .withColor(isDone ? context.cPrimary : context.cText2),
-                ),
               ),
               // Archive
               IconButton(

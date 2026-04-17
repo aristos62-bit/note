@@ -40,6 +40,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   bool   _isEditingTitle = false;
   String _lastSavedTitle = '';
   bool   _hasEverBeenSaved = false;
+  bool _isPinned = false;
 
   // ── Favorite state ───────────────────────────────────────────
   bool _isFavorite = false;
@@ -48,6 +49,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   bool      _reminderEnabled   = false;
   DateTime? _reminderDateTime;
   int?      _existingReminderId;
+
+  Future<void> _togglePinned() async {
+    DebugConfig.provider('EventDetail togglePinned id=${widget.itemId}');
+    await ref.read(itemNotifierProvider.notifier)
+        .togglePin(widget.itemId, _isPinned);
+    setState(() => _isPinned = !_isPinned);
+    ref.invalidate(itemNotifierProvider);
+  }
 
   @override
   void initState() {
@@ -186,16 +195,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
     if (value) {
       if (startTime != null) {
-        // Βάλε την υπενθύμιση στην ίδια ώρα με την έναρξη
         final dt = startTime;
-
         setState(() {
           _reminderEnabled  = true;
           _reminderDateTime = dt;
         });
         DebugConfig.db('EventDetail reminderSet (from start_time) at=$dt');
       } else {
-        // Δεν έχει οριστεί Έναρξη -> διάλεξε ώρα με picker
         final defaultDt = DateTime.now().add(const Duration(hours: 1));
         await _pickReminderDateTime(defaultDt);
       }
@@ -203,8 +209,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       await _cancelReminder();
     }
   }
-
-
 
   Future<void> _pickReminderDateTime(DateTime initial) async {
     final now      = DateTime.now();
@@ -220,7 +224,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     );
     if (date == null || !mounted) return;
 
-    // ignore: use_build_context_synchronously
     final time = await showTimePicker(
       context:     context,
       initialTime: TimeOfDay.fromDateTime(safeInit),
@@ -287,7 +290,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       lastDate:    DateTime(now.year + 5),
     );
     if (date == null || !mounted) return;
-    // ignore: use_build_context_synchronously
     if (!context.mounted) return;
     final time = await showTimePicker(
       context:     context,
@@ -301,11 +303,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         .setDate('start_time', dt);
   }
 
-
-  Future<void> _toggleAllDay(bool current) async {
-    DebugConfig.db('EventDetail allDay=${!current}');
+  Future<void> _toggleAllDay(bool newValue) async {
+    DebugConfig.db('EventDetail allDay=$newValue');
     await ref.read(propertyNotifierProvider(widget.itemId).notifier)
-        .setText('all_day', (!current).toString());
+        .setText('all_day', newValue.toString());
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -357,6 +358,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         // Sync favorite state
         if (_isFavorite != item.favorite) {
           _isFavorite = item.favorite;
+        }
+
+        // Sync pinned state
+        if (_isPinned != item.pinned) {
+          _isPinned = item.pinned;
         }
 
         return PopScope(
@@ -443,33 +449,29 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     ),
   );
 
-
   AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
-    backgroundColor:        context.cBg,
-    elevation:              0,
+    backgroundColor: context.cBg,
+    elevation: 0,
     scrolledUnderElevation: 1,
     title: _isSaving
         ? Row(mainAxisSize: MainAxisSize.min, children: [
       SizedBox(
         width: 14, height: 14,
-        child: CircularProgressIndicator(
-            strokeWidth: 2, color: context.cText2),
+        child: CircularProgressIndicator(strokeWidth: 2, color: context.cText2),
       ),
       const SizedBox(width: Spacing.xs),
-      Text('Αποθήκευση...',
-          style: context.bodySm.withColor(context.cText2)),
+      Text('Αποθήκευση...', style: context.bodySm.withColor(context.cText2)),
     ])
         : null,
     actions: [
       // Save
       IconButton(
-        icon:    Icon(Icons.save_rounded, color: context.cPrimary),
+        icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
         onPressed: () async {
-          final title    = _titleCtrl.text.trim();
+          final title = _titleCtrl.text.trim();
           final location = _locationCtrl.text.trim();
-          DebugConfig.db(
-              'EventDetail manual save id=${item.id} title="$title"');
+          DebugConfig.db('EventDetail manual save id=${item.id} title="$title"');
           await _saveTitle(title);
           await _saveLocation(location);
           if (_reminderEnabled) {
@@ -477,28 +479,32 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           } else if (_existingReminderId != null) {
             await _cancelReminder();
           }
-          //  εξασφάλισε σωστό scheduling
           await ReminderScheduler.instance.scheduleAll();
           if (!context.mounted) return;
           Navigator.of(context, rootNavigator: false).pop();
         },
       ),
+      // PIN button
+      IconButton(
+        icon: Icon(
+          _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+          color: _isPinned ? context.cPrimary : context.cText2,
+        ),
+        onPressed: _togglePinned,
+        tooltip: _isPinned ? 'Ξεκαρφίτσωμα' : 'Καρφίτσωμα',
+      ),
       // Favorite
       IconButton(
         icon: Icon(
-          _isFavorite
-              ? Icons.star_rounded
-              : Icons.star_outline_rounded,
-          color: _isFavorite
-              ? ColorsUI.getWarning(context.brightness)
-              : context.cText2,
+          _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+          color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
         ),
         onPressed: _toggleFavorite,
         tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
       ),
       // Delete
       IconButton(
-        icon:    Icon(Icons.delete_outline_rounded, color: context.cText2),
+        icon: Icon(Icons.delete_outline_rounded, color: context.cText2),
         tooltip: 'Διαγραφή',
         onPressed: () => _delete(context),
       ),
@@ -561,7 +567,6 @@ class _EventBody extends ConsumerWidget {
     required this.onToggleReminder,
     required this.onEditReminder,
   });
-
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -704,64 +709,66 @@ class _EventPropertiesPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final props      = propsAsync.valueOrNull ?? [];
-    final startStr   = props
-        .where((p) => p.key == 'start_time')
-        .firstOrNull
-        ?.value;
-    final allDay     = props
-        .where((p) => p.key == 'all_day')
-        .firstOrNull
-        ?.value == 'true';
 
-    final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
+    return propsAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(Spacing.md),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (props) {
+        final startStr = props.where((p) => p.key == 'start_time').firstOrNull?.value;
+        final allDay = props.where((p) => p.key == 'all_day').firstOrNull?.value == 'true';
+        final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: Spacing.sm),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: Spacing.sm),
 
-        // All day toggle
-        _PropRow(
-          icon:  Icons.wb_sunny_rounded,
-          label: 'Ολοήμερο',
-          child: Switch(
-            value:            allDay,
-            onChanged:        onToggleAllDay,
-            activeThumbColor: context.cPrimary,
-          ),
-        ),
-
-        // Start time
-        _PropRow(
-          icon:  Icons.schedule_rounded,
-          label: 'Έναρξη',
-          child: GestureDetector(
-            onTap: () => onPickStart(startTime),
-            child: Text(
-              startTime != null
-                  ? (allDay ? startTime.short : startTime.dateTime)
-                  : 'Επιλογή',
-              style: context.bodyMd.withColor(
-                startTime != null ? context.cText : context.cText2,
+            // All day toggle
+            _PropRow(
+              icon: Icons.wb_sunny_rounded,
+              label: 'Ολοήμερο',
+              child: Switch(
+                value: allDay,
+                onChanged: onToggleAllDay,
+                activeThumbColor: context.cPrimary,
               ),
             ),
-          ),
-        ),
 
-        // Reminder divider
-        Divider(color: ColorsUI.getBorder(context.brightness)),
+            // Start time
+            _PropRow(
+              icon: Icons.schedule_rounded,
+              label: 'Έναρξη',
+              child: GestureDetector(
+                onTap: () => onPickStart(startTime),
+                child: Text(
+                  startTime != null
+                      ? (allDay ? startTime.short : startTime.dateTime)
+                      : 'Επιλογή',
+                  style: context.bodyMd.withColor(
+                    startTime != null ? context.cText : context.cText2,
+                  ),
+                ),
+              ),
+            ),
 
-        // Reminder section
-        _ReminderSection(
-          enabled:  reminderEnabled,
-          dateTime: reminderDateTime,
-          onToggle: (v) => onToggleReminder(v, startTime),
-          onEdit:   onEditReminder,
-        ),
+            // Reminder divider
+            Divider(color: ColorsUI.getBorder(context.brightness)),
 
-        const SizedBox(height: Spacing.sm),
-      ],
+            // Reminder section
+            _ReminderSection(
+              enabled: reminderEnabled,
+              dateTime: reminderDateTime,
+              onToggle: (v) => onToggleReminder(v, startTime),
+              onEdit: onEditReminder,
+            ),
+
+            const SizedBox(height: Spacing.sm),
+          ],
+        );
+      },
     );
   }
 }
@@ -784,10 +791,8 @@ class _ReminderSection extends StatelessWidget {
   });
 
   String _formatReminder(DateTime dt) {
-    // π.χ. "14 Μαρ 2025, 14:30" σε ελληνικό format
     return AppDateUtils.formatDateTime(dt);
   }
-
 
   @override
   Widget build(BuildContext context) {
