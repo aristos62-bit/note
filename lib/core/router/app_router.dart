@@ -65,6 +65,7 @@ class AppRoutes {
   static String finance_(int id) => '/finance/$id';
   static String journal_(int id) => '/journal/$id';
   static String contact(int id) => '/contacts/$id';
+  static String collection(int id) => '/collections/$id';
 }
 
 // ── Router Provider ────────────────────────────────────────────
@@ -192,13 +193,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: 'collections',
             pageBuilder: (context, state) =>
                 AppTransitions.fade(state, const CollectionsScreen()),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'collection-detail',
+                pageBuilder: (context, state) {
+                  final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  return AppTransitions.slideRight(
+                      state, CollectionDetailScreen(collectionId: id));
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.journal,
             name: 'journal',
             pageBuilder: (context, state) =>
                 AppTransitions.fade(state, const JournalListScreen()),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'journal-detail',
+                pageBuilder: (context, state) {
+                  final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  DebugConfig.nav('Router → JournalDetail id=$id');
+                  return AppTransitions.slideRight(
+                    state,
+                    JournalDetailScreen(itemId: id), // ✔ σωστό
+                  );
+                },
+              ),
+            ],
           ),
+
           GoRoute(
             path: AppRoutes.contacts,
             name: 'contacts',

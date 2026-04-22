@@ -3,8 +3,9 @@
 // Λίστα ημερολογίου — ομαδοποιημένη κατά ημερομηνία.
 // ✅ Folder-based: FAB μόνο όταν επιλεγεί φάκελος
 // ✅ Responsive: list mobile / grid tablet+desktop
-// ✅ Dark mode: ColorsUI + context extensions
+// ✅ Dark mode: ColorsUI + context extensions + ItemColorHelper
 // ✅ DebugConfig: nav, db, provider logs
+// ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'journal_detail_screen.dart';
+import '../../helpers/item_color_helper.dart';
 
 // ════════════════════════════════════════════════════════════════
 // JOURNAL LIST SCREEN
@@ -163,6 +165,9 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
             },
           ),
 
+          // ── View mode toggle (pinned/favorites/all) ────────────
+          const ViewModeToggle(),
+
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemNotifierProvider),
@@ -173,43 +178,57 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                   return EmptyState.error(
                       onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
-                  data: (allItems) {
-                    // Φιλτράρισμα (ίδιο)
-                    var entries = allItems.where((i) => i.type == ItemType.journal).toList();
-                    if (_selectedFolderId != null) {
-                      entries = entries.where((e) => e.folderId == _selectedFolderId).toList();
-                    }
-                    if (_searchQuery.isNotEmpty) {
-                      final q = _searchQuery.toLowerCase();
-                      entries = entries.where((e) => (e.title ?? '').toLowerCase().contains(q)).toList();
-                    }
-                    if (entries.isEmpty) {
-                      if (_searchQuery.isNotEmpty) {
-                        return EmptyState.search(query: _searchQuery);
-                      }
-                      if (_selectedFolderId == null) {
-                        return EmptyState.forType(ItemType.journal, onAction: null);
-                      }
-                      return EmptyState.forType(ItemType.journal, onAction: _createEntry);
-                    }
-                    // Χρησιμοποιούμε FutureBuilder για να φορτώσουμε displayDate
-                    return FutureBuilder<List<_EntryWithDate>>(
-                      future: _processEntriesWithDate(entries),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-                        if (snapshot.hasError || !snapshot.hasData) {
-                          return EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider));
-                        }
-                        final processed = snapshot.data!;
-                        return ResponsiveLayout(
-                          mobile: _JournalListMobile(entriesWithDate: processed, onTap: _openDetail, onDelete: _delete),
-                          tablet: _JournalListTablet(entriesWithDate: processed, onTap: _openDetail, onDelete: _delete),
-                        );
-                      },
-                    );
+                data: (allItems) {
+                  var entries = allItems.where((i) => i.type == ItemType.journal).toList();
+                  if (_selectedFolderId != null) {
+                    entries = entries.where((e) => e.folderId == _selectedFolderId).toList();
                   }
+
+                  // 🔹 Φιλτράρισμα view mode (pinned / favorites / all)
+                  final viewMode = ref.watch(listViewModeProvider);
+                  switch (viewMode) {
+                    case ListViewMode.pinned:
+                      entries = entries.where((e) => e.pinned).toList();
+                      break;
+                    case ListViewMode.favorites:
+                      entries = entries.where((e) => e.favorite).toList();
+                      break;
+                    case ListViewMode.all:
+                      break;
+                  }
+
+                  if (_searchQuery.isNotEmpty) {
+                    final q = _searchQuery.toLowerCase();
+                    entries = entries.where((e) => (e.title ?? '').toLowerCase().contains(q)).toList();
+                  }
+
+                  if (entries.isEmpty) {
+                    if (_searchQuery.isNotEmpty) {
+                      return EmptyState.search(query: _searchQuery);
+                    }
+                    if (_selectedFolderId == null) {
+                      return EmptyState.forType(ItemType.journal, onAction: null);
+                    }
+                    return EmptyState.forType(ItemType.journal, onAction: _createEntry);
+                  }
+
+                  return FutureBuilder<List<_EntryWithDate>>(
+                    future: _processEntriesWithDate(entries),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        return EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider));
+                      }
+                      final processed = snapshot.data!;
+                      return ResponsiveLayout(
+                        mobile: _JournalListMobile(entriesWithDate: processed, onTap: _openDetail, onDelete: _delete),
+                        tablet: _JournalListTablet(entriesWithDate: processed, onTap: _openDetail, onDelete: _delete),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ),
@@ -317,7 +336,7 @@ class _JournalListTablet extends StatelessWidget {
   final ValueChanged<Item> onDelete;
 
   const _JournalListTablet({
-    required this.entriesWithDate,   // ✅ Σωστό
+    required this.entriesWithDate,
     required this.onTap,
     required this.onDelete,
   });
@@ -347,7 +366,7 @@ class _JournalListTablet extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// JOURNAL CARD (unchanged)
+// JOURNAL CARD — με χρήση ItemColorHelper
 // ════════════════════════════════════════════════════════════════
 
 class _JournalCard extends ConsumerWidget {
@@ -364,22 +383,35 @@ class _JournalCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final color = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
+    // Χρώμα φόντου από ItemColorHelper
+    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.journal, context);
+    // Χρώμα κειμένου βάσει αντίθεσης
+    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+    // Accent χρώμα (για chip κλπ)
+    final accentColor = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
 
     return propsAsync.when(
-      loading: () => _buildCardContent(context, null, color),
-      error: (_, __) => _buildCardContent(context, null, color),
+      loading: () => _buildCardContent(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
+      error: (_, __) => _buildCardContent(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
       data: (props) {
         final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
         final displayDate = entryDateStr != null
             ? DateTime.tryParse(entryDateStr)
             : (item.updatedAt ?? item.createdAt);
-        return _buildCardContent(context, displayDate, color);
+        return _buildCardContent(context, displayDate, backgroundColor, foregroundColor, secondaryForeground, accentColor);
       },
     );
   }
 
-  Widget _buildCardContent(BuildContext context, DateTime? displayDate, Color color) {
+  Widget _buildCardContent(
+      BuildContext context,
+      DateTime? displayDate,
+      Color backgroundColor,
+      Color foregroundColor,
+      Color secondaryForeground,
+      Color accentColor,
+      ) {
     final date = displayDate ?? (item.updatedAt ?? item.createdAt);
     const weekDays = ['', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
     final dayLabel = '${weekDays[date.weekday]}, ${date.day}';
@@ -390,7 +422,7 @@ class _JournalCard extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(Spacing.md),
         decoration: BoxDecoration(
-          color: ColorsUI.getCard(context.brightness),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
           border: Border.all(color: ColorsUI.getBorder(context.brightness)),
         ),
@@ -402,16 +434,26 @@ class _JournalCard extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.badge),
                   ),
-                  child: Text(dayLabel, style: context.labelSm.withColor(color)),
+                  child: Text(
+                    dayLabel,
+                    style: context.labelSm.copyWith(color: accentColor),
+                  ),
                 ),
                 const Spacer(),
-                Text(date.timeOnly, style: context.labelSm.withColor(context.cDisabled)),
+                Text(
+                  date.timeOnly,
+                  style: context.labelSm.copyWith(color: secondaryForeground),
+                ),
                 if (item.favorite) ...[
                   const SizedBox(width: Spacing.xs),
-                  Icon(Icons.star_rounded, size: 14, color: ColorsUI.getWarning(context.brightness)),
+                  Icon(
+                    Icons.star_rounded,
+                    size: 14,
+                    color: ColorsUI.getWarning(context.brightness),
+                  ),
                 ],
               ],
             ),
@@ -419,20 +461,67 @@ class _JournalCard extends ConsumerWidget {
             Text(
               item.title?.isNotEmpty == true ? item.title! : 'Χωρίς τίτλο',
               style: context.titleSm.copyWith(
-                color: item.title?.isNotEmpty == true ? context.cText : context.cDisabled,
+                color: item.title?.isNotEmpty == true ? foregroundColor : secondaryForeground,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: Spacing.xs),
-            Text(date.relative, style: context.labelSm.withColor(context.cDisabled)),
+            Text(
+              date.relative,
+              style: context.labelSm.copyWith(color: secondaryForeground),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _showActions(BuildContext context) { /* unchanged */ }
+  void _showActions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: context.cBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('Επεξεργασία'),
+              onTap: () {
+                Navigator.pop(context);
+                onTap();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+              title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
+              onTap: () {
+                Navigator.pop(context);
+                onDelete();
+              },
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════════

@@ -6,6 +6,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../helpers/item_color_helper.dart';
 import 'appointment_detail_screen.dart';
 
 class AppointmentListScreen extends ConsumerStatefulWidget {
@@ -56,6 +57,8 @@ class _AppointmentListScreenState extends ConsumerState<AppointmentListScreen> {
               );
             },
           ),
+          // ── View mode toggle (pinned/favorites/all) ────────────
+          const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemNotifierProvider),
@@ -68,18 +71,30 @@ class _AppointmentListScreenState extends ConsumerState<AppointmentListScreen> {
                   );
                 },
                 data: (allItems) {
-                  final appointments = allItems
+                  var appointments = allItems
                       .where((i) => i.type == ItemType.appointment)
                       .toList();
 
-                  var filtered = appointments;
                   if (_selectedFolderId != null) {
-                    filtered = filtered
+                    appointments = appointments
                         .where((a) => a.folderId == _selectedFolderId)
                         .toList();
                   }
 
-                  if (filtered.isEmpty) {
+                  // 🔹 Φιλτράρισμα: view mode (pinned / favorites / all)
+                  final viewMode = ref.watch(listViewModeProvider);
+                  switch (viewMode) {
+                    case ListViewMode.pinned:
+                      appointments = appointments.where((a) => a.pinned).toList();
+                      break;
+                    case ListViewMode.favorites:
+                      appointments = appointments.where((a) => a.favorite).toList();
+                      break;
+                    case ListViewMode.all:
+                      break;
+                  }
+
+                  if (appointments.isEmpty) {
                     if (_selectedFolderId == null) {
                       return EmptyState.forType(ItemType.appointment, onAction: null);
                     }
@@ -98,24 +113,24 @@ class _AppointmentListScreenState extends ConsumerState<AppointmentListScreen> {
                         crossAxisSpacing: Spacing.sm,
                         mainAxisExtent: 100,
                       ),
-                      itemCount: filtered.length,
+                      itemCount: appointments.length,
                       itemBuilder: (_, i) => _AppointmentCard(
-                        item: filtered[i],
-                        onTap: () => _openDetail(filtered[i].id),
-                        onLongPress: () => _showItemActions(context, filtered[i]),
+                        item: appointments[i],
+                        onTap: () => _openDetail(appointments[i].id),
+                        onLongPress: () => _showItemActions(context, appointments[i]),
                       ),
                     );
                   }
 
                   return ListView.builder(
                     padding: const EdgeInsets.all(Spacing.md),
-                    itemCount: filtered.length,
+                    itemCount: appointments.length,
                     itemBuilder: (_, i) => Padding(
                       padding: const EdgeInsets.only(bottom: Spacing.sm),
                       child: _AppointmentCard(
-                        item: filtered[i],
-                        onTap: () => _openDetail(filtered[i].id),
-                        onLongPress: () => _showItemActions(context, filtered[i]),
+                        item: appointments[i],
+                        onTap: () => _openDetail(appointments[i].id),
+                        onLongPress: () => _showItemActions(context, appointments[i]),
                       ),
                     ),
                   );
@@ -142,7 +157,7 @@ class _AppointmentListScreenState extends ConsumerState<AppointmentListScreen> {
     final item = await notifier.create(
       type: ItemType.appointment,
       folderId: _selectedFolderId,
-      title: '', // temporary title, will be edited in detail
+      title: '',
     );
 
     if (item == null || !mounted) return;
@@ -238,9 +253,14 @@ class _AppointmentCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
 
+    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.appointment, context);
+    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+    final accentColor = ItemColorHelper.iconColorForType(ItemType.appointment, context);
+
     return propsAsync.when(
-      loading: () => _buildCard(context, subtitle: 'Φόρτωση...'),
-      error: (_, __) => _buildCard(context, subtitle: 'Σφάλμα φόρτωσης'),
+      loading: () => _buildCard(context, subtitle: 'Φόρτωση...', backgroundColor: backgroundColor, foregroundColor: foregroundColor, secondaryForeground: secondaryForeground, accentColor: accentColor),
+      error: (_, __) => _buildCard(context, subtitle: 'Σφάλμα φόρτωσης', backgroundColor: backgroundColor, foregroundColor: foregroundColor, secondaryForeground: secondaryForeground, accentColor: accentColor),
       data: (props) {
         final dateProp = props.firstWhere(
               (p) => p.key == 'date',
@@ -271,22 +291,34 @@ class _AppointmentCard extends ConsumerWidget {
           subtitle = 'Ημερομηνία μη ορισμένη';
         }
 
-        return _buildCard(context, subtitle: subtitle);
+        return _buildCard(context, subtitle: subtitle, backgroundColor: backgroundColor, foregroundColor: foregroundColor, secondaryForeground: secondaryForeground, accentColor: accentColor);
       },
     );
   }
 
-  Widget _buildCard(BuildContext context, {required String subtitle}) {
-    return Card(
+  Widget _buildCard(BuildContext context, {
+    required String subtitle,
+    required Color backgroundColor,
+    required Color foregroundColor,
+    required Color secondaryForeground,
+    required Color accentColor,
+  }) {
+    return Container(
       margin: const EdgeInsets.only(bottom: Spacing.sm),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: AppRadius.cardBR,
+        border: Border.all(color: ColorsUI.getBorder(context.brightness)),
+      ),
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
+        borderRadius: AppRadius.cardBR,
         child: Padding(
           padding: const EdgeInsets.all(Spacing.sm),
           child: Row(
             children: [
-              const Icon(Icons.event_available_rounded),
+              Icon(Icons.event_available_rounded, color: accentColor),
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: Column(
@@ -294,21 +326,29 @@ class _AppointmentCard extends ConsumerWidget {
                   children: [
                     Text(
                       item.title ?? 'Χωρίς τίτλο',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: foregroundColor,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       subtitle,
-                      style: TextStyle(fontSize: 12, color: context.cText2),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryForeground,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              if (item.pinned) const Icon(Icons.push_pin, size: 16),
-              if (item.favorite) const Icon(Icons.favorite, size: 16),
+              if (item.pinned)
+                Icon(Icons.push_pin, size: 16, color: accentColor),
+              if (item.favorite)
+                Icon(Icons.star, size: 16, color: ColorsUI.getWarning(context.brightness)),
             ],
           ),
         ),

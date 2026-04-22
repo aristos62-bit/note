@@ -1,10 +1,10 @@
-//
 // Home Screen — refactored with Pinned/Favorites toggle.
 // ✅ ViewMode: pinned | favorites | both
 // ✅ Badges on cards (pin and/or star)
 // ✅ Real-time (foldersStreamProvider + allPinnedStreamProvider + allFavoritesStreamProvider)
 // ✅ Responsive: mobile / tablet
 // ✅ Dark mode + DebugConfig
+// ✅ Square cards with type-specific background colors, 3 per row on tablet, 2 per row on mobile
 //
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +24,7 @@ import '../settings/settings.dart';
 import '../collections/collections.dart';
 import 'home_folder_view.dart';
 import 'package:go_router/go_router.dart';
+import '../../helpers/item_color_helper.dart';
 
 // ── View Mode for Home Screen ─────────────────────────────────
 enum ViewMode { pinned, favorites, both }
@@ -187,44 +188,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildContentView(BuildContext context, WidgetRef ref) {
     final pinnedAsync = ref.watch(allPinnedStreamProvider);
     final favoritesAsync = ref.watch(allFavoritesStreamProvider);
+    final folders = ref.watch(foldersStreamProvider).valueOrNull ?? [];
 
     // Για both mode, συνδυάζουμε τα streams
     if (_viewMode == ViewMode.both) {
-      return _buildCombinedContent(context, pinnedAsync, favoritesAsync);
+      return _buildCombinedContent(
+        context,
+        pinnedAsync,
+        favoritesAsync,
+        folders,
+      );
     }
 
     // pinned mode
     if (_viewMode == ViewMode.pinned) {
       return pinnedAsync.when(
         loading: () => const SliverToBoxAdapter(
-            child: Center(child: CircularProgressIndicator())),
+          child: Center(child: CircularProgressIndicator()),
+        ),
         error: (e, _) {
           DebugConfig.error('HomeScreen pinned', e);
           return const SliverToBoxAdapter(child: SizedBox.shrink());
         },
-        data: (items) => _buildItemsList(context, items, isPinnedMode: true),
+        data: (items) => _buildItemsGrid(
+          context,
+          items,
+          folders: folders,
+          isPinnedMode: true,
+        ),
       );
     }
 
     // favorites mode
     return favoritesAsync.when(
       loading: () => const SliverToBoxAdapter(
-          child: Center(child: CircularProgressIndicator())),
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (e, _) {
         DebugConfig.error('HomeScreen favorites', e);
         return const SliverToBoxAdapter(child: SizedBox.shrink());
       },
-      data: (items) => _buildItemsList(context, items, isPinnedMode: false),
+      data: (items) => _buildItemsGrid(
+        context,
+        items,
+        folders: folders,
+        isPinnedMode: false,
+      ),
     );
   }
 
   // ── Combined view (both pinned and favorites) ────────────────
 
   Widget _buildCombinedContent(
-    BuildContext context,
-    AsyncValue<List<Item>> pinnedAsync,
-    AsyncValue<List<Item>> favoritesAsync,
-  ) {
+      BuildContext context,
+      AsyncValue<List<Item>> pinnedAsync,
+      AsyncValue<List<Item>> favoritesAsync,
+      List<Folder> folders,
+      ) {
     final pinned = pinnedAsync.valueOrNull ?? [];
     final favorites = favoritesAsync.valueOrNull ?? [];
 
@@ -240,8 +260,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     combined.sort((a, b) {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
+
       final aDate = a.updatedAt ?? a.createdAt;
       final bDate = b.updatedAt ?? b.createdAt;
+
+      // Νεότερα πρώτα
       return bDate.compareTo(aDate);
     });
 
@@ -263,44 +286,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return _buildEmptyState(context);
     }
 
-    return _buildItemsList(context, combined, isPinnedMode: false);
+    return _buildItemsGrid(
+      context,
+      combined,
+      folders: folders,
+      isPinnedMode: false,
+    );
   }
 
-  // ── Build items list (mobile list / tablet grid) ─────────────
+  // ── Build items grid (square cards, responsive columns) ─────
 
-  Widget _buildItemsList(BuildContext context, List<Item> items,
-      {required bool isPinnedMode}) {
+  Widget _buildItemsGrid(
+      BuildContext context,
+      List<Item> items, {
+        required List<Folder> folders,
+        required bool isPinnedMode,
+      }) {
     if (items.isEmpty) {
       return _buildEmptyState(context);
     }
 
-    final folders = ref.watch(foldersStreamProvider).valueOrNull ?? [];
+    // Responsive columns: 3 on tablet/desktop, 2 on mobile
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth < 600 ? 3 : 4;
 
-    if (context.isMobile) {
-      return SliverPadding(
-        padding: EdgeInsets.fromLTRB(
-          context.responsiveHPadding,
-          Spacing.md,
-          context.responsiveHPadding,
-          Spacing.md + MediaQuery.of(context).padding.bottom + 80,
-        ),
-        sliver: SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (_, i) => Padding(
-              padding: const EdgeInsets.only(bottom: Spacing.sm),
-              child: _ItemCardWithBadges(
-                item: items[i],
-                folder: _folderFor(items[i], folders),
-                onTap: () => _openItem(context, items[i]),
-              ),
-            ),
-            childCount: items.length,
-          ),
-        ),
-      );
-    }
-
-    // Tablet grid
     return SliverPadding(
       padding: EdgeInsets.fromLTRB(
         context.responsiveHPadding,
@@ -310,13 +319,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: context.gridColumns,
+          crossAxisCount: crossAxisCount,
           mainAxisSpacing: Spacing.sm,
           crossAxisSpacing: Spacing.sm,
-          mainAxisExtent: 120,
+          childAspectRatio: 1.0, // τετράγωνα
         ),
         delegate: SliverChildBuilderDelegate(
-          (_, i) => _ItemCardWithBadges(
+              (_, i) => _SquareItemCard(
             item: items[i],
             folder: _folderFor(items[i], folders),
             onTap: () => _openItem(context, items[i]),
@@ -364,11 +373,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             switch (_viewMode) {
               ViewMode.pinned =>
-                'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε στοιχεία για να τα βλέπεις εδώ.',
+              'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε στοιχεία για να τα βλέπεις εδώ.',
               ViewMode.favorites =>
-                'Πρώτα δημιούργησε φακέλους\nπρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
+              'Πρώτα δημιούργησε φακέλους\nπρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
               ViewMode.both =>
-                'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε ή αποθήκευσε στοιχεία ως αγαπημένα\nγια να τα βλέπεις εδώ.',
+              'Πρώτα δημιούργησε φακέλους\nκαρφίτσωσε ή αποθήκευσε στοιχεία ως αγαπημένα\nγια να τα βλέπεις εδώ.',
             },
             style: context.bodyMd.withColor(context.cText2),
             textAlign: TextAlign.center,
@@ -446,7 +455,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Φόρτωση schema της συλλογής
     final collectionProps =
-        await ref.read(itemPropertiesProvider(collectionId).future);
+    await ref.read(itemPropertiesProvider(collectionId).future);
     final schemaJson =
         collectionProps.where((p) => p.key == 'schema').firstOrNull?.value ??
             '';
@@ -462,6 +471,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       )));
     }
   }
+
   // ── Create folder dialog ─────────────────────────────────────
 
   Future<void> _showCreateFolderDialog(
@@ -492,7 +502,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.inputBR,
                       borderSide:
-                          BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
+                      BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
                     ),
                   ),
                 ),
@@ -504,28 +514,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   runSpacing: Spacing.xs,
                   children: _kFolderIcons
                       .map((e) => GestureDetector(
-                            onTap: () => setDialog(() => selectedIcon = e),
-                            child: AnimatedContainer(
-                              duration: AppDuration.fast,
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: selectedIcon == e
-                                    ? ctx.cPrimary.withValues(alpha: 0.12)
-                                    : ColorsUI.getSurface(ctx.brightness),
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.sm),
-                                border: Border.all(
-                                  color: selectedIcon == e
-                                      ? ctx.cPrimary
-                                      : ColorsUI.getBorder(ctx.brightness),
-                                ),
-                              ),
-                              child: Center(
-                                  child: Text(e,
-                                      style: const TextStyle(fontSize: 20))),
-                            ),
-                          ))
+                    onTap: () => setDialog(() => selectedIcon = e),
+                    child: AnimatedContainer(
+                      duration: AppDuration.fast,
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: selectedIcon == e
+                            ? ctx.cPrimary.withValues(alpha: 0.12)
+                            : ColorsUI.getSurface(ctx.brightness),
+                        borderRadius:
+                        BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(
+                          color: selectedIcon == e
+                              ? ctx.cPrimary
+                              : ColorsUI.getBorder(ctx.brightness),
+                        ),
+                      ),
+                      child: Center(
+                          child: Text(e,
+                              style: const TextStyle(fontSize: 20))),
+                    ),
+                  ))
                       .toList(),
                 ),
                 const SizedBox(height: Spacing.md),
@@ -554,7 +564,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         child: isActive
                             ? const Icon(Icons.check_rounded,
-                                size: 16, color: Colors.white)
+                            size: 16, color: Colors.white)
                             : null,
                       ),
                     );
@@ -616,7 +626,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.inputBR,
                       borderSide:
-                          BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
+                      BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
                     ),
                   ),
                 ),
@@ -628,28 +638,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   runSpacing: Spacing.xs,
                   children: _kFolderIcons
                       .map((e) => GestureDetector(
-                            onTap: () => setDialog(() => selectedIcon = e),
-                            child: AnimatedContainer(
-                              duration: AppDuration.fast,
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: selectedIcon == e
-                                    ? ctx.cPrimary.withValues(alpha: 0.12)
-                                    : ColorsUI.getSurface(ctx.brightness),
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.sm),
-                                border: Border.all(
-                                  color: selectedIcon == e
-                                      ? ctx.cPrimary
-                                      : ColorsUI.getBorder(ctx.brightness),
-                                ),
-                              ),
-                              child: Center(
-                                  child: Text(e,
-                                      style: const TextStyle(fontSize: 20))),
-                            ),
-                          ))
+                    onTap: () => setDialog(() => selectedIcon = e),
+                    child: AnimatedContainer(
+                      duration: AppDuration.fast,
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: selectedIcon == e
+                            ? ctx.cPrimary.withValues(alpha: 0.12)
+                            : ColorsUI.getSurface(ctx.brightness),
+                        borderRadius:
+                        BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(
+                          color: selectedIcon == e
+                              ? ctx.cPrimary
+                              : ColorsUI.getBorder(ctx.brightness),
+                        ),
+                      ),
+                      child: Center(
+                          child: Text(e,
+                              style: const TextStyle(fontSize: 20))),
+                    ),
+                  ))
                       .toList(),
                 ),
                 const SizedBox(height: Spacing.md),
@@ -678,7 +688,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         child: isActive
                             ? const Icon(Icons.check_rounded,
-                                size: 16, color: Colors.white)
+                            size: 16, color: Colors.white)
                             : null,
                       ),
                     );
@@ -770,7 +780,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(width: Spacing.sm),
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: context.cText2.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppRadius.badge),
@@ -800,13 +810,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       .withColor(isEmpty ? context.cError : context.cDisabled)),
               subtitle: !isEmpty
                   ? Text('Αδείασε πρώτα τον φάκελο',
-                      style: context.bodySm.withColor(context.cText2))
+                  style: context.bodySm.withColor(context.cText2))
                   : null,
               onTap: isEmpty
                   ? () {
-                      Navigator.pop(context);
-                      _deleteFolder(context, ref, folder);
-                    }
+                Navigator.pop(context);
+                _deleteFolder(context, ref, folder);
+              }
                   : null,
             ),
             const SizedBox(height: Spacing.sm),
@@ -889,7 +899,7 @@ class _ToggleButton extends StatelessWidget {
         ? activeColor.withValues(alpha: 0.12)
         : ColorsUI.getSurface(context.brightness);
     final borderColor =
-        isSelected ? activeColor : ColorsUI.getBorder(context.brightness);
+    isSelected ? activeColor : ColorsUI.getBorder(context.brightness);
 
     return GestureDetector(
       onTap: onTap,
@@ -1027,94 +1037,97 @@ class _GreetingSection extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ITEM CARD WITH BADGES (pin + favorite indicators)
+// SQUARE ITEM CARD with type-specific background color
+// and auto-contrast text color, fixed overflow
 // ════════════════════════════════════════════════════════════════
 
-class _ItemCardWithBadges extends StatelessWidget {
+class _SquareItemCard extends StatelessWidget {
   final Item item;
   final Folder? folder;
   final VoidCallback onTap;
 
-  const _ItemCardWithBadges({
+  const _SquareItemCard({
     required this.item,
     required this.folder,
     required this.onTap,
   });
 
-  static Color _colorFromHex(String? hex, Color fallback) {
-    if (hex == null || hex.isEmpty) return fallback;
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return fallback;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final itemColor = ColorsUI.itemTypeColor(item.type, context.brightness);
-    final folderColor = folder != null
-        ? _colorFromHex(folder!.color, context.cText2)
-        : context.cText2;
+    final backgroundColor = ItemColorHelper.backgroundColorForType(item.type, context);
+    final textColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final typeColor = ItemColorHelper.iconColorForType(item.type, context);
+
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(Spacing.sm),
         decoration: BoxDecoration(
-          color: ColorsUI.getCard(context.brightness),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
-          border: Border.all(color: itemColor.withValues(alpha: 0.25)),
+          border: Border.all(
+            color: typeColor.withValues(alpha: 0.4),
+            width: 1,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Type + Badges (pinned & favorite)
-            Row(
-              children: [
-                ItemTypeIcon(item.type, size: 13, color: itemColor),
-                const SizedBox(width: Spacing.xs),
-                Text(ItemTypeIcon.labelFor(item.type),
-                    style: context.labelSm.withColor(itemColor)),
-                const Spacer(),
-                // Badges
-                if (item.pinned)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(Icons.push_pin_rounded,
-                        size: 12, color: context.cPrimary),
-                  ),
-                if (item.favorite)
-                  Icon(Icons.star_rounded,
-                      size: 12, color: ColorsUI.getWarning(context.brightness)),
-              ],
-            ),
-            const SizedBox(height: Spacing.xs),
-
-            // Τίτλος
-            Text(
-              item.title ?? 'Χωρίς τίτλο',
-              style: context.bodyMd,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-
-            // Folder badge
-            if (folder != null) ...[
-              const SizedBox(height: Spacing.xs),
-              Row(children: [
-                Text(folder!.icon ?? '📁',
-                    style: const TextStyle(fontSize: 11)),
-                const SizedBox(width: 3),
-                Expanded(
-                  child: Text(folder!.name,
-                      style: context.labelSm.withColor(folderColor),
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  ItemTypeIcon(item.type, size: 14, color: typeColor),
+                  const SizedBox(width: Spacing.xs),
+                  Flexible(
+                    child: Text(
+                      ItemTypeIcon.labelFor(item.type),
+                      style: context.labelSm.copyWith(color: textColor),
+                      overflow: TextOverflow.ellipsis,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                  if (item.pinned)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(Icons.push_pin_rounded, size: 12, color: textColor),
+                    ),
+                  if (item.favorite)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2),
+                      child: Icon(Icons.star_rounded, size: 12, color: textColor),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Spacing.xs),
+              Expanded(
+                child: Text(
+                  item.title ?? 'Χωρίς τίτλο',
+                  style: context.bodyMd.copyWith(color: textColor, fontWeight: FontWeight.w500),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ]),
+              ),
+              if (folder != null) ...[
+                const SizedBox(height: Spacing.xs),
+                Row(
+                  children: [
+                    Text(folder!.icon ?? '📁', style: TextStyle(fontSize: 11, color: textColor)),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text(
+                        folder!.name,
+                        style: context.labelSm.copyWith(color: textColor),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

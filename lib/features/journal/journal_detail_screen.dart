@@ -353,8 +353,6 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
       _contentLoaded = true;
     }
 
-    final color = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
-
     return CustomScrollView(
       slivers: [
         // ── Entry date picker ─────────────────────────────────
@@ -371,26 +369,7 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
           ),
         ),
 
-        // ── Title ────────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-            child: TextField(
-              controller: widget.titleCtrl,
-              onChanged: widget.onTitleChanged,
-              style: context.h2.copyWith(fontWeight: FontWeight.w600),
-              maxLines: null,
-              decoration: InputDecoration(
-                hintText: 'Τίτλος...',
-                hintStyle: context.h2.withColor(context.cDisabled),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-        ),
-
-        // ── Title ────────────────────────────────────────────
+           // ── Title ────────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
             padding:
@@ -613,8 +592,6 @@ class _JournalMetaPanel extends ConsumerWidget {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
     final props = propsAsync.valueOrNull ?? [];
     final mood = props.where((p) => p.key == 'mood').firstOrNull?.value ?? '';
-
-    final createdDate = item.updatedAt ?? item.createdAt;
 
     return Container(
       color: ColorsUI.getSurface(context.brightness),

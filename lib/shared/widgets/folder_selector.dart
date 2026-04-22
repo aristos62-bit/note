@@ -89,12 +89,12 @@ class FolderChip extends StatelessWidget {
       child: Stack(
         children: [
           Container(
-            width: 60,
-            height: 40,
-            padding: const EdgeInsets.all(Spacing.xs),
+            width: 80,        // από 60 σε 80
+            height: 56,       // από 40 σε 56
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected ? color : ColorsUI.getSurface(context.brightness),
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(12.0), // από 8 σε 12
               border: Border.all(
                 color: isSelected ? color : ColorsUI.getBorder(context.brightness),
                 width: 1,
@@ -103,12 +103,12 @@ class FolderChip extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 10, color: isSelected ? Colors.white : color),
-                const SizedBox(height: Spacing.xs),
+                Icon(icon, size: 18, color: isSelected ? Colors.white : color), // από 10 σε 18
+                const SizedBox(height: Spacing.sm), // από xs σε sm
                 Flexible(
                   child: Text(
                     label,
-                    style: context.labelSm.copyWith(
+                    style: context.labelMd.copyWith(  // από labelSm σε labelMd
                       color: isSelected ? Colors.white : color,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -136,7 +136,7 @@ class FolderChip extends StatelessWidget {
                   ),
                   child: Icon(
                     Icons.more_vert_rounded,
-                    size: 16,
+                    size: 18, // από 16 σε 18
                     color: isSelected ? Colors.white : color,
                   ),
                 ),

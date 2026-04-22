@@ -18,3 +18,4 @@ export 'attachment.dart';
 export 'user.dart';
 export 'device.dart';
 export 'app_settings.dart';
+export 'recurrence.dart';

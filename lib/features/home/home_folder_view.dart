@@ -13,6 +13,7 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'folder_browser_screen.dart';
 import 'package:go_router/go_router.dart';
+import '../../helpers/item_color_helper.dart';
 
 // ── View Mode για το φάκελο ───────────────────────────────────
 enum FolderViewMode { pinned, favorites, recent, all }
@@ -98,13 +99,16 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   }
 
   Future<void> _createItem(BuildContext context, ItemType type) async {
+    DebugConfig.nav('🔨 _createItem called with type: ${type.name}');
     DebugConfig.nav('HomeFolderView createItem type=${type.name}');
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: type,
       folderId: folder.id,
     );
     if (item == null || !mounted) return;
+    DebugConfig.nav('✅ Item created: id=${item.id}, type=${item.type}');
     ref.invalidate(itemNotifierProvider);
+    if (!context.mounted)return;
     _openItem(context, item, isNew: true);
   }
 
@@ -127,6 +131,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
             ref.invalidate(folderStatsProvider(folder.id));
             ref.invalidate(pinnedByFolderStreamProvider(folder.id));
             ref.invalidate(favoritesByFolderStreamProvider(folder.id));
+            ref.invalidate(recentByFolderProvider(folder.id));
           },
           child: CustomScrollView(
             slivers: [
@@ -305,10 +310,10 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
         context.push(AppRoutes.habit(item.id));
         break;
       case ItemType.event:
-        context.push(AppRoutes.note(item.id));
+        context.push('/calendar/${item.id}');
         break;
       case ItemType.project:
-        context.push('/collections/${item.id}');
+        context.push(AppRoutes.collection(item.id));
         break;
       case ItemType.appointment:
         context.push('/appointments/${item.id}');
@@ -317,6 +322,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
         context.push(AppRoutes.note(item.id));
     }
   }
+
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -497,7 +503,7 @@ class _StatsRowSkeleton extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// FOLDER ITEM CARD (με badges)
+// FOLDER ITEM CARD (με χρώμα ανά τύπο, ίδια δομή)
 // ════════════════════════════════════════════════════════════════
 
 class _FolderItemCard extends StatelessWidget {
@@ -507,13 +513,16 @@ class _FolderItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final itemColor = ColorsUI.itemTypeColor(item.type, context.brightness);
+    final backgroundColor = ItemColorHelper.backgroundColorForType(item.type, context);
+    final textColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final itemColor = ItemColorHelper.iconColorForType(item.type, context);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(Spacing.sm),
         decoration: BoxDecoration(
-          color: ColorsUI.getCard(context.brightness),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
           border: Border.all(color: itemColor.withValues(alpha: 0.25)),
         ),
@@ -524,19 +533,27 @@ class _FolderItemCard extends StatelessWidget {
               children: [
                 ItemTypeIcon(item.type, size: 13, color: itemColor),
                 const SizedBox(width: Spacing.xs),
-                Text(ItemTypeIcon.labelFor(item.type), style: context.labelSm.withColor(itemColor)),
+                Text(
+                  ItemTypeIcon.labelFor(item.type),
+                  style: context.labelSm.copyWith(color: textColor),
+                ),
                 const Spacer(),
                 if (item.pinned)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: Icon(Icons.push_pin_rounded, size: 12, color: context.cPrimary),
+                    child: Icon(Icons.push_pin_rounded, size: 12, color: textColor),
                   ),
                 if (item.favorite)
-                  Icon(Icons.star_rounded, size: 12, color: ColorsUI.getWarning(context.brightness)),
+                  Icon(Icons.star_rounded, size: 12, color: textColor),
               ],
             ),
             const SizedBox(height: Spacing.xs),
-            Text(item.title ?? 'Χωρίς τίτλο', style: context.bodyMd, maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(
+              item.title ?? 'Χωρίς τίτλο',
+              style: context.bodyMd.copyWith(color: textColor),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

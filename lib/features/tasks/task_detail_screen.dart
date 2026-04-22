@@ -15,19 +15,15 @@ import '../../shared/widgets/widgets.dart';
 
 // ── Local subtasks provider ───────────────────────────────────────
 
-/// Απλοποιημένος provider — επιστρέφει items που έχουν
-/// δημιουργηθεί ως subtasks (θα συνδεθούν μέσω RelationRepository)
 final _subtasksProvider = FutureProvider.family<List<Item>, int>((ref, parentId) async {
   DebugConfig.db('_subtasksProvider parentId=$parentId');
 
-  // Παίρνουμε όλα τα items
   final itemsAsync = ref.watch(itemsStreamProvider);
   final allItems = itemsAsync.maybeWhen(
     data: (list) => list,
     orElse: () => <Item>[],
   );
 
-  // Φιλτράρουμε μόνο tasks που έχουν parent_id = parentId
   final subtasks = <Item>[];
   for (final item in allItems) {
     if (item.type != ItemType.task) continue;
@@ -58,34 +54,47 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _notesCtrl;
-  Timer? _titleDebounce;
+  late final FocusNode _titleFocusNode;
   Timer? _notesDebounce;
   bool  _isSaving = false;
+  bool  _isEditingTitle = false;
+  String _lastSavedTitle = '';
 
   @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
     _notesCtrl = TextEditingController();
+    _titleFocusNode = FocusNode();
+
+    // Αποθήκευση τίτλου όταν ο χρήστης φεύγει από το πεδίο
+    _titleFocusNode.addListener(() {
+      if (!_titleFocusNode.hasFocus) {
+        _isEditingTitle = false;
+        _saveTitle(_titleCtrl.text.trim());
+      } else {
+        _isEditingTitle = true;
+      }
+    });
+
     DebugConfig.nav('TaskDetailScreen init id=${widget.itemId}');
   }
 
   @override
   void dispose() {
-    _titleDebounce?.cancel();
     _notesDebounce?.cancel();
     _titleCtrl.dispose();
     _notesCtrl.dispose();
+    _titleFocusNode.dispose();
     super.dispose();
   }
 
   // ── Save helpers ─────────────────────────────────────────────
 
   void _onTitleChanged(String value) {
-    _titleDebounce?.cancel();
-    _titleDebounce = Timer(const Duration(milliseconds: 600), () {
-      _saveTitle(value.trim());
-    });
+    // Μόνο σημειώνουμε ότι ο χρήστης γράφει — ΔΕΝ αποθηκεύουμε εδώ
+    // Η αποθήκευση γίνεται στο blur (FocusNode listener) ή στο save/back
+    _isEditingTitle = true;
   }
 
   void _onNotesChanged(String value) {
@@ -97,10 +106,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
+    if (title == _lastSavedTitle) return;
+
     setState(() => _isSaving = true);
     DebugConfig.db('TaskDetail saveTitle id=${widget.itemId} "$title"');
     await ref.read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+
+    _lastSavedTitle = title;
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
@@ -112,10 +125,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   Future<void> _flushPendingSaves() async {
-    if (_titleDebounce?.isActive == true) {
-      _titleDebounce!.cancel();
-      await _saveTitle(_titleCtrl.text.trim());
-    }
+    // Αποθηκεύουμε τίτλο αν υπάρχει αλλαγή
+    await _saveTitle(_titleCtrl.text.trim());
+
     if (_notesDebounce?.isActive == true) {
       _notesDebounce!.cancel();
       await _saveNotes(_notesCtrl.text.trim());
@@ -123,18 +135,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   Future<void> _save() async {
-    // Κάνει flush ό,τι pending auto‑save υπάρχει
     await _flushPendingSaves();
 
-    // Μικρό visual feedback στο AppBar
     if (!mounted) return;
     setState(() => _isSaving = true);
 
-    final title = _titleCtrl.text.trim();
-    DebugConfig.db('TaskDetail manualSave id=${widget.itemId} title="$title"');
-
-    // Αν θες, μπορείς εδώ να αναγκάσεις ένα extra updateItem,
-    // αλλά επειδή _saveTitle ήδη κάνει update, συνήθως δεν χρειάζεται.
+    DebugConfig.db('TaskDetail manualSave id=${widget.itemId}');
 
     if (!mounted) return;
     setState(() => _isSaving = false);
@@ -212,7 +218,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   // ── Build ────────────────────────────────────────────────────
 
-
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('TaskDetailScreen build id=${widget.itemId}');
@@ -227,12 +232,20 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       data: (item) {
         if (item == null) return _buildNotFound();
 
-        // Αρχικοποίηση τίτλου ΜΟΝΟ αν ο controller είναι άδειος
-        if (_titleCtrl.text.isEmpty && (item.title ?? '').isNotEmpty) {
+        // Αρχικοποίηση _lastSavedTitle από τη βάση (μόνο μία φορά)
+        if (_lastSavedTitle.isEmpty && (item.title ?? '').isNotEmpty) {
+          _lastSavedTitle = item.title ?? '';
+        }
+
+        // Sync τίτλου από stream ΜΟΝΟ αν ο χρήστης δεν γράφει
+        if (!_isEditingTitle && _titleCtrl.text != (item.title ?? '')) {
+          final cursorAtEnd =
+              _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
           _titleCtrl.text = item.title ?? '';
-          _titleCtrl.selection = TextSelection.collapsed(
-            offset: _titleCtrl.text.length,
-          );
+          if (cursorAtEnd) {
+            _titleCtrl.selection =
+                TextSelection.collapsed(offset: _titleCtrl.text.length);
+          }
         }
 
         return PopScope(
@@ -240,33 +253,31 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
 
-            final nav   = Navigator.of(context); // cache πριν await
-            // final title = _titleCtrl.text.trim();
+            final nav = Navigator.of(context);
 
-            // Φέρνουμε τα τελευταία props για να δούμε αν υπάρχει “περιεχόμενο”
-            final props = ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
-            final notes = props.where((p) => p.key == 'notes')
-                .firstOrNull?.value ?? '';
-            final due   = props.where((p) => p.key == 'due_date')
-                .firstOrNull?.dateValue;
+            final props =
+                ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
+            final notes =
+                props.where((p) => p.key == 'notes').firstOrNull?.value ?? '';
+            final due =
+                props.where((p) => p.key == 'due_date').firstOrNull?.dateValue;
 
-            final hasNotes    = notes.trim().isNotEmpty;
-            final hasDueDate  = due != null;
-            final hasPriority = item.priority != ItemPriority.none;
+            final hasNotes           = notes.trim().isNotEmpty;
+            final hasDueDate         = due != null;
+            final hasPriority        = item.priority != ItemPriority.none;
             final hasNonActiveStatus = item.status != ItemStatus.active;
+            final hasTitle           = _titleCtrl.text.trim().isNotEmpty;
 
-            // “Άδειο” σημαίνει:
-            // - μπορεί να έχει ή να μην έχει τίτλο,
-            // - αλλά ΔΕΝ έχει notes, due date, priority, ούτε αλλαγμένο status.
             final isEffectivelyEmpty =
-                !hasNotes &&
+                !hasTitle &&
+                    !hasNotes &&
                     !hasDueDate &&
                     !hasPriority &&
                     !hasNonActiveStatus;
 
             if (isEffectivelyEmpty) {
               DebugConfig.db(
-                  'TaskDetail auto-delete empty/only-title task id=${widget.itemId}');
+                  'TaskDetail auto-delete empty task id=${widget.itemId}');
               await ref
                   .read(itemNotifierProvider.notifier)
                   .deleteItem(widget.itemId);
@@ -275,7 +286,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               return;
             }
 
-            // Αν ΔΕΝ είναι “άδειο”, αποθηκεύουμε ό,τι pending υπάρχει και γυρνάμε πίσω
             await _flushPendingSaves();
             if (!nav.mounted) return;
             nav.pop();
@@ -285,8 +295,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             tablet: _buildTablet(context, item),
           ),
         );
-
-
       },
     );
   }
@@ -300,6 +308,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       body: _TaskBody(
         item:           item,
         titleCtrl:      _titleCtrl,
+        titleFocusNode: _titleFocusNode,
         notesCtrl:      _notesCtrl,
         isSaving:       _isSaving,
         onTitleChange:  _onTitleChanged,
@@ -341,6 +350,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             child: _TaskBody(
               item:           item,
               titleCtrl:      _titleCtrl,
+              titleFocusNode: _titleFocusNode,
               notesCtrl:      _notesCtrl,
               isSaving:       _isSaving,
               onTitleChange:  _onTitleChanged,
@@ -365,23 +375,31 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       backgroundColor: context.cBg,
       elevation: 0,
       scrolledUnderElevation: 1,
+      // FittedBox για να μη γίνει overflow στον τίτλο
       title: _isSaving
-          ? Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: context.cText2,
-          ),
+          ? FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: context.cText2,
+              ),
+            ),
+            const SizedBox(width: Spacing.xs),
+            Text(
+              'Αποθήκευση...',
+              style: context.bodySm.withColor(context.cText2),
+            ),
+          ],
         ),
-        const SizedBox(width: Spacing.xs),
-        Text(
-          'Αποθήκευση...',
-          style: context.bodySm.withColor(context.cText2),
-        ),
-      ])
+      )
           : null,
+      // SingleChildScrollView για να μη γίνει overflow στα actions
       actions: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -401,32 +419,41 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               // Favorite
               IconButton(
                 icon: Icon(
-                  item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                  item.favorite
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: item.favorite
+                      ? ColorsUI.getWarning(context.brightness)
+                      : context.cText2,
                 ),
-                color: item.favorite
-                    ? ColorsUI.getWarning(context.brightness)
-                    : context.cText2,
-                tooltip: item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένο',
+                tooltip:
+                item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένο',
                 onPressed: () => _toggleFav(item),
               ),
               // Pin
               IconButton(
                 icon: Icon(
-                  item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                  item.pinned
+                      ? Icons.push_pin_rounded
+                      : Icons.push_pin_outlined,
+                  color: item.pinned ? context.cPrimary : context.cText2,
                 ),
-                color: item.pinned ? context.cPrimary : context.cText2,
                 tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
                 onPressed: () => _togglePin(item),
               ),
               // Archive
               IconButton(
                 icon: Icon(
-                  item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+                  item.archived
+                      ? Icons.unarchive_rounded
+                      : Icons.archive_rounded,
+                  color: context.cText2,
                 ),
-                color: context.cText2,
-                tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
+                tooltip:
+                item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
                 onPressed: () async {
-                  DebugConfig.provider('TaskDetail toggleArchive id=${item.id}');
+                  DebugConfig.provider(
+                      'TaskDetail toggleArchive id=${item.id}');
                   await ref
                       .read(itemNotifierProvider.notifier)
                       .toggleArchive(item.id, item.archived);
@@ -445,7 +472,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     );
   }
 
-
   // ── Fallbacks ────────────────────────────────────────────────
 
   Widget _buildLoading() => Scaffold(
@@ -457,15 +483,15 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Widget _buildError() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
-    body: EmptyState.error(onRetry: () =>
-        ref.invalidate(itemStreamProvider(widget.itemId))),
+    body: EmptyState.error(
+        onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
   );
 
   Widget _buildNotFound() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
     body: const EmptyState(
-      icon:  Icons.task_alt,
+      icon: Icons.task_alt,
       title: 'Η εργασία δεν βρέθηκε',
     ),
   );
@@ -478,6 +504,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 class _TaskBody extends ConsumerWidget {
   final Item item;
   final TextEditingController titleCtrl;
+  final FocusNode titleFocusNode;
   final TextEditingController notesCtrl;
   final bool isSaving;
   final ValueChanged<String>       onTitleChange;
@@ -492,6 +519,7 @@ class _TaskBody extends ConsumerWidget {
   const _TaskBody({
     required this.item,
     required this.titleCtrl,
+    required this.titleFocusNode,
     required this.notesCtrl,
     required this.isSaving,
     required this.onTitleChange,
@@ -541,15 +569,16 @@ class _TaskBody extends ConsumerWidget {
                 ),
                 Expanded(
                   child: TextField(
-                    controller: titleCtrl,
-                    onChanged:  onTitleChange,
+                    controller:  titleCtrl,
+                    focusNode:   titleFocusNode,
+                    onChanged:   onTitleChange,
                     style: context.h2.copyWith(
-                      fontWeight:     FontWeight.w600,
-                      decoration:     isDone ? TextDecoration.lineThrough : null,
+                      fontWeight:      FontWeight.w600,
+                      decoration:      isDone ? TextDecoration.lineThrough : null,
                       decorationColor: context.cDisabled,
                       color: isDone ? context.cDisabled : context.cText,
                     ),
-                    maxLines:  null,
+                    maxLines: null,
                     decoration: InputDecoration(
                       hintText:  'Τίτλος εργασίας...',
                       hintStyle: context.h2.withColor(context.cDisabled),
@@ -599,8 +628,7 @@ class _TaskBody extends ConsumerWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(
                 horizontal: context.responsiveHPadding),
-            child: Divider(
-                color: ColorsUI.getBorder(context.brightness)),
+            child: Divider(color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
 
@@ -644,8 +672,7 @@ class _TaskBody extends ConsumerWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(
                 horizontal: context.responsiveHPadding),
-            child: Divider(
-                color: ColorsUI.getBorder(context.brightness)),
+            child: Divider(color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
 
@@ -793,10 +820,10 @@ class _StatusSelector extends StatelessWidget {
   const _StatusSelector({required this.current, required this.onSelect});
 
   static const _opts = [
-    (ItemStatus.active,     'Ενεργή',         Icons.radio_button_unchecked_rounded),
-    (ItemStatus.inProgress, 'Σε εξέλιξη',     Icons.timelapse_rounded),
-    (ItemStatus.done,       'Ολοκληρώθηκε',   Icons.check_circle_rounded),
-    (ItemStatus.cancelled,  'Ακυρώθηκε',      Icons.cancel_outlined),
+    (ItemStatus.active,     'Ενεργή',       Icons.radio_button_unchecked_rounded),
+    (ItemStatus.inProgress, 'Σε εξέλιξη',   Icons.timelapse_rounded),
+    (ItemStatus.done,       'Ολοκληρώθηκε', Icons.check_circle_rounded),
+    (ItemStatus.cancelled,  'Ακυρώθηκε',    Icons.cancel_outlined),
   ];
 
   @override
@@ -923,7 +950,8 @@ class _DueDateSelector extends StatelessWidget {
   final DateTime? date;
   final VoidCallback onPick;
   final VoidCallback? onClear;
-  const _DueDateSelector({required this.date, required this.onPick, this.onClear});
+  const _DueDateSelector(
+      {required this.date, required this.onPick, this.onClear});
 
   @override
   Widget build(BuildContext context) {
@@ -931,9 +959,9 @@ class _DueDateSelector extends StatelessWidget {
     final isToday   = date?.isToday ?? false;
 
     final Color labelColor;
-    if (isOverdue)    {labelColor = context.cError;}
-    else if (isToday) {labelColor = context.cWarning;}
-    else              {labelColor = context.cText;}
+    if (isOverdue)    { labelColor = context.cError; }
+    else if (isToday) { labelColor = context.cWarning; }
+    else              { labelColor = context.cText; }
 
     return GestureDetector(
       onTap: onPick,
@@ -969,8 +997,8 @@ class _SubtasksSection extends ConsumerStatefulWidget {
 }
 
 class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
-  final _ctrl   = TextEditingController();
-  bool _adding  = false;
+  final _ctrl  = TextEditingController();
+  bool _adding = false;
 
   @override
   void dispose() {
@@ -982,13 +1010,13 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
     if (title.trim().isEmpty) return;
     DebugConfig.db('SubtasksSection add "$title" parent=${widget.parentId}');
 
-    // Δημιουργούμε την υποεργασία
-    final newItem = await ref.read(itemNotifierProvider.notifier)
+    final newItem = await ref
+        .read(itemNotifierProvider.notifier)
         .create(type: ItemType.task, title: title.trim());
 
     if (newItem != null) {
-      // Αποθηκεύουμε το parent_id ως property
-      await ref.read(propertyNotifierProvider(newItem.id).notifier)
+      await ref
+          .read(propertyNotifierProvider(newItem.id).notifier)
           .setText('parent_id', widget.parentId.toString());
     }
 
@@ -1036,8 +1064,8 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
             // ── Add input ─────────────────────────────────────────
             if (_adding) ...[
               TextField(
-                controller: _ctrl,
-                autofocus:  true,
+                controller:  _ctrl,
+                autofocus:   true,
                 onSubmitted: _addSubtask,
                 style:       context.bodyMd,
                 decoration: InputDecoration(
@@ -1068,20 +1096,21 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
                   ? Text('Δεν υπάρχουν υποεργασίες',
                   style: context.bodySm.withColor(context.cDisabled))
                   : Column(
-                children: subtasks.map((s) =>
-                    _SubtaskTile(
-                      task:     s,
-                      onToggle: () async {
-                        final next = s.status == ItemStatus.done
-                            ? ItemStatus.active
-                            : ItemStatus.done;
-                        await ref.read(itemNotifierProvider.notifier)
-                            .updateItem(s.id, status: next);
-                        ref.invalidate(
-                            _subtasksProvider(widget.parentId));
-                      },
-                    ),
-                ).toList(),
+                children: subtasks
+                    .map((s) => _SubtaskTile(
+                  task:     s,
+                  onToggle: () async {
+                    final next = s.status == ItemStatus.done
+                        ? ItemStatus.active
+                        : ItemStatus.done;
+                    await ref
+                        .read(itemNotifierProvider.notifier)
+                        .updateItem(s.id, status: next);
+                    ref.invalidate(
+                        _subtasksProvider(widget.parentId));
+                  },
+                ))
+                    .toList(),
               ),
             ),
           ],

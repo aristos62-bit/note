@@ -5,6 +5,7 @@
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ Recurrence support (daily/weekly/monthly/custom)
+// ✅ Reminders: χρήση κοινού widget ReminderSection
 //
 import 'dart:async';
 import 'dart:convert';
@@ -39,35 +40,17 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   late final TextEditingController _titleCtrl;
   Timer? _titleDebounce;
   bool _isSaving = false;
-  TimeOfDay? _reminderTime;
+  bool _isEditingTitle = false;
+  String _lastSavedTitle = '';
+  bool _hasEverBeenSaved = false;
+  bool _isPinned = false;
+  bool _isFavorite = false;
 
   @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
     DebugConfig.nav('HabitDetailScreen init id=${widget.itemId}');
-    _loadReminderTime();
-  }
-
-  Future<void> _loadReminderTime() async {
-    final props = await ref.read(itemPropertiesProvider(widget.itemId).future);
-    if (!mounted) return;
-    final timeStr = props.firstWhere(
-          (p) => p.key == 'reminder_time',
-      orElse: () => ItemProperty()..value = '',
-    ).value;
-    if (timeStr != null && timeStr.isNotEmpty) {
-      final parts = timeStr.split(':');
-      if (parts.length == 2) {
-        final hour = int.tryParse(parts[0]);
-        final minute = int.tryParse(parts[1]);
-        if (hour != null && minute != null) {
-          setState(() {
-            _reminderTime = TimeOfDay(hour: hour, minute: minute);
-          });
-        }
-      }
-    }
   }
 
   @override
@@ -78,6 +61,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   }
 
   void _onTitleChanged(String value) {
+    _isEditingTitle = true;
     _titleDebounce?.cancel();
     _titleDebounce = Timer(const Duration(milliseconds: 600), () {
       _saveTitle(value.trim());
@@ -86,11 +70,14 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
+    if (title == _lastSavedTitle) return;
     setState(() => _isSaving = true);
     DebugConfig.db('HabitDetail saveTitle id=${widget.itemId} "$title"');
     await ref
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+    _lastSavedTitle = title;
+    _hasEverBeenSaved = true;
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
@@ -116,13 +103,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     ref.invalidate(habitStatsProvider(widget.itemId));
   }
 
-  Future<void> _setReminderTime(TimeOfDay? time) async {
-    await HabitService.instance.setReminderTime(widget.itemId, time);
-    if (!mounted) return;
-    setState(() => _reminderTime = time);
-    // Αναγκαστική ανανέωση των properties ώστε να φύγει η παλιά τιμή
-    ref.invalidate(itemPropertiesProvider(widget.itemId));
-  }
   Future<void> _delete(BuildContext context) async {
     final future = ConfirmDialog.delete(context, title: 'Διαγραφή συνήθειας;');
     final ok = await future;
@@ -139,6 +119,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     await ref
         .read(itemNotifierProvider.notifier)
         .togglePin(item.id, item.pinned);
+    setState(() => _isPinned = item.pinned);
+    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _toggleFav(Item item) async {
@@ -146,6 +128,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     await ref
         .read(itemNotifierProvider.notifier)
         .toggleFavorite(item.id, item.favorite);
+    setState(() => _isFavorite = item.favorite);
+    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _toggleArchive(Item item) async {
@@ -153,6 +137,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     await ref
         .read(itemNotifierProvider.notifier)
         .toggleArchive(item.id, item.archived);
+    ref.invalidate(itemNotifierProvider);
   }
 
   @override
@@ -170,10 +155,20 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         if (item == null) return _buildNotFound();
 
         final itemTitle = item.title ?? '';
-        if (!_titleCtrl.selection.isValid && _titleCtrl.text != itemTitle) {
-          _titleCtrl.text = itemTitle;
-          _titleCtrl.selection = TextSelection.collapsed(offset: _titleCtrl.text.length);
+        if (_lastSavedTitle.isEmpty && itemTitle.isNotEmpty) {
+          _lastSavedTitle = itemTitle;
         }
+        if (!_isEditingTitle && _titleCtrl.text != itemTitle) {
+          final cursorAtEnd = _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
+          _titleCtrl.text = itemTitle;
+          if (cursorAtEnd) {
+            _titleCtrl.selection = TextSelection.collapsed(offset: _titleCtrl.text.length);
+          }
+        }
+
+        // Sync pinned/favorite
+        if (_isPinned != item.pinned) _isPinned = item.pinned;
+        if (_isFavorite != item.favorite) _isFavorite = item.favorite;
 
         return PopScope(
           canPop: false,
@@ -223,8 +218,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       onIncrement: _incrementProgress,
       onDecrement: _decrementProgress,
       onDelete: () => _delete(context),
-      reminderTime: _reminderTime,
-      onSetReminderTime: _setReminderTime,
     ),
   );
 
@@ -248,8 +241,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             onDecrement: _decrementProgress,
             onDelete: () => _delete(context),
             hideStats: true,
-            reminderTime: _reminderTime,
-            onSetReminderTime: _setReminderTime,
           ),
         ),
       ],
@@ -286,16 +277,16 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       ),
       IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(item.favorite ? Icons.star_rounded : Icons.star_outline_rounded),
-        color: item.favorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
-        tooltip: item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένη συνήθεια',
+        icon: Icon(_isFavorite ? Icons.star_rounded : Icons.star_outline_rounded),
+        color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
+        tooltip: _isFavorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένη συνήθεια',
         onPressed: () => _toggleFav(item),
       ),
       IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined),
-        color: item.pinned ? context.cPrimary : context.cText2,
-        tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+        icon: Icon(_isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined),
+        color: _isPinned ? context.cPrimary : context.cText2,
+        tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
         onPressed: () => _togglePin(item),
       ),
       IconButton(
@@ -346,8 +337,6 @@ class _HabitBody extends ConsumerWidget {
   final VoidCallback onDecrement;
   final VoidCallback onDelete;
   final bool hideStats;
-  final TimeOfDay? reminderTime;
-  final ValueChanged<TimeOfDay?> onSetReminderTime;
 
   const _HabitBody({
     required this.item,
@@ -358,8 +347,6 @@ class _HabitBody extends ConsumerWidget {
     required this.onDecrement,
     required this.onDelete,
     this.hideStats = false,
-    this.reminderTime,
-    required this.onSetReminderTime,
   });
 
   @override
@@ -440,15 +427,11 @@ class _HabitBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Settings section (goal, unit, reminder, recurrence) ──────────
+        // ── Settings section (goal, unit, recurrence, reminder) ──────────
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
-            child: _HabitSettings(
-              habitId: item.id,
-              reminderTime: reminderTime,
-              onSetReminderTime: onSetReminderTime,
-            ),
+            child: _HabitSettings(habitId: item.id),
           ),
         ),
 
@@ -770,18 +753,14 @@ class _StatsPanel extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// HABIT SETTINGS (goal, unit, reminder, recurrence)
+// HABIT SETTINGS (goal, unit, recurrence, reminder)
 // ════════════════════════════════════════════════════════════════
 
 class _HabitSettings extends ConsumerWidget {
   final int habitId;
-  final TimeOfDay? reminderTime;
-  final ValueChanged<TimeOfDay?> onSetReminderTime;
 
   const _HabitSettings({
     required this.habitId,
-    required this.reminderTime,
-    required this.onSetReminderTime,
   });
 
   @override
@@ -823,23 +802,31 @@ class _HabitSettings extends ConsumerWidget {
               ),
               Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
               _SettingsRow(
-                icon: Icons.alarm_rounded,
-                label: 'Υπενθύμιση',
-                value: reminderTime != null ? reminderTime!.format(context) : 'Απενεργοποιημένη',
-                onTap: () => _pickReminderTime(context),
-              ),
-              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
-              _SettingsRow(
                 icon: Icons.repeat_rounded,
                 label: 'Επανάληψη',
                 value: _getRecurrenceLabel(props),
                 onTap: () => _editRecurrence(context, ref),
+              ),
+              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
+              // ⭐ Υπενθύμιση – χρήση κοινού widget ReminderSection
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: Spacing.xs),
+                child: ReminderSection(
+                  itemId: habitId,
+                  itemTitle: _getHabitTitle(ref),
+                  defaultStartTime: null,
+                ),
               ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  String _getHabitTitle(WidgetRef ref) {
+    final item = ref.read(itemStreamProvider(habitId)).valueOrNull;
+    return item?.title ?? 'Συνήθεια';
   }
 
   String _getRecurrenceLabel(List<ItemProperty> props) {
@@ -850,10 +837,10 @@ class _HabitSettings extends ConsumerWidget {
     final daysJson = props.firstWhere((p) => p.key == 'recurrence_days',
         orElse: () => ItemProperty()..value = '').value ?? '';
     DebugConfig.nav('📖 Recurrence props: type="$typeStr", interval="$interval", daysJson="$daysJson"');
-    final recurrence = Recurrence.fromProperties({
-      'recurrence_type': typeStr,
-      'recurrence_interval': interval,
-      'recurrence_days': daysJson,
+    final recurrence = Recurrence.fromJson({
+      'type': typeStr,
+      'interval': int.tryParse(interval) ?? 1,
+      'days': daysJson.isNotEmpty ? (jsonDecode(daysJson) as List).cast<int>() : null,
     });
     return recurrence.describe();
   }
@@ -928,9 +915,9 @@ class _HabitSettings extends ConsumerWidget {
                           ),
                           child: Center(
                             child: Text(
-                              t.name == 'daily' ? 'Καθημερινά' :
-                              t.name == 'weekly' ? 'Εβδομαδιαία' :
-                              t.name == 'monthly' ? 'Μηνιαία' : 'Προσαρμοσμένο',
+                              t == RecurrenceType.daily ? 'Καθημερινά' :
+                              t == RecurrenceType.weekly ? 'Εβδομαδιαία' :
+                              t == RecurrenceType.monthly ? 'Μηνιαία' : 'Προσαρμοσμένο',
                               style: context.labelSm.withColor(isActive ? context.cPrimary : context.cText),
                             ),
                           ),
@@ -1044,17 +1031,8 @@ class _HabitSettings extends ConsumerWidget {
                           await HabitService.instance.setRecurrence(habitId, newRecurrence);
                           DebugConfig.nav('✅ Recurrence saved, invalidating providers');
                           ref.invalidate(itemPropertiesProvider(habitId));
-                          // Αν υπάρχει ώρα υπενθύμισης, την ξαναπρογραμματίζουμε
-                          if (reminderTime != null) {
-                            onSetReminderTime(reminderTime);
-                          }
                           if (!context.mounted) return;
                           Navigator.pop(ctx);
-                          // Αν υπάρχει ώρα υπενθύμισης, την επαναπρογραμματίζουμε
-                          if (reminderTime != null) {
-                            onSetReminderTime(reminderTime);
-                          }
-                          ref.invalidate(itemPropertiesProvider(habitId));
                         },
                         child: const Text('Αποθήκευση'),
                       ),
@@ -1079,7 +1057,6 @@ class _HabitSettings extends ConsumerWidget {
         final n = double.tryParse(val) ?? 0;
         DebugConfig.db('HabitSettings setGoal=$n id=$habitId');
         await ref.read(propertyNotifierProvider(habitId).notifier).setNumber('goal_per_period', n);
-        // Αναγκαστική ανανέωση
         ref.invalidate(itemPropertiesProvider(habitId));
         ref.invalidate(habitStatsProvider(habitId));
       },
@@ -1096,80 +1073,6 @@ class _HabitSettings extends ConsumerWidget {
         await ref.read(propertyNotifierProvider(habitId).notifier).setText('unit', val);
       },
     );
-  }
-
-  void _pickReminderTime(BuildContext context) async {
-    final result = await showModalBottomSheet<TimeOfDay?>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + Spacing.md,
-          left: Spacing.lg,
-          right: Spacing.lg,
-          top: Spacing.md,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Υπενθύμιση', style: context.titleMd),
-            const SizedBox(height: Spacing.md),
-            if (reminderTime != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: Spacing.md),
-                child: Row(
-                  children: [
-                    Icon(Icons.alarm_rounded, size: 18, color: context.cText2),
-                    const SizedBox(width: Spacing.sm),
-                    Text('Τρέχουσα ώρα: ${reminderTime!.format(context)}',
-                        style: context.bodyMd),
-                  ],
-                ),
-              ),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx, null), // disable
-                    child: const Text('Απενεργοποίηση'),
-                  ),
-                ),
-                const SizedBox(width: Spacing.sm),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () async {
-                      final time = await showTimePicker(
-                        context: ctx,
-                        initialTime: reminderTime ?? TimeOfDay.now(),
-                        helpText: 'Επιλογή ώρας',
-                      );
-                      if (!context.mounted)return;
-                      if (time != null) Navigator.pop(ctx, time);
-                    },
-                    child: const Text('Επιλογή ώρας'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: Spacing.sm),
-          ],
-        ),
-      ),
-    );
-    if (result != null) {
-      onSetReminderTime(result);
-    } else if (result == null && context.mounted) {
-      // User selected "disable"
-      onSetReminderTime(null);
-    }
   }
 
   void _showTextEditor({

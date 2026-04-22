@@ -17,3 +17,4 @@ export 'settings_provider.dart';
 export 'property_provider.dart';
 export 'habit_provider.dart';
 export 'ui_provider.dart';
+export 'task_provider.dart';

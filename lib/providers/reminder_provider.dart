@@ -52,6 +52,12 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
     ref.invalidate(pendingRemindersProvider);
   }
 
+  Future<void> delete(int reminderId) async {
+    await ref.read(dbProvider).reminders.delete(reminderId);
+    ref.invalidateSelf();
+    ref.invalidate(pendingRemindersProvider);
+  }
+
   Future<void> markSent(int reminderId) async {
     await ref.read(dbProvider).reminders.markSent(reminderId);
     ref.invalidateSelf();

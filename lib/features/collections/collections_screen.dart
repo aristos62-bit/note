@@ -5,6 +5,7 @@
 // ✅ Responsive: grid mobile / grid tablet
 // ✅ Dark mode
 // ✅ DebugConfig
+// ✅ Χρήση ItemColorHelper για background & contrast
 //
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../helpers/item_color_helper.dart';   // 👈 Import του helper
 import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
 
@@ -315,7 +317,7 @@ class _CollectionsGrid extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// COLLECTION CARD
+// COLLECTION CARD — με χρήση ItemColorHelper
 // ════════════════════════════════════════════════════════════════
 
 class _CollectionCard extends ConsumerWidget {
@@ -342,18 +344,26 @@ class _CollectionCard extends ConsumerWidget {
     // Μέτρηση εγγραφών (real‑time)
     final countsAsync = ref.watch(collectionEntriesCountProvider);
 
-    final color = _colorFromString(item.color);
-    final icon  = item.icon ?? '📦';
+    // ⭐ Χρώμα φόντου από ItemColorHelper για project
+    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.project, context);
+    // ⭐ Χρώμα κειμένου με βάση την αντίθεση
+    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+    // ⭐ Accent χρώμα: custom χρώμα συλλογής ή default από helper
+    final customColor = _colorFromString(item.color);
+    final accentColor = customColor ?? ItemColorHelper.iconColorForType(ItemType.project, context);
+
+    final icon = item.icon ?? '📦';
 
     return GestureDetector(
       onTap: onTap,
       onLongPress: () => _showActions(context),
       child: Container(
         decoration: BoxDecoration(
-          color:        ColorsUI.getSurface(context.brightness),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
           border: Border.all(
-              color: color.withValues(alpha: 0.4), width: 1.5),
+              color: accentColor.withValues(alpha: 0.5), width: 1.5),
         ),
         child: Padding(
           padding: const EdgeInsets.all(Spacing.md),
@@ -366,7 +376,7 @@ class _CollectionCard extends ConsumerWidget {
                   Container(
                     width: 42, height: 42,
                     decoration: BoxDecoration(
-                      color:        color.withValues(alpha: 0.12),
+                      color: accentColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: Center(
@@ -378,7 +388,7 @@ class _CollectionCard extends ConsumerWidget {
                   GestureDetector(
                     onTap: () => _showActions(context),
                     child: Icon(Icons.more_vert_rounded,
-                        size: 18, color: context.cText2),
+                        size: 18, color: secondaryForeground),
                   ),
                 ],
               ),
@@ -386,7 +396,7 @@ class _CollectionCard extends ConsumerWidget {
               // Title
               Text(
                 item.title ?? 'Χωρίς τίτλο',
-                style: context.titleSm,
+                style: context.titleSm.copyWith(color: foregroundColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -395,15 +405,15 @@ class _CollectionCard extends ConsumerWidget {
               countsAsync.when(
                 loading: () => Text(
                   '${fields.length} πεδία  •  ...',
-                  style: context.labelSm.withColor(context.cText2),
+                  style: context.labelSm.copyWith(color: secondaryForeground),
                 ),
                 error: (_, __) => Text(
                   '${fields.length} πεδία  •  ?',
-                  style: context.labelSm.withColor(context.cText2),
+                  style: context.labelSm.copyWith(color: secondaryForeground),
                 ),
                 data: (counts) => Text(
                   '${fields.length} πεδία  •  ${counts[item.id] ?? 0} εγγραφές',
-                  style: context.labelSm.withColor(context.cText2),
+                  style: context.labelSm.copyWith(color: secondaryForeground),
                 ),
               ),
             ],
@@ -413,14 +423,12 @@ class _CollectionCard extends ConsumerWidget {
     );
   }
 
-  Color _colorFromString(String? hex) {
-    if (hex == null || hex.isEmpty) {
-      return const Color(0xFF6366F1); // default indigo
-    }
+  Color? _colorFromString(String? hex) {
+    if (hex == null || hex.isEmpty) return null;
     try {
       return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
     } catch (_) {
-      return const Color(0xFF6366F1);
+      return null;
     }
   }
 

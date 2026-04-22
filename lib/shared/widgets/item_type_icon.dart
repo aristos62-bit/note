@@ -76,7 +76,7 @@ class ItemTypeIcon extends StatelessWidget {
       case ItemType.event:     return 'Συμβάν';
       case ItemType.contact:   return 'Επαφή';
       case ItemType.habit:     return 'Συνήθεια';
-      case ItemType.project:   return 'Έργο';
+      case ItemType.project:   return 'Συλλογή';
       case ItemType.goal:      return 'Στόχος';
       case ItemType.finance:   return 'Οικονομικά';
       case ItemType.bookmark:  return 'Σελιδοδείκτης';

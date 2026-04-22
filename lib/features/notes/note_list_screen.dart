@@ -261,6 +261,9 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
               ],
             ),
 
+          // ── View mode toggle (pinned/favorites/all) ────────────
+          const ViewModeToggle(),
+
           // ── Notes list ─────────────────────────────────────────
           Expanded(
             child: RefreshIndicator(
@@ -276,13 +279,26 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
                 data: (notes) {
                   // Κρατάμε μόνο σημειώσεις
                   var notesOnly =
-                      notes.where((n) => n.type == ItemType.note).toList();
+                  notes.where((n) => n.type == ItemType.note).toList();
 
                   // Φιλτράρισμα: φάκελος ("Όλοι" ή συγκεκριμένος)
                   if (_selectedFolderId != null) {
                     notesOnly = notesOnly
                         .where((n) => n.folderId == _selectedFolderId)
                         .toList();
+                  }
+
+                  // 🔹 Φιλτράρισμα: view mode (pinned / favorites / all)
+                  final viewMode = ref.watch(listViewModeProvider);
+                  switch (viewMode) {
+                    case ListViewMode.pinned:
+                      notesOnly = notesOnly.where((n) => n.pinned).toList();
+                      break;
+                    case ListViewMode.favorites:
+                      notesOnly = notesOnly.where((n) => n.favorite).toList();
+                      break;
+                    case ListViewMode.all:
+                      break;
                   }
 
                   // 🔹 Συγκέντρωση tags από τις ορατές σημειώσεις (per φάκελο)
@@ -306,14 +322,13 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
 
                   // Φιλτράρισμα: search (τίτλος μόνο)
                   var filtered =
-                      _filterNotes(notesOnly, searchQuery, activeTags);
+                  _filterNotes(notesOnly, searchQuery, activeTags);
 
-// Φιλτράρισμα: tags (πολλαπλά, με βάση itemTagsProvider)
+                  // Φιλτράρισμα: tags (πολλαπλά, με βάση itemTagsProvider)
                   if (activeTags.isNotEmpty) {
                     filtered = filtered.where((note) {
                       final tagsForNote =
-                          ref.watch(itemTagsProvider(note.id)).valueOrNull ??
-                              [];
+                          ref.watch(itemTagsProvider(note.id)).valueOrNull ?? [];
                       final noteTagNames = tagsForNote.map((t) => t.name);
                       return noteTagNames
                           .any((name) => activeTags.contains(name));
@@ -340,13 +355,9 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
                     );
                   }
 
-                  // Pinned πρώτα
-                  final pinned = filtered.where((n) => n.pinned).toList();
-                  final unpinned = filtered.where((n) => !n.pinned).toList();
-
+                  // Απλά περνάμε ολόκληρη τη λίστα (χωρίς διαχωρισμό)
                   return _NoteListBody(
-                    pinned: pinned,
-                    unpinned: unpinned,
+                    items: filtered,
                     onTap: (item) => _openDetail(item.id),
                     onLongPress: (item) => _showItemActions(context, item),
                   );
@@ -435,14 +446,12 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> {
 // ════════════════════════════════════════════════════════════════
 
 class _NoteListBody extends ConsumerWidget {
-  final List<Item> pinned;
-  final List<Item> unpinned;
+  final List<Item> items;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
 
   const _NoteListBody({
-    required this.pinned,
-    required this.unpinned,
+    required this.items,
     required this.onTap,
     required this.onLongPress,
   });
@@ -453,53 +462,13 @@ class _NoteListBody extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        // Pinned section
-        if (pinned.isNotEmpty) ...[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.responsiveHPadding,
-                Spacing.md,
-                context.responsiveHPadding,
-                Spacing.xs,
-              ),
-              child: Row(children: [
-                Icon(Icons.push_pin_rounded, size: 14, color: context.cText2),
-                const SizedBox(width: Spacing.xs),
-                Text('Καρφιτσωμένα',
-                    style: context.labelMd.withColor(context.cText2)),
-              ]),
-            ),
-          ),
-          _buildGrid(context, ref, pinned, cols),
-        ],
-
-        // All notes section
-        if (unpinned.isNotEmpty) ...[
-          if (pinned.isNotEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  context.responsiveHPadding,
-                  Spacing.md,
-                  context.responsiveHPadding,
-                  Spacing.xs,
-                ),
-                child: Text('Όλες',
-                    style: context.labelMd.withColor(context.cText2)),
-              ),
-            ),
-          _buildGrid(context, ref, unpinned, cols),
-        ],
-
-        // Bottom padding
+        _buildGrid(context, ref, items, cols),
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
   }
 
-  Widget _buildGrid(
-      BuildContext context, WidgetRef ref, List<Item> items, int cols) {
+  Widget _buildGrid(BuildContext context, WidgetRef ref, List<Item> items, int cols) {
     if (cols == 1) {
       return SliverPadding(
         padding: EdgeInsets.symmetric(
@@ -508,7 +477,7 @@ class _NoteListBody extends ConsumerWidget {
         ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
-            (ctx, i) => Padding(
+                (ctx, i) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
               child: _NoteCardWithTags(
                 item: items[i],
@@ -535,7 +504,7 @@ class _NoteListBody extends ConsumerWidget {
           mainAxisExtent: 100,
         ),
         delegate: SliverChildBuilderDelegate(
-          (ctx, i) => _NoteCardWithTags(
+              (ctx, i) => _NoteCardWithTags(
             item: items[i],
             onTap: onTap,
             onLongPress: onLongPress,

@@ -1,148 +1,11 @@
 // lib/services/habit_service.dart
-// Full version with recurrence support and reminder scheduling that respects recurrence days.
-// Now also properly cancels reminders when disabled.
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/item_property.dart';
+import '../models/recurrence.dart';   // ✅ κεντρικός ορισμός
 import '../core/core.dart';
 import 'reminder_scheduler.dart';
-
-// ─────────────────────────────────────────────────────────────
-// Recurrence types (full implementation)
-// ─────────────────────────────────────────────────────────────
-
-enum RecurrenceType { daily, weekly, monthly, custom }
-
-class Recurrence {
-  final RecurrenceType type;
-  final int interval;
-  final List<int>? days;        // for weekly: list of weekdays (1=Monday..7=Sunday)
-  final int? dayOfMonth;        // for monthly: day number (1-31)
-
-  Recurrence({
-    required this.type,
-    this.interval = 1,
-    this.days,
-    this.dayOfMonth,
-  });
-
-  factory Recurrence.fromProperties(Map<String, String?> props) {
-    final typeStr = props['recurrence_type'] ?? 'daily';
-    final type = RecurrenceType.values.firstWhere(
-          (e) => e.name == typeStr,
-      orElse: () => RecurrenceType.daily,
-    );
-    final interval = int.tryParse(props['recurrence_interval'] ?? '1') ?? 1;
-    List<int>? days;
-    if (type == RecurrenceType.weekly) {
-      final daysJson = props['recurrence_days'];
-      if (daysJson != null && daysJson.isNotEmpty) {
-        days = (jsonDecode(daysJson) as List).map((e) => e as int).toList();
-      }
-    }
-    int? dayOfMonth;
-    if (type == RecurrenceType.monthly) {
-      final dayStr = props['recurrence_days'];
-      dayOfMonth = int.tryParse(dayStr ?? '');
-    }
-    return Recurrence(
-      type: type,
-      interval: interval,
-      days: days,
-      dayOfMonth: dayOfMonth,
-    );
-  }
-
-  DateTime getPeriodStart(DateTime date) {
-    switch (type) {
-      case RecurrenceType.daily:
-        return DateTime(date.year, date.month, date.day);
-      case RecurrenceType.weekly:
-        final daysSinceMonday = (date.weekday - 1) % 7;
-        final startOfWeek = date.subtract(Duration(days: daysSinceMonday));
-        if (interval == 1) return startOfWeek;
-        final ref = DateTime(1970, 1, 5);
-        final weeksSinceRef = (startOfWeek.difference(ref).inDays / 7).floor();
-        final alignedWeeks = weeksSinceRef - (weeksSinceRef % interval);
-        return ref.add(Duration(days: alignedWeeks * 7));
-      case RecurrenceType.monthly:
-        if (interval == 1) return DateTime(date.year, date.month, 1);
-        final totalMonths = date.year * 12 + (date.month - 1);
-        final alignedMonths = totalMonths - (totalMonths % interval);
-        final year = alignedMonths ~/ 12;
-        final month = alignedMonths % 12 + 1;
-        return DateTime(year, month, 1);
-      case RecurrenceType.custom:
-        return DateTime(date.year, date.month, date.day);
-    }
-  }
-
-  bool hasPeriodEnded(DateTime periodStart, DateTime now) {
-    final nextPeriodStart = _nextPeriodStart(periodStart);
-    return now.isAfter(nextPeriodStart) || now.isAtSameMomentAs(nextPeriodStart);
-  }
-
-  DateTime _nextPeriodStart(DateTime periodStart) {
-    switch (type) {
-      case RecurrenceType.daily:
-        return periodStart.add(Duration(days: interval));
-      case RecurrenceType.weekly:
-        return periodStart.add(Duration(days: interval * 7));
-      case RecurrenceType.monthly:
-        return DateTime(periodStart.year, periodStart.month + interval, 1);
-      case RecurrenceType.custom:
-        return periodStart.add(Duration(days: interval));
-    }
-  }
-
-  String describe() {
-    switch (type) {
-      case RecurrenceType.daily:
-        return interval == 1 ? 'Καθημερινά' : 'Κάθε $interval ημέρες';
-      case RecurrenceType.weekly:
-        final dayNames = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
-        String daysStr = '';
-        if (days != null && days!.isNotEmpty) {
-          daysStr = ' (${days!.map((d) => dayNames[d-1]).join(', ')})';
-        }
-        return interval == 1
-            ? 'Κάθε εβδομάδα$daysStr'
-            : 'Κάθε $interval εβδομάδες$daysStr';
-      case RecurrenceType.monthly:
-        final day = dayOfMonth != null ? ' (ημέρα $dayOfMonth)' : '';
-        return interval == 1
-            ? 'Κάθε μήνα$day'
-            : 'Κάθε $interval μήνες$day';
-      case RecurrenceType.custom:
-        return 'Κάθε $interval ημέρες';
-    }
-  }
-
-  String toRRULE() {
-    switch (type) {
-      case RecurrenceType.daily:
-        return 'FREQ=DAILY;INTERVAL=$interval';
-      case RecurrenceType.weekly:
-        if (days != null && days!.isNotEmpty) {
-          const wd = ['MO','TU','WE','TH','FR','SA','SU'];
-          final byday = days!.map((d) => wd[d-1]).join(',');
-          return 'FREQ=WEEKLY;INTERVAL=$interval;BYDAY=$byday';
-        } else {
-          return 'FREQ=WEEKLY;INTERVAL=$interval';
-        }
-      case RecurrenceType.monthly:
-        if (dayOfMonth != null) {
-          return 'FREQ=MONTHLY;INTERVAL=$interval;BYMONTHDAY=$dayOfMonth';
-        } else {
-          return 'FREQ=MONTHLY;INTERVAL=$interval';
-        }
-      case RecurrenceType.custom:
-        return 'FREQ=DAILY;INTERVAL=$interval';
-    }
-  }
-}
 
 // ─────────────────────────────────────────────────────────────
 // HabitStats
@@ -363,14 +226,12 @@ class HabitService {
     final props = SuperNoteHelper.instance.properties;
     if (time == null) {
       DebugConfig.db('🕒 Disabling reminders for habit $habitId');
-      // Disable reminders: delete all existing reminders for this habit
       await props.delete(habitId, 'reminder_time');
       await ReminderScheduler.instance.cancelAllForItem(habitId);
       final reminders = await SuperNoteHelper.instance.reminders.getForItem(habitId);
       for (final r in reminders) {await SuperNoteHelper.instance.reminders.delete(r.id);}
     } else {
       DebugConfig.db('🕒 Enabling reminder for habit $habitId at ${time.hour}:${time.minute}');
-      // Save reminder time and schedule new reminders
       final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
       await props.set(
         itemId: habitId, key: 'reminder_time', value: timeStr, type: PropertyType.text,
@@ -381,15 +242,13 @@ class HabitService {
     }
   }
 
-  // Schedule multiple one-time reminders for the next 30 days based on recurrence
   Future<void> _scheduleReminders(int habitId, TimeOfDay time, Recurrence recurrence) async {
-    // Cancel existing reminders for this item
     await ReminderScheduler.instance.cancelAllForItem(habitId);
     final old = await SuperNoteHelper.instance.reminders.getForItem(habitId);
     for (final r in old) {await SuperNoteHelper.instance.reminders.delete(r.id);}
 
     final now = DateTime.now();
-    final end = now.add(const Duration(days: 60)); // enough for 2 months
+    final end = now.add(const Duration(days: 60));
     DateTime current = now;
     int count = 0;
     const maxReminders = 40;
@@ -402,7 +261,7 @@ class HabitService {
         final reminder = await SuperNoteHelper.instance.reminders.create(
           itemId: habitId,
           triggerAt: nextOccurrence,
-          rrule: '',
+          rrule: recurrence.toRRULE(),
           title: 'Υπενθύμιση συνήθειας',
           body: 'Υπενθύμιση: $title',
         );
@@ -416,28 +275,20 @@ class HabitService {
   }
 
   DateTime _nextOccurrence(Recurrence recurrence, TimeOfDay time, DateTime after) {
-    // Start from the day of 'after'
     DateTime candidate = DateTime(after.year, after.month, after.day, time.hour, time.minute);
-    // If candidate is before 'after', move to next period start
     if (candidate.isBefore(after)) {
-      candidate = recurrence._nextPeriodStart(candidate).add(Duration(hours: time.hour, minutes: time.minute));
+      candidate = recurrence.nextPeriodStart(candidate).add(Duration(hours: time.hour, minutes: time.minute));
     }
-    // For weekly recurrence, ensure candidate weekday is in allowed days
     if (recurrence.type == RecurrenceType.weekly && recurrence.days != null && recurrence.days!.isNotEmpty) {
       while (!recurrence.days!.contains(candidate.weekday)) {
         candidate = candidate.add(const Duration(days: 1));
       }
     }
-    // For monthly, we need to ensure day matches dayOfMonth (or adjust)
     if (recurrence.type == RecurrenceType.monthly && recurrence.dayOfMonth != null) {
-      // We'll just rely on the period start logic; it's already set to 1st of month.
-      // The _nextPeriodStart will move to the next month if needed.
-      // But we need to ensure candidate.day matches dayOfMonth.
-      // Simpler: compute period start and then add (dayOfMonth-1) days.
       final periodStart = recurrence.getPeriodStart(candidate);
       candidate = DateTime(periodStart.year, periodStart.month, recurrence.dayOfMonth!, time.hour, time.minute);
       if (candidate.isBefore(after)) {
-        final nextPeriod = recurrence._nextPeriodStart(periodStart);
+        final nextPeriod = recurrence.nextPeriodStart(periodStart);
         candidate = DateTime(nextPeriod.year, nextPeriod.month, recurrence.dayOfMonth!, time.hour, time.minute);
       }
     }

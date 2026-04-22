@@ -7,6 +7,8 @@
 // ✅ Save pattern ίδιο με NoteDetailScreen
 // ✅ Υποστήριξη bulletList και numberedList (δυναμικές λίστες)
 // ✅ Πολυγραμμικό κείμενο για πεδίο text
+// ✅ Χρήση ItemColorHelper για background & contrast
+// ✅ ViewMode toggle (pinned/favorites/all) για φιλτράρισμα εγγραφών
 //
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -15,6 +17,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../helpers/item_color_helper.dart';
 import 'collections_screen.dart' show FieldDef, FieldType;
 
 // ════════════════════════════════════════════════════════════════
@@ -33,9 +36,9 @@ class CollectionEntriesScreen extends ConsumerWidget {
     final allAsync = ref.watch(itemsStreamProvider);
     final propsAsync = ref.watch(itemPropertiesProvider(collection.id));
     final schema = propsAsync.valueOrNull
-            ?.where((p) => p.key == 'schema')
-            .firstOrNull
-            ?.value ??
+        ?.where((p) => p.key == 'schema')
+        .firstOrNull
+        ?.value ??
         '';
     final fields = FieldDef.listFromJson(schema);
 
@@ -60,17 +63,25 @@ class CollectionEntriesScreen extends ConsumerWidget {
         tooltip: 'Νέα εγγραφή',
         child: const Icon(Icons.add_rounded),
       ),
-      body: allAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState.error(),
-        data: (allItems) {
-          return _EntriesList(
-            collectionId: collection.id,
-            fields: fields,
-            accentColor: accentColor,
-            onCreateEntry: () => _createEntry(context, ref, fields),
-          );
-        },
+      body: Column(
+        children: [
+          // View mode toggle (pinned/favorites/all)
+          const ViewModeToggle(),
+          Expanded(
+            child: allAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => EmptyState.error(),
+              data: (allItems) {
+                return _EntriesList(
+                  collectionId: collection.id,
+                  fields: fields,
+                  accentColor: accentColor,
+                  onCreateEntry: () => _createEntry(context, ref, fields),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -134,7 +145,7 @@ class _EntriesList extends ConsumerWidget {
     final allItems = allAsync.valueOrNull ?? [];
 
     final candidates =
-        allItems.where((i) => i.type == ItemType.knowledge).toList();
+    allItems.where((i) => i.type == ItemType.knowledge).toList();
 
     return _FilteredEntriesList(
       candidates: candidates,
@@ -163,12 +174,27 @@ class _FilteredEntriesList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entries = <Item>[];
+    // Αρχικά φιλτράρουμε όλες τις εγγραφές της συλλογής
+    final allEntries = <Item>[];
     for (final c in candidates) {
       final props = ref.watch(itemPropertiesProvider(c.id)).valueOrNull ?? [];
       final colId =
           props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-      if (colId == collectionId.toString()) entries.add(c);
+      if (colId == collectionId.toString()) allEntries.add(c);
+    }
+
+    // 🔹 Φιλτράρισμα view mode (pinned / favorites / all)
+    final viewMode = ref.watch(listViewModeProvider);
+    var entries = allEntries;
+    switch (viewMode) {
+      case ListViewMode.pinned:
+        entries = entries.where((e) => e.pinned).toList();
+        break;
+      case ListViewMode.favorites:
+        entries = entries.where((e) => e.favorite).toList();
+        break;
+      case ListViewMode.all:
+        break;
     }
 
     if (entries.isEmpty) {
@@ -217,7 +243,7 @@ class _FilteredEntriesList extends ConsumerWidget {
         ))),
         onDelete: () async {
           final future =
-              ConfirmDialog.delete(context, title: 'Διαγραφή εγγραφής;');
+          ConfirmDialog.delete(context, title: 'Διαγραφή εγγραφής;');
           final ok = await future;
           if (!ok || !context.mounted) return;
           await ref
@@ -231,7 +257,7 @@ class _FilteredEntriesList extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ENTRY CARD
+// ENTRY CARD — με χρήση ItemColorHelper (ίδιο)
 // ════════════════════════════════════════════════════════════════
 
 class _EntryCard extends ConsumerWidget {
@@ -256,13 +282,19 @@ class _EntryCard extends ConsumerWidget {
 
     final previewFields = fields.take(3).toList();
 
+    final backgroundColor =
+    ItemColorHelper.backgroundColorForType(ItemType.knowledge, context);
+    final foregroundColor =
+    ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+
     return GestureDetector(
       onTap: onTap,
       onLongPress: () => _showActions(context),
       child: Container(
         padding: const EdgeInsets.all(Spacing.md),
         decoration: BoxDecoration(
-          color: ColorsUI.getSurface(context.brightness),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
           border: Border.all(color: ColorsUI.getBorder(context.brightness)),
         ),
@@ -290,12 +322,12 @@ class _EntryCard extends ConsumerWidget {
                   : '(χωρίς τίτλο)',
               style: context.titleSm.copyWith(
                 color: entry.title?.isNotEmpty == true
-                    ? context.cText : context.cDisabled,
+                    ? foregroundColor
+                    : secondaryForeground,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            // ... υπόλοιπα (preview fields)
             if (previewFields.isNotEmpty) ...[
               const SizedBox(height: Spacing.xs),
               ...previewFields.map((f) {
@@ -319,13 +351,13 @@ class _EntryCard extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Row(children: [
-                    Icon(f.icon, size: 12, color: context.cText2),
+                    Icon(f.icon, size: 12, color: secondaryForeground),
                     const SizedBox(width: 4),
                     Text('${f.label}: ',
-                        style: context.labelSm.withColor(context.cText2)),
+                        style: context.labelSm.copyWith(color: secondaryForeground)),
                     Expanded(
                       child: Text(val,
-                          style: context.labelSm,
+                          style: context.labelSm.copyWith(color: foregroundColor),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ),
@@ -372,7 +404,7 @@ class _EntryCard extends ConsumerWidget {
             ),
             ListTile(
               leading:
-                  Icon(Icons.delete_outline_rounded, color: context.cError),
+              Icon(Icons.delete_outline_rounded, color: context.cError),
               title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
               onTap: () {
                 Navigator.pop(context);
@@ -388,7 +420,7 @@ class _EntryCard extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// COLLECTION ENTRY DETAIL SCREEN
+// COLLECTION ENTRY DETAIL SCREEN (unchanged)
 // ════════════════════════════════════════════════════════════════
 
 class CollectionEntryDetailScreen extends ConsumerStatefulWidget {
@@ -488,7 +520,7 @@ class _CollectionEntryDetailScreenState
         .updateItem(widget.entryId, title: title.isEmpty ? null : title);
 
     final notifier =
-        ref.read(propertyNotifierProvider(widget.entryId).notifier);
+    ref.read(propertyNotifierProvider(widget.entryId).notifier);
 
     for (final f in widget.fields) {
       if (f.key.isEmpty) continue;
@@ -511,14 +543,13 @@ class _CollectionEntryDetailScreenState
       }
     }
 
-    _lastSavedTitle   = title;
+    _lastSavedTitle = title;
     _hasEverBeenSaved = true;
-    _isEditingTitle   = false;
+    _isEditingTitle = false;
 
     if (!context.mounted) return;
     setState(() => _isSaving = false);
     ref.invalidate(itemNotifierProvider);
-// Επιστροφή στη λίστα μετά την αποθήκευση
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -533,6 +564,7 @@ class _CollectionEntryDetailScreenState
         .togglePin(widget.entryId, _isPinned);
     setState(() => _isPinned = !_isPinned);
   }
+
   Future<void> _deleteEntry() async {
     final confirm = await ConfirmDialog.delete(
       context,
@@ -650,19 +682,18 @@ class _CollectionEntryDetailScreenState
               scrolledUnderElevation: 1,
               title: _isSaving
                   ? Row(mainAxisSize: MainAxisSize.min, children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: context.cText2),
-                      ),
-                      const SizedBox(width: Spacing.xs),
-                      Text('Αποθήκευση...',
-                          style: context.bodySm.withColor(context.cText2)),
-                    ])
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: context.cText2),
+                ),
+                const SizedBox(width: Spacing.xs),
+                Text('Αποθήκευση...',
+                    style: context.bodySm.withColor(context.cText2)),
+              ])
                   : null,
               actions: [
-                // Pin button
                 IconButton(
                   icon: Icon(
                     _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
@@ -671,7 +702,6 @@ class _CollectionEntryDetailScreenState
                   onPressed: _togglePin,
                   tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
                 ),
-                // Favorite button
                 IconButton(
                   icon: Icon(
                     _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
@@ -683,7 +713,6 @@ class _CollectionEntryDetailScreenState
                   tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
                 ),
                 IconButton(
-                  // Save button
                   icon: Icon(Icons.save_rounded, color: context.cPrimary),
                   onPressed: () async {
                     await _save();
@@ -691,7 +720,6 @@ class _CollectionEntryDetailScreenState
                     if (mounted) Navigator.of(context).pop();
                   },
                 ),
-                // Delete button
                 IconButton(
                   icon: Icon(Icons.delete_outline_rounded, color: context.cError),
                   onPressed: () => _deleteEntry(),
@@ -723,24 +751,24 @@ class _CollectionEntryDetailScreenState
                 Divider(color: ColorsUI.getBorder(context.brightness)),
                 const SizedBox(height: Spacing.sm),
                 ...widget.fields.map((f) => Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.md),
-                      child: _FieldInput(
-                        field: f,
-                        ctrl: _fieldCtrls[f.key],
-                        boolValue: _boolValues[f.key] ?? false,
-                        dateValue: _dateValues[f.key],
-                        listItems: _listValues[f.key] ?? [],
-                        onBoolChange: (v) =>
-                            setState(() => _boolValues[f.key] = v),
-                        onDateChange: (v) =>
-                            setState(() => _dateValues[f.key] = v),
-                        onAddListItem: () => _addListItem(f.key),
-                        onRemoveListItem: (index) =>
-                            _removeListItem(f.key, index),
-                        onUpdateListItem: (index, val) =>
-                            _updateListItem(f.key, index, val),
-                      ),
-                    )),
+                  padding: const EdgeInsets.only(bottom: Spacing.md),
+                  child: _FieldInput(
+                    field: f,
+                    ctrl: _fieldCtrls[f.key],
+                    boolValue: _boolValues[f.key] ?? false,
+                    dateValue: _dateValues[f.key],
+                    listItems: _listValues[f.key] ?? [],
+                    onBoolChange: (v) =>
+                        setState(() => _boolValues[f.key] = v),
+                    onDateChange: (v) =>
+                        setState(() => _dateValues[f.key] = v),
+                    onAddListItem: () => _addListItem(f.key),
+                    onRemoveListItem: (index) =>
+                        _removeListItem(f.key, index),
+                    onUpdateListItem: (index, val) =>
+                        _updateListItem(f.key, index, val),
+                  ),
+                )),
               ],
             ),
           ),
@@ -751,7 +779,7 @@ class _CollectionEntryDetailScreenState
 }
 
 // ════════════════════════════════════════════════════════════════
-// FIELD INPUT — dynamic field renderer (με υποστήριξη λιστών)
+// FIELD INPUT, _SelectField, _ListField (unchanged)
 // ════════════════════════════════════════════════════════════════
 
 class _FieldInput extends StatelessWidget {
@@ -764,7 +792,7 @@ class _FieldInput extends StatelessWidget {
   final ValueChanged<DateTime?> onDateChange;
   final VoidCallback onAddListItem;
   final ValueChanged<int> onRemoveListItem;
-  final void Function(int, String) onUpdateListItem; // corrected type
+  final void Function(int, String) onUpdateListItem;
 
   const _FieldInput({
     required this.field,
@@ -793,74 +821,74 @@ class _FieldInput extends StatelessWidget {
         const SizedBox(height: Spacing.xs),
         switch (field.type) {
           FieldType.toggle => SwitchListTile(
-              value: boolValue,
-              onChanged: onBoolChange,
-              activeThumbColor: context.cPrimary,
-              title: Text(boolValue ? 'Ναι' : 'Όχι', style: context.bodyMd),
-              contentPadding: EdgeInsets.zero,
-            ),
+            value: boolValue,
+            onChanged: onBoolChange,
+            activeThumbColor: context.cPrimary,
+            title: Text(boolValue ? 'Ναι' : 'Όχι', style: context.bodyMd),
+            contentPadding: EdgeInsets.zero,
+          ),
           FieldType.date => GestureDetector(
-              onTap: () async {
-                final now = DateTime.now();
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: dateValue ?? now,
-                  firstDate: DateTime(1900),
-                  lastDate: DateTime(now.year + 20),
-                  locale: const Locale('el'),
-                );
-                if (picked != null) onDateChange(picked);
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.md, vertical: Spacing.sm + 4),
-                decoration: BoxDecoration(
-                  color: ColorsUI.getSurface(context.brightness),
-                  borderRadius: AppRadius.inputBR,
-                  border:
-                      Border.all(color: ColorsUI.getBorder(context.brightness)),
-                ),
-                child: Row(children: [
-                  Expanded(
-                    child: Text(
-                      dateValue != null
-                          ? dateValue!.short
-                          : 'Επιλογή ημερομηνίας',
-                      style: context.bodyMd.withColor(dateValue != null
-                          ? context.cText
-                          : context.cDisabled),
-                    ),
-                  ),
-                  if (dateValue != null)
-                    GestureDetector(
-                      onTap: () => onDateChange(null),
-                      child: Icon(Icons.close_rounded,
-                          size: 16, color: context.cText2),
-                    ),
-                ]),
+            onTap: () async {
+              final now = DateTime.now();
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: dateValue ?? now,
+                firstDate: DateTime(1900),
+                lastDate: DateTime(now.year + 20),
+                locale: const Locale('el'),
+              );
+              if (picked != null) onDateChange(picked);
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.md, vertical: Spacing.sm + 4),
+              decoration: BoxDecoration(
+                color: ColorsUI.getSurface(context.brightness),
+                borderRadius: AppRadius.inputBR,
+                border:
+                Border.all(color: ColorsUI.getBorder(context.brightness)),
               ),
+              child: Row(children: [
+                Expanded(
+                  child: Text(
+                    dateValue != null
+                        ? dateValue!.short
+                        : 'Επιλογή ημερομηνίας',
+                    style: context.bodyMd.withColor(dateValue != null
+                        ? context.cText
+                        : context.cDisabled),
+                  ),
+                ),
+                if (dateValue != null)
+                  GestureDetector(
+                    onTap: () => onDateChange(null),
+                    child: Icon(Icons.close_rounded,
+                        size: 16, color: context.cText2),
+                  ),
+              ]),
             ),
+          ),
           FieldType.select => _SelectField(
-              field: field,
-              ctrl: ctrl,
-            ),
+            field: field,
+            ctrl: ctrl,
+          ),
           FieldType.bulletList => _ListField(
-              field: field,
-              items: listItems,
-              onAdd: onAddListItem,
-              onRemove: onRemoveListItem,
-              onUpdate: onUpdateListItem,
-              isNumbered: false,
-            ),
+            field: field,
+            items: listItems,
+            onAdd: onAddListItem,
+            onRemove: onRemoveListItem,
+            onUpdate: onUpdateListItem,
+            isNumbered: false,
+          ),
           FieldType.numberedList => _ListField(
-              field: field,
-              items: listItems,
-              onAdd: onAddListItem,
-              onRemove: onRemoveListItem,
-              onUpdate: onUpdateListItem,
-              isNumbered: true,
-            ),
+            field: field,
+            items: listItems,
+            onAdd: onAddListItem,
+            onRemove: onRemoveListItem,
+            onUpdate: onUpdateListItem,
+            isNumbered: true,
+          ),
           _ => TextField(
             controller: ctrl,
             keyboardType: field.type == FieldType.number
@@ -870,7 +898,9 @@ class _FieldInput extends StatelessWidget {
                 : TextInputType.multiline,
             maxLines: field.type == FieldType.text ? null : 1,
             minLines: field.type == FieldType.text ? 1 : null,
-            textInputAction: field.type == FieldType.text ? TextInputAction.newline : TextInputAction.done,
+            textInputAction: field.type == FieldType.text
+                ? TextInputAction.newline
+                : TextInputAction.done,
             style: context.bodyMd,
             decoration: InputDecoration(
               hintText: 'Εισαγωγή ${field.label.toLowerCase()}...',
@@ -879,17 +909,20 @@ class _FieldInput extends StatelessWidget {
               fillColor: ColorsUI.getSurface(context.brightness),
               border: OutlineInputBorder(
                 borderRadius: AppRadius.inputBR,
-                borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                borderSide:
+                BorderSide(color: ColorsUI.getBorder(context.brightness)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: AppRadius.inputBR,
-                borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                borderSide:
+                BorderSide(color: ColorsUI.getBorder(context.brightness)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: AppRadius.inputBR,
                 borderSide: BorderSide(color: context.cPrimary, width: 1.5),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.md, vertical: Spacing.sm),
             ),
           ),
         },

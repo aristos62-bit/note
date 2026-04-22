@@ -4,6 +4,8 @@
 // ✅ Responsive: list mobile / grid tablet+desktop
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
+// ✅ View mode toggle (pinned/favorites/all)
+// ✅ Fix: φίλτρα status/priority δεν χάνουν τη λίστα
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -15,10 +17,10 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'package:go_router/go_router.dart';
 
-final _statusFilterProvider = StateProvider<ItemStatus?>((ref) => null);
+final _statusFilterProvider   = StateProvider<ItemStatus?>((ref)   => null);
 final _priorityFilterProvider = StateProvider<ItemPriority?>((ref) => null);
-final _searchQueryProvider = StateProvider<String>((ref) => '');
-final _taskTagFilterProvider = StateProvider<Set<String>>((ref) => {});
+final _searchQueryProvider    = StateProvider<String>((ref)        => '');
+final _taskTagFilterProvider  = StateProvider<Set<String>>((ref)   => {});
 
 // ════════════════════════════════════════════════════════════════
 // TASK LIST SCREEN
@@ -32,7 +34,7 @@ class TaskListScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskListScreenState extends ConsumerState<TaskListScreen> {
-  final _searchCtrl = TextEditingController();
+  final _searchCtrl  = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
@@ -41,10 +43,28 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Set<String> _visibleTagNames = {};
 
   @override
+  void initState() {
+    super.initState();
+    // Reset φίλτρων κάθε φορά που ανοίγει η σελίδα
+    // ώστε να μην μένουν ενεργά από προηγούμενη επίσκεψη
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(_statusFilterProvider.notifier).state   = null;
+      ref.read(_priorityFilterProvider.notifier).state = null;
+      ref.read(_searchQueryProvider.notifier).state    = '';
+      ref.read(_taskTagFilterProvider.notifier).state  = {};
+    });
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     _searchFocus.dispose();
     _debounce?.cancel();
+    // Reset φίλτρων και στο dispose για καθαρή κατάσταση
+    ref.read(_statusFilterProvider.notifier).state   = null;
+    ref.read(_priorityFilterProvider.notifier).state = null;
+    ref.read(_searchQueryProvider.notifier).state    = '';
+    ref.read(_taskTagFilterProvider.notifier).state  = {};
     super.dispose();
   }
 
@@ -63,9 +83,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     if (!_searchActive) {
       _searchCtrl.clear();
       ref.read(_searchQueryProvider.notifier).state = '';
-      ref.read(_statusFilterProvider.notifier).state = null;
+      ref.read(_statusFilterProvider.notifier).state   = null;
       ref.read(_priorityFilterProvider.notifier).state = null;
-      ref.read(_taskTagFilterProvider.notifier).state = {};
+      ref.read(_taskTagFilterProvider.notifier).state  = {};
     } else {
       Future.microtask(() => _searchFocus.requestFocus());
     }
@@ -74,17 +94,14 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   // ── Create task ──────────────────────────────────────────────
 
   Future<void> _createTask() async {
-    DebugConfig.nav(
-      'TaskList: create task in folder id=$_selectedFolderId',
-    );
+    DebugConfig.nav('TaskList: create task in folder id=$_selectedFolderId');
 
     final item = await ref.read(itemNotifierProvider.notifier).create(
-          type: ItemType.task,
-          folderId: _selectedFolderId, // μπορεί να είναι null = χωρίς φάκελο
-        );
+      type:     ItemType.task,
+      folderId: _selectedFolderId,
+    );
 
     if (item == null || !mounted) return;
-
     _openDetail(item.id);
   }
 
@@ -92,16 +109,14 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     DebugConfig.nav('TaskList → TaskDetail id=$id');
     context.push(AppRoutes.task(id));
   }
+
   // ── Toggle done ──────────────────────────────────────────────
 
   Future<void> _toggleDone(Item item) async {
     final newStatus =
-        item.status == ItemStatus.done ? ItemStatus.active : ItemStatus.done;
+    item.status == ItemStatus.done ? ItemStatus.active : ItemStatus.done;
     DebugConfig.db('TaskList toggleDone id=${item.id} → ${newStatus.name}');
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .updateItem(item.id, status: newStatus);
-    ref.invalidate(itemNotifierProvider);
+    await ref.read(itemNotifierProvider.notifier).updateItem(item.id, status: newStatus);
   }
 
   // ── Item actions ─────────────────────────────────────────────
@@ -113,44 +128,35 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topLeft:  Radius.circular(AppRadius.bottomSheet),
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
       builder: (ctx) => _TaskActionsSheet(
-        item: item,
-        onEdit: () {
-          Navigator.pop(context);
-          _openDetail(item.id);
-        },
-        onPin: () => _togglePin(item),
+        item:      item,
+        onEdit:    () { Navigator.pop(context); _openDetail(item.id); },
+        onPin:     () => _togglePin(item),
         onArchive: () => _archive(item),
-        onDelete: () => _delete(item),
+        onDelete:  () => _delete(item),
       ),
     );
   }
 
   Future<void> _togglePin(Item item) async {
     Navigator.pop(context);
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .togglePin(item.id, item.pinned);
+    await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
   }
 
   Future<void> _archive(Item item) async {
     Navigator.pop(context);
-    final future = ConfirmDialog.archive(context);
-    final ok = await future;
+    final ok = await ConfirmDialog.archive(context);
     if (!ok || !mounted) return;
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleArchive(item.id, item.archived);
+    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
   }
 
   Future<void> _delete(Item item) async {
     Navigator.pop(context);
-    final future = ConfirmDialog.delete(context, title: 'Διαγραφή εργασίας;');
-    final ok = await future;
+    final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή εργασίας;');
     if (!ok || !mounted) return;
     DebugConfig.db('TaskList delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
@@ -162,13 +168,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Widget build(BuildContext context) {
     DebugConfig.provider('TaskListScreen build');
 
-    // 🔹 ΔΙΑΒΑΖΟΥΜΕ ΤΗ ΛΙΣΤΑ ΑΠΟ itemsStreamProvider
-    final tasksAsync = ref.watch(itemsStreamProvider);
-    final statusFilter = ref.watch(_statusFilterProvider);
+    // ✅ Χρησιμοποιούμε itemsStreamProvider απευθείας — real-time χωρίς loop
+    final itemsAsync     = ref.watch(itemsStreamProvider);
+    final statusFilter   = ref.watch(_statusFilterProvider);
     final priorityFilter = ref.watch(_priorityFilterProvider);
-    final searchQuery = ref.watch(_searchQueryProvider);
-    final activeTags = ref.watch(_taskTagFilterProvider);
-    final foldersAsync = ref.watch(foldersStreamProvider);
+    final searchQuery    = ref.watch(_searchQueryProvider);
+    final activeTags     = ref.watch(_taskTagFilterProvider);
+    final foldersAsync   = ref.watch(foldersStreamProvider);
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -176,32 +182,33 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       floatingActionButton: _selectedFolderId == null
           ? null
           : FloatingActionButton(
-              onPressed: _createTask,
-              tooltip: 'Νέα εργασία',
-              child: const Icon(Icons.add_rounded),
-            ),
+        onPressed: _createTask,
+        tooltip:   'Νέα εργασία',
+        child:     const Icon(Icons.add_rounded),
+      ),
       body: Column(
         children: [
           // ── Search bar ────────────────────────────────────────
           if (_searchActive)
             _SearchBar(
               controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: (value) {
-                setState(() {}); // για να ενημερωθεί το suffixIcon
+              focusNode:  _searchFocus,
+              onChanged:  (value) {
+                setState(() {});
                 _onSearchChanged(value);
               },
             ),
-          // ── Folder selector ("Όλοι" ή συγκεκριμένος φάκελος) ──
+
+          // ── Folder selector ───────────────────────────────────
           foldersAsync.when(
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error:   (_, __) => const SizedBox.shrink(),
             data: (folders) {
               if (folders.isEmpty) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: FolderChipSelector(
-                  folders: folders,
+                  folders:          folders,
                   selectedFolderId: _selectedFolderId,
                   onSelect: (id) {
                     setState(() => _selectedFolderId = id);
@@ -211,39 +218,36 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               );
             },
           ),
-          // ── Hint όταν δεν έχει επιλεγεί φάκελος ──
+
+          // ── Hint όταν δεν έχει επιλεγεί φάκελος ─────────────
           if (_selectedFolderId == null)
             const FolderSelectionHint(itemType: 'εργασίας'),
 
           // ── Filter chips ──────────────────────────────────────
           _FilterRow(
-            statusFilter: statusFilter,
+            statusFilter:   statusFilter,
             priorityFilter: priorityFilter,
             onStatusTap: (s) {
               final cur = ref.read(_statusFilterProvider);
-              ref.read(_statusFilterProvider.notifier).state =
-                  cur == s ? null : s;
+              ref.read(_statusFilterProvider.notifier).state = cur == s ? null : s;
               DebugConfig.provider('TaskList statusFilter: ${s.name}');
             },
             onPriorityTap: (p) {
               final cur = ref.read(_priorityFilterProvider);
-              ref.read(_priorityFilterProvider.notifier).state =
-                  cur == p ? null : p;
+              ref.read(_priorityFilterProvider.notifier).state = cur == p ? null : p;
               DebugConfig.provider('TaskList priorityFilter: ${p.name}');
             },
           ),
 
-          // ── Tag filter chips (από τα ορατά tasks) ─────────────
+          // ── Tag filter chips ──────────────────────────────────
           if (_visibleTagNames.isNotEmpty)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: EdgeInsets.fromLTRB(
-                    context.responsiveHPadding,
-                    0,
-                    context.responsiveHPadding,
-                    Spacing.xs,
+                    context.responsiveHPadding, 0,
+                    context.responsiveHPadding, Spacing.xs,
                   ),
                   child: Text(
                     'Επιλέξτε tag για φιλτράρισμα εργασιών',
@@ -255,29 +259,26 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: EdgeInsets.symmetric(
-                      horizontal: context.responsiveHPadding,
-                    ),
-                    itemCount: _visibleTagNames.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(width: Spacing.xs),
+                        horizontal: context.responsiveHPadding),
+                    itemCount:        _visibleTagNames.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
                     itemBuilder: (_, i) {
-                      final name = _visibleTagNames.elementAt(i);
+                      final name     = _visibleTagNames.elementAt(i);
                       final selected = activeTags.contains(name);
                       return TagChip(
-                        name: name,
-                        color: null,
-                        compact: true,
+                        name:     name,
+                        color:    null,
+                        compact:  true,
                         selected: selected,
                         onTap: () {
                           final current = ref.read(_taskTagFilterProvider);
-                          final newSet = {...current};
+                          final newSet  = {...current};
                           if (newSet.contains(name)) {
                             newSet.remove(name);
                           } else {
                             newSet.add(name);
                           }
-                          ref.read(_taskTagFilterProvider.notifier).state =
-                              newSet;
+                          ref.read(_taskTagFilterProvider.notifier).state = newSet;
                         },
                       );
                     },
@@ -286,107 +287,130 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               ],
             ),
 
-          // ── Stats bar ─────────────────────────────────────────
-          tasksAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (items) {
-              final tasksOnly =
-                  items.where((i) => i.type == ItemType.task).toList();
-              return _StatsBar(tasks: tasksOnly);
-            },
-          ),
+          // ── View mode toggle ──────────────────────────────────
+          const ViewModeToggle(),
 
-          // ── Task list ─────────────────────────────────────────
+          // ── Stats + Task list ─────────────────────────────────
           Expanded(
             child: RefreshIndicator(
-              // 🔹 Refresh στην ίδια πηγή λίστας
               onRefresh: () async => ref.invalidate(itemsStreamProvider),
-              child: tasksAsync.when(
-                  loading: () => _LoadingList(),
-                  error: (e, _) {
-                    DebugConfig.error('TaskList load failed', e);
-                    return EmptyState.error(
-                      onRetry: () => ref.invalidate(itemsStreamProvider),
+              child: itemsAsync.when(
+                loading: () => _LoadingList(),
+                error: (e, _) {
+                  DebugConfig.error('TaskList load failed', e);
+                  return EmptyState.error(
+                    onRetry: () => ref.invalidate(itemsStreamProvider),
+                  );
+                },
+                data: (allItems) {
+                  // ── Φιλτράρισμα ─────────────────────────────
+                  var tasks = allItems
+                      .where((i) => i.type == ItemType.task)
+                      .toList();
+
+                  // View mode (pinned / favorites / all)
+                  final viewMode = ref.watch(listViewModeProvider);
+                  switch (viewMode) {
+                    case ListViewMode.pinned:
+                      tasks = tasks.where((t) => t.pinned).toList();
+                      break;
+                    case ListViewMode.favorites:
+                      tasks = tasks.where((t) => t.favorite).toList();
+                      break;
+                    case ListViewMode.all:
+                      break;
+                  }
+
+                  // Φάκελος
+                  if (_selectedFolderId != null) {
+                    tasks = tasks
+                        .where((t) => t.folderId == _selectedFolderId)
+                        .toList();
+                  }
+
+                  // Search
+                  if (searchQuery.isNotEmpty) {
+                    final q = searchQuery.toLowerCase();
+                    tasks = tasks
+                        .where((t) =>
+                        (t.title ?? '').toLowerCase().contains(q))
+                        .toList();
+                  }
+
+                  // Status filter
+                  if (statusFilter != null) {
+                    tasks = tasks
+                        .where((t) => t.status == statusFilter)
+                        .toList();
+                  }
+
+                  // Priority filter
+                  if (priorityFilter != null) {
+                    tasks = tasks
+                        .where((t) => t.priority == priorityFilter)
+                        .toList();
+                  }
+
+                  // Tag filter — φορτώνουμε tags ανά task από provider
+                  if (activeTags.isNotEmpty) {
+                    tasks = tasks.where((task) {
+                      final tagsAsync =
+                          ref.watch(itemTagsProvider(task.id)).valueOrNull ?? [];
+                      return tagsAsync
+                          .any((tag) => activeTags.contains(tag.name));
+                    }).toList();
+                  }
+
+                  // Visible tag names για το tag filter row
+                  final visibleTagNames = <String>{};
+                  for (final task in tasks) {
+                    final tagsAsync =
+                        ref.watch(itemTagsProvider(task.id)).valueOrNull ?? [];
+                    for (final tag in tagsAsync) {
+                      visibleTagNames.add(tag.name);
+                    }
+                  }
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    if (!const SetEquality<String>()
+                        .equals(_visibleTagNames, visibleTagNames)) {
+                      setState(() => _visibleTagNames = visibleTagNames);
+                    }
+                  });
+
+                  if (tasks.isEmpty) {
+                    final hasFilters = searchQuery.isNotEmpty ||
+                        statusFilter   != null ||
+                        priorityFilter != null ||
+                        activeTags.isNotEmpty;
+
+                    if (hasFilters) {
+                      return EmptyState.search(query: searchQuery);
+                    }
+                    return EmptyState.forType(
+                      ItemType.task,
+                      onAction: _selectedFolderId == null ? null : _createTask,
                     );
-                  },
-                  data: (items) {
-                    // Κρατάμε μόνο tasks
-                    var tasksOnly =
-                        items.where((i) => i.type == ItemType.task).toList();
+                  }
 
-                    // Φιλτράρισμα: φάκελος ("Όλοι" ή συγκεκριμένος)
-                    if (_selectedFolderId != null) {
-                      tasksOnly = tasksOnly
-                          .where((t) => t.folderId == _selectedFolderId)
-                          .toList();
-                    }
-
-                    // 🔹 Συγκέντρωση tags από τις ορατές εργασίες
-                    final visibleTagNames = <String>{};
-                    for (final task in tasksOnly) {
-                      final tagsForTask =
-                          ref.watch(itemTagsProvider(task.id)).valueOrNull ??
-                              [];
-                      for (final t in tagsForTask) {
-                        visibleTagNames.add(t.name);
-                      }
-                    }
-
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      if (!const SetEquality<String>()
-                          .equals(_visibleTagNames, visibleTagNames)) {
-                        setState(() {
-                          _visibleTagNames = visibleTagNames;
-                        });
-                      }
-                    });
-
-                    var filtered = _filter(
-                      tasksOnly,
-                      searchQuery,
-                      statusFilter,
-                      priorityFilter,
-                    );
-                    // Φιλτράρισμα: tags (πολλαπλά, με βάση itemTagsProvider)
-                    if (activeTags.isNotEmpty) {
-                      filtered = filtered.where((task) {
-                        final tagsForTask =
-                            ref.watch(itemTagsProvider(task.id)).valueOrNull ??
-                                [];
-                        final taskTagNames = tagsForTask.map((t) => t.name);
-                        return taskTagNames
-                            .any((name) => activeTags.contains(name));
-                      }).toList();
-                    }
-
-                    if (filtered.isEmpty) {
-                      final hasFilters = searchQuery.isNotEmpty ||
-                          statusFilter != null ||
-                          priorityFilter != null ||
-                          activeTags.isNotEmpty;
-
-                      if (hasFilters) {
-                        return EmptyState.search(query: searchQuery);
-                      }
-
-                      // Χωρίς φίλτρα: δείξε ή όχι κουμπί "Νέα εργασία" ανάλογα με φάκελο
-                      return EmptyState.forType(
-                        ItemType.task,
-                        onAction:
-                            _selectedFolderId == null ? null : _createTask,
-                      );
-                    }
-
-                    // Ομαδοποίηση: Overdue / Today / Upcoming / No date / Done
-                    return _TaskListBody(
-                      tasks: filtered,
-                      onTap: (item) => _openDetail(item.id),
-                      onLongPress: (item) => _showItemActions(context, item),
-                      onToggleDone: _toggleDone,
-                    );
-                  }),
+                  return Column(
+                    children: [
+                      // Stats bar
+                      _StatsBar(tasks: tasks),
+                      // Task list
+                      Expanded(
+                        child: _TaskListBody(
+                          tasks:        tasks,
+                          onTap:        (item) => _openDetail(item.id),
+                          onLongPress:  (item) =>
+                              _showItemActions(context, item),
+                          onToggleDone: _toggleDone,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -398,23 +422,21 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     return AppBar(
       title: const Text('Εργασίες'),
       actions: [
-        // Search toggle (όπως στις σημειώσεις)
         IconButton(
           icon: Icon(
-            _searchActive ? Icons.search_off_rounded : Icons.search_rounded,
+            _searchActive
+                ? Icons.search_off_rounded
+                : Icons.search_rounded,
           ),
           onPressed: _toggleSearch,
           tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
         ),
-
-        // Περισσότερα (archived), όπως στις σημειώσεις
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded),
           onSelected: (value) {
             if (value == 'archived') {
               final show = ref.read(showArchivedProvider);
               ref.read(showArchivedProvider.notifier).state = !show;
-              ref.invalidate(itemNotifierProvider);
             }
           },
           itemBuilder: (_) => [
@@ -434,23 +456,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         ),
       ],
     );
-  }
-
-  List<Item> _filter(List<Item> tasks, String query, ItemStatus? status,
-      ItemPriority? priority) {
-    var list = tasks;
-    if (query.isNotEmpty) {
-      final q = query.toLowerCase();
-      list =
-          list.where((t) => (t.title ?? '').toLowerCase().contains(q)).toList();
-    }
-    if (status != null) {
-      list = list.where((t) => t.status == status).toList();
-    }
-    if (priority != null) {
-      list = list.where((t) => t.priority == priority).toList();
-    }
-    return list;
   }
 }
 
@@ -473,35 +478,31 @@ class _TaskListBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Φόρτωσε due dates από ItemProperty για κάθε task
-    final Map<int, DateTime?> dueDates = {};
-    for (final task in tasks) {
-      final props =
-          ref.watch(itemPropertiesProvider(task.id)).valueOrNull ?? [];
-      final dueProp = props.where((p) => p.key == 'due_date').firstOrNull;
-      dueDates[task.id] = dueProp?.dateValue;
-    }
-
-    // Ομαδοποίηση
-    final now = DateTime.now();
+    final now   = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    final overdue = <Item>[];
-    final todayT = <Item>[];
+    final overdue  = <Item>[];
+    final todayT   = <Item>[];
     final upcoming = <Item>[];
-    final noDate = <Item>[];
-    final done = <Item>[];
+    final noDate   = <Item>[];
+    final done     = <Item>[];
 
     for (final task in tasks) {
       if (task.status == ItemStatus.done) {
         done.add(task);
         continue;
       }
-      final due = dueDates[task.id];
-      if (due == null) {
+      // Φορτώνουμε dueDate από itemPropertiesProvider
+      final propsAsync = ref.watch(itemPropertiesProvider(task.id));
+      final dueDate    = propsAsync.valueOrNull
+          ?.where((p) => p.key == 'due_date')
+          .firstOrNull
+          ?.dateValue;
+
+      if (dueDate == null) {
         noDate.add(task);
       } else {
-        final dueDay = DateTime(due.year, due.month, due.day);
+        final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
         if (dueDay.isBefore(today)) {
           overdue.add(task);
         } else if (dueDay == today) {
@@ -516,51 +517,53 @@ class _TaskListBody extends ConsumerWidget {
       slivers: [
         if (overdue.isNotEmpty) ...[
           _SectionHeader(label: 'Ληξιπρόθεσμες', color: context.cError),
-          _buildSliver(context, ref, overdue, dueDates),
+          _buildSliver(context, ref, overdue),
         ],
         if (todayT.isNotEmpty) ...[
           _SectionHeader(label: 'Σήμερα', color: context.cWarning),
-          _buildSliver(context, ref, todayT, dueDates),
+          _buildSliver(context, ref, todayT),
         ],
         if (upcoming.isNotEmpty) ...[
           _SectionHeader(label: 'Επερχόμενες', color: context.cPrimary),
-          _buildSliver(context, ref, upcoming, dueDates),
+          _buildSliver(context, ref, upcoming),
         ],
         if (noDate.isNotEmpty) ...[
           const _SectionHeader(label: 'Χωρίς ημερομηνία'),
-          _buildSliver(context, ref, noDate, dueDates),
+          _buildSliver(context, ref, noDate),
         ],
         if (done.isNotEmpty) ...[
           _SectionHeader(label: 'Ολοκληρωμένες (${done.length})'),
-          _buildSliver(context, ref, done, dueDates, dimmed: true),
+          _buildSliver(context, ref, done, dimmed: true),
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
   }
 
-  Widget _buildSliver(BuildContext context, WidgetRef ref, List<Item> items,
-      Map<int, DateTime?> dueDates,
-      {bool dimmed = false}) {
+  Widget _buildSliver(
+      BuildContext context,
+      WidgetRef ref,
+      List<Item> items, {
+        bool dimmed = false,
+      }) {
     final cols = context.gridColumns;
 
     if (cols == 1) {
       return SliverPadding(
         padding: EdgeInsets.symmetric(
           horizontal: context.responsiveHPadding,
-          vertical: Spacing.xs,
+          vertical:   Spacing.xs,
         ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
-            (_, i) => Padding(
+                (_, i) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
               child: Opacity(
                 opacity: dimmed ? 0.6 : 1.0,
                 child: _TaskCard(
-                  item: items[i],
-                  dueDate: dueDates[items[i].id],
-                  onTap: () => onTap(items[i]),
-                  onLongPress: () => onLongPress(items[i]),
+                  item:         items[i],
+                  onTap:        () => onTap(items[i]),
+                  onLongPress:  () => onLongPress(items[i]),
                   onToggleDone: () => onToggleDone(items[i]),
                 ),
               ),
@@ -574,23 +577,22 @@ class _TaskListBody extends ConsumerWidget {
     return SliverPadding(
       padding: EdgeInsets.symmetric(
         horizontal: context.responsiveHPadding,
-        vertical: Spacing.xs,
+        vertical:   Spacing.xs,
       ),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols,
-          mainAxisSpacing: Spacing.sm,
+          crossAxisCount:   cols,
+          mainAxisSpacing:  Spacing.sm,
           crossAxisSpacing: Spacing.sm,
-          mainAxisExtent: 88,
+          mainAxisExtent:   88,
         ),
         delegate: SliverChildBuilderDelegate(
-          (_, i) => Opacity(
+              (_, i) => Opacity(
             opacity: dimmed ? 0.6 : 1.0,
             child: _TaskCard(
-              item: items[i],
-              dueDate: dueDates[items[i].id],
-              onTap: () => onTap(items[i]),
-              onLongPress: () => onLongPress(items[i]),
+              item:         items[i],
+              onTap:        () => onTap(items[i]),
+              onLongPress:  () => onLongPress(items[i]),
               onToggleDone: () => onToggleDone(items[i]),
             ),
           ),
@@ -602,19 +604,17 @@ class _TaskListBody extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// TASK CARD — ItemCard με checkbox
+// TASK CARD — φορτώνει dueDate & tags μόνο του
 // ════════════════════════════════════════════════════════════════
 
 class _TaskCard extends ConsumerWidget {
   final Item item;
-  final DateTime? dueDate;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onToggleDone;
 
   const _TaskCard({
     required this.item,
-    required this.dueDate,
     required this.onTap,
     required this.onLongPress,
     required this.onToggleDone,
@@ -622,16 +622,22 @@ class _TaskCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
+    final dueDate    = propsAsync.valueOrNull
+        ?.where((p) => p.key == 'due_date')
+        .firstOrNull
+        ?.dateValue;
+
     final tagsAsync = ref.watch(itemTagsProvider(item.id));
-    final tagNames = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
+    final tagNames  = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
 
     return ItemCard(
-      item: item,
-      dueDate: dueDate,
-      tagNames: tagNames,
-      compact: context.isMobile,
-      onTap: onTap,
-      onLongPress: onLongPress,
+      item:              item,
+      dueDate:           dueDate,
+      tagNames:          tagNames,
+      compact:           context.isMobile,
+      onTap:             onTap,
+      onLongPress:       onLongPress,
       onCheckboxChanged: (_) => onToggleDone(),
     );
   }
@@ -652,10 +658,8 @@ class _SectionHeader extends StatelessWidget {
     return SliverToBoxAdapter(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          context.responsiveHPadding,
-          Spacing.md,
-          context.responsiveHPadding,
-          Spacing.xs,
+          context.responsiveHPadding, Spacing.md,
+          context.responsiveHPadding, Spacing.xs,
         ),
         child: Text(
           label,
@@ -667,7 +671,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// STATS BAR — σύνοψη done/total
+// STATS BAR
 // ════════════════════════════════════════════════════════════════
 
 class _StatsBar extends StatelessWidget {
@@ -676,18 +680,16 @@ class _StatsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = tasks.where((t) => !t.archived).length;
-    final done = tasks.where((t) => t.status == ItemStatus.done).length;
+    final total    = tasks.where((t) => !t.archived).length;
+    final done     = tasks.where((t) => t.status == ItemStatus.done).length;
     if (total == 0) return const SizedBox.shrink();
 
     final progress = done / total;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        0,
+        context.responsiveHPadding, Spacing.sm,
+        context.responsiveHPadding, 0,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -705,9 +707,9 @@ class _StatsBar extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 4,
-              backgroundColor: ColorsUI.getBorder(context.brightness),
+              value:            progress,
+              minHeight:        4,
+              backgroundColor:  ColorsUI.getBorder(context.brightness),
               valueColor: AlwaysStoppedAnimation<Color>(context.cPrimary),
             ),
           ),
@@ -723,9 +725,9 @@ class _StatsBar extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _FilterRow extends StatelessWidget {
-  final ItemStatus? statusFilter;
-  final ItemPriority? priorityFilter;
-  final ValueChanged<ItemStatus> onStatusTap;
+  final ItemStatus?                statusFilter;
+  final ItemPriority?              priorityFilter;
+  final ValueChanged<ItemStatus>   onStatusTap;
   final ValueChanged<ItemPriority> onPriorityTap;
 
   const _FilterRow({
@@ -736,9 +738,9 @@ class _FilterRow extends StatelessWidget {
   });
 
   static const _statuses = [
-    (ItemStatus.active, 'Ενεργές'),
+    (ItemStatus.active,     'Ενεργές'),
     (ItemStatus.inProgress, 'Σε εξέλιξη'),
-    (ItemStatus.done, 'Ολοκληρωμένες'),
+    (ItemStatus.done,       'Ολοκληρωμένες'),
   ];
 
   static const _priorities = [
@@ -758,38 +760,53 @@ class _FilterRow extends StatelessWidget {
           horizontal: context.responsiveHPadding,
         ),
         children: [
-          // Status filters
+          // Status chips
           ..._statuses.map((s) => Padding(
-                padding: const EdgeInsets.only(right: Spacing.xs),
-                child: _StatusChip(
-                  label: s.$2,
-                  selected: statusFilter == s.$1,
-                  onTap: () => onStatusTap(s.$1),
-                ),
-              )),
+            padding: const EdgeInsets.only(right: Spacing.xs),
+            child: _StatusChip(
+              label:    s.$2,
+              selected: statusFilter == s.$1,
+              onTap:    () => onStatusTap(s.$1),
+            ),
+          )),
 
           // Divider
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: Spacing.xs, vertical: 6),
+            padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.xs, vertical: 6),
             child: VerticalDivider(
                 color: ColorsUI.getBorder(context.brightness), width: 1),
           ),
 
-          // Priority filters
-          // Priority filters
+          // Priority chips — με GestureDetector + visual selected state
           ..._priorities.map((p) => Padding(
-                padding: const EdgeInsets.only(right: Spacing.xs),
-                child: GestureDetector(
-                  onTap: () => onPriorityTap(p),
-                  child: PriorityBadge(
-                    priority: p,
-                    size: BadgeSize.small,
-                    showIcon: true,
-                    showLabel: true,
+            padding: const EdgeInsets.only(right: Spacing.xs),
+            child: GestureDetector(
+              onTap: () => onPriorityTap(p),
+              child: AnimatedContainer(
+                duration: AppDuration.fast,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.sm, vertical: Spacing.xs),
+                decoration: BoxDecoration(
+                  color: priorityFilter == p
+                      ? context.priorityColor(p).withValues(alpha: 0.15)
+                      : ColorsUI.getSurface(context.brightness),
+                  borderRadius: BorderRadius.circular(AppRadius.chip),
+                  border: Border.all(
+                    color: priorityFilter == p
+                        ? context.priorityColor(p)
+                        : ColorsUI.getBorder(context.brightness),
                   ),
                 ),
-              )),
+                child: PriorityBadge(
+                  priority:  p,
+                  size:      BadgeSize.small,
+                  showIcon:  true,
+                  showLabel: true,
+                ),
+              ),
+            ),
+          )),
         ],
       ),
     );
@@ -797,8 +814,8 @@ class _FilterRow extends StatelessWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  final String label;
-  final bool selected;
+  final String       label;
+  final bool         selected;
   final VoidCallback onTap;
 
   const _StatusChip({
@@ -841,7 +858,7 @@ class _StatusChip extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _TaskActionsSheet extends StatelessWidget {
-  final Item item;
+  final Item         item;
   final VoidCallback onEdit;
   final VoidCallback onPin;
   final VoidCallback onArchive;
@@ -863,10 +880,10 @@ class _TaskActionsSheet extends StatelessWidget {
         children: [
           Container(
             margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-            width: 40,
+            width:  40,
             height: 4,
             decoration: BoxDecoration(
-              color: context.cBorder,
+              color:        context.cBorder,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -876,7 +893,7 @@ class _TaskActionsSheet extends StatelessWidget {
             child: Row(children: [
               Expanded(
                 child: Text(item.title ?? 'Χωρίς τίτλο',
-                    style: context.titleMd,
+                    style:    context.titleMd,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ),
@@ -887,24 +904,25 @@ class _TaskActionsSheet extends StatelessWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.edit_rounded),
-            title: const Text('Επεξεργασία'),
-            onTap: onEdit,
+            title:   const Text('Επεξεργασία'),
+            onTap:   onEdit,
           ),
           ListTile(
-            leading: Icon(
-                item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined),
+            leading: Icon(item.pinned
+                ? Icons.push_pin_rounded
+                : Icons.push_pin_outlined),
             title: Text(item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα'),
             onTap: onPin,
           ),
           ListTile(
             leading: const Icon(Icons.archive_rounded),
-            title: Text(item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση'),
-            onTap: onArchive,
+            title:   Text(item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση'),
+            onTap:   onArchive,
           ),
           ListTile(
             leading: Icon(Icons.delete_outline_rounded, color: context.cError),
-            title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
-            onTap: onDelete,
+            title:   Text('Διαγραφή', style: TextStyle(color: context.cError)),
+            onTap:   onDelete,
           ),
           const SizedBox(height: Spacing.sm),
         ],
@@ -919,8 +937,8 @@ class _TaskActionsSheet extends StatelessWidget {
 
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
+  final FocusNode             focusNode;
+  final ValueChanged<String>  onChanged;
 
   const _SearchBar({
     required this.controller,
@@ -933,34 +951,32 @@ class _SearchBar extends StatelessWidget {
     return Container(
       color: context.cBg,
       padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        Spacing.sm,
+        context.responsiveHPadding, Spacing.sm,
+        context.responsiveHPadding, Spacing.sm,
       ),
       child: TextField(
         controller: controller,
-        focusNode: focusNode,
-        onChanged: onChanged,
-        style: context.bodyMd,
+        focusNode:  focusNode,
+        onChanged:  onChanged,
+        style:      context.bodyMd,
         decoration: InputDecoration(
-          hintText: 'Αναζήτηση εργασιών...',
-          hintStyle: context.bodyMd.withColor(context.cDisabled),
+          hintText:   'Αναζήτηση εργασιών...',
+          hintStyle:  context.bodyMd.withColor(context.cDisabled),
           prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.close_rounded, color: context.cText2),
-                  onPressed: () {
-                    controller.clear();
-                    onChanged('');
-                  },
-                )
+            icon: Icon(Icons.close_rounded, color: context.cText2),
+            onPressed: () {
+              controller.clear();
+              onChanged('');
+            },
+          )
               : null,
-          filled: true,
+          filled:    true,
           fillColor: ColorsUI.getSurface(context.brightness),
           border: OutlineInputBorder(
             borderRadius: AppRadius.inputBR,
-            borderSide: BorderSide.none,
+            borderSide:   BorderSide.none,
           ),
           contentPadding: const EdgeInsets.symmetric(
               horizontal: Spacing.md, vertical: Spacing.sm),
@@ -980,11 +996,11 @@ class _LoadingList extends StatelessWidget {
     return ListView.separated(
       padding: EdgeInsets.symmetric(
         horizontal: context.responsiveHPadding,
-        vertical: Spacing.sm,
+        vertical:   Spacing.sm,
       ),
-      itemCount: 5,
+      itemCount:        5,
       separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
-      itemBuilder: (_, __) => const ItemCardSkeleton(),
+      itemBuilder:      (_, __) => const ItemCardSkeleton(),
     );
   }
 }

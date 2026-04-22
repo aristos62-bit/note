@@ -3,8 +3,9 @@
 // Λίστα επαφών με folder selector, search, real-time updates.
 // ✅ Folder-based: FAB μόνο όταν επιλεγεί φάκελος
 // ✅ Responsive: list mobile / grid tablet+desktop
-// ✅ Dark mode: ColorsUI + context extensions
+// ✅ Dark mode: ColorsUI + context extensions + ItemColorHelper
 // ✅ DebugConfig: nav, db, provider logs
+// ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'contact_detail_screen.dart';
+import '../../helpers/item_color_helper.dart';
 
 // ════════════════════════════════════════════════════════════════
 // CONTACT LIST SCREEN
@@ -80,7 +82,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
     final item = await ref.read(itemNotifierProvider.notifier)
         .create(
       type: ItemType.contact,
-      folderId: _selectedFolderId, // ⬅️ folder assignment
+      folderId: _selectedFolderId,
     );
 
     if (item == null || !mounted) return;
@@ -164,6 +166,9 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
             },
           ),
 
+          // ── View mode toggle (pinned/favorites/all) ────────────
+          const ViewModeToggle(),
+
           // ── Contacts list ──────────────────────────────────────
           Expanded(
             child: RefreshIndicator(
@@ -176,26 +181,35 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
                       onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
                 data: (allItems) {
-                  // Μόνο contacts
                   var contacts = allItems
                       .where((i) => i.type == ItemType.contact)
                       .toList();
 
-                  // Φιλτράρισμα: φάκελος ("Όλοι" ή συγκεκριμένος)
                   if (_selectedFolderId != null) {
                     contacts = contacts
                         .where((c) => c.folderId == _selectedFolderId)
                         .toList();
                   }
 
-                  // Search
+                  // 🔹 Φιλτράρισμα view mode (pinned / favorites / all)
+                  final viewMode = ref.watch(listViewModeProvider);
+                  switch (viewMode) {
+                    case ListViewMode.pinned:
+                      contacts = contacts.where((c) => c.pinned).toList();
+                      break;
+                    case ListViewMode.favorites:
+                      contacts = contacts.where((c) => c.favorite).toList();
+                      break;
+                    case ListViewMode.all:
+                      break;
+                  }
+
                   if (_searchQuery.isNotEmpty) {
                     final q = _searchQuery.toLowerCase();
                     contacts = contacts.where((c) =>
                         (c.title ?? '').toLowerCase().contains(q)).toList();
                   }
 
-                  // Αλφαβητική ταξινόμηση
                   contacts.sort((a, b) =>
                       (a.title ?? '').compareTo(b.title ?? ''));
 
@@ -203,16 +217,12 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
                     if (_searchQuery.isNotEmpty) {
                       return EmptyState.search(query: _searchQuery);
                     }
-
-                    // Αν είμαστε σε "Όλοι" (null φάκελος) → χωρίς CTA
                     if (_selectedFolderId == null) {
                       return EmptyState.forType(
                         ItemType.contact,
                         onAction: null,
                       );
                     }
-
-                    // Αν έχεις συγκεκριμένο φάκελο → δείξε CTA "Νέα επαφή"
                     return EmptyState.forType(
                       ItemType.contact,
                       onAction: _createContact,
@@ -265,7 +275,6 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
   }
 }
 
-
 // ════════════════════════════════════════════════════════════════
 // MOBILE LIST — αλφαβητικές ομάδες
 // ════════════════════════════════════════════════════════════════
@@ -283,7 +292,6 @@ class _ContactListMobile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ομαδοποίηση κατά πρώτο γράμμα
     final Map<String, List<Item>> groups = {};
     for (final c in contacts) {
       final letter = (c.title?.isNotEmpty == true)
@@ -302,7 +310,6 @@ class _ContactListMobile extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Letter header
             Padding(
               padding: EdgeInsets.fromLTRB(
                 context.responsiveHPadding, Spacing.md,
@@ -311,7 +318,6 @@ class _ContactListMobile extends StatelessWidget {
               child: Text(letter,
                   style: context.labelMd.withColor(context.cText2)),
             ),
-            // Contacts
             ...group.map((item) => _ContactTile(
               contact: item,
               onTap: () => onTap(item.id),
@@ -363,7 +369,7 @@ class _ContactGrid extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// CONTACT TILE (με properties)
+// CONTACT TILE — με χρήση ItemColorHelper
 // ════════════════════════════════════════════════════════════════
 
 class _ContactTile extends ConsumerWidget {
@@ -379,7 +385,6 @@ class _ContactTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Φόρτωσε phone/email από properties
     final propsAsync = ref.watch(itemPropertiesProvider(contact.id));
     final props = propsAsync.valueOrNull ?? [];
     final phone = props.where((p) => p.key == 'phone')
@@ -389,8 +394,14 @@ class _ContactTile extends ConsumerWidget {
 
     final name = contact.title ?? 'Χωρίς όνομα';
     final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final color = ColorsUI.itemTypeColor(
-        ItemType.contact, context.brightness);
+
+    // ⭐ Χρώμα φόντου από ItemColorHelper
+    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.contact, context);
+    // ⭐ Χρώμα κειμένου με βάση την αντίθεση
+    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+    // ⭐ Accent χρώμα για avatar
+    final accentColor = ItemColorHelper.iconColorForType(ItemType.contact, context);
 
     return GestureDetector(
       onTap: onTap,
@@ -405,7 +416,7 @@ class _ContactTile extends ConsumerWidget {
           vertical: Spacing.sm,
         ),
         decoration: BoxDecoration(
-          color: ColorsUI.getSurface(context.brightness),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
           border: Border.all(
               color: ColorsUI.getBorder(context.brightness)),
@@ -413,7 +424,7 @@ class _ContactTile extends ConsumerWidget {
         child: Row(
           children: [
             // Avatar
-            _ContactAvatar(letter: letter, color: color),
+            _ContactAvatar(letter: letter, color: accentColor),
             const SizedBox(width: Spacing.md),
             // Info
             Expanded(
@@ -421,14 +432,16 @@ class _ContactTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(name,
-                      style: context.titleSm,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    name,
+                    style: context.titleSm.copyWith(color: foregroundColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (phone != null || email != null)
                     Text(
                       phone ?? email ?? '',
-                      style: context.bodySm.withColor(context.cText2),
+                      style: context.bodySm.copyWith(color: secondaryForeground),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -440,7 +453,7 @@ class _ContactTile extends ConsumerWidget {
               Icon(Icons.star_rounded, size: 16,
                   color: ColorsUI.getWarning(context.brightness)),
             Icon(Icons.chevron_right_rounded,
-                size: 18, color: context.cDisabled),
+                size: 18, color: secondaryForeground),
           ],
         ),
       ),
@@ -515,7 +528,7 @@ class _ContactAvatar extends StatelessWidget {
       child: Center(
         child: Text(
           letter,
-          style: context.titleMd.withColor(color),
+          style: context.titleMd.copyWith(color: color),
         ),
       ),
     );
@@ -523,7 +536,7 @@ class _ContactAvatar extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SEARCH BAR (ίδιο με NoteListScreen)
+// SEARCH BAR
 // ════════════════════════════════════════════════════════════════
 
 class _SearchBar extends StatelessWidget {
@@ -576,6 +589,7 @@ class _SearchBar extends StatelessWidget {
     );
   }
 }
+
 // ════════════════════════════════════════════════════════════════
 // LOADING LIST
 // ════════════════════════════════════════════════════════════════

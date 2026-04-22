@@ -2,27 +2,14 @@
 //
 // Responsive card για εμφάνιση οποιουδήποτε Item σε λίστα.
 // ✅ Responsive: compact σε mobile, πλατύτερο σε tablet/desktop
-// ✅ Dark mode: χρησιμοποιεί μόνο ColorsUI / context extensions
+// ✅ Dark mode: χρησιμοποιεί ItemColorHelper για background & text contrast
 // ✅ DebugConfig: logs σε onTap / checkbox
-//
-// ΧΡΗΣΗ:
-//   ItemCard(item: item, onTap: () => navigate(item.id))
-//
-//   ItemCard(
-//     item: taskItem,
-//     dueDate: dueDateFromProperty,
-//     tagNames: ['flutter', 'work'],
-//     onTap: () => navigate(item.id),
-//     onCheckboxChanged: (done) => notifier.toggleDone(item),
-//   )
-//
-//   // Loading placeholder
-//   ItemCardSkeleton()
 //
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
+import '../../helpers/item_color_helper.dart';
 
 // ════════════════════════════════════════════════════════════════
 // ITEM CARD
@@ -30,20 +17,11 @@ import '../../models/models.dart';
 
 class ItemCard extends StatelessWidget {
   final Item item;
-
-  /// Due date — από ItemProperty key='due_date'
   final DateTime? dueDate;
-
-  /// Tag names — από TagRepository
   final List<String> tagNames;
-
-  /// Compact mode — μικρότερο ύψος για dense lists
   final bool compact;
-
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
-
-  /// Μόνο για task/checklist
   final ValueChanged<bool>? onCheckboxChanged;
 
   const ItemCard({
@@ -59,14 +37,23 @@ class ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final b          = context.brightness;
-    final typeColor  = context.itemTypeColor(item.type);
+    final b = context.brightness;
+    final typeColor = context.itemTypeColor(item.type);
     final accentColor = item.color != null
         ? (_parseColor(item.color!) ?? typeColor)
         : typeColor;
 
-    // Responsive: tablet/desktop → normal, mobile → compact if not forced
-    final isCompact = compact || (context.isMobile && item.title != null && item.title!.length < 30);
+    final isCompact = compact ||
+        (context.isMobile && item.title != null && item.title!.length < 30);
+
+    // ⭐ Χρώμα φόντου: πάντα από τον τύπο (ItemColorHelper)
+    final backgroundColor =
+    ItemColorHelper.backgroundColorForType(item.type, context);
+
+    // ⭐ Χρώμα κειμένου: βέλτιστη αντίθεση πάνω στο background
+    final foregroundColor =
+    ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
 
     return GestureDetector(
       onTap: () {
@@ -77,13 +64,11 @@ class ItemCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: AppDuration.fast,
         decoration: BoxDecoration(
-          color: item.pinned
-              ? ColorsUI.pinnedColor(b)
-              : ColorsUI.getCard(b),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
           border: Border.all(
             color: item.pinned
-                ? accentColor.withValues(alpha:0.4)
+                ? accentColor.withValues(alpha: 0.4)
                 : ColorsUI.getBorder(b),
             width: item.pinned ? 1.5 : 1.0,
           ),
@@ -93,10 +78,7 @@ class ItemCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Accent bar αριστερά
               _AccentBar(color: accentColor),
-
-              // Κύριο περιεχόμενο
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -112,6 +94,7 @@ class ItemCard extends StatelessWidget {
                         typeColor: accentColor,
                         compact: isCompact,
                         onCheckboxChanged: onCheckboxChanged,
+                        foregroundColor: foregroundColor,
                       ),
                       const SizedBox(height: Spacing.xs),
                       _MetaRow(
@@ -119,14 +102,18 @@ class ItemCard extends StatelessWidget {
                         dueDate: dueDate,
                         tagNames: tagNames,
                         compact: isCompact,
+                        foregroundColor: foregroundColor,
+                        secondaryColor: secondaryForeground,
                       ),
                     ],
                   ),
                 ),
               ),
-
-              // Trailing
-              if (!isCompact) _TrailingSection(item: item),
+              if (!isCompact)
+                _TrailingSection(
+                  item: item,
+                  foregroundColor: foregroundColor,
+                ),
             ],
           ),
         ),
@@ -159,7 +146,7 @@ class _AccentBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: const BorderRadius.only(
-          topLeft:    ui.Radius.circular(AppRadius.card),
+          topLeft: ui.Radius.circular(AppRadius.card),
           bottomLeft: ui.Radius.circular(AppRadius.card),
         ),
       ),
@@ -176,12 +163,14 @@ class _TitleRow extends StatelessWidget {
   final Color typeColor;
   final bool compact;
   final ValueChanged<bool>? onCheckboxChanged;
+  final Color foregroundColor;
 
   const _TitleRow({
     required this.item,
     required this.typeColor,
     required this.compact,
     this.onCheckboxChanged,
+    required this.foregroundColor,
   });
 
   bool get _showCheckbox =>
@@ -192,10 +181,14 @@ class _TitleRow extends StatelessWidget {
 
   String get _untitledLabel {
     switch (item.type) {
-      case ItemType.note:    return 'Χωρίς τίτλο';
-      case ItemType.task:    return 'Νέα εργασία';
-      case ItemType.journal: return 'Νέα καταχώρηση';
-      default:               return 'Χωρίς τίτλο';
+      case ItemType.note:
+        return 'Χωρίς τίτλο';
+      case ItemType.task:
+        return 'Νέα εργασία';
+      case ItemType.journal:
+        return 'Νέα καταχώρηση';
+      default:
+        return 'Χωρίς τίτλο';
     }
   }
 
@@ -204,11 +197,11 @@ class _TitleRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Checkbox — task/checklist
         if (_showCheckbox) ...[
           GestureDetector(
             onTap: () {
-              DebugConfig.print('ItemCard checkbox id=${item.id} done=${!_isDone}');
+              DebugConfig.print(
+                  'ItemCard checkbox id=${item.id} done=${!_isDone}');
               onCheckboxChanged?.call(!_isDone);
             },
             child: AnimatedContainer(
@@ -219,7 +212,9 @@ class _TitleRow extends StatelessWidget {
                 color: _isDone ? typeColor : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppRadius.xs),
                 border: Border.all(
-                  color: _isDone ? typeColor : ColorsUI.getBorder(context.brightness),
+                  color: _isDone
+                      ? typeColor
+                      : ColorsUI.getBorder(context.brightness),
                   width: 2,
                 ),
               ),
@@ -231,30 +226,25 @@ class _TitleRow extends StatelessWidget {
           ),
           const SizedBox(width: Spacing.sm),
         ],
-
-        // Type icon
         if (!_showCheckbox) ...[
-          _ItemTypeIcon(type: item.type, color: typeColor, size: compact ? 16 : 18),
+          _ItemTypeIcon(
+              type: item.type, color: typeColor, size: compact ? 16 : 18),
           const SizedBox(width: Spacing.xs + 2),
         ],
-
-        // Title
         Expanded(
           child: Text(
             item.title?.isNotEmpty == true ? item.title! : _untitledLabel,
             style: (compact ? context.bodyMd : context.titleMd).copyWith(
               color: item.title?.isNotEmpty == true
-                  ? context.cText
-                  : context.cDisabled,
+                  ? foregroundColor
+                  : foregroundColor.withValues(alpha:0.5),
               decoration: _isDone ? TextDecoration.lineThrough : null,
-              decorationColor: context.cDisabled,
+              decorationColor: foregroundColor.withValues(alpha:0.5),
             ),
             maxLines: compact ? 1 : 2,
             overflow: TextOverflow.ellipsis,
           ),
         ),
-
-        // Pin indicator
         if (item.pinned) ...[
           const SizedBox(width: Spacing.xs),
           Icon(Icons.push_pin_rounded, size: 14, color: typeColor),
@@ -273,19 +263,22 @@ class _MetaRow extends StatelessWidget {
   final DateTime? dueDate;
   final List<String> tagNames;
   final bool compact;
+  final Color foregroundColor;
+  final Color secondaryColor;
 
   const _MetaRow({
     required this.item,
     required this.dueDate,
     required this.tagNames,
     required this.compact,
+    required this.foregroundColor,
+    required this.secondaryColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Responsive: περισσότερα tags σε tablet/desktop
     final maxTags = context.responsive(mobile: 1, tablet: 2, desktop: 3);
-    final chips   = <Widget>[];
+    final chips = <Widget>[];
 
     if (item.priority != ItemPriority.none) {
       chips.add(_PriorityChip(priority: item.priority));
@@ -296,18 +289,23 @@ class _MetaRow extends StatelessWidget {
     }
 
     for (int i = 0; i < tagNames.length && i < maxTags; i++) {
-      chips.add(_TagChipSmall(name: tagNames[i]));
+      chips.add(_TagChipSmall(
+        name: tagNames[i],
+        textColor: secondaryColor,
+      ));
     }
     if (tagNames.length > maxTags) {
-      chips.add(_TagChipSmall(name: '+${tagNames.length - maxTags}'));
+      chips.add(_TagChipSmall(
+        name: '+${tagNames.length - maxTags}',
+        textColor: secondaryColor,
+      ));
     }
 
-    // Relative time — μόνο αν δεν είναι compact και υπάρχει updatedAt
     if (!compact && item.updatedAt != null) {
       chips.add(
         Text(
           item.updatedAt!.relative,
-          style: context.bodySm.withColor(context.cDisabled),
+          style: context.bodySm.copyWith(color: secondaryColor),
         ),
       );
     }
@@ -329,7 +327,12 @@ class _MetaRow extends StatelessWidget {
 
 class _TrailingSection extends StatelessWidget {
   final Item item;
-  const _TrailingSection({required this.item});
+  final Color foregroundColor;
+
+  const _TrailingSection({
+    required this.item,
+    required this.foregroundColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +345,7 @@ class _TrailingSection extends StatelessWidget {
             Icon(Icons.star_rounded, size: 16,
                 color: ColorsUI.getWarning(context.brightness)),
           Icon(Icons.chevron_right_rounded, size: 20,
-              color: context.cDisabled),
+              color: foregroundColor.withValues(alpha:0.5)),
         ],
       ),
     );
@@ -359,11 +362,16 @@ class _PriorityChip extends StatelessWidget {
 
   IconData get _icon {
     switch (priority) {
-      case ItemPriority.urgent: return Icons.priority_high_rounded;
-      case ItemPriority.high:   return Icons.keyboard_arrow_up_rounded;
-      case ItemPriority.medium: return Icons.remove_rounded;
-      case ItemPriority.low:    return Icons.keyboard_arrow_down_rounded;
-      default:                  return Icons.remove_rounded;
+      case ItemPriority.urgent:
+        return Icons.priority_high_rounded;
+      case ItemPriority.high:
+        return Icons.keyboard_arrow_up_rounded;
+      case ItemPriority.medium:
+        return Icons.remove_rounded;
+      case ItemPriority.low:
+        return Icons.keyboard_arrow_down_rounded;
+      default:
+        return Icons.remove_rounded;
     }
   }
 
@@ -371,11 +379,12 @@ class _PriorityChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = context.priorityColor(priority);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+      padding:
+      const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
       decoration: BoxDecoration(
         color: context.priorityColorSoft(priority),
         borderRadius: BorderRadius.circular(AppRadius.badge),
-        border: Border.all(color: color.withValues(alpha:0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -383,7 +392,7 @@ class _PriorityChip extends StatelessWidget {
           Icon(_icon, size: 10, color: color),
           const SizedBox(width: 3),
           Text(AppStringUtils.priorityLabel(priority.name),
-              style: context.labelSm.withColor(color)),
+              style: context.labelSm.copyWith(color: color)),
         ],
       ),
     );
@@ -400,21 +409,28 @@ class _DueDateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOverdue  = date.isOverdue && !date.isToday;
-    final isToday    = date.isToday;
+    final isOverdue = date.isOverdue && !date.isToday;
+    final isToday = date.isToday;
 
     final Color color;
-    if (isOverdue)    {color = context.cError;}
-    else if (isToday) {color = context.cWarning;}
-    else              {color = context.cText2;}
+    if (isOverdue) {
+      color = context.cError;
+    } else if (isToday) {
+      color = context.cWarning;
+    } else {
+      color = context.cText2;
+    }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+      padding:
+      const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
       decoration: BoxDecoration(
-        color: (isOverdue || isToday) ? color.withValues(alpha:0.1) : Colors.transparent,
+        color: (isOverdue || isToday)
+            ? color.withValues(alpha: 0.1)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(AppRadius.badge),
         border: (isOverdue || isToday)
-            ? Border.all(color: color.withValues(alpha:0.3))
+            ? Border.all(color: color.withValues(alpha: 0.3))
             : null,
       ),
       child: Row(
@@ -422,10 +438,11 @@ class _DueDateChip extends StatelessWidget {
         children: [
           Icon(
             isOverdue ? Icons.warning_amber_rounded : Icons.calendar_today_rounded,
-            size: 10, color: color,
+            size: 10,
+            color: color,
           ),
           const SizedBox(width: 3),
-          Text(date.due, style: context.labelSm.withColor(color)),
+          Text(date.due, style: context.labelSm.copyWith(color: color)),
         ],
       ),
     );
@@ -438,18 +455,27 @@ class _DueDateChip extends StatelessWidget {
 
 class _TagChipSmall extends StatelessWidget {
   final String name;
-  const _TagChipSmall({required this.name});
+  final Color textColor;
+
+  const _TagChipSmall({
+    required this.name,
+    required this.textColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+      padding:
+      const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
       decoration: BoxDecoration(
-        color: context.cSurface,
+        color: Colors.white.withValues(alpha:0.15), // ελαφρύ overlay για αντίθεση
         borderRadius: BorderRadius.circular(AppRadius.badge),
-        border: Border.all(color: context.cBorder),
+        border: Border.all(color: textColor.withValues(alpha:0.3)),
       ),
-      child: Text(name, style: context.labelSm.withColor(context.cText2)),
+      child: Text(
+        name,
+        style: context.labelSm.copyWith(color: textColor),
+      ),
     );
   }
 }
@@ -471,19 +497,32 @@ class _ItemTypeIcon extends StatelessWidget {
 
   IconData get _icon {
     switch (type) {
-      case ItemType.note:      return Icons.note_rounded;
-      case ItemType.task:      return Icons.check_circle_outline_rounded;
-      case ItemType.event:     return Icons.event_rounded;
-      case ItemType.contact:   return Icons.person_rounded;
-      case ItemType.habit:     return Icons.loop_rounded;
-      case ItemType.project:   return Icons.folder_rounded;
-      case ItemType.goal:      return Icons.flag_rounded;
-      case ItemType.finance:   return Icons.account_balance_wallet_rounded;
-      case ItemType.bookmark:  return Icons.bookmark_rounded;
-      case ItemType.journal:   return Icons.auto_stories_rounded;
-      case ItemType.appointment:  return Icons.cases_rounded;
-      case ItemType.checklist: return Icons.checklist_rounded;
-      case ItemType.knowledge: return Icons.lightbulb_outline_rounded;
+      case ItemType.note:
+        return Icons.note_rounded;
+      case ItemType.task:
+        return Icons.check_circle_outline_rounded;
+      case ItemType.event:
+        return Icons.event_rounded;
+      case ItemType.contact:
+        return Icons.person_rounded;
+      case ItemType.habit:
+        return Icons.loop_rounded;
+      case ItemType.project:
+        return Icons.folder_rounded;
+      case ItemType.goal:
+        return Icons.flag_rounded;
+      case ItemType.finance:
+        return Icons.account_balance_wallet_rounded;
+      case ItemType.bookmark:
+        return Icons.bookmark_rounded;
+      case ItemType.journal:
+        return Icons.auto_stories_rounded;
+      case ItemType.appointment:
+        return Icons.cases_rounded;
+      case ItemType.checklist:
+        return Icons.checklist_rounded;
+      case ItemType.knowledge:
+        return Icons.lightbulb_outline_rounded;
     }
   }
 
@@ -533,7 +572,8 @@ class _ItemCardSkeletonState extends State<ItemCardSkeleton>
       builder: (_, __) => Container(
         height: widget.compact ? 56 : 80,
         decoration: BoxDecoration(
-          color: ColorsUI.getBorder(context.brightness).withValues(alpha:_anim.value),
+          color: ColorsUI.getBorder(context.brightness)
+              .withValues(alpha: _anim.value),
           borderRadius: AppRadius.cardBR,
         ),
       ),

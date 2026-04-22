@@ -2,8 +2,9 @@
 //
 // Λίστα συνηθειών: today progress (συνολική πρόοδος), κάρτες με progress bar.
 // ✅ Responsive: list mobile / grid tablet+desktop
-// ✅ Dark mode: ColorsUI + context extensions
+// ✅ Dark mode: ColorsUI + context extensions + ItemColorHelper
 // ✅ DebugConfig: nav, db, provider logs
+// ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'habit_detail_screen.dart';
 import '../../services/reminder_scheduler.dart';
+import '../../helpers/item_color_helper.dart';
 
 // ════════════════════════════════════════════════════════════════
 // HABIT LIST SCREEN
@@ -140,6 +142,8 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
               );
             },
           ),
+          // ── View mode toggle (pinned/favorites/all) ────────────
+          const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemNotifierProvider),
@@ -158,6 +162,19 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                     habitsOnly = habitsOnly
                         .where((h) => h.folderId == _selectedFolderId)
                         .toList();
+                  }
+
+                  // 🔹 Φιλτράρισμα: view mode (pinned / favorites / all)
+                  final viewMode = ref.watch(listViewModeProvider);
+                  switch (viewMode) {
+                    case ListViewMode.pinned:
+                      habitsOnly = habitsOnly.where((h) => h.pinned).toList();
+                      break;
+                    case ListViewMode.favorites:
+                      habitsOnly = habitsOnly.where((h) => h.favorite).toList();
+                      break;
+                    case ListViewMode.all:
+                      break;
                   }
 
                   final q = _searchCtrl.text.trim().toLowerCase();
@@ -253,7 +270,6 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   }
 }
 
-
 // ════════════════════════════════════════════════════════════════
 // TODAY PROGRESS (aggregated)
 // ════════════════════════════════════════════════════════════════
@@ -343,7 +359,14 @@ class HabitCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(habitStatsProvider(habit.id)).valueOrNull;
-    final color = ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
+    // Χρώμα φόντου από τον ItemColorHelper
+    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.habit, context);
+    // Χρώμα κειμένου βάσει αντίθεσης
+    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+    // Accent χρώμα για progress bar, border, stats (από helper ή context)
+    final accentColor = ItemColorHelper.iconColorForType(ItemType.habit, context);
+
     final goal = stats?.goalCount ?? 0;
     final dailyProgress = stats?.dailyProgress ?? 0;
     final unit = stats?.unit ?? '';
@@ -356,13 +379,11 @@ class HabitCard extends ConsumerWidget {
       child: AnimatedContainer(
         duration: AppDuration.normal,
         decoration: BoxDecoration(
-          color: isCompleted
-              ? color.withValues(alpha: 0.08)
-              : ColorsUI.getCard(context.brightness),
+          color: backgroundColor,
           borderRadius: AppRadius.cardBR,
           border: Border.all(
             color: isCompleted
-                ? color.withValues(alpha: 0.4)
+                ? accentColor.withValues(alpha: 0.6)
                 : ColorsUI.getBorder(context.brightness),
             width: isCompleted ? 1.5 : 1.0,
           ),
@@ -375,7 +396,7 @@ class HabitCard extends ConsumerWidget {
               // Title
               Text(
                 habit.title ?? 'Χωρίς τίτλο',
-                style: context.titleSm,
+                style: context.titleSm.copyWith(color: foregroundColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -388,7 +409,7 @@ class HabitCard extends ConsumerWidget {
                     value: percent,
                     minHeight: 6,
                     backgroundColor: ColorsUI.getBorder(context.brightness),
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                    valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                   ),
                 ),
                 const SizedBox(height: Spacing.xs),
@@ -402,20 +423,22 @@ class HabitCard extends ConsumerWidget {
                     label: 'streak',
                     color: (stats?.streak ?? 0) > 0
                         ? ColorsUI.getWarning(context.brightness)
-                        : context.cDisabled,
+                        : secondaryForeground,
+                    textColor: foregroundColor,
                   ),
                   const SizedBox(width: Spacing.sm),
                   _StatBadge(
                     icon: Icons.emoji_events_rounded,
                     value: '${stats?.bestStreak ?? 0}',
                     label: 'best',
-                    color: context.cText2,
+                    color: secondaryForeground,
+                    textColor: foregroundColor,
                   ),
                   const Spacer(),
                   if (goal > 0)
                     Text(
                       '$dailyProgress / $goal $unit',
-                      style: context.labelSm.withColor(color),
+                      style: context.labelSm.copyWith(color: accentColor),
                     ),
                 ],
               ),
@@ -475,13 +498,15 @@ class _StatBadge extends StatelessWidget {
   final IconData icon;
   final String value;
   final String label;
-  final Color color;
+  final Color color;      // χρώμα εικονιδίου και value
+  final Color textColor;  // βασικό χρώμα κειμένου (για το label)
 
   const _StatBadge({
     required this.icon,
     required this.value,
     required this.label,
     required this.color,
+    required this.textColor,
   });
 
   @override
@@ -491,9 +516,9 @@ class _StatBadge extends StatelessWidget {
       children: [
         Icon(icon, size: 13, color: color),
         const SizedBox(width: 3),
-        Text(value, style: context.labelSm.withColor(color)),
+        Text(value, style: context.labelSm.copyWith(color: color)),
         const SizedBox(width: 2),
-        Text(label, style: context.labelSm.withColor(context.cDisabled)),
+        Text(label, style: context.labelSm.copyWith(color: textColor.withValues(alpha:0.7))),
       ],
     );
   }
