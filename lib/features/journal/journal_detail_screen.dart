@@ -1,13 +1,15 @@
 // lib/features/journal/journal_detail_screen.dart
 //
-// Detail screen ημερολογίου — ακολουθεί τη νέα λογική save:
-//   isNew=true  → manual Save button → αν δεν πατηθεί, auto-delete on back
-//   isNew=false → Save button αποθηκεύει, back δεν κάνει τίποτα αυτόματα
-// ✅ Responsive: single col mobile / two-panel tablet+desktop
-// ✅ Dark mode: ColorsUI + context extensions
-// ✅ DebugConfig: nav, db, provider logs
-// ✅ Επιλογή ημερομηνίας καταχώρησης (entry_date)
+// Detail screen ημερολογίου – πλήρως ευθυγραμμισμένο με το NoteDetailScreen.
+// ✅ AppBar: Αποθήκευση, Υπενθύμιση, Αγαπημένο, Pin, Αρχειοθέτηση, Διαγραφή
+// ✅ Αυτόματο save / delete άδειων νέων καταχωρήσεων
+// ✅ Επιλογή ημερομηνίας καταχώρησης (entry_date) & mood picker
+// ✅ Tags: προβολή, προσθήκη, αφαίρεση (ίδιο pattern)
+// ✅ Reminder bottom sheet
+// ✅ Responsive: single column mobile / two‑panel tablet+desktop
+// ✅ Dark mode + DebugConfig
 //
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
@@ -34,15 +36,14 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _contentCtrl;
 
-  // ── Νέα λογική save (ίδια με NoteDetailScreen) ────────────────
+  // ── Save state (ίδιο με NoteDetailScreen) ──────────────────
   bool _isSaving = false;
   bool _isEditingTitle = false;
-
   String _lastSavedTitle = '';
   String _lastSavedContent = '';
   bool _hasEverBeenSaved = false;
 
-  // ── Entry date state ─────────────────────────────────────────
+  // ── Entry date state ───────────────────────────────────────
   DateTime? _entryDate;
 
   @override
@@ -109,7 +110,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
 
   Future<bool> _onPopInvoked() async {
     if (widget.isNew && !_hasEverBeenSaved) {
-      DebugConfig.db('JournalDetail auto-delete NEW entry id=${widget.itemId}');
+      DebugConfig.db('JournalDetail auto-delete empty NEW entry id=${widget.itemId}');
       await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
       return true;
     }
@@ -119,7 +120,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
 
   Future<void> _delete(BuildContext context) async {
     final future =
-        ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
+    ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
     final ok = await future;
     if (!ok || !mounted) return;
     DebugConfig.db('JournalDetail delete id=${widget.itemId}');
@@ -129,6 +130,18 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     if (context.mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _togglePin(Item item) async {
+    await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
+  }
+
+  Future<void> _toggleFav(Item item) async {
+    await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
+  }
+
+  Future<void> _toggleArchive(Item item) async {
+    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+  }
+
   Future<void> _loadEntryDate() async {
     final props = await ref.read(itemPropertiesProvider(widget.itemId).future);
     final dateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
@@ -136,7 +149,6 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
       final parsed = DateTime.tryParse(dateStr);
       if (parsed != null) setState(() => _entryDate = parsed);
     } else if (widget.isNew && mounted) {
-      // Για νέες καταχωρήσεις, ορίζουμε σήμερα και το αποθηκεύουμε
       final now = DateTime.now();
       await _setEntryDate(now);
     }
@@ -149,11 +161,43 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     if (mounted) setState(() => _entryDate = date);
   }
 
-  Future<void> _toggleFav(Item item) async {
-    DebugConfig.provider('JournalDetail toggleFav id=${item.id}');
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleFavorite(item.id, item.favorite);
+  // ── Reminder bottom sheet (ίδιο με NoteDetailScreen) ──────
+  Future<void> _showReminderDialog() async {
+    final title = _titleCtrl.text.trim().isEmpty ? 'Καταχώρηση' : _titleCtrl.text.trim();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.itemId,
+          itemTitle: title,
+          defaultStartTime: null,
+        ),
+      ),
+    );
+  }
+
+  // ── Tag picker (αντιγραφή από NoteDetailScreen για αυτονομία) ─
+  void _showTagPicker(BuildContext context, WidgetRef ref, int itemId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => _TagPickerSheet(itemId: itemId),
+    );
   }
 
   @override
@@ -200,46 +244,54 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   }
 
   Widget _buildMobile(BuildContext context, Item item) => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: _buildAppBar(context, item),
-        body: _JournalBody(
-          item: item,
-          titleCtrl: _titleCtrl,
-          contentCtrl: _contentCtrl,
-          isSaving: _isSaving,
-          onTitleChanged: _onTitleChanged,
-          onContentChanged: _onContentChanged,
-          entryDate: _entryDate,
-          onSetEntryDate: _setEntryDate,
-        ),
-      );
+    backgroundColor: context.cBg,
+    appBar: _buildAppBar(context, item),
+    body: _JournalBody(
+      item: item,
+      titleCtrl: _titleCtrl,
+      contentCtrl: _contentCtrl,
+      isSaving: _isSaving,
+      onTitleChanged: _onTitleChanged,
+      onContentChanged: _onContentChanged,
+      entryDate: _entryDate,
+      onSetEntryDate: _setEntryDate,
+      onShowReminder: _showReminderDialog,
+      onShowTagPicker: () => _showTagPicker(context, ref, widget.itemId),
+    ),
+  );
 
   Widget _buildTablet(BuildContext context, Item item) => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: _buildAppBar(context, item),
-        body: Row(
-          children: [
-            SizedBox(
-              width: context.isDesktop ? 280 : 240,
-              child: _JournalMetaPanel(item: item, entryDate: _entryDate),
-            ),
-            VerticalDivider(
-                width: 1, color: ColorsUI.getBorder(context.brightness)),
-            Expanded(
-              child: _JournalBody(
-                item: item,
-                titleCtrl: _titleCtrl,
-                contentCtrl: _contentCtrl,
-                isSaving: _isSaving,
-                onTitleChanged: _onTitleChanged,
-                onContentChanged: _onContentChanged,
-                entryDate: _entryDate,
-                onSetEntryDate: _setEntryDate,
-              ),
-            ),
-          ],
+    backgroundColor: context.cBg,
+    appBar: _buildAppBar(context, item),
+    body: Row(
+      children: [
+        SizedBox(
+          width: context.isDesktop ? 280 : 240,
+          child: _JournalMetaPanel(
+            item: item,
+            entryDate: _entryDate,
+            onShowTagPicker: () => _showTagPicker(context, ref, widget.itemId),
+          ),
         ),
-      );
+        VerticalDivider(
+            width: 1, color: ColorsUI.getBorder(context.brightness)),
+        Expanded(
+          child: _JournalBody(
+            item: item,
+            titleCtrl: _titleCtrl,
+            contentCtrl: _contentCtrl,
+            isSaving: _isSaving,
+            onTitleChanged: _onTitleChanged,
+            onContentChanged: _onContentChanged,
+            entryDate: _entryDate,
+            onSetEntryDate: _setEntryDate,
+            onShowReminder: _showReminderDialog,
+            onShowTagPicker: () => _showTagPicker(context, ref, widget.itemId),
+          ),
+        ),
+      ],
+    ),
+  );
 
   AppBar _buildAppBar(BuildContext context, Item item) {
     return AppBar(
@@ -248,18 +300,19 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
       scrolledUnderElevation: 1,
       title: _isSaving
           ? Row(mainAxisSize: MainAxisSize.min, children: [
-              SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: context.cText2),
-              ),
-              const SizedBox(width: Spacing.xs),
-              Text('Αποθήκευση...',
-                  style: context.bodySm.withColor(context.cText2)),
-            ])
+        SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: context.cText2),
+        ),
+        const SizedBox(width: Spacing.xs),
+        Text('Αποθήκευση...',
+            style: context.bodySm.withColor(context.cText2)),
+      ])
           : null,
       actions: [
+        // Save
         IconButton(
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
           tooltip: 'Αποθήκευση',
@@ -268,6 +321,13 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
             if (mounted && context.mounted) Navigator.of(context).pop();
           },
         ),
+        // Reminder
+        IconButton(
+          icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
+          onPressed: _showReminderDialog,
+          tooltip: 'Υπενθύμιση',
+        ),
+        // Favorite
         IconButton(
           icon: Icon(
             item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
@@ -278,6 +338,25 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
           onPressed: () => _toggleFav(item),
           tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
         ),
+        // Pin
+        IconButton(
+          icon: Icon(
+            item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+            color: item.pinned ? context.cPrimary : context.cText2,
+          ),
+          onPressed: () => _togglePin(item),
+          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+        ),
+        // Archive
+        IconButton(
+          icon: Icon(
+            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+            color: context.cText2,
+          ),
+          tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
+          onPressed: () => _toggleArchive(item),
+        ),
+        // Delete
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: context.cError),
           tooltip: 'Διαγραφή',
@@ -288,29 +367,29 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   }
 
   Widget _buildLoading() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(backgroundColor: context.cBg),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(backgroundColor: context.cBg),
+    body: const Center(child: CircularProgressIndicator()),
+  );
 
   Widget _buildError() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(backgroundColor: context.cBg),
-        body: EmptyState.error(
-            onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(backgroundColor: context.cBg),
+    body: EmptyState.error(
+        onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
+  );
 
   Widget _buildNotFound() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(backgroundColor: context.cBg),
-        body: const EmptyState(
-            icon: Icons.auto_stories_rounded,
-            title: 'Η καταχώρηση δεν βρέθηκε'),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(backgroundColor: context.cBg),
+    body: const EmptyState(
+        icon: Icons.auto_stories_rounded,
+        title: 'Η καταχώρηση δεν βρέθηκε'),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════
-// JOURNAL BODY — title + mood + content + entry date picker
+// JOURNAL BODY
 // ════════════════════════════════════════════════════════════════
 
 class _JournalBody extends ConsumerStatefulWidget {
@@ -322,6 +401,8 @@ class _JournalBody extends ConsumerStatefulWidget {
   final ValueChanged<String> onContentChanged;
   final DateTime? entryDate;
   final ValueChanged<DateTime?> onSetEntryDate;
+  final VoidCallback onShowReminder;
+  final VoidCallback onShowTagPicker;
 
   const _JournalBody({
     required this.item,
@@ -332,6 +413,8 @@ class _JournalBody extends ConsumerStatefulWidget {
     required this.onContentChanged,
     this.entryDate,
     required this.onSetEntryDate,
+    required this.onShowReminder,
+    required this.onShowTagPicker,
   });
 
   @override
@@ -353,6 +436,9 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
       _contentLoaded = true;
     }
 
+    // Tags για το body section
+    final tagsAsync = ref.watch(itemTagsProvider(widget.item.id));
+
     return CustomScrollView(
       slivers: [
         // ── Entry date picker ─────────────────────────────────
@@ -369,11 +455,11 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
           ),
         ),
 
-           // ── Title ────────────────────────────────────────────
+        // ── Title ──────────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
             padding:
-                EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+            EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
             child: TextField(
               controller: widget.titleCtrl,
               onChanged: widget.onTitleChanged,
@@ -404,7 +490,7 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
         SliverToBoxAdapter(
           child: Padding(
             padding:
-                EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+            EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
             child: Divider(color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
@@ -430,6 +516,49 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
               ),
+            ),
+          ),
+        ),
+
+        // ── Tags section (ίδιο με NoteDetailScreen) ─────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: Spacing.lg),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Tags', style: context.labelSm.withColor(context.cText2)),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Προσθήκη'),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 0),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: widget.onShowTagPicker,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Spacing.xs),
+                tagsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (tags) => TagChipList.interactive(
+                    tagNames: tags.map((t) => t.name).toList(),
+                    tagColors: tags.map((t) => t.color).toList(),
+                    onTagDelete: (name) async {
+                      final tag = tags.firstWhere((t) => t.name == name, orElse: () => tags.first);
+                      await ref.read(tagNotifierProvider.notifier).removeFromItem(widget.item.id, tag.id);
+                    },
+                    onAdd: widget.onShowTagPicker,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -505,7 +634,7 @@ class _EntryDatePicker extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// MOOD PICKER — emoji επιλογή διάθεσης
+// MOOD PICKER
 // ════════════════════════════════════════════════════════════════
 
 class _MoodPicker extends ConsumerWidget {
@@ -584,25 +713,29 @@ class _MoodPicker extends ConsumerWidget {
 class _JournalMetaPanel extends ConsumerWidget {
   final Item item;
   final DateTime? entryDate;
+  final VoidCallback onShowTagPicker;
 
-  const _JournalMetaPanel({required this.item, this.entryDate});
+  const _JournalMetaPanel({
+    required this.item,
+    this.entryDate,
+    required this.onShowTagPicker,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
     final props = propsAsync.valueOrNull ?? [];
     final mood = props.where((p) => p.key == 'mood').firstOrNull?.value ?? '';
+    final tagsAsync = ref.watch(itemTagsProvider(item.id));
 
     return Container(
       color: ColorsUI.getSurface(context.brightness),
       padding: const EdgeInsets.all(Spacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListView(
         children: [
           Text('Πληροφορίες', style: context.titleSm),
           const SizedBox(height: Spacing.md),
 
-          // Custom entry date
           _MetaRow(
             icon: Icons.edit_calendar_rounded,
             label: 'Ημερομηνία καταχώρησης',
@@ -617,8 +750,26 @@ class _JournalMetaPanel extends ConsumerWidget {
 
           const Divider(height: Spacing.xl),
 
-          // Mood picker
           _MoodPicker(itemId: item.id),
+
+          const Divider(height: Spacing.xl),
+
+          Text('Tags', style: context.labelMd.withColor(context.cText2)),
+          const SizedBox(height: Spacing.sm),
+          tagsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (tags) => TagChipList.readOnly(
+              tagNames: tags.map((t) => t.name).toList(),
+              tagColors: tags.map((t) => t.color).toList(),
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          TextButton.icon(
+            onPressed: onShowTagPicker,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Προσθήκη Tag'),
+          ),
         ],
       ),
     );
@@ -641,13 +792,116 @@ class _MetaRow extends StatelessWidget {
         const SizedBox(width: Spacing.sm),
         Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: context.labelSm.withColor(context.cDisabled)),
+                Text(value, style: context.bodyMd),
+              ],
+            )),
+      ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TAG PICKER SHEET (αντιγραφή για αυτονομία)
+// ════════════════════════════════════════════════════════════════
+
+class _TagPickerSheet extends ConsumerStatefulWidget {
+  final int itemId;
+  const _TagPickerSheet({required this.itemId});
+
+  @override
+  ConsumerState<_TagPickerSheet> createState() => _TagPickerSheetState();
+}
+
+class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addTag(String name) async {
+    if (name.trim().isEmpty) return;
+    final tag = await ref.read(tagNotifierProvider.notifier).createOrGet(name.trim());
+    if (tag == null || !mounted) return;
+    await ref.read(tagNotifierProvider.notifier).addToItem(widget.itemId, tag.id);
+    _ctrl.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tagsAsync = ref.watch(tagsProvider);
+    final itemTagsAsync = ref.watch(itemTagsProvider(widget.itemId));
+    final itemTagIds = itemTagsAsync.valueOrNull?.map((t) => t.id).toSet() ?? {};
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: context.labelSm.withColor(context.cDisabled)),
-            Text(value, style: context.bodyMd),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: context.cBorder,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            Text('Προσθήκη Tag', style: context.titleMd),
+            const SizedBox(height: Spacing.md),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              onSubmitted: _addTag,
+              decoration: InputDecoration(
+                hintText: 'Νέο tag...',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.add_rounded),
+                  onPressed: () => _addTag(_ctrl.text),
+                ),
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            tagsAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (tags) {
+                final available = tags.where((t) => !itemTagIds.contains(t.id)).toList();
+                if (available.isEmpty) return const SizedBox.shrink();
+                return Wrap(
+                  spacing: Spacing.xs,
+                  runSpacing: Spacing.xs,
+                  children: available
+                      .map((t) => TagChip(
+                    name: t.name,
+                    color: t.color,
+                    onTap: () async {
+                      final nav = Navigator.of(context);
+                      await ref
+                          .read(tagNotifierProvider.notifier)
+                          .addToItem(widget.itemId, t.id);
+                      nav.pop();
+                    },
+                  ))
+                      .toList(),
+                );
+              },
+            ),
+            SizedBox(
+                height:
+                MediaQuery.of(context).padding.bottom + Spacing.sm),
           ],
-        )),
-      ]),
+        ),
+      ),
     );
   }
 }

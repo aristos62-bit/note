@@ -92,6 +92,9 @@ class SuperNoteHelper {
     // Δημιουργία default workspace αν δεν υπάρχει
     await _instance!._ensureDefaults();
 
+    // Καθαρισμός παλιών pending reminders (π.χ. > 7 ημερών)
+    await _instance!.reminders.cleanupOldPending();
+
     return _instance!;
   }
 
@@ -102,12 +105,42 @@ class SuperNoteHelper {
   }
 
   /// Δημιουργία default data αν η DB είναι κενή
+  // lib/helpers/super_note_helper.dart (απόσπασμα – μόνο η αλλαγμένη μέθοδος)
+
   Future<void> _ensureDefaults() async {
+    // 1. Default workspace
     final wsCount = await _isar.workspaces.count();
     if (wsCount == 0) {
       await workspaces.create(name: 'Προσωπικός Βοηθός', icon: '⚡️', isDefault: true);
     }
 
+    // 2. Default system folder "Γενικά"
+    final defaultWs = await workspaces.getDefault();
+    if (defaultWs != null) {
+      final existingSystemFolder = await _isar.folders
+          .filter()
+          .workspaceIdEqualTo(defaultWs.id)
+          .isSystemEqualTo(true)
+          .findFirst();
+
+      if (existingSystemFolder == null) {
+        // Δημιουργία του system folder
+        final generalFolder = Folder()
+          ..name = 'Γενικά'
+          ..workspaceId = defaultWs.id
+          ..icon = '📁'
+          ..color = '#6366F1'
+          ..isSystem = true        // ✅ προστασία
+          ..sortOrder = -1000.0    // να εμφανίζεται πρώτο
+          ..createdAt = DateTime.now();
+
+        await _isar.writeTxn(() async {
+          await _isar.folders.put(generalFolder);
+        });
+      }
+    }
+
+    // 3. Default app settings
     final settingsExist = await _isar.appSettings.get(1) != null;
     if (!settingsExist) {
       await _isar.writeTxn(() async {
@@ -724,13 +757,16 @@ class ReminderRepository {
   }
 
   Future<List<Reminder>> getPending() {
+    final now = DateTime.now();
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
-        .triggerAtLessThan(DateTime.now().add(const Duration(days: 7)))
+        .triggerAtGreaterThan(now)
+        .triggerAtLessThan(now.add(const Duration(days: 7)))
         .sortByTriggerAt()
         .findAll();
   }
+
 
   Future<List<Reminder>> getForItem(int itemId) {
     return _isar.reminders
@@ -765,6 +801,17 @@ class ReminderRepository {
       await _isar.reminders.delete(id);
     });
   }
+  Future<int> cleanupOldPending({Duration maxAge = const Duration(days: 7)}) async {
+    final cutoff = DateTime.now().subtract(maxAge);
+    return _isar.writeTxn(() async {
+      return await _isar.reminders
+          .filter()
+          .statusEqualTo(ReminderStatus.pending)
+          .triggerAtLessThan(cutoff)
+          .deleteAll();
+    });
+  }
+
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -822,6 +869,8 @@ class FolderRepository {
       await _isar.folders.delete(id);
     });
   }
+
+  Future<Folder?> getById(int id) => _isar.folders.get(id);
 
   Future<Folder?> update(int id, {
     String? name,

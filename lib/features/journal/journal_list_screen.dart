@@ -6,16 +6,22 @@
 // ✅ Dark mode: ColorsUI + context extensions + ItemColorHelper
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
+// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
+// ✅ Filter tags
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'journal_detail_screen.dart';
 import '../../helpers/item_color_helper.dart';
+
+final _journalSearchQueryProvider = StateProvider<String>((ref) => '');
+final _journalTagFilterProvider  = StateProvider<Set<String>>((ref) => {});
 
 // ════════════════════════════════════════════════════════════════
 // JOURNAL LIST SCREEN
@@ -33,8 +39,11 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
-  String _searchQuery = '';
   int? _selectedFolderId;
+  Set<String> _visibleTagNames = {};
+
+  // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
+  bool _userExplicitlySelected = false;
 
   @override
   void dispose() {
@@ -44,13 +53,11 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
     super.dispose();
   }
 
-  // ── Search ───────────────────────────────────────────────────
-
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
       DebugConfig.search('JournalList search: "$value"');
-      setState(() => _searchQuery = value.trim());
+      ref.read(_journalSearchQueryProvider.notifier).state = value.trim();
     });
   }
 
@@ -59,7 +66,8 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
       _searchActive = !_searchActive;
       if (!_searchActive) {
         _searchCtrl.clear();
-        _searchQuery = '';
+        ref.read(_journalSearchQueryProvider.notifier).state = '';
+        ref.read(_journalTagFilterProvider.notifier).state = {};
       }
     });
     if (_searchActive) {
@@ -68,17 +76,15 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
     DebugConfig.nav('JournalList toggleSearch: $_searchActive');
   }
 
-  // ── Create entry ─────────────────────────────────────────────
-
   Future<void> _createEntry() async {
     if (_selectedFolderId == null) {
       DebugConfig.error('JournalList: createEntry without selected folder');
       return;
     }
 
-    DebugConfig.nav('JournalList: create entry in folder id=$_selectedFolderId');
-    final item = await ref.read(itemNotifierProvider.notifier)
-        .create(
+    DebugConfig.nav(
+        'JournalList: create entry in folder id=$_selectedFolderId');
+    final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.journal,
       folderId: _selectedFolderId,
     );
@@ -94,11 +100,9 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
         JournalDetailScreen(itemId: id, isNew: false)));
   }
 
-  // ── Actions ──────────────────────────────────────────────────
-
   Future<void> _delete(Item item) async {
-    final future = ConfirmDialog.delete(context,
-        title: 'Διαγραφή καταχώρησης;');
+    final future =
+    ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
     final ok = await future;
     if (!ok || !mounted) return;
     DebugConfig.db('JournalList delete id=${item.id}');
@@ -108,7 +112,8 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
 
   Future<DateTime> _getDisplayDate(Item item) async {
     final props = await ref.read(itemPropertiesProvider(item.id).future);
-    final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
+    final entryDateStr =
+        props.where((p) => p.key == 'entry_date').firstOrNull?.value;
     if (entryDateStr != null) {
       final parsed = DateTime.tryParse(entryDateStr);
       if (parsed != null) return parsed;
@@ -116,7 +121,8 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
     return item.updatedAt ?? item.createdAt;
   }
 
-  Future<List<_EntryWithDate>> _processEntriesWithDate(List<Item> entries) async {
+  Future<List<_EntryWithDate>> _processEntriesWithDate(
+      List<Item> entries) async {
     final result = <_EntryWithDate>[];
     for (final entry in entries) {
       final date = await _getDisplayDate(entry);
@@ -125,13 +131,34 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
     result.sort((a, b) => b.displayDate.compareTo(a.displayDate));
     return result;
   }
-  // ── Build ────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('JournalListScreen build');
     final entriesAsync = ref.watch(itemsStreamProvider);
+    final searchQuery = ref.watch(_journalSearchQueryProvider);
+    final activeTags = ref.watch(_journalTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
+
+    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις
+    final preferredId = ref.watch(preferredFolderIdProvider);
+
+    // ✅ Αυτόματη επιλογή φακέλου μόνο αν ο χρήστης δεν έχει επιλέξει ρητά
+    if (!_userExplicitlySelected) {
+      foldersAsync.whenData((folders) {
+        if (_selectedFolderId == null && mounted && folders.isNotEmpty) {
+          int? targetId = preferredId;
+          if (targetId == null || !folders.any((f) => f.id == targetId)) {
+            targetId = folders.firstWhere(
+                  (f) => f.isSystem,
+              orElse: () => folders.first,
+            ).id;
+          }
+          setState(() => _selectedFolderId = targetId);
+          DebugConfig.nav('JournalList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -139,13 +166,13 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
       floatingActionButton: _selectedFolderId != null ? _buildFab() : null,
       body: Column(
         children: [
-          if (_searchActive) _SearchBar(
-            controller: _searchCtrl,
-            focusNode: _searchFocus,
-            onChanged: _onSearchChanged,
-          ),
+          if (_searchActive)
+            _SearchBar(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              onChanged: _onSearchChanged,
+            ),
 
-          // ── Folder selector ("Όλοι" ή συγκεκριμένος φάκελος) ──
           foldersAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
@@ -157,7 +184,10 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                   folders: folders,
                   selectedFolderId: _selectedFolderId,
                   onSelect: (id) {
-                    setState(() => _selectedFolderId = id);
+                    setState(() {
+                      _selectedFolderId = id;
+                      _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε ρητή επιλογή
+                    });
                     DebugConfig.nav('JournalList: select folder id=$id');
                   },
                 ),
@@ -165,7 +195,58 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
             },
           ),
 
-          // ── View mode toggle (pinned/favorites/all) ────────────
+          if (_visibleTagNames.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    context.responsiveHPadding,
+                    0,
+                    context.responsiveHPadding,
+                    Spacing.xs,
+                  ),
+                  child: Text(
+                    'Επιλέξτε tag για φιλτράρισμα καταχωρήσεων',
+                    style: context.labelSm.withColor(context.cText2),
+                  ),
+                ),
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: context.responsiveHPadding),
+                    itemCount: _visibleTagNames.length,
+                    separatorBuilder: (_, __) =>
+                    const SizedBox(width: Spacing.xs),
+                    itemBuilder: (_, i) {
+                      final name = _visibleTagNames.elementAt(i);
+                      final selected = activeTags.contains(name);
+                      return TagChip(
+                        name: name,
+                        color: null,
+                        compact: true,
+                        selected: selected,
+                        onTap: () {
+                          final current =
+                          ref.read(_journalTagFilterProvider);
+                          final newSet = {...current};
+                          if (newSet.contains(name)) {
+                            newSet.remove(name);
+                          } else {
+                            newSet.add(name);
+                          }
+                          ref.read(_journalTagFilterProvider.notifier)
+                              .state = newSet;
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+
           const ViewModeToggle(),
 
           Expanded(
@@ -179,12 +260,16 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                       onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
                 data: (allItems) {
-                  var entries = allItems.where((i) => i.type == ItemType.journal).toList();
+                  var entries = allItems
+                      .where((i) => i.type == ItemType.journal)
+                      .toList();
+
                   if (_selectedFolderId != null) {
-                    entries = entries.where((e) => e.folderId == _selectedFolderId).toList();
+                    entries = entries
+                        .where((e) => e.folderId == _selectedFolderId)
+                        .toList();
                   }
 
-                  // 🔹 Φιλτράρισμα view mode (pinned / favorites / all)
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
@@ -197,34 +282,71 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                       break;
                   }
 
-                  if (_searchQuery.isNotEmpty) {
-                    final q = _searchQuery.toLowerCase();
-                    entries = entries.where((e) => (e.title ?? '').toLowerCase().contains(q)).toList();
+                  if (searchQuery.isNotEmpty) {
+                    final q = searchQuery.toLowerCase();
+                    entries = entries
+                        .where((e) =>
+                        (e.title ?? '').toLowerCase().contains(q))
+                        .toList();
                   }
 
+                  if (activeTags.isNotEmpty) {
+                    entries = entries.where((e) {
+                      final tagsAsync =
+                          ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
+                      return tagsAsync
+                          .any((tag) => activeTags.contains(tag.name));
+                    }).toList();
+                  }
+
+                  final visibleTagNames = <String>{};
+                  for (final e in entries) {
+                    final tagsAsync =
+                        ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
+                    for (final t in tagsAsync) {
+                      visibleTagNames.add(t.name);
+                    }
+                  }
+
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    if (!const SetEquality<String>()
+                        .equals(_visibleTagNames, visibleTagNames)) {
+                      setState(() => _visibleTagNames = visibleTagNames);
+                    }
+                  });
+
                   if (entries.isEmpty) {
-                    if (_searchQuery.isNotEmpty) {
-                      return EmptyState.search(query: _searchQuery);
+                    if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
+                      return EmptyState.search(query: searchQuery);
                     }
-                    if (_selectedFolderId == null) {
-                      return EmptyState.forType(ItemType.journal, onAction: null);
-                    }
-                    return EmptyState.forType(ItemType.journal, onAction: _createEntry);
+                    return EmptyState.forType(ItemType.journal,
+                        onAction: _createEntry);
                   }
 
                   return FutureBuilder<List<_EntryWithDate>>(
                     future: _processEntriesWithDate(entries),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
+                      if (snapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(
+                            child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError || !snapshot.hasData) {
-                        return EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider));
+                        return EmptyState.error(
+                            onRetry: () =>
+                                ref.invalidate(itemNotifierProvider));
                       }
                       final processed = snapshot.data!;
                       return ResponsiveLayout(
-                        mobile: _JournalListMobile(entriesWithDate: processed, onTap: _openDetail, onDelete: _delete),
-                        tablet: _JournalListTablet(entriesWithDate: processed, onTap: _openDetail, onDelete: _delete),
+                        mobile: _JournalListMobile(
+                            entriesWithDate: processed,
+                            onTap: _openDetail,
+                            onDelete: _delete),
+                        tablet: _JournalListTablet(
+                            entriesWithDate: processed,
+                            onTap: _openDetail,
+                            onDelete: _delete),
                       );
                     },
                   );
@@ -292,8 +414,10 @@ class _JournalListMobile extends StatelessWidget {
 
     return ListView.builder(
       padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding, Spacing.sm,
-        context.responsiveHPadding, 80,
+        context.responsiveHPadding,
+        Spacing.sm,
+        context.responsiveHPadding,
+        80,
       ),
       itemCount: grouped.length,
       itemBuilder: (_, i) {
@@ -301,16 +425,14 @@ class _JournalListMobile extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Month header
             Padding(
-              padding: const EdgeInsets.only(
-                  top: Spacing.md, bottom: Spacing.xs),
+              padding:
+              const EdgeInsets.only(top: Spacing.md, bottom: Spacing.xs),
               child: Text(
                 group.monthLabel,
                 style: context.labelMd.withColor(context.cText2),
               ),
             ),
-            // Entries
             ...group.items.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
               child: _JournalCard(
@@ -346,8 +468,10 @@ class _JournalListTablet extends StatelessWidget {
     final cols = context.gridColumns;
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding, Spacing.sm,
-        context.responsiveHPadding, 80,
+        context.responsiveHPadding,
+        Spacing.sm,
+        context.responsiveHPadding,
+        80,
       ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
@@ -383,23 +507,27 @@ class _JournalCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    // Χρώμα φόντου από ItemColorHelper
-    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.journal, context);
-    // Χρώμα κειμένου βάσει αντίθεσης
-    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
-    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
-    // Accent χρώμα (για chip κλπ)
-    final accentColor = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
+    final backgroundColor =
+    ItemColorHelper.backgroundColorForType(ItemType.journal, context);
+    final foregroundColor =
+    ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
+    final accentColor =
+    ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
 
     return propsAsync.when(
-      loading: () => _buildCardContent(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
-      error: (_, __) => _buildCardContent(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
+      loading: () => _buildCardContent(context, null, backgroundColor,
+          foregroundColor, secondaryForeground, accentColor),
+      error: (_, __) => _buildCardContent(context, null, backgroundColor,
+          foregroundColor, secondaryForeground, accentColor),
       data: (props) {
-        final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
+        final entryDateStr =
+            props.where((p) => p.key == 'entry_date').firstOrNull?.value;
         final displayDate = entryDateStr != null
             ? DateTime.tryParse(entryDateStr)
             : (item.updatedAt ?? item.createdAt);
-        return _buildCardContent(context, displayDate, backgroundColor, foregroundColor, secondaryForeground, accentColor);
+        return _buildCardContent(context, displayDate, backgroundColor,
+            foregroundColor, secondaryForeground, accentColor);
       },
     );
   }
@@ -432,7 +560,8 @@ class _JournalCard extends ConsumerWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.sm, vertical: 2),
                   decoration: BoxDecoration(
                     color: accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.badge),
@@ -461,7 +590,9 @@ class _JournalCard extends ConsumerWidget {
             Text(
               item.title?.isNotEmpty == true ? item.title! : 'Χωρίς τίτλο',
               style: context.titleSm.copyWith(
-                color: item.title?.isNotEmpty == true ? foregroundColor : secondaryForeground,
+                color: item.title?.isNotEmpty == true
+                    ? foregroundColor
+                    : secondaryForeground,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -509,7 +640,8 @@ class _JournalCard extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+              leading:
+              Icon(Icons.delete_outline_rounded, color: context.cError),
               title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
               onTap: () {
                 Navigator.pop(context);
@@ -525,7 +657,7 @@ class _JournalCard extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// GROUP BY MONTH helper (unchanged)
+// GROUP BY MONTH helper
 // ════════════════════════════════════════════════════════════════
 
 class _MonthGroup {
@@ -536,9 +668,19 @@ class _MonthGroup {
 
 List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
   const months = [
-    '', 'Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος',
-    'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος',
-    'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος',
+    '',
+    'Ιανουάριος',
+    'Φεβρουάριος',
+    'Μάρτιος',
+    'Απρίλιος',
+    'Μάιος',
+    'Ιούνιος',
+    'Ιούλιος',
+    'Αύγουστος',
+    'Σεπτέμβριος',
+    'Οκτώβριος',
+    'Νοέμβριος',
+    'Δεκέμβριος',
   ];
 
   final map = <String, List<Item>>{};
@@ -551,7 +693,7 @@ List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SEARCH BAR (unchanged)
+// SEARCH BAR
 // ════════════════════════════════════════════════════════════════
 
 class _SearchBar extends StatelessWidget {
@@ -570,8 +712,10 @@ class _SearchBar extends StatelessWidget {
     return Container(
       color: context.cBg,
       padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding, Spacing.sm,
-        context.responsiveHPadding, Spacing.sm,
+        context.responsiveHPadding,
+        Spacing.sm,
+        context.responsiveHPadding,
+        Spacing.sm,
       ),
       child: TextField(
         controller: controller,
@@ -606,7 +750,7 @@ class _SearchBar extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// LOADING LIST (unchanged)
+// LOADING LIST
 // ════════════════════════════════════════════════════════════════
 
 class _LoadingList extends StatelessWidget {

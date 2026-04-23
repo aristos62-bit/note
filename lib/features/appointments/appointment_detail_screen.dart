@@ -6,7 +6,7 @@ import '../../core/core.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import '../../shared/widgets/widgets.dart'; // περιλαμβάνει το ReminderSection
+import '../../shared/widgets/widgets.dart';
 
 class AppointmentDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
@@ -35,7 +35,7 @@ class _AppointmentDetailScreenState
   bool _isSaving = false;
   bool _isEditingTitle = false;
 
-  // --- Contact fields (identical to contact detail) ---
+  // --- Contact fields ---
   late TextEditingController _contactNameCtrl;
   late TextEditingController _contactPhoneCtrl;
   late TextEditingController _contactEmailCtrl;
@@ -46,7 +46,7 @@ class _AppointmentDetailScreenState
   DateTime? _contactBirthday;
 
   bool _contactSectionExpanded = false;
-  int? _linkedContactId; // ID της συνδεδεμένης επαφής
+  int? _linkedContactId;
 
   @override
   void initState() {
@@ -99,7 +99,6 @@ class _AppointmentDetailScreenState
         case 'notes':
           _notesCtrl.text = p.value ?? '';
           break;
-      // Contact fields (snapshot)
         case 'contact_name':
           _contactNameCtrl.text = p.value ?? '';
           break;
@@ -127,9 +126,7 @@ class _AppointmentDetailScreenState
       }
     }
 
-    // Φόρτωση συνδεδεμένης επαφής (αν υπάρχει)
-    final relations =
-    await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
+    final relations = await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
     Relation? contactRelation;
     for (final r in relations) {
       if (r.relationType == RelationType.references) {
@@ -142,43 +139,29 @@ class _AppointmentDetailScreenState
       final contact = await ref.read(itemByIdProvider(contactId).future);
       if (contact != null && contact.type == ItemType.contact) {
         _linkedContactId = contactId;
-        // Φόρτωση των properties της επαφής για να γεμίσουμε τα πεδία (αν τα snapshot είναι κενά)
-        final contactProps =
-        await ref.read(itemPropertiesProvider(contactId).future);
+        final contactProps = await ref.read(itemPropertiesProvider(contactId).future);
         if (_contactNameCtrl.text.isEmpty) {
           _contactNameCtrl.text = contact.title ?? '';
         }
         for (final p in contactProps) {
           switch (p.key) {
             case 'phone':
-              if (_contactPhoneCtrl.text.isEmpty) {
-                _contactPhoneCtrl.text = p.value ?? '';
-              }
+              if (_contactPhoneCtrl.text.isEmpty) _contactPhoneCtrl.text = p.value ?? '';
               break;
             case 'email':
-              if (_contactEmailCtrl.text.isEmpty) {
-                _contactEmailCtrl.text = p.value ?? '';
-              }
+              if (_contactEmailCtrl.text.isEmpty) _contactEmailCtrl.text = p.value ?? '';
               break;
             case 'company':
-              if (_contactCompanyCtrl.text.isEmpty) {
-                _contactCompanyCtrl.text = p.value ?? '';
-              }
+              if (_contactCompanyCtrl.text.isEmpty) _contactCompanyCtrl.text = p.value ?? '';
               break;
             case 'website':
-              if (_contactWebsiteCtrl.text.isEmpty) {
-                _contactWebsiteCtrl.text = p.value ?? '';
-              }
+              if (_contactWebsiteCtrl.text.isEmpty) _contactWebsiteCtrl.text = p.value ?? '';
               break;
             case 'address':
-              if (_contactAddressCtrl.text.isEmpty) {
-                _contactAddressCtrl.text = p.value ?? '';
-              }
+              if (_contactAddressCtrl.text.isEmpty) _contactAddressCtrl.text = p.value ?? '';
               break;
             case 'notes':
-              if (_contactNotesCtrl.text.isEmpty) {
-                _contactNotesCtrl.text = p.value ?? '';
-              }
+              if (_contactNotesCtrl.text.isEmpty) _contactNotesCtrl.text = p.value ?? '';
               break;
             case 'birthday':
               if (_contactBirthday == null && p.value != null) {
@@ -210,74 +193,36 @@ class _AppointmentDetailScreenState
     setState(() => _isSaving = true);
 
     final itemNotifier = ref.read(itemNotifierProvider.notifier);
-    final propertyNotifier =
-    ref.read(propertyNotifierProvider(widget.itemId).notifier);
+    final propertyNotifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
     final navigator = Navigator.of(context);
 
-    // Update title and favorite
     await itemNotifier.updateItem(
       widget.itemId,
       title: _titleCtrl.text.trim(),
       favorite: _isFavorite,
     );
 
-    // Save basic properties
     await propertyNotifier.setText('date', _selectedDate!.toIso8601String());
     await propertyNotifier.setText(
       'time',
-      _selectedTime != null
-          ? '${_selectedTime!.hour}:${_selectedTime!.minute}'
-          : null,
+      _selectedTime != null ? '${_selectedTime!.hour}:${_selectedTime!.minute}' : null,
     );
-    await propertyNotifier.setText('location',
-        _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim());
-    await propertyNotifier.setText('notes',
-        _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim());
+    await propertyNotifier.setText('location', _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim());
+    await propertyNotifier.setText('notes', _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim());
 
-    // Save contact fields to appointment (snapshot)
-    await propertyNotifier.setText(
-        'contact_name',
-        _contactNameCtrl.text.trim().isEmpty
-            ? null
-            : _contactNameCtrl.text.trim());
-    await propertyNotifier.setText(
-        'contact_phone',
-        _contactPhoneCtrl.text.trim().isEmpty
-            ? null
-            : _contactPhoneCtrl.text.trim());
-    await propertyNotifier.setText(
-        'contact_email',
-        _contactEmailCtrl.text.trim().isEmpty
-            ? null
-            : _contactEmailCtrl.text.trim());
-    await propertyNotifier.setText(
-        'contact_company',
-        _contactCompanyCtrl.text.trim().isEmpty
-            ? null
-            : _contactCompanyCtrl.text.trim());
-    await propertyNotifier.setText(
-        'contact_website',
-        _contactWebsiteCtrl.text.trim().isEmpty
-            ? null
-            : _contactWebsiteCtrl.text.trim());
-    await propertyNotifier.setText(
-        'contact_address',
-        _contactAddressCtrl.text.trim().isEmpty
-            ? null
-            : _contactAddressCtrl.text.trim());
-    await propertyNotifier.setText(
-        'contact_notes',
-        _contactNotesCtrl.text.trim().isEmpty
-            ? null
-            : _contactNotesCtrl.text.trim());
+    await propertyNotifier.setText('contact_name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
+    await propertyNotifier.setText('contact_phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim());
+    await propertyNotifier.setText('contact_email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim());
+    await propertyNotifier.setText('contact_company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim());
+    await propertyNotifier.setText('contact_website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim());
+    await propertyNotifier.setText('contact_address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim());
+    await propertyNotifier.setText('contact_notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim());
     if (_contactBirthday != null) {
-      await propertyNotifier.setText(
-          'contact_birthday', _contactBirthday!.toIso8601String());
+      await propertyNotifier.setText('contact_birthday', _contactBirthday!.toIso8601String());
     } else {
       await propertyNotifier.setText('contact_birthday', null);
     }
 
-    // --- Διαχείριση επαφής ---
     final hasContactData = _contactNameCtrl.text.trim().isNotEmpty ||
         _contactPhoneCtrl.text.trim().isNotEmpty ||
         _contactEmailCtrl.text.trim().isNotEmpty ||
@@ -292,11 +237,9 @@ class _AppointmentDetailScreenState
       if (workspaceId == null) return;
 
       if (_linkedContactId == null) {
-        // Δεν υπάρχει συνδεδεμένη επαφή – ρωτάμε τον χρήστη αν θέλει να δημιουργηθεί
         final shouldCreate = await _askCreateContact();
         if (!mounted) return;
         if (shouldCreate) {
-          // Δημιουργία νέας επαφής
           final newContact = await itemNotifier.create(
             type: ItemType.contact,
             title: _contactNameCtrl.text.trim(),
@@ -304,102 +247,38 @@ class _AppointmentDetailScreenState
           );
           if (newContact != null) {
             _linkedContactId = newContact.id;
-            final contactPropNotifier =
-            ref.read(propertyNotifierProvider(newContact.id).notifier);
-            await contactPropNotifier.setText(
-                'name',
-                _contactNameCtrl.text.trim().isEmpty
-                    ? null
-                    : _contactNameCtrl.text.trim());
-            await contactPropNotifier.setText(
-                'phone',
-                _contactPhoneCtrl.text.trim().isEmpty
-                    ? null
-                    : _contactPhoneCtrl.text.trim());
-            await contactPropNotifier.setText(
-                'email',
-                _contactEmailCtrl.text.trim().isEmpty
-                    ? null
-                    : _contactEmailCtrl.text.trim());
-            await contactPropNotifier.setText(
-                'company',
-                _contactCompanyCtrl.text.trim().isEmpty
-                    ? null
-                    : _contactCompanyCtrl.text.trim());
-            await contactPropNotifier.setText(
-                'website',
-                _contactWebsiteCtrl.text.trim().isEmpty
-                    ? null
-                    : _contactWebsiteCtrl.text.trim());
-            await contactPropNotifier.setText(
-                'address',
-                _contactAddressCtrl.text.trim().isEmpty
-                    ? null
-                    : _contactAddressCtrl.text.trim());
-            await contactPropNotifier.setText(
-                'notes',
-                _contactNotesCtrl.text.trim().isEmpty
-                    ? null
-                    : _contactNotesCtrl.text.trim());
+            final contactPropNotifier = ref.read(propertyNotifierProvider(newContact.id).notifier);
+            await contactPropNotifier.setText('name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
+            await contactPropNotifier.setText('phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim());
+            await contactPropNotifier.setText('email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim());
+            await contactPropNotifier.setText('company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim());
+            await contactPropNotifier.setText('website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim());
+            await contactPropNotifier.setText('address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim());
+            await contactPropNotifier.setText('notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim());
             if (_contactBirthday != null) {
               await contactPropNotifier.setDate('birthday', _contactBirthday!);
             }
-            // Δημιουργία σχέσης
             await SuperNoteHelper.instance.relations.create(
               fromItemId: widget.itemId,
               toItemId: newContact.id,
               type: RelationType.references,
             );
           }
-        } // else: δεν δημιουργείται επαφή – τα snapshot παραμένουν στο ραντεβού
-      } else {
-        // Υπάρχει συνδεδεμένη επαφή – ενημέρωσέ την
-        final contactPropNotifier =
-        ref.read(propertyNotifierProvider(_linkedContactId!).notifier);
-        final currentContact =
-        await ref.read(itemByIdProvider(_linkedContactId!).future);
-        if (currentContact != null &&
-            currentContact.title != _contactNameCtrl.text.trim()) {
-          await itemNotifier.updateItem(_linkedContactId!,
-              title: _contactNameCtrl.text.trim().isEmpty
-                  ? null
-                  : _contactNameCtrl.text.trim());
         }
-        await contactPropNotifier.setText(
-            'name',
-            _contactNameCtrl.text.trim().isEmpty
-                ? null
-                : _contactNameCtrl.text.trim());
-        await contactPropNotifier.setText(
-            'phone',
-            _contactPhoneCtrl.text.trim().isEmpty
-                ? null
-                : _contactPhoneCtrl.text.trim());
-        await contactPropNotifier.setText(
-            'email',
-            _contactEmailCtrl.text.trim().isEmpty
-                ? null
-                : _contactEmailCtrl.text.trim());
-        await contactPropNotifier.setText(
-            'company',
-            _contactCompanyCtrl.text.trim().isEmpty
-                ? null
-                : _contactCompanyCtrl.text.trim());
-        await contactPropNotifier.setText(
-            'website',
-            _contactWebsiteCtrl.text.trim().isEmpty
-                ? null
-                : _contactWebsiteCtrl.text.trim());
-        await contactPropNotifier.setText(
-            'address',
-            _contactAddressCtrl.text.trim().isEmpty
-                ? null
-                : _contactAddressCtrl.text.trim());
-        await contactPropNotifier.setText(
-            'notes',
-            _contactNotesCtrl.text.trim().isEmpty
-                ? null
-                : _contactNotesCtrl.text.trim());
+      } else {
+        final contactPropNotifier = ref.read(propertyNotifierProvider(_linkedContactId!).notifier);
+        final currentContact = await ref.read(itemByIdProvider(_linkedContactId!).future);
+        if (currentContact != null && currentContact.title != _contactNameCtrl.text.trim()) {
+          await itemNotifier.updateItem(_linkedContactId!,
+              title: _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
+        }
+        await contactPropNotifier.setText('name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
+        await contactPropNotifier.setText('phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim());
+        await contactPropNotifier.setText('email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim());
+        await contactPropNotifier.setText('company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim());
+        await contactPropNotifier.setText('website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim());
+        await contactPropNotifier.setText('address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim());
+        await contactPropNotifier.setText('notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim());
         if (_contactBirthday != null) {
           await contactPropNotifier.setDate('birthday', _contactBirthday!);
         } else {
@@ -407,22 +286,16 @@ class _AppointmentDetailScreenState
         }
       }
     } else {
-      // Δεν υπάρχουν στοιχεία επαφής – αν υπήρχε σύνδεση, την αφαιρούμε
       if (_linkedContactId != null) {
-        final existing =
-        await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
+        final existing = await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
         for (final r in existing) {
-          if (r.toItemId == _linkedContactId &&
-              r.relationType == RelationType.references) {
+          if (r.toItemId == _linkedContactId && r.relationType == RelationType.references) {
             await SuperNoteHelper.instance.relations.delete(r.id);
           }
         }
         _linkedContactId = null;
       }
     }
-
-    // ⚠️ Τα reminders πλέον διαχειρίζονται αυτόματα από το ReminderSection
-    // Δεν χρειάζεται να καλέσουμε κάτι εδώ.
 
     setState(() => _isSaving = false);
     if (mounted) {
@@ -435,43 +308,30 @@ class _AppointmentDetailScreenState
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Δημιουργία επαφής'),
-        content: const Text(
-            'Θέλετε να δημιουργήσετε νέα επαφή με τα στοιχεία που συμπληρώσατε;'),
+        content: const Text('Θέλετε να δημιουργήσετε νέα επαφή με τα στοιχεία που συμπληρώσατε;'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Όχι'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Ναι'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Όχι')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Ναι')),
         ],
       ),
     );
     return result ?? false;
   }
 
-  // --- Contact picker ---
   Future<void> _showContactPicker() async {
     final selected = await showModalBottomSheet<Item>(
       context: context,
       isScrollControlled: true,
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
       ),
       builder: (ctx) => const _ContactSearchSheet(),
     );
     if (selected != null) {
       await _loadContactFromItem(selected);
       if (!mounted) return;
-      // Ενημέρωση της σύνδεσης: διαγραφή παλιάς, προσθήκη νέας
-      final existing =
-      await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
+      final existing = await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
       for (final r in existing) {
         if (r.relationType == RelationType.references) {
           await SuperNoteHelper.instance.relations.delete(r.id);
@@ -492,33 +352,18 @@ class _AppointmentDetailScreenState
     _contactNameCtrl.text = contact.title ?? '';
     for (final p in props) {
       switch (p.key) {
-        case 'phone':
-          _contactPhoneCtrl.text = p.value ?? '';
-          break;
-        case 'email':
-          _contactEmailCtrl.text = p.value ?? '';
-          break;
-        case 'company':
-          _contactCompanyCtrl.text = p.value ?? '';
-          break;
-        case 'website':
-          _contactWebsiteCtrl.text = p.value ?? '';
-          break;
-        case 'address':
-          _contactAddressCtrl.text = p.value ?? '';
-          break;
-        case 'notes':
-          _contactNotesCtrl.text = p.value ?? '';
-          break;
-        case 'birthday':
-          if (p.value != null) _contactBirthday = DateTime.tryParse(p.value!);
-          break;
+        case 'phone': _contactPhoneCtrl.text = p.value ?? ''; break;
+        case 'email': _contactEmailCtrl.text = p.value ?? ''; break;
+        case 'company': _contactCompanyCtrl.text = p.value ?? ''; break;
+        case 'website': _contactWebsiteCtrl.text = p.value ?? ''; break;
+        case 'address': _contactAddressCtrl.text = p.value ?? ''; break;
+        case 'notes': _contactNotesCtrl.text = p.value ?? ''; break;
+        case 'birthday': if (p.value != null) _contactBirthday = DateTime.tryParse(p.value!); break;
       }
     }
     setState(() {});
   }
 
-  // --- Birthday picker ---
   Future<void> _pickBirthday() async {
     final now = DateTime.now();
     final init = _contactBirthday ?? DateTime(1990, 1, 1);
@@ -529,14 +374,10 @@ class _AppointmentDetailScreenState
       firstDate: DateTime(1900),
       lastDate: now,
     );
-    if (picked != null) {
-      setState(() => _contactBirthday = picked);
-    }
+    if (picked != null) setState(() => _contactBirthday = picked);
   }
 
-  Future<void> _clearBirthday() async {
-    setState(() => _contactBirthday = null);
-  }
+  Future<void> _clearBirthday() async => setState(() => _contactBirthday = null);
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -556,9 +397,7 @@ class _AppointmentDetailScreenState
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  void _onTitleChanged(String value) {
-    _isEditingTitle = true;
-  }
+  void _onTitleChanged(String value) => _isEditingTitle = true;
 
   Future<bool> _onPopInvoked() async {
     if (widget.isNew && _titleCtrl.text.trim().isEmpty && !_isSaving) {
@@ -567,11 +406,8 @@ class _AppointmentDetailScreenState
     return true;
   }
 
-  // --- Actions ---
   Future<void> _togglePin(Item item) async {
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .togglePin(item.id, item.pinned);
+    await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
     if (!mounted) return;
     ref.invalidate(itemStreamProvider(widget.itemId));
   }
@@ -579,9 +415,7 @@ class _AppointmentDetailScreenState
   Future<void> _archive(Item item) async {
     final ok = await ConfirmDialog.archive(context);
     if (!ok || !mounted) return;
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleArchive(item.id, item.archived);
+    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
     if (!mounted) return;
     ref.invalidate(itemStreamProvider(widget.itemId));
   }
@@ -593,7 +427,41 @@ class _AppointmentDetailScreenState
     if (mounted) Navigator.pop(context);
   }
 
-  // --- Build UI ---
+  // --- Υπολογισμός startDateTime για τις υπενθυμίσεις ---
+  DateTime? _getStartDateTime() {
+    if (_selectedDate != null) {
+      return DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime?.hour ?? 0,
+        _selectedTime?.minute ?? 0,
+      );
+    }
+    return null;
+  }
+
+  // --- Εμφάνιση bottom sheet με το ReminderSection (κανονικό, όχι full screen) ---
+  Future<void> _showReminderDialog() async {
+    final startDateTime = _getStartDateTime();
+    final title = _titleCtrl.text.trim().isEmpty ? 'Ραντεβού' : _titleCtrl.text.trim();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.itemId,
+          itemTitle: title,
+          defaultStartTime: startDateTime,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final itemAsync = ref.watch(itemStreamProvider(widget.itemId));
@@ -631,46 +499,42 @@ class _AppointmentDetailScreenState
       elevation: 0,
       scrolledUnderElevation: 1,
       title: _isSaving
-          ? const SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-        ),
-      )
+          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
           : null,
       actions: [
+        // 1. Save
         IconButton(
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
           onPressed: _save,
           tooltip: 'Αποθήκευση',
         ),
+        // 2. Reminder (καμπάνα)
         IconButton(
-          icon: Icon(
-            _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: _isFavorite
-                ? ColorsUI.getWarning(context.brightness)
-                : context.cText2,
-          ),
-          onPressed: () => setState(() => _isFavorite = !_isFavorite),
-          tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+          icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
+          onPressed: _showReminderDialog,
+          tooltip: 'Υπενθύμιση',
         ),
+        // 3. Pin
         IconButton(
-          icon: Icon(
-            item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            color: item.pinned ? context.cPrimary : context.cText2,
-          ),
+          icon: Icon(item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+              color: item.pinned ? context.cPrimary : context.cText2),
           onPressed: () => _togglePin(item),
           tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
         ),
+        // 4. Favorite
         IconButton(
-          icon: Icon(
-            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
-            color: context.cText2,
-          ),
+          icon: Icon(_isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+              color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2),
+          onPressed: () => setState(() => _isFavorite = !_isFavorite),
+          tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+        ),
+        // 5. Archive
+        IconButton(
+          icon: Icon(item.archived ? Icons.unarchive_rounded : Icons.archive_rounded, color: context.cText2),
           onPressed: () => _archive(item),
           tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
         ),
+        // 6. Delete
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: context.cError),
           onPressed: () => _delete(item),
@@ -681,19 +545,6 @@ class _AppointmentDetailScreenState
   }
 
   Widget _buildBody() {
-    // Υπολογίζουμε το DateTime από _selectedDate + _selectedTime για defaultStartTime
-    DateTime? startDateTime;
-    if (_selectedDate != null) {
-      startDateTime = DateTime(
-        _selectedDate!.year,
-        _selectedDate!.month,
-        _selectedDate!.day,
-        _selectedTime?.hour ?? 0,
-        _selectedTime?.minute ?? 0,
-      );
-    }
-    DebugConfig.nav('🔍 Appointment detail: startDateTime = $startDateTime');
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(Spacing.md),
       child: Column(
@@ -722,20 +573,12 @@ class _AppointmentDetailScreenState
               OutlinedButton.icon(
                 onPressed: _selectDate,
                 icon: const Icon(Icons.calendar_today),
-                label: Text(
-                  _selectedDate != null
-                      ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
-                      : 'Επιλογή ημερομηνίας',
-                ),
+                label: Text(_selectedDate != null ? DateFormat('dd/MM/yyyy').format(_selectedDate!) : 'Επιλογή ημερομηνίας'),
               ),
               OutlinedButton.icon(
                 onPressed: _selectTime,
                 icon: const Icon(Icons.access_time),
-                label: Text(
-                  _selectedTime != null
-                      ? _selectedTime!.format(context)
-                      : 'Επιλογή ώρας',
-                ),
+                label: Text(_selectedTime != null ? _selectedTime!.format(context) : 'Επιλογή ώρας'),
               ),
             ],
           ),
@@ -760,74 +603,28 @@ class _AppointmentDetailScreenState
           Card(
             child: ExpansionTile(
               initiallyExpanded: _contactSectionExpanded,
-              onExpansionChanged: (expanded) =>
-                  setState(() => _contactSectionExpanded = expanded),
-              title: const Text('Στοιχεία επαφής',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
+              onExpansionChanged: (expanded) => setState(() => _contactSectionExpanded = expanded),
+              title: const Text('Στοιχεία επαφής', style: TextStyle(fontWeight: FontWeight.w500)),
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.md, vertical: Spacing.xs),
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
                   child: Column(
                     children: [
-                      // Name
-                      TextField(
-                        controller: _contactNameCtrl,
-                        decoration:
-                        const InputDecoration(labelText: 'Όνομα επαφής'),
-                      ),
+                      TextField(controller: _contactNameCtrl, decoration: const InputDecoration(labelText: 'Όνομα επαφής')),
                       const SizedBox(height: Spacing.sm),
-                      // Phone
-                      TextField(
-                        controller: _contactPhoneCtrl,
-                        decoration:
-                        const InputDecoration(labelText: 'Τηλέφωνο'),
-                        keyboardType: TextInputType.phone,
-                      ),
+                      TextField(controller: _contactPhoneCtrl, decoration: const InputDecoration(labelText: 'Τηλέφωνο'), keyboardType: TextInputType.phone),
                       const SizedBox(height: Spacing.sm),
-                      // Email
-                      TextField(
-                        controller: _contactEmailCtrl,
-                        decoration: const InputDecoration(labelText: 'Email'),
-                        keyboardType: TextInputType.emailAddress,
-                      ),
+                      TextField(controller: _contactEmailCtrl, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
                       const SizedBox(height: Spacing.sm),
-                      // Company
-                      TextField(
-                        controller: _contactCompanyCtrl,
-                        decoration:
-                        const InputDecoration(labelText: 'Εταιρεία'),
-                      ),
+                      TextField(controller: _contactCompanyCtrl, decoration: const InputDecoration(labelText: 'Εταιρεία')),
                       const SizedBox(height: Spacing.sm),
-                      // Website
-                      TextField(
-                        controller: _contactWebsiteCtrl,
-                        decoration: const InputDecoration(labelText: 'Website'),
-                        keyboardType: TextInputType.url,
-                      ),
+                      TextField(controller: _contactWebsiteCtrl, decoration: const InputDecoration(labelText: 'Website'), keyboardType: TextInputType.url),
                       const SizedBox(height: Spacing.sm),
-                      // Address
-                      TextField(
-                        controller: _contactAddressCtrl,
-                        decoration:
-                        const InputDecoration(labelText: 'Διεύθυνση'),
-                        maxLines: 2,
-                      ),
+                      TextField(controller: _contactAddressCtrl, decoration: const InputDecoration(labelText: 'Διεύθυνση'), maxLines: 2),
                       const SizedBox(height: Spacing.sm),
-                      // Birthday
-                      _BirthdayField(
-                        birthday: _contactBirthday,
-                        onPick: _pickBirthday,
-                        onClear: _clearBirthday,
-                      ),
+                      _BirthdayField(birthday: _contactBirthday, onPick: _pickBirthday, onClear: _clearBirthday),
                       const SizedBox(height: Spacing.sm),
-                      // Notes
-                      TextField(
-                        controller: _contactNotesCtrl,
-                        decoration: const InputDecoration(
-                            labelText: 'Σημειώσεις επαφής'),
-                        maxLines: 3,
-                      ),
+                      TextField(controller: _contactNotesCtrl, decoration: const InputDecoration(labelText: 'Σημειώσεις επαφής'), maxLines: 3),
                     ],
                   ),
                 ),
@@ -847,16 +644,6 @@ class _AppointmentDetailScreenState
           ),
           const SizedBox(height: Spacing.md),
 
-          // ⭐ Νέα ενότητα υπενθύμισης (αντικαθιστά το παλιό reminder + recurrence)
-          ReminderSection(
-            itemId: widget.itemId,
-            itemTitle: _titleCtrl.text.trim().isEmpty
-                ? 'Ραντεβού'
-                : _titleCtrl.text.trim(),
-            defaultStartTime: startDateTime,
-          ),
-          const SizedBox(height: Spacing.md),
-
           // Notes (appointment)
           TextField(
             controller: _notesCtrl,
@@ -872,7 +659,6 @@ class _AppointmentDetailScreenState
     );
   }
 
-  // --- Fallbacks ---
   Widget _buildLoading() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(),
@@ -882,18 +668,13 @@ class _AppointmentDetailScreenState
   Widget _buildError() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(),
-    body: EmptyState.error(
-      onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId)),
-    ),
+    body: EmptyState.error(onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
   );
 
   Widget _buildNotFound() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(),
-    body: const EmptyState(
-      icon: Icons.event_busy_rounded,
-      title: 'Το ραντεβού δεν βρέθηκε',
-    ),
+    body: const EmptyState(icon: Icons.event_busy_rounded, title: 'Το ραντεβού δεν βρέθηκε'),
   );
 
   @override
@@ -912,24 +693,17 @@ class _AppointmentDetailScreenState
   }
 }
 
-// --- Birthday Field (unchanged) ---
+// --- Birthday Field ---
 class _BirthdayField extends StatelessWidget {
   final DateTime? birthday;
   final VoidCallback onPick;
   final VoidCallback onClear;
 
-  const _BirthdayField({
-    required this.birthday,
-    required this.onPick,
-    required this.onClear,
-  });
+  const _BirthdayField({required this.birthday, required this.onPick, required this.onClear});
 
   @override
   Widget build(BuildContext context) {
-    final label = birthday != null
-        ? DateFormat.yMMMMd('el_GR').format(birthday!)
-        : 'Επιλογή ημερομηνίας';
-
+    final label = birthday != null ? DateFormat.yMMMMd('el_GR').format(birthday!) : 'Επιλογή ημερομηνίας';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs + 2),
       child: Wrap(
@@ -941,15 +715,11 @@ class _BirthdayField extends StatelessWidget {
           GestureDetector(
             onTap: onPick,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.sm + 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm + 4),
               decoration: BoxDecoration(
                 color: ColorsUI.getSurface(context.brightness),
                 borderRadius: AppRadius.inputBR,
-                border:
-                Border.all(color: ColorsUI.getBorder(context.brightness)),
+                border: Border.all(color: ColorsUI.getBorder(context.brightness)),
               ),
               child: Row(
                 children: [
@@ -957,30 +727,16 @@ class _BirthdayField extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Γενέθλια',
-                          style: context.bodySm.withColor(context.cText2),
-                        ),
+                        Text('Γενέθλια', style: context.bodySm.withColor(context.cText2)),
                         const SizedBox(height: 2),
-                        Text(
-                          label,
-                          style: context.bodyMd.withColor(
-                            birthday != null
-                                ? context.cText
-                                : context.cDisabled,
-                          ),
-                        ),
+                        Text(label, style: context.bodyMd.withColor(birthday != null ? context.cText : context.cDisabled)),
                       ],
                     ),
                   ),
                   if (birthday != null)
                     GestureDetector(
                       onTap: onClear,
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: 16,
-                        color: context.cText2,
-                      ),
+                      child: Icon(Icons.close_rounded, size: 16, color: context.cText2),
                     ),
                 ],
               ),
@@ -992,13 +748,12 @@ class _BirthdayField extends StatelessWidget {
   }
 }
 
-// --- Contact Search Sheet (unchanged) ---
+// --- Contact Search Sheet ---
 class _ContactSearchSheet extends ConsumerStatefulWidget {
   const _ContactSearchSheet();
 
   @override
-  ConsumerState<_ContactSearchSheet> createState() =>
-      _ContactSearchSheetState();
+  ConsumerState<_ContactSearchSheet> createState() => _ContactSearchSheetState();
 }
 
 class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
@@ -1018,25 +773,17 @@ class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
     );
 
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-        ),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
         child: Column(
           children: [
-            // Handle
             Center(
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(
-                  color: context.cBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
               ),
             ),
             Padding(
@@ -1048,10 +795,7 @@ class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
                 decoration: InputDecoration(
                   hintText: 'Αναζήτηση επαφής...',
                   prefixIcon: const Icon(Icons.search_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.inputBR,
-                    borderSide: BorderSide.none,
-                  ),
+                  border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
                   filled: true,
                   fillColor: ColorsUI.getSurface(context.brightness),
                 ),
@@ -1063,13 +807,8 @@ class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (_, __) => EmptyState.error(),
                 data: (contacts) {
-                  final filtered = contacts.where((c) {
-                    final name = c.title?.toLowerCase() ?? '';
-                    return name.contains(_query);
-                  }).toList();
-                  if (filtered.isEmpty) {
-                    return EmptyState.search(query: _query);
-                  }
+                  final filtered = contacts.where((c) => c.title?.toLowerCase().contains(_query) ?? false).toList();
+                  if (filtered.isEmpty) return EmptyState.search(query: _query);
                   return ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (_, i) {
@@ -1084,7 +823,7 @@ class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
                   );
                 },
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -1095,13 +834,9 @@ class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
     final props = ref.read(itemPropertiesProvider(contact.id)).valueOrNull;
     if (props == null) return const SizedBox.shrink();
     final phone = props.where((p) => p.key == 'phone').firstOrNull?.value;
-    if (phone != null && phone.isNotEmpty) {
-      return Text(phone, style: TextStyle(fontSize: 12, color: context.cText2));
-    }
+    if (phone != null && phone.isNotEmpty) return Text(phone, style: TextStyle(fontSize: 12, color: context.cText2));
     final email = props.where((p) => p.key == 'email').firstOrNull?.value;
-    if (email != null && email.isNotEmpty) {
-      return Text(email, style: TextStyle(fontSize: 12, color: context.cText2));
-    }
+    if (email != null && email.isNotEmpty) return Text(email, style: TextStyle(fontSize: 12, color: context.cText2));
     return const SizedBox.shrink();
   }
 }

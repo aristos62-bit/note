@@ -107,29 +107,41 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
   }
 
   Future<void> _loadData() async {
+    DebugConfig.notif('ReminderSection._loadData: itemId=${widget.itemId}');
     setState(() => _isLoading = true);
     final reminders = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
+    DebugConfig.notif('ReminderSection._loadData: found ${reminders.length} reminders for item ${widget.itemId}');
+    for (final r in reminders) {
+      DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule}');
+    }
     if (reminders.isNotEmpty) {
       final r = reminders.first;
       _reminderId = r.id;
       _triggerDateTime = r.triggerAt;
       _enabled = true;
       _recurrence = rruleToRecurrence(r.rrule);
+      DebugConfig.notif('ReminderSection._loadData: loaded existing reminder id=${r.id}, enabled=true');
     } else {
       _reminderId = null;
       _triggerDateTime = null;
       _enabled = false;
       _recurrence = null;
+      DebugConfig.notif('ReminderSection._loadData: no reminders found, enabled=false');
     }
     if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _saveReminder() async {
+    DebugConfig.notif('ReminderSection._saveReminder: enabled=$_enabled, trigger=$_triggerDateTime, reminderId=$_reminderId, itemId=${widget.itemId}');
+
     if (!_enabled || _triggerDateTime == null) {
+      DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger → deleting if exists');
       if (_reminderId != null) {
+        DebugConfig.notif('ReminderSection._saveReminder: cancelling & deleting reminder id=$_reminderId');
         await ReminderScheduler.instance.cancelReminder(_reminderId!);
         await SuperNoteHelper.instance.reminders.delete(_reminderId!);
         _reminderId = null;
+        DebugConfig.notif('ReminderSection._saveReminder: deleted');
       }
       return;
     }
@@ -137,11 +149,15 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     final rrule = recurrenceToRRULE(_recurrence);
     const title = 'Υπενθύμιση';
     final body = widget.itemTitle;
+    DebugConfig.notif('ReminderSection._saveReminder: rrule=$rrule, title=$title, body=$body');
 
     if (_reminderId != null) {
+      DebugConfig.notif('ReminderSection._saveReminder: updating existing reminder id=$_reminderId');
       final existing = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
+      DebugConfig.notif('ReminderSection._saveReminder: found ${existing.length} existing reminders');
       if (existing.isNotEmpty) {
         final r = existing.first;
+        DebugConfig.notif('ReminderSection._saveReminder: before update: id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
         r.triggerAt = _triggerDateTime!;
         r.rrule = rrule;
         r.title = title;
@@ -150,9 +166,13 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         await SuperNoteHelper.instance.isar.writeTxn(() async {
           await SuperNoteHelper.instance.isar.reminders.put(r);
         });
+        DebugConfig.notif('ReminderSection._saveReminder: updated reminder id=${r.id}, new trigger=${r.triggerAt}');
         await ReminderScheduler.instance.scheduleReminder(r);
+      } else {
+        DebugConfig.notif('ReminderSection._saveReminder: WARNING - _reminderId=$_reminderId but no reminders found in DB!');
       }
     } else {
+      DebugConfig.notif('ReminderSection._saveReminder: creating NEW reminder for itemId=${widget.itemId}');
       final newReminder = await SuperNoteHelper.instance.reminders.create(
         itemId: widget.itemId,
         triggerAt: _triggerDateTime!,
@@ -161,11 +181,14 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         body: body,
       );
       _reminderId = newReminder.id;
+      DebugConfig.notif('ReminderSection._saveReminder: created reminder id=${newReminder.id}, trigger=${newReminder.triggerAt}, status=${newReminder.status.name}');
       await ReminderScheduler.instance.scheduleReminder(newReminder);
     }
+    DebugConfig.notif('ReminderSection._saveReminder: DONE');
   }
 
   Future<void> _pickDateTime() async {
+    DebugConfig.notif('ReminderSection._pickDateTime: called');
     final now = DateTime.now();
     final initial = _triggerDateTime ?? widget.defaultStartTime ?? now.add(const Duration(hours: 1));
     final date = await showDatePicker(
@@ -177,15 +200,22 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       locale: const Locale('el'),
     );
     if (!mounted) return;
-    if (date == null) return;
+    if (date == null) {
+      DebugConfig.notif('ReminderSection._pickDateTime: date picker cancelled');
+      return;
+    }
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
       helpText: 'Ώρα υπενθύμισης',
     );
     if (!mounted) return;
-    if (time == null) return;
+    if (time == null) {
+      DebugConfig.notif('ReminderSection._pickDateTime: time picker cancelled');
+      return;
+    }
     final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    DebugConfig.notif('ReminderSection._pickDateTime: selected dt=$dt');
     setState(() => _triggerDateTime = dt);
     await _saveReminder();
   }
@@ -223,8 +253,10 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
             Switch(
               value: _enabled,
               onChanged: (val) async {
+                DebugConfig.notif('ReminderSection: Switch changed to $val');
                 setState(() => _enabled = val);
                 if (val && _triggerDateTime == null) {
+                  DebugConfig.notif('ReminderSection: Switch ON, no trigger yet → opening picker');
                   await _pickDateTime();
                 } else {
                   await _saveReminder();

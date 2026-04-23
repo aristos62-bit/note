@@ -4,11 +4,9 @@
 // ✅ Responsive: single col mobile / two-panel tablet+desktop
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
-// ✅ Recurrence support (daily/weekly/monthly/custom)
-// ✅ Reminders: χρήση κοινού widget ReminderSection
+// ✅ Reminders: μόνο από εικονίδιο AppBar (όχι inline) – η επανάληψη γίνεται μέσω ReminderSection
 //
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
@@ -42,7 +40,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
-  bool _hasEverBeenSaved = false;
   bool _isPinned = false;
   bool _isFavorite = false;
 
@@ -77,7 +74,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
     _lastSavedTitle = title;
-    _hasEverBeenSaved = true;
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
@@ -140,6 +136,29 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     ref.invalidate(itemNotifierProvider);
   }
 
+  // --- Εμφάνιση bottom sheet με ReminderSection ---
+  Future<void> _showReminderDialog() async {
+    final title = _titleCtrl.text.trim().isEmpty ? 'Συνήθεια' : _titleCtrl.text.trim();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.itemId,
+          itemTitle: title,
+          defaultStartTime: null, // οι συνήθειες δεν έχουν ημερομηνία/ώρα
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('HabitDetailScreen build id=${widget.itemId}');
@@ -166,7 +185,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           }
         }
 
-        // Sync pinned/favorite
         if (_isPinned != item.pinned) _isPinned = item.pinned;
         if (_isFavorite != item.favorite) _isFavorite = item.favorite;
 
@@ -265,9 +283,10 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     ])
         : null,
     actions: [
+      // Save
       IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(Icons.save_rounded, color: context.cPrimary),
+        icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
         tooltip: 'Αποθήκευση',
         onPressed: () async {
           final nav = Navigator.of(context);
@@ -275,30 +294,41 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           if (nav.mounted) nav.pop();
         },
       ),
+      // Reminder
       IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(_isFavorite ? Icons.star_rounded : Icons.star_outline_rounded),
-        color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
-        tooltip: _isFavorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένη συνήθεια',
-        onPressed: () => _toggleFav(item),
+        icon: Icon(Icons.notifications_none_rounded, color: context.cText2, size: 20),
+        onPressed: _showReminderDialog,
+        tooltip: 'Υπενθύμιση',
       ),
+      // Pin
       IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(_isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined),
-        color: _isPinned ? context.cPrimary : context.cText2,
-        tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+        icon: Icon(_isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+            color: _isPinned ? context.cPrimary : context.cText2, size: 20),
         onPressed: () => _togglePin(item),
+        tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
       ),
+      // Favorite
       IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(item.archived ? Icons.unarchive_rounded : Icons.archive_rounded),
-        color: context.cText2,
-        tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
+        icon: Icon(_isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+            color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2, size: 20),
+        onPressed: () => _toggleFav(item),
+        tooltip: _isFavorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένη συνήθεια',
+      ),
+      // Archive
+      IconButton(
+        visualDensity: VisualDensity.compact,
+        icon: Icon(item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+            color: context.cText2, size: 20),
         onPressed: () => _toggleArchive(item),
+        tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
       ),
+      // Delete
       IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(Icons.delete_outline_rounded, color: context.cError),
+        icon: Icon(Icons.delete_outline_rounded, color: context.cError, size: 20),
         onPressed: () => _delete(context),
         tooltip: 'Διαγραφή',
       ),
@@ -325,7 +355,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// HABIT BODY
+// HABIT BODY (χωρίς ReminderSection)
 // ════════════════════════════════════════════════════════════════
 
 class _HabitBody extends ConsumerWidget {
@@ -357,7 +387,7 @@ class _HabitBody extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        // ── Progress section ─────────────────────────────────
+        // Progress section
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.lg, context.responsiveHPadding, Spacing.md),
@@ -370,7 +400,7 @@ class _HabitBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Title ────────────────────────────────────────────
+        // Title
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
@@ -391,7 +421,7 @@ class _HabitBody extends ConsumerWidget {
 
         const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
 
-        // ── Stats (mobile only) ──────────────────────────────
+        // Stats (mobile only)
         if (!hideStats && stats != null)
           SliverToBoxAdapter(
             child: Padding(
@@ -400,7 +430,7 @@ class _HabitBody extends ConsumerWidget {
             ),
           ),
 
-        // ── Divider ──────────────────────────────────────────
+        // Divider
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
@@ -408,7 +438,7 @@ class _HabitBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Calendar heatmap ─────────────────────────────────
+        // Calendar heatmap
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
@@ -427,7 +457,7 @@ class _HabitBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Settings section (goal, unit, recurrence, reminder) ──────────
+        // Settings section (goal, unit – χωρίς recurrence)
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
@@ -753,7 +783,7 @@ class _StatsPanel extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// HABIT SETTINGS (goal, unit, recurrence, reminder)
+// HABIT SETTINGS (goal, unit – χωρίς recurrence)
 // ════════════════════════════════════════════════════════════════
 
 class _HabitSettings extends ConsumerWidget {
@@ -800,250 +830,11 @@ class _HabitSettings extends ConsumerWidget {
                 value: unit.isEmpty ? 'Χωρίς μονάδα' : unit,
                 onTap: () => _editUnit(context, ref, unit),
               ),
-              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
-              _SettingsRow(
-                icon: Icons.repeat_rounded,
-                label: 'Επανάληψη',
-                value: _getRecurrenceLabel(props),
-                onTap: () => _editRecurrence(context, ref),
-              ),
-              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
-              // ⭐ Υπενθύμιση – χρήση κοινού widget ReminderSection
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: Spacing.xs),
-                child: ReminderSection(
-                  itemId: habitId,
-                  itemTitle: _getHabitTitle(ref),
-                  defaultStartTime: null,
-                ),
-              ),
+              // ⭐ Η επανάληψη γίνεται μόνο μέσω του ReminderSection (στην AppBar)
             ],
           ),
         ),
       ],
-    );
-  }
-
-  String _getHabitTitle(WidgetRef ref) {
-    final item = ref.read(itemStreamProvider(habitId)).valueOrNull;
-    return item?.title ?? 'Συνήθεια';
-  }
-
-  String _getRecurrenceLabel(List<ItemProperty> props) {
-    final typeStr = props.firstWhere((p) => p.key == 'recurrence_type',
-        orElse: () => ItemProperty()..value = 'daily').value ?? 'daily';
-    final interval = props.firstWhere((p) => p.key == 'recurrence_interval',
-        orElse: () => ItemProperty()..value = '1').value ?? '1';
-    final daysJson = props.firstWhere((p) => p.key == 'recurrence_days',
-        orElse: () => ItemProperty()..value = '').value ?? '';
-    DebugConfig.nav('📖 Recurrence props: type="$typeStr", interval="$interval", daysJson="$daysJson"');
-    final recurrence = Recurrence.fromJson({
-      'type': typeStr,
-      'interval': int.tryParse(interval) ?? 1,
-      'days': daysJson.isNotEmpty ? (jsonDecode(daysJson) as List).cast<int>() : null,
-    });
-    return recurrence.describe();
-  }
-
-  void _editRecurrence(BuildContext context, WidgetRef ref) {
-    final props = ref.read(itemPropertiesProvider(habitId)).valueOrNull ?? [];
-    final typeStr = props.firstWhere((p) => p.key == 'recurrence_type',
-        orElse: () => ItemProperty()..value = 'daily').value ?? 'daily';
-    final intervalStr = props.firstWhere((p) => p.key == 'recurrence_interval',
-        orElse: () => ItemProperty()..value = '1').value ?? '1';
-    final interval = int.tryParse(intervalStr) ?? 1;
-    final daysJson = props.firstWhere((p) => p.key == 'recurrence_days',
-        orElse: () => ItemProperty()..value = '').value ?? '';
-
-    RecurrenceType currentType = RecurrenceType.values.firstWhere(
-            (e) => e.name == typeStr, orElse: () => RecurrenceType.daily);
-    List<int>? currentDays;
-    int? currentDayOfMonth;
-    if (currentType == RecurrenceType.weekly && daysJson.isNotEmpty) {
-      currentDays = (jsonDecode(daysJson) as List).map((e) => e as int).toList();
-    } else if (currentType == RecurrenceType.monthly && daysJson.isNotEmpty) {
-      currentDayOfMonth = int.tryParse(daysJson);
-    }
-
-    RecurrenceType type = currentType;
-    int intervalVal = interval;
-    List<int>? days = currentDays != null ? [...currentDays] : null;
-    int? dayOfMonth = currentDayOfMonth;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + Spacing.md,
-              left: Spacing.lg,
-              right: Spacing.lg,
-              top: Spacing.md,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Επανάληψη', style: context.titleMd),
-                const SizedBox(height: Spacing.md),
-                // Type selector
-                Row(
-                  children: RecurrenceType.values.map((t) {
-                    final isActive = type == t;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setModal(() => type = t),
-                        child: AnimatedContainer(
-                          duration: AppDuration.fast,
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                          decoration: BoxDecoration(
-                            color: isActive ? context.cPrimary.withValues(alpha: 0.12) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                            border: Border.all(
-                              color: isActive ? context.cPrimary : ColorsUI.getBorder(context.brightness),
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              t == RecurrenceType.daily ? 'Καθημερινά' :
-                              t == RecurrenceType.weekly ? 'Εβδομαδιαία' :
-                              t == RecurrenceType.monthly ? 'Μηνιαία' : 'Προσαρμοσμένο',
-                              style: context.labelSm.withColor(isActive ? context.cPrimary : context.cText),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: Spacing.md),
-                // Interval
-                Row(
-                  children: [
-                    Text('Κάθε', style: context.bodyMd),
-                    const SizedBox(width: Spacing.sm),
-                    Expanded(
-                      child: TextFormField(
-                        initialValue: intervalVal.toString(),
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: AppRadius.inputBR,
-                            borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
-                        ),
-                        onChanged: (v) {
-                          final i = int.tryParse(v);
-                          if (i != null && i > 0) setModal(() => intervalVal = i);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.sm),
-                    Text(
-                      type == RecurrenceType.daily ? 'ημέρες' :
-                      type == RecurrenceType.weekly ? 'εβδομάδες' :
-                      type == RecurrenceType.monthly ? 'μήνες' : 'ημέρες',
-                      style: context.bodyMd,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Spacing.md),
-                // Weekly days
-                if (type == RecurrenceType.weekly) ...[
-                  Text('Ημέρες της εβδομάδας', style: context.labelMd),
-                  const SizedBox(height: Spacing.xs),
-                  Wrap(
-                    spacing: Spacing.xs,
-                    children: [
-                      for (int i = 1; i <= 7; i++)
-                        _WeekdayChip(
-                          day: i,
-                          selected: days?.contains(i) ?? false,
-                          onToggle: (selected) {
-                            setModal(() {
-                              days ??= [];
-                              if (selected) {
-                                days!.add(i);
-                              } else {
-                                days!.remove(i);
-                              }
-                            });
-                          },
-                        ),
-                    ],
-                  ),
-                ],
-                // Monthly day
-                if (type == RecurrenceType.monthly) ...[
-                  Text('Ημέρα του μήνα', style: context.labelMd),
-                  const SizedBox(height: Spacing.xs),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: (dayOfMonth ?? 1).toString(),
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: AppRadius.inputBR,
-                              borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
-                            ),
-                          ),
-                          onChanged: (v) {
-                            final d = int.tryParse(v);
-                            if (d != null && d >= 1 && d <= 31) setModal(() => dayOfMonth = d);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: Spacing.lg),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Άκυρο'),
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.sm),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () async {
-                          final newRecurrence = Recurrence(
-                            type: type,
-                            interval: intervalVal,
-                            days: days,
-                            dayOfMonth: dayOfMonth,
-                          );
-                          await HabitService.instance.setRecurrence(habitId, newRecurrence);
-                          DebugConfig.nav('✅ Recurrence saved, invalidating providers');
-                          ref.invalidate(itemPropertiesProvider(habitId));
-                          if (!context.mounted) return;
-                          Navigator.pop(ctx);
-                        },
-                        child: const Text('Αποθήκευση'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -1174,43 +965,6 @@ class _SettingsRow extends StatelessWidget {
         ],
       ),
       onTap: onTap,
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// WEEKDAY CHIP (for weekly recurrence)
-// ════════════════════════════════════════════════════════════════
-
-class _WeekdayChip extends StatelessWidget {
-  final int day; // 1=Monday ... 7=Sunday
-  final bool selected;
-  final ValueChanged<bool> onToggle;
-
-  const _WeekdayChip({
-    required this.day,
-    required this.selected,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const names = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
-    final label = names[day - 1];
-    return GestureDetector(
-      onTap: () => onToggle(!selected),
-      child: AnimatedContainer(
-        duration: AppDuration.fast,
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
-        decoration: BoxDecoration(
-          color: selected ? context.cPrimary.withValues(alpha: 0.12) : ColorsUI.getSurface(context.brightness),
-          borderRadius: BorderRadius.circular(AppRadius.badge),
-          border: Border.all(
-            color: selected ? context.cPrimary : ColorsUI.getBorder(context.brightness),
-          ),
-        ),
-        child: Text(label, style: context.labelSm.withColor(selected ? context.cPrimary : context.cText2)),
-      ),
     );
   }
 }

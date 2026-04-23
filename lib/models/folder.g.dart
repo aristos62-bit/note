@@ -42,33 +42,38 @@ const FolderSchema = CollectionSchema(
       name: r'isDirty',
       type: IsarType.bool,
     ),
-    r'localVersion': PropertySchema(
+    r'isSystem': PropertySchema(
       id: 5,
+      name: r'isSystem',
+      type: IsarType.bool,
+    ),
+    r'localVersion': PropertySchema(
+      id: 6,
       name: r'localVersion',
       type: IsarType.long,
     ),
     r'name': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'name',
       type: IsarType.string,
     ),
     r'parentFolderId': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'parentFolderId',
       type: IsarType.long,
     ),
     r'sortOrder': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'sortOrder',
       type: IsarType.double,
     ),
     r'updatedAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'workspaceId': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'workspaceId',
       type: IsarType.long,
     )
@@ -147,12 +152,13 @@ void _folderSerialize(
   writer.writeString(offsets[2], object.icon);
   writer.writeBool(offsets[3], object.isDefault);
   writer.writeBool(offsets[4], object.isDirty);
-  writer.writeLong(offsets[5], object.localVersion);
-  writer.writeString(offsets[6], object.name);
-  writer.writeLong(offsets[7], object.parentFolderId);
-  writer.writeDouble(offsets[8], object.sortOrder);
-  writer.writeDateTime(offsets[9], object.updatedAt);
-  writer.writeLong(offsets[10], object.workspaceId);
+  writer.writeBool(offsets[5], object.isSystem);
+  writer.writeLong(offsets[6], object.localVersion);
+  writer.writeString(offsets[7], object.name);
+  writer.writeLong(offsets[8], object.parentFolderId);
+  writer.writeDouble(offsets[9], object.sortOrder);
+  writer.writeDateTime(offsets[10], object.updatedAt);
+  writer.writeLong(offsets[11], object.workspaceId);
 }
 
 Folder _folderDeserialize(
@@ -168,12 +174,13 @@ Folder _folderDeserialize(
   object.id = id;
   object.isDefault = reader.readBool(offsets[3]);
   object.isDirty = reader.readBool(offsets[4]);
-  object.localVersion = reader.readLong(offsets[5]);
-  object.name = reader.readString(offsets[6]);
-  object.parentFolderId = reader.readLongOrNull(offsets[7]);
-  object.sortOrder = reader.readDouble(offsets[8]);
-  object.updatedAt = reader.readDateTimeOrNull(offsets[9]);
-  object.workspaceId = reader.readLong(offsets[10]);
+  object.isSystem = reader.readBool(offsets[5]);
+  object.localVersion = reader.readLong(offsets[6]);
+  object.name = reader.readString(offsets[7]);
+  object.parentFolderId = reader.readLongOrNull(offsets[8]);
+  object.sortOrder = reader.readDouble(offsets[9]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[10]);
+  object.workspaceId = reader.readLong(offsets[11]);
   return object;
 }
 
@@ -195,16 +202,18 @@ P _folderDeserializeProp<P>(
     case 4:
       return (reader.readBool(offset)) as P;
     case 5:
-      return (reader.readLong(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 6:
-      return (reader.readString(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 7:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 8:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 10:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 11:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -955,6 +964,16 @@ extension FolderQueryFilter on QueryBuilder<Folder, Folder, QFilterCondition> {
     });
   }
 
+  QueryBuilder<Folder, Folder, QAfterFilterCondition> isSystemEqualTo(
+      bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isSystem',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<Folder, Folder, QAfterFilterCondition> localVersionEqualTo(
       int value) {
     return QueryBuilder.apply(this, (query) {
@@ -1457,6 +1476,18 @@ extension FolderQuerySortBy on QueryBuilder<Folder, Folder, QSortBy> {
     });
   }
 
+  QueryBuilder<Folder, Folder, QAfterSortBy> sortByIsSystem() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSystem', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Folder, Folder, QAfterSortBy> sortByIsSystemDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSystem', Sort.desc);
+    });
+  }
+
   QueryBuilder<Folder, Folder, QAfterSortBy> sortByLocalVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localVersion', Sort.asc);
@@ -1603,6 +1634,18 @@ extension FolderQuerySortThenBy on QueryBuilder<Folder, Folder, QSortThenBy> {
     });
   }
 
+  QueryBuilder<Folder, Folder, QAfterSortBy> thenByIsSystem() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSystem', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Folder, Folder, QAfterSortBy> thenByIsSystemDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSystem', Sort.desc);
+    });
+  }
+
   QueryBuilder<Folder, Folder, QAfterSortBy> thenByLocalVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localVersion', Sort.asc);
@@ -1709,6 +1752,12 @@ extension FolderQueryWhereDistinct on QueryBuilder<Folder, Folder, QDistinct> {
     });
   }
 
+  QueryBuilder<Folder, Folder, QDistinct> distinctByIsSystem() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isSystem');
+    });
+  }
+
   QueryBuilder<Folder, Folder, QDistinct> distinctByLocalVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'localVersion');
@@ -1781,6 +1830,12 @@ extension FolderQueryProperty on QueryBuilder<Folder, Folder, QQueryProperty> {
   QueryBuilder<Folder, bool, QQueryOperations> isDirtyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isDirty');
+    });
+  }
+
+  QueryBuilder<Folder, bool, QQueryOperations> isSystemProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isSystem');
     });
   }
 

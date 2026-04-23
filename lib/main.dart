@@ -1,4 +1,3 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -20,13 +19,12 @@ void main() async {
   await NotificationService.instance.init();
   DebugConfig.startup('Notifications initialized');
 
-  await NotificationService.instance.requestPermission();
-  DebugConfig.startup('Notifications requestPermission');
+  final hasPermission = await NotificationService.instance.requestPermission();
+  DebugConfig.startup('Notifications requestPermission -> $hasPermission');
 
   final container = ProviderContainer();
   DebugConfig.startup('ProviderContainer created');
 
-// Dispose όταν κλείσει το app (καλό practice)
   WidgetsBinding.instance.addObserver(
     _AppLifecycleObserver(container),
   );
@@ -61,27 +59,21 @@ class SuperNoteApp extends ConsumerWidget {
     final fontScale = settings.value?.fontScale ?? 1.0;
     final router = ref.watch(appRouterProvider);
 
-    DebugConfig.provider(
-      'SuperNoteApp.build theme=${appTheme.name}',
-    );
+    DebugConfig.provider('SuperNoteApp.build theme=${appTheme.name}');
 
     return MaterialApp.router(
-      title:                     'SuperNote',
+      title: 'SuperNote',
       debugShowCheckedModeBanner: false,
-      themeMode:                 _toThemeMode(appTheme),
-      theme:                     AppThemeData.light,
-      darkTheme:                 AppThemeData.dark,
-      routerConfig:              router,
-
-      // Εφαρμογή fontScale από ρυθμίσεις
+      themeMode: _toThemeMode(appTheme),
+      theme: AppThemeData.light,
+      darkTheme: AppThemeData.dark,
+      routerConfig: router,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
           textScaler: TextScaler.linear(fontScale),
         ),
         child: child!,
       ),
-
-      // Localization για Material / Cupertino / Widgets
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -93,7 +85,6 @@ class SuperNoteApp extends ConsumerWidget {
       ],
       locale: const Locale('el'),
     );
-
   }
 
   ThemeMode _toThemeMode(AppTheme theme) {
@@ -107,13 +98,13 @@ class SuperNoteApp extends ConsumerWidget {
 
 class _AppLifecycleObserver extends WidgetsBindingObserver {
   final ProviderContainer container;
+  bool _disposed = false;
 
   _AppLifecycleObserver(this.container);
 
-  bool _disposed = false;
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
+    DebugConfig.print('🔔 [LIFECYCLE] state=$state');
     if (state == AppLifecycleState.resumed) {
       DebugConfig.startup('App resumed — scheduling reminders');
       await ReminderScheduler.instance.scheduleAll();

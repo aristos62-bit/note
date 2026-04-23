@@ -5,7 +5,7 @@
 // ✅ Responsive: single col mobile / two-panel tablet+desktop
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
-// ✅ Reminders: χρήση κοινού widget ReminderSection
+// ✅ Reminders: μόνο από εικονίδιο AppBar (όχι inline)
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -40,8 +40,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   String _lastSavedTitle = '';
   bool _hasEverBeenSaved = false;
   bool _isPinned = false;
-
-  // ── Favorite state ───────────────────────────────────────────
   bool _isFavorite = false;
 
   @override
@@ -60,8 +58,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     _locationCtrl.dispose();
     super.dispose();
   }
-
-  // ── Save helpers ─────────────────────────────────────────────
 
   void _onTitleChanged(String v) {
     _isEditingTitle = true;
@@ -110,8 +106,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     }
   }
 
-  // ── Favorite toggle ─────────────────────────────────────────
-
   Future<void> _toggleFavorite() async {
     DebugConfig.provider('EventDetail toggleFavorite id=${widget.itemId}');
     await ref.read(itemNotifierProvider.notifier)
@@ -128,8 +122,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     ref.invalidate(itemNotifierProvider);
   }
 
-  // ── Pop guard ─────────────────────────────────────────────────
-
   Future<bool> _onPopInvoked() async {
     _titleDebounce?.cancel();
     _locationDebounce?.cancel();
@@ -137,20 +129,15 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     final title = _titleCtrl.text.trim();
     final hasTitle = title.isNotEmpty;
 
-    // isNew χωρίς τίτλο → auto-delete
     if (widget.isNew && !_hasEverBeenSaved) {
-      DebugConfig.db(
-          'EventDetail auto-delete NEW event id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier)
-          .deleteItem(widget.itemId);
+      DebugConfig.db('EventDetail auto-delete NEW event id=${widget.itemId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
       return true;
     }
 
     if (!hasTitle) {
-      DebugConfig.db(
-          'EventDetail auto-delete empty event id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier)
-          .deleteItem(widget.itemId);
+      DebugConfig.db('EventDetail auto-delete empty event id=${widget.itemId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
       return true;
     }
 
@@ -158,10 +145,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     return true;
   }
 
-  // ── Date/time pickers ─────────────────────────────────────────
-
-  Future<void> _pickStartTime(
-      BuildContext context, DateTime? current) async {
+  Future<void> _pickStartTime(BuildContext context, DateTime? current) async {
     final now = DateTime.now();
     final init = current ?? now;
     final date = await showDatePicker(
@@ -171,14 +155,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       lastDate: DateTime(now.year + 5),
     );
     if (date == null || !mounted) return;
-    if (!context.mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(init),
     );
     if (time == null) return;
-    final dt = DateTime(
-        date.year, date.month, date.day, time.hour, time.minute);
+    final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     DebugConfig.db('EventDetail setStartTime $dt');
     await ref.read(propertyNotifierProvider(widget.itemId).notifier)
         .setDate('start_time', dt);
@@ -191,18 +173,48 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   }
 
   Future<void> _delete(BuildContext context) async {
-    final future = ConfirmDialog.delete(context,
-        title: 'Διαγραφή συμβάντος;');
+    final future = ConfirmDialog.delete(context, title: 'Διαγραφή συμβάντος;');
     final ok = await future;
     if (!ok || !mounted) return;
     DebugConfig.db('EventDetail delete id=${widget.itemId}');
-    await ref.read(itemNotifierProvider.notifier)
-        .deleteItem(widget.itemId);
+    await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
     if (!context.mounted) return;
     Navigator.of(context, rootNavigator: false).pop();
   }
 
-  // ── Build ─────────────────────────────────────────────────────
+  // --- Υπολογισμός startDateTime για υπενθύμιση ---
+  DateTime? _getStartDateTime() {
+    final props = ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull;
+    final startStr = props?.where((p) => p.key == 'start_time').firstOrNull?.value;
+    return startStr != null ? DateTime.tryParse(startStr) : null;
+  }
+
+  // --- Εμφάνιση bottom sheet με ReminderSection ---
+  Future<void> _showReminderDialog() async {
+    final startDateTime = _getStartDateTime();
+    final title = _titleCtrl.text.trim().isEmpty ? 'Συμβάν' : _titleCtrl.text.trim();
+
+    DebugConfig.nav('🔔 EVENT_DETAIL: _showReminderDialog called, startDateTime=$startDateTime, itemId=${widget.itemId}');
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.itemId,
+          itemTitle: title,
+          defaultStartTime: startDateTime,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -223,24 +235,15 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           _lastSavedTitle = itemTitle;
         }
         if (!_isEditingTitle && _titleCtrl.text != itemTitle) {
-          final cursorAtEnd =
-              _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
+          final cursorAtEnd = _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
           _titleCtrl.text = itemTitle;
           if (cursorAtEnd) {
-            _titleCtrl.selection =
-                TextSelection.collapsed(offset: _titleCtrl.text.length);
+            _titleCtrl.selection = TextSelection.collapsed(offset: _titleCtrl.text.length);
           }
         }
 
-        // Sync favorite state
-        if (_isFavorite != item.favorite) {
-          _isFavorite = item.favorite;
-        }
-
-        // Sync pinned state
-        if (_isPinned != item.pinned) {
-          _isPinned = item.pinned;
-        }
+        if (_isFavorite != item.favorite) _isFavorite = item.favorite;
+        if (_isPinned != item.pinned) _isPinned = item.pinned;
 
         return PopScope(
           canPop: false,
@@ -313,17 +316,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     elevation: 0,
     scrolledUnderElevation: 1,
     title: _isSaving
-        ? Row(mainAxisSize: MainAxisSize.min, children: [
-      SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(
-            strokeWidth: 2, color: context.cText2),
-      ),
-      const SizedBox(width: Spacing.xs),
-      Text('Αποθήκευση...',
-          style: context.bodySm.withColor(context.cText2)),
-    ])
+        ? const SizedBox(
+      width: 14,
+      height: 14,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    )
         : null,
     actions: [
       // Save
@@ -333,15 +330,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         onPressed: () async {
           final title = _titleCtrl.text.trim();
           final location = _locationCtrl.text.trim();
-          DebugConfig.db(
-              'EventDetail manual save id=${item.id} title="$title"');
+          DebugConfig.db('EventDetail manual save id=${item.id} title="$title"');
           await _saveTitle(title);
           await _saveLocation(location);
           if (!context.mounted) return;
           Navigator.of(context, rootNavigator: false).pop();
         },
       ),
-      // PIN button
+      // Reminder
+      IconButton(
+        icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
+        onPressed: _showReminderDialog,
+        tooltip: 'Υπενθύμιση',
+      ),
+      // Pin
       IconButton(
         icon: Icon(
           _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
@@ -354,18 +356,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       IconButton(
         icon: Icon(
           _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-          color: _isFavorite
-              ? ColorsUI.getWarning(context.brightness)
-              : context.cText2,
+          color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
         ),
         onPressed: _toggleFavorite,
         tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
       ),
       // Delete
       IconButton(
-        icon: Icon(Icons.delete_outline_rounded, color: context.cText2),
-        tooltip: 'Διαγραφή',
+        icon: Icon(Icons.delete_outline_rounded, color: context.cError),
         onPressed: () => _delete(context),
+        tooltip: 'Διαγραφή',
       ),
     ],
   );
@@ -379,22 +379,18 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Widget _buildError() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
-    body: EmptyState.error(
-        onRetry: () =>
-            ref.invalidate(itemStreamProvider(widget.itemId))),
+    body: EmptyState.error(onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
   );
 
   Widget _buildNotFound() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
-    body: const EmptyState(
-        icon: Icons.event_busy_rounded,
-        title: 'Το συμβάν δεν βρέθηκε'),
+    body: const EmptyState(icon: Icons.event_busy_rounded, title: 'Το συμβάν δεν βρέθηκε'),
   );
 }
 
 // ════════════════════════════════════════════════════════════════
-// EVENT BODY
+// EVENT BODY (χωρίς ReminderSection)
 // ════════════════════════════════════════════════════════════════
 
 class _EventBody extends ConsumerWidget {
@@ -424,28 +420,18 @@ class _EventBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
     final props = propsAsync.valueOrNull ?? [];
-    final location = props.where((p) => p.key == 'location')
-        .firstOrNull?.value ?? '';
+    final location = props.where((p) => p.key == 'location').firstOrNull?.value ?? '';
 
-    if (!locationCtrl.selection.isValid &&
-        locationCtrl.text != location) {
+    if (!locationCtrl.selection.isValid && locationCtrl.text != location) {
       locationCtrl.text = location;
     }
 
-    // Get start_time for default reminder time
-    final startStr = props.where((p) => p.key == 'start_time')
-        .firstOrNull?.value;
-    final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
-
     return CustomScrollView(
       slivers: [
-        // ── Title ───────────────────────────────────────────
+        // Title
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.responsiveHPadding, Spacing.lg,
-              context.responsiveHPadding, Spacing.sm,
-            ),
+            padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.lg, context.responsiveHPadding, Spacing.sm),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -454,8 +440,7 @@ class _EventBody extends ConsumerWidget {
                   height: 12,
                   margin: const EdgeInsets.only(top: 8, right: Spacing.sm),
                   decoration: BoxDecoration(
-                    color: ColorsUI.itemTypeColor(
-                        ItemType.event, context.brightness),
+                    color: ColorsUI.itemTypeColor(ItemType.event, context.brightness),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -478,12 +463,11 @@ class _EventBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Properties (mobile) ──────────────────────────────
+        // Properties (mobile)
         if (!hideProperties)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: context.responsiveHPadding),
+              padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
               child: _EventPropertiesPanel(
                 item: item,
                 onPickStart: onPickStart,
@@ -492,26 +476,19 @@ class _EventBody extends ConsumerWidget {
             ),
           ),
 
-        // ── Location ─────────────────────────────────────────
+        // Location
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.responsiveHPadding, Spacing.md,
-              context.responsiveHPadding, 0,
-            ),
+            padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, 0),
             child: Divider(color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.responsiveHPadding,
-              vertical: Spacing.sm,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),
             child: Row(
               children: [
-                Icon(Icons.location_on_outlined,
-                    size: 18, color: context.cText2),
+                Icon(Icons.location_on_outlined, size: 18, color: context.cText2),
                 const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: TextField(
@@ -527,21 +504,6 @@ class _EventBody extends ConsumerWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-
-        // ── Reminder section (shared widget) ─────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.responsiveHPadding,
-              vertical: Spacing.sm,
-            ),
-            child: ReminderSection(
-              itemId: item.id,
-              itemTitle: item.title ?? '',
-              defaultStartTime: startTime,
             ),
           ),
         ),
@@ -578,11 +540,8 @@ class _EventPropertiesPanel extends ConsumerWidget {
       ),
       error: (e, _) => const SizedBox.shrink(),
       data: (props) {
-        final startStr = props.where((p) => p.key == 'start_time')
-            .firstOrNull?.value;
-        final allDay = props.where((p) => p.key == 'all_day')
-            .firstOrNull?.value ==
-            'true';
+        final startStr = props.where((p) => p.key == 'start_time').firstOrNull?.value;
+        final allDay = props.where((p) => p.key == 'all_day').firstOrNull?.value == 'true';
         final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
 
         return Column(
@@ -608,12 +567,8 @@ class _EventPropertiesPanel extends ConsumerWidget {
               child: GestureDetector(
                 onTap: () => onPickStart(startTime),
                 child: Text(
-                  startTime != null
-                      ? (allDay ? startTime.short : startTime.dateTime)
-                      : 'Επιλογή',
-                  style: context.bodyMd.withColor(
-                    startTime != null ? context.cText : context.cText2,
-                  ),
+                  startTime != null ? (allDay ? startTime.short : startTime.dateTime) : 'Επιλογή',
+                  style: context.bodyMd.withColor(startTime != null ? context.cText : context.cText2),
                 ),
               ),
             ),
@@ -643,16 +598,17 @@ class _PropRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs + 2),
-      child: Row(children: [
-        Icon(icon, size: 16, color: context.cText2),
-        const SizedBox(width: Spacing.sm),
-        SizedBox(
-          width: 80,
-          child: Text(label,
-              style: context.bodyMd.withColor(context.cText2)),
-        ),
-        Expanded(child: child),
-      ]),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: context.cText2),
+          const SizedBox(width: Spacing.sm),
+          SizedBox(
+            width: 80,
+            child: Text(label, style: context.bodyMd.withColor(context.cText2)),
+          ),
+          Expanded(child: child),
+        ],
+      ),
     );
   }
 }

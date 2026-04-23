@@ -40,6 +40,7 @@ class AppSettings {
   DateTime? lastSyncAt;
 
   int? defaultWorkspaceId;
+  int? preferredFolderId;
 
   bool hasCompletedOnboarding = false;
 

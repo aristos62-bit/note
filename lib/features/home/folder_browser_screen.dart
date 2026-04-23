@@ -478,24 +478,25 @@ class _FolderBrowserScreenState
       ],
     ),
     actions: [
-      // Search within folder
+      // Search
       IconButton(
         icon: Icon(Icons.search_rounded, color: context.cText2),
         tooltip: 'Αναζήτηση στον φάκελο',
         onPressed: () => _showSearch(context),
       ),
-      // Edit folder
+      // Edit
       IconButton(
         icon: Icon(Icons.edit_rounded, color: context.cText2),
         tooltip: 'Επεξεργασία φακέλου',
         onPressed: () => _editFolder(context),
       ),
-      // Delete folder
-      IconButton(
-        icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-        tooltip: 'Διαγραφή φακέλου',
-        onPressed: () => _deleteFolder(context),
-      ),
+      // ✅ Delete – εμφανίζεται ΜΟΝΟ αν ΔΕΝ είναι system
+      if (!_folder.isSystem)
+        IconButton(
+          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
+          tooltip: 'Διαγραφή φακέλου',
+          onPressed: () => _deleteFolder(context),
+        ),
     ],
   );
 

@@ -89,8 +89,23 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
     ref.invalidate(foldersProvider);
   }
 
+  // lib/providers/folder_provider.dart (απόσπασμα – μόνο η αλλαγμένη μέθοδος)
+
   Future<void> delete(int id) async {
-    await ref.read(dbProvider).folders.delete(id);
+    final db = ref.read(dbProvider);
+
+    // ✅ Ανάκτηση φακέλου για έλεγχο
+    final folder = await db.folders.getById(id);
+    if (folder == null) return;
+
+    // ✅ Απαγόρευση διαγραφής system φακέλου
+    if (folder.isSystem) {
+      // Προαιρετικά μπορείς να εμφανίσεις snackbar ή να κάνεις log
+      // throw Exception('Ο φάκελος "Γενικά" δεν μπορεί να διαγραφεί.');
+      return;
+    }
+
+    await db.folders.delete(id);
     ref.invalidateSelf();
     ref.invalidate(foldersStreamProvider);
     ref.invalidate(foldersProvider);

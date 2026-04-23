@@ -6,6 +6,8 @@
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ View mode toggle (pinned/favorites/all)
 // ✅ Fix: φίλτρα status/priority δεν χάνουν τη λίστα
+// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
+// ✅ Search, tags (όπως το ItemListScreen)
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -42,11 +44,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   int? _selectedFolderId;
   Set<String> _visibleTagNames = {};
 
+  // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
+  bool _userExplicitlySelected = false;
+
   @override
   void initState() {
     super.initState();
-    // Reset φίλτρων κάθε φορά που ανοίγει η σελίδα
-    // ώστε να μην μένουν ενεργά από προηγούμενη επίσκεψη
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(_statusFilterProvider.notifier).state   = null;
       ref.read(_priorityFilterProvider.notifier).state = null;
@@ -60,15 +63,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     _searchCtrl.dispose();
     _searchFocus.dispose();
     _debounce?.cancel();
-    // Reset φίλτρων και στο dispose για καθαρή κατάσταση
-    ref.read(_statusFilterProvider.notifier).state   = null;
-    ref.read(_priorityFilterProvider.notifier).state = null;
-    ref.read(_searchQueryProvider.notifier).state    = '';
-    ref.read(_taskTagFilterProvider.notifier).state  = {};
     super.dispose();
   }
-
-  // ── Search ───────────────────────────────────────────────────
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
@@ -83,15 +79,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     if (!_searchActive) {
       _searchCtrl.clear();
       ref.read(_searchQueryProvider.notifier).state = '';
-      ref.read(_statusFilterProvider.notifier).state   = null;
-      ref.read(_priorityFilterProvider.notifier).state = null;
       ref.read(_taskTagFilterProvider.notifier).state  = {};
     } else {
       Future.microtask(() => _searchFocus.requestFocus());
     }
   }
-
-  // ── Create task ──────────────────────────────────────────────
 
   Future<void> _createTask() async {
     DebugConfig.nav('TaskList: create task in folder id=$_selectedFolderId');
@@ -110,16 +102,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     context.push(AppRoutes.task(id));
   }
 
-  // ── Toggle done ──────────────────────────────────────────────
-
   Future<void> _toggleDone(Item item) async {
     final newStatus =
     item.status == ItemStatus.done ? ItemStatus.active : ItemStatus.done;
     DebugConfig.db('TaskList toggleDone id=${item.id} → ${newStatus.name}');
     await ref.read(itemNotifierProvider.notifier).updateItem(item.id, status: newStatus);
   }
-
-  // ── Item actions ─────────────────────────────────────────────
 
   void _showItemActions(BuildContext context, Item item) {
     DebugConfig.nav('TaskList: showActions id=${item.id}');
@@ -162,19 +150,36 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
   }
 
-  // ── Build ────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('TaskListScreen build');
 
-    // ✅ Χρησιμοποιούμε itemsStreamProvider απευθείας — real-time χωρίς loop
     final itemsAsync     = ref.watch(itemsStreamProvider);
     final statusFilter   = ref.watch(_statusFilterProvider);
     final priorityFilter = ref.watch(_priorityFilterProvider);
     final searchQuery    = ref.watch(_searchQueryProvider);
     final activeTags     = ref.watch(_taskTagFilterProvider);
     final foldersAsync   = ref.watch(foldersStreamProvider);
+
+    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις
+    final preferredId = ref.watch(preferredFolderIdProvider);
+
+    // ✅ Αυτόματη επιλογή φακέλου μόνο αν ο χρήστης δεν έχει επιλέξει ρητά
+    if (!_userExplicitlySelected) {
+      foldersAsync.whenData((folders) {
+        if (_selectedFolderId == null && mounted && folders.isNotEmpty) {
+          int? targetId = preferredId;
+          if (targetId == null || !folders.any((f) => f.id == targetId)) {
+            targetId = folders.firstWhere(
+                  (f) => f.isSystem,
+              orElse: () => folders.first,
+            ).id;
+          }
+          setState(() => _selectedFolderId = targetId);
+          DebugConfig.nav('TaskList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -188,7 +193,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       ),
       body: Column(
         children: [
-          // ── Search bar ────────────────────────────────────────
           if (_searchActive)
             _SearchBar(
               controller: _searchCtrl,
@@ -199,7 +203,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               },
             ),
 
-          // ── Folder selector ───────────────────────────────────
           foldersAsync.when(
             loading: () => const SizedBox.shrink(),
             error:   (_, __) => const SizedBox.shrink(),
@@ -211,7 +214,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   folders:          folders,
                   selectedFolderId: _selectedFolderId,
                   onSelect: (id) {
-                    setState(() => _selectedFolderId = id);
+                    setState(() {
+                      _selectedFolderId = id;
+                      _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε ρητή επιλογή
+                    });
                     DebugConfig.nav('TaskList: select folder id=$id');
                   },
                 ),
@@ -219,11 +225,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             },
           ),
 
-          // ── Hint όταν δεν έχει επιλεγεί φάκελος ─────────────
-          if (_selectedFolderId == null)
-            const FolderSelectionHint(itemType: 'εργασίας'),
-
-          // ── Filter chips ──────────────────────────────────────
           _FilterRow(
             statusFilter:   statusFilter,
             priorityFilter: priorityFilter,
@@ -239,7 +240,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             },
           ),
 
-          // ── Tag filter chips ──────────────────────────────────
           if (_visibleTagNames.isNotEmpty)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,10 +287,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               ],
             ),
 
-          // ── View mode toggle ──────────────────────────────────
           const ViewModeToggle(),
 
-          // ── Stats + Task list ─────────────────────────────────
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemsStreamProvider),
@@ -303,12 +301,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   );
                 },
                 data: (allItems) {
-                  // ── Φιλτράρισμα ─────────────────────────────
                   var tasks = allItems
                       .where((i) => i.type == ItemType.task)
                       .toList();
 
-                  // View mode (pinned / favorites / all)
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
@@ -321,14 +317,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                       break;
                   }
 
-                  // Φάκελος
                   if (_selectedFolderId != null) {
                     tasks = tasks
                         .where((t) => t.folderId == _selectedFolderId)
                         .toList();
                   }
 
-                  // Search
                   if (searchQuery.isNotEmpty) {
                     final q = searchQuery.toLowerCase();
                     tasks = tasks
@@ -337,21 +331,18 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                         .toList();
                   }
 
-                  // Status filter
                   if (statusFilter != null) {
                     tasks = tasks
                         .where((t) => t.status == statusFilter)
                         .toList();
                   }
 
-                  // Priority filter
                   if (priorityFilter != null) {
                     tasks = tasks
                         .where((t) => t.priority == priorityFilter)
                         .toList();
                   }
 
-                  // Tag filter — φορτώνουμε tags ανά task από provider
                   if (activeTags.isNotEmpty) {
                     tasks = tasks.where((task) {
                       final tagsAsync =
@@ -361,7 +352,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                     }).toList();
                   }
 
-                  // Visible tag names για το tag filter row
                   final visibleTagNames = <String>{};
                   for (final task in tasks) {
                     final tagsAsync =
@@ -389,15 +379,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                     }
                     return EmptyState.forType(
                       ItemType.task,
-                      onAction: _selectedFolderId == null ? null : _createTask,
+                      onAction: _createTask,
                     );
                   }
 
                   return Column(
                     children: [
-                      // Stats bar
                       _StatsBar(tasks: tasks),
-                      // Task list
                       Expanded(
                         child: _TaskListBody(
                           tasks:        tasks,
@@ -492,7 +480,6 @@ class _TaskListBody extends ConsumerWidget {
         done.add(task);
         continue;
       }
-      // Φορτώνουμε dueDate από itemPropertiesProvider
       final propsAsync = ref.watch(itemPropertiesProvider(task.id));
       final dueDate    = propsAsync.valueOrNull
           ?.where((p) => p.key == 'due_date')
@@ -760,7 +747,6 @@ class _FilterRow extends StatelessWidget {
           horizontal: context.responsiveHPadding,
         ),
         children: [
-          // Status chips
           ..._statuses.map((s) => Padding(
             padding: const EdgeInsets.only(right: Spacing.xs),
             child: _StatusChip(
@@ -770,7 +756,6 @@ class _FilterRow extends StatelessWidget {
             ),
           )),
 
-          // Divider
           Padding(
             padding: const EdgeInsets.symmetric(
                 horizontal: Spacing.xs, vertical: 6),
@@ -778,7 +763,6 @@ class _FilterRow extends StatelessWidget {
                 color: ColorsUI.getBorder(context.brightness), width: 1),
           ),
 
-          // Priority chips — με GestureDetector + visual selected state
           ..._priorities.map((p) => Padding(
             padding: const EdgeInsets.only(right: Spacing.xs),
             child: GestureDetector(

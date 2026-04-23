@@ -4,6 +4,7 @@
 // ✅ Responsive: single col mobile / two-panel tablet+desktop
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
+// ✅ Reminders: μόνο από εικονίδιο AppBar
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -19,12 +20,12 @@ import '../../shared/widgets/widgets.dart';
 
 class NoteDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
-  final bool isNew; // <= ΠΡΟΣΘΗΚΗ
+  final bool isNew;
 
   const NoteDetailScreen({
     super.key,
     required this.itemId,
-    this.isNew = false, // default για παλιές κλήσεις
+    this.isNew = false,
   });
 
   @override
@@ -53,13 +54,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     super.dispose();
   }
 
-  // ── Title change (μόνο local, χωρίς auto-save) ───────────────
-
   void _onTitleChanged(String value) {
     _isEditingTitle = true;
     _saveDebounce?.cancel();
-
-    // Auto-save τίτλου μετά από 2 δευτερόλεπτα αδράνειας
     _saveDebounce = Timer(const Duration(seconds: 2), () {
       _isEditingTitle = false;
       _saveTitle(value.trim());
@@ -68,26 +65,17 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
-
-    if (title == _lastSavedTitle) {
-      return;
-    }
-
+    if (title == _lastSavedTitle) return;
     setState(() => _isSaving = true);
     DebugConfig.db('NoteDetail saveTitle id=${widget.itemId} "$title"');
-
     await ref
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
-
     _lastSavedTitle = title;
-    _hasEverBeenSaved = true; // <= σημαδεύουμε ότι έγινε manual save
-
+    _hasEverBeenSaved = true;
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
-
-  // ── AppBar actions ───────────────────────────────────────────
 
   Future<void> _togglePin(Item item) async {
     DebugConfig.provider('NoteDetail togglePin id=${item.id}');
@@ -104,46 +92,53 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   }
 
   Future<void> _deleteNote(BuildContext context, Item item) async {
-    final future = ConfirmDialog.delete(
-      context,
-      title: 'Διαγραφή σημείωσης;',
-    );
+    final future = ConfirmDialog.delete(context, title: 'Διαγραφή σημείωσης;');
     final ok = await future;
     if (!ok || !mounted) return;
     DebugConfig.db('NoteDetail delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
     if (!mounted) return;
-    // ignore: use_build_context_synchronously
     Navigator.of(context).pop();
   }
 
-  // ── Pop guard — μόνο auto-delete εντελώς κενής σημείωσης ──────
+  // --- Εμφάνιση bottom sheet με ReminderSection ---
+  Future<void> _showReminderDialog() async {
+    final title = _titleCtrl.text.trim().isEmpty ? 'Σημείωση' : _titleCtrl.text.trim();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.itemId,
+          itemTitle: title,
+          defaultStartTime: null,
+        ),
+      ),
+    );
+  }
 
   Future<bool> _onPopInvoked() async {
     _saveDebounce?.cancel();
 
     if (widget.isNew && !_hasEverBeenSaved) {
       final title = _titleCtrl.text.trim();
-
-      // Ελέγχουμε αν υπάρχουν blocks με περιεχόμενο
-      final blocks =
-          ref.read(blocksStreamProvider(widget.itemId)).valueOrNull ?? [];
-      final hasBlockContent =
-          blocks.any((b) => (b.text ?? '').trim().isNotEmpty);
+      final blocks = ref.read(blocksStreamProvider(widget.itemId)).valueOrNull ?? [];
+      final hasBlockContent = blocks.any((b) => (b.text ?? '').trim().isNotEmpty);
       final hasContent = title.isNotEmpty || hasBlockContent;
 
       if (!hasContent) {
-        // Εντελώς κενή → διαγραφή
-        DebugConfig.db(
-            'NoteDetail auto-delete empty NEW note id=${widget.itemId}');
+        DebugConfig.db('NoteDetail auto-delete empty NEW note id=${widget.itemId}');
         await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
       } else {
-        // Έχει περιεχόμενο → αποθήκευση τίτλου αν υπάρχει
-        if (title.isNotEmpty) {
-          await _saveTitle(title);
-        }
-        DebugConfig.db(
-            'NoteDetail auto-save NEW note with content id=${widget.itemId}');
+        if (title.isNotEmpty) await _saveTitle(title);
+        DebugConfig.db('NoteDetail auto-save NEW note with content id=${widget.itemId}');
       }
       return true;
     }
@@ -151,8 +146,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     DebugConfig.nav('NoteDetail back keep note id=${widget.itemId}');
     return true;
   }
-
-  // ── Build ────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -168,22 +161,14 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
         if (item == null) return _buildNotFound();
 
         final itemTitle = item.title ?? '';
-
-        // Κρατάμε _lastSavedTitle sync με το DB
         if (_lastSavedTitle.isEmpty && itemTitle.isNotEmpty) {
           _lastSavedTitle = itemTitle;
         }
-
-        // Sync title ΜΟΝΟ αν δεν γράφει ο χρήστης
         if (!_isEditingTitle && _titleCtrl.text != itemTitle) {
-          final cursorAtEnd =
-              _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
-
+          final cursorAtEnd = _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
           _titleCtrl.text = itemTitle;
-
           if (cursorAtEnd) {
-            _titleCtrl.selection =
-                TextSelection.collapsed(offset: _titleCtrl.text.length);
+            _titleCtrl.selection = TextSelection.collapsed(offset: _titleCtrl.text.length);
           }
         }
 
@@ -204,8 +189,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     );
   }
 
-  // ── Mobile layout ────────────────────────────────────────────
-
   Widget _buildMobileLayout(BuildContext context, Item item) {
     return Scaffold(
       backgroundColor: context.cBg,
@@ -219,22 +202,17 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     );
   }
 
-  // ── Tablet layout — two panel ────────────────────────────────
-
   Widget _buildTabletLayout(BuildContext context, Item item) {
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(context, item),
       body: Row(
         children: [
-          // Left panel: metadata
           SizedBox(
             width: 260,
             child: _MetadataPanel(item: item),
           ),
-          VerticalDivider(
-              width: 1, color: ColorsUI.getBorder(context.brightness)),
-          // Right panel: content
+          VerticalDivider(width: 1, color: ColorsUI.getBorder(context.brightness)),
           Expanded(
             child: _NoteBody(
               item: item,
@@ -253,132 +231,105 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
       backgroundColor: context.cBg,
       elevation: 0,
       scrolledUnderElevation: 1,
+      titleSpacing: 0,
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 4),
       title: _isSaving
-          ? FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: context.cText2,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.xs),
-                  Text(
-                    'Αποθήκευση...',
-                    style: context.bodySm.withColor(context.cText2),
-                  ),
-                ],
-              ),
-            )
+          ? Row(mainAxisSize: MainAxisSize.min, children: [
+        SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2, color: context.cText2),
+        ),
+        const SizedBox(width: Spacing.xs),
+        Text('Αποθήκευση...', style: context.bodySm.withColor(context.cText2)),
+      ])
           : null,
       actions: [
-        // Wrap σε SingleChildScrollView για οριζόντια κύλιση
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              // Save
-              IconButton(
-                icon: Icon(
-                  Icons.save_rounded,
-                  color: context.cPrimary,
-                ),
-                tooltip: 'Αποθήκευση',
-                onPressed: () async {
-                  final title = _titleCtrl.text.trim();
-                  DebugConfig.db(
-                      'NoteDetail manual save pressed id=${item.id} title="$title"');
-                  await _saveTitle(title);
-
-                  if (!context.mounted) return;
-                  Navigator.of(context).pop();
-                },
-              ),
-              // Favorite
-              IconButton(
-                icon: Icon(
-                  item.favorite
-                      ? Icons.star_rounded
-                      : Icons.star_outline_rounded,
-                  color: item.favorite
-                      ? ColorsUI.getWarning(context.brightness)
-                      : context.cText2,
-                ),
-                onPressed: () => _toggleFav(item),
-                tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-              ),
-              // Pin
-              IconButton(
-                icon: Icon(
-                  item.pinned
-                      ? Icons.push_pin_rounded
-                      : Icons.push_pin_outlined,
-                  color: item.pinned ? context.cPrimary : context.cText2,
-                ),
-                onPressed: () => _togglePin(item),
-                tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-              ),
-              // Archive
-              IconButton(
-                icon: Icon(
-                  item.archived
-                      ? Icons.unarchive_rounded
-                      : Icons.archive_rounded,
-                  color: context.cText2,
-                ),
-                tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-                onPressed: () async {
-                  DebugConfig.provider(
-                      'NoteDetail toggleArchive id=${item.id}');
-                  await ref
-                      .read(itemNotifierProvider.notifier)
-                      .toggleArchive(item.id, item.archived);
-                },
-              ),
-              // Delete
-              IconButton(
-                icon: Icon(
-                  Icons.delete_outline_rounded,
-                  color: context.cError,
-                ),
-                tooltip: 'Διαγραφή',
-                onPressed: () => _deleteNote(context, item),
-              ),
-            ],
+        // Save
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
+          tooltip: 'Αποθήκευση',
+          onPressed: () async {
+            final title = _titleCtrl.text.trim();
+            await _saveTitle(title);
+            if (!context.mounted) return;
+            Navigator.of(context).pop();
+          },
+        ),
+        // Reminder
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.notifications_none_rounded, color: context.cText2, size: 20),
+          onPressed: _showReminderDialog,
+          tooltip: 'Υπενθύμιση',
+        ),
+        // Favorite
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+            color: item.favorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
+            size: 20,
           ),
+          onPressed: () => _toggleFav(item),
+          tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+        ),
+        // Pin
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+            color: item.pinned ? context.cPrimary : context.cText2,
+            size: 20,
+          ),
+          onPressed: () => _togglePin(item),
+          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+        ),
+        // Archive
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+            color: context.cText2,
+            size: 20,
+          ),
+          tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
+          onPressed: () async {
+            await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+          },
+        ),
+        // Delete
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.delete_outline_rounded, color: context.cError, size: 20),
+          tooltip: 'Διαγραφή',
+          onPressed: () => _deleteNote(context, item),
         ),
       ],
     );
   }
 
-  // ── Fallback screens ─────────────────────────────────────────
-
   Widget _buildLoading() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(),
+    body: const Center(child: CircularProgressIndicator()),
+  );
 
   Widget _buildError() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(),
-        body: EmptyState.error(
-            onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(),
+    body: EmptyState.error(onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
+  );
 
   Widget _buildNotFound() => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: AppBar(),
-        body: const EmptyState(
-          icon: Icons.note_alt_outlined,
-          title: 'Η σημείωση δεν βρέθηκε',
-        ),
-      );
+    backgroundColor: context.cBg,
+    appBar: AppBar(),
+    body: const EmptyState(
+      icon: Icons.note_alt_outlined,
+      title: 'Η σημείωση δεν βρέθηκε',
+    ),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -405,7 +356,7 @@ class _NoteBody extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        // ── Title ───────────────────────────────────────────────
+        // Title
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
@@ -429,33 +380,23 @@ class _NoteBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Meta: updated at + tags ──────────────────────────────
-        // ── Meta: updated at + tags + content header ────────────────
+        // Meta: updated at + tags + content header
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.responsiveHPadding,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Updated at
                 if (item.updatedAt != null)
                   Text(
                     'Τελ. τροποποίηση ${item.updatedAt!.relative}',
                     style: context.bodySm.withColor(context.cDisabled),
                   ),
-
                 const SizedBox(height: Spacing.sm),
-
-                // Tags header + add button
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Tags',
-                      style: context.labelSm.withColor(context.cText2),
-                    ),
+                    Text('Tags', style: context.labelSm.withColor(context.cText2)),
                     TextButton.icon(
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Προσθήκη'),
@@ -468,10 +409,7 @@ class _NoteBody extends ConsumerWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: Spacing.xs),
-
-                // Tags list
                 tagsAsync.when(
                   loading: () => const SizedBox.shrink(),
                   error: (_, __) => const SizedBox.shrink(),
@@ -479,28 +417,17 @@ class _NoteBody extends ConsumerWidget {
                     tagNames: tags.map((t) => t.name).toList(),
                     tagColors: tags.map((t) => t.color).toList(),
                     onTagDelete: (name) async {
-                      final tag = tags.firstWhere((t) => t.name == name,
-                          orElse: () => tags.first);
-                      DebugConfig.db('NoteDetail removeTag ${tag.id}');
-                      await ref
-                          .read(tagNotifierProvider.notifier)
-                          .removeFromItem(item.id, tag.id);
+                      final tag = tags.firstWhere((t) => t.name == name, orElse: () => tags.first);
+                      await ref.read(tagNotifierProvider.notifier).removeFromItem(item.id, tag.id);
                     },
                     onAdd: () => _showTagPicker(context, ref, item.id),
                   ),
                 ),
-
                 const SizedBox(height: Spacing.md),
-
-                // Content header
                 Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.sm),
-                  child: Text(
-                    'Περιεχόμενο',
-                    style: context.labelSm.withColor(context.cText2),
-                  ),
+                  child: Text('Περιεχόμενο', style: context.labelSm.withColor(context.cText2)),
                 ),
-
                 const SizedBox(height: Spacing.sm),
                 Divider(color: ColorsUI.getBorder(context.brightness)),
               ],
@@ -508,7 +435,7 @@ class _NoteBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Blocks ──────────────────────────────────────────────
+        // Blocks
         blocksAsync.when(
           loading: () => SliverToBoxAdapter(
             child: Padding(
@@ -523,14 +450,12 @@ class _NoteBody extends ConsumerWidget {
           data: (blocks) => _BlocksSliver(item: item, blocks: blocks),
         ),
 
-        // Bottom padding για FAB
         const SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
   }
 
   void _showTagPicker(BuildContext context, WidgetRef ref, int itemId) {
-    DebugConfig.nav('NoteDetail showTagPicker id=$itemId');
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -570,10 +495,7 @@ class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       for (final block in widget.blocks) {
         if ((block.text ?? '').trim().isEmpty) {
-          DebugConfig.db('BlocksSliver auto-delete empty block id=${block.id}');
-          await ref
-              .read(blockNotifierProvider(widget.item.id).notifier)
-              .delete(block.id);
+          await ref.read(blockNotifierProvider(widget.item.id).notifier).delete(block.id);
         }
       }
     });
@@ -585,62 +507,42 @@ class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
       final isEmpty = (last.text ?? '').trim().isEmpty;
 
       if (isEmpty) {
-        // Αν ήταν κενό, απλώς κάνουμε override τύπο
         setState(() {
           _overrideBlockId = last.id;
           _overrideType = type;
         });
-        DebugConfig.db(
-            'NoteDetail override empty block id=${last.id} to type=${type.name}');
         return;
       }
     }
 
-    // Διαφορετικά, προσθέτουμε νέο block
     setState(() {
       _overrideBlockId = null;
       _overrideType = null;
     });
 
-    DebugConfig.db(
-        'NoteDetail addBlock type=${type.name} itemId=${widget.item.id}');
-    await ref
-        .read(blockNotifierProvider(widget.item.id).notifier)
-        .addBlock(type: type);
+    await ref.read(blockNotifierProvider(widget.item.id).notifier).addBlock(type: type);
   }
 
   Future<void> _deleteBlock(int blockId) async {
-    DebugConfig.db('NoteDetail deleteBlock id=$blockId');
-    await ref
-        .read(blockNotifierProvider(widget.item.id).notifier)
-        .delete(blockId);
+    await ref.read(blockNotifierProvider(widget.item.id).notifier).delete(blockId);
   }
 
   Future<void> _toggleCheck(int blockId) async {
-    DebugConfig.db('NoteDetail toggleCheck blockId=$blockId');
-    await ref
-        .read(blockNotifierProvider(widget.item.id).notifier)
-        .toggleCheck(blockId);
+    await ref.read(blockNotifierProvider(widget.item.id).notifier).toggleCheck(blockId);
   }
 
   Future<void> _updateText(int blockId, String text) async {
-    await ref
-        .read(blockNotifierProvider(widget.item.id).notifier)
-        .updateText(blockId, text);
+    await ref.read(blockNotifierProvider(widget.item.id).notifier).updateText(blockId, text);
   }
 
   @override
   Widget build(BuildContext context) {
     return SliverMainAxisGroup(slivers: [
-      // Block list
       SliverPadding(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.responsiveHPadding,
-        ),
+        padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
-            (ctx, i) {
-              // Μετράμε μόνο τα numbered blocks πριν από το τρέχον
+                (ctx, i) {
               final numberedIndex = widget.blocks
                   .sublist(0, i)
                   .where((b) => b.type == BlockType.numbered)
@@ -651,16 +553,13 @@ class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
                 onDelete: () => _deleteBlock(widget.blocks[i].id),
                 onToggleCheck: () => _toggleCheck(widget.blocks[i].id),
                 onTextChanged: (t) => _updateText(widget.blocks[i].id, t),
-                overrideType: _overrideBlockId == widget.blocks[i].id
-                    ? _overrideType
-                    : null,
+                overrideType: _overrideBlockId == widget.blocks[i].id ? _overrideType : null,
               );
             },
             childCount: widget.blocks.length,
           ),
         ),
       ),
-      // Add block toolbar
       SliverToBoxAdapter(
         child: _NewBlockBar(onAdd: _addBlock),
       ),
@@ -687,14 +586,9 @@ class _NewBlockBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: ColorsUI.getSurface(context.brightness),
-        border: Border(
-          top: BorderSide(color: ColorsUI.getBorder(context.brightness)),
-        ),
+        border: Border(top: BorderSide(color: ColorsUI.getBorder(context.brightness))),
       ),
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.xs,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -705,21 +599,13 @@ class _NewBlockBar extends StatelessWidget {
                 borderRadius: AppRadius.buttonBR,
                 onTap: () => onAdd(t.$1),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.sm,
-                    vertical: Spacing.xs,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(t.$2, size: 20, color: context.cText2),
                       const SizedBox(height: 2),
-                      Text(
-                        t.$3,
-                        style: context.labelSm
-                            .copyWith(fontSize: 11)
-                            .withColor(context.cText2),
-                      ),
+                      Text(t.$3, style: context.labelSm.copyWith(fontSize: 11).withColor(context.cText2)),
                     ],
                   ),
                 ),
@@ -733,7 +619,7 @@ class _NewBlockBar extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// BLOCK TILE — εμφανίζει ένα block για επεξεργασία
+// BLOCK TILE
 // ════════════════════════════════════════════════════════════════
 
 class _BlockTile extends StatefulWidget {
@@ -769,7 +655,6 @@ class _BlockTileState extends State<_BlockTile> {
     _ctrl = TextEditingController(text: widget.block.text ?? '');
     _focusNode = FocusNode();
     _focusNode.addListener(() {
-      // Όταν ο χρήστης φεύγει από το block ΚΑΙ είναι κενό → διαγραφή
       if (!_focusNode.hasFocus && _ctrl.text.trim().isEmpty) {
         _debounce?.cancel();
         widget.onDelete();
@@ -780,7 +665,6 @@ class _BlockTileState extends State<_BlockTile> {
   @override
   void didUpdateWidget(_BlockTile old) {
     super.didUpdateWidget(old);
-    // Ενημέρωσε μόνο αν ο χρήστης δεν γράφει
     if (!_ctrl.selection.isValid && widget.block.text != old.block.text) {
       _ctrl.text = widget.block.text ?? '';
     }
@@ -807,7 +691,6 @@ class _BlockTileState extends State<_BlockTile> {
 
   TextStyle _textStyle(BuildContext context) {
     switch (effectiveType) {
-      // <-- αλλαγή εδώ
       case BlockType.heading1:
         return context.h2;
       case BlockType.heading2:
@@ -853,16 +736,11 @@ class _BlockTileState extends State<_BlockTile> {
                   margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
                   width: 40,
                   height: 4,
-                  decoration: BoxDecoration(
-                    color: context.cBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                  decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
                 ),
                 ListTile(
-                  leading:
-                      Icon(Icons.delete_outline_rounded, color: context.cError),
-                  title: Text('Διαγραφή block',
-                      style: TextStyle(color: context.cError)),
+                  leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+                  title: Text('Διαγραφή block', style: TextStyle(color: context.cError)),
                   onTap: () {
                     Navigator.pop(context);
                     widget.onDelete();
@@ -879,7 +757,6 @@ class _BlockTileState extends State<_BlockTile> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Block prefix ─────────────────────────────────────
             if (isChecklist)
               GestureDetector(
                 onTap: widget.onToggleCheck,
@@ -890,22 +767,15 @@ class _BlockTileState extends State<_BlockTile> {
                     width: 20,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: widget.block.checked
-                          ? context.cPrimary
-                          : Colors.transparent,
+                      color: widget.block.checked ? context.cPrimary : Colors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.xs),
                       border: Border.all(
-                        color: widget.block.checked
-                            ? context.cPrimary
-                            : ColorsUI.getBorder(context.brightness),
+                        color: widget.block.checked ? context.cPrimary : ColorsUI.getBorder(context.brightness),
                         width: 2,
                       ),
                     ),
                     child: widget.block.checked
-                        ? Icon(Icons.check,
-                            size: 13,
-                            color: ColorsUI.getAccessibleTextColor(
-                                context.cPrimary))
+                        ? Icon(Icons.check, size: 13, color: ColorsUI.getAccessibleTextColor(context.cPrimary))
                         : null,
                   ),
                 ),
@@ -916,47 +786,39 @@ class _BlockTileState extends State<_BlockTile> {
                 child: Container(
                   width: 6,
                   height: 6,
-                  decoration: BoxDecoration(
-                    color: context.cText2,
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: context.cText2, shape: BoxShape.circle),
                 ),
               )
             else if (isNumbered)
-              Padding(
-                padding: const EdgeInsets.only(top: 2, right: Spacing.xs),
-                child: SizedBox(
-                  width: 24,
-                  child: Text(
-                    '${widget.index + 1}.',
-                    style: context.bodyMd.withColor(context.cText2),
-                    textAlign: TextAlign.right,
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, right: Spacing.xs),
+                  child: SizedBox(
+                    width: 24,
+                    child: Text(
+                      '${widget.index + 1}.',
+                      style: context.bodyMd.withColor(context.cText2),
+                      textAlign: TextAlign.right,
+                    ),
                   ),
-                ),
-              )
-            else if (isQuote)
-              Container(
-                width: 3,
-                margin: const EdgeInsets.only(right: Spacing.sm, top: 2),
-                decoration: BoxDecoration(
-                  color: context.cPrimary.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+                )
+              else if (isQuote)
+                  Container(
+                    width: 3,
+                    margin: const EdgeInsets.only(right: Spacing.sm, top: 2),
+                    decoration: BoxDecoration(
+                      color: context.cPrimary.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
 
-            // ── Text field ────────────────────────────────────────
             Expanded(
               child: TextField(
                 controller: _ctrl,
                 focusNode: _focusNode,
                 onChanged: _onChange,
                 style: _textStyle(context).copyWith(
-                  decoration: (isChecklist && widget.block.checked)
-                      ? TextDecoration.lineThrough
-                      : null,
-                  color: (isChecklist && widget.block.checked)
-                      ? context.cDisabled
-                      : null,
+                  decoration: (isChecklist && widget.block.checked) ? TextDecoration.lineThrough : null,
+                  color: (isChecklist && widget.block.checked) ? context.cDisabled : null,
                 ),
                 maxLines: null,
                 decoration: InputDecoration(
@@ -999,7 +861,7 @@ class _BlockTileState extends State<_BlockTile> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// METADATA PANEL — tablet/desktop μόνο
+// METADATA PANEL (tablet)
 // ════════════════════════════════════════════════════════════════
 
 class _MetadataPanel extends ConsumerWidget {
@@ -1015,34 +877,25 @@ class _MetadataPanel extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(Spacing.md),
         children: [
-          // Type
           _MetaRow(
             icon: ItemTypeIcon.iconDataFor(ItemType.note),
             label: 'Τύπος',
             value: ItemTypeIcon.labelFor(ItemType.note),
           ),
-
-          // Status
           _MetaRow(
             icon: Icons.info_outline_rounded,
             label: 'Κατάσταση',
             value: AppStringUtils.statusLabel(item.status.name),
           ),
-
-          // Priority
           if (item.priority != ItemPriority.none) ...[
             const SizedBox(height: Spacing.sm),
             Row(children: [
-              Icon(PriorityBadge.iconFor(item.priority),
-                  size: 16, color: context.cText2),
+              Icon(PriorityBadge.iconFor(item.priority), size: 16, color: context.cText2),
               const SizedBox(width: Spacing.sm),
               PriorityBadge(priority: item.priority, size: BadgeSize.medium),
             ]),
           ],
-
           const Divider(height: Spacing.xl),
-
-          // Dates
           _MetaRow(
             icon: Icons.calendar_today_rounded,
             label: 'Δημιουργία',
@@ -1054,10 +907,7 @@ class _MetadataPanel extends ConsumerWidget {
               label: 'Τροποποίηση',
               value: item.updatedAt!.relative,
             ),
-
           const Divider(height: Spacing.xl),
-
-          // Tags
           Text('Tags', style: context.labelMd.withColor(context.cText2)),
           const SizedBox(height: Spacing.sm),
           tagsAsync.when(
@@ -1097,8 +947,7 @@ class _MetaRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: context.labelSm.withColor(context.cDisabled)),
+                Text(label, style: context.labelSm.withColor(context.cDisabled)),
                 Text(value, style: context.bodyMd),
               ],
             ),
@@ -1132,13 +981,9 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
 
   Future<void> _addTag(String name) async {
     if (name.trim().isEmpty) return;
-    DebugConfig.db('TagPicker addTag "$name" to item=${widget.itemId}');
-    final tag =
-        await ref.read(tagNotifierProvider.notifier).createOrGet(name.trim());
+    final tag = await ref.read(tagNotifierProvider.notifier).createOrGet(name.trim());
     if (tag == null || !mounted) return;
-    await ref
-        .read(tagNotifierProvider.notifier)
-        .addToItem(widget.itemId, tag.id);
+    await ref.read(tagNotifierProvider.notifier).addToItem(widget.itemId, tag.id);
     _ctrl.clear();
   }
 
@@ -1146,36 +991,26 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
   Widget build(BuildContext context) {
     final tagsAsync = ref.watch(tagsProvider);
     final itemTagsAsync = ref.watch(itemTagsProvider(widget.itemId));
-    final itemTagIds =
-        itemTagsAsync.valueOrNull?.map((t) => t.id).toSet() ?? {};
+    final itemTagIds = itemTagsAsync.valueOrNull?.map((t) => t.id).toSet() ?? {};
 
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.all(Spacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
             Center(
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(
-                  color: context.cBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: Spacing.md),
-
             Text('Προσθήκη Tag', style: context.titleMd),
             const SizedBox(height: Spacing.md),
-
-            // New tag input
             TextField(
               controller: _ctrl,
               autofocus: true,
@@ -1188,42 +1023,31 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
                 ),
               ),
             ),
-
             const SizedBox(height: Spacing.md),
-
-            // Existing tags
             tagsAsync.when(
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
               data: (tags) {
-                final available =
-                    tags.where((t) => !itemTagIds.contains(t.id)).toList();
+                final available = tags.where((t) => !itemTagIds.contains(t.id)).toList();
                 if (available.isEmpty) return const SizedBox.shrink();
                 return Wrap(
                   spacing: Spacing.xs,
                   runSpacing: Spacing.xs,
                   children: available
                       .map((t) => TagChip(
-                            name: t.name,
-                            color: t.color,
-                            onTap: () async {
-                              DebugConfig.db(
-                                  'TagPicker existing tag="${t.name}"');
-                              final nav =
-                                  Navigator.of(context); // cache πριν το await
-                              await ref
-                                  .read(tagNotifierProvider.notifier)
-                                  .addToItem(widget.itemId, t.id);
-                              nav.pop();
-                            },
-                          ))
+                    name: t.name,
+                    color: t.color,
+                    onTap: () async {
+                      final nav = Navigator.of(context);
+                      await ref.read(tagNotifierProvider.notifier).addToItem(widget.itemId, t.id);
+                      nav.pop();
+                    },
+                  ))
                       .toList(),
                 );
               },
             ),
-
-            SizedBox(
-                height: MediaQuery.of(context).padding.bottom + Spacing.sm),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + Spacing.sm),
           ],
         ),
       ),

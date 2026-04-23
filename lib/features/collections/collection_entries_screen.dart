@@ -9,10 +9,13 @@
 // ✅ Πολυγραμμικό κείμενο για πεδίο text
 // ✅ Χρήση ItemColorHelper για background & contrast
 // ✅ ViewMode toggle (pinned/favorites/all) για φιλτράρισμα εγγραφών
+// ✅ Αναζήτηση, φίλτρο tags, υπενθύμιση, πλήρες AppBar (ίδιο με NoteDetailScreen)
 //
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -20,29 +23,98 @@ import '../../shared/widgets/widgets.dart';
 import '../../helpers/item_color_helper.dart';
 import 'collections_screen.dart' show FieldDef, FieldType;
 
+// Τοπικοί providers για search & tags στη λίστα εγγραφών
+final _entriesSearchQueryProvider = StateProvider<String>((ref) => '');
+final _entriesTagFilterProvider = StateProvider<Set<String>>((ref) => {});
+
 // ════════════════════════════════════════════════════════════════
 // COLLECTION ENTRIES SCREEN
 // ════════════════════════════════════════════════════════════════
 
-class CollectionEntriesScreen extends ConsumerWidget {
+class CollectionEntriesScreen extends ConsumerStatefulWidget {
   final Item collection;
   const CollectionEntriesScreen({super.key, required this.collection});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    DebugConfig.provider('CollectionEntriesScreen build '
-        'collectionId=${collection.id}');
+  ConsumerState<CollectionEntriesScreen> createState() =>
+      _CollectionEntriesScreenState();
+}
+
+class _CollectionEntriesScreenState
+    extends ConsumerState<CollectionEntriesScreen> {
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  bool _searchActive = false;
+  Timer? _debounce;
+
+  Set<String> _visibleTagNames = {};
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(_entriesSearchQueryProvider.notifier).state = value.trim();
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() => _searchActive = !_searchActive);
+    if (!_searchActive) {
+      _searchCtrl.clear();
+      ref.read(_entriesSearchQueryProvider.notifier).state = '';
+      ref.read(_entriesTagFilterProvider.notifier).state = {};
+    } else {
+      Future.microtask(() => _searchFocus.requestFocus());
+    }
+  }
+
+  Future<void> _createEntry(
+      BuildContext context, WidgetRef ref, List<FieldDef> fields) async {
+    DebugConfig.nav(
+        'CollectionEntries: createEntry collectionId=${widget.collection.id}');
+    final item = await ref
+        .read(itemNotifierProvider.notifier)
+        .create(type: ItemType.knowledge);
+    if (item == null || !context.mounted) return;
+
+    await ref
+        .read(propertyNotifierProvider(item.id).notifier)
+        .setText('collection_id', widget.collection.id.toString());
+
+    ref.invalidate(itemNotifierProvider);
+    if (!context.mounted) return;
+    Navigator.of(context)
+        .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
+      entryId: item.id,
+      collectionId: widget.collection.id,
+      fields: fields,
+      isNew: true,
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    DebugConfig.provider(
+        'CollectionEntriesScreen build collectionId=${widget.collection.id}');
 
     final allAsync = ref.watch(itemsStreamProvider);
-    final propsAsync = ref.watch(itemPropertiesProvider(collection.id));
+    final propsAsync = ref.watch(itemPropertiesProvider(widget.collection.id));
     final schema = propsAsync.valueOrNull
         ?.where((p) => p.key == 'schema')
         .firstOrNull
         ?.value ??
         '';
     final fields = FieldDef.listFromJson(schema);
-
-    final accentColor = _colorFromItem(collection);
+    final searchQuery = ref.watch(_entriesSearchQueryProvider);
+    final activeTags = ref.watch(_entriesTagFilterProvider);
+    final accentColor = _colorFromItem(widget.collection);
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -52,11 +124,22 @@ class CollectionEntriesScreen extends ConsumerWidget {
         scrolledUnderElevation: 1,
         title: Row(
           children: [
-            Text(collection.icon ?? '📦', style: const TextStyle(fontSize: 20)),
+            Text(widget.collection.icon ?? '📦',
+                style: const TextStyle(fontSize: 20)),
             const SizedBox(width: Spacing.sm),
-            Text(collection.title ?? 'Συλλογή', style: context.titleMd),
+            Text(widget.collection.title ?? 'Συλλογή',
+                style: context.titleMd),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: Icon(_searchActive
+                ? Icons.search_off_rounded
+                : Icons.search_rounded),
+            onPressed: _toggleSearch,
+            tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _createEntry(context, ref, fields),
@@ -65,18 +148,90 @@ class CollectionEntriesScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // View mode toggle (pinned/favorites/all)
+          // Search bar
+          if (_searchActive)
+            _SearchBar(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              onChanged: _onSearchChanged,
+            ),
+
+          // Tag filter chips
+          if (_visibleTagNames.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    context.responsiveHPadding,
+                    0,
+                    context.responsiveHPadding,
+                    Spacing.xs,
+                  ),
+                  child: Text(
+                    'Επιλέξτε tag για φιλτράρισμα εγγραφών',
+                    style: context.labelSm.withColor(context.cText2),
+                  ),
+                ),
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: context.responsiveHPadding),
+                    itemCount: _visibleTagNames.length,
+                    separatorBuilder: (_, __) =>
+                    const SizedBox(width: Spacing.xs),
+                    itemBuilder: (_, i) {
+                      final name = _visibleTagNames.elementAt(i);
+                      final selected = activeTags.contains(name);
+                      return TagChip(
+                        name: name,
+                        color: null,
+                        compact: true,
+                        selected: selected,
+                        onTap: () {
+                          final current =
+                          ref.read(_entriesTagFilterProvider);
+                          final newSet = {...current};
+                          if (newSet.contains(name)) {
+                            newSet.remove(name);
+                          } else {
+                            newSet.add(name);
+                          }
+                          ref.read(_entriesTagFilterProvider.notifier)
+                              .state = newSet;
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+          // View mode toggle
           const ViewModeToggle(),
+
           Expanded(
             child: allAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () =>
+              const Center(child: CircularProgressIndicator()),
               error: (e, _) => EmptyState.error(),
               data: (allItems) {
                 return _EntriesList(
-                  collectionId: collection.id,
+                  collectionId: widget.collection.id,
                   fields: fields,
                   accentColor: accentColor,
-                  onCreateEntry: () => _createEntry(context, ref, fields),
+                  searchQuery: searchQuery,
+                  activeTags: activeTags,
+                  onCreateEntry: () =>
+                      _createEntry(context, ref, fields),
+                  onVisibleTagsChanged: (tags) {
+                    if (!const SetEquality<String>()
+                        .equals(_visibleTagNames, tags)) {
+                      setState(() => _visibleTagNames = tags);
+                    }
+                  },
                 );
               },
             ),
@@ -84,31 +239,6 @@ class CollectionEntriesScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _createEntry(
-      BuildContext context, WidgetRef ref, List<FieldDef> fields) async {
-    DebugConfig.nav('CollectionEntries: createEntry '
-        'collectionId=${collection.id}');
-    final item = await ref
-        .read(itemNotifierProvider.notifier)
-        .create(type: ItemType.knowledge);
-    if (item == null || !context.mounted) return;
-
-    // Σύνδεση με τη συλλογή
-    await ref
-        .read(propertyNotifierProvider(item.id).notifier)
-        .setText('collection_id', collection.id.toString());
-
-    ref.invalidate(itemNotifierProvider);
-    // ignore: use_build_context_synchronously
-    Navigator.of(context)
-        .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
-      entryId: item.id,
-      collectionId: collection.id,
-      fields: fields,
-      isNew: true,
-    )));
   }
 
   static Color _colorFromItem(Item item) {
@@ -130,13 +260,19 @@ class _EntriesList extends ConsumerWidget {
   final int collectionId;
   final List<FieldDef> fields;
   final Color accentColor;
+  final String searchQuery;
+  final Set<String> activeTags;
   final VoidCallback onCreateEntry;
+  final ValueChanged<Set<String>> onVisibleTagsChanged;
 
   const _EntriesList({
     required this.collectionId,
     required this.fields,
     required this.accentColor,
+    required this.searchQuery,
+    required this.activeTags,
     required this.onCreateEntry,
+    required this.onVisibleTagsChanged,
   });
 
   @override
@@ -152,7 +288,10 @@ class _EntriesList extends ConsumerWidget {
       collectionId: collectionId,
       fields: fields,
       accentColor: accentColor,
+      searchQuery: searchQuery,
+      activeTags: activeTags,
       onCreateEntry: onCreateEntry,
+      onVisibleTagsChanged: onVisibleTagsChanged,
     );
   }
 }
@@ -162,28 +301,35 @@ class _FilteredEntriesList extends ConsumerWidget {
   final int collectionId;
   final List<FieldDef> fields;
   final Color accentColor;
+  final String searchQuery;
+  final Set<String> activeTags;
   final VoidCallback onCreateEntry;
+  final ValueChanged<Set<String>> onVisibleTagsChanged;
 
   const _FilteredEntriesList({
     required this.candidates,
     required this.collectionId,
     required this.fields,
     required this.accentColor,
+    required this.searchQuery,
+    required this.activeTags,
     required this.onCreateEntry,
+    required this.onVisibleTagsChanged,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Αρχικά φιλτράρουμε όλες τις εγγραφές της συλλογής
+    // Φιλτράρουμε όλες τις εγγραφές της συλλογής
     final allEntries = <Item>[];
     for (final c in candidates) {
-      final props = ref.watch(itemPropertiesProvider(c.id)).valueOrNull ?? [];
+      final props =
+          ref.watch(itemPropertiesProvider(c.id)).valueOrNull ?? [];
       final colId =
           props.where((p) => p.key == 'collection_id').firstOrNull?.value;
       if (colId == collectionId.toString()) allEntries.add(c);
     }
 
-    // 🔹 Φιλτράρισμα view mode (pinned / favorites / all)
+    // View mode
     final viewMode = ref.watch(listViewModeProvider);
     var entries = allEntries;
     switch (viewMode) {
@@ -197,7 +343,40 @@ class _FilteredEntriesList extends ConsumerWidget {
         break;
     }
 
+    // Search
+    if (searchQuery.isNotEmpty) {
+      final q = searchQuery.toLowerCase();
+      entries = entries
+          .where((e) => (e.title ?? '').toLowerCase().contains(q))
+          .toList();
+    }
+
+    // Tag filter
+    if (activeTags.isNotEmpty) {
+      entries = entries.where((e) {
+        final tags =
+            ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
+        return tags.any((t) => activeTags.contains(t.name));
+      }).toList();
+    }
+
+    // Συγκέντρωση visible tag names
+    final visibleTagNames = <String>{};
+    for (final e in entries) {
+      final tags =
+          ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
+      for (final t in tags) {
+        visibleTagNames.add(t.name);
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      onVisibleTagsChanged(visibleTagNames);
+    });
+
     if (entries.isEmpty) {
+      if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
+        return EmptyState.search(query: searchQuery);
+      }
       return Center(
         child: Padding(
           padding: context.responsivePadding,
@@ -286,7 +465,7 @@ class _EntryCard extends ConsumerWidget {
     ItemColorHelper.backgroundColorForType(ItemType.knowledge, context);
     final foregroundColor =
     ItemColorHelper.textColorForBackground(backgroundColor, context);
-    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+    final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
 
     return GestureDetector(
       onTap: onTap,
@@ -301,7 +480,6 @@ class _EntryCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Badges row
             Row(
               children: [
                 if (entry.pinned)
@@ -312,7 +490,8 @@ class _EntryCard extends ConsumerWidget {
                   ),
                 if (entry.favorite)
                   Icon(Icons.star_rounded,
-                      size: 12, color: ColorsUI.getWarning(context.brightness)),
+                      size: 12,
+                      color: ColorsUI.getWarning(context.brightness)),
               ],
             ),
             const SizedBox(height: Spacing.xs),
@@ -354,10 +533,12 @@ class _EntryCard extends ConsumerWidget {
                     Icon(f.icon, size: 12, color: secondaryForeground),
                     const SizedBox(width: 4),
                     Text('${f.label}: ',
-                        style: context.labelSm.copyWith(color: secondaryForeground)),
+                        style: context.labelSm
+                            .copyWith(color: secondaryForeground)),
                     Expanded(
                       child: Text(val,
-                          style: context.labelSm.copyWith(color: foregroundColor),
+                          style: context.labelSm
+                              .copyWith(color: foregroundColor),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ),
@@ -403,9 +584,10 @@ class _EntryCard extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading:
-              Icon(Icons.delete_outline_rounded, color: context.cError),
-              title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
+              leading: Icon(Icons.delete_outline_rounded,
+                  color: context.cError),
+              title: Text('Διαγραφή',
+                  style: TextStyle(color: context.cError)),
               onTap: () {
                 Navigator.pop(context);
                 onDelete();
@@ -420,7 +602,7 @@ class _EntryCard extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// COLLECTION ENTRY DETAIL SCREEN (unchanged)
+// COLLECTION ENTRY DETAIL SCREEN (εμπλουτισμένο)
 // ════════════════════════════════════════════════════════════════
 
 class CollectionEntryDetailScreen extends ConsumerStatefulWidget {
@@ -455,6 +637,7 @@ class _CollectionEntryDetailScreenState
   bool _propsLoaded = false;
   bool _isFavorite = false;
   bool _isPinned = false;
+  bool _isArchived = false;
 
   final Map<String, bool> _boolValues = {};
   final Map<String, DateTime?> _dateValues = {};
@@ -534,7 +717,6 @@ class _CollectionEntryDetailScreenState
         case FieldType.numberedList:
           final list = _listValues[f.key] ?? [];
           final json = jsonEncode(list);
-          DebugConfig.db('💾 Saving ${f.key} (${f.type}): $json');
           await notifier.setText(f.key, json);
           break;
         default:
@@ -554,15 +736,24 @@ class _CollectionEntryDetailScreenState
   }
 
   Future<void> _toggleFavorite() async {
-    await ref.read(itemNotifierProvider.notifier)
+    await ref
+        .read(itemNotifierProvider.notifier)
         .toggleFavorite(widget.entryId, _isFavorite);
     setState(() => _isFavorite = !_isFavorite);
   }
 
   Future<void> _togglePin() async {
-    await ref.read(itemNotifierProvider.notifier)
+    await ref
+        .read(itemNotifierProvider.notifier)
         .togglePin(widget.entryId, _isPinned);
     setState(() => _isPinned = !_isPinned);
+  }
+
+  Future<void> _toggleArchive() async {
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .toggleArchive(widget.entryId, _isArchived);
+    setState(() => _isArchived = !_isArchived);
   }
 
   Future<void> _deleteEntry() async {
@@ -573,6 +764,46 @@ class _CollectionEntryDetailScreenState
     if (!confirm || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
     if (mounted) Navigator.of(context).pop();
+  }
+
+  // ── Reminder bottom sheet ──────────────────────────────────
+  Future<void> _showReminderDialog() async {
+    final title =
+    _titleCtrl.text.trim().isEmpty ? 'Εγγραφή' : _titleCtrl.text.trim();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.entryId,
+          itemTitle: title,
+          defaultStartTime: null,
+        ),
+      ),
+    );
+  }
+
+  // ── Tag picker sheet ───────────────────────────────────────
+  void _showTagPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => _TagPickerSheet(itemId: widget.entryId),
+    );
   }
 
   Future<bool> _onPopInvoked() async {
@@ -589,11 +820,7 @@ class _CollectionEntryDetailScreenState
     for (final f in widget.fields) {
       final prop = props.where((p) => p.key == f.key).firstOrNull;
       final val = prop?.value ?? '';
-      DebugConfig.db('   Field: ${f.key}, type: ${f.type}, value: $val');
-      if (f.key.isEmpty) {
-        DebugConfig.db('⚠️ Skipping save for field with empty key: label="${f.label}"');
-        continue;
-      }
+      if (f.key.isEmpty) continue;
       switch (f.type) {
         case FieldType.toggle:
           _boolValues[f.key] = val == 'true';
@@ -607,10 +834,8 @@ class _CollectionEntryDetailScreenState
             try {
               final list = jsonDecode(val) as List;
               _listValues[f.key] = list.map((e) => e.toString()).toList();
-              DebugConfig.db('   ✅ Loaded list: ${_listValues[f.key]}');
             } catch (_) {
               _listValues[f.key] = [];
-              DebugConfig.db('   ⚠️ Failed to decode JSON for ${f.key}');
             }
           } else {
             _listValues[f.key] = [];
@@ -664,6 +889,9 @@ class _CollectionEntryDetailScreenState
           if (_isPinned != item.pinned) {
             _isPinned = item.pinned;
           }
+          if (_isArchived != item.archived) {
+            _isArchived = item.archived;
+          }
         }
 
         return PopScope(
@@ -694,35 +922,65 @@ class _CollectionEntryDetailScreenState
               ])
                   : null,
               actions: [
-                IconButton(
-                  icon: Icon(
-                    _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-                    color: _isPinned ? context.cPrimary : context.cText2,
-                  ),
-                  onPressed: _togglePin,
-                  tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-                ),
-                IconButton(
-                  icon: Icon(
-                    _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: _isFavorite
-                        ? ColorsUI.getWarning(context.brightness)
-                        : context.cText2,
-                  ),
-                  onPressed: _toggleFavorite,
-                  tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-                ),
+                // Save
                 IconButton(
                   icon: Icon(Icons.save_rounded, color: context.cPrimary),
+                  tooltip: 'Αποθήκευση',
                   onPressed: () async {
                     await _save();
                     if (!context.mounted) return;
                     if (mounted) Navigator.of(context).pop();
                   },
                 ),
+                // Reminder
                 IconButton(
-                  icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-                  onPressed: () => _deleteEntry(),
+                  icon: Icon(Icons.notifications_none_rounded,
+                      color: context.cText2),
+                  onPressed: _showReminderDialog,
+                  tooltip: 'Υπενθύμιση',
+                ),
+                // Favorite
+                IconButton(
+                  icon: Icon(
+                    _isFavorite
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: _isFavorite
+                        ? ColorsUI.getWarning(context.brightness)
+                        : context.cText2,
+                  ),
+                  onPressed: _toggleFavorite,
+                  tooltip: _isFavorite
+                      ? 'Αφαίρεση αγαπημένου'
+                      : 'Αγαπημένο',
+                ),
+                // Pin
+                IconButton(
+                  icon: Icon(
+                    _isPinned
+                        ? Icons.push_pin_rounded
+                        : Icons.push_pin_outlined,
+                    color: _isPinned ? context.cPrimary : context.cText2,
+                  ),
+                  onPressed: _togglePin,
+                  tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+                ),
+                // Archive
+                IconButton(
+                  icon: Icon(
+                    _isArchived
+                        ? Icons.unarchive_rounded
+                        : Icons.archive_rounded,
+                    color: context.cText2,
+                  ),
+                  onPressed: _toggleArchive,
+                  tooltip: _isArchived ? 'Επαναφορά' : 'Αρχειοθέτηση',
+                ),
+                // Delete
+                IconButton(
+                  icon: Icon(Icons.delete_outline_rounded,
+                      color: context.cError),
+                  onPressed: _deleteEntry,
                   tooltip: 'Διαγραφή',
                 ),
               ],
@@ -735,6 +993,7 @@ class _CollectionEntryDetailScreenState
                 80,
               ),
               children: [
+                // Τίτλος
                 TextField(
                   controller: _titleCtrl,
                   onChanged: _onTitleChanged,
@@ -750,6 +1009,7 @@ class _CollectionEntryDetailScreenState
                 ),
                 Divider(color: ColorsUI.getBorder(context.brightness)),
                 const SizedBox(height: Spacing.sm),
+                // Πεδία
                 ...widget.fields.map((f) => Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.md),
                   child: _FieldInput(
@@ -769,11 +1029,72 @@ class _CollectionEntryDetailScreenState
                         _updateListItem(f.key, index, val),
                   ),
                 )),
+                // Tags section
+                const SizedBox(height: Spacing.lg),
+                _TagsSection(
+                  itemId: widget.entryId,
+                  onAddTag: _showTagPicker,
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TAGS SECTION (για το detail screen)
+// ════════════════════════════════════════════════════════════════
+
+class _TagsSection extends ConsumerWidget {
+  final int itemId;
+  final VoidCallback onAddTag;
+
+  const _TagsSection({required this.itemId, required this.onAddTag});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tagsAsync = ref.watch(itemTagsProvider(itemId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Tags', style: context.labelSm.withColor(context.cText2)),
+            TextButton.icon(
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Προσθήκη'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: onAddTag,
+            ),
+          ],
+        ),
+        const SizedBox(height: Spacing.xs),
+        tagsAsync.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (tags) => TagChipList.interactive(
+            tagNames: tags.map((t) => t.name).toList(),
+            tagColors: tags.map((t) => t.color).toList(),
+            onTagDelete: (name) async {
+              final tag = tags.firstWhere((t) => t.name == name,
+                  orElse: () => tags.first);
+              await ref
+                  .read(tagNotifierProvider.notifier)
+                  .removeFromItem(itemId, tag.id);
+            },
+            onAdd: onAddTag,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -846,8 +1167,8 @@ class _FieldInput extends StatelessWidget {
               decoration: BoxDecoration(
                 color: ColorsUI.getSurface(context.brightness),
                 borderRadius: AppRadius.inputBR,
-                border:
-                Border.all(color: ColorsUI.getBorder(context.brightness)),
+                border: Border.all(
+                    color: ColorsUI.getBorder(context.brightness)),
               ),
               child: Row(children: [
                 Expanded(
@@ -909,17 +1230,18 @@ class _FieldInput extends StatelessWidget {
               fillColor: ColorsUI.getSurface(context.brightness),
               border: OutlineInputBorder(
                 borderRadius: AppRadius.inputBR,
-                borderSide:
-                BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                borderSide: BorderSide(
+                    color: ColorsUI.getBorder(context.brightness)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: AppRadius.inputBR,
-                borderSide:
-                BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                borderSide: BorderSide(
+                    color: ColorsUI.getBorder(context.brightness)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: AppRadius.inputBR,
-                borderSide: BorderSide(color: context.cPrimary, width: 1.5),
+                borderSide:
+                BorderSide(color: context.cPrimary, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(
                   horizontal: Spacing.md, vertical: Spacing.sm),
@@ -1067,6 +1389,170 @@ class _ListField extends StatelessWidget {
               style: context.labelSm.withColor(context.cPrimary)),
         ),
       ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// SEARCH BAR (για τη λίστα)
+// ════════════════════════════════════════════════════════════════
+
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+
+  const _SearchBar({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: context.cBg,
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveHPadding,
+        Spacing.sm,
+        context.responsiveHPadding,
+        Spacing.sm,
+      ),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        onChanged: onChanged,
+        style: context.bodyMd,
+        decoration: InputDecoration(
+          hintText: 'Αναζήτηση εγγραφών...',
+          hintStyle: context.bodyMd.withColor(context.cDisabled),
+          prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+            icon: Icon(Icons.close_rounded, color: context.cText2),
+            onPressed: () {
+              controller.clear();
+              onChanged('');
+            },
+          )
+              : null,
+          filled: true,
+          fillColor: ColorsUI.getSurface(context.brightness),
+          border: OutlineInputBorder(
+            borderRadius: AppRadius.inputBR,
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md, vertical: Spacing.sm),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TAG PICKER SHEET
+// ════════════════════════════════════════════════════════════════
+
+class _TagPickerSheet extends ConsumerStatefulWidget {
+  final int itemId;
+  const _TagPickerSheet({required this.itemId});
+
+  @override
+  ConsumerState<_TagPickerSheet> createState() => _TagPickerSheetState();
+}
+
+class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addTag(String name) async {
+    if (name.trim().isEmpty) return;
+    final tag =
+    await ref.read(tagNotifierProvider.notifier).createOrGet(name.trim());
+    if (tag == null || !mounted) return;
+    await ref
+        .read(tagNotifierProvider.notifier)
+        .addToItem(widget.itemId, tag.id);
+    _ctrl.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tagsAsync = ref.watch(tagsProvider);
+    final itemTagsAsync = ref.watch(itemTagsProvider(widget.itemId));
+    final itemTagIds =
+        itemTagsAsync.valueOrNull?.map((t) => t.id).toSet() ?? {};
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: context.cBorder,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            Text('Προσθήκη Tag', style: context.titleMd),
+            const SizedBox(height: Spacing.md),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              onSubmitted: _addTag,
+              decoration: InputDecoration(
+                hintText: 'Νέο tag...',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.add_rounded),
+                  onPressed: () => _addTag(_ctrl.text),
+                ),
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            tagsAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (tags) {
+                final available =
+                tags.where((t) => !itemTagIds.contains(t.id)).toList();
+                if (available.isEmpty) return const SizedBox.shrink();
+                return Wrap(
+                  spacing: Spacing.xs,
+                  runSpacing: Spacing.xs,
+                  children: available
+                      .map((t) => TagChip(
+                    name: t.name,
+                    color: t.color,
+                    onTap: () async {
+                      final nav = Navigator.of(context);
+                      await ref
+                          .read(tagNotifierProvider.notifier)
+                          .addToItem(widget.itemId, t.id);
+                      nav.pop();
+                    },
+                  ))
+                      .toList(),
+                );
+              },
+            ),
+            SizedBox(
+                height: MediaQuery.of(context).padding.bottom + Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }

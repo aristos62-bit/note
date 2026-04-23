@@ -739,6 +739,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── Show folder options (long press on tab) ───────────────────
 
+  // ── Show folder options (long press on tab) ───────────────────
+
   void _showFolderOptions(
       BuildContext context, WidgetRef ref, Folder folder, List<Item> allItems) {
     // Έλεγχος αν ο φάκελος είναι άδειος
@@ -792,7 +794,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ]),
             ),
             const Divider(),
-            // Edit — πάντα διαθέσιμο
+
+            // ── Επεξεργασία (πάντα διαθέσιμη) ─────────────────
             ListTile(
               leading: Icon(Icons.edit_rounded, color: context.cText),
               title: Text('Επεξεργασία', style: context.bodyMd),
@@ -801,24 +804,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _editFolder(context, ref, folder);
               },
             ),
-            // Delete — μόνο αν άδειος
-            ListTile(
-              leading: Icon(Icons.delete_outline_rounded,
-                  color: isEmpty ? context.cError : context.cDisabled),
-              title: Text('Διαγραφή',
-                  style: context.bodyMd
-                      .withColor(isEmpty ? context.cError : context.cDisabled)),
-              subtitle: !isEmpty
-                  ? Text('Αδείασε πρώτα τον φάκελο',
-                  style: context.bodySm.withColor(context.cText2))
-                  : null,
-              onTap: isEmpty
-                  ? () {
-                Navigator.pop(context);
-                _deleteFolder(context, ref, folder);
-              }
-                  : null,
-            ),
+
+            // ── Διαγραφή ή ενημερωτικό μήνυμα ─────────────────
+            if (!folder.isSystem) ...[
+              // Κανονικός φάκελος: εμφάνιση delete αν είναι άδειος
+              ListTile(
+                leading: Icon(Icons.delete_outline_rounded,
+                    color: isEmpty ? context.cError : context.cDisabled),
+                title: Text('Διαγραφή',
+                    style: context.bodyMd
+                        .withColor(isEmpty ? context.cError : context.cDisabled)),
+                subtitle: !isEmpty
+                    ? Text('Αδείασε πρώτα τον φάκελο',
+                    style: context.bodySm.withColor(context.cText2))
+                    : null,
+                onTap: isEmpty
+                    ? () {
+                  Navigator.pop(context);
+                  _deleteFolder(context, ref, folder);
+                }
+                    : null,
+              ),
+            ] else ...[
+              // System φάκελος: ενημέρωση ότι δεν διαγράφεται
+              ListTile(
+                leading: Icon(Icons.info_outline_rounded, color: context.cText2),
+                title: Text(
+                  'Ο φάκελος "Γενικά" δεν διαγράφεται',
+                  style: context.bodyMd.withColor(context.cText2),
+                ),
+                subtitle: Text(
+                  'Είναι ο προεπιλεγμένος φάκελος του συστήματος',
+                  style: context.bodySm.withColor(context.cDisabled),
+                ),
+                enabled: false,  // Μη επιλέξιμο
+              ),
+            ],
+
             const SizedBox(height: Spacing.sm),
           ],
         ),
@@ -935,6 +957,7 @@ class _HomeAppBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final workspaceAsync = ref.watch(defaultWorkspaceProvider);
     final wsName = workspaceAsync.valueOrNull?.name ?? 'Προσωπικός Βοηθός';
+    DebugConfig.db('Home wsName="$wsName"');
 
     return SliverAppBar(
       backgroundColor: context.cBg,
@@ -943,23 +966,35 @@ class _HomeAppBar extends ConsumerWidget {
       snap: true,
       elevation: 0,
       scrolledUnderElevation: 1,
-      title: Text(wsName, style: context.titleLg),
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          wsName,
+          style: context.titleLg,
+        ),
+      ),
       actions: [
         IconButton(
           icon: Icon(Icons.search_rounded, color: context.cText2),
           onPressed: () => Navigator.push(
-              context, AppTransitions.fadeRoute(const SearchScreen())),
+            context,
+            AppTransitions.fadeRoute(const SearchScreen()),
+          ),
           tooltip: 'Αναζήτηση',
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: () => Navigator.push(
-              context, AppTransitions.slideUpRoute(const SettingsScreen())),
+            context,
+            AppTransitions.slideUpRoute(const SettingsScreen()),
+          ),
         ),
       ],
     );
   }
 }
+
 
 // ════════════════════════════════════════════════════════════════
 // GREETING (με εικονίδιο εφαρμογής στα δεξιά)

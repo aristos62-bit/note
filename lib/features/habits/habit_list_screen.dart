@@ -5,10 +5,13 @@
 // ✅ Dark mode: ColorsUI + context extensions + ItemColorHelper
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
+// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
+// ✅ Search, filter tags
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -16,6 +19,9 @@ import '../../shared/widgets/widgets.dart';
 import 'habit_detail_screen.dart';
 import '../../services/reminder_scheduler.dart';
 import '../../helpers/item_color_helper.dart';
+
+final _habitSearchQueryProvider = StateProvider<String>((ref) => '');
+final _habitTagFilterProvider = StateProvider<Set<String>>((ref) => {});
 
 // ════════════════════════════════════════════════════════════════
 // HABIT LIST SCREEN
@@ -31,7 +37,40 @@ class HabitListScreen extends ConsumerStatefulWidget {
 class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   bool _searchActive = false;
   final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  Timer? _debounce;
   int? _selectedFolderId;
+  Set<String> _visibleTagNames = {};
+
+  // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
+  bool _userExplicitlySelected = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(_habitSearchQueryProvider.notifier).state = value.trim();
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() => _searchActive = !_searchActive);
+    if (!_searchActive) {
+      _searchCtrl.clear();
+      ref.read(_habitSearchQueryProvider.notifier).state = '';
+      ref.read(_habitTagFilterProvider.notifier).state = {};
+    } else {
+      Future.microtask(() => _searchFocus.requestFocus());
+    }
+    DebugConfig.nav('HabitList toggleSearch: $_searchActive');
+  }
 
   Future<void> _createHabit() async {
     if (_selectedFolderId == null) {
@@ -58,7 +97,8 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   void _openDetail(int id) {
     DebugConfig.nav('HabitList → HabitDetail id=$id');
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => HabitDetailScreen(itemId: id, isNew: false)),
+      MaterialPageRoute(
+          builder: (_) => HabitDetailScreen(itemId: id, isNew: false)),
     );
   }
 
@@ -71,15 +111,32 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   }
 
   @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     DebugConfig.provider('HabitListScreen build');
     final habitsAsync = ref.watch(itemNotifierProvider);
+    final searchQuery = ref.watch(_habitSearchQueryProvider);
+    final activeTags = ref.watch(_habitTagFilterProvider);
+    final foldersAsync = ref.watch(foldersStreamProvider);
+
+    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις
+    final preferredId = ref.watch(preferredFolderIdProvider);
+
+    // ✅ Αυτόματη επιλογή φακέλου μόνο αν ο χρήστης δεν έχει επιλέξει ρητά
+    if (!_userExplicitlySelected) {
+      foldersAsync.whenData((folders) {
+        if (_selectedFolderId == null && mounted && folders.isNotEmpty) {
+          int? targetId = preferredId;
+          if (targetId == null || !folders.any((f) => f.id == targetId)) {
+            targetId = folders.firstWhere(
+                  (f) => f.isSystem,
+              orElse: () => folders.first,
+            ).id;
+          }
+          setState(() => _selectedFolderId = targetId);
+          DebugConfig.nav('HabitList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -94,37 +151,15 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
       body: Column(
         children: [
           if (_searchActive)
-            Container(
-              color: context.cBg,
-              padding: EdgeInsets.fromLTRB(
-                  context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (_) => setState(() {}),
-                style: context.bodyMd,
-                decoration: InputDecoration(
-                  hintText: 'Αναζήτηση συνηθειών...',
-                  hintStyle: context.bodyMd.withColor(context.cDisabled),
-                  prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-                  suffixIcon: _searchCtrl.text.isNotEmpty
-                      ? IconButton(
-                    icon: Icon(Icons.close_rounded, color: context.cText2),
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      setState(() {});
-                    },
-                  )
-                      : null,
-                  filled: true,
-                  fillColor: ColorsUI.getSurface(context.brightness),
-                  border: OutlineInputBorder(
-                      borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
-                ),
-              ),
+            _SearchBar(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              onChanged: (value) {
+                setState(() {});
+                _onSearchChanged(value);
+              },
             ),
-          ref.watch(foldersStreamProvider).when(
+          foldersAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
             data: (folders) {
@@ -135,14 +170,67 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                   folders: folders,
                   selectedFolderId: _selectedFolderId,
                   onSelect: (id) {
-                    setState(() => _selectedFolderId = id);
+                    setState(() {
+                      _selectedFolderId = id;
+                      _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε ρητή επιλογή
+                    });
                     DebugConfig.nav('HabitList: select folder id=$id');
                   },
                 ),
               );
             },
           ),
-          // ── View mode toggle (pinned/favorites/all) ────────────
+          if (_visibleTagNames.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    context.responsiveHPadding,
+                    0,
+                    context.responsiveHPadding,
+                    Spacing.xs,
+                  ),
+                  child: Text(
+                    'Επιλέξτε tag για φιλτράρισμα συνηθειών',
+                    style: context.labelSm.withColor(context.cText2),
+                  ),
+                ),
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: context.responsiveHPadding),
+                    itemCount: _visibleTagNames.length,
+                    separatorBuilder: (_, __) =>
+                    const SizedBox(width: Spacing.xs),
+                    itemBuilder: (_, i) {
+                      final name = _visibleTagNames.elementAt(i);
+                      final selected = activeTags.contains(name);
+                      return TagChip(
+                        name: name,
+                        color: null,
+                        compact: true,
+                        selected: selected,
+                        onTap: () {
+                          final current =
+                          ref.read(_habitTagFilterProvider);
+                          final newSet = {...current};
+                          if (newSet.contains(name)) {
+                            newSet.remove(name);
+                          } else {
+                            newSet.add(name);
+                          }
+                          ref.read(_habitTagFilterProvider.notifier).state =
+                              newSet;
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
@@ -155,8 +243,9 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                       onRetry: () => ref.invalidate(itemNotifierProvider));
                 },
                 data: (items) {
-                  var habitsOnly =
-                  items.where((it) => it.type == ItemType.habit).toList();
+                  var habitsOnly = items
+                      .where((it) => it.type == ItemType.habit)
+                      .toList();
 
                   if (_selectedFolderId != null) {
                     habitsOnly = habitsOnly
@@ -164,34 +253,60 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                         .toList();
                   }
 
-                  // 🔹 Φιλτράρισμα: view mode (pinned / favorites / all)
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
-                      habitsOnly = habitsOnly.where((h) => h.pinned).toList();
+                      habitsOnly =
+                          habitsOnly.where((h) => h.pinned).toList();
                       break;
                     case ListViewMode.favorites:
-                      habitsOnly = habitsOnly.where((h) => h.favorite).toList();
+                      habitsOnly =
+                          habitsOnly.where((h) => h.favorite).toList();
                       break;
                     case ListViewMode.all:
                       break;
                   }
 
-                  final q = _searchCtrl.text.trim().toLowerCase();
-                  if (q.isNotEmpty) {
+                  if (searchQuery.isNotEmpty) {
+                    final q = searchQuery.toLowerCase();
                     habitsOnly = habitsOnly
-                        .where((h) => (h.title ?? '').toLowerCase().contains(q))
+                        .where((h) =>
+                        (h.title ?? '').toLowerCase().contains(q))
                         .toList();
                   }
 
+                  if (activeTags.isNotEmpty) {
+                    habitsOnly = habitsOnly.where((h) {
+                      final tagsAsync =
+                          ref.watch(itemTagsProvider(h.id)).valueOrNull ?? [];
+                      return tagsAsync
+                          .any((tag) => activeTags.contains(tag.name));
+                    }).toList();
+                  }
+
+                  final visibleTagNames = <String>{};
+                  for (final h in habitsOnly) {
+                    final tagsAsync =
+                        ref.watch(itemTagsProvider(h.id)).valueOrNull ?? [];
+                    for (final t in tagsAsync) {
+                      visibleTagNames.add(t.name);
+                    }
+                  }
+
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    if (!const SetEquality<String>()
+                        .equals(_visibleTagNames, visibleTagNames)) {
+                      setState(() => _visibleTagNames = visibleTagNames);
+                    }
+                  });
+
                   if (habitsOnly.isEmpty) {
-                    if (_searchCtrl.text.isNotEmpty) {
-                      return EmptyState.search(query: _searchCtrl.text);
+                    if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
+                      return EmptyState.search(query: searchQuery);
                     }
-                    if (_selectedFolderId == null) {
-                      return EmptyState.forType(ItemType.habit, onAction: null);
-                    }
-                    return EmptyState.forType(ItemType.habit, onAction: _createHabit);
+                    return EmptyState.forType(ItemType.habit,
+                        onAction: _createHabit);
                   }
 
                   return Column(
@@ -229,13 +344,16 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
     title: const Text('Συνήθειες'),
     actions: [
       IconButton(
-        icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
+        icon: Icon(_searchActive
+            ? Icons.search_off_rounded
+            : Icons.search_rounded),
         onPressed: _toggleSearch,
         tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
       ),
       IconButton(
         icon: const Icon(Icons.notifications_outlined),
-        onPressed: () => DebugConfig.nav('HabitList: notifications (TODO)'),
+        onPressed: () =>
+            DebugConfig.nav('HabitList: notifications (TODO)'),
         tooltip: 'Ειδοποιήσεις',
       ),
       PopupMenuButton<String>(
@@ -255,7 +373,9 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
               const Icon(Icons.archive_rounded, size: 18),
               const SizedBox(width: Spacing.sm),
               Text(
-                ref.watch(showArchivedProvider) ? 'Απόκρυψη αρχείου' : 'Εμφάνιση αρχείου',
+                ref.watch(showArchivedProvider)
+                    ? 'Απόκρυψη αρχείου'
+                    : 'Εμφάνιση αρχείου',
               ),
             ]),
           ),
@@ -263,10 +383,64 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
       ),
     ],
   );
+}
 
-  void _toggleSearch() {
-    setState(() => _searchActive = !_searchActive);
-    DebugConfig.nav('HabitList toggleSearch: $_searchActive');
+// ──────────────────────────────────────────────────────────────
+// Search bar (like others)
+// ──────────────────────────────────────────────────────────────
+
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+
+  const _SearchBar({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: context.cBg,
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveHPadding,
+        Spacing.sm,
+        context.responsiveHPadding,
+        Spacing.sm,
+      ),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        onChanged: onChanged,
+        style: context.bodyMd,
+        decoration: InputDecoration(
+          hintText: 'Αναζήτηση συνηθειών...',
+          hintStyle: context.bodyMd.withColor(context.cDisabled),
+          prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+            icon: Icon(Icons.close_rounded, color: context.cText2),
+            onPressed: () {
+              controller.clear();
+              onChanged('');
+            },
+          )
+              : null,
+          filled: true,
+          fillColor: ColorsUI.getSurface(context.brightness),
+          border: OutlineInputBorder(
+            borderRadius: AppRadius.inputBR,
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -295,8 +469,8 @@ class _TodayProgress extends ConsumerWidget {
     final isAllDone = totalGoal > 0 && totalDone >= totalGoal;
 
     return Container(
-      margin: EdgeInsets.fromLTRB(
-          context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
+      margin: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md,
+          context.responsiveHPadding, Spacing.sm),
       padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
         color: ColorsUI.getSurface(context.brightness),
@@ -328,7 +502,8 @@ class _TodayProgress extends ConsumerWidget {
           if (isAllDone) ...[
             const SizedBox(height: Spacing.sm),
             Row(children: [
-              Icon(Icons.celebration_rounded, size: 16, color: context.cSuccess),
+              Icon(Icons.celebration_rounded,
+                  size: 16, color: context.cSuccess),
               const SizedBox(width: Spacing.xs),
               Text('Όλοι οι στόχοι επιτεύχθηκαν! 🎉',
                   style: context.bodySm.withColor(context.cSuccess)),
@@ -359,13 +534,13 @@ class HabitCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(habitStatsProvider(habit.id)).valueOrNull;
-    // Χρώμα φόντου από τον ItemColorHelper
-    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.habit, context);
-    // Χρώμα κειμένου βάσει αντίθεσης
-    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
-    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
-    // Accent χρώμα για progress bar, border, stats (από helper ή context)
-    final accentColor = ItemColorHelper.iconColorForType(ItemType.habit, context);
+    final backgroundColor =
+    ItemColorHelper.backgroundColorForType(ItemType.habit, context);
+    final foregroundColor =
+    ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
+    final accentColor =
+    ItemColorHelper.iconColorForType(ItemType.habit, context);
 
     final goal = stats?.goalCount ?? 0;
     final dailyProgress = stats?.dailyProgress ?? 0;
@@ -393,7 +568,6 @@ class HabitCard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
               Text(
                 habit.title ?? 'Χωρίς τίτλο',
                 style: context.titleSm.copyWith(color: foregroundColor),
@@ -401,7 +575,6 @@ class HabitCard extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: Spacing.xs),
-              // Progress bar
               if (goal > 0) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
@@ -414,7 +587,6 @@ class HabitCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: Spacing.xs),
               ],
-              // Stats row
               Row(
                 children: [
                   _StatBadge(
@@ -468,7 +640,8 @@ class HabitCard extends ConsumerWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: context.cBorder, borderRadius: BorderRadius.circular(2)),
+                  color: context.cBorder,
+                  borderRadius: BorderRadius.circular(2)),
             ),
             ListTile(
               leading: const Icon(Icons.edit_rounded),
@@ -479,7 +652,8 @@ class HabitCard extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+              leading:
+              Icon(Icons.delete_outline_rounded, color: context.cError),
               title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
               onTap: () {
                 Navigator.pop(context);
@@ -498,8 +672,8 @@ class _StatBadge extends StatelessWidget {
   final IconData icon;
   final String value;
   final String label;
-  final Color color;      // χρώμα εικονιδίου και value
-  final Color textColor;  // βασικό χρώμα κειμένου (για το label)
+  final Color color;
+  final Color textColor;
 
   const _StatBadge({
     required this.icon,
@@ -518,7 +692,9 @@ class _StatBadge extends StatelessWidget {
         const SizedBox(width: 3),
         Text(value, style: context.labelSm.copyWith(color: color)),
         const SizedBox(width: 2),
-        Text(label, style: context.labelSm.copyWith(color: textColor.withValues(alpha:0.7))),
+        Text(label,
+            style: context.labelSm.copyWith(
+                color: textColor.withValues(alpha: 0.7))),
       ],
     );
   }
@@ -542,7 +718,8 @@ class _HabitListMobile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs),
+      padding: EdgeInsets.symmetric(
+          horizontal: context.responsiveHPadding, vertical: Spacing.xs),
       itemCount: habits.length,
       separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
       itemBuilder: (_, i) => HabitCard(
@@ -573,7 +750,8 @@ class _HabitGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final cols = context.gridColumns;
     return GridView.builder(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs),
+      padding: EdgeInsets.symmetric(
+          horizontal: context.responsiveHPadding, vertical: Spacing.xs),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
         mainAxisSpacing: Spacing.sm,
@@ -598,7 +776,8 @@ class _LoadingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),
+      padding: EdgeInsets.symmetric(
+          horizontal: context.responsiveHPadding, vertical: Spacing.sm),
       itemCount: 4,
       separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
       itemBuilder: (_, __) => const ItemCardSkeleton(),

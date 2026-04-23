@@ -55,6 +55,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> setDefaultWorkspace(int workspaceId) =>
       updateSettings((s) => s.defaultWorkspaceId = workspaceId);
 
+  Future<void> setPreferredFolder(int? folderId) =>
+      updateSettings((s) => s.preferredFolderId = folderId);
+
   Future<void> completeOnboarding() =>
       updateSettings((s) => s.hasCompletedOnboarding = true);
 
@@ -84,4 +87,9 @@ final onboardingCompleteProvider = Provider<bool>((ref) {
       .whenData((s) => s?.hasCompletedOnboarding)
       .value ??
       false;
+});
+
+final preferredFolderIdProvider = Provider<int?>((ref) {
+  final settingsAsync = ref.watch(settingsNotifierProvider);
+  return settingsAsync.valueOrNull?.preferredFolderId;
 });

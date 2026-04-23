@@ -74,49 +74,54 @@ const AppSettingsSchema = CollectionSchema(
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
-    r'showArchivedItems': PropertySchema(
+    r'preferredFolderId': PropertySchema(
       id: 11,
+      name: r'preferredFolderId',
+      type: IsarType.long,
+    ),
+    r'showArchivedItems': PropertySchema(
+      id: 12,
       name: r'showArchivedItems',
       type: IsarType.bool,
     ),
     r'showDeletedItems': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'showDeletedItems',
       type: IsarType.bool,
     ),
     r'soundEnabled': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'soundEnabled',
       type: IsarType.bool,
     ),
     r'syncEnabled': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'syncEnabled',
       type: IsarType.bool,
     ),
     r'syncIntervalMinutes': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'syncIntervalMinutes',
       type: IsarType.long,
     ),
     r'syncOnWifiOnly': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'syncOnWifiOnly',
       type: IsarType.bool,
     ),
     r'theme': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'theme',
       type: IsarType.string,
       enumMap: _AppSettingsthemeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'vibrationEnabled': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'vibrationEnabled',
       type: IsarType.bool,
     )
@@ -170,15 +175,16 @@ void _appSettingsSerialize(
   writer.writeString(offsets[8], object.language.name);
   writer.writeDateTime(offsets[9], object.lastSyncAt);
   writer.writeBool(offsets[10], object.notificationsEnabled);
-  writer.writeBool(offsets[11], object.showArchivedItems);
-  writer.writeBool(offsets[12], object.showDeletedItems);
-  writer.writeBool(offsets[13], object.soundEnabled);
-  writer.writeBool(offsets[14], object.syncEnabled);
-  writer.writeLong(offsets[15], object.syncIntervalMinutes);
-  writer.writeBool(offsets[16], object.syncOnWifiOnly);
-  writer.writeString(offsets[17], object.theme.name);
-  writer.writeDateTime(offsets[18], object.updatedAt);
-  writer.writeBool(offsets[19], object.vibrationEnabled);
+  writer.writeLong(offsets[11], object.preferredFolderId);
+  writer.writeBool(offsets[12], object.showArchivedItems);
+  writer.writeBool(offsets[13], object.showDeletedItems);
+  writer.writeBool(offsets[14], object.soundEnabled);
+  writer.writeBool(offsets[15], object.syncEnabled);
+  writer.writeLong(offsets[16], object.syncIntervalMinutes);
+  writer.writeBool(offsets[17], object.syncOnWifiOnly);
+  writer.writeString(offsets[18], object.theme.name);
+  writer.writeDateTime(offsets[19], object.updatedAt);
+  writer.writeBool(offsets[20], object.vibrationEnabled);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -204,17 +210,18 @@ AppSettings _appSettingsDeserialize(
           AppLanguage.greek;
   object.lastSyncAt = reader.readDateTimeOrNull(offsets[9]);
   object.notificationsEnabled = reader.readBool(offsets[10]);
-  object.showArchivedItems = reader.readBool(offsets[11]);
-  object.showDeletedItems = reader.readBool(offsets[12]);
-  object.soundEnabled = reader.readBool(offsets[13]);
-  object.syncEnabled = reader.readBool(offsets[14]);
-  object.syncIntervalMinutes = reader.readLong(offsets[15]);
-  object.syncOnWifiOnly = reader.readBool(offsets[16]);
+  object.preferredFolderId = reader.readLongOrNull(offsets[11]);
+  object.showArchivedItems = reader.readBool(offsets[12]);
+  object.showDeletedItems = reader.readBool(offsets[13]);
+  object.soundEnabled = reader.readBool(offsets[14]);
+  object.syncEnabled = reader.readBool(offsets[15]);
+  object.syncIntervalMinutes = reader.readLong(offsets[16]);
+  object.syncOnWifiOnly = reader.readBool(offsets[17]);
   object.theme =
-      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[17])] ??
+      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[18])] ??
           AppTheme.system;
-  object.updatedAt = reader.readDateTime(offsets[18]);
-  object.vibrationEnabled = reader.readBool(offsets[19]);
+  object.updatedAt = reader.readDateTime(offsets[19]);
+  object.vibrationEnabled = reader.readBool(offsets[20]);
   return object;
 }
 
@@ -252,7 +259,7 @@ P _appSettingsDeserializeProp<P>(
     case 10:
       return (reader.readBool(offset)) as P;
     case 11:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 12:
       return (reader.readBool(offset)) as P;
     case 13:
@@ -260,15 +267,17 @@ P _appSettingsDeserializeProp<P>(
     case 14:
       return (reader.readBool(offset)) as P;
     case 15:
-      return (reader.readLong(offset)) as P;
-    case 16:
       return (reader.readBool(offset)) as P;
+    case 16:
+      return (reader.readLong(offset)) as P;
     case 17:
+      return (reader.readBool(offset)) as P;
+    case 18:
       return (_AppSettingsthemeValueEnumMap[reader.readStringOrNull(offset)] ??
           AppTheme.system) as P;
-    case 18:
-      return (reader.readDateTime(offset)) as P;
     case 19:
+      return (reader.readDateTime(offset)) as P;
+    case 20:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1190,6 +1199,80 @@ extension AppSettingsQueryFilter
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      preferredFolderIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'preferredFolderId',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      preferredFolderIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'preferredFolderId',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      preferredFolderIdEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'preferredFolderId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      preferredFolderIdGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'preferredFolderId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      preferredFolderIdLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'preferredFolderId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      preferredFolderIdBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'preferredFolderId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
       showArchivedItemsEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -1645,6 +1728,20 @@ extension AppSettingsQuerySortBy
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByPreferredFolderId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'preferredFolderId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByPreferredFolderIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'preferredFolderId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       sortByShowArchivedItems() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'showArchivedItems', Sort.asc);
@@ -1920,6 +2017,20 @@ extension AppSettingsQuerySortThenBy
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByPreferredFolderId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'preferredFolderId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByPreferredFolderIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'preferredFolderId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       thenByShowArchivedItems() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'showArchivedItems', Sort.asc);
@@ -2115,6 +2226,13 @@ extension AppSettingsQueryWhereDistinct
   }
 
   QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByPreferredFolderId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'preferredFolderId');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
       distinctByShowArchivedItems() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'showArchivedItems');
@@ -2251,6 +2369,13 @@ extension AppSettingsQueryProperty
       notificationsEnabledProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'notificationsEnabled');
+    });
+  }
+
+  QueryBuilder<AppSettings, int?, QQueryOperations>
+      preferredFolderIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'preferredFolderId');
     });
   }
 

@@ -1,5 +1,4 @@
 // lib/models/folder.dart
-// TODO: Σελίδα προς Ανάπτυξη
 import 'package:isar/isar.dart';
 part 'folder.g.dart';
 
@@ -21,6 +20,9 @@ class Folder {
   double sortOrder = 0.0;
 
   bool isDefault = false;
+
+  // ✅ ΝΕΟ ΠΕΔΙΟ – προστασία από διαγραφή
+  bool isSystem = false;
 
   DateTime createdAt = DateTime.now();
   DateTime? updatedAt;

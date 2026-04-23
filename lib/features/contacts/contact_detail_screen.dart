@@ -1,11 +1,13 @@
 // lib/features/contacts/contact_detail_screen.dart
 //
 // Detail screen επαφής: όνομα, τηλέφωνο, email, εταιρεία, κ.α.
-// ✅ Folder-aware: δείχνει φάκελο
+// ✅ Folder‑aware: δείχνει φάκελο
 // ✅ Save logic: isNew + manual Save button (ίδια με NoteDetailScreen)
-// ✅ Responsive: single col mobile / two-panel tablet
+// ✅ Responsive: single col mobile / two‑panel tablet
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
+// ✅ AppBar: Αποθήκευση, Υπενθύμιση, Αγαπημένο, Pin, Αρχειοθέτηση, Διαγραφή
+// ✅ Tags: προβολή, προσθήκη, αφαίρεση
 //
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -82,11 +84,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     super.dispose();
   }
 
-  // ── Name editing flag ──────────────────────────────────────
-
   void _onNameChanged(String _) => _isEditingName = true;
-
-  // ── Manual Save (ίδια λογική με NoteDetailScreen) ───────────
 
   Future<void> _save() async {
     if (!mounted) return;
@@ -102,12 +100,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
     DebugConfig.db('ContactDetail save id=${widget.itemId} name="$name"');
 
-    // Αποθήκευση ονόματος
     await ref
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: name.isEmpty ? null : name);
 
-    // Αποθήκευση properties
     final notifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
 
     if (phone != _lastPhone) {
@@ -129,7 +125,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       await notifier.setText('notes', notes.isEmpty ? null : notes);
     }
 
-    // Update cached values
     _lastSavedName = name;
     _lastPhone = phone;
     _lastEmail = email;
@@ -146,8 +141,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
     DebugConfig.db('ContactDetail saved successfully');
   }
-
-  // ── Birthday picker ─────────────────────────────────────────
 
   Future<void> _pickBirthday(BuildContext context) async {
     final now = DateTime.now();
@@ -176,8 +169,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     setState(() => _lastBirthday = null);
   }
 
-  // ── Pop guard (ίδια λογική με NoteDetailScreen) ─────────────
-
   Future<bool> _onPopInvoked() async {
     if (widget.isNew && !_hasEverBeenSaved) {
       DebugConfig.db(
@@ -189,8 +180,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     return true;
   }
 
-  // ── Delete ──────────────────────────────────────────────────
-
   Future<void> _delete(BuildContext context) async {
     final future = ConfirmDialog.delete(context, title: 'Διαγραφή επαφής;');
     final ok = await future;
@@ -199,11 +188,14 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
     if (!mounted) return;
     ref.invalidate(itemNotifierProvider);
-    // ignore: use_build_context_synchronously
-    Navigator.of(context).pop();
+    if (context.mounted) Navigator.of(context).pop();
   }
 
-  // ── Favorite ────────────────────────────────────────────────
+  Future<void> _togglePin(Item item) async {
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .togglePin(item.id, item.pinned);
+  }
 
   Future<void> _toggleFav(Item item) async {
     await ref
@@ -211,7 +203,51 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         .toggleFavorite(item.id, item.favorite);
   }
 
-  // ── Build ───────────────────────────────────────────────────
+  Future<void> _toggleArchive(Item item) async {
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .toggleArchive(item.id, item.archived);
+  }
+
+  // ── Reminder bottom sheet (ίδιο με NoteDetailScreen) ─────────
+  Future<void> _showReminderDialog() async {
+    final title =
+    _nameCtrl.text.trim().isEmpty ? 'Επαφή' : _nameCtrl.text.trim();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.itemId,
+          itemTitle: title,
+          defaultStartTime: null,
+        ),
+      ),
+    );
+  }
+
+  // ── Tag picker sheet ────────────────────────────────────────
+  void _showTagPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => _TagPickerSheet(itemId: widget.itemId),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,7 +263,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       data: (item) {
         if (item == null) return _buildNotFound();
 
-        // Sync name — μόνο αν ο χρήστης δεν γράφει
         if (!_isEditingName) {
           final dbName = item.title ?? '';
           if (_nameCtrl.text != dbName) {
@@ -257,8 +292,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     );
   }
 
-  // ── Mobile ──────────────────────────────────────────────────
-
   Widget _buildMobile(BuildContext context, Item item) => Scaffold(
     backgroundColor: context.cBg,
     appBar: _buildAppBar(context, item),
@@ -276,24 +309,24 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       onPickBirthday: () => _pickBirthday(context),
       onClearBirthday: _clearBirthday,
       onSyncProps: _syncPropsFromDB,
+      onShowTagPicker: _showTagPicker,
     ),
   );
-
-  // ── Tablet ──────────────────────────────────────────────────
 
   Widget _buildTablet(BuildContext context, Item item) => Scaffold(
     backgroundColor: context.cBg,
     appBar: _buildAppBar(context, item),
     body: Row(
       children: [
-        // Left: avatar + summary
         SizedBox(
           width: context.isDesktop ? 280 : 240,
-          child: _ContactSummaryPanel(item: item),
+          child: _ContactSummaryPanel(
+            item: item,
+            onShowTagPicker: _showTagPicker,
+          ),
         ),
         VerticalDivider(
             width: 1, color: ColorsUI.getBorder(context.brightness)),
-        // Right: form
         Expanded(
           child: _ContactBody(
             item: item,
@@ -309,13 +342,12 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
             onPickBirthday: () => _pickBirthday(context),
             onClearBirthday: _clearBirthday,
             onSyncProps: _syncPropsFromDB,
+            onShowTagPicker: _showTagPicker,
           ),
         ),
       ],
     ),
   );
-
-  // ── AppBar (ίδιο με NoteDetailScreen) ───────────────────────
 
   AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
     backgroundColor: context.cBg,
@@ -345,6 +377,12 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           Navigator.of(context).pop();
         },
       ),
+      // Reminder
+      IconButton(
+        icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
+        onPressed: _showReminderDialog,
+        tooltip: 'Υπενθύμιση',
+      ),
       // Favorite
       IconButton(
         icon: Icon(
@@ -356,6 +394,24 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         onPressed: () => _toggleFav(item),
         tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
       ),
+      // Pin
+      IconButton(
+        icon: Icon(
+          item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+          color: item.pinned ? context.cPrimary : context.cText2,
+        ),
+        onPressed: () => _togglePin(item),
+        tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+      ),
+      // Archive
+      IconButton(
+        icon: Icon(
+          item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+          color: context.cText2,
+        ),
+        onPressed: () => _toggleArchive(item),
+        tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
+      ),
       // Delete
       IconButton(
         icon: Icon(Icons.delete_outline_rounded, color: context.cError),
@@ -365,10 +421,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     ],
   );
 
-  // ── Sync props από DB ───────────────────────────────────────
-
   void _syncPropsFromDB(List<ItemProperty> props) {
-    if (_lastPhone.isNotEmpty) return; // ήδη sync
+    if (_lastPhone.isNotEmpty) return;
 
     final phone = props.where((p) => p.key == 'phone').firstOrNull?.value ?? '';
     final email = props.where((p) => p.key == 'email').firstOrNull?.value ?? '';
@@ -402,8 +456,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     _lastNotes = notes;
     if (bdStr != null) _lastBirthday = DateTime.tryParse(bdStr);
   }
-
-  // ── Fallbacks ───────────────────────────────────────────────
 
   Widget _buildLoading() => Scaffold(
     backgroundColor: context.cBg,
@@ -446,6 +498,7 @@ class _ContactBody extends ConsumerWidget {
   final VoidCallback onPickBirthday;
   final VoidCallback onClearBirthday;
   final ValueChanged<List<ItemProperty>> onSyncProps;
+  final VoidCallback onShowTagPicker;
 
   const _ContactBody({
     required this.item,
@@ -461,14 +514,13 @@ class _ContactBody extends ConsumerWidget {
     required this.onPickBirthday,
     required this.onClearBirthday,
     required this.onSyncProps,
+    required this.onShowTagPicker,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
     final props = propsAsync.valueOrNull ?? [];
-
-    // Sync controllers από DB (μόνο μια φορά)
     if (props.isNotEmpty) onSyncProps(props);
 
     final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
@@ -478,6 +530,8 @@ class _ContactBody extends ConsumerWidget {
     final color = ColorsUI.itemTypeColor(ItemType.contact, context.brightness);
     final name = item.title ?? '';
     final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    final tagsAsync = ref.watch(itemTagsProvider(item.id));
 
     return CustomScrollView(
       slivers: [
@@ -492,7 +546,6 @@ class _ContactBody extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                // Avatar
                 Container(
                   width: 64,
                   height: 64,
@@ -501,14 +554,10 @@ class _ContactBody extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Text(
-                      letter,
-                      style: context.h2.withColor(color),
-                    ),
+                    child: Text(letter, style: context.h2.withColor(color)),
                   ),
                 ),
                 const SizedBox(width: Spacing.md),
-                // Name field
                 Expanded(
                   child: TextField(
                     controller: nameCtrl,
@@ -579,19 +628,64 @@ class _ContactBody extends ConsumerWidget {
                   controller: addressCtrl,
                   maxLines: 2,
                 ),
-
-                // Birthday — date picker
                 _BirthdayField(
                   birthday: displayBirthday,
                   onPick: onPickBirthday,
                   onClear: onClearBirthday,
                 ),
-
                 _ContactField(
                   icon: Icons.notes_rounded,
                   label: 'Σημειώσεις',
                   controller: notesCtrl,
                   maxLines: 4,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Tags section (ίδιο με NoteDetailScreen) ─────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding:
+            EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: Spacing.lg),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Tags',
+                        style: context.labelSm.withColor(context.cText2)),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Προσθήκη'),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 0),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: onShowTagPicker,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Spacing.xs),
+                tagsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (tags) => TagChipList.interactive(
+                    tagNames: tags.map((t) => t.name).toList(),
+                    tagColors: tags.map((t) => t.color).toList(),
+                    onTagDelete: (name) async {
+                      final tag = tags.firstWhere((t) => t.name == name,
+                          orElse: () => tags.first);
+                      await ref
+                          .read(tagNotifierProvider.notifier)
+                          .removeFromItem(item.id, tag.id);
+                    },
+                    onAdd: onShowTagPicker,
+                  ),
                 ),
               ],
             ),
@@ -750,12 +844,17 @@ class _BirthdayField extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SUMMARY PANEL — tablet left panel
+// SUMMARY PANEL — tablet left panel (με tags)
 // ════════════════════════════════════════════════════════════════
 
 class _ContactSummaryPanel extends ConsumerWidget {
   final Item item;
-  const _ContactSummaryPanel({required this.item});
+  final VoidCallback onShowTagPicker;
+
+  const _ContactSummaryPanel({
+    required this.item,
+    required this.onShowTagPicker,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -764,6 +863,7 @@ class _ContactSummaryPanel extends ConsumerWidget {
     final phone = props.where((p) => p.key == 'phone').firstOrNull?.value;
     final email = props.where((p) => p.key == 'email').firstOrNull?.value;
     final company = props.where((p) => p.key == 'company').firstOrNull?.value;
+    final tagsAsync = ref.watch(itemTagsProvider(item.id));
 
     final color = ColorsUI.itemTypeColor(ItemType.contact, context.brightness);
     final name = item.title ?? '';
@@ -772,10 +872,9 @@ class _ContactSummaryPanel extends ConsumerWidget {
     return Container(
       color: ColorsUI.getSurface(context.brightness),
       padding: const EdgeInsets.all(Spacing.lg),
-      child: Column(
+      child: ListView(
         children: [
           const SizedBox(height: Spacing.lg),
-          // Large avatar
           Container(
             width: 88,
             height: 88,
@@ -799,7 +898,6 @@ class _ContactSummaryPanel extends ConsumerWidget {
           const SizedBox(height: Spacing.lg),
           const Divider(),
           const SizedBox(height: Spacing.sm),
-          // Quick actions
           if (phone != null)
             _QuickAction(
               icon: Icons.call_rounded,
@@ -812,6 +910,23 @@ class _ContactSummaryPanel extends ConsumerWidget {
               label: email,
               color: context.cPrimary,
             ),
+          const Divider(height: Spacing.xl),
+          Text('Tags', style: context.labelMd.withColor(context.cText2)),
+          const SizedBox(height: Spacing.sm),
+          tagsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (tags) => TagChipList.readOnly(
+              tagNames: tags.map((t) => t.name).toList(),
+              tagColors: tags.map((t) => t.color).toList(),
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          TextButton.icon(
+            onPressed: onShowTagPicker,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Προσθήκη Tag'),
+          ),
         ],
       ),
     );
@@ -847,6 +962,113 @@ class _QuickAction extends StatelessWidget {
               overflow: TextOverflow.ellipsis),
         ),
       ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TAG PICKER SHEET (αντιγραφή για αυτονομία)
+// ════════════════════════════════════════════════════════════════
+
+class _TagPickerSheet extends ConsumerStatefulWidget {
+  final int itemId;
+  const _TagPickerSheet({required this.itemId});
+
+  @override
+  ConsumerState<_TagPickerSheet> createState() => _TagPickerSheetState();
+}
+
+class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addTag(String name) async {
+    if (name.trim().isEmpty) return;
+    final tag =
+    await ref.read(tagNotifierProvider.notifier).createOrGet(name.trim());
+    if (tag == null || !mounted) return;
+    await ref
+        .read(tagNotifierProvider.notifier)
+        .addToItem(widget.itemId, tag.id);
+    _ctrl.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tagsAsync = ref.watch(tagsProvider);
+    final itemTagsAsync = ref.watch(itemTagsProvider(widget.itemId));
+    final itemTagIds =
+        itemTagsAsync.valueOrNull?.map((t) => t.id).toSet() ?? {};
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: context.cBorder,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            Text('Προσθήκη Tag', style: context.titleMd),
+            const SizedBox(height: Spacing.md),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              onSubmitted: _addTag,
+              decoration: InputDecoration(
+                hintText: 'Νέο tag...',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.add_rounded),
+                  onPressed: () => _addTag(_ctrl.text),
+                ),
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            tagsAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (tags) {
+                final available =
+                tags.where((t) => !itemTagIds.contains(t.id)).toList();
+                if (available.isEmpty) return const SizedBox.shrink();
+                return Wrap(
+                  spacing: Spacing.xs,
+                  runSpacing: Spacing.xs,
+                  children: available
+                      .map((t) => TagChip(
+                    name: t.name,
+                    color: t.color,
+                    onTap: () async {
+                      final nav = Navigator.of(context);
+                      await ref
+                          .read(tagNotifierProvider.notifier)
+                          .addToItem(widget.itemId, t.id);
+                      nav.pop();
+                    },
+                  ))
+                      .toList(),
+                );
+              },
+            ),
+            SizedBox(
+                height: MediaQuery.of(context).padding.bottom + Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }

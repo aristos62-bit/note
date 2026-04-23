@@ -51,6 +51,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:super_note/core/utils/debug_config.dart';
 
 class NotificationService {
   NotificationService._internal();
@@ -99,21 +100,42 @@ class NotificationService {
   // ─────────────────────────────────────────────────────────
 
   Future<bool> requestPermission() async {
+    DebugConfig.notif('NotificationService.requestPermission: called');
+
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
 
     if (android != null) {
-      return await android.requestNotificationsPermission() ?? false;
+      DebugConfig.notif('NotificationService.requestPermission: android impl found');
+      final result = await android.requestNotificationsPermission() ?? false;
+      DebugConfig.notif(
+        'NotificationService.requestPermission: android result=$result',
+      );
+      return result;
     }
+
     if (ios != null) {
-      return await ios.requestPermissions(
-          alert: true, badge: true, sound: true) ??
+      DebugConfig.notif('NotificationService.requestPermission: iOS impl found');
+      final result = await ios.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      ) ??
           false;
+      DebugConfig.notif(
+        'NotificationService.requestPermission: iOS result=$result',
+      );
+      return result;
     }
+
+    DebugConfig.notif(
+      'NotificationService.requestPermission: no platform-specific impl, returning false',
+    );
     return false;
   }
+
 
   // ─────────────────────────────────────────────────────────
   // SHOW / SCHEDULE / CANCEL
