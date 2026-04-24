@@ -155,6 +155,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       lastDate: DateTime(now.year + 5),
     );
     if (date == null || !mounted) return;
+    if (!context.mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(init),

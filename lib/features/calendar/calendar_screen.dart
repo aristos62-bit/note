@@ -48,13 +48,8 @@ class CalendarScreen extends ConsumerStatefulWidget {
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   int? _selectedFolderId;
   bool _userExplicitlySelected = false;
+  bool _autoSelectDone = false; // ✅ προστέθηκε
   final GlobalKey<ItemListEmbeddedState> _listKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    // Η αρχική επιλογή θα γίνει στο build όταν φορτώσουν οι φάκελοι
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,25 +59,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final foldersAsync = ref.watch(foldersStreamProvider);
     final folders = foldersAsync.valueOrNull ?? [];
 
-    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις
-    final preferredId = ref.watch(preferredFolderIdProvider);
+    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις (ασύγχρονα)
+    final settingsAsync = ref.watch(settingsNotifierProvider);
 
-    // ✅ Αυτόματη επιλογή φακέλου μόνο αν ο χρήστης δεν έχει επιλέξει ρητά
-    if (!_userExplicitlySelected) {
-      foldersAsync.whenData((_) {
-        if (_selectedFolderId == null && mounted && folders.isNotEmpty) {
-          int? targetId = preferredId;
-          // Αν ο preferred δεν υπάρχει ή είναι null, πέφτουμε στον system
-          if (targetId == null || !folders.any((f) => f.id == targetId)) {
-            targetId = folders.firstWhere(
-                  (f) => f.isSystem,
-              orElse: () => folders.first,
-            ).id;
-          }
-          setState(() => _selectedFolderId = targetId);
-          DebugConfig.nav('Calendar: auto-selected folder id=$targetId (preferredId=$preferredId)');
+    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ όταν φορτώσουν τα settings και οι φάκελοι
+    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
+      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
+        final settings = settingsAsync.requireValue;
+        final preferredId = settings.preferredFolderId;
+        int? targetId = preferredId;
+        if (targetId == null || !folders.any((f) => f.id == targetId)) {
+          targetId = folders.firstWhere(
+                (f) => f.isSystem,
+            orElse: () => folders.first,
+          ).id;
         }
-      });
+        _autoSelectDone = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _selectedFolderId = targetId);
+            DebugConfig.nav('Calendar: auto-selected folder id=$targetId (preferredId=$preferredId)');
+          }
+        });
+      }
     }
 
     return Scaffold(
@@ -106,7 +105,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 onSelect: (id) {
                   setState(() {
                     _selectedFolderId = id;
-                    _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε ρητή επιλογή
+                    _userExplicitlySelected = true; // ο χρήστης επέλεξε χειροκίνητα
                   });
                 },
               ),
@@ -261,8 +260,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
     if (item == null || !context.mounted) return;
 
-    final startTime =
-    DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
+    final startTime = DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
     await ref
         .read(propertyNotifierProvider(item.id).notifier)
         .setDate('start_time', startTime);
@@ -314,8 +312,7 @@ class _MonthGrid extends StatelessWidget {
                 .map((d) => Expanded(
               child: Center(
                 child: Text(d,
-                    style:
-                    context.labelSm.withColor(context.cText2)),
+                    style: context.labelSm.withColor(context.cText2)),
               ),
             ))
                 .toList(),
@@ -332,8 +329,7 @@ class _MonthGrid extends StatelessWidget {
             itemBuilder: (_, index) {
               if (index < startOffset) return const SizedBox.shrink();
               final day = index - startOffset + 1;
-              final date =
-              DateTime(focusedMonth.year, focusedMonth.month, day);
+              final date = DateTime(focusedMonth.year, focusedMonth.month, day);
               final isToday = date == today;
               final isSelected = date == selectedDay;
               final hasEvent = eventDays.contains(date);
@@ -346,7 +342,7 @@ class _MonthGrid extends StatelessWidget {
                     color: isSelected
                         ? context.cPrimary
                         : isToday
-                        ? context.cPrimary.withValues(alpha: 0.12)
+                        ? context.cPrimary.withAlpha(30)
                         : Colors.transparent,
                     shape: BoxShape.circle,
                     border: isToday && !isSelected
@@ -360,8 +356,7 @@ class _MonthGrid extends StatelessWidget {
                         '$day',
                         style: context.bodyMd.withColor(
                           isSelected
-                              ? ColorsUI.getAccessibleTextColor(
-                              context.cPrimary)
+                              ? ColorsUI.getAccessibleTextColor(context.cPrimary)
                               : isToday
                               ? context.cPrimary
                               : context.cText,

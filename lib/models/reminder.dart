@@ -43,6 +43,7 @@ class Reminder {
   /// Μήνυμα notification
   String? body;
 
+  @Index()   // ← ΠΡΟΣΘΗΚΗ
   @Enumerated(EnumType.name)
   ReminderStatus status = ReminderStatus.pending;
 

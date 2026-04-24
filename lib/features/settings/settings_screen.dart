@@ -18,6 +18,7 @@ import '../../shared/widgets/widgets.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../features/trash/trash_screen.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 // ── Provider για παρελθούσες pending υπενθυμίσεις ──────────────
 final pastPendingRemindersProvider = FutureProvider<List<Reminder>>((ref) async {
@@ -99,7 +100,7 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ΣΥΣΤΗΜΑ GROUP (ExpansionTile, διαφανής εξωτερική κάρτα)
+// ΣΥΣΤΗΜΑ GROUP
 // ════════════════════════════════════════════════════════════════
 
 class _SystemGroup extends StatefulWidget {
@@ -119,7 +120,7 @@ class _SystemGroupState extends State<_SystemGroup> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.transparent,
-        borderRadius: AppRadius.cardBR,
+        borderRadius: AppRadius.cardBR, // ✅ απευθείας
       ),
       child: ExpansionTile(
         backgroundColor: Colors.transparent,
@@ -185,8 +186,8 @@ class _SystemGroupState extends State<_SystemGroup> {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBR,
-        side: BorderSide(color: ColorsUI.getBorder(context.brightness).withOpacity(0.3)),
+        borderRadius: AppRadius.cardBR, // ✅ απευθείας
+        side: BorderSide(color: ColorsUI.getBorder(context.brightness).withValues(alpha:0.3)),
       ),
       child: child,
     );
@@ -194,7 +195,7 @@ class _SystemGroupState extends State<_SystemGroup> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ΒΑΣΗ GROUP (ExpansionTile, διαφανής εξωτερική κάρτα)
+// ΒΑΣΗ GROUP
 // ════════════════════════════════════════════════════════════════
 
 class _DatabaseGroup extends StatefulWidget {
@@ -281,7 +282,7 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.cardBR,
-        side: BorderSide(color: ColorsUI.getBorder(context.brightness).withOpacity(0.3)),
+        side: BorderSide(color: ColorsUI.getBorder(context.brightness).withValues(alpha:0.3)),
       ),
       child: child,
     );
@@ -345,13 +346,13 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
                           }
                         });
                       },
-                      title: Text(title, style: context.bodyMd),
+                      title: Text(title, style: ctx.bodyMd),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Τύπος: $type', style: context.bodySm.withColor(context.cText2)),
+                          Text('Τύπος: $type', style: ctx.bodySm.withColor(ctx.cText2)),
                           Text('Έπρεπε να εμφανιστεί: ${AppDateUtils.formatDateTime(r.triggerAt)}',
-                              style: context.bodySm.withColor(context.cError)),
+                              style: ctx.bodySm.withColor(ctx.cError)),
                         ],
                       ),
                       secondary: IconButton(
@@ -484,21 +485,130 @@ Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
 }
 
 Future<void> _clearData(BuildContext context, WidgetRef ref) async {
-  final future = ConfirmDialog.delete(
+  // Πρώτο βήμα: επιβεβαίωση διαγραφής
+  final confirm = await ConfirmDialog.delete(
     context,
-    title: 'Διαγραφή όλων των δεδομένων;',
-    subtitle: 'Όλες οι σημειώσεις, εργασίες και ρυθμίσεις θα διαγραφούν οριστικά.',
-    confirmLabel: 'Διαγραφή όλων',
+    title: 'Διαγραφή όλων των δεδομένων',
+    subtitle: 'Όλες οι σημειώσεις, εργασίες, συνήθειες και ρυθμίσεις θα διαγραφούν ΟΡΙΣΤΙΚΑ.\n\nΑυτή η ενέργεια ΔΕΝ μπορεί να αναιρεθεί.',
+    confirmLabel: 'Συνέχεια',
   );
-  final ok = await future;
-  if (!ok || !context.mounted) return;
-  final messenger = ScaffoldMessenger.of(context);
-  final errorBg = context.cError;
-  DebugConfig.db('Settings: clear all data');
-  messenger.showSnackBar(SnackBar(
-    content: const Text('Η λειτουργία δεν είναι διαθέσιμη ακόμα.'),
-    backgroundColor: errorBg,
-  ));
+  if (!confirm || !context.mounted) return;
+
+  // Δεύτερο βήμα: εισαγωγή επιβεβαιωτικής φράσης
+  final controller = TextEditingController();
+  final confirmationText = await showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => AlertDialog(
+      title: const Text('ΤΕΛΙΚΗ ΕΠΙΒΕΒΑΙΩΣΗ'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Για να συνεχίσετε, πληκτρολογήστε την παρακάτω φράση:',
+            style: ctx.bodyMd,
+          ),
+          const SizedBox(height: Spacing.md),
+          Container(
+            padding: const EdgeInsets.all(Spacing.sm),
+            decoration: BoxDecoration(
+              color: ColorsUI.getSurface(ctx.brightness),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: ctx.cError),
+            ),
+            child: Text(
+              'ΔΙΑΓΡΑΦΗ ΟΛΩΝ',
+              style: ctx.titleSm.copyWith(
+                color: ctx.cError,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+          const SizedBox(height: Spacing.md),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              hintText: 'Πληκτρολογήστε εδώ...',
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.inputBR,
+              ),
+            ),
+            onSubmitted: (_) => Navigator.pop(ctx, controller.text),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, null),
+          child: const Text('ΑΚΥΡΟ'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, controller.text),
+          child: const Text('ΕΠΙΒΕΒΑΙΩΣΗ'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmationText == null || confirmationText.trim().toUpperCase() != 'ΔΙΑΓΡΑΦΗ ΟΛΩΝ') {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Η φράση επιβεβαίωσης δεν είναι σωστή. Η διαγραφή ακυρώθηκε.')),
+      );
+    }
+    return;
+  }
+
+  // Τρίτο βήμα: πραγματική διαγραφή
+  if (!context.mounted) return;
+  DebugConfig.db('Settings: starting full database wipe');
+
+  try {
+    await SuperNoteHelper.instance.close();
+
+    final isarDir = await getApplicationDocumentsDirectory();
+    final isarFile = File('${isarDir.path}/super_note_db.isar');
+    if (await isarFile.exists()) {
+      await isarFile.delete();
+      DebugConfig.db('Isar database file deleted');
+    }
+
+    // Δεν κάνουμε SuperNoteHelper.init() εδώ – θα γίνει μετά την επανεκκίνηση
+    // Εμφανίζουμε dialog και κλείνουμε την εφαρμογή
+    if (context.mounted) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Επιτυχής διαγραφή'),
+          content: const Text('Όλα τα δεδομένα διαγράφηκαν.\n\nΗ εφαρμογή θα τερματιστεί. Παρακαλώ ανοίξτε την ξανά.'),
+          actions: [
+            TextButton(
+              onPressed: () => exit(0),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Αν το context δεν είναι mounted, φεύγουμε κατευθείαν
+      exit(0);
+    }
+  } catch (e) {
+    DebugConfig.error('Clear all data failed', e);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Σφάλμα κατά τη διαγραφή: $e'),
+          backgroundColor: context.cError,
+        ),
+      );
+    }
+  }
 }
 
 void _navigateToTrash(BuildContext context) {
@@ -545,7 +655,7 @@ class _ThemeTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
                       decoration: BoxDecoration(
                         color: isActive ? context.cPrimary.withAlpha(30) : ColorsUI.getSurface(context.brightness),
-                        borderRadius: AppRadius.buttonBR,
+                        borderRadius: AppRadius.buttonBR, // ✅ απευθείας
                         border: Border.all(
                           color: isActive ? context.cPrimary : ColorsUI.getBorder(context.brightness),
                           width: isActive ? 1.5 : 1.0,

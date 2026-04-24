@@ -22,8 +22,8 @@ class DebugConfig {
   // ─────────────────────────────────────────────────────────
 
   /// Κεντρικός διακόπτης — αν false, ΟΛΟΙ οι logs είναι OFF
-  static const bool _debug = kDebugMode; // Αυτόματα OFF στο release build
-  // static const bool _debug = true; // ON στο release build
+  // static const bool _debug = kDebugMode; // Αυτόματα OFF στο release build
+  static const bool _debug = true; // ON στο release build
 
   // Μεμονωμένες κατηγορίες — χρήσιμο για να βλέπεις μόνο ό,τι θες
   static const bool _logDb       = true;  // Database operations

@@ -85,6 +85,7 @@ class Item {
   @Index()
   bool archived = false;
 
+  @Index()   // ← ΠΡΟΣΘΗΚΗ
   bool favorite = false;
 
   // ─── Priority & Status ──────────────────────────────────

@@ -196,9 +196,9 @@ class ItemRepository {
         ItemType? type,
         bool includeArchived = false,
         bool includeDeleted = false,
+        int limit = 1000000,
+        int offset = 0,
       }) {
-    // Σωστό Isar 3 pattern: .optional() για conditional filters
-    // αντί για casts που σπάνε το type system
     return _isar.items
         .filter()
         .workspaceIdEqualTo(workspaceId)
@@ -206,16 +206,20 @@ class ItemRepository {
         .optional(!includeArchived, (q) => q.archivedEqualTo(false))
         .optional(type != null, (q) => q.typeEqualTo(type!))
         .sortBySortOrder()
+        .offset(offset)
+        .limit(limit)
         .findAll();
   }
 
-  Future<List<Item>> getByFolder(int folderId) {
+  Future<List<Item>> getByFolder(int folderId, {int limit = 1000000, int offset = 0}) {
     return _isar.items
         .filter()
         .folderIdEqualTo(folderId)
         .deletedAtIsNull()
         .archivedEqualTo(false)
         .sortBySortOrder()
+        .offset(offset)
+        .limit(limit)
         .findAll();
   }
 
@@ -758,15 +762,25 @@ class ReminderRepository {
 
   Future<List<Reminder>> getPending() {
     final now = DateTime.now();
+    final end = now.add(const Duration(days: 7));
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
-        .triggerAtGreaterThan(now)
-        .triggerAtLessThan(now.add(const Duration(days: 7)))
+        .triggerAtBetween(now, end, includeLower: true, includeUpper: false)
         .sortByTriggerAt()
         .findAll();
   }
 
+  Stream<List<Reminder>> watchPending() {
+    final now = DateTime.now();
+    final end = now.add(const Duration(days: 7));
+    return _isar.reminders
+        .filter()
+        .statusEqualTo(ReminderStatus.pending)
+        .triggerAtBetween(now, end, includeLower: true, includeUpper: false)
+        .sortByTriggerAt()
+        .watch(fireImmediately: true);
+  }
 
   Future<List<Reminder>> getForItem(int itemId) {
     return _isar.reminders

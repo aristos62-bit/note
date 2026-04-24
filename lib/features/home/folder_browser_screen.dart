@@ -1,7 +1,7 @@
 // lib/features/home/folder_browser_screen.dart
 //
 // Browser για τα items ενός φακέλου.
-// ✅ Real-time stream (ίδιο pattern με NoteListScreen)
+// ✅ Real-time stream με itemsByFolderStreamProvider
 // ✅ Edit/Delete φακέλου από AppBar
 // ✅ Δημιουργία item (note/task/event/contact/journal) στον φάκελο
 // ✅ Filter ανά τύπο
@@ -35,10 +35,7 @@ class FolderBrowserScreen extends ConsumerStatefulWidget {
       _FolderBrowserScreenState();
 }
 
-class _FolderBrowserScreenState
-    extends ConsumerState<FolderBrowserScreen> {
-
-  // Τρέχων φάκελος (ενημερώνεται μετά από edit)
+class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
   late Folder _folder;
   ItemType? _typeFilter;
 
@@ -49,29 +46,30 @@ class _FolderBrowserScreenState
     DebugConfig.nav('FolderBrowserScreen init id=${widget.folder.id}');
   }
 
-  // ── Color helper ─────────────────────────────────────────────
-
   Color get _folderColor {
     final hex = _folder.color;
     if (hex == null || hex.isEmpty) return const Color(0xFF6366F1);
     try {
       return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) { return const Color(0xFF6366F1); }
+    } catch (_) {
+      return const Color(0xFF6366F1);
+    }
   }
 
   // ── Edit folder ──────────────────────────────────────────────
-
   Future<void> _editFolder(BuildContext context) async {
     final ctrl = TextEditingController(text: _folder.name);
-    String selectedIcon  = _folder.icon  ?? '📁';
+    String selectedIcon = _folder.icon ?? '📁';
     String selectedColor = _folder.color ?? '#6366F1';
 
-    const icons  = ['📁','💼','🏠','📚','🎵','🎮','⚽','🌍',
-      '🔬','🎨','✈️','🍕','🏆','🖼️','📝','⭐'];
+    const icons = [
+      '📁', '💼', '🏠', '📚', '🎵', '🎮', '⚽', '🌍',
+      '🔬', '🎨', '✈️', '🍕', '🏆', '🖼️', '📝', '⭐'
+    ];
     const colors = [
-      '#6366F1','#8B5CF6','#EC4899','#EF4444',
-      '#F97316','#EAB308','#22C55E','#14B8A6',
-      '#06B6D4','#3B82F6','#64748B','#000000',
+      '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',
+      '#F97316', '#EAB308', '#22C55E', '#14B8A6',
+      '#06B6D4', '#3B82F6', '#64748B', '#000000',
     ];
 
     await showDialog(
@@ -86,31 +84,32 @@ class _FolderBrowserScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
-                  controller:  ctrl,
-                  autofocus:   true,
+                  controller: ctrl,
+                  autofocus: true,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    hintText:  'Όνομα φακέλου...',
-                    filled:    true,
+                    hintText: 'Όνομα φακέλου...',
+                    filled: true,
                     fillColor: ColorsUI.getBackground(ctx.brightness),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.inputBR,
-                      borderSide: BorderSide(
-                          color: ColorsUI.getBorder(ctx.brightness)),
+                      borderSide:
+                      BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
                     ),
                   ),
                 ),
                 const SizedBox(height: Spacing.md),
-                Text('Εικονίδιο',
-                    style: ctx.labelMd.withColor(ctx.cText2)),
+                Text('Εικονίδιο', style: ctx.labelMd.withColor(ctx.cText2)),
                 const SizedBox(height: Spacing.xs),
                 Wrap(
-                  spacing: Spacing.xs, runSpacing: Spacing.xs,
+                  spacing: Spacing.xs,
+                  runSpacing: Spacing.xs,
                   children: icons.map((e) => GestureDetector(
                     onTap: () => setDialog(() => selectedIcon = e),
                     child: AnimatedContainer(
                       duration: AppDuration.fast,
-                      width: 40, height: 40,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: selectedIcon == e
                             ? ctx.cPrimary.withValues(alpha: 0.12)
@@ -122,32 +121,32 @@ class _FolderBrowserScreenState
                               : ColorsUI.getBorder(ctx.brightness),
                         ),
                       ),
-                      child: Center(child: Text(e,
-                          style: const TextStyle(fontSize: 20))),
+                      child: Center(
+                          child: Text(e, style: const TextStyle(fontSize: 20))),
                     ),
                   )).toList(),
                 ),
                 const SizedBox(height: Spacing.md),
-                Text('Χρώμα',
-                    style: ctx.labelMd.withColor(ctx.cText2)),
+                Text('Χρώμα', style: ctx.labelMd.withColor(ctx.cText2)),
                 const SizedBox(height: Spacing.xs),
                 Wrap(
-                  spacing: Spacing.sm, runSpacing: Spacing.sm,
+                  spacing: Spacing.sm,
+                  runSpacing: Spacing.sm,
                   children: colors.map((hex) {
-                    final c = Color(int.parse(
-                        'FF${hex.replaceAll('#', '')}', radix: 16));
+                    final c = Color(
+                        int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
                     final isActive = selectedColor == hex;
                     return GestureDetector(
                       onTap: () => setDialog(() => selectedColor = hex),
                       child: AnimatedContainer(
                         duration: AppDuration.fast,
-                        width: 32, height: 32,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
-                          color:  c,
-                          shape:  BoxShape.circle,
+                          color: c,
+                          shape: BoxShape.circle,
                           border: Border.all(
-                            color: isActive
-                                ? ctx.cText : Colors.transparent,
+                            color: isActive ? ctx.cText : Colors.transparent,
                             width: 2.5,
                           ),
                         ),
@@ -175,15 +174,14 @@ class _FolderBrowserScreenState
                     'FolderBrowser update id=${_folder.id} name="$name"');
                 await ref.read(folderNotifierProvider.notifier).rename(
                   _folder.id,
-                  name:  name,
-                  icon:  selectedIcon,
+                  name: name,
+                  icon: selectedIcon,
                   color: selectedColor,
                 );
-                // Ενημέρωσε το local state
                 if (mounted) {
                   setState(() {
-                    _folder.name  = name;
-                    _folder.icon  = selectedIcon;
+                    _folder.name = name;
+                    _folder.icon = selectedIcon;
                     _folder.color = selectedColor;
                   });
                 }
@@ -197,8 +195,7 @@ class _FolderBrowserScreenState
     );
   }
 
-  // ── Delete folder ────────────────────────────────────────────
-
+  // ── Delete folder (με try‑catch) ─────────────────────────────
   Future<void> _deleteFolder(BuildContext context) async {
     final future = ConfirmDialog.delete(
       context,
@@ -208,21 +205,28 @@ class _FolderBrowserScreenState
     final ok = await future;
     if (!ok || !mounted) return;
     DebugConfig.db('FolderBrowser delete id=${_folder.id}');
-    if (!context.mounted)return;
-    final nav = Navigator.of(context);
-    await ref.read(folderNotifierProvider.notifier).delete(_folder.id);
-    if (!mounted) return;
-    nav.pop();
+
+    try {
+      await ref.read(folderNotifierProvider.notifier).delete(_folder.id);
+      if (!context.mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
   }
 
-  // ── Create item in folder ─────────────────────────────────────
-
+  // ── Create item in folder ────────────────────────────────────
   void _showCreateMenu(BuildContext context) {
     const types = [
-      (ItemType.note,    '📝', 'Σημείωση'),
-      (ItemType.task,    '✅', 'Εργασία'),
-      (ItemType.event,   '📅', 'Συμβάν'),
-      (ItemType.habit,   '🔄', 'Συνήθεια'),
+      (ItemType.note, '📝', 'Σημείωση'),
+      (ItemType.task, '✅', 'Εργασία'),
+      (ItemType.event, '📅', 'Συμβάν'),
+      (ItemType.habit, '🔄', 'Συνήθεια'),
       (ItemType.journal, '📖', 'Ημερολόγιο'),
       (ItemType.contact, '👤', 'Επαφή'),
       (ItemType.project, '📦', 'Συλλογή'),
@@ -233,7 +237,7 @@ class _FolderBrowserScreenState
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
+          topLeft: Radius.circular(AppRadius.bottomSheet),
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
@@ -243,9 +247,10 @@ class _FolderBrowserScreenState
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
-                color:        context.cBorder,
+                color: context.cBorder,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -262,8 +267,7 @@ class _FolderBrowserScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ...types.map((t) => ListTile(
-                      leading: Text(t.$2,
-                          style: const TextStyle(fontSize: 22)),
+                      leading: Text(t.$2, style: const TextStyle(fontSize: 22)),
                       title: Text(t.$3, style: context.bodyMd),
                       trailing: Icon(Icons.chevron_right_rounded,
                           size: 18, color: context.cDisabled),
@@ -284,21 +288,19 @@ class _FolderBrowserScreenState
   }
 
   Future<void> _createItem(BuildContext context, ItemType type) async {
-    DebugConfig.nav('FolderBrowser createItem type=${type.name} '
-        'folderId=${_folder.id}');
+    DebugConfig.nav(
+        'FolderBrowser createItem type=${type.name} folderId=${_folder.id}');
     final item = await ref.read(itemNotifierProvider.notifier).create(
-      type:     type,
+      type: type,
       folderId: _folder.id,
     );
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
     if (!mounted) return;
-    // ignore: use_build_context_synchronously
     _openItem(context, item);
   }
 
-  // ── Open item ─────────────────────────────────────────────────
-
+  // ── Open item (new & existing) ───────────────────────────────
   void _openItem(BuildContext context, Item item) {
     DebugConfig.nav('FolderBrowser → ${item.type.name} id=${item.id}');
     switch (item.type) {
@@ -354,13 +356,12 @@ class _FolderBrowserScreenState
   }
 
   // ── Build ─────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('FolderBrowserScreen build id=${_folder.id}');
 
-    // Real-time stream — ίδιο pattern με NoteListScreen
-    final allAsync = ref.watch(itemsStreamProvider);
+    // ✅ Χρησιμοποιούμε τον ειδικό provider για items του συγκεκριμένου φακέλου
+    final folderItemsAsync = ref.watch(itemsByFolderStreamProvider(_folder.id));
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -374,46 +375,44 @@ class _FolderBrowserScreenState
       ),
       body: Column(
         children: [
-          // ── Type filter ──────────────────────────────────────
+          // Type filter
           _TypeFilter(
             selected: _typeFilter,
             onChanged: (t) => setState(() => _typeFilter = t),
           ),
-          // ── Items list ───────────────────────────────────────
+          // Items list
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async =>
-                  ref.invalidate(itemNotifierProvider),
-              child: allAsync.when(
+              onRefresh: () async => ref.invalidate(itemNotifierProvider),
+              child: folderItemsAsync.when(
                 loading: () => ListView.separated(
                   padding: EdgeInsets.symmetric(
                     horizontal: context.responsiveHPadding,
-                    vertical:   Spacing.sm,
+                    vertical: Spacing.sm,
                   ),
                   itemCount: 4,
-                  separatorBuilder: (_, __) =>
-                  const SizedBox(height: Spacing.sm),
+                  separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
                   itemBuilder: (_, __) => const ItemCardSkeleton(),
                 ),
                 error: (e, _) {
                   DebugConfig.error('FolderBrowser load', e);
-                  return EmptyState.error(onRetry: () =>
-                      ref.invalidate(itemNotifierProvider));
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+                      child: Text('Σφάλμα φόρτωσης: $e', style: context.bodySm.withColor(context.cError)),
+                    ),
+                  );
                 },
-                data: (allItems) {
-                  // Φιλτράρισμα: μόνο items αυτού του φακέλου
-                  var items = allItems
-                      .where((i) => i.folderId == _folder.id)
-                      .toList();
-
-                  // Type filter
+                data: (items) {
+                  // Εφαρμογή φίλτρου τύπου (αν υπάρχει)
+                  var filteredItems = items;
                   if (_typeFilter != null) {
-                    items = items
+                    filteredItems = items
                         .where((i) => i.type == _typeFilter)
                         .toList();
                   }
 
-                  if (items.isEmpty) {
+                  if (filteredItems.isEmpty) {
                     return Center(
                       child: Padding(
                         padding: context.responsivePadding,
@@ -427,10 +426,9 @@ class _FolderBrowserScreenState
                                 style: context.titleMd),
                             const SizedBox(height: Spacing.sm),
                             Text(
-                              'Πάτησε + για να προσθέσεις\n'
-                                  'το πρώτο στοιχείο.',
-                              style: context.bodyMd.withColor(
-                                  context.cText2),
+                              'Πάτησε + για να προσθέσεις\nτο πρώτο στοιχείο.',
+                              style:
+                              context.bodyMd.withColor(context.cText2),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -440,14 +438,14 @@ class _FolderBrowserScreenState
                   }
 
                   return ResponsiveLayout(
-                    mobile:  _ItemsList(
-                      items:  items,
-                      onTap:  (i) => _openExisting(context, i),
+                    mobile: _ItemsList(
+                      items: filteredItems,
+                      onTap: (i) => _openExisting(context, i),
                       onDelete: (i) => _deleteItem(i),
                     ),
                     tablet: _ItemsGrid(
-                      items:  items,
-                      onTap:  (i) => _openExisting(context, i),
+                      items: filteredItems,
+                      onTap: (i) => _openExisting(context, i),
                       onDelete: (i) => _deleteItem(i),
                     ),
                   );
@@ -461,36 +459,31 @@ class _FolderBrowserScreenState
   }
 
   AppBar _buildAppBar(BuildContext context) => AppBar(
-    backgroundColor:        context.cBg,
-    elevation:              0,
+    backgroundColor: context.cBg,
+    elevation: 0,
     scrolledUnderElevation: 1,
     title: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(_folder.icon ?? '📁',
-            style: const TextStyle(fontSize: 20)),
+        Text(_folder.icon ?? '📁', style: const TextStyle(fontSize: 20)),
         const SizedBox(width: Spacing.sm),
         Flexible(
           child: Text(_folder.name,
-              style: context.titleMd,
-              overflow: TextOverflow.ellipsis),
+              style: context.titleMd, overflow: TextOverflow.ellipsis),
         ),
       ],
     ),
     actions: [
-      // Search
       IconButton(
         icon: Icon(Icons.search_rounded, color: context.cText2),
         tooltip: 'Αναζήτηση στον φάκελο',
         onPressed: () => _showSearch(context),
       ),
-      // Edit
       IconButton(
         icon: Icon(Icons.edit_rounded, color: context.cText2),
         tooltip: 'Επεξεργασία φακέλου',
         onPressed: () => _editFolder(context),
       ),
-      // ✅ Delete – εμφανίζεται ΜΟΝΟ αν ΔΕΝ είναι system
       if (!_folder.isSystem)
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: context.cError),
@@ -512,33 +505,31 @@ class _FolderBrowserScreenState
     ref.invalidate(itemNotifierProvider);
   }
 
-  void _showSearch(BuildContext context) {
-    final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
-    final folderItems = allItems
-        .where((i) => i.folderId == _folder.id)
-        .toList();
-
+  void _showSearch(BuildContext context) async {
+    // Φορτώνουμε μόνο τα items του φακέλου (μία φορά)
+    final folderItems = await ref
+        .read(itemsByFolderStreamProvider(_folder.id).future);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
+          topLeft: Radius.circular(AppRadius.bottomSheet),
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
       builder: (_) => _FolderSearchSheet(
-        items:   folderItems,
-        onTap:   (item) => _openExisting(context, item),
-        folder:  _folder,
+        items: folderItems,
+        onTap: (item) => _openExisting(context, item),
+        folder: _folder,
       ),
     );
   }
 }
 
 // ════════════════════════════════════════════════════════════════
-// TYPE FILTER BAR
+// TYPE FILTER BAR (unchanged)
 // ════════════════════════════════════════════════════════════════
 
 class _TypeFilter extends StatelessWidget {
@@ -548,14 +539,14 @@ class _TypeFilter extends StatelessWidget {
   const _TypeFilter({required this.selected, required this.onChanged});
 
   static const _types = [
-    (null,                'Όλα'),
-    (ItemType.note,       'Σημειώσεις'),
-    (ItemType.task,       'Εργασίες'),
-    (ItemType.event,      'Συμβάντα'),
-    (ItemType.habit,      'Συνήθειες'),
-    (ItemType.journal,    'Ημερολόγιο'),
-    (ItemType.contact,    'Επαφές'),
-    (ItemType.project,    'Συλλογές'),
+    (null, 'Όλα'),
+    (ItemType.note, 'Σημειώσεις'),
+    (ItemType.task, 'Εργασίες'),
+    (ItemType.event, 'Συμβάντα'),
+    (ItemType.habit, 'Συνήθειες'),
+    (ItemType.journal, 'Ημερολόγιο'),
+    (ItemType.contact, 'Επαφές'),
+    (ItemType.project, 'Συλλογές'),
   ];
 
   @override
@@ -566,15 +557,15 @@ class _TypeFilter extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(
           horizontal: context.responsiveHPadding,
-          vertical:   Spacing.xs,
+          vertical: Spacing.xs,
         ),
-        itemCount:        _types.length,
+        itemCount: _types.length,
         separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
         itemBuilder: (_, i) {
-          final type     = _types[i].$1;
-          final label    = _types[i].$2;
+          final type = _types[i].$1;
+          final label = _types[i].$2;
           final isActive = selected == type;
-          final color    = type != null
+          final color = type != null
               ? ColorsUI.itemTypeColor(type, context.brightness)
               : context.cPrimary;
 
@@ -582,8 +573,8 @@ class _TypeFilter extends StatelessWidget {
             onTap: () => onChanged(type),
             child: AnimatedContainer(
               duration: AppDuration.fast,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.sm + 2, vertical: 2),
+              padding:
+              const EdgeInsets.symmetric(horizontal: Spacing.sm + 2, vertical: 2),
               decoration: BoxDecoration(
                 color: isActive
                     ? color.withValues(alpha: 0.12)
@@ -596,8 +587,8 @@ class _TypeFilter extends StatelessWidget {
                 ),
               ),
               child: Text(label,
-                  style: context.labelSm.withColor(
-                      isActive ? color : context.cText2)),
+                  style: context.labelSm
+                      .withColor(isActive ? color : context.cText2)),
             ),
           );
         },
@@ -607,7 +598,7 @@ class _TypeFilter extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ITEMS LIST — mobile
+// ITEMS LIST — mobile (unchanged)
 // ════════════════════════════════════════════════════════════════
 
 class _ItemsList extends StatelessWidget {
@@ -628,12 +619,12 @@ class _ItemsList extends StatelessWidget {
         context.responsiveHPadding, Spacing.sm,
         context.responsiveHPadding, 80,
       ),
-      itemCount:        items.length,
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
       itemBuilder: (_, i) => ItemCard(
-        item:        items[i],
-        compact:     true,
-        onTap:       () => onTap(items[i]),
+        item: items[i],
+        compact: true,
+        onTap: () => onTap(items[i]),
         onLongPress: () => _showActions(context, items[i]),
       ),
     );
@@ -645,7 +636,7 @@ class _ItemsList extends StatelessWidget {
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
+          topLeft: Radius.circular(AppRadius.bottomSheet),
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
@@ -655,15 +646,16 @@ class _ItemsList extends StatelessWidget {
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
-                color:        context.cBorder,
+                color: context.cBorder,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.lg, vertical: Spacing.xs),
+              padding:
+              const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
               child: Text(item.title ?? 'Χωρίς τίτλο',
                   style: context.titleSm,
                   maxLines: 1,
@@ -672,15 +664,19 @@ class _ItemsList extends StatelessWidget {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.edit_rounded),
-              title:   const Text('Επεξεργασία'),
-              onTap: () { Navigator.pop(context); onTap(item); },
+              title: const Text('Επεξεργασία'),
+              onTap: () {
+                Navigator.pop(context);
+                onTap(item);
+              },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline_rounded,
-                  color: context.cError),
-              title: Text('Διαγραφή',
-                  style: TextStyle(color: context.cError)),
-              onTap: () { Navigator.pop(context); onDelete(item); },
+              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+              title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
+              onTap: () {
+                Navigator.pop(context);
+                onDelete(item);
+              },
             ),
             const SizedBox(height: Spacing.sm),
           ],
@@ -691,7 +687,7 @@ class _ItemsList extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ITEMS GRID — tablet
+// ITEMS GRID — tablet (unchanged)
 // ════════════════════════════════════════════════════════════════
 
 class _ItemsGrid extends StatelessWidget {
@@ -713,14 +709,14 @@ class _ItemsGrid extends StatelessWidget {
         context.responsiveHPadding, 80,
       ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:   context.gridColumns,
-        mainAxisSpacing:  Spacing.sm,
+        crossAxisCount: context.gridColumns,
+        mainAxisSpacing: Spacing.sm,
         crossAxisSpacing: Spacing.sm,
-        mainAxisExtent:   100,
+        mainAxisExtent: 100,
       ),
       itemCount: items.length,
       itemBuilder: (_, i) => ItemCard(
-        item:  items[i],
+        item: items[i],
         onTap: () => onTap(items[i]),
       ),
     );
@@ -728,7 +724,7 @@ class _ItemsGrid extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// FOLDER SEARCH SHEET — αναζήτηση μέσα στον φάκελο
+// FOLDER SEARCH SHEET — αναζήτηση μέσα στον φάκελο (unchanged)
 // ════════════════════════════════════════════════════════════════
 
 class _FolderSearchSheet extends StatefulWidget {
@@ -767,8 +763,9 @@ class _FolderSearchSheetState extends State<_FolderSearchSheet> {
     setState(() {
       _results = query.isEmpty
           ? widget.items
-          : widget.items.where((i) =>
-          (i.title ?? '').toLowerCase().contains(query)).toList();
+          : widget.items
+          .where((i) => (i.title ?? '').toLowerCase().contains(query))
+          .toList();
     });
   }
 
@@ -776,17 +773,17 @@ class _FolderSearchSheetState extends State<_FolderSearchSheet> {
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
-      minChildSize:     0.4,
-      maxChildSize:     0.95,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
       expand: false,
       builder: (_, scrollCtrl) => Column(
         children: [
-          // Handle
           Container(
             margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
-              color:        context.cBorder,
+              color: context.cBorder,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -796,30 +793,28 @@ class _FolderSearchSheetState extends State<_FolderSearchSheet> {
               context.responsiveHPadding, Spacing.sm,
             ),
             child: TextField(
-              controller:  _ctrl,
-              autofocus:   true,
-              onChanged:   _onChanged,
-              style:       context.bodyMd,
+              controller: _ctrl,
+              autofocus: true,
+              onChanged: _onChanged,
+              style: context.bodyMd,
               decoration: InputDecoration(
-                hintText:  'Αναζήτηση σε "${widget.folder.name}"...',
+                hintText: 'Αναζήτηση σε "${widget.folder.name}"...',
                 hintStyle: context.bodyMd.withColor(context.cDisabled),
-                prefixIcon: Icon(Icons.search_rounded,
-                    color: context.cText2),
+                prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
                 suffixIcon: _ctrl.text.isNotEmpty
                     ? IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      color: context.cText2),
+                  icon: Icon(Icons.close_rounded, color: context.cText2),
                   onPressed: () {
                     _ctrl.clear();
                     _onChanged('');
                   },
                 )
                     : null,
-                filled:    true,
+                filled: true,
                 fillColor: ColorsUI.getSurface(context.brightness),
                 border: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
-                  borderSide:   BorderSide.none,
+                  borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: Spacing.md, vertical: Spacing.sm),
@@ -833,15 +828,14 @@ class _FolderSearchSheetState extends State<_FolderSearchSheet> {
                   style: context.bodyMd.withColor(context.cDisabled)),
             )
                 : ListView.separated(
-              controller:       scrollCtrl,
+              controller: scrollCtrl,
               padding: EdgeInsets.symmetric(
                   horizontal: context.responsiveHPadding,
-                  vertical:   Spacing.xs),
-              itemCount:        _results.length,
-              separatorBuilder: (_, __) =>
-              const SizedBox(height: Spacing.sm),
+                  vertical: Spacing.xs),
+              itemCount: _results.length,
+              separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
               itemBuilder: (_, i) => ItemCard(
-                item:    _results[i],
+                item: _results[i],
                 compact: true,
                 onTap: () {
                   Navigator.pop(context);

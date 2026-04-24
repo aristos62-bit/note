@@ -16,6 +16,7 @@ class Tag {
   @Index()
   late int workspaceId;
 
+  @Index()   // ← ΠΡΟΣΘΗΚΗ
   int usageCount = 0;
 
   DateTime createdAt = DateTime.now();

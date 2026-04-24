@@ -46,7 +46,7 @@ class ReminderScheduler {
   }
 
   // ─────────────────────────────────────────────────────────
-  // Ανανέωση επαναλαμβανόμενων υπενθυμίσεων
+  // Ανανέωση επαναλαμβανόμενων υπενθυμίσεων (batch logic)
   // ─────────────────────────────────────────────────────────
 
   Future<void> refreshRecurringReminders() async {
@@ -57,72 +57,103 @@ class ReminderScheduler {
       return;
     }
 
+    // ΜΟΝΟ ρίζες: έχουν rrule και parentReminderId == null
     final allRecurring = await SuperNoteHelper.instance.isar.reminders
         .filter()
         .rruleIsNotNull()
+        .and()
+        .not()
+        .rruleEqualTo('')
+        .parentReminderIdIsNull()
         .findAll();
 
-    DebugConfig.notif('Found ${allRecurring.length} recurring reminders');
+    DebugConfig.notif('Found ${allRecurring.length} recurring root reminders');
     final now = DateTime.now();
-    int updated = 0;
+    int createdTotal = 0;
 
-    for (final reminder in allRecurring) {
-      final rrule = reminder.rrule!;
+    for (final root in allRecurring) {
+      final rrule = root.rrule!;
       if (rrule.isEmpty) continue;
 
       final recurrence = rruleToRecurrence(rrule);
-      if (recurrence == null) continue;
-
-      bool needsNext = false;
-      if (reminder.triggerAt.isBefore(now)) {
-        needsNext = true;
-      } else if (reminder.status != ReminderStatus.pending) {
-        needsNext = true;
-      }
-
-      if (!needsNext) continue;
-
-      DateTime start = reminder.triggerAt.isBefore(now) ? now : reminder.triggerAt;
-      final nextTrigger = recurrence.nextOccurrence(start);
-      if (nextTrigger == null) {
-        DebugConfig.notif('Recurring reminder ${reminder.id}: no next occurrence, deleting thread');
-        await deleteReminderThread(reminder.id);
+      if (recurrence == null) {
+        DebugConfig.notif('Root ${root.id}: invalid rrule="$rrule", skipping');
         continue;
       }
 
-      final rootId = reminder.parentReminderId ?? reminder.id;
-
-      final existingChild = await SuperNoteHelper.instance.isar.reminders
+      // 1. Έλεγξε αν ο root έχει ήδη παιδιά στο μέλλον (ενεργό batch)
+      final futureChildren = await SuperNoteHelper.instance.isar.reminders
           .filter()
-          .parentReminderIdEqualTo(rootId)
-          .triggerAtEqualTo(nextTrigger)
-          .findFirst();
+          .parentReminderIdEqualTo(root.id)
+          .triggerAtGreaterThan(now, include: true)
+          .findAll();
 
-      if (existingChild != null) {
-        DebugConfig.notif('Child already exists for root $rootId at $nextTrigger, skipping');
+      if (futureChildren.isNotEmpty) {
+        DebugConfig.notif(
+          'Root ${root.id}: has ${futureChildren.length} future children, skipping batch creation',
+        );
         continue;
       }
 
-      final child = Reminder()
-        ..itemId = reminder.itemId
-        ..triggerAt = nextTrigger
-        ..rrule = reminder.rrule
-        ..title = reminder.title
-        ..body = reminder.body
-        ..status = ReminderStatus.pending
-        ..parentReminderId = rootId
-        ..createdAt = DateTime.now();
+      // 2. Δεν υπάρχουν future children → όλα τα προηγούμενα έχουν "καεί".
+      //    Δημιούργησε ένα ΝΕΟ batch από επόμενες εμφανίσεις.
+      const batchSize = 2; // π.χ. Τρίτη & Τετάρτη, ή γενικά πόσες επόμενες θες
+      final List<DateTime> nextOccurrences = [];
 
-      await SuperNoteHelper.instance.isar.writeTxn(() async {
-        await SuperNoteHelper.instance.isar.reminders.put(child);
-      });
+      DateTime start = now;
+      while (nextOccurrences.length < batchSize) {
+        final next = recurrence.nextOccurrence(start);
+        if (next == null) break;
+        nextOccurrences.add(next);
+        // Μετακινώ το start λίγο μετά την τρέχουσα occurrence
+        start = next.add(const Duration(seconds: 1));
+      }
 
-      await scheduleReminder(child);
-      updated++;
-      DebugConfig.notif('Created child reminder ${child.id} for root $rootId at $nextTrigger');
+      if (nextOccurrences.isEmpty) {
+        DebugConfig.notif('Root ${root.id}: no future occurrences from rrule, deleting thread');
+        await deleteReminderThread(root.id);
+        continue;
+      }
+
+      int createdForRoot = 0;
+
+      for (final occ in nextOccurrences) {
+        // Safety: αν για κάποιο λόγο έχει δημιουργηθεί ήδη child με αυτή την ώρα, μην το διπλο-δημιουργήσεις
+        final existingChild = await SuperNoteHelper.instance.isar.reminders
+            .filter()
+            .parentReminderIdEqualTo(root.id)
+            .triggerAtEqualTo(occ)
+            .findFirst();
+
+        if (existingChild != null) {
+          DebugConfig.notif('Root ${root.id}: child already exists at $occ, skipping');
+          continue;
+        }
+
+        final child = Reminder()
+          ..itemId = root.itemId
+          ..triggerAt = occ
+          ..rrule = null          // τα παιδιά είναι one-shot
+          ..title = root.title
+          ..body = root.body
+          ..status = ReminderStatus.pending
+          ..parentReminderId = root.id
+          ..createdAt = DateTime.now();
+
+        await SuperNoteHelper.instance.isar.writeTxn(() async {
+          await SuperNoteHelper.instance.isar.reminders.put(child);
+        });
+
+        await scheduleReminder(child);
+        createdForRoot++;
+        createdTotal++;
+        DebugConfig.notif('Created child reminder ${child.id} for root ${root.id} at $occ');
+      }
+
+      DebugConfig.notif('Root ${root.id}: created $createdForRoot new children in this batch');
     }
 
-    DebugConfig.notif('refreshRecurringReminders: created $updated new child reminders');
+    DebugConfig.notif('refreshRecurringReminders: created $createdTotal new child reminders total');
   }
 
   // ─────────────────────────────────────────────────────────
@@ -165,7 +196,7 @@ class ReminderScheduler {
   }
 
   // ─────────────────────────────────────────────────────────
-  // Υπάρχουσες μέθοδοι (τροποποιημένες)
+  // Υπάρχουσες μέθοδοι (όπως τις είχες)
   // ─────────────────────────────────────────────────────────
 
   Future<void> scheduleReminder(Reminder reminder) async {

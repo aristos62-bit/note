@@ -137,11 +137,10 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     if (!_enabled || _triggerDateTime == null) {
       DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger → deleting if exists');
       if (_reminderId != null) {
-        DebugConfig.notif('ReminderSection._saveReminder: cancelling & deleting reminder id=$_reminderId');
-        await ReminderScheduler.instance.cancelReminder(_reminderId!);
-        await SuperNoteHelper.instance.reminders.delete(_reminderId!);
+        DebugConfig.notif('ReminderSection._saveReminder: deleting ALL reminders for itemId=${widget.itemId}');
+        await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
         _reminderId = null;
-        DebugConfig.notif('ReminderSection._saveReminder: deleted');
+        DebugConfig.notif('ReminderSection._saveReminder: all reminders deleted');
       }
       return;
     }

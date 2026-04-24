@@ -91,8 +91,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     DebugConfig.provider('HomeScreen build');
 
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final folders = foldersAsync.valueOrNull ?? [];
+    final folders = ref.watch(
+      foldersStreamProvider.select((async) => async.valueOrNull ?? const <Folder>[]),
+    );
 
     // Διαβάζουμε την επιλογή από τον provider
     final selectedFolderId = ref.watch(homeSelectedFolderProvider);
@@ -107,60 +108,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Greeting
           SliverToBoxAdapter(child: _GreetingSection()),
 
-          // Folder Selector (with heading)
+          // Folder Selector (με μόνο folders, χωρίς items)
           SliverToBoxAdapter(
-            child: Consumer(
-              builder: (context, ref, _) {
-                final allItems =
-                    ref.watch(itemsStreamProvider).valueOrNull ?? [];
-                return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.responsiveHPadding,
-                          vertical: Spacing.xs,
-                        ),
-                        child: Text(
-                          'Φάκελοι',
-                          style: context.labelLg.withColor(context.cText2),
-                        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.responsiveHPadding,
+                    vertical: Spacing.xs,
+                  ),
+                  child: Text(
+                    'Φάκελοι',
+                    style: context.labelLg.withColor(context.cText2),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FolderChipSelector(
+                        folders: folders,
+                        selectedFolderId: selectedFolderId,
+                        onSelect: (id) {
+                          ref.read(homeSelectedFolderProvider.notifier).state = id;
+                        },
+                        onFolderLongPress: (folder) {
+                          // Διαβάζουμε τα items ΜΟΝΟ την ώρα του long press
+                          final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
+                          _showFolderOptions(context, ref, folder, allItems);
+                        },
                       ),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(
-                            horizontal: context.responsiveHPadding),
-                        child: Row(
-                          children: [
-                            FolderChipSelector(
-                              folders: folders,
-                              selectedFolderId: selectedFolderId,
-                              onSelect: (id) {
-                                DebugConfig.nav('Home: select folder id=$id');
-                                ref
-                                    .read(homeSelectedFolderProvider.notifier)
-                                    .state = id;
-                              },
-                              onFolderLongPress: (folder) => _showFolderOptions(
-                                  context, ref, folder, allItems),
-                            ),
-                            const SizedBox(width: Spacing.xs),
-                            FolderChip(
-                              label: 'Νέος',
-                              icon: Icons.create_new_folder_rounded,
-                              isSelected: false,
-                              color: context.cPrimary,
-                              onTap: () =>
-                                  _showCreateFolderDialog(context, ref),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ]);
-              },
+                    ),
+                    const SizedBox(width: Spacing.xs),
+                    FolderChip(
+                      label: 'Νέος',
+                      icon: Icons.create_new_folder_rounded,
+                      isSelected: false,
+                      color: context.cPrimary,
+                      onTap: () => _showCreateFolderDialog(context, ref),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-
           // View Mode Toggle (μόνο όταν είναι σε "Όλοι")
           if (selectedFolderId == null)
             SliverToBoxAdapter(
@@ -175,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           // Content
           if (selectedFolderId == null)
-            _buildContentView(context, ref)
+            _buildContentView(context, ref, folders)
           else
             _buildFolderContent(context, folders),
         ],
@@ -185,110 +176,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── Content for "Όλοι" — pinned/favorites/both ───────────────
 
-  Widget _buildContentView(BuildContext context, WidgetRef ref) {
-    final pinnedAsync = ref.watch(allPinnedStreamProvider);
-    final favoritesAsync = ref.watch(allFavoritesStreamProvider);
-    final folders = ref.watch(foldersStreamProvider).valueOrNull ?? [];
+  Widget _buildContentView(
+      BuildContext context,
+      WidgetRef ref,
+      List<Folder> folders,
+      ) {
+    final pinned = ref.watch(allPinnedStreamProvider).valueOrNull ?? [];
+    final favorites = ref.watch(allFavoritesStreamProvider).valueOrNull ?? [];
 
-    // Για both mode, συνδυάζουμε τα streams
+    DebugConfig.db('HOME pinned count=${pinned.length}');
+    DebugConfig.db('HOME favorites count=${favorites.length}');
+
+    // both mode
     if (_viewMode == ViewMode.both) {
-      return _buildCombinedContent(
+      final combined = <Item>[...pinned];
+
+      for (final fav in favorites) {
+        if (!combined.any((i) => i.id == fav.id)) {
+          combined.add(fav);
+        }
+      }
+
+      combined.sort((a, b) {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+
+        final aDate = a.updatedAt ?? a.createdAt;
+        final bDate = b.updatedAt ?? b.createdAt;
+
+        return bDate.compareTo(aDate);
+      });
+
+      if (combined.isEmpty) {
+        return _buildEmptyState(context);
+      }
+
+      return _buildItemsGrid(
         context,
-        pinnedAsync,
-        favoritesAsync,
-        folders,
+        combined,
+        folders: folders,
+        isPinnedMode: false,
       );
     }
 
     // pinned mode
     if (_viewMode == ViewMode.pinned) {
-      return pinnedAsync.when(
-        loading: () => const SliverToBoxAdapter(
-          child: Center(child: CircularProgressIndicator()),
-        ),
-        error: (e, _) {
-          DebugConfig.error('HomeScreen pinned', e);
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
-        },
-        data: (items) => _buildItemsGrid(
-          context,
-          items,
-          folders: folders,
-          isPinnedMode: true,
-        ),
+      if (pinned.isEmpty) return _buildEmptyState(context);
+
+      return _buildItemsGrid(
+        context,
+        pinned,
+        folders: folders,
+        isPinnedMode: true,
       );
     }
 
     // favorites mode
-    return favoritesAsync.when(
-      loading: () => const SliverToBoxAdapter(
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) {
-        DebugConfig.error('HomeScreen favorites', e);
-        return const SliverToBoxAdapter(child: SizedBox.shrink());
-      },
-      data: (items) => _buildItemsGrid(
-        context,
-        items,
-        folders: folders,
-        isPinnedMode: false,
-      ),
-    );
-  }
-
-  // ── Combined view (both pinned and favorites) ────────────────
-
-  Widget _buildCombinedContent(
-      BuildContext context,
-      AsyncValue<List<Item>> pinnedAsync,
-      AsyncValue<List<Item>> favoritesAsync,
-      List<Folder> folders,
-      ) {
-    final pinned = pinnedAsync.valueOrNull ?? [];
-    final favorites = favoritesAsync.valueOrNull ?? [];
-
-    // Συνδυασμός χωρίς duplicates (αν ένα item είναι και pinned και favorite)
-    final combined = <Item>[...pinned];
-    for (final fav in favorites) {
-      if (!combined.any((i) => i.id == fav.id)) {
-        combined.add(fav);
-      }
-    }
-
-    // Ταξινόμηση: pinned first, then favorites (by updatedAt)
-    combined.sort((a, b) {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      final aDate = a.updatedAt ?? a.createdAt;
-      final bDate = b.updatedAt ?? b.createdAt;
-
-      // Νεότερα πρώτα
-      return bDate.compareTo(aDate);
-    });
-
-    final isLoading = pinnedAsync.isLoading && favoritesAsync.isLoading;
-    final hasError = pinnedAsync.hasError || favoritesAsync.hasError;
-
-    if (isLoading) {
-      return const SliverToBoxAdapter(
-          child: Center(child: CircularProgressIndicator()));
-    }
-
-    if (hasError) {
-      DebugConfig.error('HomeScreen combined view',
-          pinnedAsync.error ?? favoritesAsync.error);
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-
-    if (combined.isEmpty) {
-      return _buildEmptyState(context);
-    }
+    if (favorites.isEmpty) return _buildEmptyState(context);
 
     return _buildItemsGrid(
       context,
-      combined,
+      favorites,
       folders: folders,
       isPinnedMode: false,
     );
@@ -955,8 +903,9 @@ class _HomeAppBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final workspaceAsync = ref.watch(defaultWorkspaceProvider);
-    final wsName = workspaceAsync.valueOrNull?.name ?? 'Προσωπικός Βοηθός';
+    final wsName = ref.watch(
+      defaultWorkspaceProvider.select((async) => async.valueOrNull?.name),
+    ) ?? 'Προσωπικός Βοηθός';
     DebugConfig.db('Home wsName="$wsName"');
 
     return SliverAppBar(

@@ -12,6 +12,12 @@ final pendingRemindersProvider = FutureProvider<List<Reminder>>((ref) {
   return ref.watch(dbProvider).reminders.getPending();
 });
 
+/// Real‑time pending reminders (επόμενες 7 μέρες) – ενημερώνεται αυτόματα
+final pendingRemindersStreamProvider = StreamProvider<List<Reminder>>((ref) {
+  final db = ref.watch(dbProvider);
+  return db.reminders.watchPending();
+});
+
 /// Reminders ενός item
 final itemRemindersProvider =
 FutureProvider.family<List<Reminder>, int>((ref, itemId) {

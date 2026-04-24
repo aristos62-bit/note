@@ -7,6 +7,7 @@
 // ✅ View mode toggle (pinned/favorites/all)
 // ✅ Fix: φίλτρα status/priority δεν χάνουν τη λίστα
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
+// ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθώθηκε)
 // ✅ Search, tags (όπως το ItemListScreen)
 //
 import 'dart:async';
@@ -46,6 +47,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
   bool _userExplicitlySelected = false;
+  bool _autoSelectDone = false; // Για να αποφύγουμε πολλαπλά setState
 
   @override
   void initState() {
@@ -160,25 +162,33 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     final searchQuery    = ref.watch(_searchQueryProvider);
     final activeTags     = ref.watch(_taskTagFilterProvider);
     final foldersAsync   = ref.watch(foldersStreamProvider);
+    final settingsAsync  = ref.watch(settingsNotifierProvider); // ✅ περιμένουμε settings
 
-    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις
-    final preferredId = ref.watch(preferredFolderIdProvider);
-
-    // ✅ Αυτόματη επιλογή φακέλου μόνο αν ο χρήστης δεν έχει επιλέξει ρητά
-    if (!_userExplicitlySelected) {
-      foldersAsync.whenData((folders) {
-        if (_selectedFolderId == null && mounted && folders.isNotEmpty) {
-          int? targetId = preferredId;
-          if (targetId == null || !folders.any((f) => f.id == targetId)) {
-            targetId = folders.firstWhere(
-                  (f) => f.isSystem,
-              orElse: () => folders.first,
-            ).id;
-          }
-          setState(() => _selectedFolderId = targetId);
-          DebugConfig.nav('TaskList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+    // ✅ Αυτόματη επιλογή φακέλου μόνο αν:
+    //    - ο χρήστης δεν έχει επιλέξει ρητά,
+    //    - δεν έχει γίνει ήδη αυτόματη επιλογή,
+    //    - τα settings έχουν φορτώσει,
+    //    - οι φάκελοι είναι διαθέσιμοι.
+    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
+      final folders = foldersAsync.value!;
+      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
+        final settings = settingsAsync.requireValue;
+        final preferredId = settings.preferredFolderId;
+        int? targetId = preferredId;
+        if (targetId == null || !folders.any((f) => f.id == targetId)) {
+          targetId = folders.firstWhere(
+                (f) => f.isSystem,
+            orElse: () => folders.first,
+          ).id;
         }
-      });
+        _autoSelectDone = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _selectedFolderId = targetId);
+            DebugConfig.nav('TaskList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+          }
+        });
+      }
     }
 
     return Scaffold(
@@ -216,7 +226,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   onSelect: (id) {
                     setState(() {
                       _selectedFolderId = id;
-                      _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε ρητή επιλογή
+                      _userExplicitlySelected = true;
                     });
                     DebugConfig.nav('TaskList: select folder id=$id');
                   },

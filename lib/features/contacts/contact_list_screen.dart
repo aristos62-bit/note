@@ -7,6 +7,7 @@
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
+// ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
 // ✅ Filter tags
 //
 import 'dart:async';
@@ -45,6 +46,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
   bool _userExplicitlySelected = false;
+  bool _autoSelectDone = false;  // ✅ προστέθηκε
 
   @override
   void dispose() {
@@ -135,25 +137,29 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
     final searchQuery = ref.watch(_contactSearchQueryProvider);
     final activeTags = ref.watch(_contactTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
+    final settingsAsync = ref.watch(settingsNotifierProvider); // ✅ προστέθηκε
 
-    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις
-    final preferredId = ref.watch(preferredFolderIdProvider);
-
-    // ✅ Αυτόματη επιλογή φακέλου μόνο αν ο χρήστης δεν έχει επιλέξει ρητά
-    if (!_userExplicitlySelected) {
-      foldersAsync.whenData((folders) {
-        if (_selectedFolderId == null && mounted && folders.isNotEmpty) {
-          int? targetId = preferredId;
-          if (targetId == null || !folders.any((f) => f.id == targetId)) {
-            targetId = folders.firstWhere(
-                  (f) => f.isSystem,
-              orElse: () => folders.first,
-            ).id;
-          }
-          setState(() => _selectedFolderId = targetId);
-          DebugConfig.nav('ContactList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ όταν φορτώσουν τα settings και οι φάκελοι
+    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
+      final folders = foldersAsync.value!;
+      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
+        final settings = settingsAsync.requireValue;
+        final preferredId = settings.preferredFolderId;
+        int? targetId = preferredId;
+        if (targetId == null || !folders.any((f) => f.id == targetId)) {
+          targetId = folders.firstWhere(
+                (f) => f.isSystem,
+            orElse: () => folders.first,
+          ).id;
         }
-      });
+        _autoSelectDone = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _selectedFolderId = targetId);
+            DebugConfig.nav('ContactList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+          }
+        });
+      }
     }
 
     return Scaffold(
@@ -182,7 +188,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
                   onSelect: (id) {
                     setState(() {
                       _selectedFolderId = id;
-                      _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε ρητή επιλογή
+                      _userExplicitlySelected = true;   // ο χρήστης επέλεξε χειροκίνητα
                     });
                     DebugConfig.nav('ContactList: select folder id=$id');
                   },

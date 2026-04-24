@@ -76,17 +76,13 @@ AsyncNotifierProvider<SettingsNotifier, AppSettings>(
 
 /// Το τρέχον theme — χρήση στο MaterialApp
 final appThemeProvider = Provider<AppTheme>((ref) {
-  return ref.watch(settingsStreamProvider).whenData((s) => s?.theme).value ??
-      AppTheme.system;
+  final settingsAsync = ref.watch(settingsStreamProvider);
+  return settingsAsync.valueOrNull?.theme ?? AppTheme.system;
 });
 
-/// Αν έχει ολοκληρωθεί το onboarding
 final onboardingCompleteProvider = Provider<bool>((ref) {
-  return ref
-      .watch(settingsStreamProvider)
-      .whenData((s) => s?.hasCompletedOnboarding)
-      .value ??
-      false;
+  final settingsAsync = ref.watch(settingsStreamProvider);
+  return settingsAsync.valueOrNull?.hasCompletedOnboarding ?? false;
 });
 
 final preferredFolderIdProvider = Provider<int?>((ref) {

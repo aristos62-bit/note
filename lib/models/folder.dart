@@ -17,6 +17,7 @@ class Folder {
 
   int? parentFolderId;
 
+  @Index()   // ← ΠΡΟΣΘΗΚΗ
   double sortOrder = 0.0;
 
   bool isDefault = false;
