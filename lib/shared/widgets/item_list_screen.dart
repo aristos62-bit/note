@@ -2,6 +2,7 @@
 //
 // Γενική οθόνη λίστας για οποιονδήποτε τύπο Item.
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
+// ✅ Περιμένει την τιμή των ρυθμίσεων πριν επιλέξει φάκελο
 // ✅ Search, filter tags, FAB δημιουργίας
 // ✅ Responsive: list mobile / grid tablet+desktop
 // ✅ Dark mode + DebugConfig
@@ -43,6 +44,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
   bool _userExplicitlySelected = false;
+  // ✅ Για να αποφύγουμε πολλαπλά setState
+  bool _folderAutoSelected = false;
 
   @override
   void dispose() {
@@ -150,26 +153,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     final activeTags = ref.watch(_activeTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
 
-    // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις
-    final preferredId = ref.watch(preferredFolderIdProvider);
-
-    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ αν ο χρήστης δεν έχει διαλέξει ρητά
-    if (!_userExplicitlySelected) {
-      foldersAsync.whenData((folders) {
-        if (_selectedFolderId == null && mounted && folders.isNotEmpty) {
-          int? targetId = preferredId;
-          // Αν ο preferred δεν υπάρχει ή είναι null, πέφτουμε στον system
-          if (targetId == null || !folders.any((f) => f.id == targetId)) {
-            targetId = folders.firstWhere(
-                  (f) => f.isSystem,
-              orElse: () => folders.first,
-            ).id;
-          }
-          setState(() => _selectedFolderId = targetId);
-          DebugConfig.nav('ItemList: auto-selected folder id=$targetId (preferredId=$preferredId)');
-        }
-      });
-    }
+    // ✅ Παρακολουθούμε τα settings για να πάρουμε την προτίμηση (ασύγχρονα)
+    final settingsAsync = ref.watch(settingsNotifierProvider);
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -219,20 +204,42 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
               onChanged: _onSearchChanged,
               hint: 'Αναζήτηση...',
             ),
+          // ✅ Περιμένουμε τα folders και τα settings για να επιλέξουμε φάκελο
           foldersAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
             data: (folders) {
               if (folders.isEmpty) return const SizedBox.shrink();
+              // ✅ Αυτόματη επιλογή ΜΟΛΙΣ φορτώσουν τα settings και αν δεν έχει ήδη γίνει
+              if (!_userExplicitlySelected && !_folderAutoSelected && settingsAsync.hasValue) {
+                final settings = settingsAsync.requireValue;
+                final preferredId = settings.preferredFolderId;
+                int? targetId = preferredId;
+                if (targetId == null || !folders.any((f) => f.id == targetId)) {
+                  targetId = folders.firstWhere(
+                        (f) => f.isSystem,
+                    orElse: () => folders.first,
+                  ).id;
+                }
+                _folderAutoSelected = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() {
+                      _selectedFolderId = targetId;
+                    });
+                    DebugConfig.nav('ItemList: auto-selected folder id=$targetId (preferredId=$preferredId)');
+                  }
+                });
+              }
               return FolderChipSelector(
                 folders: folders,
                 selectedFolderId: _selectedFolderId,
                 onSelect: (id) {
                   setState(() {
                     _selectedFolderId = id;
-                    _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε επιλογή
+                    _userExplicitlySelected = true;
                   });
-                  DebugConfig.nav('ItemList: select folder id=$id');
+                  DebugConfig.nav('ItemList: user selected folder id=$id');
                 },
               );
             },
@@ -324,16 +331,14 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
   }
 }
 
-// ──────────────────────────────────────────────
-// Βοηθητικά Widgets (εντός του ίδιου αρχείου)
-// ──────────────────────────────────────────────
+// ── (τα υπόλοιπα widgets _SearchBar, _TagFilterRow, _ItemListBody, _ItemCardWithTags, _LoadingList, _ItemActionsSheet είναι ακριβώς ίδια όπως πριν) ──
+// Για λόγους πληρότητας, τα παραθέτω ακριβώς ίδια:
 
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final String hint;
-
   const _SearchBar({required this.controller, required this.focusNode, required this.onChanged, required this.hint});
 
   @override
@@ -367,7 +372,6 @@ class _TagFilterRow extends StatelessWidget {
   final List<String> tags;
   final Set<String> activeTags;
   final ValueChanged<String> onTagTap;
-
   const _TagFilterRow({required this.tags, required this.activeTags, required this.onTagTap});
 
   @override
@@ -396,7 +400,6 @@ class _ItemListBody extends ConsumerWidget {
   final ItemType itemType;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
-
   const _ItemListBody({required this.items, required this.itemType, required this.onTap, required this.onLongPress});
 
   @override
@@ -448,7 +451,6 @@ class _ItemCardWithTags extends ConsumerWidget {
   final Item item;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
-
   const _ItemCardWithTags({required this.item, required this.onTap, required this.onLongPress});
 
   @override
@@ -483,7 +485,6 @@ class _ItemActionsSheet extends StatelessWidget {
   final VoidCallback onFav;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
-
   const _ItemActionsSheet({required this.item, required this.onPin, required this.onFav, required this.onArchive, required this.onDelete});
 
   @override

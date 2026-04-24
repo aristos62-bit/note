@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'helpers/super_note_helper.dart';
 import 'models/models.dart';
 import 'providers/providers.dart';
@@ -12,6 +14,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('el');
   DebugConfig.startup('App started');
+
+  // Αρχικοποίηση timezone (απαραίτητη για notifications)
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Europe/Athens'));
 
   await SuperNoteHelper.init();
   DebugConfig.startup('DB initialized');
@@ -37,8 +43,13 @@ void main() async {
     DebugConfig.warning('No default workspace found');
   }
 
+  // Προγραμματισμός όλων των υπαρχόντων pending reminders
   await ReminderScheduler.instance.scheduleAll();
   DebugConfig.startup('Reminders scheduled');
+
+  // Ανανέωση επαναλαμβανόμενων reminders (δημιουργία επόμενων εμφανίσεων)
+  await ReminderScheduler.instance.refreshRecurringReminders();
+  DebugConfig.startup('Recurring reminders refreshed');
 
   DebugConfig.startup('runApp');
   runApp(
@@ -106,8 +117,9 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     DebugConfig.print('🔔 [LIFECYCLE] state=$state');
     if (state == AppLifecycleState.resumed) {
-      DebugConfig.startup('App resumed — scheduling reminders');
-      await ReminderScheduler.instance.scheduleAll();
+      DebugConfig.startup('App resumed — refreshing recurring reminders');
+      // Μόνο refreshRecurringReminders() αρκεί, γιατί ήδη καλεί scheduleReminder για κάθε νέο child
+      await ReminderScheduler.instance.refreshRecurringReminders();
     }
 
     if (!_disposed && state == AppLifecycleState.detached) {

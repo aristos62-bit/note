@@ -90,6 +90,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     await HabitService.instance.incrementProgress(widget.itemId);
     if (!mounted) return;
     ref.invalidate(habitStatsProvider(widget.itemId));
+    // Ανανέωσε τις επαναλαμβανόμενες υπενθυμίσεις (μετακίνησε στην επόμενη ημερομηνία)
+    await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
   Future<void> _decrementProgress() async {
@@ -97,13 +99,16 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     await HabitService.instance.decrementProgress(widget.itemId);
     if (!mounted) return;
     ref.invalidate(habitStatsProvider(widget.itemId));
+    // Ανανέωσε τις επαναλαμβανόμενες υπενθυμίσεις
+    await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
   Future<void> _delete(BuildContext context) async {
     final future = ConfirmDialog.delete(context, title: 'Διαγραφή συνήθειας;');
     final ok = await future;
     if (!ok || !mounted) return;
-    await ReminderScheduler.instance.cancelAllForItem(widget.itemId);
+    // Διαγραφή ΟΛΟΚΛΗΡΟΥ του νήματος υπενθυμίσεων (cascade)
+    await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
     if (!mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
     if (!context.mounted) return;
@@ -157,6 +162,9 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         ),
       ),
     );
+    // Μετά το κλείσιμο του bottom sheet, ανανέωσε τα recurring reminders
+    // (για περίπτωση που ο χρήστης άλλαξε την επανάληψη)
+    await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
   @override
@@ -830,7 +838,6 @@ class _HabitSettings extends ConsumerWidget {
                 value: unit.isEmpty ? 'Χωρίς μονάδα' : unit,
                 onTap: () => _editUnit(context, ref, unit),
               ),
-              // ⭐ Η επανάληψη γίνεται μόνο μέσω του ReminderSection (στην AppBar)
             ],
           ),
         ),

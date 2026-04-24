@@ -118,6 +118,73 @@ class Recurrence {
   }
 
   // ─────────────────────────────────────────────────────────
+  // Υπολογισμός επόμενης ημερομηνίας για reminders
+  // ─────────────────────────────────────────────────────────
+
+  /// Υπολογίζει την επόμενη ημερομηνία που συμβαίνει η επανάληψη,
+  /// ξεκινώντας από το `from` (συνήθως DateTime.now()).
+  /// Διατηρεί την ίδια ώρα, λεπτό, δευτερόλεπτο με το `from`.
+  /// Επιστρέφει null αν δεν μπορεί να υπολογιστεί (δεν αναμένεται).
+  DateTime? nextOccurrence(DateTime from) {
+    DateTime next = from; // αρχικοποίηση για να αποφύγουμε το error
+
+    switch (type) {
+      case RecurrenceType.daily:
+        next = DateTime(from.year, from.month, from.day).add(Duration(days: interval));
+        break;
+
+      case RecurrenceType.weekly:
+        if (days != null && days!.isNotEmpty) {
+          bool found = false;
+          for (int i = 1; i <= 7; i++) {
+            final candidate = from.add(Duration(days: i));
+            if (days!.contains(candidate.weekday)) {
+              next = candidate;
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            next = from.add(const Duration(days: 7));
+          }
+        } else {
+          next = from.add(Duration(days: 7 * interval));
+        }
+        break;
+
+      case RecurrenceType.monthly:
+        if (dayOfMonth != null) {
+          int targetDay = dayOfMonth!;
+          DateTime firstTry = DateTime(from.year, from.month, targetDay);
+          if (firstTry.isAfter(from)) {
+            next = firstTry;
+          } else {
+            int nextMonth = from.month + interval;
+            int nextYear = from.year;
+            if (nextMonth > 12) {
+              nextYear++;
+              nextMonth -= 12;
+            }
+            next = DateTime(nextYear, nextMonth, targetDay);
+          }
+        } else {
+          next = DateTime(from.year, from.month + interval, from.day);
+        }
+        break;
+
+      case RecurrenceType.custom:
+        next = from.add(Duration(days: interval));
+        break;
+    }
+
+    // Διατηρούμε την ώρα, λεπτό, δευτερόλεπτο από το αρχικό triggerAt
+    return DateTime(
+      next.year, next.month, next.day,
+      from.hour, from.minute, from.second,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────
   // RRULE conversion (για ReminderSection)
   // ─────────────────────────────────────────────────────────
   String toRRULE() {

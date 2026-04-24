@@ -56,6 +56,13 @@ class Reminder {
   /// Χρησιμοποιείται για cancel/update
   int? notificationId;
 
+  /// Δείχνει στον αρχικό (root) reminder της επανάληψης.
+  /// Αν null, αυτό το reminder είναι η ρίζα (δημιουργήθηκε από τον χρήστη).
+  /// Αν έχει τιμή, είναι παιδί (επόμενη εμφάνιση) και δείχνει στη ρίζα.
+  /// Χρησιμοποιείται για cascade delete: όταν διαγραφεί η ρίζα, διαγράφονται όλα τα παιδιά.
+  @Index()
+  int? parentReminderId;
+
   DateTime createdAt = DateTime.now();
   DateTime? updatedAt;
 

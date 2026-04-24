@@ -1,25 +1,4 @@
 // lib/services/backup_service.dart
-//
-// ═══════════════════════════════════════════════════════════════
-// ΟΔΗΓΙΕΣ ΠΡΟΣΑΡΜΟΓΗΣ
-// ═══════════════════════════════════════════════════════════════
-//
-// ΧΡΗΣΗ στο SettingsScreen:
-//
-//   // Export:
-//   final path = await BackupService.instance.export();
-//   // Μοίρασε το αρχείο με Share.shareXFiles([XFile(path)])
-//   // (χρειάζεται package: share_plus)
-//
-//   // Import:
-//   await BackupService.instance.import();
-//   // Μετά το import κάνε hot restart για να φορτωθεί η νέα DB
-//
-// ΠΡΟΣΘΗΚΗ στο pubspec.yaml αν θες share:
-//   share_plus: ^9.0.0
-//
-// ═══════════════════════════════════════════════════════════════
-
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
@@ -33,11 +12,11 @@ class BackupService {
   static const String _dbFileName = 'super_note_db.isar';
 
   // ─────────────────────────────────────────────────────────
-  // EXPORT — Αντίγραψε το .isar αρχείο σε downloads
+  // EXPORT — Ο χρήστης επιλέγει αρχείο προορισμού (USB, SD, Documents)
   // ─────────────────────────────────────────────────────────
 
-  Future<String> export({String? toDirectory}) async {
-    final dbDir   = await getApplicationDocumentsDirectory();
+  Future<String> export() async {
+    final dbDir = await getApplicationDocumentsDirectory();
     final srcPath = p.join(dbDir.path, _dbFileName);
     final srcFile = File(srcPath);
 
@@ -45,40 +24,41 @@ class BackupService {
       throw Exception('Δεν βρέθηκε η βάση δεδομένων');
     }
 
-    // Αν ο χρήστης έδωσε φάκελο, χρησιμοποίησέ τον, αλλιώς default app dir
-    final targetDir = toDirectory != null
-        ? Directory(toDirectory)
-        : dbDir;
-
-    if (!await targetDir.exists()) {
-      await targetDir.create(recursive: true);
-    }
-
     final timestamp = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
         .split('.').first;
-    final destName = 'super_note_backup_$timestamp.isar';
-    final destPath = p.join(targetDir.path, destName);
+    final suggestedName = 'super_note_backup_$timestamp.isar';
 
-    await srcFile.copy(destPath);
-    return destPath;
+    // Διάβασε τα bytes του αρχείου
+    final bytes = await srcFile.readAsBytes();
+
+    // Αποθήκευση μέσω FilePicker (SAF)
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Αποθήκευση αντιγράφου ασφαλείας',
+      fileName: suggestedName,
+      bytes: bytes, // ✅ απαραίτητο
+    );
+
+    if (result == null) {
+      throw Exception('Ακυρώθηκε από τον χρήστη');
+    }
+
+    return result;
   }
 
-
   // ─────────────────────────────────────────────────────────
-  // IMPORT — Επαναφορά από backup αρχείο
-  // ΠΡΟΣΟΧΗ: Αντικαθιστά ΟΛΟΚΛΗΡΗ την τρέχουσα DB
+  // IMPORT — Επιλογή αρχείου backup για επαναφορά
   // ─────────────────────────────────────────────────────────
 
   Future<bool> import({String? fromPath}) async {
     String? srcPath = fromPath;
 
-    // Αν δεν δόθηκε path, άσε τον χρήστη να διαλέξει αρχείο
     if (srcPath == null) {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         withData: false,
+        allowMultiple: false,
       );
 
       if (result == null || result.files.isEmpty) return false;
@@ -86,12 +66,13 @@ class BackupService {
       if (srcPath == null) return false;
     }
 
-    // Κλείσε την DB πριν αντικατάσταση
+    // Κλείσιμο της DB
     await SuperNoteHelper.instance.close();
 
-    final dbDir    = await getApplicationDocumentsDirectory();
+    final dbDir = await getApplicationDocumentsDirectory();
     final destPath = p.join(dbDir.path, _dbFileName);
 
+    // Αντικατάσταση
     await File(srcPath).copy(destPath);
 
     // Επανεκκίνηση DB
