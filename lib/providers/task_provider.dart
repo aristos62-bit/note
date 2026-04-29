@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/item.dart';
-import '../models/tag.dart';
+import '../models/models.dart';
 import 'providers.dart';
 
 /// Επεκτείνει ένα Item με dueDate και tags
@@ -20,19 +19,26 @@ class TaskWithDetails {
 /// Χρησιμοποιεί ref.read για να μην ξαναφορτώνει σε κάθε stream event.
 /// Invalidate γίνεται χειροκίνητα από το task_list_screen.
 final tasksWithDetailsProvider = FutureProvider<List<TaskWithDetails>>((ref) async {
-  // ref.read αντί ref.watch: δεν κάνει re-trigger σε κάθε stream event
   final items = await ref.read(itemsStreamProvider.future);
   final tasks = items.where((i) => i.type == ItemType.task).toList();
 
-  final result = <TaskWithDetails>[];
-  for (final task in tasks) {
-    final properties = await ref.read(itemPropertiesProvider(task.id).future);
-    final dueDate = properties
-        .where((p) => p.key == 'due_date')
-        .firstOrNull
-        ?.dateValue;
-    final tags = await ref.read(itemTagsProvider(task.id).future);
-    result.add(TaskWithDetails(task: task, dueDate: dueDate, tags: tags));
-  }
-  return result;
+  // Future.wait: όλα τα tasks φορτώνονται παράλληλα
+  // Εντός κάθε task, properties και tags επίσης παράλληλα
+  return Future.wait(
+    tasks.map((task) async {
+      final results = await Future.wait([
+        ref.read(itemPropertiesProvider(task.id).future),
+        ref.read(itemTagsProvider(task.id).future),
+      ]);
+
+      final properties = results[0] as List<ItemProperty>;
+      final tags       = results[1] as List<Tag>;
+      final dueDate    = properties
+          .where((p) => p.key == 'due_date')
+          .firstOrNull
+          ?.dateValue;
+
+      return TaskWithDetails(task: task, dueDate: dueDate, tags: tags);
+    }),
+  );
 });

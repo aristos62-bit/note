@@ -155,20 +155,24 @@ class Recurrence {
       case RecurrenceType.monthly:
         if (dayOfMonth != null) {
           int targetDay = dayOfMonth!;
-          DateTime firstTry = DateTime(from.year, from.month, targetDay);
+          DateTime firstTry = _safeMonthDay(from.year, from.month, targetDay);
           if (firstTry.isAfter(from)) {
             next = firstTry;
           } else {
             int nextMonth = from.month + interval;
-            int nextYear = from.year;
-            if (nextMonth > 12) {
-              nextYear++;
-              nextMonth -= 12;
-            }
-            next = DateTime(nextYear, nextMonth, targetDay);
+            int nextYear  = from.year;
+            // Σωστός χειρισμός για interval > 1 (π.χ. κάθε 3 μήνες)
+            nextYear  += (nextMonth - 1) ~/ 12;
+            nextMonth  = (nextMonth - 1) % 12 + 1;
+            next = _safeMonthDay(nextYear, nextMonth, targetDay);
           }
         } else {
-          next = DateTime(from.year, from.month + interval, from.day);
+          // Χωρίς dayOfMonth: κρατάμε την ίδια ημέρα αλλά με ασφαλή clamp
+          int nextMonth = from.month + interval;
+          int nextYear  = from.year;
+          nextYear  += (nextMonth - 1) ~/ 12;
+          nextMonth  = (nextMonth - 1) % 12 + 1;
+          next = _safeMonthDay(nextYear, nextMonth, from.day);
         }
         break;
 
@@ -236,5 +240,16 @@ class Recurrence {
       case RecurrenceType.custom:
         return 'Κάθε $interval ημέρες';
     }
+  }
+  // ─────────────────────────────────────────────────────────
+  // Helper: ασφαλής δημιουργία ημερομηνίας
+  // Αν η ημέρα δεν υπάρχει στον μήνα (π.χ. 31 Νοεμβρίου),
+  // επιστρέφει την τελευταία έγκυρη ημέρα του μήνα.
+  // ─────────────────────────────────────────────────────────
+  static DateTime _safeMonthDay(int year, int month, int day) {
+    // Η πρώτη μέρα του επόμενου μήνα μείον 1 = τελευταία μέρα του τρέχοντος
+    final lastDayOfMonth = DateTime(year, month + 1, 0).day;
+    final safeDayOfMonth = day.clamp(1, lastDayOfMonth);
+    return DateTime(year, month, safeDayOfMonth);
   }
 }
