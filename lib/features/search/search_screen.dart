@@ -293,8 +293,6 @@ class _TypeFilterRow extends StatelessWidget {
 
   const _TypeFilterRow({required this.selected, required this.onTap});
 
-// Ολα τα Items
-
   static const _types = [
     ItemType.note,
     ItemType.task,
