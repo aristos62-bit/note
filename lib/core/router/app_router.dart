@@ -73,7 +73,7 @@ class AppRoutes {
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: AppRoutes.home,
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: false,
     observers: [_RouterObserver()],
     routes: [
       // ── Shell route — bottom nav / navigation rail ──────────
@@ -502,26 +502,22 @@ class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
     if (!_controller.hasClients) return;
 
     final position = _controller.position;
-
-    // Χρησιμοποιούμε στοχευμένο epsilon
     const epsilon = 1.0;
 
     final atStart =
         (position.pixels - position.minScrollExtent).abs() < epsilon;
     final atEnd = (position.maxScrollExtent - position.pixels).abs() < epsilon;
 
-    setState(() {
-      _canScrollLeft = !atStart;
-      _canScrollRight = !atEnd;
-    });
+    final newLeft  = !atStart;
+    final newRight = !atEnd;
 
-    DebugConfig.nav(
-      'BOTTOM NAV FLAGS → left=$_canScrollLeft, right=$_canScrollRight, '
-      'pixels=${position.pixels.toStringAsFixed(1)}, '
-      'min=${position.minScrollExtent.toStringAsFixed(1)}, '
-      'max=${position.maxScrollExtent.toStringAsFixed(1)}, '
-      'atStart=$atStart, atEnd=$atEnd',
-    );
+    // ✅ setState ΜΟΝΟ αν αλλάξουν οι flags — όχι σε κάθε pixel scroll
+    if (newLeft != _canScrollLeft || newRight != _canScrollRight) {
+      setState(() {
+        _canScrollLeft  = newLeft;
+        _canScrollRight = newRight;
+      });
+    }
   }
 
   @override

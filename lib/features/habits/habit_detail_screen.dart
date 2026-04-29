@@ -5,6 +5,7 @@
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ Reminders: μόνο από εικονίδιο AppBar (όχι inline) – η επανάληψη γίνεται μέσω ReminderSection
+// ✅ Επανάληψη συνήθειας μέσω Recurrence (ενοποίηση με HabitService)
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -90,7 +91,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     await HabitService.instance.incrementProgress(widget.itemId);
     if (!mounted) return;
     ref.invalidate(habitStatsProvider(widget.itemId));
-    // Ανανέωσε τις επαναλαμβανόμενες υπενθυμίσεις (μετακίνησε στην επόμενη ημερομηνία)
     await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
@@ -99,7 +99,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     await HabitService.instance.decrementProgress(widget.itemId);
     if (!mounted) return;
     ref.invalidate(habitStatsProvider(widget.itemId));
-    // Ανανέωσε τις επαναλαμβανόμενες υπενθυμίσεις
     await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
@@ -107,7 +106,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final future = ConfirmDialog.delete(context, title: 'Διαγραφή συνήθειας;');
     final ok = await future;
     if (!ok || !mounted) return;
-    // Διαγραφή ΟΛΟΚΛΗΡΟΥ του νήματος υπενθυμίσεων (cascade)
     await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
     if (!mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
@@ -158,12 +156,10 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         child: ReminderSection(
           itemId: widget.itemId,
           itemTitle: title,
-          defaultStartTime: null, // οι συνήθειες δεν έχουν ημερομηνία/ώρα
+          defaultStartTime: null,
         ),
       ),
     );
-    // Μετά το κλείσιμο του bottom sheet, ανανέωσε τα recurring reminders
-    // (για περίπτωση που ο χρήστης άλλαξε την επανάληψη)
     await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
@@ -291,7 +287,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     ])
         : null,
     actions: [
-      // Save
       IconButton(
         visualDensity: VisualDensity.compact,
         icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
@@ -302,14 +297,12 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           if (nav.mounted) nav.pop();
         },
       ),
-      // Reminder
       IconButton(
         visualDensity: VisualDensity.compact,
         icon: Icon(Icons.notifications_none_rounded, color: context.cText2, size: 20),
         onPressed: _showReminderDialog,
         tooltip: 'Υπενθύμιση',
       ),
-      // Pin
       IconButton(
         visualDensity: VisualDensity.compact,
         icon: Icon(_isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
@@ -317,7 +310,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         onPressed: () => _togglePin(item),
         tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
       ),
-      // Favorite
       IconButton(
         visualDensity: VisualDensity.compact,
         icon: Icon(_isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
@@ -325,7 +317,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         onPressed: () => _toggleFav(item),
         tooltip: _isFavorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένη συνήθεια',
       ),
-      // Archive
       IconButton(
         visualDensity: VisualDensity.compact,
         icon: Icon(item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
@@ -333,7 +324,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         onPressed: () => _toggleArchive(item),
         tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
       ),
-      // Delete
       IconButton(
         visualDensity: VisualDensity.compact,
         icon: Icon(Icons.delete_outline_rounded, color: context.cError, size: 20),
@@ -363,7 +353,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// HABIT BODY (χωρίς ReminderSection)
+// HABIT BODY
 // ════════════════════════════════════════════════════════════════
 
 class _HabitBody extends ConsumerWidget {
@@ -395,7 +385,6 @@ class _HabitBody extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        // Progress section
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.lg, context.responsiveHPadding, Spacing.md),
@@ -407,8 +396,6 @@ class _HabitBody extends ConsumerWidget {
             ),
           ),
         ),
-
-        // Title
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
@@ -426,10 +413,7 @@ class _HabitBody extends ConsumerWidget {
             ),
           ),
         ),
-
         const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-
-        // Stats (mobile only)
         if (!hideStats && stats != null)
           SliverToBoxAdapter(
             child: Padding(
@@ -437,16 +421,12 @@ class _HabitBody extends ConsumerWidget {
               child: _StatsRow(stats: stats, color: color),
             ),
           ),
-
-        // Divider
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
             child: Divider(color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
-
-        // Calendar heatmap
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
@@ -464,15 +444,12 @@ class _HabitBody extends ConsumerWidget {
             ),
           ),
         ),
-
-        // Settings section (goal, unit – χωρίς recurrence)
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
             child: _HabitSettings(habitId: item.id),
           ),
         ),
-
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
@@ -791,15 +768,13 @@ class _StatsPanel extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// HABIT SETTINGS (goal, unit – χωρίς recurrence)
+// HABIT SETTINGS (goal, unit, recurrence μέσω Recurrence)
 // ════════════════════════════════════════════════════════════════
 
 class _HabitSettings extends ConsumerWidget {
   final int habitId;
 
-  const _HabitSettings({
-    required this.habitId,
-  });
+  const _HabitSettings({required this.habitId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -807,6 +782,21 @@ class _HabitSettings extends ConsumerWidget {
     final props = propsAsync.valueOrNull ?? [];
     final goalCount = props.where((p) => p.key == 'goal_per_period').firstOrNull?.value ?? '0';
     final unit = props.where((p) => p.key == 'unit').firstOrNull?.value ?? '';
+
+    // Δημιουργούμε το τρέχον Recurrence από τις αποθηκευμένες ιδιότητες
+    final allProps = <String, String?>{};
+    for (final p in props) {
+      allProps[p.key] = p.value;
+    }
+    final currentRecurrence = Recurrence.fromProperties(allProps);
+
+    // Ετικέτα για την τρέχουσα επανάληψη
+    String recurrenceLabel;
+    if (allProps['recurrence_type'] == null || allProps['recurrence_type']!.isEmpty) {
+      recurrenceLabel = 'Καμία (μία φορά)';
+    } else {
+      recurrenceLabel = currentRecurrence.describe();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -837,6 +827,13 @@ class _HabitSettings extends ConsumerWidget {
                 label: 'Μονάδα',
                 value: unit.isEmpty ? 'Χωρίς μονάδα' : unit,
                 onTap: () => _editUnit(context, ref, unit),
+              ),
+              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
+              _SettingsRow(
+                icon: Icons.repeat_rounded,
+                label: 'Επανάληψη',
+                value: recurrenceLabel,
+                onTap: () => _editRecurrence(context, ref, allProps),
               ),
             ],
           ),
@@ -870,6 +867,213 @@ class _HabitSettings extends ConsumerWidget {
         DebugConfig.db('HabitSettings setUnit="$val" id=$habitId');
         await ref.read(propertyNotifierProvider(habitId).notifier).setText('unit', val);
       },
+    );
+  }
+
+  void _editRecurrence(BuildContext context, WidgetRef ref, Map<String, String?> props) async {
+    final currentType = props['recurrence_type'];
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: context.cBorder,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.lg, vertical: Spacing.xs),
+              child: Text('Επανάληψη συνήθειας', style: context.titleSm),
+            ),
+            const Divider(),
+            ListTile(
+              title: const Text('Καμία (μία φορά)'),
+              trailing: (currentType == null || currentType.isEmpty)
+                  ? Icon(Icons.check_rounded, color: context.cPrimary)
+                  : null,
+              onTap: () => Navigator.pop(ctx, 'none'),
+            ),
+            ListTile(
+              title: const Text('Καθημερινά'),
+              trailing: currentType == 'daily'
+                  ? Icon(Icons.check_rounded, color: context.cPrimary)
+                  : null,
+              onTap: () => Navigator.pop(ctx, 'daily'),
+            ),
+            ListTile(
+              title: const Text('Εβδομαδιαία'),
+              subtitle: const Text('Επιλέξτε ημέρες'),
+              trailing: currentType == 'weekly'
+                  ? Icon(Icons.check_rounded, color: context.cPrimary)
+                  : null,
+              onTap: () => Navigator.pop(ctx, 'weekly'),
+            ),
+            ListTile(
+              title: const Text('Μηνιαία'),
+              trailing: currentType == 'monthly'
+                  ? Icon(Icons.check_rounded, color: context.cPrimary)
+                  : null,
+              onTap: () => Navigator.pop(ctx, 'monthly'),
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null || !context.mounted) return;
+
+    if (result == 'none') {
+      await _clearRecurrence(ref);
+      return;
+    }
+
+    // Δημιουργία νέου Recurrence
+    Recurrence? newRecurrence;
+    switch (result) {
+      case 'daily':
+        newRecurrence = const Recurrence(type: RecurrenceType.daily, interval: 1);
+        break;
+      case 'monthly':
+        newRecurrence = const Recurrence(type: RecurrenceType.monthly, interval: 1, dayOfMonth: 1);
+        break;
+      case 'weekly':
+        final selectedDays = await _showWeekdayPicker(context, ref);
+        if (!context.mounted) return;
+        if (selectedDays != null && selectedDays.isNotEmpty) {
+          newRecurrence = Recurrence(
+            type: RecurrenceType.weekly,
+            interval: 1,
+            days: selectedDays,
+          );
+        } else {
+          return; // ο χρήστης ακύρωσε ή δεν επέλεξε ημέρες
+        }
+        break;
+    }
+
+    if (newRecurrence != null) {
+      await HabitService.instance.setRecurrence(habitId, newRecurrence);
+      ref.invalidate(itemPropertiesProvider(habitId));
+      ref.invalidate(habitStatsProvider(habitId));
+      await ReminderScheduler.instance.refreshRecurringReminders();
+    }
+  }
+
+  Future<void> _clearRecurrence(WidgetRef ref) async {
+    final notifier = ref.read(propertyNotifierProvider(habitId).notifier);
+    await notifier.setText('recurrence_type', null);
+    await notifier.setText('recurrence_interval', null);
+    await notifier.setText('recurrence_days', null);
+    ref.invalidate(itemPropertiesProvider(habitId));
+    ref.invalidate(habitStatsProvider(habitId));
+    await ReminderScheduler.instance.refreshRecurringReminders();
+  }
+
+  /// Επιστρέφει λίστα με ints ημερών (1=Δευ, 7=Κυρ) ή null αν ακυρώθηκε
+  Future<List<int>?> _showWeekdayPicker(BuildContext context, WidgetRef ref) async {
+    final props = ref.read(itemPropertiesProvider(habitId)).valueOrNull ?? [];
+    final allProps = <String, String?>{};
+    for (final p in props) {
+      allProps[p.key] = p.value;
+    }
+    final currentRecurrence = Recurrence.fromProperties(allProps);
+    final savedDays = List<int>.from(currentRecurrence.days ?? []);
+
+    const allDays = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
+    final selectedDays = List<int>.from(savedDays);
+
+    return showModalBottomSheet<List<int>>(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: context.cBorder,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.lg, vertical: Spacing.xs),
+                  child: Text(
+                    'Επιλογή ημερών επανάληψης',
+                    style: context.titleSm,
+                  ),
+                ),
+                const SizedBox(height: Spacing.sm),
+                Wrap(
+                  spacing: Spacing.xs,
+                  runSpacing: Spacing.xs,
+                  children: List.generate(allDays.length, (index) {
+                    final dayName = allDays[index];
+                    final dayNum = index + 1;
+                    final isSelected = selectedDays.contains(dayNum);
+                    return FilterChip(
+                      label: Text(dayName),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setModal(() {
+                          if (selected) {
+                            selectedDays.add(dayNum);
+                          } else {
+                            selectedDays.remove(dayNum);
+                          }
+                        });
+                      },
+                      selectedColor: context.cPrimary.withValues(alpha: 0.2),
+                      checkmarkColor: context.cPrimary,
+                    );
+                  }),
+                ),
+                const SizedBox(height: Spacing.lg),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, null),
+                      child: const Text('Άκυρο'),
+                    ),
+                    FilledButton(
+                      onPressed: selectedDays.isEmpty
+                          ? null
+                          : () => Navigator.pop(ctx, List<int>.from(selectedDays)),
+                      child: const Text('Αποθήκευση'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Spacing.sm),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 

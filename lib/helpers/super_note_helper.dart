@@ -24,6 +24,7 @@ import '../models/attachment.dart';
 import '../models/user.dart';
 import '../models/device.dart';
 import '../models/app_settings.dart';
+import 'package:flutter/foundation.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // SuperNoteHelper — Singleton
@@ -84,7 +85,7 @@ class SuperNoteHelper {
       ],
       directory: dir,
       name: 'super_note_db',
-      inspector: true, // false σε production
+      inspector: kDebugMode,
     );
 
     _instance = SuperNoteHelper._internal(isar);

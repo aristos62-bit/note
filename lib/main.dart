@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 import 'helpers/super_note_helper.dart';
 import 'models/models.dart';
 import 'providers/providers.dart';
@@ -15,18 +13,13 @@ void main() async {
   await initializeDateFormatting('el');
   DebugConfig.startup('App started');
 
-  // Αρχικοποίηση timezone (απαραίτητη για notifications)
-  tz.initializeTimeZones();
-  tz.setLocalLocation(tz.getLocation('Europe/Athens'));
-
+  // ✅ Sequential — το Isar δεν τα πάει καλά με παραλληλισμό
   await SuperNoteHelper.init();
   DebugConfig.startup('DB initialized');
 
+  // ✅ Notifications init (περιέχει ήδη initializeTimeZones εσωτερικά)
   await NotificationService.instance.init();
   DebugConfig.startup('Notifications initialized');
-
-  final hasPermission = await NotificationService.instance.requestPermission();
-  DebugConfig.startup('Notifications requestPermission -> $hasPermission');
 
   final container = ProviderContainer();
   DebugConfig.startup('ProviderContainer created');
@@ -43,14 +36,6 @@ void main() async {
     DebugConfig.warning('No default workspace found');
   }
 
-  // Προγραμματισμός όλων των υπαρχόντων pending reminders
-  await ReminderScheduler.instance.scheduleAll();
-  DebugConfig.startup('Reminders scheduled');
-
-  // Ανανέωση επαναλαμβανόμενων reminders (δημιουργία επόμενων εμφανίσεων)
-  await ReminderScheduler.instance.refreshRecurringReminders();
-  DebugConfig.startup('Recurring reminders refreshed');
-
   DebugConfig.startup('runApp');
   runApp(
     UncontrolledProviderScope(
@@ -58,6 +43,20 @@ void main() async {
       child: const SuperNoteApp(),
     ),
   );
+
+  // ✅ Βαριές εργασίες ΜΕΤΑ το runApp — ο χρήστης βλέπει UI αμέσως
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // Άδειες notifications (εμφανίζεται dialog — δεν πρέπει να μπλοκάρει startup)
+    final hasPermission = await NotificationService.instance.requestPermission();
+    DebugConfig.startup('Notifications requestPermission -> $hasPermission');
+
+    // Προγραμματισμός reminders
+    await ReminderScheduler.instance.scheduleAll();
+    DebugConfig.startup('Reminders scheduled');
+
+    await ReminderScheduler.instance.refreshRecurringReminders();
+    DebugConfig.startup('Recurring reminders refreshed');
+  });
 }
 
 class SuperNoteApp extends ConsumerWidget {

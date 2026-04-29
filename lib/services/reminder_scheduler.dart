@@ -89,24 +89,76 @@ class ReminderScheduler {
           .findAll();
 
       if (futureChildren.isNotEmpty) {
+        // ✅ Έλεγχος αν τα παιδιά έχουν σωστή ώρα (ίδια με το root trigger)
+        final wrongTimeChildren = futureChildren.where((child) =>
+        child.triggerAt.hour != root.triggerAt.hour ||
+            child.triggerAt.minute != root.triggerAt.minute
+        ).toList();
+
+        if (wrongTimeChildren.isEmpty) {
+          DebugConfig.notif(
+            'Root ${root.id}: has ${futureChildren.length} future children with correct time, skipping',
+          );
+          continue;
+        }
+
+        // Υπάρχουν παιδιά με λάθος ώρα → διέγραψε τα
         DebugConfig.notif(
-          'Root ${root.id}: has ${futureChildren.length} future children, skipping batch creation',
+          'Root ${root.id}: found ${wrongTimeChildren.length} children with wrong trigger time, cleaning up',
         );
-        continue;
+        for (final wrongChild in wrongTimeChildren) {
+          DebugConfig.notif(
+            '  Deleting wrong child id=${wrongChild.id} trigger=${wrongChild.triggerAt} (expected hour=${root.triggerAt.hour}:${root.triggerAt.minute})',
+          );
+          await NotificationService.instance.cancel(wrongChild.id);
+          await SuperNoteHelper.instance.isar.writeTxn(() async {
+            await SuperNoteHelper.instance.isar.reminders.delete(wrongChild.id);
+          });
+        }
+
+        // Αν υπάρχουν ακόμα σωστά παιδιά, skip
+        final correctChildren = futureChildren.where((child) =>
+        child.triggerAt.hour == root.triggerAt.hour &&
+            child.triggerAt.minute == root.triggerAt.minute
+        ).toList();
+        if (correctChildren.isNotEmpty) {
+          DebugConfig.notif(
+            'Root ${root.id}: still has ${correctChildren.length} correct children, skipping batch creation',
+          );
+          continue;
+        }
       }
 
-      // 2. Δεν υπάρχουν future children → όλα τα προηγούμενα έχουν "καεί".
-      //    Δημιούργησε ένα ΝΕΟ batch από επόμενες εμφανίσεις.
-      const batchSize = 2; // π.χ. Τρίτη & Τετάρτη, ή γενικά πόσες επόμενες θες
+      // 2. Δεν υπάρχουν future children → δημιούργησε νέο batch
+      const batchSize = 2;
       final List<DateTime> nextOccurrences = [];
 
-      DateTime start = now;
+      // ✅ Χρησιμοποιούμε την ώρα του root trigger αντί για now
+      // ώστε τα παιδιά να έχουν πάντα τη σωστή ώρα (π.χ. 20:30)
+      final rootHour   = root.triggerAt.hour;
+      final rootMinute = root.triggerAt.minute;
+      final rootSecond = root.triggerAt.second;
+
+      final todayAtTriggerTime = DateTime(
+        now.year, now.month, now.day,
+        rootHour, rootMinute, rootSecond,
+      );
+
+      // Αν η σημερινή ώρα trigger δεν έχει περάσει ακόμα → ξεκινάμε από χθες
+      // ώστε nextOccurrence να επιστρέψει σήμερα στη σωστή ώρα
+      final DateTime start;
+      if (todayAtTriggerTime.isAfter(now)) {
+        start = todayAtTriggerTime.subtract(Duration(days: recurrence.interval));
+      } else {
+        start = todayAtTriggerTime;
+      }
+
+      DateTime current = start;
       while (nextOccurrences.length < batchSize) {
-        final next = recurrence.nextOccurrence(start);
+        final next = recurrence.nextOccurrence(current);
         if (next == null) break;
         nextOccurrences.add(next);
-        // Μετακινώ το start λίγο μετά την τρέχουσα occurrence
-        start = next.add(const Duration(seconds: 1));
+        current = next.add(const Duration(seconds: 1));
       }
 
       if (nextOccurrences.isEmpty) {

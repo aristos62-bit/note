@@ -1,7 +1,9 @@
+// lib/features/home/home_screen.dart
+//
 // Home Screen — refactored with Pinned/Favorites toggle.
 // ✅ ViewMode: pinned | favorites | both
 // ✅ Badges on cards (pin and/or star)
-// ✅ Real-time (foldersStreamProvider + allPinnedStreamProvider + allFavoritesStreamProvider)
+// ✅ Real-time (foldersStreamProvider + pinnedItemsStreamProvider + favoriteItemsStreamProvider)
 // ✅ Responsive: mobile / tablet
 // ✅ Dark mode + DebugConfig
 // ✅ Square cards with type-specific background colors, 3 per row on tablet, 2 per row on mobile
@@ -13,14 +15,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../search/search.dart';
-// import '../../features/appointments/appointments.dart';
 import '../settings/settings.dart';
-// import '../notes/note_detail_screen.dart';
-// import '../tasks/task_detail_screen.dart';
-// import '../habits/habit_detail_screen.dart';
-// import '../calendar/event_detail_screen.dart';
-// import '../contacts/contact_detail_screen.dart';
-// import '../journal/journal_detail_screen.dart';
 import '../collections/collections.dart';
 import 'home_folder_view.dart';
 import 'package:go_router/go_router.dart';
@@ -181,8 +176,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       WidgetRef ref,
       List<Folder> folders,
       ) {
-    final pinned = ref.watch(allPinnedStreamProvider).valueOrNull ?? [];
-    final favorites = ref.watch(allFavoritesStreamProvider).valueOrNull ?? [];
+    // ✅ Χρησιμοποιούμε τους νέους, ανεξάρτητους stream providers
+    final data = ref.watch(pinnedAndFavoritesProvider).valueOrNull;
+    final pinned    = data?.pinned    ?? [];
+    final favorites = data?.favorites ?? [];
 
     DebugConfig.db('HOME pinned count=${pinned.length}');
     DebugConfig.db('HOME favorites count=${favorites.length}');
@@ -684,8 +681,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(homeSelectedFolderProvider.notifier).state = null;
     }
   }
-
-  // ── Show folder options (long press on tab) ───────────────────
 
   // ── Show folder options (long press on tab) ───────────────────
 
