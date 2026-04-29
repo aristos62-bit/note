@@ -21,6 +21,7 @@
 import '../helpers/super_note_helper.dart';
 import '../models/item.dart';
 import '../models/item_block.dart';
+import '../core/core.dart';
 
 // Αποτέλεσμα αναζήτησης — περιέχει το item και πού βρέθηκε
 class SearchResult {
@@ -56,15 +57,24 @@ class SearchService {
     ItemType? filterType,        // Optional: αναζήτηση μόνο σε συγκεκριμένο τύπο
     int maxResults = 50,
   }) async {
-    if (query.trim().isEmpty) return [];
+    DebugConfig.print('🔍 SEARCH | entered with query="$query", workspaceId=$workspaceId, filterType=$filterType');
+
+    if (query.trim().isEmpty) {
+      DebugConfig.print('🔍 SEARCH | query empty, returning []');
+      return [];
+    }
 
     final q = query.trim().toLowerCase();
+    DebugConfig.print('🔍 SEARCH | normalized query="$q"');
+
     final results = <SearchResult>[];
     final foundIds = <int>{}; // Για deduplication
 
     // 1️⃣ Αναζήτηση στους τίτλους (γρηγορότερο — index)
+    DebugConfig.print('🔍 SEARCH | searching titles...');
     final titleMatches = await SuperNoteHelper.instance.items
         .search(q, workspaceId);
+    DebugConfig.print('🔍 SEARCH | titleMatches count = ${titleMatches.length}');
 
     for (final item in titleMatches) {
       if (filterType != null && item.type != filterType) continue;
@@ -75,11 +85,14 @@ class SearchService {
         matchType: SearchMatchType.title,
         matchedText: item.title,
       ));
+      DebugConfig.print('🔍 SEARCH | title match: item.id=${item.id}, title="${item.title}"');
     }
 
     // 2️⃣ Αναζήτηση στο περιεχόμενο (blocks)
+    DebugConfig.print('🔍 SEARCH | loading all items for content search...');
     final allItems = await SuperNoteHelper.instance.items
         .getByWorkspace(workspaceId, type: filterType);
+    DebugConfig.print('🔍 SEARCH | allItems count = ${allItems.length}');
 
     for (final item in allItems) {
       if (foundIds.contains(item.id)) continue;
@@ -96,10 +109,12 @@ class SearchService {
           matchType: SearchMatchType.content,
           matchedText: match,
         ));
+        DebugConfig.print('🔍 SEARCH | content match: item.id=${item.id}, title="${item.title}", snippet="$match"');
       }
     }
 
     // 3️⃣ Αναζήτηση σε properties (email, phone, κλπ.)
+    DebugConfig.print('🔍 SEARCH | searching properties...');
     for (final item in allItems) {
       if (foundIds.contains(item.id)) continue;
       if (results.length >= maxResults) break;
@@ -121,11 +136,17 @@ class SearchService {
           matchType: SearchMatchType.property,
           matchedText: match,
         ));
+        DebugConfig.print('🔍 SEARCH | property match: item.id=${item.id}, title="${item.title}", value="$match"');
       }
     }
 
     // Ταξινόμηση: title matches πρώτα, μετά content, μετά property
     results.sort((a, b) => a.matchType.index.compareTo(b.matchType.index));
+
+    DebugConfig.print('🔍 SEARCH | FINAL RESULTS count = ${results.length} (before maxResults limit)');
+    for (int i = 0; i < results.length && i < 5; i++) {
+      DebugConfig.print('🔍 SEARCH | result $i: item.id=${results[i].item.id}, type=${results[i].matchType}');
+    }
 
     return results.take(maxResults).toList();
   }

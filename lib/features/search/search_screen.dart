@@ -296,10 +296,12 @@ class _TypeFilterRow extends StatelessWidget {
   static const _types = [
     ItemType.note,
     ItemType.task,
+    ItemType.habit,
+    ItemType.knowledge,
     ItemType.event,
     ItemType.contact,
-    ItemType.bookmark,
     ItemType.journal,
+    ItemType.appointment
   ];
 
   @override
