@@ -141,22 +141,19 @@ class ResponsiveLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Breakpoints.of(constraints.maxWidth);
-        DebugConfig.print(
-          'ResponsiveLayout: ${size.name} (${constraints.maxWidth.toInt()}px)',
-        );
-        switch (size) {
-          case ScreenSize.desktop:
-            return desktop ?? tablet ?? mobile;
-          case ScreenSize.tablet:
-            return tablet ?? mobile;
-          case ScreenSize.mobile:
-            return mobile;
-        }
-      },
+    final width = MediaQuery.sizeOf(context).width;
+    final size = Breakpoints.of(width);
+    DebugConfig.print(
+      'ResponsiveLayout: ${size.name} (${width.toInt()}px)',
     );
+    switch (size) {
+      case ScreenSize.desktop:
+        return desktop ?? tablet ?? mobile;
+      case ScreenSize.tablet:
+        return tablet ?? mobile;
+      case ScreenSize.mobile:
+        return mobile;
+    }
   }
 }
 

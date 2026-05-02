@@ -280,8 +280,9 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                   }
 
                   final visibleTagNames = <String>{};
+                  // ✅ Loop 1: visibleTagNames
                   for (final item in items) {
-                    final tags = ref.watch(itemTagsProvider(item.id)).valueOrNull ?? [];
+                    final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
                     for (final t in tags) {
                       visibleTagNames.add(t.name);
                     }

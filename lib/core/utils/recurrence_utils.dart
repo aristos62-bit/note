@@ -17,8 +17,9 @@ String? recurrenceToRRULE(Recurrence? recurrence) {
         return 'FREQ=WEEKLY;INTERVAL=${recurrence.interval}';
       }
     case RecurrenceType.monthly:
-      if (recurrence.dayOfMonth != null) {
-        return 'FREQ=MONTHLY;INTERVAL=${recurrence.interval};BYMONTHDAY=${recurrence.dayOfMonth}';
+      if (recurrence.days != null && recurrence.days!.isNotEmpty) {
+        final byMonthDay = recurrence.days!.join(',');
+        return 'FREQ=MONTHLY;INTERVAL=${recurrence.interval};BYMONTHDAY=$byMonthDay';
       } else {
         return 'FREQ=MONTHLY;INTERVAL=${recurrence.interval}';
       }
@@ -34,7 +35,6 @@ Recurrence? rruleToRecurrence(String? rrule) {
   String? freq;
   int interval = 1;
   List<int>? days;
-  int? dayOfMonth;
 
   for (final p in parts) {
     if (p.startsWith('FREQ=')) freq = p.substring(5);
@@ -45,7 +45,9 @@ Recurrence? rruleToRecurrence(String? rrule) {
       days = byday.split(',').map((d) => dayMapRev[d]).whereType<int>().toList();
     }
     if (p.startsWith('BYMONTHDAY=')) {
-      dayOfMonth = int.tryParse(p.substring(11));
+      // Υποστηρίζει και "15" (παλιά) και "1,15" (νέα) μορφή
+      final raw = p.substring(11);
+      days = raw.split(',').map((s) => int.tryParse(s.trim())).whereType<int>().toList();
     }
   }
 
@@ -63,10 +65,10 @@ Recurrence? rruleToRecurrence(String? rrule) {
     default:
       type = RecurrenceType.daily;
   }
+
   return Recurrence(
     type: type,
     interval: interval,
     days: days,
-    dayOfMonth: dayOfMonth,
   );
 }

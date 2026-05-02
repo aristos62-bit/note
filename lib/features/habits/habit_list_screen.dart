@@ -468,8 +468,15 @@ class _TodayProgress extends ConsumerWidget {
     for (final h in habits) {
       final stats = ref.watch(habitStatsProvider(h.id)).valueOrNull;
       if (stats != null) {
-        totalDone += stats.dailyProgress.clamp(0, stats.goalCount);
-        totalGoal += stats.goalCount;
+        if (stats.goalCount > 0) {
+          // Έχει στόχο: μέτρα κανονικά
+          totalDone += stats.dailyProgress.clamp(0, stats.goalCount);
+          totalGoal += stats.goalCount;
+        } else {
+          // Χωρίς στόχο: μετράει ως 1/1 αν ολοκληρώθηκε σήμερα
+          totalDone += stats.completedToday ? 1 : 0;
+          totalGoal += 1;
+        }
       }
     }
 
@@ -553,8 +560,10 @@ class HabitCard extends ConsumerWidget {
     final goal = stats?.goalCount ?? 0;
     final dailyProgress = stats?.dailyProgress ?? 0;
     final unit = stats?.unit ?? '';
-    final percent = goal > 0 ? dailyProgress / goal : 0.0;
-    final isCompleted = goal > 0 && dailyProgress >= goal;
+    final percent = goal > 0
+        ? (dailyProgress / goal).clamp(0.0, 1.0)
+        : (stats?.completedToday == true ? 1.0 : 0.0);
+    final isCompleted = stats?.completedToday ?? false;
 
     return GestureDetector(
       onTap: onTap,
@@ -583,18 +592,17 @@ class HabitCard extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: Spacing.xs),
-              if (goal > 0) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: percent,
-                    minHeight: 6,
-                    backgroundColor: ColorsUI.getBorder(context.brightness),
-                    valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                  ),
+              // Δείχνουμε progress bar πάντα (και για goal=0)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: percent,
+                  minHeight: 6,
+                  backgroundColor: ColorsUI.getBorder(context.brightness),
+                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                 ),
-                const SizedBox(height: Spacing.xs),
-              ],
+              ),
+              const SizedBox(height: Spacing.xs),
               Row(
                 children: [
                   _StatBadge(
@@ -617,7 +625,12 @@ class HabitCard extends ConsumerWidget {
                   const Spacer(),
                   if (goal > 0)
                     Text(
-                      '$dailyProgress / $goal $unit',
+                      '$dailyProgress / $goal ${unit.isNotEmpty ? unit : ''}',
+                      style: context.labelSm.copyWith(color: accentColor),
+                    )
+                  else if (stats?.completedToday == true)
+                    Text(
+                      '✓',
                       style: context.labelSm.copyWith(color: accentColor),
                     ),
                 ],

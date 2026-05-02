@@ -6,19 +6,39 @@ enum RecurrenceType { daily, weekly, monthly, custom }
 class Recurrence {
   final RecurrenceType type;
   final int interval;
-  final List<int>? days;        // 1 = Monday ... 7 = Sunday
-  final int? dayOfMonth;
+
+  /// Χρήση ανά τύπο:
+  ///   weekly:  weekday numbers [1=Δευ ... 7=Κυρ]
+  ///   monthly: day-of-month numbers [1-31]
+  final List<int>? days;
+
+  /// Μόνο για daily: λίστα ωρών ["08:00", "11:00", "16:00", "20:00"]
+  /// Κάθε ώρα = ένα sub-goal. Στόχος = ALL ώρες ολοκληρωμένες.
+  final List<String>? times;
 
   const Recurrence({
     this.type = RecurrenceType.daily,
     this.interval = 1,
     this.days,
-    this.dayOfMonth,
+    this.times,
   });
 
-  factory Recurrence.daily() => const Recurrence(type: RecurrenceType.daily);
-  factory Recurrence.weekly({List<int>? days}) => Recurrence(type: RecurrenceType.weekly, days: days);
-  factory Recurrence.monthly({int? dayOfMonth}) => Recurrence(type: RecurrenceType.monthly, dayOfMonth: dayOfMonth);
+  // ─── Backwards compat getter ───────────────────────────────
+  /// Επιστρέφει την πρώτη ημέρα (για monthly single-day compat)
+  int? get dayOfMonth =>
+      (type == RecurrenceType.monthly && days != null && days!.isNotEmpty)
+          ? days!.first
+          : null;
+
+  // ─── Factory constructors ──────────────────────────────────
+  factory Recurrence.daily({List<String>? times}) =>
+      Recurrence(type: RecurrenceType.daily, times: times);
+
+  factory Recurrence.weekly({List<int>? days}) =>
+      Recurrence(type: RecurrenceType.weekly, days: days);
+
+  factory Recurrence.monthly({List<int>? days}) =>
+      Recurrence(type: RecurrenceType.monthly, days: days);
 
   // ─────────────────────────────────────────────────────────
   // fromJson / toJson (για UI)
@@ -31,7 +51,7 @@ class Recurrence {
       ),
       interval: json['interval'] ?? 1,
       days: json['days'] != null ? List<int>.from(json['days']) : null,
-      dayOfMonth: json['dayOfMonth'],
+      times: json['times'] != null ? List<String>.from(json['times']) : null,
     );
   }
 
@@ -39,7 +59,7 @@ class Recurrence {
     'type': type.name,
     'interval': interval,
     if (days != null) 'days': days,
-    if (dayOfMonth != null) 'dayOfMonth': dayOfMonth,
+    if (times != null) 'times': times,
   };
 
   // ─────────────────────────────────────────────────────────
@@ -52,23 +72,51 @@ class Recurrence {
       orElse: () => RecurrenceType.daily,
     );
     final interval = int.tryParse(props['recurrence_interval'] ?? '1') ?? 1;
+
     List<int>? days;
+    List<String>? times;
+
+    // ── Weekly: weekday numbers ──────────────────────────────
     if (type == RecurrenceType.weekly) {
       final daysJson = props['recurrence_days'];
       if (daysJson != null && daysJson.isNotEmpty) {
-        days = (jsonDecode(daysJson) as List).map((e) => e as int).toList();
+        try {
+          days = (jsonDecode(daysJson) as List).map((e) => e as int).toList();
+        } catch (_) {}
       }
     }
-    int? dayOfMonth;
+
+    // ── Monthly: day-of-month numbers ────────────────────────
     if (type == RecurrenceType.monthly) {
       final dayStr = props['recurrence_days'];
-      dayOfMonth = int.tryParse(dayStr ?? '');
+      if (dayStr != null && dayStr.isNotEmpty) {
+        try {
+          // Νέα μορφή: JSON array [1, 15]
+          days = (jsonDecode(dayStr) as List).map((e) => e as int).toList();
+        } catch (_) {
+          // Παλιά μορφή: single int string "15" — backwards compat
+          final d = int.tryParse(dayStr);
+          if (d != null) days = [d];
+        }
+      }
     }
+
+    // ── Daily / Custom: ώρες ────────────────────────────────
+    if (type == RecurrenceType.daily || type == RecurrenceType.custom) {
+      final timesStr = props['recurrence_times'];
+      if (timesStr != null && timesStr.isNotEmpty) {
+        try {
+          times =
+              (jsonDecode(timesStr) as List).map((e) => e.toString()).toList();
+        } catch (_) {}
+      }
+    }
+
     return Recurrence(
       type: type,
       interval: interval,
       days: days,
-      dayOfMonth: dayOfMonth,
+      times: times,
     );
   }
 
@@ -84,7 +132,8 @@ class Recurrence {
         final startOfWeek = date.subtract(Duration(days: daysSinceMonday));
         if (interval == 1) return startOfWeek;
         final ref = DateTime(1970, 1, 5);
-        final weeksSinceRef = (startOfWeek.difference(ref).inDays / 7).floor();
+        final weeksSinceRef =
+        (startOfWeek.difference(ref).inDays / 7).floor();
         final alignedWeeks = weeksSinceRef - (weeksSinceRef % interval);
         return ref.add(Duration(days: alignedWeeks * 7));
       case RecurrenceType.monthly:
@@ -106,82 +155,86 @@ class Recurrence {
       case RecurrenceType.weekly:
         return periodStart.add(Duration(days: interval * 7));
       case RecurrenceType.monthly:
-        return DateTime(periodStart.year, periodStart.month + interval, 1);
+        int nextMonth = periodStart.month + interval;
+        int nextYear = periodStart.year;
+        nextYear += (nextMonth - 1) ~/ 12;
+        nextMonth = (nextMonth - 1) % 12 + 1;
+        return DateTime(nextYear, nextMonth, 1);
       case RecurrenceType.custom:
         return periodStart.add(Duration(days: interval));
     }
   }
 
   bool hasPeriodEnded(DateTime periodStart, DateTime now) {
-    final nextPeriodStart = this.nextPeriodStart(periodStart);
-    return now.isAfter(nextPeriodStart) || now.isAtSameMomentAs(nextPeriodStart);
+    final next = nextPeriodStart(periodStart);
+    return now.isAfter(next) || now.isAtSameMomentAs(next);
   }
 
   // ─────────────────────────────────────────────────────────
-  // Υπολογισμός επόμενης ημερομηνίας για reminders
+  // nextOccurrence — για reminder scheduling
+  // Επιστρέφει την αμέσως επόμενη εμφάνιση μετά το `from`
   // ─────────────────────────────────────────────────────────
-
-  /// Υπολογίζει την επόμενη ημερομηνία που συμβαίνει η επανάληψη,
-  /// ξεκινώντας από το `from` (συνήθως DateTime.now()).
-  /// Διατηρεί την ίδια ώρα, λεπτό, δευτερόλεπτο με το `from`.
-  /// Επιστρέφει null αν δεν μπορεί να υπολογιστεί (δεν αναμένεται).
   DateTime? nextOccurrence(DateTime from) {
-    DateTime next = from; // αρχικοποίηση για να αποφύγουμε το error
+    DateTime next;
 
     switch (type) {
       case RecurrenceType.daily:
-        next = DateTime(from.year, from.month, from.day).add(Duration(days: interval));
+      case RecurrenceType.custom:
+        next = DateTime(from.year, from.month, from.day)
+            .add(Duration(days: interval));
         break;
 
       case RecurrenceType.weekly:
         if (days != null && days!.isNotEmpty) {
-          bool found = false;
-          for (int i = 1; i <= 7; i++) {
-            final candidate = from.add(Duration(days: i));
-            if (days!.contains(candidate.weekday)) {
-              next = candidate;
-              found = true;
-              break;
-            }
+          // Βρες την επόμενη προγραμματισμένη μέρα
+          DateTime candidate = from.add(const Duration(days: 1));
+          int safety = 0;
+          while (!days!.contains(candidate.weekday) && safety < 8) {
+            candidate = candidate.add(const Duration(days: 1));
+            safety++;
           }
-          if (!found) {
-            next = from.add(const Duration(days: 7));
-          }
+          next = candidate;
         } else {
           next = from.add(Duration(days: 7 * interval));
         }
         break;
 
       case RecurrenceType.monthly:
-        if (dayOfMonth != null) {
-          int targetDay = dayOfMonth!;
-          DateTime firstTry = _safeMonthDay(from.year, from.month, targetDay);
-          if (firstTry.isAfter(from)) {
-            next = firstTry;
-          } else {
-            int nextMonth = from.month + interval;
-            int nextYear  = from.year;
-            // Σωστός χειρισμός για interval > 1 (π.χ. κάθε 3 μήνες)
-            nextYear  += (nextMonth - 1) ~/ 12;
-            nextMonth  = (nextMonth - 1) % 12 + 1;
-            next = _safeMonthDay(nextYear, nextMonth, targetDay);
+        if (days != null && days!.isNotEmpty) {
+          final sortedDays = [...days!]..sort();
+          final today = DateTime(from.year, from.month, from.day);
+          DateTime? found;
+
+          // Ψάξε στον τρέχοντα μήνα
+          for (final d in sortedDays) {
+            final candidate = _safeMonthDay(from.year, from.month, d);
+            if (candidate.isAfter(today)) {
+              found = candidate;
+              break;
+            }
           }
+
+          // Αν δεν βρέθηκε → πρώτη μέρα του επόμενου μήνα
+          if (found == null) {
+            int nextMonth = from.month + interval;
+            int nextYear = from.year;
+            nextYear += (nextMonth - 1) ~/ 12;
+            nextMonth = (nextMonth - 1) % 12 + 1;
+            found = _safeMonthDay(nextYear, nextMonth, sortedDays.first);
+          }
+
+          next = found;
         } else {
-          // Χωρίς dayOfMonth: κρατάμε την ίδια ημέρα αλλά με ασφαλή clamp
           int nextMonth = from.month + interval;
-          int nextYear  = from.year;
-          nextYear  += (nextMonth - 1) ~/ 12;
-          nextMonth  = (nextMonth - 1) % 12 + 1;
+          int nextYear = from.year;
+          nextYear += (nextMonth - 1) ~/ 12;
+          nextMonth = (nextMonth - 1) % 12 + 1;
           next = _safeMonthDay(nextYear, nextMonth, from.day);
         }
         break;
-
-      case RecurrenceType.custom:
-        next = from.add(Duration(days: interval));
-        break;
     }
 
-    // Διατηρούμε την ώρα, λεπτό, δευτερόλεπτο από το αρχικό triggerAt
+    // Διατηρούμε ώρα/λεπτό/δευτερόλεπτο από το from
     return DateTime(
       next.year, next.month, next.day,
       from.hour, from.minute, from.second,
@@ -189,7 +242,7 @@ class Recurrence {
   }
 
   // ─────────────────────────────────────────────────────────
-  // RRULE conversion (για ReminderSection)
+  // RRULE conversion
   // ─────────────────────────────────────────────────────────
   String toRRULE() {
     switch (type) {
@@ -197,18 +250,17 @@ class Recurrence {
         return 'FREQ=DAILY;INTERVAL=$interval';
       case RecurrenceType.weekly:
         if (days != null && days!.isNotEmpty) {
-          const wd = ['MO','TU','WE','TH','FR','SA','SU'];
-          final byday = days!.map((d) => wd[d-1]).join(',');
+          const wd = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+          final byday = days!.map((d) => wd[d - 1]).join(',');
           return 'FREQ=WEEKLY;INTERVAL=$interval;BYDAY=$byday';
-        } else {
-          return 'FREQ=WEEKLY;INTERVAL=$interval';
         }
+        return 'FREQ=WEEKLY;INTERVAL=$interval';
       case RecurrenceType.monthly:
-        if (dayOfMonth != null) {
-          return 'FREQ=MONTHLY;INTERVAL=$interval;BYMONTHDAY=$dayOfMonth';
-        } else {
-          return 'FREQ=MONTHLY;INTERVAL=$interval';
+        if (days != null && days!.isNotEmpty) {
+          final byMonthDay = days!.join(',');
+          return 'FREQ=MONTHLY;INTERVAL=$interval;BYMONTHDAY=$byMonthDay';
         }
+        return 'FREQ=MONTHLY;INTERVAL=$interval';
       case RecurrenceType.custom:
         return 'FREQ=DAILY;INTERVAL=$interval';
     }
@@ -220,34 +272,45 @@ class Recurrence {
   String describe() {
     switch (type) {
       case RecurrenceType.daily:
+        if (times != null && times!.isNotEmpty) {
+          final timesStr = times!.join(', ');
+          return interval == 1
+              ? 'Καθημερινά ($timesStr)'
+              : 'Κάθε $interval ημέρες ($timesStr)';
+        }
         return interval == 1 ? 'Καθημερινά' : 'Κάθε $interval ημέρες';
+
       case RecurrenceType.weekly:
         if (days == null || days!.isEmpty) {
-          return interval == 1 ? 'Κάθε εβδομάδα' : 'Κάθε $interval εβδομάδες';
+          return interval == 1
+              ? 'Κάθε εβδομάδα'
+              : 'Κάθε $interval εβδομάδες';
         }
         const dayNames = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
         final daysStr = days!.map((d) => dayNames[d - 1]).join(', ');
         return interval == 1
             ? 'Κάθε εβδομάδα ($daysStr)'
             : 'Κάθε $interval εβδομάδες ($daysStr)';
+
       case RecurrenceType.monthly:
-        if (dayOfMonth != null) {
+        if (days != null && days!.isNotEmpty) {
+          final sorted = [...days!]..sort();
+          final daysStr = sorted.map((d) => '$dη').join(', ');
           return interval == 1
-              ? 'Κάθε μήνα, ημέρα $dayOfMonth'
-              : 'Κάθε $interval μήνες, ημέρα $dayOfMonth';
+              ? 'Κάθε μήνα ($daysStr)'
+              : 'Κάθε $interval μήνες ($daysStr)';
         }
         return interval == 1 ? 'Κάθε μήνα' : 'Κάθε $interval μήνες';
+
       case RecurrenceType.custom:
         return 'Κάθε $interval ημέρες';
     }
   }
+
   // ─────────────────────────────────────────────────────────
-  // Helper: ασφαλής δημιουργία ημερομηνίας
-  // Αν η ημέρα δεν υπάρχει στον μήνα (π.χ. 31 Νοεμβρίου),
-  // επιστρέφει την τελευταία έγκυρη ημέρα του μήνα.
+  // Helper: ασφαλής ημερομηνία (clamp στην τελευταία μέρα μήνα)
   // ─────────────────────────────────────────────────────────
   static DateTime _safeMonthDay(int year, int month, int day) {
-    // Η πρώτη μέρα του επόμενου μήνα μείον 1 = τελευταία μέρα του τρέχοντος
     final lastDayOfMonth = DateTime(year, month + 1, 0).day;
     final safeDayOfMonth = day.clamp(1, lastDayOfMonth);
     return DateTime(year, month, safeDayOfMonth);

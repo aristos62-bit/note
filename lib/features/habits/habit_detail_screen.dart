@@ -1,12 +1,4 @@
 // lib/features/habits/habit_detail_screen.dart
-//
-// Detail screen συνήθειας: τίτλος, stats, ημερήσια πρόοδος (με +/–), heatmap, ρυθμίσεις.
-// ✅ Responsive: single col mobile / two-panel tablet+desktop
-// ✅ Dark mode: ColorsUI + context extensions
-// ✅ DebugConfig: nav, db, provider logs
-// ✅ Reminders: μόνο από εικονίδιο AppBar (όχι inline) – η επανάληψη γίνεται μέσω ReminderSection
-// ✅ Επανάληψη συνήθειας μέσω Recurrence (ενοποίηση με HabitService)
-//
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,7 +62,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     if (!mounted) return;
     if (title == _lastSavedTitle) return;
     setState(() => _isSaving = true);
-    DebugConfig.db('HabitDetail saveTitle id=${widget.itemId} "$title"');
     await ref
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
@@ -81,30 +72,36 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 
   Future<void> _save() async {
     _titleDebounce?.cancel();
-    final title = _titleCtrl.text.trim();
-    DebugConfig.db('HabitDetail manualSave id=${widget.itemId} title="$title"');
-    await _saveTitle(title);
+    await _saveTitle(_titleCtrl.text.trim());
   }
 
   Future<void> _incrementProgress() async {
-    DebugConfig.db('HabitDetail incrementProgress id=${widget.itemId}');
     await HabitService.instance.incrementProgress(widget.itemId);
     if (!mounted) return;
     ref.invalidate(habitStatsProvider(widget.itemId));
-    await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
   Future<void> _decrementProgress() async {
-    DebugConfig.db('HabitDetail decrementProgress id=${widget.itemId}');
     await HabitService.instance.decrementProgress(widget.itemId);
     if (!mounted) return;
     ref.invalidate(habitStatsProvider(widget.itemId));
-    await ReminderScheduler.instance.refreshRecurringReminders();
+  }
+
+  Future<void> _incrementByTime(String time) async {
+    await HabitService.instance.incrementByTime(widget.itemId, time);
+    if (!mounted) return;
+    ref.invalidate(habitStatsProvider(widget.itemId));
+  }
+
+  Future<void> _decrementByTime(String time) async {
+    await HabitService.instance.decrementByTime(widget.itemId, time);
+    if (!mounted) return;
+    ref.invalidate(habitStatsProvider(widget.itemId));
   }
 
   Future<void> _delete(BuildContext context) async {
-    final future = ConfirmDialog.delete(context, title: 'Διαγραφή συνήθειας;');
-    final ok = await future;
+    final ok = await ConfirmDialog.delete(context,
+        title: 'Διαγραφή συνήθειας;');
     if (!ok || !mounted) return;
     await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
     if (!mounted) return;
@@ -114,34 +111,29 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   }
 
   Future<void> _togglePin(Item item) async {
-    DebugConfig.provider('HabitDetail togglePin id=${item.id}');
     await ref
         .read(itemNotifierProvider.notifier)
         .togglePin(item.id, item.pinned);
-    setState(() => _isPinned = item.pinned);
-    ref.invalidate(itemNotifierProvider);
+    setState(() => _isPinned = !item.pinned);
   }
 
   Future<void> _toggleFav(Item item) async {
-    DebugConfig.provider('HabitDetail toggleFav id=${item.id}');
     await ref
         .read(itemNotifierProvider.notifier)
         .toggleFavorite(item.id, item.favorite);
-    setState(() => _isFavorite = item.favorite);
-    ref.invalidate(itemNotifierProvider);
+    setState(() => _isFavorite = !item.favorite);
   }
 
   Future<void> _toggleArchive(Item item) async {
-    DebugConfig.provider('HabitDetail toggleArchive id=${item.id}');
     await ref
         .read(itemNotifierProvider.notifier)
         .toggleArchive(item.id, item.archived);
-    ref.invalidate(itemNotifierProvider);
   }
 
-  // --- Εμφάνιση bottom sheet με ReminderSection ---
   Future<void> _showReminderDialog() async {
-    final title = _titleCtrl.text.trim().isEmpty ? 'Συνήθεια' : _titleCtrl.text.trim();
+    final title = _titleCtrl.text.trim().isEmpty
+        ? 'Συνήθεια'
+        : _titleCtrl.text.trim();
     await showModalBottomSheet(
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
@@ -165,15 +157,11 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    DebugConfig.provider('HabitDetailScreen build id=${widget.itemId}');
     final itemAsync = ref.watch(itemStreamProvider(widget.itemId));
 
     return itemAsync.when(
       loading: () => _buildLoading(),
-      error: (e, _) {
-        DebugConfig.error('HabitDetail load failed', e);
-        return _buildError();
-      },
+      error: (e, _) => _buildError(),
       data: (item) {
         if (item == null) return _buildNotFound();
 
@@ -182,15 +170,13 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           _lastSavedTitle = itemTitle;
         }
         if (!_isEditingTitle && _titleCtrl.text != itemTitle) {
-          final cursorAtEnd = _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
           _titleCtrl.text = itemTitle;
-          if (cursorAtEnd) {
-            _titleCtrl.selection = TextSelection.collapsed(offset: _titleCtrl.text.length);
-          }
+          _titleCtrl.selection =
+              TextSelection.collapsed(offset: _titleCtrl.text.length);
         }
 
-        if (_isPinned != item.pinned) _isPinned = item.pinned;
-        if (_isFavorite != item.favorite) _isFavorite = item.favorite;
+        _isPinned = item.pinned;
+        _isFavorite = item.favorite;
 
         return PopScope(
           canPop: false,
@@ -198,25 +184,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             if (didPop) return;
             final nav = Navigator.of(context);
             _titleDebounce?.cancel();
-            final title = _titleCtrl.text.trim();
-
-            final props = ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
-            final goalCount = props.where((p) => p.key == 'goal_per_period').firstOrNull?.value ?? '0';
-            final unit = props.where((p) => p.key == 'unit').firstOrNull?.value ?? '';
-
-            final hasGoal = goalCount != '0';
-            final hasUnit = unit.trim().isNotEmpty;
-            final isEffectivelyEmpty = !hasGoal && !hasUnit;
-
-            if (widget.isNew && isEffectivelyEmpty) {
-              DebugConfig.db('HabitDetail auto-delete empty/only-title habit id=${widget.itemId}');
-              await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-              if (!nav.mounted) return;
-              nav.pop();
-              return;
-            }
-
-            await _saveTitle(title);
+            await _saveTitle(_titleCtrl.text.trim());
             if (!nav.mounted) return;
             nav.pop();
           },
@@ -239,6 +207,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       onTitleChange: _onTitleChanged,
       onIncrement: _incrementProgress,
       onDecrement: _decrementProgress,
+      onIncrementByTime: _incrementByTime,
+      onDecrementByTime: _decrementByTime,
       onDelete: () => _delete(context),
     ),
   );
@@ -252,7 +222,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           width: context.isDesktop ? 300 : 260,
           child: _StatsPanel(habitId: item.id),
         ),
-        VerticalDivider(width: 1, color: ColorsUI.getBorder(context.brightness)),
+        VerticalDivider(
+            width: 1, color: ColorsUI.getBorder(context.brightness)),
         Expanded(
           child: _HabitBody(
             item: item,
@@ -261,6 +232,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             onTitleChange: _onTitleChanged,
             onIncrement: _incrementProgress,
             onDecrement: _decrementProgress,
+            onIncrementByTime: _incrementByTime,
+            onDecrementByTime: _decrementByTime,
             onDelete: () => _delete(context),
             hideStats: true,
           ),
@@ -274,21 +247,21 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     elevation: 0,
     scrolledUnderElevation: 1,
     titleSpacing: 0,
-    actionsPadding: const EdgeInsets.symmetric(horizontal: 4),
     title: _isSaving
         ? Row(mainAxisSize: MainAxisSize.min, children: [
       SizedBox(
         width: 14,
         height: 14,
-        child: CircularProgressIndicator(strokeWidth: 2, color: context.cText2),
+        child: CircularProgressIndicator(
+            strokeWidth: 2, color: context.cText2),
       ),
       const SizedBox(width: Spacing.xs),
-      Text('Αποθήκευση...', style: context.bodySm.withColor(context.cText2)),
+      Text('Αποθήκευση...',
+          style: context.bodySm.withColor(context.cText2)),
     ])
         : null,
     actions: [
       IconButton(
-        visualDensity: VisualDensity.compact,
         icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
         tooltip: 'Αποθήκευση',
         onPressed: () async {
@@ -298,37 +271,40 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         },
       ),
       IconButton(
-        visualDensity: VisualDensity.compact,
-        icon: Icon(Icons.notifications_none_rounded, color: context.cText2, size: 20),
+        icon: Icon(Icons.notifications_none_rounded,
+            color: context.cText2, size: 20),
         onPressed: _showReminderDialog,
         tooltip: 'Υπενθύμιση',
       ),
       IconButton(
-        visualDensity: VisualDensity.compact,
-        icon: Icon(_isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            color: _isPinned ? context.cPrimary : context.cText2, size: 20),
+        icon: Icon(
+            _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+            color: _isPinned ? context.cPrimary : context.cText2,
+            size: 20),
         onPressed: () => _togglePin(item),
-        tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
       ),
       IconButton(
-        visualDensity: VisualDensity.compact,
-        icon: Icon(_isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2, size: 20),
+        icon: Icon(
+            _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+            color: _isFavorite
+                ? ColorsUI.getWarning(context.brightness)
+                : context.cText2,
+            size: 20),
         onPressed: () => _toggleFav(item),
-        tooltip: _isFavorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένη συνήθεια',
       ),
       IconButton(
-        visualDensity: VisualDensity.compact,
-        icon: Icon(item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
-            color: context.cText2, size: 20),
+        icon: Icon(
+            item.archived
+                ? Icons.unarchive_rounded
+                : Icons.archive_rounded,
+            color: context.cText2,
+            size: 20),
         onPressed: () => _toggleArchive(item),
-        tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
       ),
       IconButton(
-        visualDensity: VisualDensity.compact,
-        icon: Icon(Icons.delete_outline_rounded, color: context.cError, size: 20),
+        icon: Icon(Icons.delete_outline_rounded,
+            color: context.cError, size: 20),
         onPressed: () => _delete(context),
-        tooltip: 'Διαγραφή',
       ),
     ],
   );
@@ -342,13 +318,16 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   Widget _buildError() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
-    body: EmptyState.error(onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
+    body: EmptyState.error(
+        onRetry: () =>
+            ref.invalidate(itemStreamProvider(widget.itemId))),
   );
 
   Widget _buildNotFound() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
-    body: const EmptyState(icon: Icons.loop_rounded, title: 'Η συνήθεια δεν βρέθηκε'),
+    body: const EmptyState(
+        icon: Icons.loop_rounded, title: 'Η συνήθεια δεν βρέθηκε'),
   );
 }
 
@@ -363,6 +342,8 @@ class _HabitBody extends ConsumerWidget {
   final ValueChanged<String> onTitleChange;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
+  final ValueChanged<String> onIncrementByTime;
+  final ValueChanged<String> onDecrementByTime;
   final VoidCallback onDelete;
   final bool hideStats;
 
@@ -373,32 +354,30 @@ class _HabitBody extends ConsumerWidget {
     required this.onTitleChange,
     required this.onIncrement,
     required this.onDecrement,
+    required this.onIncrementByTime,
+    required this.onDecrementByTime,
     required this.onDelete,
     this.hideStats = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statsAsync = ref.watch(habitStatsProvider(item.id));
-    final stats = statsAsync.valueOrNull;
-    final color = ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
+    final stats =
+        ref.watch(habitStatsProvider(item.id)).valueOrNull;
+    final color =
+    ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
+    final hasTimes = stats != null &&
+        stats.recurrence.type == RecurrenceType.daily &&
+        stats.recurrence.times != null &&
+        stats.recurrence.times!.isNotEmpty;
 
     return CustomScrollView(
       slivers: [
+        // Τίτλος
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.lg, context.responsiveHPadding, Spacing.md),
-            child: _ProgressSection(
-              stats: stats,
-              color: color,
-              onIncrement: onIncrement,
-              onDecrement: onDecrement,
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+            padding: EdgeInsets.fromLTRB(context.responsiveHPadding,
+                Spacing.lg, context.responsiveHPadding, Spacing.xs),
             child: TextField(
               controller: titleCtrl,
               onChanged: onTitleChange,
@@ -413,43 +392,90 @@ class _HabitBody extends ConsumerWidget {
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
+
+        // Progress Section
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: context.responsiveHPadding),
+            child: hasTimes
+                ? _TimeProgressSection(
+              stats: stats,
+              color: color,
+              onIncrementByTime: onIncrementByTime,
+              onDecrementByTime: onDecrementByTime,
+            )
+                : _ProgressSection(
+              stats: stats,
+              color: color,
+              onIncrement: onIncrement,
+              onDecrement: onDecrement,
+            ),
+          ),
+        ),
+
+        const SliverToBoxAdapter(child: SizedBox(height: Spacing.sm)),
+
+        // Period Status (εβδομαδιαία με μέρες)
+        if (stats != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: context.responsiveHPadding),
+              child: _PeriodStatus(stats: stats, color: color),
+            ),
+          ),
+
+        // Stats Row (mobile)
         if (!hideStats && stats != null)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+              padding: EdgeInsets.symmetric(
+                  horizontal: context.responsiveHPadding),
               child: _StatsRow(stats: stats, color: color),
             ),
           ),
+
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+            padding: EdgeInsets.symmetric(
+                horizontal: context.responsiveHPadding),
             child: Divider(color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
+
+        // Heatmap
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
+            padding: EdgeInsets.fromLTRB(context.responsiveHPadding,
+                Spacing.md, context.responsiveHPadding, Spacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  Icon(Icons.calendar_month_rounded, size: 16, color: context.cText2),
+                  Icon(Icons.calendar_month_rounded,
+                      size: 16, color: context.cText2),
                   const SizedBox(width: Spacing.xs),
                   Text('Ιστορικό', style: context.titleSm),
                 ]),
                 const SizedBox(height: Spacing.md),
-                _HeatmapCalendar(completions: stats?.completions ?? [], color: color),
+                _HeatmapCalendar(
+                    completions: stats?.completions ?? [],
+                    color: color),
               ],
             ),
           ),
         ),
+
+        // Settings
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.sm),
+            padding: EdgeInsets.fromLTRB(context.responsiveHPadding,
+                Spacing.md, context.responsiveHPadding, Spacing.sm),
             child: _HabitSettings(habitId: item.id),
           ),
         ),
+
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
@@ -457,7 +483,7 @@ class _HabitBody extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// PROGRESS SECTION
+// PROGRESS SECTION — γενικό (χωρίς ώρες)
 // ════════════════════════════════════════════════════════════════
 
 class _ProgressSection extends StatelessWidget {
@@ -493,7 +519,8 @@ class _ProgressSection extends StatelessWidget {
             value: progressPercent,
             minHeight: 12,
             backgroundColor: ColorsUI.getBorder(context.brightness),
-            valueColor: AlwaysStoppedAnimation<Color>(isCompleted ? context.cSuccess : color),
+            valueColor: AlwaysStoppedAnimation<Color>(
+                isCompleted ? context.cSuccess : color),
           ),
         ),
         const SizedBox(height: Spacing.sm),
@@ -501,20 +528,23 @@ class _ProgressSection extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              goal > 0 ? '$dailyProgress / $goal $unit' : '$dailyProgress $unit',
-              style: context.bodyMd.withColor(isCompleted ? context.cSuccess : context.cText),
+              goal > 0
+                  ? '$dailyProgress / $goal${unit.isNotEmpty ? ' $unit' : ''}'
+                  : '$dailyProgress${unit.isNotEmpty ? ' $unit' : ''}',
+              style: context.bodyMd.withColor(
+                  isCompleted ? context.cSuccess : context.cText),
             ),
             if (isCompleted)
-              Row(
-                children: [
-                  Icon(Icons.celebration_rounded, size: 16, color: context.cSuccess),
-                  const SizedBox(width: 4),
-                  Text('Στόχος επιτεύχθηκε!', style: context.bodySm.withColor(context.cSuccess)),
-                ],
-              ),
+              Row(children: [
+                Icon(Icons.celebration_rounded,
+                    size: 16, color: context.cSuccess),
+                const SizedBox(width: 4),
+                Text('Στόχος επιτεύχθηκε!',
+                    style: context.bodySm.withColor(context.cSuccess)),
+              ]),
           ],
         ),
-        const SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.xs),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -525,9 +555,9 @@ class _ProgressSection extends StatelessWidget {
             ),
             const SizedBox(width: Spacing.md),
             IconButton(
-              onPressed: (goal > 0 && dailyProgress >= goal) ? null : onIncrement,
+              onPressed: isCompleted ? null : onIncrement,
               icon: const Icon(Icons.add_circle_outline),
-              color: (goal > 0 && dailyProgress >= goal) ? context.cDisabled : context.cPrimary,
+              color: !isCompleted ? context.cPrimary : context.cDisabled,
             ),
           ],
         ),
@@ -537,7 +567,266 @@ class _ProgressSection extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// STATS ROW (mobile)
+// TIME PROGRESS SECTION — για daily habits με ώρες
+// Δείχνει κάθε ώρα ως ξεχωριστό checkbox/button
+// ════════════════════════════════════════════════════════════════
+
+class _TimeProgressSection extends StatelessWidget {
+  final HabitStats stats;
+  final Color color;
+  final ValueChanged<String> onIncrementByTime;
+  final ValueChanged<String> onDecrementByTime;
+
+  const _TimeProgressSection({
+    required this.stats,
+    required this.color,
+    required this.onIncrementByTime,
+    required this.onDecrementByTime,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final times = stats.recurrence.times ?? [];
+    final timeProgress = stats.todayTimeProgress;
+    final completedCount = timeProgress.values.where((v) => v).length;
+    final totalCount = times.length;
+    final isAllDone = stats.completedToday;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Progress bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: LinearProgressIndicator(
+            value: totalCount > 0 ? completedCount / totalCount : 0.0,
+            minHeight: 12,
+            backgroundColor: ColorsUI.getBorder(context.brightness),
+            valueColor: AlwaysStoppedAnimation<Color>(
+                isAllDone ? context.cSuccess : color),
+          ),
+        ),
+        const SizedBox(height: Spacing.xs),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '$completedCount / $totalCount ώρες',
+              style: context.bodyMd.withColor(
+                  isAllDone ? context.cSuccess : context.cText),
+            ),
+            if (isAllDone)
+              Row(children: [
+                Icon(Icons.celebration_rounded,
+                    size: 16, color: context.cSuccess),
+                const SizedBox(width: 4),
+                Text('Όλες ολοκληρώθηκαν!',
+                    style: context.bodySm.withColor(context.cSuccess)),
+              ]),
+          ],
+        ),
+        const SizedBox(height: Spacing.md),
+
+        // Κάθε ώρα ως row με checkbox
+        ...times.map((time) {
+          final isDone = timeProgress[time] == true;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.xs),
+            child: InkWell(
+              onTap: () => isDone
+                  ? onDecrementByTime(time)
+                  : onIncrementByTime(time),
+              borderRadius: AppRadius.cardBR,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.md, vertical: Spacing.sm),
+                decoration: BoxDecoration(
+                  color: isDone
+                      ? context.cSuccess.withValues(alpha: 0.1)
+                      : ColorsUI.getSurface(context.brightness),
+                  borderRadius: AppRadius.cardBR,
+                  border: Border.all(
+                    color: isDone
+                        ? context.cSuccess
+                        : ColorsUI.getBorder(context.brightness),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isDone
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: isDone ? context.cSuccess : context.cDisabled,
+                      size: 22,
+                    ),
+                    const SizedBox(width: Spacing.md),
+                    Text(
+                      time,
+                      style: context.titleMd.withColor(
+                          isDone ? context.cSuccess : context.cText),
+                    ),
+                    const Spacer(),
+                    if (isDone)
+                      Text('✓',
+                          style:
+                          context.bodyMd.withColor(context.cSuccess)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// PERIOD STATUS — εβδομαδιαία/μηνιαία με συγκεκριμένες μέρες
+// ════════════════════════════════════════════════════════════════
+
+class _PeriodStatus extends StatelessWidget {
+  final HabitStats stats;
+  final Color color;
+
+  const _PeriodStatus({required this.stats, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final recurrence = stats.recurrence;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final completionDays = stats.completions
+        .map((d) => DateTime(d.year, d.month, d.day))
+        .toSet();
+
+    // Εβδομαδιαία με συγκεκριμένες μέρες
+    if (recurrence.type == RecurrenceType.weekly &&
+        recurrence.days != null &&
+        recurrence.days!.isNotEmpty) {
+      final daysSinceMonday = (now.weekday - 1) % 7;
+      final weekStart = today.subtract(Duration(days: daysSinceMonday));
+      const dayNames = [
+        'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'
+      ];
+      final scheduledDays = [...recurrence.days!]..sort();
+
+      return _periodStatusCard(
+        context: context,
+        title: 'Αυτή την εβδομάδα',
+        children: scheduledDays.map((dayNum) {
+          final dayDate = weekStart.add(Duration(days: dayNum - 1));
+          final isDone = completionDays.contains(dayDate);
+          final isFuture = dayDate.isAfter(today);
+          return _DayDot(
+            label: dayNames[dayNum - 1],
+            isDone: isDone,
+            isFuture: isFuture,
+          );
+        }).toList(),
+      );
+    }
+
+    // Μηνιαία με συγκεκριμένες ημέρες
+    if (recurrence.type == RecurrenceType.monthly &&
+        recurrence.days != null &&
+        recurrence.days!.isNotEmpty) {
+      final sortedDays = [...recurrence.days!]..sort();
+
+      return _periodStatusCard(
+        context: context,
+        title: 'Αυτόν τον μήνα',
+        children: sortedDays.map((d) {
+          final targetDay = DateTime(now.year, now.month, d);
+          final isDone = completionDays.contains(targetDay);
+          final isFuture = targetDay.isAfter(today);
+          return _DayDot(
+            label: '$dη',
+            isDone: isDone,
+            isFuture: isFuture,
+          );
+        }).toList(),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _periodStatusCard({
+    required BuildContext context,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: Spacing.sm),
+      padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md, vertical: Spacing.sm),
+      decoration: BoxDecoration(
+        color: ColorsUI.getSurface(context.brightness),
+        borderRadius: AppRadius.cardBR,
+        border: Border.all(color: ColorsUI.getBorder(context.brightness)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: context.labelMd.withColor(context.cText2)),
+          const SizedBox(height: Spacing.xs),
+          Wrap(spacing: Spacing.sm, runSpacing: Spacing.xs, children: children),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayDot extends StatelessWidget {
+  final String label;
+  final bool isDone;
+  final bool isFuture;
+
+  const _DayDot({
+    required this.label,
+    required this.isDone,
+    required this.isFuture,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color dotColor;
+    if (isDone) {
+      dotColor = context.cSuccess;
+    } else if (isFuture) {
+      dotColor = context.cDisabled;
+    } else {
+      dotColor = context.cError;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isDone
+              ? Icons.check_circle_rounded
+              : isFuture
+              ? Icons.radio_button_unchecked_rounded
+              : Icons.cancel_rounded,
+          size: 18,
+          color: dotColor,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: context.labelSm.withColor(
+              isFuture ? context.cDisabled : context.cText),
+        ),
+      ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// STATS ROW
 // ════════════════════════════════════════════════════════════════
 
 class _StatsRow extends StatelessWidget {
@@ -547,46 +836,51 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            icon: Icons.local_fire_department_rounded,
-            value: '${stats.streak}',
-            label: 'Σερί Ημερών',
-            color: stats.streak > 0 ? ColorsUI.getWarning(context.brightness) : context.cDisabled,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatCard(
+              icon: Icons.local_fire_department_rounded,
+              value: '${stats.streak}',
+              label: 'Σερί',
+              color: stats.streak > 0
+                  ? ColorsUI.getWarning(context.brightness)
+                  : context.cDisabled,
+            ),
           ),
-        ),
-        const SizedBox(width: Spacing.sm),
-        Expanded(
-          child: _StatCard(
-            icon: Icons.emoji_events_rounded,
-            value: '${stats.bestStreak}',
-            label: 'Μεγαλύτερο Σερι',
-            color: color,
-          ),
-        ),
-        const SizedBox(width: Spacing.sm),
-        Expanded(
-          child: _StatCard(
-            icon: Icons.check_circle_outline_rounded,
-            value: '${stats.completedCount}',
-            label: 'Ολοκληρωμένες',
-            color: context.cText2,
-          ),
-        ),
-        if (stats.goalCount > 0) ...[
           const SizedBox(width: Spacing.sm),
           Expanded(
             child: _StatCard(
-              icon: Icons.flag_rounded,
-              value: '${stats.progressPercent.toInt()}%',
-              label: 'Στόχος',
+              icon: Icons.emoji_events_rounded,
+              value: '${stats.bestStreak}',
+              label: 'Καλύτερο',
               color: color,
             ),
           ),
+          const SizedBox(width: Spacing.sm),
+          Expanded(
+            child: _StatCard(
+              icon: Icons.check_circle_outline_rounded,
+              value: '${stats.completedCount}',
+              label: 'Περίοδοι',
+              color: context.cText2,
+            ),
+          ),
+          if (stats.goalCount > 0) ...[
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: _StatCard(
+                icon: Icons.flag_rounded,
+                value: '${stats.progressPercent.toInt()}%',
+                label: 'Σήμερα',
+                color: color,
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -596,12 +890,17 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
-  const _StatCard({required this.icon, required this.value, required this.label, required this.color});
+  const _StatCard(
+      {required this.icon,
+        required this.value,
+        required this.label,
+        required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm, horizontal: Spacing.xs),
+      padding: const EdgeInsets.symmetric(
+          vertical: Spacing.sm, horizontal: Spacing.xs),
       decoration: BoxDecoration(
         color: ColorsUI.getSurface(context.brightness),
         borderRadius: AppRadius.cardBR,
@@ -632,12 +931,15 @@ class _HeatmapCalendar extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final doneDays = completions.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+    final doneDays =
+    completions.map((d) => DateTime(d.year, d.month, d.day)).toSet();
     const weeks = 12;
     const days = weeks * 7;
     final start = today.subtract(const Duration(days: days - 1));
-    final allDays = List.generate(days, (i) => start.add(Duration(days: i)));
-    final cellSize = context.responsive<double>(mobile: 16, tablet: 20, desktop: 22);
+    final allDays =
+    List.generate(days, (i) => start.add(Duration(days: i)));
+    final cellSize =
+    context.responsive<double>(mobile: 16, tablet: 20, desktop: 22);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,7 +948,10 @@ class _HeatmapCalendar extends StatelessWidget {
           children: ['Δ', 'Τ', 'Τ', 'Π', 'Π', 'Σ', 'Κ']
               .map((d) => SizedBox(
             width: cellSize + 3,
-            child: Text(d, style: context.labelSm.withColor(context.cDisabled), textAlign: TextAlign.center),
+            child: Text(d,
+                style:
+                context.labelSm.withColor(context.cDisabled),
+                textAlign: TextAlign.center),
           ))
               .toList(),
         ),
@@ -666,7 +971,8 @@ class _HeatmapCalendar extends StatelessWidget {
                     ? Colors.transparent
                     : isDone
                     ? color
-                    : ColorsUI.getBorder(context.brightness).withValues(alpha: 0.5),
+                    : ColorsUI.getBorder(context.brightness)
+                    .withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(3),
                 border: isToday ? Border.all(color: color, width: 2) : null,
               ),
@@ -677,7 +983,8 @@ class _HeatmapCalendar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Text('Λιγότερο', style: context.labelSm.withColor(context.cDisabled)),
+            Text('Λιγότερο',
+                style: context.labelSm.withColor(context.cDisabled)),
             const SizedBox(width: Spacing.xs),
             ...List.generate(
                 4,
@@ -693,7 +1000,8 @@ class _HeatmapCalendar extends StatelessWidget {
                   ),
                 )),
             const SizedBox(width: Spacing.xs),
-            Text('Περισσότερο', style: context.labelSm.withColor(context.cDisabled)),
+            Text('Περισσότερο',
+                style: context.labelSm.withColor(context.cDisabled)),
           ],
         ),
       ],
@@ -702,7 +1010,7 @@ class _HeatmapCalendar extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// STATS PANEL (tablet left)
+// STATS PANEL (tablet)
 // ════════════════════════════════════════════════════════════════
 
 class _StatsPanel extends ConsumerWidget {
@@ -712,7 +1020,8 @@ class _StatsPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(habitStatsProvider(habitId));
-    final color = ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
+    final color =
+    ColorsUI.itemTypeColor(ItemType.habit, context.brightness);
 
     return Container(
       color: ColorsUI.getSurface(context.brightness),
@@ -720,47 +1029,53 @@ class _StatsPanel extends ConsumerWidget {
       child: statsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => const SizedBox.shrink(),
-        data: (stats) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Στατιστικά', style: context.titleSm),
-            const SizedBox(height: Spacing.md),
-            _StatCard(
-              icon: Icons.local_fire_department_rounded,
-              value: '${stats.streak}',
-              label: 'Τρέχον Streak',
-              color: stats.streak > 0 ? ColorsUI.getWarning(context.brightness) : context.cDisabled,
-            ),
-            const SizedBox(height: Spacing.sm),
-            _StatCard(
-              icon: Icons.emoji_events_rounded,
-              value: '${stats.bestStreak}',
-              label: 'Καλύτερο Streak',
-              color: color,
-            ),
-            const SizedBox(height: Spacing.sm),
-            _StatCard(
-              icon: Icons.check_circle_outline_rounded,
-              value: '${stats.completedCount}',
-              label: 'Συνολικές ολοκληρώσεις',
-              color: context.cText2,
-            ),
-            if (stats.goalCount > 0) ...[
+        data: (stats) => SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Στατιστικά', style: context.titleSm),
+              const SizedBox(height: Spacing.md),
+              _PeriodStatus(stats: stats, color: color),
+              _StatCard(
+                icon: Icons.local_fire_department_rounded,
+                value: '${stats.streak}',
+                label: 'Τρέχον Σερί',
+                color: stats.streak > 0
+                    ? ColorsUI.getWarning(context.brightness)
+                    : context.cDisabled,
+              ),
               const SizedBox(height: Spacing.sm),
               _StatCard(
-                icon: Icons.flag_rounded,
-                value: '${stats.progressPercent.toInt()}%',
-                label: 'Πρόοδος στόχου',
+                icon: Icons.emoji_events_rounded,
+                value: '${stats.bestStreak}',
+                label: 'Καλύτερο Σερί',
                 color: color,
               ),
+              const SizedBox(height: Spacing.sm),
+              _StatCard(
+                icon: Icons.check_circle_outline_rounded,
+                value: '${stats.completedCount}',
+                label: 'Ολοκληρωμένες Περίοδοι',
+                color: context.cText2,
+              ),
+              if (stats.goalCount > 0) ...[
+                const SizedBox(height: Spacing.sm),
+                _StatCard(
+                  icon: Icons.flag_rounded,
+                  value: '${stats.progressPercent.toInt()}%',
+                  label: 'Πρόοδος σήμερα',
+                  color: color,
+                ),
+              ],
+              if (stats.lastCompleted != null) ...[
+                const Divider(height: Spacing.xl),
+                Text('Τελευταία ολοκλήρωση',
+                    style: context.labelMd.withColor(context.cText2)),
+                const SizedBox(height: Spacing.xs),
+                Text(stats.lastCompleted!.relative, style: context.bodyMd),
+              ],
             ],
-            if (stats.lastCompleted != null) ...[
-              const Divider(height: Spacing.xl),
-              Text('Τελευταία ολοκλήρωση', style: context.labelMd.withColor(context.cText2)),
-              const SizedBox(height: Spacing.xs),
-              Text(stats.lastCompleted!.relative, style: context.bodyMd),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -768,31 +1083,31 @@ class _StatsPanel extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// HABIT SETTINGS (goal, unit, recurrence μέσω Recurrence)
+// HABIT SETTINGS
 // ════════════════════════════════════════════════════════════════
 
 class _HabitSettings extends ConsumerWidget {
   final int habitId;
-
   const _HabitSettings({required this.habitId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(habitId));
     final props = propsAsync.valueOrNull ?? [];
-    final goalCount = props.where((p) => p.key == 'goal_per_period').firstOrNull?.value ?? '0';
-    final unit = props.where((p) => p.key == 'unit').firstOrNull?.value ?? '';
 
-    // Δημιουργούμε το τρέχον Recurrence από τις αποθηκευμένες ιδιότητες
     final allProps = <String, String?>{};
     for (final p in props) {
       allProps[p.key] = p.value;
     }
+
+    final goalCount =
+        allProps['goal_per_period'] ?? '0';
+    final unit = allProps['unit'] ?? '';
     final currentRecurrence = Recurrence.fromProperties(allProps);
 
-    // Ετικέτα για την τρέχουσα επανάληψη
     String recurrenceLabel;
-    if (allProps['recurrence_type'] == null || allProps['recurrence_type']!.isEmpty) {
+    if (allProps['recurrence_type'] == null ||
+        allProps['recurrence_type']!.isEmpty) {
       recurrenceLabel = 'Καμία (μία φορά)';
     } else {
       recurrenceLabel = currentRecurrence.describe();
@@ -811,29 +1126,40 @@ class _HabitSettings extends ConsumerWidget {
           decoration: BoxDecoration(
             color: ColorsUI.getSurface(context.brightness),
             borderRadius: AppRadius.cardBR,
-            border: Border.all(color: ColorsUI.getBorder(context.brightness)),
+            border:
+            Border.all(color: ColorsUI.getBorder(context.brightness)),
           ),
           child: Column(
             children: [
-              _SettingsRow(
-                icon: Icons.flag_rounded,
-                label: 'Στόχος',
-                value: goalCount == '0' ? 'Χωρίς στόχο' : '$goalCount φορές',
-                onTap: () => _editGoal(context, ref, goalCount),
-              ),
-              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
+              // Στόχος: κρύβεται αν υπάρχουν ώρες (auto-goal)
+              if (currentRecurrence.times == null ||
+                  currentRecurrence.times!.isEmpty)
+                _SettingsRow(
+                  icon: Icons.flag_rounded,
+                  label: 'Στόχος',
+                  value: goalCount == '0' ? 'Χωρίς στόχο' : '$goalCount φορές',
+                  onTap: () => _editGoal(context, ref, goalCount),
+                ),
+              if (currentRecurrence.times == null ||
+                  currentRecurrence.times!.isEmpty)
+                Divider(
+                    height: 1,
+                    color: ColorsUI.getBorder(context.brightness)),
               _SettingsRow(
                 icon: Icons.straighten_rounded,
                 label: 'Μονάδα',
                 value: unit.isEmpty ? 'Χωρίς μονάδα' : unit,
                 onTap: () => _editUnit(context, ref, unit),
               ),
-              Divider(height: 1, color: ColorsUI.getBorder(context.brightness)),
+              Divider(
+                  height: 1,
+                  color: ColorsUI.getBorder(context.brightness)),
               _SettingsRow(
                 icon: Icons.repeat_rounded,
-                label: 'Επανάληψη',
+                label: '',
                 value: recurrenceLabel,
-                onTap: () => _editRecurrence(context, ref, allProps),
+                onTap: () =>
+                    _editRecurrence(context, ref, allProps, currentRecurrence),
               ),
             ],
           ),
@@ -845,13 +1171,12 @@ class _HabitSettings extends ConsumerWidget {
   void _editGoal(BuildContext context, WidgetRef ref, String current) {
     _showTextEditor(
       context: context,
-      title: 'Στόχος (αριθμός φορών την ημέρα)',
+      title: 'Στόχος (αριθμός φορών)',
       initial: current == '0' ? '' : current,
       keyboardType: TextInputType.number,
-      onSave: (val) async {
-        final n = double.tryParse(val) ?? 0;
-        DebugConfig.db('HabitSettings setGoal=$n id=$habitId');
-        await ref.read(propertyNotifierProvider(habitId).notifier).setNumber('goal_per_period', n);
+      onSave: (value) async {
+        final goal = int.tryParse(value) ?? 0;
+        await HabitService.instance.setGoal(habitId, goal);
         ref.invalidate(itemPropertiesProvider(habitId));
         ref.invalidate(habitStatsProvider(habitId));
       },
@@ -861,18 +1186,25 @@ class _HabitSettings extends ConsumerWidget {
   void _editUnit(BuildContext context, WidgetRef ref, String current) {
     _showTextEditor(
       context: context,
-      title: 'Μονάδα (π.χ. λεπτά, ποτήρια)',
+      title: 'Μονάδα μέτρησης',
       initial: current,
-      onSave: (val) async {
-        DebugConfig.db('HabitSettings setUnit="$val" id=$habitId');
-        await ref.read(propertyNotifierProvider(habitId).notifier).setText('unit', val);
+      onSave: (value) async {
+        await HabitService.instance.setUnit(habitId, value);
+        ref.invalidate(itemPropertiesProvider(habitId));
+        ref.invalidate(habitStatsProvider(habitId));
       },
     );
   }
 
-  void _editRecurrence(BuildContext context, WidgetRef ref, Map<String, String?> props) async {
-    final currentType = props['recurrence_type'];
-    final result = await showModalBottomSheet<String>(
+  Future<void> _editRecurrence(
+      BuildContext context,
+      WidgetRef ref,
+      Map<String, String?> allProps,
+      Recurrence currentRecurrence,
+      ) async {
+    final options = ['Καθημερινά', 'Εβδομαδιαία', 'Μηνιαία', 'Καμία'];
+
+    final selected = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
@@ -896,76 +1228,55 @@ class _HabitSettings extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(
                   horizontal: Spacing.lg, vertical: Spacing.xs),
-              child: Text('Επανάληψη συνήθειας', style: context.titleSm),
+              child:
+              Text('Επιλογή επανάληψης', style: context.titleSm),
             ),
-            const Divider(),
-            ListTile(
-              title: const Text('Καμία (μία φορά)'),
-              trailing: (currentType == null || currentType.isEmpty)
-                  ? Icon(Icons.check_rounded, color: context.cPrimary)
+            ...options.map((o) => ListTile(
+              title: Text(o),
+              trailing:
+              _recurrenceMatchesOption(currentRecurrence, o)
+                  ? Icon(Icons.check_rounded,
+                  color: context.cPrimary)
                   : null,
-              onTap: () => Navigator.pop(ctx, 'none'),
-            ),
-            ListTile(
-              title: const Text('Καθημερινά'),
-              trailing: currentType == 'daily'
-                  ? Icon(Icons.check_rounded, color: context.cPrimary)
-                  : null,
-              onTap: () => Navigator.pop(ctx, 'daily'),
-            ),
-            ListTile(
-              title: const Text('Εβδομαδιαία'),
-              subtitle: const Text('Επιλέξτε ημέρες'),
-              trailing: currentType == 'weekly'
-                  ? Icon(Icons.check_rounded, color: context.cPrimary)
-                  : null,
-              onTap: () => Navigator.pop(ctx, 'weekly'),
-            ),
-            ListTile(
-              title: const Text('Μηνιαία'),
-              trailing: currentType == 'monthly'
-                  ? Icon(Icons.check_rounded, color: context.cPrimary)
-                  : null,
-              onTap: () => Navigator.pop(ctx, 'monthly'),
-            ),
+              onTap: () => Navigator.pop(ctx, o),
+            )),
             const SizedBox(height: Spacing.sm),
           ],
         ),
       ),
     );
 
-    if (result == null || !context.mounted) return;
+    if (selected == null || !context.mounted) return;
 
-    if (result == 'none') {
-      await _clearRecurrence(ref);
-      return;
-    }
-
-    // Δημιουργία νέου Recurrence
     Recurrence? newRecurrence;
-    switch (result) {
-      case 'daily':
-        newRecurrence = const Recurrence(type: RecurrenceType.daily, interval: 1);
-        break;
-      case 'monthly':
-        newRecurrence = const Recurrence(type: RecurrenceType.monthly, interval: 1, dayOfMonth: 1);
-        break;
-      case 'weekly':
-        final selectedDays = await _showWeekdayPicker(context, ref);
+
+    switch (selected) {
+      case 'Καθημερινά':
+      // Άνοιγμα time picker για επιλογή ωρών
+        final times = await _showTimePicker(context, currentRecurrence);
         if (!context.mounted) return;
-        if (selectedDays != null && selectedDays.isNotEmpty) {
-          newRecurrence = Recurrence(
-            type: RecurrenceType.weekly,
-            interval: 1,
-            days: selectedDays,
-          );
-        } else {
-          return; // ο χρήστης ακύρωσε ή δεν επέλεξε ημέρες
-        }
+        newRecurrence = Recurrence.daily(times: times);
         break;
+
+      case 'Εβδομαδιαία':
+        final days = await _showWeekdayPicker(context, currentRecurrence);
+        if (days == null || days.isEmpty) return;
+        newRecurrence = Recurrence.weekly(days: days);
+        break;
+
+      case 'Μηνιαία':
+        final days =
+        await _showMonthDayPicker(context, currentRecurrence);
+        if (days == null || days.isEmpty) return;
+        newRecurrence = Recurrence.monthly(days: days);
+        break;
+
+      case 'Καμία':
+        await _clearRecurrence(ref);
+        return;
     }
 
-    if (newRecurrence != null) {
+    if (newRecurrence != null && context.mounted) {
       await HabitService.instance.setRecurrence(habitId, newRecurrence);
       ref.invalidate(itemPropertiesProvider(habitId));
       ref.invalidate(habitStatsProvider(habitId));
@@ -973,28 +1284,56 @@ class _HabitSettings extends ConsumerWidget {
     }
   }
 
+  bool _recurrenceMatchesOption(Recurrence r, String option) {
+    switch (option) {
+      case 'Καθημερινά':
+        return r.type == RecurrenceType.daily;
+      case 'Εβδομαδιαία':
+        return r.type == RecurrenceType.weekly;
+      case 'Μηνιαία':
+        return r.type == RecurrenceType.monthly;
+      default:
+        return false;
+    }
+  }
+
   Future<void> _clearRecurrence(WidgetRef ref) async {
-    final notifier = ref.read(propertyNotifierProvider(habitId).notifier);
+    final notifier =
+    ref.read(propertyNotifierProvider(habitId).notifier);
     await notifier.setText('recurrence_type', null);
     await notifier.setText('recurrence_interval', null);
     await notifier.setText('recurrence_days', null);
+    await notifier.setText('recurrence_times', null);
     ref.invalidate(itemPropertiesProvider(habitId));
     ref.invalidate(habitStatsProvider(habitId));
     await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
-  /// Επιστρέφει λίστα με ints ημερών (1=Δευ, 7=Κυρ) ή null αν ακυρώθηκε
-  Future<List<int>?> _showWeekdayPicker(BuildContext context, WidgetRef ref) async {
-    final props = ref.read(itemPropertiesProvider(habitId)).valueOrNull ?? [];
-    final allProps = <String, String?>{};
-    for (final p in props) {
-      allProps[p.key] = p.value;
-    }
-    final currentRecurrence = Recurrence.fromProperties(allProps);
-    final savedDays = List<int>.from(currentRecurrence.days ?? []);
+  // ── Time Picker (για daily) ──────────────────────────────────
 
-    const allDays = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
-    final selectedDays = List<int>.from(savedDays);
+  Future<List<String>?> _showTimePicker(
+      BuildContext context, Recurrence current) async {
+    final savedTimes = List<String>.from(current.times ?? []);
+
+    return showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => _TimePickerSheet(initialTimes: savedTimes),
+    );
+  }
+
+  // ── Weekday Picker (για weekly) ──────────────────────────────
+
+  Future<List<int>?> _showWeekdayPicker(
+      BuildContext context, Recurrence current) async {
+    final savedDays = List<int>.from(current.days ?? []);
 
     return showModalBottomSheet<List<int>>(
       context: context,
@@ -1005,75 +1344,89 @@ class _HabitSettings extends ConsumerWidget {
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) {
-          return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: context.cBorder,
-                      borderRadius: BorderRadius.circular(2)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.lg, vertical: Spacing.xs),
-                  child: Text(
-                    'Επιλογή ημερών επανάληψης',
-                    style: context.titleSm,
-                  ),
-                ),
-                const SizedBox(height: Spacing.sm),
-                Wrap(
-                  spacing: Spacing.xs,
-                  runSpacing: Spacing.xs,
-                  children: List.generate(allDays.length, (index) {
-                    final dayName = allDays[index];
-                    final dayNum = index + 1;
-                    final isSelected = selectedDays.contains(dayNum);
-                    return FilterChip(
-                      label: Text(dayName),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setModal(() {
-                          if (selected) {
-                            selectedDays.add(dayNum);
-                          } else {
-                            selectedDays.remove(dayNum);
-                          }
-                        });
-                      },
-                      selectedColor: context.cPrimary.withValues(alpha: 0.2),
-                      checkmarkColor: context.cPrimary,
-                    );
-                  }),
-                ),
-                const SizedBox(height: Spacing.lg),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      builder: (ctx) {
+        final selected = List<int>.from(savedDays);
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            const allDays = [
+              'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'
+            ];
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(Spacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, null),
-                      child: const Text('Άκυρο'),
+                    Text('Επιλογή ημερών εβδομάδας',
+                        style: context.titleSm),
+                    const SizedBox(height: Spacing.md),
+                    Wrap(
+                      spacing: Spacing.xs,
+                      runSpacing: Spacing.xs,
+                      children:
+                      List.generate(allDays.length, (index) {
+                        final dayNum = index + 1;
+                        final isSelected = selected.contains(dayNum);
+                        return FilterChip(
+                          label: Text(allDays[index]),
+                          selected: isSelected,
+                          onSelected: (v) => setModal(() {
+                            if (v) {
+                              selected.add(dayNum);
+                            } else {
+                              selected.remove(dayNum);
+                            }
+                          }),
+                          selectedColor:
+                          context.cPrimary.withValues(alpha: 0.2),
+                          checkmarkColor: context.cPrimary,
+                        );
+                      }),
                     ),
-                    FilledButton(
-                      onPressed: selectedDays.isEmpty
-                          ? null
-                          : () => Navigator.pop(ctx, List<int>.from(selectedDays)),
-                      child: const Text('Αποθήκευση'),
+                    const SizedBox(height: Spacing.lg),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, null),
+                            child: const Text('Άκυρο')),
+                        FilledButton(
+                          onPressed: selected.isEmpty
+                              ? null
+                              : () => Navigator.pop(
+                              ctx, List<int>.from(selected)),
+                          child: const Text('Αποθήκευση'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: Spacing.sm),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        );
+      },
+
+    );
+  }
+
+  // ── Month Day Picker (για monthly) ───────────────────────────
+
+  Future<List<int>?> _showMonthDayPicker(
+      BuildContext context, Recurrence current) async {
+    final savedDays = List<int>.from(current.days ?? []);
+
+    return showModalBottomSheet<List<int>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
       ),
+      builder: (ctx) => _MonthDayPickerSheet(initialDays: savedDays),
     );
   }
 
@@ -1118,18 +1471,17 @@ class _HabitSettings extends ConsumerWidget {
                 fillColor: ColorsUI.getSurface(context.brightness),
                 border: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
-                  borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                  borderSide: BorderSide(
+                      color: ColorsUI.getBorder(context.brightness)),
                 ),
               ),
             ),
             const SizedBox(height: Spacing.md),
             Row(children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Άκυρο'),
-                ),
-              ),
+                  child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Άκυρο'))),
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: FilledButton(
@@ -1144,6 +1496,226 @@ class _HabitSettings extends ConsumerWidget {
             ]),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TIME PICKER SHEET — επιλογή ωρών για daily habit
+// ════════════════════════════════════════════════════════════════
+
+class _TimePickerSheet extends StatefulWidget {
+  final List<String> initialTimes;
+  const _TimePickerSheet({required this.initialTimes});
+
+  @override
+  State<_TimePickerSheet> createState() => _TimePickerSheetState();
+}
+
+class _TimePickerSheetState extends State<_TimePickerSheet> {
+  late List<String> _times;
+
+  @override
+  void initState() {
+    super.initState();
+    _times = List<String>.from(widget.initialTimes);
+  }
+
+  String _formatTime(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _addTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked == null) return;
+    final formatted = _formatTime(picked);
+    if (!_times.contains(formatted)) {
+      setState(() {
+        _times.add(formatted);
+        _times.sort();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + Spacing.md,
+        left: Spacing.lg,
+        right: Spacing.lg,
+        top: Spacing.md,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Ώρες εκτέλεσης', style: context.titleSm),
+              TextButton.icon(
+                onPressed: _addTime,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Προσθήκη ώρας'),
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.xs),
+          Text(
+            'Ο στόχος επιτυγχάνεται όταν ολοκληρωθούν ΟΛΕΣ οι ώρες.',
+            style: context.bodySm.withColor(context.cText2),
+          ),
+          const SizedBox(height: Spacing.md),
+          if (_times.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+              child: Center(
+                child: Text(
+                  'Δεν έχουν οριστεί ώρες.\nΠατήστε "Προσθήκη ώρας".',
+                  style: context.bodyMd.withColor(context.cText2),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            ..._times.map((t) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.access_time_rounded,
+                  color: context.cPrimary),
+              title: Text(t, style: context.titleMd),
+              trailing: IconButton(
+                icon:
+                Icon(Icons.delete_outline_rounded, color: context.cError),
+                onPressed: () =>
+                    setState(() => _times.remove(t)),
+              ),
+            )),
+          const SizedBox(height: Spacing.md),
+          Row(children: [
+            Expanded(
+                child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, null),
+                    child: const Text('Άκυρο'))),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context, _times),
+                child: const Text('Αποθήκευση'),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// MONTH DAY PICKER SHEET — επιλογή ημερών μήνα
+// ════════════════════════════════════════════════════════════════
+
+class _MonthDayPickerSheet extends StatefulWidget {
+  final List<int> initialDays;
+  const _MonthDayPickerSheet({required this.initialDays});
+
+  @override
+  State<_MonthDayPickerSheet> createState() => _MonthDayPickerSheetState();
+}
+
+class _MonthDayPickerSheetState extends State<_MonthDayPickerSheet> {
+  late List<int> _selectedDays;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDays = List<int>.from(widget.initialDays);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + Spacing.md,
+        left: Spacing.lg,
+        right: Spacing.lg,
+        top: Spacing.md,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Ημέρες μήνα', style: context.titleSm),
+          const SizedBox(height: Spacing.xs),
+          Text(
+            'Ο στόχος επιτυγχάνεται όταν ολοκληρωθούν ΟΛΕΣ οι επιλεγμένες ημέρες.',
+            style: context.bodySm.withColor(context.cText2),
+          ),
+          const SizedBox(height: Spacing.md),
+          // Grid 7 x 5
+          Wrap(
+            spacing: Spacing.xs,
+            runSpacing: Spacing.xs,
+            children: List.generate(31, (i) {
+              final day = i + 1;
+              final isSelected = _selectedDays.contains(day);
+              return GestureDetector(
+                onTap: () => setState(() {
+                  if (isSelected) {
+                    _selectedDays.remove(day);
+                  } else {
+                    _selectedDays.add(day);
+                  }
+                }),
+                child: AnimatedContainer(
+                  duration: AppDuration.fast,
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? context.cPrimary
+                        : ColorsUI.getSurface(context.brightness),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(
+                      color: isSelected
+                          ? context.cPrimary
+                          : ColorsUI.getBorder(context.brightness),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$day',
+                      style: context.bodyMd.withColor(
+                          isSelected
+                              ? ColorsUI.getOnPrimary(context.brightness)
+                              : context.cText),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: Spacing.lg),
+          Row(children: [
+            Expanded(
+                child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, null),
+                    child: const Text('Άκυρο'))),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: FilledButton(
+                onPressed: _selectedDays.isEmpty
+                    ? null
+                    : () => Navigator.pop(
+                    context, List<int>.from(_selectedDays)..sort()),
+                child: const Text('Αποθήκευση'),
+              ),
+            ),
+          ]),
+        ],
       ),
     );
   }
@@ -1170,9 +1742,14 @@ class _SettingsRow extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(value, style: context.bodyMd.withColor(context.cText2)),
+          Flexible(
+            child: Text(value,
+                style: context.bodyMd.withColor(context.cText2),
+                overflow: TextOverflow.ellipsis),
+          ),
           const SizedBox(width: Spacing.xs),
-          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: context.cDisabled),
+          Icon(Icons.arrow_forward_ios_rounded,
+              size: 14, color: context.cDisabled),
         ],
       ),
       onTap: onTap,

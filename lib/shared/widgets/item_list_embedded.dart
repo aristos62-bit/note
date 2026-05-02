@@ -35,9 +35,8 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
-  final _searchQueryProvider = StateProvider<String>((ref) => '');
-
-  final _activeTagFilterProvider = StateProvider<Set<String>>((ref) => {});
+  String _searchQuery = '';           // ✅
+  Set<String> _activeTags = {};       // ✅
 
   Set<String> _visibleTagNames = {};
 
@@ -52,7 +51,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(_searchQueryProvider.notifier).state = value.trim();
+      setState(() => _searchQuery = value.trim());
     });
   }
 
@@ -60,8 +59,10 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
     setState(() => _searchActive = !_searchActive);
     if (!_searchActive) {
       _searchCtrl.clear();
-      ref.read(_searchQueryProvider.notifier).state = '';
-      ref.read(_activeTagFilterProvider.notifier).state = {};
+      setState(() {
+        _searchQuery = '';
+        _activeTags = {};
+      });
     } else {
       Future.microtask(() => _searchFocus.requestFocus());
     }
@@ -70,8 +71,8 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   @override
   Widget build(BuildContext context) {
     final itemsAsync = ref.watch(itemsStreamProvider);
-    final searchQuery = ref.watch(_searchQueryProvider);
-    final activeTags = ref.watch(_activeTagFilterProvider);
+    final searchQuery = _searchQuery;
+    final activeTags = _activeTags;
 
     return Column(
       children: [
@@ -89,14 +90,13 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
               tags: _visibleTagNames.toList(),
               activeTags: activeTags,
               onTagTap: (name) {
-                final current = ref.read(_activeTagFilterProvider);
-                final newSet = {...current};
+                final newSet = {..._activeTags};  // ✅ χρησιμοποιούμε απευθείας το _activeTags
                 if (newSet.contains(name)) {
                   newSet.remove(name);
                 } else {
                   newSet.add(name);
                 }
-                ref.read(_activeTagFilterProvider.notifier).state = newSet;
+                setState(() => _activeTags = newSet);
               },
             ),
           ),
@@ -151,12 +151,14 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                 var filtered = _filterItems(items, searchQuery);
 
                 if (activeTags.isNotEmpty) {
-                  filtered = filtered.where((item) {
-                    final tags =
-                        ref.watch(itemTagsProvider(item.id)).valueOrNull ?? [];
-                    final tagNames = tags.map((t) => t.name);
-                    return tagNames.any((name) => activeTags.contains(name));
-                  }).toList();
+                  // ✅ Loop 2: tag filtering
+                  if (activeTags.isNotEmpty) {
+                    filtered = filtered.where((item) {
+                      final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
+                      final tagNames = tags.map((t) => t.name);
+                      return tagNames.any((name) => activeTags.contains(name));
+                    }).toList();
+                  }
                 }
 
                 if (filtered.isEmpty) {
