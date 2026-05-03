@@ -45,10 +45,11 @@ class CalendarScreen extends ConsumerStatefulWidget {
   ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  int? _selectedFolderId;
-  bool _userExplicitlySelected = false;
-  bool _autoSelectDone = false; // ✅ προστέθηκε
+class _CalendarScreenState extends ConsumerState<CalendarScreen>
+    with FolderAutoSelectMixin {
+  //int? selectedFolderId;
+  //bool _userExplicitlySelected = false;
+  //bool _autoSelectDone = false; // ✅ προστέθηκε
   final GlobalKey<ItemListEmbeddedState> _listKey = GlobalKey();
 
   @override
@@ -62,32 +63,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις (ασύγχρονα)
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
-    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ όταν φορτώσουν τα settings και οι φάκελοι
-    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
-      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
-        final settings = settingsAsync.requireValue;
-        final preferredId = settings.preferredFolderId;
-        int? targetId = preferredId;
-        if (targetId == null || !folders.any((f) => f.id == targetId)) {
-          targetId = folders.firstWhere(
-                (f) => f.isSystem,
-            orElse: () => folders.first,
-          ).id;
-        }
-        _autoSelectDone = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _selectedFolderId = targetId);
-            DebugConfig.nav('Calendar: auto-selected folder id=$targetId (preferredId=$preferredId)');
-          }
-        });
-      }
-    }
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'CalendarList',
+    );
 
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(context, ref, focusedMonth),
-      floatingActionButton: _selectedFolderId != null
+      floatingActionButton: selectedFolderId != null
           ? FloatingActionButton(
         onPressed: () => _createEvent(context, ref, selectedDay),
         tooltip: 'Νέο συμβάν',
@@ -101,11 +86,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
               child: FolderChipSelector(
                 folders: folders,
-                selectedFolderId: _selectedFolderId,
+                selectedFolderId: selectedFolderId,
                 onSelect: (id) {
                   setState(() {
-                    _selectedFolderId = id;
-                    _userExplicitlySelected = true; // ο χρήστης επέλεξε χειροκίνητα
+                    selectedFolderId;
+                    onUserSelectFolder(id); // ο χρήστης επέλεξε χειροκίνητα
                   });
                 },
               ),
@@ -203,7 +188,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           child: ItemListEmbedded(
             key: _listKey,
             itemType: ItemType.event,
-            folderId: _selectedFolderId,
+            folderId: selectedFolderId,
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
             ),
@@ -242,7 +227,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           child: ItemListEmbedded(
             key: _listKey,
             itemType: ItemType.event,
-            folderId: _selectedFolderId,
+            folderId: selectedFolderId,
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
             ),
@@ -256,7 +241,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       BuildContext context, WidgetRef ref, DateTime selectedDay) async {
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.event,
-      folderId: _selectedFolderId,
+      folderId: selectedFolderId,
     );
     if (item == null || !context.mounted) return;
 

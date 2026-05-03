@@ -36,18 +36,19 @@ class TaskListScreen extends ConsumerStatefulWidget {
   ConsumerState<TaskListScreen> createState() => _TaskListScreenState();
 }
 
-class _TaskListScreenState extends ConsumerState<TaskListScreen> {
+class _TaskListScreenState extends ConsumerState<TaskListScreen>
+    with FolderAutoSelectMixin {
   final _searchCtrl  = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
 
-  int? _selectedFolderId;
+  // int? selectedFolderId;
   Set<String> _visibleTagNames = {};
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  bool _userExplicitlySelected = false;
-  bool _autoSelectDone = false; // Για να αποφύγουμε πολλαπλά setState
+  // bool _userExplicitlySelected = false;
+  // bool _autoSelectDone = false; // Για να αποφύγουμε πολλαπλά setState
 
   @override
   void initState() {
@@ -88,11 +89,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   }
 
   Future<void> _createTask() async {
-    DebugConfig.nav('TaskList: create task in folder id=$_selectedFolderId');
+    DebugConfig.nav('TaskList: create task in folder id=$selectedFolderId');
 
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type:     ItemType.task,
-      folderId: _selectedFolderId,
+      folderId: selectedFolderId,
     );
 
     if (item == null || !mounted) return;
@@ -164,37 +165,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     final foldersAsync   = ref.watch(foldersStreamProvider);
     final settingsAsync  = ref.watch(settingsNotifierProvider); // ✅ περιμένουμε settings
 
-    // ✅ Αυτόματη επιλογή φακέλου μόνο αν:
-    //    - ο χρήστης δεν έχει επιλέξει ρητά,
-    //    - δεν έχει γίνει ήδη αυτόματη επιλογή,
-    //    - τα settings έχουν φορτώσει,
-    //    - οι φάκελοι είναι διαθέσιμοι.
-    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
-      final folders = foldersAsync.value!;
-      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
-        final settings = settingsAsync.requireValue;
-        final preferredId = settings.preferredFolderId;
-        int? targetId = preferredId;
-        if (targetId == null || !folders.any((f) => f.id == targetId)) {
-          targetId = folders.firstWhere(
-                (f) => f.isSystem,
-            orElse: () => folders.first,
-          ).id;
-        }
-        _autoSelectDone = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _selectedFolderId = targetId);
-            DebugConfig.nav('TaskList: auto-selected folder id=$targetId (preferredId=$preferredId)');
-          }
-        });
-      }
-    }
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'TaskList',
+    );
 
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: _selectedFolderId == null
+      floatingActionButton: selectedFolderId == null
           ? null
           : FloatingActionButton(
         onPressed: _createTask,
@@ -222,12 +202,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: FolderChipSelector(
                   folders:          folders,
-                  selectedFolderId: _selectedFolderId,
+                  selectedFolderId: selectedFolderId,
                   onSelect: (id) {
-                    setState(() {
-                      _selectedFolderId = id;
-                      _userExplicitlySelected = true;
-                    });
+                    onUserSelectFolder(id);
                     DebugConfig.nav('TaskList: select folder id=$id');
                   },
                 ),
@@ -327,9 +304,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                       break;
                   }
 
-                  if (_selectedFolderId != null) {
+                  if (selectedFolderId != null) {
                     tasks = tasks
-                        .where((t) => t.folderId == _selectedFolderId)
+                        .where((t) => t.folderId == selectedFolderId)
                         .toList();
                   }
 

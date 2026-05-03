@@ -16,3 +16,4 @@ export 'reminder_section.dart';
 export 'item_list_screen.dart';
 export 'item_list_embedded.dart';
 export 'tag_picker_sheet.dart';
+export 'package:super_note/shared/mixins/folder_auto_select_mixin.dart';

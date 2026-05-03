@@ -35,17 +35,18 @@ class JournalListScreen extends ConsumerStatefulWidget {
   ConsumerState<JournalListScreen> createState() => _JournalListScreenState();
 }
 
-class _JournalListScreenState extends ConsumerState<JournalListScreen> {
+class _JournalListScreenState extends ConsumerState<JournalListScreen>
+    with FolderAutoSelectMixin {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
-  int? _selectedFolderId;
+  // int? selectedFolderId;
   Set<String> _visibleTagNames = {};
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  bool _userExplicitlySelected = false;
-  bool _autoSelectDone = false;  // ✅ προστέθηκε
+  //bool _userExplicitlySelected = false;
+  //bool _autoSelectDone = false;  // ✅ προστέθηκε
 
   @override
   void dispose() {
@@ -79,16 +80,16 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
   }
 
   Future<void> _createEntry() async {
-    if (_selectedFolderId == null) {
+    if (selectedFolderId == null) {
       DebugConfig.error('JournalList: createEntry without selected folder');
       return;
     }
 
     DebugConfig.nav(
-        'JournalList: create entry in folder id=$_selectedFolderId');
+        'JournalList: create entry in folder id=$selectedFolderId');
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.journal,
-      folderId: _selectedFolderId,
+      folderId: selectedFolderId,
     );
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
@@ -143,33 +144,16 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider); // ✅ προστέθηκε
 
-    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ όταν φορτώσουν τα settings και οι φάκελοι
-    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
-      final folders = foldersAsync.value!;
-      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
-        final settings = settingsAsync.requireValue;
-        final preferredId = settings.preferredFolderId;
-        int? targetId = preferredId;
-        if (targetId == null || !folders.any((f) => f.id == targetId)) {
-          targetId = folders.firstWhere(
-                (f) => f.isSystem,
-            orElse: () => folders.first,
-          ).id;
-        }
-        _autoSelectDone = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _selectedFolderId = targetId);
-            DebugConfig.nav('JournalList: auto-selected folder id=$targetId (preferredId=$preferredId)');
-          }
-        });
-      }
-    }
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'JournalList',
+    );
 
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: _selectedFolderId != null ? _buildFab() : null,
+      floatingActionButton: selectedFolderId != null ? _buildFab() : null,
       body: Column(
         children: [
           if (_searchActive)
@@ -188,11 +172,11 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: FolderChipSelector(
                   folders: folders,
-                  selectedFolderId: _selectedFolderId,
+                  selectedFolderId: selectedFolderId,
                   onSelect: (id) {
                     setState(() {
-                      _selectedFolderId = id;
-                      _userExplicitlySelected = true;   // ✅ ο χρήστης έκανε ρητή επιλογή
+                      selectedFolderId;
+                      onUserSelectFolder(id);   // ✅ ο χρήστης έκανε ρητή επιλογή
                     });
                     DebugConfig.nav('JournalList: select folder id=$id');
                   },
@@ -270,9 +254,9 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                       .where((i) => i.type == ItemType.journal)
                       .toList();
 
-                  if (_selectedFolderId != null) {
+                  if (selectedFolderId != null) {
                     entries = entries
-                        .where((e) => e.folderId == _selectedFolderId)
+                        .where((e) => e.folderId == selectedFolderId)
                         .toList();
                   }
 

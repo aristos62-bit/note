@@ -35,17 +35,18 @@ class HabitListScreen extends ConsumerStatefulWidget {
   ConsumerState<HabitListScreen> createState() => _HabitListScreenState();
 }
 
-class _HabitListScreenState extends ConsumerState<HabitListScreen> {
+class _HabitListScreenState extends ConsumerState<HabitListScreen>
+    with FolderAutoSelectMixin {
   bool _searchActive = false;
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _debounce;
-  int? _selectedFolderId;
+  // int? _selectedFolderId;
   Set<String> _visibleTagNames = {};
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  bool _userExplicitlySelected = false;
-  bool _autoSelectDone = false;  // ✅ προστέθηκε
+  // bool _userExplicitlySelected = false;
+  // bool _autoSelectDone = false;  // ✅ προστέθηκε
 
   @override
   void dispose() {
@@ -75,16 +76,16 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   }
 
   Future<void> _createHabit() async {
-    if (_selectedFolderId == null) {
+    if (selectedFolderId == null) {
       DebugConfig.error('HabitList: createHabit without selected folder');
       return;
     }
-    DebugConfig.nav('HabitList: create habit in folder id=$_selectedFolderId');
+    DebugConfig.nav('HabitList: create habit in folder id=$selectedFolderId');
 
     final notifier = ref.read(itemNotifierProvider.notifier);
     final item = await notifier.create(
       type: ItemType.habit,
-      folderId: _selectedFolderId,
+      folderId: selectedFolderId,
     );
     if (item == null || !mounted) return;
 
@@ -123,33 +124,16 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
     // ✅ Προσθήκη: περιμένουμε τα settings
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
-    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ όταν φορτώσουν τα settings και οι φάκελοι
-    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
-      final folders = foldersAsync.value!;
-      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
-        final settings = settingsAsync.requireValue;
-        final preferredId = settings.preferredFolderId;
-        int? targetId = preferredId;
-        if (targetId == null || !folders.any((f) => f.id == targetId)) {
-          targetId = folders.firstWhere(
-                (f) => f.isSystem,
-            orElse: () => folders.first,
-          ).id;
-        }
-        _autoSelectDone = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _selectedFolderId = targetId);
-            DebugConfig.nav('HabitList: auto-selected folder id=$targetId (preferredId=$preferredId)');
-          }
-        });
-      }
-    }
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'HabitList',
+    );
 
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: _selectedFolderId != null
+      floatingActionButton: selectedFolderId != null
           ? FloatingActionButton(
         onPressed: _createHabit,
         tooltip: 'Νέα συνήθεια',
@@ -162,10 +146,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
             _SearchBar(
               controller: _searchCtrl,
               focusNode: _searchFocus,
-              onChanged: (value) {
-                setState(() {});
-                _onSearchChanged(value);
-              },
+              onChanged: _onSearchChanged,  // ← απευθείας, το debounce είναι μέσα
             ),
           foldersAsync.when(
             loading: () => const SizedBox.shrink(),
@@ -176,11 +157,11 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: FolderChipSelector(
                   folders: folders,
-                  selectedFolderId: _selectedFolderId,
+                  selectedFolderId: selectedFolderId,
                   onSelect: (id) {
                     setState(() {
-                      _selectedFolderId = id;
-                      _userExplicitlySelected = true;
+                      selectedFolderId = id;
+                      onUserSelectFolder(id) ;
                     });
                     DebugConfig.nav('HabitList: select folder id=$id');
                   },
@@ -255,9 +236,9 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                       .where((it) => it.type == ItemType.habit)
                       .toList();
 
-                  if (_selectedFolderId != null) {
+                  if (selectedFolderId != null) {
                     habitsOnly = habitsOnly
-                        .where((h) => h.folderId == _selectedFolderId)
+                        .where((h) => h.folderId == selectedFolderId)
                         .toList();
                   }
 

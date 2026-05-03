@@ -139,13 +139,14 @@ class CollectionsScreen extends ConsumerStatefulWidget {
   ConsumerState<CollectionsScreen> createState() => _CollectionsScreenState();
 }
 
-class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
-  int? _selectedFolderId;
+class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
+    with FolderAutoSelectMixin {
+  //int? selectedFolderId;
   Set<String> _visibleTagNames = {};
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  bool _userExplicitlySelected = false;
-  bool _autoSelectDone = false;  // ✅ προστέθηκε
+  //bool _userExplicitlySelected = false;
+  //bool _autoSelectDone = false;  // ✅ προστέθηκε
 
   // Search
   final _searchCtrl = TextEditingController();
@@ -180,16 +181,16 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
   }
 
   Future<void> _createCollection() async {
-    if (_selectedFolderId == null) {
+    if (selectedFolderId == null) {
       DebugConfig.error('Collections: createCollection without selected folder');
       return;
     }
 
-    DebugConfig.nav('Collections: create in folder id=$_selectedFolderId');
+    DebugConfig.nav('Collections: create in folder id=$selectedFolderId');
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.project,
       title: 'Νέα Συλλογή',
-      folderId: _selectedFolderId,
+      folderId: selectedFolderId,
     );
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
@@ -229,28 +230,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider); // ✅ προστέθηκε
 
-    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ όταν φορτώσουν τα settings και οι φάκελοι
-    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
-      final folders = foldersAsync.value!;
-      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
-        final settings = settingsAsync.requireValue;
-        final preferredId = settings.preferredFolderId;
-        int? targetId = preferredId;
-        if (targetId == null || !folders.any((f) => f.id == targetId)) {
-          targetId = folders.firstWhere(
-                (f) => f.isSystem,
-            orElse: () => folders.first,
-          ).id;
-        }
-        _autoSelectDone = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _selectedFolderId = targetId);
-            DebugConfig.nav('Collections: auto-selected folder id=$targetId (preferredId=$preferredId)');
-          }
-        });
-      }
-    }
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'CollectionsScreen',
+    );
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -267,7 +251,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           ),
         ],
       ),
-      floatingActionButton: _selectedFolderId != null
+      floatingActionButton: selectedFolderId != null
           ? FloatingActionButton.extended(
         onPressed: _createCollection,
         icon: const Icon(Icons.add_rounded),
@@ -294,11 +278,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: FolderChipSelector(
                   folders: folders,
-                  selectedFolderId: _selectedFolderId,
+                  selectedFolderId: selectedFolderId,
                   onSelect: (id) {
                     setState(() {
-                      _selectedFolderId = id;
-                      _userExplicitlySelected = true;   // ✅ ο χρήστης επέλεξε χειροκίνητα
+                      selectedFolderId;
+                      onUserSelectFolder(id);   // ✅ ο χρήστης επέλεξε χειροκίνητα
                     });
                     DebugConfig.nav('Collections: select folder id=$id');
                   },
@@ -374,9 +358,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     .toList();
 
                 // Φάκελος
-                if (_selectedFolderId != null) {
+                if (selectedFolderId != null) {
                   collections = collections
-                      .where((c) => c.folderId == _selectedFolderId)
+                      .where((c) => c.folderId == selectedFolderId)
                       .toList();
                 }
 

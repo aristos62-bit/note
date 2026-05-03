@@ -32,20 +32,21 @@ class ItemListScreen extends ConsumerStatefulWidget {
   ConsumerState<ItemListScreen> createState() => _ItemListScreenState();
 }
 
-class _ItemListScreenState extends ConsumerState<ItemListScreen> {
+class _ItemListScreenState extends ConsumerState<ItemListScreen>
+    with FolderAutoSelectMixin {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
   final _searchQueryProvider = StateProvider<String>((ref) => '');
   final _activeTagFilterProvider = StateProvider<Set<String>>((ref) => {});
-  int? _selectedFolderId;
+  //int? selectedFolderId;
   Set<String> _visibleTagNames = {};
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  bool _userExplicitlySelected = false;
+  //bool _userExplicitlySelected = false;
   // ✅ Για να αποφύγουμε πολλαπλά setState
-  bool _folderAutoSelected = false;
+ // bool _folderAutoSelected = false;
 
   @override
   void dispose() {
@@ -74,11 +75,11 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
   }
 
   Future<void> _createItem() async {
-    if (_selectedFolderId == null) return;
+    if (selectedFolderId == null) return;
     final notifier = ref.read(itemNotifierProvider.notifier);
     final item = await notifier.create(
       type: widget.itemType,
-      folderId: _selectedFolderId,
+      folderId: selectedFolderId,
     );
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
@@ -188,7 +189,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
           ),
         ],
       ),
-      floatingActionButton: _selectedFolderId != null
+      floatingActionButton: selectedFolderId != null
           ? FloatingActionButton(
         onPressed: _createItem,
         tooltip: 'Νέο',
@@ -210,34 +211,18 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
             error: (_, __) => const SizedBox.shrink(),
             data: (folders) {
               if (folders.isEmpty) return const SizedBox.shrink();
-              // ✅ Αυτόματη επιλογή ΜΟΛΙΣ φορτώσουν τα settings και αν δεν έχει ήδη γίνει
-              if (!_userExplicitlySelected && !_folderAutoSelected && settingsAsync.hasValue) {
-                final settings = settingsAsync.requireValue;
-                final preferredId = settings.preferredFolderId;
-                int? targetId = preferredId;
-                if (targetId == null || !folders.any((f) => f.id == targetId)) {
-                  targetId = folders.firstWhere(
-                        (f) => f.isSystem,
-                    orElse: () => folders.first,
-                  ).id;
-                }
-                _folderAutoSelected = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() {
-                      _selectedFolderId = targetId;
-                    });
-                    DebugConfig.nav('ItemList: auto-selected folder id=$targetId (preferredId=$preferredId)');
-                  }
-                });
-              }
+              tryAutoSelectFolder(
+                foldersAsync: foldersAsync,
+                settingsAsync: settingsAsync,
+                debugLabel: 'ItemList',
+              );
               return FolderChipSelector(
                 folders: folders,
-                selectedFolderId: _selectedFolderId,
+                selectedFolderId: selectedFolderId,
                 onSelect: (id) {
                   setState(() {
-                    _selectedFolderId = id;
-                    _userExplicitlySelected = true;
+                    selectedFolderId;
+                    onUserSelectFolder(id);
                   });
                   DebugConfig.nav('ItemList: user selected folder id=$id');
                 },
@@ -264,8 +249,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                 error: (e, _) => EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider)),
                 data: (allItems) {
                   var items = allItems.where((i) => i.type == widget.itemType).toList();
-                  if (_selectedFolderId != null) {
-                    items = items.where((i) => i.folderId == _selectedFolderId).toList();
+                  if (selectedFolderId != null) {
+                    items = items.where((i) => i.folderId == selectedFolderId).toList();
                   }
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {

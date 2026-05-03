@@ -36,17 +36,18 @@ class ContactListScreen extends ConsumerStatefulWidget {
       _ContactListScreenState();
 }
 
-class _ContactListScreenState extends ConsumerState<ContactListScreen> {
+class _ContactListScreenState extends ConsumerState<ContactListScreen>
+    with FolderAutoSelectMixin {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
-  int? _selectedFolderId;
+  //int? selectedFolderId;
   Set<String> _visibleTagNames = {};
 
   // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  bool _userExplicitlySelected = false;
-  bool _autoSelectDone = false;  // ✅ προστέθηκε
+  //bool _userExplicitlySelected = false;
+  //bool _autoSelectDone = false;  // ✅ προστέθηκε
 
   @override
   void dispose() {
@@ -80,17 +81,17 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
   }
 
   Future<void> _createContact() async {
-    if (_selectedFolderId == null) {
+    if (selectedFolderId == null) {
       DebugConfig.error('ContactList: createContact without selected folder');
       return;
     }
 
     DebugConfig.nav(
-        'ContactList: create contact in folder id=$_selectedFolderId');
+        'ContactList: create contact in folder id=$selectedFolderId');
 
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.contact,
-      folderId: _selectedFolderId,
+      folderId: selectedFolderId,
     );
 
     if (item == null || !mounted) return;
@@ -139,33 +140,16 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider); // ✅ προστέθηκε
 
-    // ✅ Αυτόματη επιλογή φακέλου ΜΟΝΟ όταν φορτώσουν τα settings και οι φάκελοι
-    if (!_userExplicitlySelected && !_autoSelectDone && settingsAsync.hasValue && foldersAsync.hasValue) {
-      final folders = foldersAsync.value!;
-      if (folders.isNotEmpty && mounted && _selectedFolderId == null) {
-        final settings = settingsAsync.requireValue;
-        final preferredId = settings.preferredFolderId;
-        int? targetId = preferredId;
-        if (targetId == null || !folders.any((f) => f.id == targetId)) {
-          targetId = folders.firstWhere(
-                (f) => f.isSystem,
-            orElse: () => folders.first,
-          ).id;
-        }
-        _autoSelectDone = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _selectedFolderId = targetId);
-            DebugConfig.nav('ContactList: auto-selected folder id=$targetId (preferredId=$preferredId)');
-          }
-        });
-      }
-    }
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'ContactList',
+    );
 
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: _selectedFolderId != null ? _buildFab() : null,
+      floatingActionButton: selectedFolderId != null ? _buildFab() : null,
       body: Column(
         children: [
           if (_searchActive)
@@ -184,11 +168,11 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: FolderChipSelector(
                   folders: folders,
-                  selectedFolderId: _selectedFolderId,
+                  selectedFolderId: selectedFolderId,
                   onSelect: (id) {
                     setState(() {
-                      _selectedFolderId = id;
-                      _userExplicitlySelected = true;   // ο χρήστης επέλεξε χειροκίνητα
+                      selectedFolderId;
+                      onUserSelectFolder(id);   // ο χρήστης επέλεξε χειροκίνητα
                     });
                     DebugConfig.nav('ContactList: select folder id=$id');
                   },
@@ -266,9 +250,9 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
                       .where((i) => i.type == ItemType.contact)
                       .toList();
 
-                  if (_selectedFolderId != null) {
+                  if (selectedFolderId != null) {
                     contacts = contacts
-                        .where((c) => c.folderId == _selectedFolderId)
+                        .where((c) => c.folderId == selectedFolderId)
                         .toList();
                   }
 
