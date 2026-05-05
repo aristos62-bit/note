@@ -10,6 +10,8 @@
 // ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
 // ✅ Filter tags
 //
+// lib/features/journal/journal_list_screen.dart
+// ... (όλα τα σχόλια)
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,10 +26,6 @@ import '../../helpers/item_color_helper.dart';
 final _journalSearchQueryProvider = StateProvider<String>((ref) => '');
 final _journalTagFilterProvider  = StateProvider<Set<String>>((ref) => {});
 
-// ════════════════════════════════════════════════════════════════
-// JOURNAL LIST SCREEN
-// ════════════════════════════════════════════════════════════════
-
 class JournalListScreen extends ConsumerStatefulWidget {
   const JournalListScreen({super.key});
 
@@ -41,12 +39,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
   final _searchFocus = FocusNode();
   bool _searchActive = false;
   Timer? _debounce;
-  // int? selectedFolderId;
   Set<String> _visibleTagNames = {};
-
-  // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  //bool _userExplicitlySelected = false;
-  //bool _autoSelectDone = false;  // ✅ προστέθηκε
 
   @override
   void dispose() {
@@ -59,7 +52,6 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      DebugConfig.search('JournalList search: "$value"');
       ref.read(_journalSearchQueryProvider.notifier).state = value.trim();
     });
   }
@@ -76,17 +68,10 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     if (_searchActive) {
       Future.microtask(() => _searchFocus.requestFocus());
     }
-    DebugConfig.nav('JournalList toggleSearch: $_searchActive');
   }
 
   Future<void> _createEntry() async {
-    if (selectedFolderId == null) {
-      DebugConfig.error('JournalList: createEntry without selected folder');
-      return;
-    }
-
-    DebugConfig.nav(
-        'JournalList: create entry in folder id=$selectedFolderId');
+    if (selectedFolderId == null) return;
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.journal,
       folderId: selectedFolderId,
@@ -98,25 +83,20 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
   }
 
   void _openDetail(int id) {
-    DebugConfig.nav('JournalList → JournalDetail id=$id');
     Navigator.of(context).push(AppTransitions.slideRoute(
         JournalDetailScreen(itemId: id, isNew: false)));
   }
 
   Future<void> _delete(Item item) async {
-    final future =
-    ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
-    final ok = await future;
+    final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
     if (!ok || !mounted) return;
-    DebugConfig.db('JournalList delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
     ref.invalidate(itemNotifierProvider);
   }
 
   Future<DateTime> _getDisplayDate(Item item) async {
     final props = await ref.read(itemPropertiesProvider(item.id).future);
-    final entryDateStr =
-        props.where((p) => p.key == 'entry_date').firstOrNull?.value;
+    final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
     if (entryDateStr != null) {
       final parsed = DateTime.tryParse(entryDateStr);
       if (parsed != null) return parsed;
@@ -124,8 +104,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     return item.updatedAt ?? item.createdAt;
   }
 
-  Future<List<_EntryWithDate>> _processEntriesWithDate(
-      List<Item> entries) async {
+  Future<List<_EntryWithDate>> _processEntriesWithDate(List<Item> entries) async {
     final result = <_EntryWithDate>[];
     for (final entry in entries) {
       final date = await _getDisplayDate(entry);
@@ -137,12 +116,11 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
 
   @override
   Widget build(BuildContext context) {
-    DebugConfig.provider('JournalListScreen build');
     final entriesAsync = ref.watch(itemsStreamProvider);
     final searchQuery = ref.watch(_journalSearchQueryProvider);
     final activeTags = ref.watch(_journalTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider); // ✅ προστέθηκε
+    final settingsAsync = ref.watch(settingsNotifierProvider);
 
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
@@ -162,104 +140,50 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
               focusNode: _searchFocus,
               onChanged: _onSearchChanged,
             ),
-
           foldersAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
             data: (folders) {
               if (folders.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-                child: FolderChipSelector(
-                  folders: folders,
-                  selectedFolderId: selectedFolderId,
-                  onSelect: (id) {
-                    setState(() {
-                      selectedFolderId;
-                      onUserSelectFolder(id);   // ✅ ο χρήστης έκανε ρητή επιλογή
-                    });
-                    DebugConfig.nav('JournalList: select folder id=$id');
-                  },
-                ),
+              return DraggableFolderSelector(
+                folders: folders,
+                selectedFolderId: selectedFolderId,
+                onSelectFolder: (id) {
+                  onUserSelectFolder(id);
+                  DebugConfig.nav('JournalList: select folder id=$id');
+                },
               );
             },
           ),
-
           if (_visibleTagNames.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    context.responsiveHPadding,
-                    0,
-                    context.responsiveHPadding,
-                    Spacing.xs,
-                  ),
-                  child: Text(
-                    'Επιλέξτε tag για φιλτράρισμα καταχωρήσεων',
-                    style: context.labelSm.withColor(context.cText2),
-                  ),
-                ),
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: context.responsiveHPadding),
-                    itemCount: _visibleTagNames.length,
-                    separatorBuilder: (_, __) =>
-                    const SizedBox(width: Spacing.xs),
-                    itemBuilder: (_, i) {
-                      final name = _visibleTagNames.elementAt(i);
-                      final selected = activeTags.contains(name);
-                      return TagChip(
-                        name: name,
-                        color: null,
-                        compact: true,
-                        selected: selected,
-                        onTap: () {
-                          final current =
-                          ref.read(_journalTagFilterProvider);
-                          final newSet = {...current};
-                          if (newSet.contains(name)) {
-                            newSet.remove(name);
-                          } else {
-                            newSet.add(name);
-                          }
-                          ref.read(_journalTagFilterProvider.notifier)
-                              .state = newSet;
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
+            _TagFilterRow(
+              tags: _visibleTagNames.toList(),
+              activeTags: activeTags,
+              onTagTap: (name) {
+                final current = ref.read(_journalTagFilterProvider);
+                final newSet = {...current};
+                if (newSet.contains(name)) {
+                  newSet.remove(name);
+                } else {
+                  newSet.add(name);
+                }
+                ref.read(_journalTagFilterProvider.notifier).state = newSet;
+              },
             ),
-
           const ViewModeToggle(),
-
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemNotifierProvider),
               child: entriesAsync.when(
                 loading: () => _LoadingList(),
-                error: (e, _) {
-                  DebugConfig.error('JournalList load failed', e);
-                  return EmptyState.error(
-                      onRetry: () => ref.invalidate(itemNotifierProvider));
-                },
+                error: (e, _) => EmptyState.error(
+                  onRetry: () => ref.invalidate(itemNotifierProvider),
+                ),
                 data: (allItems) {
-                  var entries = allItems
-                      .where((i) => i.type == ItemType.journal)
-                      .toList();
-
+                  var entries = allItems.where((i) => i.type == ItemType.journal).toList();
                   if (selectedFolderId != null) {
-                    entries = entries
-                        .where((e) => e.folderId == selectedFolderId)
-                        .toList();
+                    entries = entries.where((e) => e.folderId == selectedFolderId).toList();
                   }
-
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
@@ -271,37 +195,25 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
                     case ListViewMode.all:
                       break;
                   }
-
                   if (searchQuery.isNotEmpty) {
                     final q = searchQuery.toLowerCase();
-                    entries = entries
-                        .where((e) =>
-                        (e.title ?? '').toLowerCase().contains(q))
-                        .toList();
+                    entries = entries.where((e) => (e.title ?? '').toLowerCase().contains(q)).toList();
                   }
-
                   if (activeTags.isNotEmpty) {
                     entries = entries.where((e) {
-                      final tagsAsync =
-                          ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
-                      return tagsAsync
-                          .any((tag) => activeTags.contains(tag.name));
+                      final tags = ref.read(itemTagsProvider(e.id)).valueOrNull ?? [];
+                      return tags.any((t) => activeTags.contains(t.name));
                     }).toList();
                   }
 
                   final visibleTagNames = <String>{};
                   for (final e in entries) {
-                    final tagsAsync =
-                        ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
-                    for (final t in tagsAsync) {
-                      visibleTagNames.add(t.name);
-                    }
+                    final tags = ref.read(itemTagsProvider(e.id)).valueOrNull ?? [];
+                    for (final t in tags) {visibleTagNames.add(t.name);}
                   }
-
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!mounted) return;
-                    if (!const SetEquality<String>()
-                        .equals(_visibleTagNames, visibleTagNames)) {
+                    if (!const SetEquality<String>().equals(_visibleTagNames, visibleTagNames)) {
                       setState(() => _visibleTagNames = visibleTagNames);
                     }
                   });
@@ -310,33 +222,30 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
                     if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
                       return EmptyState.search(query: searchQuery);
                     }
-                    return EmptyState.forType(ItemType.journal,
-                        onAction: _createEntry);
+                    return EmptyState.forType(ItemType.journal, onAction: _createEntry);
                   }
 
                   return FutureBuilder<List<_EntryWithDate>>(
                     future: _processEntriesWithDate(entries),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError || !snapshot.hasData) {
-                        return EmptyState.error(
-                            onRetry: () =>
-                                ref.invalidate(itemNotifierProvider));
+                        return EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider));
                       }
                       final processed = snapshot.data!;
                       return ResponsiveLayout(
                         mobile: _JournalListMobile(
-                            entriesWithDate: processed,
-                            onTap: _openDetail,
-                            onDelete: _delete),
+                          entriesWithDate: processed,
+                          onTap: _openDetail,
+                          onDelete: _delete,
+                        ),
                         tablet: _JournalListTablet(
-                            entriesWithDate: processed,
-                            onTap: _openDetail,
-                            onDelete: _delete),
+                          entriesWithDate: processed,
+                          onTap: _openDetail,
+                          onDelete: _delete,
+                        ),
                       );
                     },
                   );
@@ -349,66 +258,48 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: context.cBg,
-      elevation: 0,
-      scrolledUnderElevation: 1,
-      title: const Text('Ημερολόγιο'),
-      actions: [
-        IconButton(
-          icon: Icon(_searchActive
-              ? Icons.search_off_rounded
-              : Icons.search_rounded),
-          onPressed: _toggleSearch,
-          tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
-        ),
-      ],
-    );
-  }
+  AppBar _buildAppBar() => AppBar(
+    backgroundColor: context.cBg,
+    elevation: 0,
+    scrolledUnderElevation: 1,
+    title: const Text('Ημερολόγιο'),
+    actions: [
+      IconButton(
+        icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
+        onPressed: _toggleSearch,
+        tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
+      ),
+    ],
+  );
 
-  Widget _buildFab() {
-    return FloatingActionButton(
-      onPressed: _createEntry,
-      tooltip: 'Νέα καταχώρηση',
-      child: const Icon(Icons.add_rounded),
-    );
-  }
+  Widget _buildFab() => FloatingActionButton(
+    onPressed: _createEntry,
+    tooltip: 'Νέα καταχώρηση',
+    child: const Icon(Icons.add_rounded),
+  );
 }
 
-// ── Helper class for entries with display date ─────────────────
+// Helper class
 class _EntryWithDate {
   final Item entry;
   final DateTime displayDate;
   _EntryWithDate({required this.entry, required this.displayDate});
 }
 
-// ════════════════════════════════════════════════════════════════
-// MOBILE LIST — ομαδοποιημένη κατά μήνα
-// ════════════════════════════════════════════════════════════════
-
+// ──────────────────────────────────────────────
+// Mobile List (grouped by month) with draggable cards
+// ──────────────────────────────────────────────
 class _JournalListMobile extends StatelessWidget {
   final List<_EntryWithDate> entriesWithDate;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
-
-  const _JournalListMobile({
-    required this.entriesWithDate,
-    required this.onTap,
-    required this.onDelete,
-  });
+  const _JournalListMobile({required this.entriesWithDate, required this.onTap, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
     final grouped = _groupByMonth(entriesWithDate);
-
     return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        80,
-      ),
+      padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, 80),
       itemCount: grouped.length,
       itemBuilder: (_, i) {
         final group = grouped[i];
@@ -416,20 +307,12 @@ class _JournalListMobile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding:
-              const EdgeInsets.only(top: Spacing.md, bottom: Spacing.xs),
-              child: Text(
-                group.monthLabel,
-                style: context.labelMd.withColor(context.cText2),
-              ),
+              padding: const EdgeInsets.only(top: Spacing.md, bottom: Spacing.xs),
+              child: Text(group.monthLabel, style: context.labelMd.withColor(context.cText2)),
             ),
             ...group.items.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
-              child: _JournalCard(
-                item: item,
-                onTap: () => onTap(item.id),
-                onDelete: () => onDelete(item),
-              ),
+              child: _DraggableJournalCard(item: item, onTap: onTap, onDelete: onDelete),
             )),
           ],
         );
@@ -438,31 +321,20 @@ class _JournalListMobile extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// TABLET GRID — 2 στήλες
-// ════════════════════════════════════════════════════════════════
-
+// ──────────────────────────────────────────────
+// Tablet Grid with draggable cards
+// ──────────────────────────────────────────────
 class _JournalListTablet extends StatelessWidget {
   final List<_EntryWithDate> entriesWithDate;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
-
-  const _JournalListTablet({
-    required this.entriesWithDate,
-    required this.onTap,
-    required this.onDelete,
-  });
+  const _JournalListTablet({required this.entriesWithDate, required this.onTap, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
     final cols = context.gridColumns;
     return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        80,
-      ),
+      padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, 80),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
         mainAxisSpacing: Spacing.sm,
@@ -470,59 +342,44 @@ class _JournalListTablet extends StatelessWidget {
         mainAxisExtent: 160,
       ),
       itemCount: entriesWithDate.length,
-      itemBuilder: (_, i) => _JournalCard(
+      itemBuilder: (_, i) => _DraggableJournalCard(
         item: entriesWithDate[i].entry,
-        onTap: () => onTap(entriesWithDate[i].entry.id),
-        onDelete: () => onDelete(entriesWithDate[i].entry),
+        onTap: onTap,
+        onDelete: onDelete,
       ),
     );
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// JOURNAL CARD — με χρήση ItemColorHelper
-// ════════════════════════════════════════════════════════════════
-
-class _JournalCard extends ConsumerWidget {
+// ──────────────────────────────────────────────
+// Draggable Journal Card
+// ──────────────────────────────────────────────
+class _DraggableJournalCard extends ConsumerWidget {
   final Item item;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  const _JournalCard({
-    required this.item,
-    required this.onTap,
-    required this.onDelete,
-  });
+  final ValueChanged<int> onTap;
+  final ValueChanged<Item> onDelete;
+  const _DraggableJournalCard({required this.item, required this.onTap, required this.onDelete});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final backgroundColor =
-    ItemColorHelper.backgroundColorForType(ItemType.journal, context);
-    final foregroundColor =
-    ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.journal, context);
+    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
-    final accentColor =
-    ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
+    final accentColor = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
 
     return propsAsync.when(
-      loading: () => _buildCardContent(context, null, backgroundColor,
-          foregroundColor, secondaryForeground, accentColor),
-      error: (_, __) => _buildCardContent(context, null, backgroundColor,
-          foregroundColor, secondaryForeground, accentColor),
+      loading: () => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
+      error: (_, __) => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
       data: (props) {
-        final entryDateStr =
-            props.where((p) => p.key == 'entry_date').firstOrNull?.value;
-        final displayDate = entryDateStr != null
-            ? DateTime.tryParse(entryDateStr)
-            : (item.updatedAt ?? item.createdAt);
-        return _buildCardContent(context, displayDate, backgroundColor,
-            foregroundColor, secondaryForeground, accentColor);
+        final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
+        final displayDate = entryDateStr != null ? DateTime.tryParse(entryDateStr) : (item.updatedAt ?? item.createdAt);
+        return _buildDraggable(context, displayDate, backgroundColor, foregroundColor, secondaryForeground, accentColor);
       },
     );
   }
 
-  Widget _buildCardContent(
+  Widget _buildDraggable(
       BuildContext context,
       DateTime? displayDate,
       Color backgroundColor,
@@ -533,67 +390,55 @@ class _JournalCard extends ConsumerWidget {
     final date = displayDate ?? (item.updatedAt ?? item.createdAt);
     const weekDays = ['', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
     final dayLabel = '${weekDays[date.weekday]}, ${date.day}';
-
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: () => _showActions(context),
-      child: Container(
-        padding: const EdgeInsets.all(Spacing.md),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: AppRadius.cardBR,
-          border: Border.all(color: ColorsUI.getBorder(context.brightness)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.sm, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppRadius.badge),
-                  ),
-                  child: Text(
-                    dayLabel,
-                    style: context.labelSm.copyWith(color: accentColor),
-                  ),
+    final card = Container(
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: AppRadius.cardBR,
+        border: Border.all(color: ColorsUI.getBorder(context.brightness)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.badge),
                 ),
-                const Spacer(),
-                Text(
-                  date.timeOnly,
-                  style: context.labelSm.copyWith(color: secondaryForeground),
-                ),
-                if (item.favorite) ...[
-                  const SizedBox(width: Spacing.xs),
-                  Icon(
-                    Icons.star_rounded,
-                    size: 14,
-                    color: ColorsUI.getWarning(context.brightness),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              item.title?.isNotEmpty == true ? item.title! : 'Χωρίς τίτλο',
-              style: context.titleSm.copyWith(
-                color: item.title?.isNotEmpty == true
-                    ? foregroundColor
-                    : secondaryForeground,
+                child: Text(dayLabel, style: context.labelSm.copyWith(color: accentColor)),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: Spacing.xs),
-            Text(
-              date.relative,
-              style: context.labelSm.copyWith(color: secondaryForeground),
-            ),
-          ],
-        ),
+              const Spacer(),
+              Text(date.timeOnly, style: context.labelSm.copyWith(color: secondaryForeground)),
+              if (item.favorite) ...[
+                const SizedBox(width: Spacing.xs),
+                Icon(Icons.star_rounded, size: 14, color: ColorsUI.getWarning(context.brightness)),
+              ],
+            ],
+          ),
+          const SizedBox(height: Spacing.sm),
+          Text(
+            item.title?.isNotEmpty == true ? item.title! : 'Χωρίς τίτλο',
+            style: context.titleSm.copyWith(color: item.title?.isNotEmpty == true ? foregroundColor : secondaryForeground),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: Spacing.xs),
+          Text(date.relative, style: context.labelSm.copyWith(color: secondaryForeground)),
+        ],
+      ),
+    );
+
+    return Draggable<int>(
+      data: item.id,
+      feedback: Material(color: Colors.transparent, child: card),
+      childWhenDragging: Opacity(opacity: 0.3, child: card),
+      child: GestureDetector(
+        onTap: () => onTap(item.id),
+        onLongPress: () => _showActions(context),
+        child: card,
       ),
     );
   }
@@ -603,41 +448,15 @@ class _JournalCard extends ConsumerWidget {
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
       ),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.cBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_rounded),
-              title: const Text('Επεξεργασία'),
-              onTap: () {
-                Navigator.pop(context);
-                onTap();
-              },
-            ),
-            ListTile(
-              leading:
-              Icon(Icons.delete_outline_rounded, color: context.cError),
-              title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
-              onTap: () {
-                Navigator.pop(context);
-                onDelete();
-              },
-            ),
+            Container(margin: const EdgeInsets.symmetric(vertical: Spacing.sm), width: 40, height: 4, decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2))),
+            ListTile(leading: const Icon(Icons.edit_rounded), title: const Text('Επεξεργασία'), onTap: () { Navigator.pop(context); onTap(item.id); }),
+            ListTile(leading: Icon(Icons.delete_outline_rounded, color: context.cError), title: Text('Διαγραφή', style: TextStyle(color: context.cError)), onTap: () { Navigator.pop(context); onDelete(item); }),
             const SizedBox(height: Spacing.sm),
           ],
         ),
@@ -646,10 +465,9 @@ class _JournalCard extends ConsumerWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// GROUP BY MONTH helper
-// ════════════════════════════════════════════════════════════════
-
+// ──────────────────────────────────────────────
+// Group by month helper
+// ──────────────────────────────────────────────
 class _MonthGroup {
   final String monthLabel;
   final List<Item> items;
@@ -657,22 +475,7 @@ class _MonthGroup {
 }
 
 List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
-  const months = [
-    '',
-    'Ιανουάριος',
-    'Φεβρουάριος',
-    'Μάρτιος',
-    'Απρίλιος',
-    'Μάιος',
-    'Ιούνιος',
-    'Ιούλιος',
-    'Αύγουστος',
-    'Σεπτέμβριος',
-    'Οκτώβριος',
-    'Νοέμβριος',
-    'Δεκέμβριος',
-  ];
-
+  const months = ['', 'Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'];
   final map = <String, List<Item>>{};
   for (final ewd in entriesWithDate) {
     final date = ewd.displayDate;
@@ -682,78 +485,69 @@ List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
   return map.entries.map((e) => _MonthGroup(e.key, e.value)).toList();
 }
 
-// ════════════════════════════════════════════════════════════════
-// SEARCH BAR
-// ════════════════════════════════════════════════════════════════
-
+// ──────────────────────────────────────────────
+// Shared widgets: SearchBar, TagFilterRow, LoadingList
+// ──────────────────────────────────────────────
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
-
-  const _SearchBar({
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
-  });
-
+  const _SearchBar({required this.controller, required this.focusNode, required this.onChanged});
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: context.cBg,
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        Spacing.sm,
+  Widget build(BuildContext context) => Container(
+    color: context.cBg,
+    padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
+    child: TextField(
+      controller: controller,
+      focusNode: focusNode,
+      onChanged: onChanged,
+      style: context.bodyMd,
+      decoration: InputDecoration(
+        hintText: 'Αναζήτηση καταχωρήσεων...',
+        hintStyle: context.bodyMd.withColor(context.cDisabled),
+        prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
+        suffixIcon: controller.text.isNotEmpty
+            ? IconButton(icon: Icon(Icons.close_rounded, color: context.cText2), onPressed: () { controller.clear(); onChanged(''); })
+            : null,
+        filled: true,
+        fillColor: ColorsUI.getSurface(context.brightness),
+        border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
       ),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        onChanged: onChanged,
-        style: context.bodyMd,
-        decoration: InputDecoration(
-          hintText: 'Αναζήτηση καταχωρήσεων...',
-          hintStyle: context.bodyMd.withColor(context.cDisabled),
-          prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-            icon: Icon(Icons.close_rounded, color: context.cText2),
-            onPressed: () {
-              controller.clear();
-              onChanged('');
-            },
-          )
-              : null,
-          filled: true,
-          fillColor: ColorsUI.getSurface(context.brightness),
-          border: OutlineInputBorder(
-            borderRadius: AppRadius.inputBR,
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: Spacing.md, vertical: Spacing.sm),
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
-// ════════════════════════════════════════════════════════════════
-// LOADING LIST
-// ════════════════════════════════════════════════════════════════
+class _TagFilterRow extends StatelessWidget {
+  final List<String> tags;
+  final Set<String> activeTags;
+  final ValueChanged<String> onTagTap;
+  const _TagFilterRow({required this.tags, required this.activeTags, required this.onTagTap});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 40,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+      itemCount: tags.length,
+      separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
+      itemBuilder: (_, i) => TagChip(
+        name: tags[i],
+        color: null,
+        selected: activeTags.contains(tags[i]),
+        compact: true,
+        onTap: () => onTagTap(tags[i]),
+      ),
+    ),
+  );
+}
 
 class _LoadingList extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.sm,
-      ),
-      itemCount: 5,
-      separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
-      itemBuilder: (_, __) => const ItemCardSkeleton(),
-    );
-  }
+  Widget build(BuildContext context) => ListView.separated(
+    padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),
+    itemCount: 5,
+    separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
+    itemBuilder: (_, __) => const ItemCardSkeleton(),
+  );
 }

@@ -217,6 +217,12 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
   /// Toggle archive
   Future<void> toggleArchive(int id, bool currentValue) =>
       updateItem(id, archived: !currentValue);
+
+  /// Μετακίνηση item σε άλλο φάκελο
+  Future<void> moveToFolder(int itemId, int? newFolderId) async {
+    await ref.read(dbProvider).items.update(itemId, folderId: newFolderId);
+    ref.invalidateSelf();
+  }
 }
 
 final itemNotifierProvider =

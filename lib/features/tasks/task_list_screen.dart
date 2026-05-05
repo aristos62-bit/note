@@ -198,16 +198,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
             error:   (_, __) => const SizedBox.shrink(),
             data: (folders) {
               if (folders.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-                child: FolderChipSelector(
-                  folders:          folders,
-                  selectedFolderId: selectedFolderId,
-                  onSelect: (id) {
-                    onUserSelectFolder(id);
-                    DebugConfig.nav('TaskList: select folder id=$id');
-                  },
-                ),
+              return DraggableFolderSelector(
+                folders: folders,
+                selectedFolderId: selectedFolderId,
+                onSelectFolder: (id) {
+                  onUserSelectFolder(id);
+                  DebugConfig.nav('TaskList: select folder id=$id');
+                },
               );
             },
           ),
@@ -597,22 +594,34 @@ class _TaskCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final dueDate    = propsAsync.valueOrNull
+    final dueDate = propsAsync.valueOrNull
         ?.where((p) => p.key == 'due_date')
         .firstOrNull
         ?.dateValue;
-
     final tagsAsync = ref.watch(itemTagsProvider(item.id));
-    final tagNames  = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
+    final tagNames = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
 
-    return ItemCard(
-      item:              item,
-      dueDate:           dueDate,
-      tagNames:          tagNames,
-      compact:           context.isMobile,
-      onTap:             onTap,
-      onLongPress:       onLongPress,
+    final card = ItemCard(
+      item: item,
+      dueDate: dueDate,
+      tagNames: tagNames,
+      compact: context.isMobile,
+      onTap: onTap,
+      onLongPress: onLongPress,
       onCheckboxChanged: (_) => onToggleDone(),
+    );
+
+    return Draggable<int>(
+      data: item.id,
+      feedback: Material(
+        color: Colors.transparent,
+        child: card,
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: card,
+      ),
+      child: card,
     );
   }
 }

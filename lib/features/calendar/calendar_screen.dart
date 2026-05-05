@@ -84,14 +84,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           if (folders.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-              child: FolderChipSelector(
+              child: DraggableFolderSelector(
                 folders: folders,
                 selectedFolderId: selectedFolderId,
-                onSelect: (id) {
-                  setState(() {
-                    selectedFolderId;
-                    onUserSelectFolder(id); // ο χρήστης επέλεξε χειροκίνητα
-                  });
+                onSelectFolder: (id) {
+                  onUserSelectFolder(id);
+                  DebugConfig.nav('Calendar: select folder id=$id');
                 },
               ),
             ),

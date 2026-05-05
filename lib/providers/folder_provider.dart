@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/folder.dart';
 import 'db_provider.dart';
 import 'workspace_provider.dart';
+import '../core/utils/debug_config.dart';
 
 /// Root folders (χωρίς parent) του active workspace – real-time
 final foldersStreamProvider = StreamProvider<List<Folder>>((ref) async* {
@@ -15,12 +16,14 @@ final foldersStreamProvider = StreamProvider<List<Folder>>((ref) async* {
 
   // 1) Αρχικό snapshot
   final initial = await db.folders.getByWorkspace(wsId);
+  DebugConfig.db('📁 foldersStreamProvider: wsId=$wsId, initial length=${initial.length}');
   yield initial;
 
   // 2) Reactive updates από Isar
   final changes = db.folders.watchAll();
 
   yield* changes.asyncMap((_) {
+    DebugConfig.db('📁 foldersStreamProvider: wsId=$wsId, initial length=${initial.length}');
     return db.folders.getByWorkspace(wsId);
   });
 });

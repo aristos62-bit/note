@@ -9,6 +9,7 @@
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
 // ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
 // ✅ Search, filter tags, ViewMode toggle
+// ✅ Drag & drop support (DraggableFolderSelector, draggable cards)
 //
 import 'dart:convert';
 import 'dart:async';
@@ -25,14 +26,11 @@ import 'collection_entries_screen.dart';
 
 // Provider για real‑time αντιστοίχηση collectionId -> πλήθος εγγραφών
 final collectionEntriesCountProvider = Provider<Map<int, int>>((ref) {
-  // Παίρνουμε τα items από το stream που ήδη τρέχει — χωρίς νέο load
   final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
-
   final Map<int, int> counts = {};
   for (final item in allItems.where((i) => i.type == ItemType.knowledge)) {
     final asyncProps = ref.watch(itemPropertiesProvider(item.id));
     if (!asyncProps.hasValue) continue;
-
     final props = asyncProps.value!;
     final colIdStr = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
     if (colIdStr != null) {
@@ -46,7 +44,6 @@ final collectionEntriesCountProvider = Provider<Map<int, int>>((ref) {
 });
 
 // ── Field types ───────────────────────────────────────────────
-
 enum FieldType {
   text,
   number,
@@ -129,7 +126,7 @@ class FieldDef {
   };
 }
 
-// Τοπικοί providers για search & tags (δεν χρειάζονται εκτός screen)
+// Τοπικοί providers για search & tags
 final _collectionSearchQueryProvider = StateProvider<String>((ref) => '');
 final _collectionTagFilterProvider = StateProvider<Set<String>>((ref) => {});
 
@@ -146,12 +143,7 @@ class CollectionsScreen extends ConsumerStatefulWidget {
 
 class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
     with FolderAutoSelectMixin {
-  //int? selectedFolderId;
   Set<String> _visibleTagNames = {};
-
-  // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  //bool _userExplicitlySelected = false;
-  //bool _autoSelectDone = false;  // ✅ προστέθηκε
 
   // Search
   final _searchCtrl = TextEditingController();
@@ -186,11 +178,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
   }
 
   Future<void> _createCollection() async {
-    if (selectedFolderId == null) {
-      DebugConfig.error('Collections: createCollection without selected folder');
-      return;
-    }
-
+    if (selectedFolderId == null) return;
     DebugConfig.nav('Collections: create in folder id=$selectedFolderId');
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.project,
@@ -214,14 +202,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
         CollectionDetailScreen(collectionId: item.id, isNew: false)));
   }
 
-  Future<void> _delete(
-      BuildContext context, WidgetRef ref, Item item) async {
+  Future<void> _delete(BuildContext context, WidgetRef ref, Item item) async {
     final future = ConfirmDialog.delete(context,
-        title: 'Διαγραφή συλλογής "${item.title ?? ''}";\n'
-            'Θα διαγραφούν και όλες οι εγγραφές.');
+        title: 'Διαγραφή συλλογής "${item.title ?? ''}";\nΘα διαγραφούν και όλες οι εγγραφές.');
     final ok = await future;
     if (!ok || !context.mounted) return;
-    DebugConfig.db('Collections delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
     ref.invalidate(itemNotifierProvider);
   }
@@ -233,7 +218,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
     final searchQuery = ref.watch(_collectionSearchQueryProvider);
     final activeTags = ref.watch(_collectionTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider); // ✅ προστέθηκε
+    final settingsAsync = ref.watch(settingsNotifierProvider);
 
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
@@ -265,7 +250,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
           : null,
       body: Column(
         children: [
-          // ── Search bar ────────────────────────────────────────
           if (_searchActive)
             _SearchBar(
               controller: _searchCtrl,
@@ -273,25 +257,19 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
               onChanged: _onSearchChanged,
             ),
 
-          // ── Folder selector ───────────────────────────────────
+          // ── Folder selector (drag & drop) ───────────────────
           foldersAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
             data: (folders) {
               if (folders.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-                child: FolderChipSelector(
-                  folders: folders,
-                  selectedFolderId: selectedFolderId,
-                  onSelect: (id) {
-                    setState(() {
-                      selectedFolderId;
-                      onUserSelectFolder(id);   // ✅ ο χρήστης επέλεξε χειροκίνητα
-                    });
-                    DebugConfig.nav('Collections: select folder id=$id');
-                  },
-                ),
+              return DraggableFolderSelector(
+                folders: folders,
+                selectedFolderId: selectedFolderId,
+                onSelectFolder: (id) {
+                  onUserSelectFolder(id);
+                  DebugConfig.nav('Collections: select folder id=$id');
+                },
               );
             },
           ),
@@ -303,10 +281,8 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
               children: [
                 Padding(
                   padding: EdgeInsets.fromLTRB(
-                    context.responsiveHPadding,
-                    0,
-                    context.responsiveHPadding,
-                    Spacing.xs,
+                    context.responsiveHPadding, 0,
+                    context.responsiveHPadding, Spacing.xs,
                   ),
                   child: Text(
                     'Επιλέξτε tag για φιλτράρισμα συλλογών',
@@ -345,31 +321,24 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
               ],
             ),
 
-          // ── View mode toggle ──────────────────────────────────
           const ViewModeToggle(),
 
-          // ── Collections grid ───────────────────────────────────
           Expanded(
             child: allAsync.when(
               loading: () => _LoadingGrid(),
-              error: (e, _) {
-                DebugConfig.error('CollectionsScreen load', e);
-                return EmptyState.error(
-                    onRetry: () => ref.invalidate(itemNotifierProvider));
-              },
+              error: (e, _) => EmptyState.error(
+                  onRetry: () => ref.invalidate(itemNotifierProvider)),
               data: (allItems) {
                 var collections = allItems
                     .where((i) => i.type == ItemType.project)
                     .toList();
 
-                // Φάκελος
                 if (selectedFolderId != null) {
                   collections = collections
                       .where((c) => c.folderId == selectedFolderId)
                       .toList();
                 }
 
-                // View mode
                 final viewMode = ref.watch(listViewModeProvider);
                 switch (viewMode) {
                   case ListViewMode.pinned:
@@ -382,7 +351,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                     break;
                 }
 
-                // Search
                 if (searchQuery.isNotEmpty) {
                   final q = searchQuery.toLowerCase();
                   collections = collections
@@ -390,15 +358,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                       .toList();
                 }
 
-                // Tag filter
-                // 🔹 cache όλων των tags μία φορά
+                // Cache tags
                 final Map<int, List<Tag>> tagsCache = {};
                 for (final c in collections) {
-                  tagsCache[c.id] =
-                      ref.watch(itemTagsProvider(c.id)).valueOrNull ?? [];
+                  tagsCache[c.id] = ref.watch(itemTagsProvider(c.id)).valueOrNull ?? [];
                 }
 
-// 🔹 Tag filter
                 if (activeTags.isNotEmpty) {
                   collections = collections.where((c) {
                     final tags = tagsCache[c.id] ?? [];
@@ -406,13 +371,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                   }).toList();
                 }
 
-// 🔹 Συγκέντρωση visible tag names
                 final visibleTagNames = <String>{};
                 for (final c in collections) {
                   final tags = tagsCache[c.id] ?? [];
-                  for (final t in tags) {
-                    visibleTagNames.add(t.name);
-                  }
+                  for (final t in tags) {visibleTagNames.add(t.name);}
                 }
                 if (!const SetEquality<String>().equals(_visibleTagNames, visibleTagNames)) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -456,7 +418,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
 }
 
 // ════════════════════════════════════════════════════════════════
-// COLLECTIONS GRID
+// COLLECTIONS GRID (with draggable cards)
 // ════════════════════════════════════════════════════════════════
 
 class _CollectionsGrid extends StatelessWidget {
@@ -490,7 +452,7 @@ class _CollectionsGrid extends StatelessWidget {
         mainAxisExtent: 150,
       ),
       itemCount: collections.length,
-      itemBuilder: (_, i) => _CollectionCard(
+      itemBuilder: (_, i) => _DraggableCollectionCard(
         item: collections[i],
         onTap: () => onTap(collections[i]),
         onEdit: () => onEdit(collections[i]),
@@ -501,16 +463,16 @@ class _CollectionsGrid extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// COLLECTION CARD — με χρήση ItemColorHelper
+// DRAGGABLE COLLECTION CARD — με χρήση ItemColorHelper
 // ════════════════════════════════════════════════════════════════
 
-class _CollectionCard extends ConsumerWidget {
+class _DraggableCollectionCard extends ConsumerWidget {
   final Item item;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _CollectionCard({
+  const _DraggableCollectionCard({
     required this.item,
     required this.onTap,
     required this.onEdit,
@@ -519,67 +481,65 @@ class _CollectionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-
     final counts = ref.watch(collectionEntriesCountProvider);
-
-    final backgroundColor =
-    ItemColorHelper.backgroundColorForType(ItemType.project, context);
-    final foregroundColor =
-    ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.project, context);
+    final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
     final customColor = _colorFromString(item.color);
-    final accentColor =
-        customColor ?? ItemColorHelper.iconColorForType(ItemType.project, context);
-
+    final accentColor = customColor ?? ItemColorHelper.iconColorForType(ItemType.project, context);
     final icon = item.icon ?? '📦';
 
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: () => _showActions(context),
-      child: Container(
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: AppRadius.cardBR,
-          border:
-          Border.all(color: accentColor.withValues(alpha: 0.5), width: 1.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(Spacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Center(
-                        child: Text(icon, style: const TextStyle(fontSize: 22))),
+    final cardContent = Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: AppRadius.cardBR,
+        border: Border.all(color: accentColor.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => _showActions(context),
-                    child: Icon(Icons.more_vert_rounded,
-                        size: 18, color: secondaryForeground),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                item.title ?? 'Χωρίς τίτλο',
-                style: context.titleSm.copyWith(color: foregroundColor),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text('${counts[item.id] ?? 0} εγγραφές'),
-            ],
-          ),
+                  child: Center(child: Text(icon, style: const TextStyle(fontSize: 22))),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => _showActions(context, ref),
+                  child: Icon(Icons.more_vert_rounded, size: 18, color: secondaryForeground),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              item.title ?? 'Χωρίς τίτλο',
+              style: context.titleSm.copyWith(color: foregroundColor),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text('${counts[item.id] ?? 0} εγγραφές'),
+          ],
         ),
+      ),
+    );
+
+    return Draggable<int>(
+      data: item.id,
+      feedback: Material(color: Colors.transparent, child: cardContent),
+      childWhenDragging: Opacity(opacity: 0.3, child: cardContent),
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: () => _showActions(context, ref),
+        child: cardContent,
       ),
     );
   }
@@ -593,7 +553,7 @@ class _CollectionCard extends ConsumerWidget {
     }
   }
 
-  void _showActions(BuildContext context) {
+  void _showActions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
@@ -609,46 +569,28 @@ class _CollectionCard extends ConsumerWidget {
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.cBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.lg, vertical: Spacing.xs),
-              child: Text(item.title ?? 'Χωρίς τίτλο',
-                  style: context.titleSm,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+              child: Text(item.title ?? 'Χωρίς τίτλο', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.tune_rounded),
               title: const Text('Επεξεργασία συλλογής'),
-              onTap: () {
-                Navigator.pop(context);
-                onEdit();
-              },
+              onTap: () { Navigator.pop(context); onEdit(); },
             ),
             ListTile(
               leading: const Icon(Icons.open_in_new_rounded),
               title: const Text('Άνοιγμα'),
-              onTap: () {
-                Navigator.pop(context);
-                onTap();
-              },
+              onTap: () { Navigator.pop(context); onTap(); },
             ),
             ListTile(
-              leading:
-              Icon(Icons.delete_outline_rounded, color: context.cError),
+              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
               title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
-              onTap: () {
-                Navigator.pop(context);
-                onDelete();
-              },
+              onTap: () { Navigator.pop(context); onDelete(); },
             ),
             const SizedBox(height: Spacing.sm),
           ],
@@ -674,9 +616,7 @@ class _EmptyCollections extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('📦',
-                style: TextStyle(
-                    fontSize: context.responsive(mobile: 72.0, tablet: 96.0))),
+            Text('📦', style: TextStyle(fontSize: context.responsive(mobile: 72.0, tablet: 96.0))),
             const SizedBox(height: Spacing.md),
             Text('Δεν έχεις συλλογές', style: context.titleMd),
             const SizedBox(height: Spacing.sm),
@@ -708,23 +648,13 @@ class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
-
-  const _SearchBar({
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
-  });
+  const _SearchBar({required this.controller, required this.focusNode, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: context.cBg,
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        Spacing.sm,
-      ),
+      padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
       child: TextField(
         controller: controller,
         focusNode: focusNode,
@@ -735,22 +665,12 @@ class _SearchBar extends StatelessWidget {
           hintStyle: context.bodyMd.withColor(context.cDisabled),
           prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
           suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-            icon: Icon(Icons.close_rounded, color: context.cText2),
-            onPressed: () {
-              controller.clear();
-              onChanged('');
-            },
-          )
+              ? IconButton(icon: Icon(Icons.close_rounded, color: context.cText2), onPressed: () { controller.clear(); onChanged(''); })
               : null,
           filled: true,
           fillColor: ColorsUI.getSurface(context.brightness),
-          border: OutlineInputBorder(
-            borderRadius: AppRadius.inputBR,
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: Spacing.md, vertical: Spacing.sm),
+          border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
         ),
       ),
     );
