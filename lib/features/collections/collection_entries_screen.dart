@@ -905,7 +905,7 @@ class _CollectionEntryDetailScreenState
                       strokeWidth: 2, color: context.cText2),
                 ),
                 const SizedBox(width: Spacing.xs),
-                Text('Αποθήκευση...',
+                Text('',
                     style: context.bodySm.withColor(context.cText2)),
               ])
                   : null,

@@ -919,12 +919,17 @@ class _HomeAppBar extends ConsumerWidget {
         ),
       ),
       actions: [
+        // Στο _HomeAppBar, στο actions:
+
         IconButton(
           icon: Icon(Icons.search_rounded, color: context.cText2),
-          onPressed: () => Navigator.push(
-            context,
-            AppTransitions.fadeRoute(const SearchScreen()),
-          ),
+          onPressed: () {
+            DebugConfig.nav('🔍 HomeAppBar search button pressed');
+            Navigator.push(
+              context,
+              AppTransitions.fadeRoute(const SearchScreen()),
+            );
+          },
           tooltip: 'Αναζήτηση',
         ),
         IconButton(

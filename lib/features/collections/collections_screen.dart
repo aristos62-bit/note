@@ -24,11 +24,16 @@ import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
 
 // Provider για real‑time αντιστοίχηση collectionId -> πλήθος εγγραφών
-final collectionEntriesCountProvider = FutureProvider<Map<int, int>>((ref) async {
-  final items = await ref.watch(itemNotifierProvider.future);
+final collectionEntriesCountProvider = Provider<Map<int, int>>((ref) {
+  // Παίρνουμε τα items από το stream που ήδη τρέχει — χωρίς νέο load
+  final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
+
   final Map<int, int> counts = {};
-  for (final item in items.where((i) => i.type == ItemType.knowledge)) {
-    final props = await ref.watch(itemPropertiesProvider(item.id).future);
+  for (final item in allItems.where((i) => i.type == ItemType.knowledge)) {
+    final asyncProps = ref.watch(itemPropertiesProvider(item.id));
+    if (!asyncProps.hasValue) continue;
+
+    final props = asyncProps.value!;
     final colIdStr = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
     if (colIdStr != null) {
       final colId = int.tryParse(colIdStr);
@@ -386,27 +391,35 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                 }
 
                 // Tag filter
+                // 🔹 cache όλων των tags μία φορά
+                final Map<int, List<Tag>> tagsCache = {};
+                for (final c in collections) {
+                  tagsCache[c.id] =
+                      ref.watch(itemTagsProvider(c.id)).valueOrNull ?? [];
+                }
+
+// 🔹 Tag filter
                 if (activeTags.isNotEmpty) {
                   collections = collections.where((c) {
-                    final tags = ref.watch(itemTagsProvider(c.id)).valueOrNull ?? [];
+                    final tags = tagsCache[c.id] ?? [];
                     return tags.any((t) => activeTags.contains(t.name));
                   }).toList();
                 }
 
-                // Συγκέντρωση visible tag names
+// 🔹 Συγκέντρωση visible tag names
                 final visibleTagNames = <String>{};
                 for (final c in collections) {
-                  final tags = ref.watch(itemTagsProvider(c.id)).valueOrNull ?? [];
+                  final tags = tagsCache[c.id] ?? [];
                   for (final t in tags) {
                     visibleTagNames.add(t.name);
                   }
                 }
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  if (!const SetEquality<String>().equals(_visibleTagNames, visibleTagNames)) {
+                if (!const SetEquality<String>().equals(_visibleTagNames, visibleTagNames)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
                     setState(() => _visibleTagNames = visibleTagNames);
-                  }
-                });
+                  });
+                }
 
                 collections.sort((a, b) => (a.title ?? '').compareTo(b.title ?? ''));
 
@@ -506,15 +519,8 @@ class _CollectionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final schema = propsAsync.valueOrNull
-        ?.where((p) => p.key == 'schema')
-        .firstOrNull
-        ?.value ??
-        '';
-    final fields = FieldDef.listFromJson(schema);
 
-    final countsAsync = ref.watch(collectionEntriesCountProvider);
+    final counts = ref.watch(collectionEntriesCountProvider);
 
     final backgroundColor =
     ItemColorHelper.backgroundColorForType(ItemType.project, context);
@@ -570,20 +576,7 @@ class _CollectionCard extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
-              countsAsync.when(
-                loading: () => Text(
-                  '${fields.length} πεδία  •  ...',
-                  style: context.labelSm.copyWith(color: secondaryForeground),
-                ),
-                error: (_, __) => Text(
-                  '${fields.length} πεδία  •  ?',
-                  style: context.labelSm.copyWith(color: secondaryForeground),
-                ),
-                data: (counts) => Text(
-                  '${fields.length} πεδία  •  ${counts[item.id] ?? 0} εγγραφές',
-                  style: context.labelSm.copyWith(color: secondaryForeground),
-                ),
-              ),
+              Text('${counts[item.id] ?? 0} εγγραφές'),
             ],
           ),
         ),

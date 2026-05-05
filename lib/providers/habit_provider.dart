@@ -12,15 +12,13 @@ StreamProvider.family<Item?, int>((ref, id) {
 });
 
 // Real-time *stats* για habit
+// ✅ ΜΕΤΑ:
 final habitStatsProvider =
 FutureProvider.family<HabitStats, int>((ref, habitId) async {
-  DebugConfig.db('habitStatsProvider id=$habitId');
-
-  // Όποτε αλλάζει το habit, ξαναϋπολογίζουμε stats
-  ref.watch(habitStreamProvider(habitId));
-
+  // Αντί για watch, χρησιμοποιούμε listen μόνο για invalidation
+  ref.listen(habitStreamProvider(habitId), (_, __) {
+    ref.invalidateSelf();
+  });
   final stats = await HabitService.instance.getStats(habitId);
-  DebugConfig.db(
-      'stats id=$habitId today=${stats.completedToday} total=${stats.completedCount}');
   return stats;
 });

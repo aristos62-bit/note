@@ -481,10 +481,15 @@ class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
   @override
   void initState() {
     super.initState();
+    // ✅ Διαγράφει μόνο text blocks που είναι κενά
+    // Τα list/checklist/numbered/quote/code blocks δεν διαγράφονται
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       for (final block in widget.blocks) {
-        if ((block.text ?? '').trim().isEmpty) {
-          await ref.read(blockNotifierProvider(widget.item.id).notifier).delete(block.id);
+        final isTextOnly = block.type == BlockType.text;
+        if (isTextOnly && (block.text ?? '').trim().isEmpty) {
+          await ref
+              .read(blockNotifierProvider(widget.item.id).notifier)
+              .delete(block.id);
         }
       }
     });
@@ -537,6 +542,7 @@ class _BlocksSliverState extends ConsumerState<_BlocksSliver> {
                   .where((b) => b.type == BlockType.numbered)
                   .length;
               return _BlockTile(
+                key: ValueKey(widget.blocks[i].id),   // ✅ μοναδικό key ανά block
                 index: numberedIndex,
                 block: widget.blocks[i],
                 onDelete: () => _deleteBlock(widget.blocks[i].id),
@@ -620,6 +626,7 @@ class _BlockTile extends StatefulWidget {
   final BlockType? overrideType;
 
   const _BlockTile({
+    super.key,                      // ✅ προσθήκη του key
     required this.index,
     required this.block,
     required this.onDelete,

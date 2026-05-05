@@ -15,6 +15,8 @@ import '../../services/search_service.dart';
 import '../../shared/widgets/widgets.dart';
 import '../notes/note_detail_screen.dart';
 import '../tasks/task_detail_screen.dart';
+import '../../features/collections/collection_entries_screen.dart';
+import '../../features/collections/collections_screen.dart' show FieldDef;
 
 // ── Local state ───────────────────────────────────────────────────
 
@@ -56,15 +58,17 @@ class _SearchNotifier extends Notifier<_SearchState> {
   _SearchState build() => const _SearchState();
 
   Future<void> search(String query, int workspaceId) async {
+    DebugConfig.search('🔍 _SearchNotifier.search started: query="$query", workspaceId=$workspaceId, state.typeFilter=${state.typeFilter}');
     final q = query.trim();
     state = state.copyWith(query: q, isLoading: true, hasSearched: true);
 
     if (q.isEmpty) {
+      DebugConfig.search('🔍 query empty, clearing results');
       state = state.copyWith(results: [], isLoading: false);
       return;
     }
 
-    DebugConfig.search('SearchNotifier: "$q" type=${state.typeFilter?.name}');
+    DebugConfig.search('🔍 SearchNotifier: "$q" type=${state.typeFilter?.name}');
 
     try {
       final results = await SearchService.instance.search(
@@ -72,10 +76,10 @@ class _SearchNotifier extends Notifier<_SearchState> {
         workspaceId: workspaceId,
         filterType:  state.typeFilter,
       );
+      DebugConfig.search('🔍 SearchNotifier got ${results.length} results');
       state = state.copyWith(results: results, isLoading: false);
-      DebugConfig.search('SearchNotifier: ${results.length} results');
     } catch (e) {
-      DebugConfig.error('SearchNotifier failed', e);
+      DebugConfig.error('🔍 SearchNotifier failed', e);
       state = state.copyWith(results: [], isLoading: false);
     }
   }
@@ -146,9 +150,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _debounce = Timer(const Duration(milliseconds: 300), _doSearch);
   }
 
+  // Στο _SearchScreenState, μέσα στη μέθοδο _doSearch:
+
   void _doSearch() {
+    DebugConfig.search('🔍 _doSearch called, text="${_ctrl.text}"');
     final wsId = _wsId;
-    if (wsId == null) return;
+    DebugConfig.search('🔍 _doSearch wsId=$wsId');
+    if (wsId == null) {
+      DebugConfig.error('🔍 _doSearch wsId is null, cannot search', null);
+      return;
+    }
     ref.read(_searchNotifierProvider.notifier).search(_ctrl.text, wsId);
   }
 
@@ -163,13 +174,49 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     switch (result.item.type) {
       case ItemType.task:
       case ItemType.checklist:
-        Navigator.push(context,
-            AppTransitions.slideRoute(
-                TaskDetailScreen(itemId: result.item.id)));
+        Navigator.push(
+            context,
+            AppTransitions.slideRoute(TaskDetailScreen(itemId: result.item.id)));
+      case ItemType.knowledge:
+        _openKnowledgeEntry(context, result.item);
       default:
-        Navigator.push(context,
-            AppTransitions.slideRoute(
-                NoteDetailScreen(itemId: result.item.id)));
+        Navigator.push(
+            context,
+            AppTransitions.slideRoute(NoteDetailScreen(itemId: result.item.id)));
+    }
+  }
+
+  Future<void> _openKnowledgeEntry(BuildContext context, Item entry) async {
+    // 1) Βρίσκουμε τη συλλογή στην οποία ανήκει η εγγραφή μέσω property 'collection_id'
+    final props = await ref.read(itemPropertiesProvider(entry.id).future);
+    final collectionIdStr = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
+    if (collectionIdStr == null) {
+      DebugConfig.error('Knowledge entry without collection_id', null);
+      return;
+    }
+    final collectionId = int.tryParse(collectionIdStr);
+    if (collectionId == null) return;
+
+    // 2) Βρίσκουμε το item της συλλογής
+    final collection = await ref.read(itemStreamProvider(collectionId).future);
+    if (collection == null) return;
+
+    // 3) Φόρτωση schema της συλλογής από τα properties της
+    final collectionProps = await ref.read(itemPropertiesProvider(collectionId).future);
+    final schemaJson = collectionProps.where((p) => p.key == 'schema').firstOrNull?.value ?? '';
+    final fields = FieldDef.listFromJson(schemaJson);
+
+    if (mounted) {
+      Navigator.of(context).push(
+        AppTransitions.slideRoute(
+          CollectionEntryDetailScreen(
+            entryId: entry.id,
+            collectionId: collectionId,
+            fields: fields,
+            isNew: false,
+          ),
+        ),
+      );
     }
   }
 
