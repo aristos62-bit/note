@@ -613,13 +613,22 @@ class _TaskCard extends ConsumerWidget {
 
     return Draggable<int>(
       data: item.id,
+      onDragStarted: () {
+        DebugConfig.db('🔥 DRAG STARTED for task id=${item.id}');
+      },
       feedback: Material(
         color: Colors.transparent,
-        child: card,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: card,
+        ),
       ),
       childWhenDragging: Opacity(
         opacity: 0.3,
-        child: card,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: card,
+        ),
       ),
       child: card,
     );

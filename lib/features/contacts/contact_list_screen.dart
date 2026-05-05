@@ -368,8 +368,20 @@ class _DraggableContactTile extends ConsumerWidget {
 
     return Draggable<int>(
       data: contact.id,
-      feedback: Material(color: Colors.transparent, child: tile),
-      childWhenDragging: Opacity(opacity: 0.3, child: tile),
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: tile,
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: tile,
+        ),
+      ),
       child: GestureDetector(
         onTap: () => onTap(contact.id),
         onLongPress: () => _showActions(context),

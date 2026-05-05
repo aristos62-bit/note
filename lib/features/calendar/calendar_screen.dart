@@ -182,7 +182,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           ref.read(_selectedDayProvider.notifier).state = day,
         ),
         const Divider(height: 1),
-        Expanded(
+        Flexible(
+          fit: FlexFit.tight,
           child: ItemListEmbedded(
             key: _listKey,
             itemType: ItemType.event,
@@ -221,7 +222,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           ),
         ),
         const VerticalDivider(width: 1),
-        Expanded(
+        Flexible(
+          fit: FlexFit.tight,
           child: ItemListEmbedded(
             key: _listKey,
             itemType: ItemType.event,

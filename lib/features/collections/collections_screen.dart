@@ -499,6 +499,7 @@ class _DraggableCollectionCard extends ConsumerWidget {
         padding: const EdgeInsets.all(Spacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
@@ -511,14 +512,14 @@ class _DraggableCollectionCard extends ConsumerWidget {
                   ),
                   child: Center(child: Text(icon, style: const TextStyle(fontSize: 22))),
                 ),
-                const Spacer(),
+                const SizedBox(height: 4),
                 GestureDetector(
                   onTap: () => _showActions(context, ref),
                   child: Icon(Icons.more_vert_rounded, size: 18, color: secondaryForeground),
                 ),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 4),
             Text(
               item.title ?? 'Χωρίς τίτλο',
               style: context.titleSm.copyWith(color: foregroundColor),
@@ -534,8 +535,20 @@ class _DraggableCollectionCard extends ConsumerWidget {
 
     return Draggable<int>(
       data: item.id,
-      feedback: Material(color: Colors.transparent, child: cardContent),
-      childWhenDragging: Opacity(opacity: 0.3, child: cardContent),
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: cardContent,
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: cardContent,
+        ),
+      ),
       child: GestureDetector(
         onTap: onTap,
         onLongPress: () => _showActions(context, ref),

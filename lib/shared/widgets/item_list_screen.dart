@@ -445,35 +445,32 @@ class _ItemCardWithTags extends ConsumerWidget {
     final tagsAsync = ref.watch(itemTagsProvider(item.id));
     final tagNames = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
 
+    final card = ItemCard(
+      item: item,
+      tagNames: tagNames,
+      compact: context.isMobile,
+      onTap: () => onTap(item),
+      onLongPress: () => onLongPress(item),
+    );
+
+    // Μέγιστο πλάτος για το feedback (για να αποφύγουμε unbounded constraints)
+    final maxWidth = MediaQuery.of(context).size.width * 0.8;
+    final feedback = SizedBox(
+      width: maxWidth,
+      child: Material(
+        color: Colors.transparent,
+        child: card,
+      ),
+    );
+
     return Draggable<int>(
       data: item.id,
-      feedback: Material(
-        color: Colors.transparent,
-        child: ItemCard(
-          item: item,
-          tagNames: tagNames,
-          compact: context.isMobile,
-          onTap: null,
-          onLongPress: null,
-        ),
-      ),
+      feedback: feedback,
       childWhenDragging: Opacity(
         opacity: 0.3,
-        child: ItemCard(
-          item: item,
-          tagNames: tagNames,
-          compact: context.isMobile,
-          onTap: null,
-          onLongPress: null,
-        ),
+        child: card,
       ),
-      child: ItemCard(
-        item: item,
-        tagNames: tagNames,
-        compact: context.isMobile,
-        onTap: () => onTap(item),
-        onLongPress: () => onLongPress(item),
-      ),
+      child: card,
     );
   }
 }

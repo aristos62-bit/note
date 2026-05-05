@@ -69,10 +69,12 @@ class _DraggableFolderSelectorState extends ConsumerState<DraggableFolderSelecto
     final isDragOver = _dragOverFolderId == folderId;
     return DragTarget<int>(
       onWillAcceptWithDetails: (details) {
+        DebugConfig.db('📁 Drop target: folder $label, will accept item ${details.data}');
         setState(() => _dragOverFolderId = folderId);
         return true;
       },
       onAcceptWithDetails: (details) async {
+        DebugConfig.db('✅ DROP ACCEPTED: item ${details.data} → folder $label');
         final itemId = details.data;
         final notifier = ref.read(itemNotifierProvider.notifier);
         await notifier.moveToFolder(itemId, folderId);
@@ -84,9 +86,6 @@ class _DraggableFolderSelectorState extends ConsumerState<DraggableFolderSelecto
             ),
           );
         }
-        setState(() => _dragOverFolderId = null);
-      },
-      onLeave: (data) {
         setState(() => _dragOverFolderId = null);
       },
       builder: (context, candidateData, rejectedData) {

@@ -435,8 +435,20 @@ class _DraggableHabitCard extends ConsumerWidget {
 
     return Draggable<int>(
       data: habit.id,
-      feedback: Material(color: Colors.transparent, child: card),
-      childWhenDragging: Opacity(opacity: 0.3, child: card),
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: card,
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: card,
+        ),
+      ),
       child: GestureDetector(
         onTap: onTap,
         onLongPress: () => _showActions(context),
