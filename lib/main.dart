@@ -115,9 +115,9 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     DebugConfig.print('🔔 [LIFECYCLE] state=$state');
     if (state == AppLifecycleState.resumed) {
-      DebugConfig.startup('App resumed — refreshing recurring reminders');
-      // Μόνο refreshRecurringReminders() αρκεί, γιατί ήδη καλεί scheduleReminder για κάθε νέο child
-      await ReminderScheduler.instance.refreshRecurringReminders();
+      DebugConfig.startup('App resumed — debounced refreshing recurring reminders');
+      // Debounced version to avoid multiple rapid calls
+      await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
     }
 
     if (!_disposed && state == AppLifecycleState.detached) {

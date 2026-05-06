@@ -358,16 +358,56 @@ class _DraggableHabitCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(habitStatsProvider(habit.id)).valueOrNull;
+    if (stats == null) return const SizedBox.shrink();
+
     final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.habit, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
     final accentColor = ItemColorHelper.iconColorForType(ItemType.habit, context);
 
-    final goal = stats?.goalCount ?? 0;
-    final dailyProgress = stats?.dailyProgress ?? 0;
-    final unit = stats?.unit ?? '';
-    final percent = goal > 0 ? (dailyProgress / goal).clamp(0.0, 1.0) : (stats?.completedToday == true ? 1.0 : 0.0);
-    final isCompleted = stats?.completedToday ?? false;
+    // Υπολογισμός προόδου περιόδου (εβδομάδας/μήνα) αντί για ημερήσια
+    int completedPeriod = 0;
+    int totalPeriod = 0;
+    double periodPercent = 0.0;
+
+    final recurrence = stats.recurrence;
+    final completionDays = stats.completions.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+
+    if (recurrence.type == RecurrenceType.weekly && recurrence.days != null && recurrence.days!.isNotEmpty) {
+      final now = DateTime.now();
+      final periodStart = recurrence.getPeriodStart(now);
+      totalPeriod = recurrence.days!.length;
+      for (int i = 0; i < 7; i++) {
+        final day = DateTime(periodStart.year, periodStart.month, periodStart.day + i);
+        if (recurrence.days!.contains(day.weekday)) {
+          if (completionDays.contains(day)) completedPeriod++;
+        }
+      }
+      periodPercent = totalPeriod > 0 ? completedPeriod / totalPeriod : 0.0;
+    }
+    else if (recurrence.type == RecurrenceType.monthly && recurrence.days != null && recurrence.days!.isNotEmpty) {
+      final now = DateTime.now();
+      final periodStart = recurrence.getPeriodStart(now);
+      totalPeriod = recurrence.days!.length;
+      for (final dayNum in recurrence.days!) {
+        final targetDay = DateTime(periodStart.year, periodStart.month, dayNum);
+        if (targetDay.month == periodStart.month && completionDays.contains(targetDay)) {
+          completedPeriod++;
+        }
+      }
+      periodPercent = totalPeriod > 0 ? completedPeriod / totalPeriod : 0.0;
+    }
+    else {
+      // daily ή χωρίς days – χρησιμοποιούμε dailyProgress
+      completedPeriod = stats.dailyProgress;
+      totalPeriod = stats.goalCount;
+      periodPercent = totalPeriod > 0 ? stats.dailyProgress / totalPeriod : 0.0;
+    }
+
+    final isCompleted = (totalPeriod > 0 && completedPeriod >= totalPeriod) || (stats.completedToday && recurrence.days == null);
+
+    final unit = stats.unit;
+    final displayText = '$completedPeriod / $totalPeriod${unit.isNotEmpty ? ' $unit' : ''}';
 
     final card = AnimatedContainer(
       duration: AppDuration.normal,
@@ -394,7 +434,7 @@ class _DraggableHabitCard extends ConsumerWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: percent,
+                value: periodPercent,
                 minHeight: 6,
                 backgroundColor: ColorsUI.getBorder(context.brightness),
                 valueColor: AlwaysStoppedAnimation<Color>(accentColor),
@@ -405,27 +445,24 @@ class _DraggableHabitCard extends ConsumerWidget {
               children: [
                 _StatBadge(
                   icon: Icons.local_fire_department_rounded,
-                  value: '${stats?.streak ?? 0}',
+                  value: '${stats.streak}',
                   label: 'streak',
-                  color: (stats?.streak ?? 0) > 0 ? ColorsUI.getWarning(context.brightness) : secondaryForeground,
+                  color: stats.streak > 0 ? ColorsUI.getWarning(context.brightness) : secondaryForeground,
                   textColor: foregroundColor,
                 ),
                 const SizedBox(width: Spacing.sm),
                 _StatBadge(
                   icon: Icons.emoji_events_rounded,
-                  value: '${stats?.bestStreak ?? 0}',
+                  value: '${stats.bestStreak}',
                   label: 'best',
                   color: secondaryForeground,
                   textColor: foregroundColor,
                 ),
                 const Spacer(),
-                if (goal > 0)
-                  Text(
-                    '$dailyProgress / $goal ${unit.isNotEmpty ? unit : ''}',
-                    style: context.labelSm.copyWith(color: accentColor),
-                  )
-                else if (stats?.completedToday == true)
-                  Text('✓', style: context.labelSm.copyWith(color: accentColor)),
+                Text(
+                  displayText,
+                  style: context.labelSm.copyWith(color: accentColor),
+                ),
               ],
             ),
           ],

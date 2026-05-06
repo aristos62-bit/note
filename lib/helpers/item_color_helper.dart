@@ -13,7 +13,7 @@ class ItemColorHelper {
       case ItemType.task:
         return isDark ? Colors.blue.shade600 : const Color(0xFFD0F0C0);
       case ItemType.habit:
-        return isDark ? Colors.red.shade200 : const Color(0xFFFFD6A5);
+        return isDark ? Colors.green.shade100 : const Color(0xFFFFD6A5);
       case ItemType.event:
         return isDark ? Colors.orange.shade400 : const Color(0xFFB8D9FF);
       case ItemType.appointment:

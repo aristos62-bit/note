@@ -5,10 +5,12 @@ import 'notification_service.dart';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
 import 'package:isar/isar.dart';
+import 'dart:async';
 
 class ReminderScheduler {
   ReminderScheduler._internal();
   static final ReminderScheduler instance = ReminderScheduler._internal();
+  Timer? _refreshTimer;
 
   Future<void> scheduleAll() async {
     DebugConfig.notif('ReminderScheduler.scheduleAll: called, platform=$defaultTargetPlatform');
@@ -43,6 +45,20 @@ class ReminderScheduler {
       );
     }
     DebugConfig.notif('ReminderScheduler.scheduleAll: DONE');
+  }
+
+
+  // ─────────────────────────────────────────────────────────
+  // Debounced version for lifecycle events
+  // ─────────────────────────────────────────────────────────
+
+  Future<void> debouncedRefreshRecurringReminders({Duration delay = const Duration(seconds: 2)}) async {
+    DebugConfig.notif('ReminderScheduler.debouncedRefreshRecurringReminders: called, delay=$delay');
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer(delay, () async {
+      DebugConfig.notif('ReminderScheduler.debouncedRefreshRecurringReminders: executing actual refresh');
+      await refreshRecurringReminders();
+    });
   }
 
   // ─────────────────────────────────────────────────────────

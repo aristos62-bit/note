@@ -155,7 +155,7 @@ class ColorsUI {
     ItemType.task:      Color(0xFF64B5F6), // blue
     ItemType.event:     Color(0xFF81C784), // green
     ItemType.contact:   Color(0xFF4DD0E1), // teal
-    ItemType.habit:     Color(0xFFFFB74D), // orange
+    ItemType.habit:     Color(0xFFE85050), // orange
     ItemType.project:   Color(0xFFEFB8C8), // pink
     ItemType.goal:      Color(0xFFFFF176), // amber
     ItemType.finance:   Color(0xFF81C784), // green
