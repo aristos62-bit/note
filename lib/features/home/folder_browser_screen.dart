@@ -296,7 +296,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
     );
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
-    if (!mounted) return;
+    if (!context.mounted) return;
     _openItem(context, item);
   }
 
@@ -509,6 +509,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
     // Φορτώνουμε μόνο τα items του φακέλου (μία φορά)
     final folderItems = await ref
         .read(itemsByFolderStreamProvider(_folder.id).future);
+    if (!context.mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

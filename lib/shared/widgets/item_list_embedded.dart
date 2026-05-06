@@ -18,12 +18,14 @@ class ItemListEmbedded extends ConsumerStatefulWidget {
   final ItemType itemType;
   final int? folderId;
   final ValueChanged<Item> onItemTap;
+  final bool showFolderSelector;
 
   const ItemListEmbedded({
     super.key,
     required this.itemType,
     this.folderId,
     required this.onItemTap,
+    this.showFolderSelector = true,
   });
 
   @override
@@ -87,7 +89,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
     return Column(
       children: [
         // ── Folder selector (drag target) ───────────────────
-        if (foldersAsync.hasValue && foldersAsync.value!.isNotEmpty)
+        if (widget.showFolderSelector && foldersAsync.hasValue && foldersAsync.value!.isNotEmpty)
           _FolderDropZone(
             folders: foldersAsync.value!,
             selectedFolderId: _selectedFolderId,

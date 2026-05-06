@@ -14,10 +14,10 @@ import 'reminder_scheduler.dart';
 class HabitStats {
   final int streak;
   final int bestStreak;
-  final int completedCount;         // πλήρως ολοκληρωμένες περίοδοι
-  final int goalCount;              // effective goal
+  final int completedCount;         // πλήρως ολοκληρωμένες περίοδοι (ημέρες)
+  final int goalCount;              // effective goal (ημερήσιος στόχος)
   final DateTime? lastCompleted;
-  final List<DateTime> completions; // ατομικές ημέρες επίτευξης
+  final List<DateTime> completions; // ημέρες επίτευξης
   final bool completedToday;
   final double progressPercent;     // 0-100
   final int dailyProgress;
@@ -25,7 +25,6 @@ class HabitStats {
   final Recurrence recurrence;
 
   /// Για daily με ώρες: ποιες ώρες έχουν ολοκληρωθεί σήμερα
-  /// key: "08:00", value: true/false
   final Map<String, bool> todayTimeProgress;
 
   const HabitStats({
@@ -82,37 +81,27 @@ class HabitService {
   }
 
   // ══════════════════════════════════════════════════════════
-  // EFFECTIVE GOAL
-  // Υπολογίζει τον πραγματικό στόχο βάσει επανάληψης:
-  //   daily + times [08:00, 11:00, 16:00, 20:00] → 4
-  //   weekly [Δευ, Τετ] + savedGoal=1            → 2
-  //   monthly [1η, 15η] + savedGoal=1             → 2
-  //   καμία → savedGoal
+  // EFFECTIVE GOAL (ημερήσιος στόχος)
+  // Επιστρέφει τον πραγματικό στόχο για ΜΙΑ ΗΜΕΡΑ.
+  // - daily + times → αριθμός ωρών
+  // - αλλιώς → savedGoal (1 για τις περισσότερες συνήθειες)
+  // ΔΕΝ πολλαπλασιάζεται ποτέ με τον αριθμό ημερών της εβδομάδας/μήνα.
   // ══════════════════════════════════════════════════════════
 
   int _effectiveGoal(int savedGoal, Recurrence recurrence) {
+    // Αν είναι daily habit με συγκεκριμένες ώρες, στόχος = πλήθος ωρών
     if (recurrence.type == RecurrenceType.daily &&
         recurrence.times != null &&
         recurrence.times!.isNotEmpty) {
       return recurrence.times!.length;
     }
-    if (recurrence.type == RecurrenceType.weekly &&
-        recurrence.days != null &&
-        recurrence.days!.isNotEmpty) {
-      return recurrence.days!.length * (savedGoal > 0 ? savedGoal : 1);
-    }
-    if (recurrence.type == RecurrenceType.monthly &&
-        recurrence.days != null &&
-        recurrence.days!.isNotEmpty) {
-      return recurrence.days!.length * (savedGoal > 0 ? savedGoal : 1);
-    }
+    // Σε κάθε άλλη περίπτωση (weekly, monthly, daily χωρίς ώρες, custom, etc.)
+    // ο στόχος ανά ημέρα είναι το savedGoal (συνήθως 1)
     return savedGoal;
   }
 
   // ══════════════════════════════════════════════════════════
   // TIME PROGRESS — για daily habits με ώρες
-  // Αποθηκεύει ποιες ώρες ολοκληρώθηκαν σήμερα
-  // key: "today_time_progress" → JSON {"08:00": true, "11:00": false}
   // ══════════════════════════════════════════════════════════
 
   Future<Map<String, bool>> _loadTodayTimeProgress(
@@ -170,8 +159,7 @@ class HabitService {
     await SuperNoteHelper.instance.properties.set(
       itemId: habitId,
       key: 'period_completions',
-      value: jsonEncode(
-          completions.map((d) => d.toIso8601String()).toList()),
+      value: jsonEncode(completions.map((d) => d.toIso8601String()).toList()),
       type: PropertyType.json,
     );
   }
@@ -189,8 +177,7 @@ class HabitService {
   Future<void> _unmarkDayCompleted(int habitId, DateTime date) async {
     final today = _dateOnly(date);
     final completions = await _loadDayCompletions(habitId);
-    final updated =
-    completions.where((d) => !_isSameDay(d, today)).toList();
+    final updated = completions.where((d) => !_isSameDay(d, today)).toList();
     if (updated.length == completions.length) return;
     await _saveDayCompletions(habitId, updated);
   }
@@ -205,8 +192,7 @@ class HabitService {
     final now = DateTime.now();
     final today = _dateOnly(now);
 
-    final lastDateStr =
-    await props.getValue(habitId, 'last_progress_date');
+    final lastDateStr = await props.getValue(habitId, 'last_progress_date');
     DateTime? lastDate;
     if (lastDateStr != null) lastDate = DateTime.tryParse(lastDateStr);
 
@@ -229,185 +215,6 @@ class HabitService {
   }
 
   // ══════════════════════════════════════════════════════════
-  // ΕΛΕΓΧΟΣ ΟΛΟΚΛΗΡΩΣΗΣ ΠΕΡΙΟΔΟΥ
-  // daily + times:   ΟΛΕΣ οι ώρες ✓ (μέσω dayCompletion)
-  // daily (no times): η ίδια η μέρα ✓
-  // weekly + days:   ΟΛΕΣ οι προγραμματισμένες μέρες ✓
-  // weekly (no days): αρκεί 1 ολοκλήρωση
-  // monthly + days:  ΟΛΕΣ οι προγραμματισμένες ημέρες ✓
-  // monthly (no days): αρκεί 1 ολοκλήρωση
-  // ══════════════════════════════════════════════════════════
-
-  bool _isPeriodComplete(
-      DateTime periodStart,
-      Recurrence recurrence,
-      Set<DateTime> completionDays,
-      ) {
-    switch (recurrence.type) {
-      case RecurrenceType.daily:
-      case RecurrenceType.custom:
-        return completionDays.contains(_dateOnly(periodStart));
-
-      case RecurrenceType.weekly:
-        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-          for (int i = 0; i < 7; i++) {
-            final day = _dateOnly(periodStart.add(Duration(days: i)));
-            if (recurrence.days!.contains(day.weekday)) {
-              if (!completionDays.contains(day)) return false;
-            }
-          }
-          return true;
-        } else {
-          for (int i = 0; i < 7; i++) {
-            if (completionDays.contains(
-                _dateOnly(periodStart.add(Duration(days: i))))) {
-              return true;
-            }
-          }
-          return false;
-        }
-
-      case RecurrenceType.monthly:
-        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-          for (final d in recurrence.days!) {
-            final targetDay =
-            _safeDay(periodStart.year, periodStart.month, d);
-            if (!completionDays.contains(_dateOnly(targetDay))) {
-              return false;
-            }
-          }
-          return true;
-        } else {
-          final daysInMonth =
-              DateTime(periodStart.year, periodStart.month + 1, 0).day;
-          for (int i = 0; i < daysInMonth; i++) {
-            if (completionDays.contains(
-                _dateOnly(periodStart.add(Duration(days: i))))) {
-              return true;
-            }
-          }
-          return false;
-        }
-    }
-  }
-
-  bool _isCurrentPeriodFailed(
-      DateTime periodStart,
-      Recurrence recurrence,
-      Set<DateTime> completionDays,
-      ) {
-    final today = _dateOnly(DateTime.now());
-
-    if (recurrence.type == RecurrenceType.weekly &&
-        recurrence.days != null &&
-        recurrence.days!.isNotEmpty) {
-      for (int i = 0; i < 7; i++) {
-        final day = _dateOnly(periodStart.add(Duration(days: i)));
-        if (day.isBefore(today) &&
-            recurrence.days!.contains(day.weekday) &&
-            !completionDays.contains(day)) {
-          return true;
-        }
-      }
-    }
-
-    if (recurrence.type == RecurrenceType.monthly &&
-        recurrence.days != null &&
-        recurrence.days!.isNotEmpty) {
-      for (final d in recurrence.days!) {
-        final targetDay =
-        _safeDay(periodStart.year, periodStart.month, d);
-        if (_dateOnly(targetDay).isBefore(today) &&
-            !completionDays.contains(_dateOnly(targetDay))) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // STREAK
-  // ══════════════════════════════════════════════════════════
-
-  DateTime _prevPeriodStart(DateTime periodStart, Recurrence recurrence) {
-    switch (recurrence.type) {
-      case RecurrenceType.daily:
-      case RecurrenceType.custom:
-        return periodStart.subtract(Duration(days: recurrence.interval));
-      case RecurrenceType.weekly:
-        return periodStart
-            .subtract(Duration(days: recurrence.interval * 7));
-      case RecurrenceType.monthly:
-        int month = periodStart.month - recurrence.interval;
-        int year = periodStart.year;
-        while (month <= 0) {
-          month += 12;
-          year--;
-        }
-        return DateTime(year, month, 1);
-    }
-  }
-
-  int _calculateStreak(
-      Recurrence recurrence, Set<DateTime> completionDays) {
-    if (completionDays.isEmpty) return 0;
-
-    final today = _dateOnly(DateTime.now());
-    int streak = 0;
-    DateTime checkPeriod = recurrence.getPeriodStart(today);
-    bool isFirstIteration = true;
-
-    for (int safety = 0; safety < 3650; safety++) {
-      final isComplete =
-      _isPeriodComplete(checkPeriod, recurrence, completionDays);
-
-      if (isComplete) {
-        streak++;
-      } else if (isFirstIteration &&
-          !_isCurrentPeriodFailed(checkPeriod, recurrence, completionDays)) {
-        // Τρέχουσα περίοδος σε εξέλιξη — δεν σπάει το streak
-      } else {
-        break;
-      }
-
-      isFirstIteration = false;
-      checkPeriod = _prevPeriodStart(checkPeriod, recurrence);
-      if (checkPeriod.year < 2000) break;
-    }
-
-    return streak;
-  }
-
-  int _countCompletedPeriods(
-      Recurrence recurrence, List<DateTime> completions) {
-    if (completions.isEmpty) return 0;
-
-    final completionDays = completions.map(_dateOnly).toSet();
-    final earliest = completions
-        .map(_dateOnly)
-        .reduce((a, b) => a.isBefore(b) ? a : b);
-    final today = _dateOnly(DateTime.now());
-
-    int count = 0;
-    DateTime checkPeriod = recurrence.getPeriodStart(earliest);
-    final limitPeriod = recurrence.getPeriodStart(today);
-
-    for (int safety = 0; safety < 10000; safety++) {
-      if (checkPeriod.isAfter(limitPeriod)) break;
-      if (_isPeriodComplete(checkPeriod, recurrence, completionDays)) {
-        count++;
-      }
-      final next = recurrence.nextPeriodStart(checkPeriod);
-      if (!next.isAfter(checkPeriod)) break;
-      checkPeriod = next;
-    }
-
-    return count;
-  }
-
-  // ══════════════════════════════════════════════════════════
   // INCREMENT — γενικό (χωρίς συγκεκριμένη ώρα)
   // ══════════════════════════════════════════════════════════
 
@@ -416,7 +223,7 @@ class HabitService {
     final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
     final savedGoal = _parseToInt(allProps['goal_per_period']);
-    final effectiveGoal = _effectiveGoal(savedGoal, recurrence);
+    final effectiveGoal = _effectiveGoal(savedGoal, recurrence); // π.χ. 1
 
     await _resetDailyIfNeeded(habitId, recurrence);
 
@@ -428,8 +235,7 @@ class HabitService {
     }
 
     dailyProgress++;
-    await props.setNumber(
-        habitId, 'daily_progress', dailyProgress.toDouble());
+    await props.setNumber(habitId, 'daily_progress', dailyProgress.toDouble());
 
     final goalMet = effectiveGoal == 0 || dailyProgress >= effectiveGoal;
     if (goalMet) {
@@ -461,8 +267,7 @@ class HabitService {
     await _saveTodayTimeProgress(habitId, timeProgress);
 
     final completedCount = timeProgress.values.where((v) => v).length;
-    await props.setNumber(
-        habitId, 'daily_progress', completedCount.toDouble());
+    await props.setNumber(habitId, 'daily_progress', completedCount.toDouble());
 
     // Αν ΟΛΕΣ οι ώρες ολοκληρώθηκαν → σημείωσε τη μέρα
     final allDone = timeProgress.values.every((v) => v);
@@ -501,8 +306,7 @@ class HabitService {
     await _saveTodayTimeProgress(habitId, timeProgress);
 
     final completedCount = timeProgress.values.where((v) => v).length;
-    await props.setNumber(
-        habitId, 'daily_progress', completedCount.toDouble());
+    await props.setNumber(habitId, 'daily_progress', completedCount.toDouble());
 
     return getStats(habitId);
   }
@@ -532,8 +336,7 @@ class HabitService {
       }
 
       dailyProgress--;
-      await props.setNumber(
-          habitId, 'daily_progress', dailyProgress.toDouble());
+      await props.setNumber(habitId, 'daily_progress', dailyProgress.toDouble());
     }
 
     return getStats(habitId);
@@ -573,7 +376,6 @@ class HabitService {
     await props.setNumber(
         habitId, 'recurrence_interval', recurrence.interval.toDouble());
 
-    // Ημέρες (weekly weekdays ή monthly day-of-month)
     if (recurrence.days != null && recurrence.days!.isNotEmpty) {
       await props.set(
         itemId: habitId,
@@ -585,7 +387,6 @@ class HabitService {
       await props.delete(habitId, 'recurrence_days');
     }
 
-    // Ώρες (daily times)
     if (recurrence.times != null && recurrence.times!.isNotEmpty) {
       await props.set(
         itemId: habitId,
@@ -597,7 +398,7 @@ class HabitService {
       await props.delete(habitId, 'recurrence_times');
     }
 
-    // Reset προόδου
+    // Reset προόδου για τη νέα περίοδο
     final periodStart = recurrence.getPeriodStart(DateTime.now());
     await props.setDate(habitId, 'period_start', periodStart);
     await props.setNumber(habitId, 'daily_progress', 0.0);
@@ -610,7 +411,7 @@ class HabitService {
   }
 
   // ══════════════════════════════════════════════════════════
-  // REMINDERS — υποστήριξη πολλαπλών ωρών
+  // REMINDERS
   // ══════════════════════════════════════════════════════════
 
   Future<void> setReminderTime(int habitId, TimeOfDay? time) async {
@@ -642,7 +443,6 @@ class HabitService {
     }
   }
 
-  /// Ορίζει πολλαπλές ώρες (για daily habits με times)
   Future<void> setReminderTimes(int habitId, List<TimeOfDay> times) async {
     final props = SuperNoteHelper.instance.properties;
 
@@ -651,8 +451,7 @@ class HabitService {
       return;
     }
 
-    DebugConfig.db(
-        '🕒 Setting ${times.length} reminders for habit $habitId');
+    DebugConfig.db('🕒 Setting ${times.length} reminders for habit $habitId');
 
     final timesStr = times
         .map((t) =>
@@ -674,8 +473,7 @@ class HabitService {
   Future<void> _scheduleReminders(
       int habitId, List<TimeOfDay> times, Recurrence recurrence) async {
     await ReminderScheduler.instance.cancelAllForItem(habitId);
-    final old =
-    await SuperNoteHelper.instance.reminders.getForItem(habitId);
+    final old = await SuperNoteHelper.instance.reminders.getForItem(habitId);
     for (final r in old) {
       await SuperNoteHelper.instance.reminders.delete(r.id);
     }
@@ -691,11 +489,9 @@ class HabitService {
       const maxPerTime = 40;
 
       while (current.isBefore(end) && count < maxPerTime) {
-        final nextOcc =
-        _nextOccurrenceForTime(recurrence, time, current);
+        final nextOcc = _nextOccurrenceForTime(recurrence, time, current);
         if (nextOcc.isAfter(now) && nextOcc.isBefore(end)) {
-          final reminder =
-          await SuperNoteHelper.instance.reminders.create(
+          final reminder = await SuperNoteHelper.instance.reminders.create(
             itemId: habitId,
             triggerAt: nextOcc,
             rrule: recurrence.toRRULE(),
@@ -725,8 +521,7 @@ class HabitService {
         recurrence.days != null &&
         recurrence.days!.isNotEmpty) {
       int safety = 0;
-      while (!recurrence.days!.contains(candidate.weekday) &&
-          safety < 8) {
+      while (!recurrence.days!.contains(candidate.weekday) && safety < 8) {
         candidate = candidate.add(const Duration(days: 1));
         safety++;
       }
@@ -781,25 +576,42 @@ class HabitService {
       await _loadTodayTimeProgress(habitId, recurrence.times!);
     }
 
-    // Ποσοστό προόδου
-    final double progressPercent;
-    if (effectiveGoal > 0) {
-      progressPercent =
-          (dailyProgress / effectiveGoal * 100).clamp(0.0, 100.0);
+    // Ποσοστό προόδου για την τρέχουσα ημέρα
+    double progressPercent = 0.0;
+// Υπολογισμός εβδομαδιαίας προόδου (για weekly habits)
+    if (recurrence.type == RecurrenceType.weekly && recurrence.days != null && recurrence.days!.isNotEmpty) {
+      final now = DateTime.now();
+      final periodStart = recurrence.getPeriodStart(now);
+      int totalDaysInPeriod = recurrence.days!.length;
+      int completedDaysInPeriod = 0;
+      for (int i = 0; i < 7; i++) {
+        final day = _dateOnly(periodStart.add(Duration(days: i)));
+        if (recurrence.days!.contains(day.weekday)) {
+          if (completionDays.contains(day)) {
+            completedDaysInPeriod++;
+          }
+        }
+      }
+      if (totalDaysInPeriod > 0) {
+        progressPercent = (completedDaysInPeriod / totalDaysInPeriod * 100).clamp(0.0, 100.0);
+      }
     } else {
-      progressPercent = dailyProgress > 0 ? 100.0 : 0.0;
+      // Παλιός τρόπος για daily/monthly/custom
+      if (effectiveGoal > 0) {
+        progressPercent = (dailyProgress / effectiveGoal * 100).clamp(0.0, 100.0);
+      } else {
+        progressPercent = dailyProgress > 0 ? 100.0 : 0.0;
+      }
     }
 
     final streak = _calculateStreak(recurrence, completionDays);
-    final completedCount =
-    _countCompletedPeriods(recurrence, completions);
+    final completedCount = _countCompletedPeriods(recurrence, completions);
 
     final bestStr = allProps['best_streak'];
     int bestStreak = _parseToInt(bestStr);
     if (streak > bestStreak) {
       bestStreak = streak;
-      await props.setNumber(
-          habitId, 'best_streak', bestStreak.toDouble());
+      await props.setNumber(habitId, 'best_streak', bestStreak.toDouble());
     }
 
     final lastCompleted = completions.isNotEmpty
@@ -820,5 +632,171 @@ class HabitService {
       recurrence: recurrence,
       todayTimeProgress: todayTimeProgress,
     );
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // ΒΟΗΘΗΤΙΚΕΣ ΓΙΑ STREAK ΚΑΙ PERIOD CHECK
+  // ══════════════════════════════════════════════════════════
+
+  bool _isPeriodComplete(
+      DateTime periodStart,
+      Recurrence recurrence,
+      Set<DateTime> completionDays,
+      ) {
+    switch (recurrence.type) {
+      case RecurrenceType.daily:
+      case RecurrenceType.custom:
+        return completionDays.contains(_dateOnly(periodStart));
+
+      case RecurrenceType.weekly:
+        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
+          for (int i = 0; i < 7; i++) {
+            final day = _dateOnly(periodStart.add(Duration(days: i)));
+            if (recurrence.days!.contains(day.weekday)) {
+              if (!completionDays.contains(day)) return false;
+            }
+          }
+          return true;
+        } else {
+          for (int i = 0; i < 7; i++) {
+            if (completionDays.contains(
+                _dateOnly(periodStart.add(Duration(days: i))))) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+      case RecurrenceType.monthly:
+        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
+          for (final d in recurrence.days!) {
+            final targetDay = _safeDay(periodStart.year, periodStart.month, d);
+            if (!completionDays.contains(_dateOnly(targetDay))) {
+              return false;
+            }
+          }
+          return true;
+        } else {
+          final daysInMonth =
+              DateTime(periodStart.year, periodStart.month + 1, 0).day;
+          for (int i = 0; i < daysInMonth; i++) {
+            if (completionDays.contains(
+                _dateOnly(periodStart.add(Duration(days: i))))) {
+              return true;
+            }
+          }
+          return false;
+        }
+    }
+  }
+
+  bool _isCurrentPeriodFailed(
+      DateTime periodStart,
+      Recurrence recurrence,
+      Set<DateTime> completionDays,
+      ) {
+    final today = _dateOnly(DateTime.now());
+
+    if (recurrence.type == RecurrenceType.weekly &&
+        recurrence.days != null &&
+        recurrence.days!.isNotEmpty) {
+      for (int i = 0; i < 7; i++) {
+        final day = _dateOnly(periodStart.add(Duration(days: i)));
+        if (day.isBefore(today) &&
+            recurrence.days!.contains(day.weekday) &&
+            !completionDays.contains(day)) {
+          return true;
+        }
+      }
+    }
+
+    if (recurrence.type == RecurrenceType.monthly &&
+        recurrence.days != null &&
+        recurrence.days!.isNotEmpty) {
+      for (final d in recurrence.days!) {
+        final targetDay = _safeDay(periodStart.year, periodStart.month, d);
+        if (_dateOnly(targetDay).isBefore(today) &&
+            !completionDays.contains(_dateOnly(targetDay))) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  DateTime _prevPeriodStart(DateTime periodStart, Recurrence recurrence) {
+    switch (recurrence.type) {
+      case RecurrenceType.daily:
+      case RecurrenceType.custom:
+        return periodStart.subtract(Duration(days: recurrence.interval));
+      case RecurrenceType.weekly:
+        return periodStart.subtract(Duration(days: recurrence.interval * 7));
+      case RecurrenceType.monthly:
+        int month = periodStart.month - recurrence.interval;
+        int year = periodStart.year;
+        while (month <= 0) {
+          month += 12;
+          year--;
+        }
+        return DateTime(year, month, 1);
+    }
+  }
+
+  int _calculateStreak(
+      Recurrence recurrence, Set<DateTime> completionDays) {
+    if (completionDays.isEmpty) return 0;
+
+    final today = _dateOnly(DateTime.now());
+    int streak = 0;
+    DateTime checkPeriod = recurrence.getPeriodStart(today);
+    bool isFirstIteration = true;
+
+    for (int safety = 0; safety < 3650; safety++) {
+      final isComplete =
+      _isPeriodComplete(checkPeriod, recurrence, completionDays);
+
+      if (isComplete) {
+        streak++;
+      } else if (isFirstIteration &&
+          !_isCurrentPeriodFailed(checkPeriod, recurrence, completionDays)) {
+        // τρέχουσα περίοδος σε εξέλιξη — δεν σπάει το streak
+      } else {
+        break;
+      }
+
+      isFirstIteration = false;
+      checkPeriod = _prevPeriodStart(checkPeriod, recurrence);
+      if (checkPeriod.year < 2000) break;
+    }
+
+    return streak;
+  }
+
+  int _countCompletedPeriods(
+      Recurrence recurrence, List<DateTime> completions) {
+    if (completions.isEmpty) return 0;
+
+    final completionDays = completions.map(_dateOnly).toSet();
+    final earliest = completions
+        .map(_dateOnly)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final today = _dateOnly(DateTime.now());
+
+    int count = 0;
+    DateTime checkPeriod = recurrence.getPeriodStart(earliest);
+    final limitPeriod = recurrence.getPeriodStart(today);
+
+    for (int safety = 0; safety < 10000; safety++) {
+      if (checkPeriod.isAfter(limitPeriod)) break;
+      if (_isPeriodComplete(checkPeriod, recurrence, completionDays)) {
+        count++;
+      }
+      final next = recurrence.nextPeriodStart(checkPeriod);
+      if (!next.isAfter(checkPeriod)) break;
+      checkPeriod = next;
+    }
+
+    return count;
   }
 }

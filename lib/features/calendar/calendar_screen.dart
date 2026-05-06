@@ -188,6 +188,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
             key: _listKey,
             itemType: ItemType.event,
             folderId: selectedFolderId,
+            showFolderSelector: false,
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
             ),
@@ -228,6 +229,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
             key: _listKey,
             itemType: ItemType.event,
             folderId: selectedFolderId,
+            showFolderSelector: false,
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
             ),

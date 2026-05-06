@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/item.dart';
 import '../services/habit_service.dart';
 import 'db_provider.dart';
-import '../core/utils/debug_config.dart';
 
 // Real-time habit (Item) by id
 final habitStreamProvider =

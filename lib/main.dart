@@ -13,13 +13,12 @@ void main() async {
   await initializeDateFormatting('el');
   DebugConfig.startup('App started');
 
-  // ✅ Sequential — το Isar δεν τα πάει καλά με παραλληλισμό
-  await SuperNoteHelper.init();
-  DebugConfig.startup('DB initialized');
-
-  // ✅ Notifications init (περιέχει ήδη initializeTimeZones εσωτερικά)
-  await NotificationService.instance.init();
-  DebugConfig.startup('Notifications initialized');
+  // ✅ Παράλληλη εκτέλεση — Isar και Notifications μαζί
+  await Future.wait([
+    SuperNoteHelper.init(),
+    NotificationService.instance.init(),
+  ]);
+  DebugConfig.startup('DB and Notifications initialized');
 
   final container = ProviderContainer();
   DebugConfig.startup('ProviderContainer created');
