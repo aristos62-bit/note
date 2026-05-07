@@ -183,7 +183,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
     DebugConfig.nav('Collections: create in folder id=$selectedFolderId');
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.project,
-      title: 'Νέα Συλλογή',
+      // title: 'Νέα Συλλογή',
       folderId: selectedFolderId,
     );
     if (item == null || !mounted) return;
@@ -246,10 +246,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
         ],
       ),
       floatingActionButton: selectedFolderId != null
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
         onPressed: _createCollection,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Νέα Συλλογή'),
+        tooltip: 'Νέα Συλλογή',
+        child: const Icon(Icons.add_rounded),
       )
           : null,
       body: Column(
@@ -418,7 +418,9 @@ class _CollectionsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Auto-detect: mobile→2, tablet/desktop→gridColumns+1
-    final cols = context.gridColumns == 1 ? 2 : context.gridColumns + 1;
+    final cols = context.gridColumns == 1
+        ? 3
+        : (context.gridColumns == 2 ? 4 : 6);
 
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(
@@ -431,7 +433,7 @@ class _CollectionsGrid extends StatelessWidget {
         crossAxisCount: cols,
         mainAxisSpacing: Spacing.md,
         crossAxisSpacing: Spacing.md,
-        mainAxisExtent: 150,
+        childAspectRatio: 1,
       ),
       itemCount: collections.length,
       itemBuilder: (_, i) => _DraggableCollectionCard(
@@ -478,38 +480,45 @@ class _DraggableCollectionCard extends ConsumerWidget {
         border: Border.all(color: accentColor.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(Spacing.md),
+        padding: const EdgeInsets.all(Spacing.xs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // Πάνω γραμμή: εικονίδιο αριστερά, μενού δεξιά
             Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 26,
+                  height: 26,
                   decoration: BoxDecoration(
                     color: accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
-                  child: Center(child: Text(icon, style: const TextStyle(fontSize: 22))),
+                  child: Center(child: Text(icon, style: const TextStyle(fontSize: 18))),
                 ),
-                const SizedBox(height: 4),
+                const Spacer(),
                 GestureDetector(
                   onTap: () => _showActions(context, ref),
                   child: Icon(Icons.more_vert_rounded, size: 18, color: secondaryForeground),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: Spacing.xs), // 4
             Text(
               item.title ?? 'Χωρίς τίτλο',
-              style: context.titleSm.copyWith(color: foregroundColor),
+              style: context.bodyLg.copyWith(
+                color: foregroundColor,
+                fontWeight: FontWeight.w500,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-            Text('${counts[item.id] ?? 0} εγγραφές'),
+            const SizedBox(height: Spacing.xs),
+            Text(
+              '${counts[item.id] ?? 0} εγγραφές',
+              style: context.labelSm.copyWith(color: secondaryForeground),
+            ),
           ],
         ),
       ),
@@ -550,28 +559,46 @@ class _DraggableCollectionCard extends ConsumerWidget {
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: context.cBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
-              child: Text(item.title ?? 'Χωρίς τίτλο', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                item.title ?? 'Χωρίς τίτλο',
+                style: context.titleSm,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.tune_rounded),
               title: const Text('Επεξεργασία συλλογής'),
-              onTap: () { Navigator.pop(context); onEdit(); },
+              onTap: () {
+                Navigator.pop(context);
+                onEdit();
+              },
             ),
             ListTile(
               leading: const Icon(Icons.open_in_new_rounded),
               title: const Text('Άνοιγμα'),
-              onTap: () { Navigator.pop(context); onTap(); },
+              onTap: () {
+                Navigator.pop(context);
+                onTap();
+              },
             ),
             ListTile(
               leading: Icon(Icons.delete_outline_rounded, color: context.cError),
               title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
-              onTap: () { Navigator.pop(context); onDelete(); },
+              onTap: () {
+                Navigator.pop(context);
+                onDelete();
+              },
             ),
             const SizedBox(height: Spacing.sm),
           ],

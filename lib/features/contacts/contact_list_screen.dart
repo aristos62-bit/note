@@ -112,7 +112,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
           ? FloatingActionButton(
         onPressed: _createContact,
         tooltip: 'Νέα επαφή',
-        child: const Icon(Icons.person_add_rounded),
+        child: const Icon(Icons.add_rounded),
       )
           : null,
       body: Column(

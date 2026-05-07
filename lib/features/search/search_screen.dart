@@ -207,6 +207,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final fields = FieldDef.listFromJson(schemaJson);
 
     if (mounted) {
+      if (!context.mounted)return;
       Navigator.of(context).push(
         AppTransitions.slideRoute(
           CollectionEntryDetailScreen(

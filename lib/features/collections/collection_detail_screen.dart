@@ -2,6 +2,8 @@
 //
 // Δημιουργία/επεξεργασία συλλογής: όνομα, εικονίδιο, χρώμα, πεδία.
 // ✅ Save pattern ίδιο με NoteDetailScreen (isNew + manual save)
+// ✅ Auto‑save στον τίτλο όταν πατάς back (αν υπάρχει τίτλος)
+// ✅ Auto‑save και κατά την επεξεργασία (αν υπάρχουν αλλαγές)
 // ✅ Favorite toggle στο AppBar
 // ✅ Dark mode
 // ✅ DebugConfig
@@ -51,6 +53,10 @@ class _CollectionDetailScreenState
   bool   _isEditingTitle   = false;
   String _lastSavedTitle   = '';
   bool   _hasEverBeenSaved = false;
+  bool   _isAutoSaving     = false;
+
+  // Ανίχνευση αλλαγών για επεξεργασία
+  bool   _hasChanges       = false;
 
   // Favorite state
   bool _isFavorite = false;
@@ -77,43 +83,58 @@ class _CollectionDetailScreenState
 
   // ── Save ─────────────────────────────────────────────────────
 
-  void _onTitleChanged(String _) => _isEditingTitle = true;
+  void _onTitleChanged(String _) {
+    _isEditingTitle = true;
+    _hasChanges = true;
+  }
 
   Future<void> _save() async {
-    if (!mounted) return;
-    final title = _titleCtrl.text.trim();
-
+    debugPrint('💾 _save() START');
+    if (_isSaving) {
+      debugPrint('   already saving, exit');
+      return;
+    }
     setState(() => _isSaving = true);
-    DebugConfig.db('CollectionDetail save id=${widget.collectionId} '
-        'title="$title" fields=${_fields.length}');
+    final title = _titleCtrl.text.trim();
+    debugPrint('   saving title = "$title"');
+    debugPrint('   fields count = ${_fields.length}');
 
     // 1. Τίτλος
+    debugPrint('   → updating item title...');
     await ref.read(itemNotifierProvider.notifier)
         .updateItem(widget.collectionId,
         title: title.isEmpty ? 'Νέα Συλλογή' : title);
+    debugPrint('   → title updated');
 
-    // 2. Schema (JSON)
+    // 2. Schema
+    debugPrint('   → saving schema...');
     await ref.read(propertyNotifierProvider(widget.collectionId).notifier)
         .setText('schema', FieldDef.listToJson(_fields));
+    debugPrint('   → schema saved');
 
-    // 3. Icon + color ως properties
+    // 3. Icon + color
+    debugPrint('   → saving icon and color...');
     await ref.read(propertyNotifierProvider(widget.collectionId).notifier)
         .setText('icon', _icon);
     await ref.read(propertyNotifierProvider(widget.collectionId).notifier)
         .setText('color', _color);
+    debugPrint('   → icon/color saved');
 
-    // 4. Ενημέρωσε και το item.icon + item.color αν υπάρχουν
+    // 4. Refresh item metadata
+    debugPrint('   → refreshing item metadata...');
     await ref.read(itemNotifierProvider.notifier)
         .updateItem(widget.collectionId);
+    debugPrint('   → metadata refreshed');
 
     _lastSavedTitle   = title;
     _hasEverBeenSaved = true;
     _isEditingTitle   = false;
+    _hasChanges       = false;   // ← reset after save
 
     if (!mounted) return;
     setState(() => _isSaving = false);
     ref.invalidate(itemNotifierProvider);
-    DebugConfig.db('CollectionDetail saved');
+    debugPrint('💾 _save() END - saved successfully');
   }
 
   // ── Favorite toggle ─────────────────────────────────────────
@@ -126,15 +147,39 @@ class _CollectionDetailScreenState
     ref.invalidate(itemNotifierProvider);
   }
 
-  // ── Pop guard ────────────────────────────────────────────────
+  // ── Pop guard (με auto‑save) ────────────────────────────────
 
   Future<bool> _onPopInvoked() async {
+    debugPrint('🔍 _onPopInvoked CALLED');
+    debugPrint('   widget.isNew = ${widget.isNew}');
+    debugPrint('   _hasEverBeenSaved = $_hasEverBeenSaved');
+    debugPrint('   _hasChanges = $_hasChanges');
+    final title = _titleCtrl.text.trim();
+    debugPrint('   current title = "$title"');
+
+    // Αν είναι νέο και δεν έχει αποθηκευτεί ποτέ
     if (widget.isNew && !_hasEverBeenSaved) {
-      DebugConfig.db(
-          'CollectionDetail auto-delete NEW id=${widget.collectionId}');
-      await ref.read(itemNotifierProvider.notifier)
-          .deleteItem(widget.collectionId);
+      if (title.isNotEmpty) {
+        debugPrint('   → new item with title, auto-saving');
+        if (!_isAutoSaving) {
+          _isAutoSaving = true;
+          await _save();
+          _isAutoSaving = false;
+        }
+      } else {
+        debugPrint('   → new item without title, deleting');
+        await ref.read(itemNotifierProvider.notifier)
+            .deleteItem(widget.collectionId);
+      }
       return true;
+    }
+
+    // Για υπάρχουσες συλλογές: αποθήκευση μόνο αν υπάρχουν αλλαγές
+    if (_hasChanges) {
+      debugPrint('   → changes detected, auto-saving');
+      await _save();
+    } else {
+      debugPrint('   → no changes, just pop');
     }
     return true;
   }
@@ -143,14 +188,17 @@ class _CollectionDetailScreenState
 
   void _addField() {
     _showFieldEditor(null, -1);
+    _hasChanges = true;
   }
 
   void _editField(int index) {
     _showFieldEditor(_fields[index], index);
+    _hasChanges = true;
   }
 
   void _removeField(int index) {
     setState(() => _fields.removeAt(index));
+    _hasChanges = true;
   }
 
   void _reorderFields(int oldIndex, int newIndex) {
@@ -159,6 +207,7 @@ class _CollectionDetailScreenState
       final f = _fields.removeAt(oldIndex);
       _fields.insert(newIndex, f);
     });
+    _hasChanges = true;
   }
 
   void _showFieldEditor(FieldDef? existing, int index) {
@@ -257,7 +306,7 @@ class _CollectionDetailScreenState
                 }).toList(),
               ),
 
-              // Options για select
+              // Options for select
               if (selectedType == FieldType.select) ...[
                 const SizedBox(height: Spacing.md),
                 TextField(
@@ -295,7 +344,7 @@ class _CollectionDetailScreenState
                           .replaceAll(' ', '_')
                           .replaceAll(RegExp(r'[^a-z0-9_]'), '');
                       if (key.isEmpty) key = 'field_${DateTime.now().millisecondsSinceEpoch}';
-                  // Επίσης, αν υπάρχει ήδη ίδιο key, πρόσθεσε timestamp
+                      // Avoid duplicate keys
                       while (_fields.any((f) => f.key == key)) {
                         key = '${key}_${DateTime.now().millisecondsSinceEpoch}';
                       }
@@ -371,7 +420,7 @@ class _CollectionDetailScreenState
           _isFavorite = item.favorite;
         }
 
-        // Sync schema από DB (μόνο μια φορά)
+        // Sync schema from DB only once
         final propsAsync = ref.watch(itemPropertiesProvider(item.id));
         final props      = propsAsync.valueOrNull ?? [];
         if (!_schemaLoaded && props.isNotEmpty) {
@@ -385,15 +434,24 @@ class _CollectionDetailScreenState
           if (icon  != null) _icon  = icon;
           if (color != null) _color = color;
           _schemaLoaded = true;
+          // Reset changes flag after loading existing data
+          _hasChanges = false;
         }
 
         return PopScope(
           canPop: false,
-          onPopInvokedWithResult: (didPop, _) async {
+          onPopInvokedWithResult: (didPop, result) async {
+            debugPrint('🚪 PopScope invoked, didPop=$didPop');
             if (didPop) return;
-            final nav    = Navigator.of(context);
             final canPop = await _onPopInvoked();
-            if (canPop) nav.pop();
+            if (!mounted) return;
+            if (canPop) {
+              debugPrint('🚪 Actually popping screen');
+              if (!context.mounted)return;
+              Navigator.of(context).pop();
+            } else {
+              debugPrint('🚪 Pop denied');
+            }
           },
           child: Scaffold(
             backgroundColor: context.cBg,
@@ -527,7 +585,10 @@ class _CollectionDetailScreenState
                 'FF${hex.replaceAll('#', '')}', radix: 16));
             final isActive = _color == hex;
             return GestureDetector(
-              onTap: () => setState(() => _color = hex),
+              onTap: () {
+                setState(() => _color = hex);
+                _hasChanges = true;
+              },
               child: AnimatedContainer(
                 duration: AppDuration.fast,
                 width:  36, height: 36,
@@ -663,7 +724,10 @@ class _CollectionDetailScreenState
               spacing: Spacing.md, runSpacing: Spacing.md,
               children: _kIcons.map((emoji) => GestureDetector(
                 onTap: () {
-                  setState(() => _icon = emoji);
+                  setState(() {
+                    _icon = emoji;
+                    _hasChanges = true;
+                  });
                   Navigator.pop(context);
                 },
                 child: Container(
