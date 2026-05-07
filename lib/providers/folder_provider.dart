@@ -62,6 +62,13 @@ final foldersProvider = FutureProvider<List<Folder>>((ref) async {
   return await ref.watch(foldersStreamProvider.future);
 });
 
+// ─── 🆕 ΚΕΝΤΡΙΚΟ PROVIDER ΓΙΑ ΤΟ ΕΠΙΛΕΓΜΕΝΟ FOLDER ──────────────────
+/// Το id του φακέλου που έχει επιλέξει ο χρήστης ή έχει προεπιλεγεί.
+/// Όλες οι οθόνες και ο DraggableFolderSelector διαβάζουν από εδώ.
+final selectedFolderIdProvider = StateProvider<int?>((ref) => null);
+
+// ─────────────────────────────────────────────────────────────────────
+
 /// Notifier για CRUD operations σε folders
 class FolderNotifier extends AsyncNotifier<List<Folder>> {
   @override
@@ -91,8 +98,6 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
     ref.invalidate(foldersStreamProvider);
     ref.invalidate(foldersProvider);
   }
-
-  // lib/providers/folder_provider.dart (απόσπασμα – μόνο η αλλαγμένη μέθοδος)
 
   Future<void> delete(int id) async {
     final db = ref.read(dbProvider);

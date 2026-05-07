@@ -9,6 +9,7 @@
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
 // ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθώθηκε)
 // ✅ Search, tags (όπως το ItemListScreen)
+// ✅ Fix: κλείδωμα pop κατά το drag (αποφυγή ανεπιθύμητου back gesture)
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -89,6 +90,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   }
 
   Future<void> _createTask() async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
     DebugConfig.nav('TaskList: create task in folder id=$selectedFolderId');
 
     final item = await ref.read(itemNotifierProvider.notifier).create(
@@ -164,6 +166,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     final activeTags     = ref.watch(_taskTagFilterProvider);
     final foldersAsync   = ref.watch(foldersStreamProvider);
     final settingsAsync  = ref.watch(settingsNotifierProvider); // ✅ περιμένουμε settings
+    final isDragging = ref.watch(isDraggingProvider);
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
@@ -171,221 +175,210 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       debugLabel: 'TaskList',
     );
 
-    return Scaffold(
-      backgroundColor: context.cBg,
-      appBar: _buildAppBar(),
-      floatingActionButton: selectedFolderId == null
-          ? null
-          : FloatingActionButton(
-        onPressed: _createTask,
-        tooltip:   'Νέα εργασία',
-        child:     const Icon(Icons.add_rounded),
-      ),
-      body: Column(
-        children: [
-          if (_searchActive)
-            _SearchBar(
-              controller: _searchCtrl,
-              focusNode:  _searchFocus,
-              onChanged:  (value) {
-                setState(() {});
-                _onSearchChanged(value);
+    return PopScope( // 🆕 κλείδωμα pop κατά το drag
+      canPop: !isDragging,
+      child: Scaffold(
+        backgroundColor: context.cBg,
+        appBar: _buildAppBar(),
+        floatingActionButton: selectedFolderId == null
+            ? null
+            : FloatingActionButton(
+          onPressed: _createTask,
+          tooltip:   'Νέα εργασία',
+          child:     const Icon(Icons.add_rounded),
+        ),
+        body: Column(
+          children: [
+            if (_searchActive)
+              _SearchBar(
+                controller: _searchCtrl,
+                focusNode:  _searchFocus,
+                onChanged:  (value) {
+                  setState(() {});
+                  _onSearchChanged(value);
+                },
+              ),
+
+            const DraggableFolderSelector(),
+
+            _FilterRow(
+              statusFilter:   statusFilter,
+              priorityFilter: priorityFilter,
+              onStatusTap: (s) {
+                final cur = ref.read(_statusFilterProvider);
+                ref.read(_statusFilterProvider.notifier).state = cur == s ? null : s;
+                DebugConfig.provider('TaskList statusFilter: ${s.name}');
+              },
+              onPriorityTap: (p) {
+                final cur = ref.read(_priorityFilterProvider);
+                ref.read(_priorityFilterProvider.notifier).state = cur == p ? null : p;
+                DebugConfig.provider('TaskList priorityFilter: ${p.name}');
               },
             ),
 
-          foldersAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error:   (_, __) => const SizedBox.shrink(),
-            data: (folders) {
-              if (folders.isEmpty) return const SizedBox.shrink();
-              return DraggableFolderSelector(
-                folders: folders,
-                selectedFolderId: selectedFolderId,
-                onSelectFolder: (id) {
-                  onUserSelectFolder(id);
-                  DebugConfig.nav('TaskList: select folder id=$id');
-                },
-              );
-            },
-          ),
-
-          _FilterRow(
-            statusFilter:   statusFilter,
-            priorityFilter: priorityFilter,
-            onStatusTap: (s) {
-              final cur = ref.read(_statusFilterProvider);
-              ref.read(_statusFilterProvider.notifier).state = cur == s ? null : s;
-              DebugConfig.provider('TaskList statusFilter: ${s.name}');
-            },
-            onPriorityTap: (p) {
-              final cur = ref.read(_priorityFilterProvider);
-              ref.read(_priorityFilterProvider.notifier).state = cur == p ? null : p;
-              DebugConfig.provider('TaskList priorityFilter: ${p.name}');
-            },
-          ),
-
-          if (_visibleTagNames.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    context.responsiveHPadding, 0,
-                    context.responsiveHPadding, Spacing.xs,
+            if (_visibleTagNames.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      context.responsiveHPadding, 0,
+                      context.responsiveHPadding, Spacing.xs,
+                    ),
+                    child: Text(
+                      'Επιλέξτε tag για φιλτράρισμα εργασιών',
+                      style: context.labelSm.withColor(context.cText2),
+                    ),
                   ),
-                  child: Text(
-                    'Επιλέξτε tag για φιλτράρισμα εργασιών',
-                    style: context.labelSm.withColor(context.cText2),
+                  SizedBox(
+                    height: 40,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.responsiveHPadding),
+                      itemCount:        _visibleTagNames.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
+                      itemBuilder: (_, i) {
+                        final name     = _visibleTagNames.elementAt(i);
+                        final selected = activeTags.contains(name);
+                        return TagChip(
+                          name:     name,
+                          color:    null,
+                          compact:  true,
+                          selected: selected,
+                          onTap: () {
+                            final current = ref.read(_taskTagFilterProvider);
+                            final newSet  = {...current};
+                            if (newSet.contains(name)) {
+                              newSet.remove(name);
+                            } else {
+                              newSet.add(name);
+                            }
+                            ref.read(_taskTagFilterProvider.notifier).state = newSet;
+                          },
+                        );
+                      },
+                    ),
                   ),
-                ),
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: context.responsiveHPadding),
-                    itemCount:        _visibleTagNames.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-                    itemBuilder: (_, i) {
-                      final name     = _visibleTagNames.elementAt(i);
-                      final selected = activeTags.contains(name);
-                      return TagChip(
-                        name:     name,
-                        color:    null,
-                        compact:  true,
-                        selected: selected,
-                        onTap: () {
-                          final current = ref.read(_taskTagFilterProvider);
-                          final newSet  = {...current};
-                          if (newSet.contains(name)) {
-                            newSet.remove(name);
-                          } else {
-                            newSet.add(name);
-                          }
-                          ref.read(_taskTagFilterProvider.notifier).state = newSet;
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
 
-          const ViewModeToggle(),
+            const ViewModeToggle(),
 
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(itemsStreamProvider),
-              child: itemsAsync.when(
-                loading: () => _LoadingList(),
-                error: (e, _) {
-                  DebugConfig.error('TaskList load failed', e);
-                  return EmptyState.error(
-                    onRetry: () => ref.invalidate(itemsStreamProvider),
-                  );
-                },
-                data: (allItems) {
-                  var tasks = allItems
-                      .where((i) => i.type == ItemType.task)
-                      .toList();
-
-                  final viewMode = ref.watch(listViewModeProvider);
-                  switch (viewMode) {
-                    case ListViewMode.pinned:
-                      tasks = tasks.where((t) => t.pinned).toList();
-                      break;
-                    case ListViewMode.favorites:
-                      tasks = tasks.where((t) => t.favorite).toList();
-                      break;
-                    case ListViewMode.all:
-                      break;
-                  }
-
-                  if (selectedFolderId != null) {
-                    tasks = tasks
-                        .where((t) => t.folderId == selectedFolderId)
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async => ref.invalidate(itemsStreamProvider),
+                child: itemsAsync.when(
+                  loading: () => _LoadingList(),
+                  error: (e, _) {
+                    DebugConfig.error('TaskList load failed', e);
+                    return EmptyState.error(
+                      onRetry: () => ref.invalidate(itemsStreamProvider),
+                    );
+                  },
+                  data: (allItems) {
+                    var tasks = allItems
+                        .where((i) => i.type == ItemType.task)
                         .toList();
-                  }
 
-                  if (searchQuery.isNotEmpty) {
-                    final q = searchQuery.toLowerCase();
-                    tasks = tasks
-                        .where((t) =>
-                        (t.title ?? '').toLowerCase().contains(q))
-                        .toList();
-                  }
+                    final viewMode = ref.watch(listViewModeProvider);
+                    switch (viewMode) {
+                      case ListViewMode.pinned:
+                        tasks = tasks.where((t) => t.pinned).toList();
+                        break;
+                      case ListViewMode.favorites:
+                        tasks = tasks.where((t) => t.favorite).toList();
+                        break;
+                      case ListViewMode.all:
+                        break;
+                    }
 
-                  if (statusFilter != null) {
-                    tasks = tasks
-                        .where((t) => t.status == statusFilter)
-                        .toList();
-                  }
+                    if (selectedFolderId != null) {
+                      tasks = tasks
+                          .where((t) => t.folderId == selectedFolderId)
+                          .toList();
+                    }
 
-                  if (priorityFilter != null) {
-                    tasks = tasks
-                        .where((t) => t.priority == priorityFilter)
-                        .toList();
-                  }
+                    if (searchQuery.isNotEmpty) {
+                      final q = searchQuery.toLowerCase();
+                      tasks = tasks
+                          .where((t) =>
+                          (t.title ?? '').toLowerCase().contains(q))
+                          .toList();
+                    }
 
-                  if (activeTags.isNotEmpty) {
-                    tasks = tasks.where((task) {
+                    if (statusFilter != null) {
+                      tasks = tasks
+                          .where((t) => t.status == statusFilter)
+                          .toList();
+                    }
+
+                    if (priorityFilter != null) {
+                      tasks = tasks
+                          .where((t) => t.priority == priorityFilter)
+                          .toList();
+                    }
+
+                    if (activeTags.isNotEmpty) {
+                      tasks = tasks.where((task) {
+                        final tagsAsync =
+                            ref.watch(itemTagsProvider(task.id)).valueOrNull ?? [];
+                        return tagsAsync
+                            .any((tag) => activeTags.contains(tag.name));
+                      }).toList();
+                    }
+
+                    final visibleTagNames = <String>{};
+                    for (final task in tasks) {
                       final tagsAsync =
                           ref.watch(itemTagsProvider(task.id)).valueOrNull ?? [];
-                      return tagsAsync
-                          .any((tag) => activeTags.contains(tag.name));
-                    }).toList();
-                  }
-
-                  final visibleTagNames = <String>{};
-                  for (final task in tasks) {
-                    final tagsAsync =
-                        ref.watch(itemTagsProvider(task.id)).valueOrNull ?? [];
-                    for (final tag in tagsAsync) {
-                      visibleTagNames.add(tag.name);
+                      for (final tag in tagsAsync) {
+                        visibleTagNames.add(tag.name);
+                      }
                     }
-                  }
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    if (!const SetEquality<String>()
-                        .equals(_visibleTagNames, visibleTagNames)) {
-                      setState(() => _visibleTagNames = visibleTagNames);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      if (!const SetEquality<String>()
+                          .equals(_visibleTagNames, visibleTagNames)) {
+                        setState(() => _visibleTagNames = visibleTagNames);
+                      }
+                    });
+
+                    if (tasks.isEmpty) {
+                      final hasFilters = searchQuery.isNotEmpty ||
+                          statusFilter   != null ||
+                          priorityFilter != null ||
+                          activeTags.isNotEmpty;
+
+                      if (hasFilters) {
+                        return EmptyState.search(query: searchQuery);
+                      }
+                      return EmptyState.forType(
+                        ItemType.task,
+                        onAction: _createTask,
+                      );
                     }
-                  });
 
-                  if (tasks.isEmpty) {
-                    final hasFilters = searchQuery.isNotEmpty ||
-                        statusFilter   != null ||
-                        priorityFilter != null ||
-                        activeTags.isNotEmpty;
-
-                    if (hasFilters) {
-                      return EmptyState.search(query: searchQuery);
-                    }
-                    return EmptyState.forType(
-                      ItemType.task,
-                      onAction: _createTask,
-                    );
-                  }
-
-                  return Column(
-                    children: [
-                      _StatsBar(tasks: tasks),
-                      Expanded(
-                        child: _TaskListBody(
-                          tasks:        tasks,
-                          onTap:        (item) => _openDetail(item.id),
-                          onLongPress:  (item) =>
-                              _showItemActions(context, item),
-                          onToggleDone: _toggleDone,
+                    return Column(
+                      children: [
+                        _StatsBar(tasks: tasks),
+                        Expanded(
+                          child: _TaskListBody(
+                            tasks:        tasks,
+                            onTap:        (item) => _openDetail(item.id),
+                            onLongPress:  (item) =>
+                                _showItemActions(context, item),
+                            onToggleDone: _toggleDone,
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -601,36 +594,17 @@ class _TaskCard extends ConsumerWidget {
     final tagsAsync = ref.watch(itemTagsProvider(item.id));
     final tagNames = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
 
-    final card = ItemCard(
-      item: item,
-      dueDate: dueDate,
-      tagNames: tagNames,
-      compact: context.isMobile,
-      onTap: onTap,
-      onLongPress: onLongPress,
-      onCheckboxChanged: (_) => onToggleDone(),
-    );
-
-    return Draggable<int>(
-      data: item.id,
-      onDragStarted: () {
-        DebugConfig.db('🔥 DRAG STARTED for task id=${item.id}');
-      },
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: card,
-        ),
+    return DraggableItemWrapper(
+      itemId: item.id,
+      child: ItemCard(
+        item: item,
+        dueDate: dueDate,
+        tagNames: tagNames,
+        compact: context.isMobile,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        onCheckboxChanged: (_) => onToggleDone(),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: card,
-        ),
-      ),
-      child: card,
     );
   }
 }

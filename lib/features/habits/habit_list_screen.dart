@@ -67,6 +67,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
   }
 
   Future<void> _createHabit() async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
     final notifier = ref.read(itemNotifierProvider.notifier);
     final item = await notifier.create(type: ItemType.habit, folderId: selectedFolderId);
@@ -98,6 +99,9 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
+    // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
       settingsAsync: settingsAsync,
@@ -122,21 +126,8 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
               focusNode: _searchFocus,
               onChanged: _onSearchChanged,
             ),
-          foldersAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (folders) {
-              if (folders.isEmpty) return const SizedBox.shrink();
-              return DraggableFolderSelector(
-                folders: folders,
-                selectedFolderId: selectedFolderId,
-                onSelectFolder: (id) {
-                  onUserSelectFolder(id);
-                  DebugConfig.nav('HabitList: select folder id=$id');
-                },
-              );
-            },
-          ),
+          // 🆕 Αυτόνομος folder selector
+          const DraggableFolderSelector(),
           if (_visibleTagNames.isNotEmpty)
             _TagFilterRow(
               tags: _visibleTagNames.toList(),
@@ -212,21 +203,18 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
                     children: [
                       _TodayProgress(habits: habitsOnly),
                       Expanded(
-                        child: ResponsiveLayout(
-                          mobile: _HabitListMobile(
-                            habits: habitsOnly,
-                            onTap: _openDetail,
-                            onDelete: (item) => _delete(context, item),
-                          ),
-                          tablet: _HabitGrid(
-                            habits: habitsOnly,
-                            onTap: _openDetail,
-                            onDelete: (item) => _delete(context, item),
+                        child: ResponsiveItemList<Item>(
+                          items: habitsOnly,
+                          gridItemExtent: 140,
+                          itemBuilder: (ctx, item) => _DraggableHabitCard(
+                            habit: item,
+                            onTap: () => _openDetail(item.id),
+                            onDelete: () => _delete(context, item),
                           ),
                         ),
                       ),
                     ],
-                  );
+                  );;
                 },
               ),
             ),
@@ -470,22 +458,8 @@ class _DraggableHabitCard extends ConsumerWidget {
       ),
     );
 
-    return Draggable<int>(
-      data: habit.id,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: card,
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: card,
-        ),
-      ),
+    return DraggableItemWrapper(
+      itemId: habit.id,
       child: GestureDetector(
         onTap: onTap,
         onLongPress: () => _showActions(context),

@@ -10,8 +10,6 @@
 // ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
 // ✅ Filter tags
 //
-// lib/features/journal/journal_list_screen.dart
-// ... (όλα τα σχόλια)
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,6 +69,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
   }
 
   Future<void> _createEntry() async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.journal,
@@ -122,6 +121,9 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
+    // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
       settingsAsync: settingsAsync,
@@ -140,21 +142,8 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
               focusNode: _searchFocus,
               onChanged: _onSearchChanged,
             ),
-          foldersAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (folders) {
-              if (folders.isEmpty) return const SizedBox.shrink();
-              return DraggableFolderSelector(
-                folders: folders,
-                selectedFolderId: selectedFolderId,
-                onSelectFolder: (id) {
-                  onUserSelectFolder(id);
-                  DebugConfig.nav('JournalList: select folder id=$id');
-                },
-              );
-            },
-          ),
+          // 🆕 Αυτόνομος folder selector
+          const DraggableFolderSelector(),
           if (_visibleTagNames.isNotEmpty)
             _TagFilterRow(
               tags: _visibleTagNames.toList(),
@@ -431,22 +420,8 @@ class _DraggableJournalCard extends ConsumerWidget {
       ),
     );
 
-    return Draggable<int>(
-      data: item.id,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: card,
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: card,
-        ),
-      ),
+    return DraggableItemWrapper(
+      itemId: item.id,
       child: GestureDetector(
         onTap: () => onTap(item.id),
         onLongPress: () => _showActions(context),

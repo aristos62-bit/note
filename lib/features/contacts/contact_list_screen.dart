@@ -58,6 +58,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
   }
 
   Future<void> _createContact() async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.contact,
@@ -95,6 +96,9 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
+    // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
       settingsAsync: settingsAsync,
@@ -119,21 +123,8 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
               focusNode: _searchFocus,
               onChanged: _onSearchChanged,
             ),
-          foldersAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (folders) {
-              if (folders.isEmpty) return const SizedBox.shrink();
-              return DraggableFolderSelector(
-                folders: folders,
-                selectedFolderId: selectedFolderId,
-                onSelectFolder: (id) {
-                  onUserSelectFolder(id);
-                  DebugConfig.nav('ContactList: select folder id=$id');
-                },
-              );
-            },
-          ),
+          // 🆕 Αυτόνομος folder selector
+          const DraggableFolderSelector(),
           if (_visibleTagNames.isNotEmpty) ...[
             const SizedBox(height: 4),
             _TagFilterRow(
@@ -366,22 +357,8 @@ class _DraggableContactTile extends ConsumerWidget {
       ),
     );
 
-    return Draggable<int>(
-      data: contact.id,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: tile,
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: tile,
-        ),
-      ),
+    return DraggableItemWrapper(
+      itemId: contact.id,
       child: GestureDetector(
         onTap: () => onTap(contact.id),
         onLongPress: () => _showActions(context),

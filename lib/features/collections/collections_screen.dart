@@ -178,6 +178,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
   }
 
   Future<void> _createCollection() async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
     DebugConfig.nav('Collections: create in folder id=$selectedFolderId');
     final item = await ref.read(itemNotifierProvider.notifier).create(
@@ -220,6 +221,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
+    // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
       settingsAsync: settingsAsync,
@@ -257,22 +261,8 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
               onChanged: _onSearchChanged,
             ),
 
-          // ── Folder selector (drag & drop) ───────────────────
-          foldersAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (folders) {
-              if (folders.isEmpty) return const SizedBox.shrink();
-              return DraggableFolderSelector(
-                folders: folders,
-                selectedFolderId: selectedFolderId,
-                onSelectFolder: (id) {
-                  onUserSelectFolder(id);
-                  DebugConfig.nav('Collections: select folder id=$id');
-                },
-              );
-            },
-          ),
+          // 🆕 Αυτόνομος folder selector (δεν χρειάζεται παραμέτρους)
+          const DraggableFolderSelector(),
 
           // ── Tag filter chips ──────────────────────────────────
           if (_visibleTagNames.isNotEmpty)
@@ -392,21 +382,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                   return _EmptyCollections(onCreate: _createCollection);
                 }
 
-                return ResponsiveLayout(
-                  mobile: _CollectionsGrid(
-                    collections: collections,
-                    cols: 2,
-                    onTap: (item) => _openCollection(context, item),
-                    onEdit: (item) => _editCollection(context, ref, item),
-                    onDelete: (item) => _delete(context, ref, item),
-                  ),
-                  tablet: _CollectionsGrid(
-                    collections: collections,
-                    cols: context.gridColumns + 1,
-                    onTap: (item) => _openCollection(context, item),
-                    onEdit: (item) => _editCollection(context, ref, item),
-                    onDelete: (item) => _delete(context, ref, item),
-                  ),
+                return _CollectionsGrid(
+                  collections: collections,
+                  onTap: (item) => _openCollection(context, item),
+                  onEdit: (item) => _editCollection(context, ref, item),
+                  onDelete: (item) => _delete(context, ref, item),
                 );
               },
             ),
@@ -423,14 +403,13 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
 
 class _CollectionsGrid extends StatelessWidget {
   final List<Item> collections;
-  final int cols;
+  // ← αφαιρούμε το cols
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onEdit;
   final ValueChanged<Item> onDelete;
 
   const _CollectionsGrid({
     required this.collections,
-    required this.cols,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -438,6 +417,9 @@ class _CollectionsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-detect: mobile→2, tablet/desktop→gridColumns+1
+    final cols = context.gridColumns == 1 ? 2 : context.gridColumns + 1;
+
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(
         context.responsiveHPadding,
@@ -533,22 +515,8 @@ class _DraggableCollectionCard extends ConsumerWidget {
       ),
     );
 
-    return Draggable<int>(
-      data: item.id,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: cardContent,
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.8,
-          child: cardContent,
-        ),
-      ),
+    return DraggableItemWrapper(
+      itemId: item.id,
       child: GestureDetector(
         onTap: onTap,
         onLongPress: () => _showActions(context, ref),
@@ -697,10 +665,11 @@ class _SearchBar extends StatelessWidget {
 class _LoadingGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final cols = context.gridColumns == 1 ? 2 : context.gridColumns + 1;
     return GridView.builder(
       padding: EdgeInsets.all(context.responsiveHPadding),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols,
           mainAxisExtent: 150,
           mainAxisSpacing: Spacing.md,
           crossAxisSpacing: Spacing.md),

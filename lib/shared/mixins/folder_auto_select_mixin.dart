@@ -7,7 +7,6 @@ import '../../core/utils/debug_config.dart';
 
 mixin FolderAutoSelectMixin<T extends ConsumerStatefulWidget>
 on ConsumerState<T> {
-  int? selectedFolderId;
   bool userExplicitlySelected = false;
   bool autoSelectDone = false;
 
@@ -21,7 +20,10 @@ on ConsumerState<T> {
     if (!settingsAsync.hasValue || !foldersAsync.hasValue) return;
 
     final folders = foldersAsync.value!;
-    if (folders.isEmpty || !mounted || selectedFolderId != null) return;
+    if (folders.isEmpty || !mounted) return;
+
+    final currentId = ref.read(selectedFolderIdProvider);
+    if (currentId != null) return; // ήδη επιλεγμένο
 
     final settings = ref.read(settingsNotifierProvider).valueOrNull;
     final preferredId = settings?.preferredFolderId;
@@ -37,7 +39,7 @@ on ConsumerState<T> {
     autoSelectDone = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        setState(() => selectedFolderId = targetId);
+        ref.read(selectedFolderIdProvider.notifier).state = targetId;
         DebugConfig.nav(
           '$debugLabel: auto-selected folder id=$targetId (preferredId=$preferredId)',
         );
@@ -47,9 +49,7 @@ on ConsumerState<T> {
 
   /// Κάλεσε αυτό όταν ο χρήστης επιλέγει φάκελο χειροκίνητα
   void onUserSelectFolder(int? id) {
-    setState(() {
-      selectedFolderId = id;
-      userExplicitlySelected = true;
-    });
+    userExplicitlySelected = true;
+    ref.read(selectedFolderIdProvider.notifier).state = id;
   }
 }

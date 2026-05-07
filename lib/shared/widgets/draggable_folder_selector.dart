@@ -1,31 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
-import '../../models/folder.dart';
 import '../../providers/providers.dart';
 
 /// Reusable widget που εμφανίζει φακέλους και δέχεται drag & drop.
+///
+/// Είναι πλήρως αυτόνομο: διαβάζει τα folders και το selectedFolderId
+/// από Riverpod providers. Δεν δέχεται πλέον εξωτερικές παραμέτρους.
 class DraggableFolderSelector extends ConsumerStatefulWidget {
-  final List<Folder> folders;
-  final int? selectedFolderId;
-  final ValueChanged<int?> onSelectFolder;
-
-  const DraggableFolderSelector({
-    super.key,
-    required this.folders,
-    required this.selectedFolderId,
-    required this.onSelectFolder,
-  });
+  const DraggableFolderSelector({super.key});
 
   @override
-  ConsumerState<DraggableFolderSelector> createState() => _DraggableFolderSelectorState();
+  ConsumerState<DraggableFolderSelector> createState() =>
+      _DraggableFolderSelectorState();
 }
 
-class _DraggableFolderSelectorState extends ConsumerState<DraggableFolderSelector> {
+class _DraggableFolderSelectorState
+    extends ConsumerState<DraggableFolderSelector> {
   int? _dragOverFolderId;
 
   @override
   Widget build(BuildContext context) {
+    // Διαβάζουμε τα folders από τον αντίστοιχο provider
+    final foldersAsync = ref.watch(foldersStreamProvider);
+    final folders = foldersAsync.valueOrNull ?? [];
+
+    // Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
+    // Μέθοδος αλλαγής φακέλου (ενημέρωση του κεντρικού provider)
+    void selectFolder(int? id) {
+      ref.read(selectedFolderIdProvider.notifier).state = id;
+      DebugConfig.nav('DraggableFolderSelector: select folder id=$id');
+    }
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: context.responsiveHPadding,
@@ -40,17 +48,19 @@ class _DraggableFolderSelectorState extends ConsumerState<DraggableFolderSelecto
               label: 'Όλοι',
               icon: Icons.folder_open_rounded,
               color: context.cPrimary,
-              isSelected: widget.selectedFolderId == null,
+              isSelected: selectedFolderId == null,
+              selectFolder: selectFolder,
             ),
             const SizedBox(width: Spacing.xs),
-            ...widget.folders.map((f) {
+            ...folders.map((f) {
               final color = _colorFromHex(f.color, context.cPrimary);
               return _buildChip(
                 folderId: f.id,
                 label: f.name,
                 icon: Icons.folder_rounded,
                 color: color,
-                isSelected: widget.selectedFolderId == f.id,
+                isSelected: selectedFolderId == f.id,
+                selectFolder: selectFolder,
               );
             }),
           ],
@@ -65,16 +75,19 @@ class _DraggableFolderSelectorState extends ConsumerState<DraggableFolderSelecto
     required IconData icon,
     required Color color,
     required bool isSelected,
+    required ValueChanged<int?> selectFolder,
   }) {
     final isDragOver = _dragOverFolderId == folderId;
     return DragTarget<int>(
       onWillAcceptWithDetails: (details) {
-        DebugConfig.db('📁 Drop target: folder $label, will accept item ${details.data}');
+        DebugConfig.db(
+            '📁 Drop target: folder $label, will accept item ${details.data}');
         setState(() => _dragOverFolderId = folderId);
         return true;
       },
       onAcceptWithDetails: (details) async {
-        DebugConfig.db('✅ DROP ACCEPTED: item ${details.data} → folder $label');
+        DebugConfig.db(
+            '✅ DROP ACCEPTED: item ${details.data} → folder $label');
         final itemId = details.data;
         final notifier = ref.read(itemNotifierProvider.notifier);
         await notifier.moveToFolder(itemId, folderId);
@@ -88,9 +101,12 @@ class _DraggableFolderSelectorState extends ConsumerState<DraggableFolderSelecto
         }
         setState(() => _dragOverFolderId = null);
       },
+      onLeave: (_) {
+        setState(() => _dragOverFolderId = null);
+      },
       builder: (context, candidateData, rejectedData) {
         return GestureDetector(
-          onTap: () => widget.onSelectFolder(folderId),
+          onTap: () => selectFolder(folderId),
           child: Container(
             width: 80,
             height: 56,
@@ -105,21 +121,25 @@ class _DraggableFolderSelectorState extends ConsumerState<DraggableFolderSelecto
               border: Border.all(
                 color: isSelected
                     ? color
-                    : (isDragOver ? color : ColorsUI.getBorder(context.brightness)),
+                    : (isDragOver
+                    ? color
+                    : ColorsUI.getBorder(context.brightness)),
                 width: isDragOver ? 2 : 1,
               ),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 18, color: isSelected ? Colors.white : color),
+                Icon(icon,
+                    size: 18, color: isSelected ? Colors.white : color),
                 const SizedBox(height: Spacing.sm),
                 Flexible(
                   child: Text(
                     label,
                     style: context.labelMd.copyWith(
                       color: isSelected ? Colors.white : color,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                     maxLines: 2,
                     textAlign: TextAlign.center,

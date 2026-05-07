@@ -4,6 +4,8 @@
 // ✅ Search, filter tags
 // ✅ Responsive: list mobile / grid tablet
 // ✅ Dark mode + DebugConfig
+// ✅ Fix: κλείδωμα pop κατά το drag (αποφυγή ανεπιθύμητου back gesture)
+// ✅ Βελτιστοποίηση: χρήση κεντρικού selectedFolderIdProvider & DraggableFolderSelector
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -39,7 +41,6 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   Timer? _debounce;
   String _searchQuery = '';           // ✅
   Set<String> _activeTags = {};       // ✅
-  int? _selectedFolderId;        // Επιλεγμένος φάκελος για φιλτράρισμα
   Set<String> _visibleTagNames = {};
 
   @override
@@ -85,123 +86,123 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
     final searchQuery = _searchQuery;
     final activeTags = _activeTags;
 
+    // 🆕 Διαβάζουμε τον provider για το κλείδωμα του pop
+    final isDragging = ref.watch(isDraggingProvider);
 
-    return Column(
-      children: [
-        // ── Folder selector (drag target) ───────────────────
-        if (widget.showFolderSelector && foldersAsync.hasValue && foldersAsync.value!.isNotEmpty)
-          _FolderDropZone(
-            folders: foldersAsync.value!,
-            selectedFolderId: _selectedFolderId,
-            onSelectFolder: (id) {
-              setState(() => _selectedFolderId = id);
-            },
-            onDragExit: () {},
-          ),
-        // ── Search bar ──────────────────────────────────────
-        if (_searchActive)
-          _EmbeddedSearchBar(
-            controller: _searchCtrl,
-            focusNode: _searchFocus,
-            onChanged: _onSearchChanged,
-            hint: 'Αναζήτηση...',
-          ),
-        if (_visibleTagNames.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: Spacing.xs),
-            child: _EmbeddedTagFilterRow(
-              tags: _visibleTagNames.toList(),
-              activeTags: activeTags,
-              onTagTap: (name) {
-                final newSet = {..._activeTags};  // ✅ χρησιμοποιούμε απευθείας το _activeTags
-                if (newSet.contains(name)) {
-                  newSet.remove(name);
-                } else {
-                  newSet.add(name);
-                }
-                setState(() => _activeTags = newSet);
-              },
+    return PopScope(
+      canPop: !isDragging,
+      child: Column(
+        children: [
+          // ── Folder selector (drag target) ───────────────────
+          // 🆕 Χρησιμοποιούμε τον αυτόνομο DraggableFolderSelector
+          // αντί για το ενσωματωμένο _FolderDropZone
+          if (widget.showFolderSelector)
+            const DraggableFolderSelector(),
+          // ── Search bar ──────────────────────────────────────
+          if (_searchActive)
+            _EmbeddedSearchBar(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              onChanged: _onSearchChanged,
+              hint: 'Αναζήτηση...',
             ),
-          ),
-        const ViewModeToggle(),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async => ref.invalidate(itemNotifierProvider),
-            child: itemsAsync.when(
-              loading: () => _EmbeddedLoadingList(),
-              error: (e, _) => EmptyState.error(
-                onRetry: () => ref.invalidate(itemNotifierProvider),
+          if (_visibleTagNames.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.xs),
+              child: _EmbeddedTagFilterRow(
+                tags: _visibleTagNames.toList(),
+                activeTags: activeTags,
+                onTagTap: (name) {
+                  final newSet = {..._activeTags};  // ✅ χρησιμοποιούμε απευθείας το _activeTags
+                  if (newSet.contains(name)) {
+                    newSet.remove(name);
+                  } else {
+                    newSet.add(name);
+                  }
+                  setState(() => _activeTags = newSet);
+                },
               ),
-              data: (allItems) {
-                var items = allItems
-                    .where((i) => i.type == widget.itemType)
-                    .toList();
-
-                if (widget.folderId != null) {
-                  items = items
-                      .where((i) => i.folderId == widget.folderId)
+            ),
+          const ViewModeToggle(),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => ref.invalidate(itemNotifierProvider),
+              child: itemsAsync.when(
+                loading: () => _EmbeddedLoadingList(),
+                error: (e, _) => EmptyState.error(
+                  onRetry: () => ref.invalidate(itemNotifierProvider),
+                ),
+                data: (allItems) {
+                  var items = allItems
+                      .where((i) => i.type == widget.itemType)
                       .toList();
-                }
 
-                final viewMode = ref.watch(listViewModeProvider);
-                switch (viewMode) {
-                  case ListViewMode.pinned:
-                    items = items.where((i) => i.pinned).toList();
-                    break;
-                  case ListViewMode.favorites:
-                    items = items.where((i) => i.favorite).toList();
-                    break;
-                  case ListViewMode.all:
-                    break;
-                }
-
-                final visibleTagNames = <String>{};
-                for (final item in items) {
-                  final tags =
-                      ref.watch(itemTagsProvider(item.id)).valueOrNull ?? [];
-                  for (final t in tags) {
-                    visibleTagNames.add(t.name);
+                  if (widget.folderId != null) {
+                    items = items
+                        .where((i) => i.folderId == widget.folderId)
+                        .toList();
                   }
-                }
 
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  if (!setEquals(_visibleTagNames, visibleTagNames)) {
-                    setState(() => _visibleTagNames = visibleTagNames);
+                  final viewMode = ref.watch(listViewModeProvider);
+                  switch (viewMode) {
+                    case ListViewMode.pinned:
+                      items = items.where((i) => i.pinned).toList();
+                      break;
+                    case ListViewMode.favorites:
+                      items = items.where((i) => i.favorite).toList();
+                      break;
+                    case ListViewMode.all:
+                      break;
                   }
-                });
 
-                var filtered = _filterItems(items, searchQuery);
+                  final visibleTagNames = <String>{};
+                  for (final item in items) {
+                    final tags =
+                        ref.watch(itemTagsProvider(item.id)).valueOrNull ?? [];
+                    for (final t in tags) {
+                      visibleTagNames.add(t.name);
+                    }
+                  }
 
-                if (activeTags.isNotEmpty) {
-                  // ✅ Loop 2: tag filtering
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    if (!setEquals(_visibleTagNames, visibleTagNames)) {
+                      setState(() => _visibleTagNames = visibleTagNames);
+                    }
+                  });
+
+                  var filtered = _filterItems(items, searchQuery);
+
                   if (activeTags.isNotEmpty) {
-                    filtered = filtered.where((item) {
-                      final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
-                      final tagNames = tags.map((t) => t.name);
-                      return tagNames.any((name) => activeTags.contains(name));
-                    }).toList();
+                    // ✅ Loop 2: tag filtering
+                    if (activeTags.isNotEmpty) {
+                      filtered = filtered.where((item) {
+                        final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
+                        final tagNames = tags.map((t) => t.name);
+                        return tagNames.any((name) => activeTags.contains(name));
+                      }).toList();
+                    }
                   }
-                }
 
-                if (filtered.isEmpty) {
-                  return EmptyState.forType(
-                    widget.itemType,
-                    onAction: null,
+                  if (filtered.isEmpty) {
+                    return EmptyState.forType(
+                      widget.itemType,
+                      onAction: null,
+                    );
+                  }
+
+                  return _EmbeddedItemListBody(
+                    items: filtered,
+                    itemType: widget.itemType,
+                    onTap: widget.onItemTap,
+                    onLongPress: (item) => _showItemActions(context, item),
                   );
-                }
-
-                return _EmbeddedItemListBody(
-                  items: filtered,
-                  itemType: widget.itemType,
-                  onTap: widget.onItemTap,
-                  onLongPress: (item) => _showItemActions(context, item),
-                );
-              },
+                },
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -269,152 +270,6 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// FOLDER DROP ZONE (με DragTarget)
-// ──────────────────────────────────────────────────────────────
-
-class _FolderDropZone extends ConsumerStatefulWidget {
-  final List<Folder> folders;
-  final int? selectedFolderId;
-  final ValueChanged<int?> onSelectFolder;
-  final VoidCallback onDragExit;
-
-  const _FolderDropZone({
-    required this.folders,
-    required this.selectedFolderId,
-    required this.onSelectFolder,
-    required this.onDragExit,
-  });
-
-  @override
-  ConsumerState<_FolderDropZone> createState() => _FolderDropZoneState();
-}
-
-class _FolderDropZoneState extends ConsumerState<_FolderDropZone> {
-  int? _dragOverFolderId;
-
-  @override
-  Widget build(BuildContext context) {
-    DebugConfig.db('📁 _FolderDropZone build with ${widget.folders.length} folders');
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.xs,
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildDropTargetChip(
-              folderId: null,
-              label: 'Όλοι',
-              icon: Icons.folder_open_rounded,
-              color: context.cPrimary,
-              isSelected: widget.selectedFolderId == null,
-            ),
-            const SizedBox(width: Spacing.xs),
-            ...widget.folders.map((f) {
-              final color = _colorFromHex(f.color, context.cPrimary);
-              return _buildDropTargetChip(
-                folderId: f.id,
-                label: f.name,
-                icon: Icons.folder_rounded,
-                color: color,
-                isSelected: widget.selectedFolderId == f.id,
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropTargetChip({
-    required int? folderId,
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool isSelected,
-  }) {
-    return DragTarget<int>(
-      onWillAcceptWithDetails: (details) {
-        setState(() => _dragOverFolderId = folderId);
-        return true;
-      },
-      onAcceptWithDetails: (details) async {
-        final itemId = details.data;
-        final notifier = ref.read(itemNotifierProvider.notifier);
-        await notifier.moveToFolder(itemId, folderId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Μετακινήθηκε στον φάκελο "$label"'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        }
-        setState(() => _dragOverFolderId = null);
-        widget.onDragExit();
-      },
-      onLeave: (data) {
-        setState(() => _dragOverFolderId = null);
-        widget.onDragExit();
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isDragOver = _dragOverFolderId == folderId;
-        return GestureDetector(
-          onTap: () => widget.onSelectFolder(folderId),
-          child: Container(
-            width: 80,
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? color
-                  : (isDragOver
-                  ? color.withValues(alpha: 0.3)
-                  : ColorsUI.getSurface(context.brightness)),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? color
-                    : (isDragOver ? color : ColorsUI.getBorder(context.brightness)),
-                width: isDragOver ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 18, color: isSelected ? Colors.white : color),
-                const SizedBox(height: Spacing.sm),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: context.labelMd.copyWith(
-                      color: isSelected ? Colors.white : color,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-  Color _colorFromHex(String? hex, Color fallback) {
-    if (hex == null || hex.isEmpty) return fallback;
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return fallback;
-    }
-  }
-}
 // ──────────────────────────────────────────────
 // Βοηθητικά Embedded Widgets
 // ──────────────────────────────────────────────
@@ -508,7 +363,7 @@ class _EmbeddedTagFilterRow extends StatelessWidget {
   }
 }
 
-class _EmbeddedItemListBody extends ConsumerWidget {
+class _EmbeddedItemListBody extends StatelessWidget {
   final List<Item> items;
   final ItemType itemType;
   final ValueChanged<Item> onTap;
@@ -522,106 +377,14 @@ class _EmbeddedItemListBody extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cols = context.gridColumns;
-
-    return CustomScrollView(
-      slivers: [
-        cols == 1 ? _buildList(context, ref) : _buildGrid(context, ref, cols),
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
-    );
-  }
-
-  Widget _buildList(BuildContext context, WidgetRef ref) {
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.xs,
+  Widget build(BuildContext context) {
+    return ResponsiveItemList<Item>(
+      items: items,
+      itemBuilder: (ctx, item) => ItemCardBuilder(
+        item: item,
+        onTap: onTap,
+        onLongPress: onLongPress,
       ),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-              (ctx, i) => Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.sm),
-            child: _EmbeddedItemCard(
-              item: items[i],
-              onTap: onTap,
-              onLongPress: onLongPress,
-            ),
-          ),
-          childCount: items.length,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGrid(BuildContext context, WidgetRef ref, int cols) {
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.xs,
-      ),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols,
-          mainAxisSpacing: Spacing.sm,
-          crossAxisSpacing: Spacing.sm,
-          mainAxisExtent: 100,
-        ),
-        delegate: SliverChildBuilderDelegate(
-              (ctx, i) => _EmbeddedItemCard(
-            item: items[i],
-            onTap: onTap,
-            onLongPress: onLongPress,
-          ),
-          childCount: items.length,
-        ),
-      ),
-    );
-  }
-}
-
-class _EmbeddedItemCard extends ConsumerWidget {
-  final Item item;
-  final ValueChanged<Item> onTap;
-  final ValueChanged<Item> onLongPress;
-
-  const _EmbeddedItemCard({
-    required this.item,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tagsAsync = ref.watch(itemTagsProvider(item.id));
-    final tagNames = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
-
-    final card = ItemCard(
-      item: item,
-      tagNames: tagNames,
-      compact: context.isMobile,
-      onTap: () => onTap(item),
-      onLongPress: () => onLongPress(item),
-    );
-
-    final maxWidth = MediaQuery.of(context).size.width * 0.8;
-    final feedback = SizedBox(
-      width: maxWidth,
-      child: Material(
-        color: Colors.transparent,
-        child: card,
-      ),
-    );
-
-    return Draggable<int>(
-      data: item.id,
-      feedback: feedback,
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: card,
-      ),
-      child: card,
     );
   }
 }

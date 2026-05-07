@@ -58,10 +58,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     final selectedDay = ref.watch(_selectedDayProvider);
     final monthAsync = ref.watch(_monthEventsProvider(focusedMonth));
     final foldersAsync = ref.watch(foldersStreamProvider);
-    final folders = foldersAsync.valueOrNull ?? [];
 
     // ✅ Διαβάζουμε την προτίμηση του χρήστη από τις ρυθμίσεις (ασύγχρονα)
     final settingsAsync = ref.watch(settingsNotifierProvider);
+
+    // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
@@ -81,18 +83,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           : null,
       body: Column(
         children: [
-          if (folders.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-              child: DraggableFolderSelector(
-                folders: folders,
-                selectedFolderId: selectedFolderId,
-                onSelectFolder: (id) {
-                  onUserSelectFolder(id);
-                  DebugConfig.nav('Calendar: select folder id=$id');
-                },
-              ),
-            ),
+          // 🆕 Ο DraggableFolderSelector είναι πλέον αυτόνομος
+          const DraggableFolderSelector(),
           Expanded(
             child: ResponsiveLayout(
               mobile: _buildMobile(
@@ -187,7 +179,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           child: ItemListEmbedded(
             key: _listKey,
             itemType: ItemType.event,
-            folderId: selectedFolderId,
+            folderId: ref.watch(selectedFolderIdProvider), // 🆕
             showFolderSelector: false,
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
@@ -228,7 +220,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           child: ItemListEmbedded(
             key: _listKey,
             itemType: ItemType.event,
-            folderId: selectedFolderId,
+            folderId: ref.watch(selectedFolderIdProvider), // 🆕
             showFolderSelector: false,
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
@@ -241,6 +233,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
 
   Future<void> _createEvent(
       BuildContext context, WidgetRef ref, DateTime selectedDay) async {
+    // 🆕 Διαβάζουμε το τρέχον επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
+
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.event,
       folderId: selectedFolderId,

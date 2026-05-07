@@ -6,6 +6,8 @@
 // ✅ Search, filter tags, FAB δημιουργίας
 // ✅ Responsive: list mobile / grid tablet+desktop
 // ✅ Dark mode + DebugConfig
+// ✅ Fix: κλείδωμα pop κατά το drag (αποφυγή ανεπιθύμητου back gesture)
+// ✅ Βελτιστοποίηση: χρήση κεντρικού selectedFolderIdProvider
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -40,13 +42,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   Timer? _debounce;
   final _searchQueryProvider = StateProvider<String>((ref) => '');
   final _activeTagFilterProvider = StateProvider<Set<String>>((ref) => {});
-  //int? selectedFolderId;
   Set<String> _visibleTagNames = {};
-
-  // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  //bool _userExplicitlySelected = false;
-  // ✅ Για να αποφύγουμε πολλαπλά setState
- // bool _folderAutoSelected = false;
 
   @override
   void dispose() {
@@ -75,6 +71,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   }
 
   Future<void> _createItem() async {
+    // 🆕 Διαβάζουμε τον τρέχον επιλεγμένο φάκελο από τον κεντρικό provider
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
     final notifier = ref.read(itemNotifierProvider.notifier);
     final item = await notifier.create(
@@ -153,151 +151,138 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
     final searchQuery = ref.watch(_searchQueryProvider);
     final activeTags = ref.watch(_activeTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
-
-    // ✅ Παρακολουθούμε τα settings για να πάρουμε την προτίμηση (ασύγχρονα)
     final settingsAsync = ref.watch(settingsNotifierProvider);
+    final isDragging = ref.watch(isDraggingProvider);
 
-    return Scaffold(
-      backgroundColor: context.cBg,
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
-            onPressed: _toggleSearch,
-            tooltip: 'Αναζήτηση',
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded),
-            onSelected: (value) {
-              if (value == 'archived') {
-                final show = ref.read(showArchivedProvider);
-                ref.read(showArchivedProvider.notifier).state = !show;
-                ref.invalidate(itemNotifierProvider);
-              }
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'archived',
-                child: Row(children: [
-                  const Icon(Icons.archive_rounded, size: 18),
-                  const SizedBox(width: Spacing.sm),
-                  Text(ref.watch(showArchivedProvider) ? 'Απόκρυψη αρχείου' : 'Εμφάνιση αρχείου'),
-                ]),
-              ),
-            ],
-          ),
-        ],
-      ),
-      floatingActionButton: selectedFolderId != null
-          ? FloatingActionButton(
-        onPressed: _createItem,
-        tooltip: 'Νέο',
-        child: const Icon(Icons.add_rounded),
-      )
-          : null,
-      body: Column(
-        children: [
-          if (_searchActive)
-            _SearchBar(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
-              hint: 'Αναζήτηση...',
+    // 🆕 Διαβάζουμε τον επιλεγμένο φάκελο από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'ItemList',
+    );
+
+    return PopScope(
+      canPop: !isDragging,
+      child: Scaffold(
+        backgroundColor: context.cBg,
+        appBar: AppBar(
+          title: Text(widget.title),
+          actions: [
+            IconButton(
+              icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
+              onPressed: _toggleSearch,
+              tooltip: 'Αναζήτηση',
             ),
-          // ✅ Περιμένουμε τα folders και τα settings για να επιλέξουμε φάκελο
-          foldersAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (folders) {
-              if (folders.isEmpty) return const SizedBox.shrink();
-              tryAutoSelectFolder(
-                foldersAsync: foldersAsync,
-                settingsAsync: settingsAsync,
-                debugLabel: 'ItemList',
-              );
-              return _FolderDropZone(
-                folders: folders,
-                selectedFolderId: selectedFolderId,
-                onSelectFolder: (id) {
-                  setState(() {
-                    selectedFolderId;
-                    onUserSelectFolder(id);
-                  });
-                  DebugConfig.nav('ItemList: user selected folder id=$id');
-                },
-                onDragExit: () {},
-              );
-            },
-          ),
-          if (_visibleTagNames.isNotEmpty)
-            _TagFilterRow(
-              tags: _visibleTagNames.toList(),
-              activeTags: activeTags,
-              onTagTap: (name) {
-                final current = ref.read(_activeTagFilterProvider);
-                final newSet = {...current};
-                newSet.contains(name) ? newSet.remove(name) : newSet.add(name);
-                ref.read(_activeTagFilterProvider.notifier).state = newSet;
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (value) {
+                if (value == 'archived') {
+                  final show = ref.read(showArchivedProvider);
+                  ref.read(showArchivedProvider.notifier).state = !show;
+                  ref.invalidate(itemNotifierProvider);
+                }
               },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'archived',
+                  child: Row(children: [
+                    const Icon(Icons.archive_rounded, size: 18),
+                    const SizedBox(width: Spacing.sm),
+                    Text(ref.watch(showArchivedProvider) ? 'Απόκρυψη αρχείου' : 'Εμφάνιση αρχείου'),
+                  ]),
+                ),
+              ],
             ),
-          const ViewModeToggle(),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(itemNotifierProvider),
-              child: itemsAsync.when(
-                loading: () => _LoadingList(),
-                error: (e, _) => EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider)),
-                data: (allItems) {
-                  var items = allItems.where((i) => i.type == widget.itemType).toList();
-                  if (selectedFolderId != null) {
-                    items = items.where((i) => i.folderId == selectedFolderId).toList();
-                  }
-                  final viewMode = ref.watch(listViewModeProvider);
-                  switch (viewMode) {
-                    case ListViewMode.pinned:
-                      items = items.where((i) => i.pinned).toList();
-                      break;
-                    case ListViewMode.favorites:
-                      items = items.where((i) => i.favorite).toList();
-                      break;
-                    case ListViewMode.all:
-                      break;
-                  }
-
-                  final visibleTagNames = <String>{};
-                  // ✅ Loop 1: visibleTagNames
-                  for (final item in items) {
-                    final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
-                    for (final t in tags) {
-                      visibleTagNames.add(t.name);
-                    }
-                  }
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    if (!setEquals(_visibleTagNames, visibleTagNames)) {
-                      setState(() => _visibleTagNames = visibleTagNames);
-                    }
-                  });
-
-                  var filtered = _filterItems(items, searchQuery, activeTags);
-                  if (filtered.isEmpty) {
-                    if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
-                      return EmptyState.search(query: searchQuery);
-                    }
-                    return EmptyState.forType(widget.itemType, onAction: _createItem);
-                  }
-                  return _ItemListBody(
-                    items: filtered,
-                    itemType: widget.itemType,
-                    onTap: _openDetail,
-                    onLongPress: (item) => _showItemActions(context, item),
-                  );
+          ],
+        ),
+        floatingActionButton: selectedFolderId != null
+            ? FloatingActionButton(
+          onPressed: _createItem,
+          tooltip: 'Νέο',
+          child: const Icon(Icons.add_rounded),
+        )
+            : null,
+        body: Column(
+          children: [
+            if (_searchActive)
+              _SearchBar(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                onChanged: _onSearchChanged,
+                hint: 'Αναζήτηση...',
+              ),
+            // 🆕 Ο DraggableFolderSelector είναι πλέον αυτόνομος – δεν χρειάζεται parameters
+            const DraggableFolderSelector(),
+            if (_visibleTagNames.isNotEmpty)
+              _TagFilterRow(
+                tags: _visibleTagNames.toList(),
+                activeTags: activeTags,
+                onTagTap: (name) {
+                  final current = ref.read(_activeTagFilterProvider);
+                  final newSet = {...current};
+                  newSet.contains(name) ? newSet.remove(name) : newSet.add(name);
+                  ref.read(_activeTagFilterProvider.notifier).state = newSet;
                 },
               ),
+            const ViewModeToggle(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async => ref.invalidate(itemNotifierProvider),
+                child: itemsAsync.when(
+                  loading: () => _LoadingList(),
+                  error: (e, _) => EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider)),
+                  data: (allItems) {
+                    var items = allItems.where((i) => i.type == widget.itemType).toList();
+                    if (selectedFolderId != null) {
+                      items = items.where((i) => i.folderId == selectedFolderId).toList();
+                    }
+                    final viewMode = ref.watch(listViewModeProvider);
+                    switch (viewMode) {
+                      case ListViewMode.pinned:
+                        items = items.where((i) => i.pinned).toList();
+                        break;
+                      case ListViewMode.favorites:
+                        items = items.where((i) => i.favorite).toList();
+                        break;
+                      case ListViewMode.all:
+                        break;
+                    }
+
+                    final visibleTagNames = <String>{};
+                    for (final item in items) {
+                      final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
+                      for (final t in tags) {
+                        visibleTagNames.add(t.name);
+                      }
+                    }
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      if (!setEquals(_visibleTagNames, visibleTagNames)) {
+                        setState(() => _visibleTagNames = visibleTagNames);
+                      }
+                    });
+
+                    var filtered = _filterItems(items, searchQuery, activeTags);
+                    if (filtered.isEmpty) {
+                      if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
+                        return EmptyState.search(query: searchQuery);
+                      }
+                      return EmptyState.forType(widget.itemType, onAction: _createItem);
+                    }
+                    return _ItemListBody(
+                      items: filtered,
+                      itemType: widget.itemType,
+                      onTap: _openDetail,
+                      onLongPress: (item) => _showItemActions(context, item),
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -382,7 +367,7 @@ class _TagFilterRow extends StatelessWidget {
   }
 }
 
-class _ItemListBody extends ConsumerWidget {
+class _ItemListBody extends StatelessWidget {
   final List<Item> items;
   final ItemType itemType;
   final ValueChanged<Item> onTap;
@@ -390,87 +375,14 @@ class _ItemListBody extends ConsumerWidget {
   const _ItemListBody({required this.items, required this.itemType, required this.onTap, required this.onLongPress});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cols = context.gridColumns;
-    return CustomScrollView(
-      slivers: [
-        cols == 1 ? _buildList(context, ref) : _buildGrid(context, ref, cols),
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
-    );
-  }
-
-  Widget _buildList(BuildContext context, WidgetRef ref) {
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-              (ctx, i) => Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.sm),
-            child: _ItemCardWithTags(item: items[i], onTap: onTap, onLongPress: onLongPress),
-          ),
-          childCount: items.length,
-        ),
+  Widget build(BuildContext context) {
+    return ResponsiveItemList<Item>(
+      items: items,
+      itemBuilder: (ctx, item) => ItemCardBuilder(
+        item: item,
+        onTap: onTap,
+        onLongPress: onLongPress,
       ),
-    );
-  }
-
-  Widget _buildGrid(BuildContext context, WidgetRef ref, int cols) {
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols,
-          mainAxisSpacing: Spacing.sm,
-          crossAxisSpacing: Spacing.sm,
-          mainAxisExtent: 100,
-        ),
-        delegate: SliverChildBuilderDelegate(
-              (ctx, i) => _ItemCardWithTags(item: items[i], onTap: onTap, onLongPress: onLongPress),
-          childCount: items.length,
-        ),
-      ),
-    );
-  }
-}
-
-class _ItemCardWithTags extends ConsumerWidget {
-  final Item item;
-  final ValueChanged<Item> onTap;
-  final ValueChanged<Item> onLongPress;
-  const _ItemCardWithTags({required this.item, required this.onTap, required this.onLongPress});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tagsAsync = ref.watch(itemTagsProvider(item.id));
-    final tagNames = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
-
-    final card = ItemCard(
-      item: item,
-      tagNames: tagNames,
-      compact: context.isMobile,
-      onTap: () => onTap(item),
-      onLongPress: () => onLongPress(item),
-    );
-
-    // Μέγιστο πλάτος για το feedback (για να αποφύγουμε unbounded constraints)
-    final maxWidth = MediaQuery.of(context).size.width * 0.8;
-    final feedback = SizedBox(
-      width: maxWidth,
-      child: Material(
-        color: Colors.transparent,
-        child: card,
-      ),
-    );
-
-    return Draggable<int>(
-      data: item.id,
-      feedback: feedback,
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: card,
-      ),
-      child: card,
     );
   }
 }
@@ -535,151 +447,5 @@ class _ItemActionsSheet extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-// ──────────────────────────────────────────────────────────────
-// FOLDER DROP ZONE (με DragTarget)
-// ──────────────────────────────────────────────────────────────
-
-class _FolderDropZone extends ConsumerStatefulWidget {
-  final List<Folder> folders;
-  final int? selectedFolderId;
-  final ValueChanged<int?> onSelectFolder;
-  final VoidCallback onDragExit;
-
-  const _FolderDropZone({
-    required this.folders,
-    required this.selectedFolderId,
-    required this.onSelectFolder,
-    required this.onDragExit,
-  });
-
-  @override
-  ConsumerState<_FolderDropZone> createState() => _FolderDropZoneState();
-}
-
-class _FolderDropZoneState extends ConsumerState<_FolderDropZone> {
-  int? _dragOverFolderId;
-
-  @override
-  Widget build(BuildContext context) {
-    DebugConfig.db('📁 _FolderDropZone build with ${widget.folders.length} folders');
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.xs,
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildDropTargetChip(
-              folderId: null,
-              label: 'Όλοι',
-              icon: Icons.folder_open_rounded,
-              color: context.cPrimary,
-              isSelected: widget.selectedFolderId == null,
-            ),
-            const SizedBox(width: Spacing.xs),
-            ...widget.folders.map((f) {
-              final color = _colorFromHex(f.color, context.cPrimary);
-              return _buildDropTargetChip(
-                folderId: f.id,
-                label: f.name,
-                icon: Icons.folder_rounded,
-                color: color,
-                isSelected: widget.selectedFolderId == f.id,
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropTargetChip({
-    required int? folderId,
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool isSelected,
-  }) {
-    return DragTarget<int>(
-      onWillAcceptWithDetails: (details) {
-        setState(() => _dragOverFolderId = folderId);
-        return true;
-      },
-      onAcceptWithDetails: (details) async {
-        final itemId = details.data;
-        final notifier = ref.read(itemNotifierProvider.notifier);
-        await notifier.moveToFolder(itemId, folderId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Μετακινήθηκε στον φάκελο "$label"'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        }
-        setState(() => _dragOverFolderId = null);
-        widget.onDragExit();
-      },
-      onLeave: (data) {
-        setState(() => _dragOverFolderId = null);
-        widget.onDragExit();
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isDragOver = _dragOverFolderId == folderId;
-        return GestureDetector(
-          onTap: () => widget.onSelectFolder(folderId),
-          child: Container(
-            width: 80,
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? color
-                  : (isDragOver
-                  ? color.withValues(alpha: 0.3)
-                  : ColorsUI.getSurface(context.brightness)),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? color
-                    : (isDragOver ? color : ColorsUI.getBorder(context.brightness)),
-                width: isDragOver ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 18, color: isSelected ? Colors.white : color),
-                const SizedBox(height: Spacing.sm),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: context.labelMd.copyWith(
-                      color: isSelected ? Colors.white : color,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-  Color _colorFromHex(String? hex, Color fallback) {
-    if (hex == null || hex.isEmpty) return fallback;
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return fallback;
-    }
   }
 }
