@@ -95,7 +95,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: context.cBg,
-      // ❌ Αφαιρέθηκε το FAB – θα τοποθετηθεί chip δίπλα στα toggles
+      // ✅ FAB για δημιουργία νέου φακέλου
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCreateFolderDialog(context, ref),
+        tooltip: 'Νέος φάκελος',
+        backgroundColor: context.cPrimary,
+        foregroundColor: context.cOnPrimary,
+        child: const Icon(Icons.create_new_folder_rounded),
+      ),
       body: CustomScrollView(
         slivers: [
           // AppBar
@@ -119,7 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: context.labelLg.withColor(context.cText2),
                   ),
                 ),
-                // ❌ Αφαιρέθηκε το chip "Νέος" – θα μπει δίπλα στα toggles
+                // ❌ Αφαιρέθηκε το chip "Νέος" – πλέον υπάρχει FAB
                 FolderChipSelector(
                   folders: folders,
                   selectedFolderId: selectedFolderId,
@@ -127,6 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ref.read(homeSelectedFolderProvider.notifier).state = id;
                   },
                   onFolderLongPress: (folder) {
+                    // Διαβάζουμε τα items ΜΟΝΟ την ώρα του long press
                     final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
                     _showFolderOptions(context, ref, folder, allItems);
                   },
@@ -134,16 +142,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-          // View Mode Toggle + chip "Νέος φάκελος" στην ίδια γραμμή
+          // View Mode Toggle (μόνο όταν είναι σε "Όλοι")
           if (selectedFolderId == null)
             SliverToBoxAdapter(
-              child: _ViewModeAndNewFolderChip(
+              child: _ViewModeToggle(
                 current: _viewMode,
-                onModeChanged: (mode) {
+                onChanged: (mode) {
                   DebugConfig.nav('Home: view mode changed to $mode');
                   setState(() => _viewMode = mode);
                 },
-                onNewFolder: () => _showCreateFolderDialog(context, ref),
               ),
             ),
 
@@ -385,6 +392,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _openKnowledgeEntry(Item entry) async {
+    // Βρίσκουμε τη συλλογή στην οποία ανήκει η εγγραφή μέσω property 'collection_id'
     final props = await ref.read(itemPropertiesProvider(entry.id).future);
     final collectionIdStr =
         props.where((p) => p.key == 'collection_id').firstOrNull?.value;
@@ -397,6 +405,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final collection = await ref.read(itemByIdProvider(collectionId).future);
     if (collection == null) return;
 
+    // Φόρτωση schema της συλλογής
     final collectionProps =
     await ref.read(itemPropertiesProvider(collectionId).future);
     final schemaJson =
@@ -674,6 +683,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!ok || !mounted) return;
     DebugConfig.db('Home deleteFolder id=${folder.id}');
     await ref.read(folderNotifierProvider.notifier).delete(folder.id);
+    // Deselect αν ήταν επιλεγμένος
     if (ref.read(homeSelectedFolderProvider) == folder.id) {
       ref.read(homeSelectedFolderProvider.notifier).state = null;
     }
@@ -683,6 +693,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showFolderOptions(
       BuildContext context, WidgetRef ref, Folder folder, List<Item> allItems) {
+    // Έλεγχος αν ο φάκελος είναι άδειος
     final folderItems = allItems
         .where((i) => i.folderId == folder.id && i.deletedAt == null)
         .toList();
@@ -733,6 +744,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ]),
             ),
             const Divider(),
+
+            // ── Επεξεργασία (πάντα διαθέσιμη) ─────────────────
             ListTile(
               leading: Icon(Icons.edit_rounded, color: context.cText),
               title: Text('Επεξεργασία', style: context.bodyMd),
@@ -741,7 +754,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _editFolder(context, ref, folder);
               },
             ),
+
+            // ── Διαγραφή ή ενημερωτικό μήνυμα ─────────────────
             if (!folder.isSystem) ...[
+              // Κανονικός φάκελος: εμφάνιση delete αν είναι άδειος
               ListTile(
                 leading: Icon(Icons.delete_outline_rounded,
                     color: isEmpty ? context.cError : context.cDisabled),
@@ -760,6 +776,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     : null,
               ),
             ] else ...[
+              // System φάκελος: ενημέρωση ότι δεν διαγράφεται
               ListTile(
                 leading: Icon(Icons.info_outline_rounded, color: context.cText2),
                 title: Text(
@@ -770,9 +787,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   'Είναι ο προεπιλεγμένος φάκελος του συστήματος',
                   style: context.bodySm.withColor(context.cDisabled),
                 ),
-                enabled: false,
+                enabled: false,  // Μη επιλέξιμο
               ),
             ],
+
             const SizedBox(height: Spacing.sm),
           ],
         ),
@@ -782,18 +800,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// VIEW MODE TOGGLE + NEW FOLDER CHIP (δίπλα στα toggle)
+// VIEW MODE TOGGLE (pinned / favorites / both)
 // ════════════════════════════════════════════════════════════════
 
-class _ViewModeAndNewFolderChip extends StatelessWidget {
+class _ViewModeToggle extends StatelessWidget {
   final ViewMode current;
-  final ValueChanged<ViewMode> onModeChanged;
-  final VoidCallback onNewFolder;
+  final ValueChanged<ViewMode> onChanged;
 
-  const _ViewModeAndNewFolderChip({
+  const _ViewModeToggle({
     required this.current,
-    required this.onModeChanged,
-    required this.onNewFolder,
+    required this.onChanged,
   });
 
   @override
@@ -809,7 +825,7 @@ class _ViewModeAndNewFolderChip extends StatelessWidget {
             tooltip: 'Καρφιτσωμένα',
             isSelected: current == ViewMode.pinned,
             activeColor: Colors.red,
-            onTap: () => onModeChanged(ViewMode.pinned),
+            onTap: () => onChanged(ViewMode.pinned),
           ),
           const SizedBox(width: Spacing.md),
           _ToggleButton(
@@ -817,7 +833,7 @@ class _ViewModeAndNewFolderChip extends StatelessWidget {
             tooltip: 'Αγαπημένα',
             isSelected: current == ViewMode.favorites,
             activeColor: Colors.amber,
-            onTap: () => onModeChanged(ViewMode.favorites),
+            onTap: () => onChanged(ViewMode.favorites),
           ),
           const SizedBox(width: Spacing.md),
           _ToggleButton(
@@ -825,17 +841,7 @@ class _ViewModeAndNewFolderChip extends StatelessWidget {
             tooltip: 'Όλα',
             isSelected: current == ViewMode.both,
             activeColor: Colors.green,
-            onTap: () => onModeChanged(ViewMode.both),
-          ),
-          const SizedBox(width: Spacing.md),
-          _ToggleButton(
-            icon: Icons.add_rounded,
-            tooltip: 'Νέος φάκελος',
-            isSelected: false,
-            activeColor: context.cPrimary,
-            onTap: onNewFolder,
-            customBackgroundColor: Colors.blue,
-              size: 55,
+            onTap: () => onChanged(ViewMode.both),
           ),
         ],
       ),
@@ -849,8 +855,6 @@ class _ToggleButton extends StatelessWidget {
   final bool isSelected;
   final Color activeColor;
   final VoidCallback onTap;
-  final Color? customBackgroundColor;
-  final double? size;
 
   const _ToggleButton({
     required this.icon,
@@ -858,19 +862,14 @@ class _ToggleButton extends StatelessWidget {
     required this.isSelected,
     required this.activeColor,
     required this.onTap,
-    this.customBackgroundColor,
-    this.size,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = isSelected ? activeColor : context.cText2;
-    final bgColor = customBackgroundColor ?? (
-        isSelected
-            ? activeColor.withValues(alpha: 0.12)
-            : ColorsUI.getSurface(context.brightness)
-    );
-    final double dimension = size ?? 36;
+    final bgColor = isSelected
+        ? activeColor.withValues(alpha: 0.12)
+        : ColorsUI.getSurface(context.brightness);
     final borderColor =
     isSelected ? activeColor : ColorsUI.getBorder(context.brightness);
 
@@ -880,8 +879,8 @@ class _ToggleButton extends StatelessWidget {
         message: tooltip,
         child: AnimatedContainer(
           duration: AppDuration.fast,
-          width: dimension,
-          height: dimension,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: bgColor,
             shape: BoxShape.circle,
@@ -950,6 +949,7 @@ class _HomeAppBar extends ConsumerWidget {
   }
 }
 
+
 // ════════════════════════════════════════════════════════════════
 // GREETING (με εικονίδιο εφαρμογής στα δεξιά)
 // ════════════════════════════════════════════════════════════════
@@ -983,6 +983,7 @@ class _GreetingSection extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Αριστερή πλευρά: εικονίδιο καιρού + κείμενο
           Expanded(
             child: Row(
               children: [
@@ -1000,6 +1001,7 @@ class _GreetingSection extends StatelessWidget {
               ],
             ),
           ),
+          // Δεξιά πλευρά: εικονίδιο εφαρμογής
           ClipOval(
             child: Image.asset(
               'assets/icons/app_icon.webp',
@@ -1044,6 +1046,7 @@ class _SquareItemCard extends StatelessWidget {
     final backgroundColor = ItemColorHelper.backgroundColorForType(item.type, context);
     final textColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final typeColor = ItemColorHelper.iconColorForType(item.type, context);
+
 
     return GestureDetector(
       onTap: onTap,
