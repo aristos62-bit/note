@@ -214,7 +214,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
                         ),
                       ),
                     ],
-                  );;
+                  );
                 },
               ),
             ),
@@ -507,55 +507,6 @@ class _StatBadge extends StatelessWidget {
       const SizedBox(width: 2),
       Text(label, style: context.labelSm.copyWith(color: textColor.withValues(alpha: 0.7))),
     ],
-  );
-}
-
-// ──────────────────────────────────────────────
-// Mobile List
-// ──────────────────────────────────────────────
-class _HabitListMobile extends StatelessWidget {
-  final List<Item> habits;
-  final ValueChanged<int> onTap;
-  final ValueChanged<Item> onDelete;
-  const _HabitListMobile({required this.habits, required this.onTap, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) => ListView.separated(
-    padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs),
-    itemCount: habits.length,
-    separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
-    itemBuilder: (_, i) => _DraggableHabitCard(
-      habit: habits[i],
-      onTap: () => onTap(habits[i].id),
-      onDelete: () => onDelete(habits[i]),
-    ),
-  );
-}
-
-// ──────────────────────────────────────────────
-// Tablet Grid
-// ──────────────────────────────────────────────
-class _HabitGrid extends StatelessWidget {
-  final List<Item> habits;
-  final ValueChanged<int> onTap;
-  final ValueChanged<Item> onDelete;
-  const _HabitGrid({required this.habits, required this.onTap, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) => GridView.builder(
-    padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs),
-    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: context.gridColumns,
-      mainAxisSpacing: Spacing.sm,
-      crossAxisSpacing: Spacing.sm,
-      mainAxisExtent: 140,
-    ),
-    itemCount: habits.length,
-    itemBuilder: (_, i) => _DraggableHabitCard(
-      habit: habits[i],
-      onTap: () => onTap(habits[i].id),
-      onDelete: () => onDelete(habits[i]),
-    ),
   );
 }
 
