@@ -113,6 +113,25 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     setState(() => _isSaving = false);
   }
 
+  Future<void> _saveOrDelete() async {
+    final title = _titleCtrl.text.trim();
+
+    if (title.isEmpty) {
+      // Κενός τίτλος → διαγραφή ( αν είναι νέα ή υπάρχουσα).
+      DebugConfig.db('TaskDetail delete empty task id=${widget.itemId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      return;
+    }
+
+    // Έχει τίτλο → αποθήκευση.
+    await _flushPendingSaves();
+    if (!mounted) return;
+    setState(() => _isSaving = true);
+    DebugConfig.db('TaskDetail manualSave id=${widget.itemId}');
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+  }
+
   Future<void> _saveNotes(String notes) async {
     DebugConfig.db('TaskDetail saveNotes id=${widget.itemId}');
     await ref.read(propertyNotifierProvider(widget.itemId).notifier)
@@ -125,15 +144,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       _notesDebounce!.cancel();
       await _saveNotes(_notesCtrl.text.trim());
     }
-  }
-
-  Future<void> _save() async {
-    await _flushPendingSaves();
-    if (!mounted) return;
-    setState(() => _isSaving = true);
-    DebugConfig.db('TaskDetail manualSave id=${widget.itemId}');
-    if (!mounted) return;
-    setState(() => _isSaving = false);
   }
 
   Future<void> _toggleDone(Item item) async {
@@ -243,27 +253,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             final nav = Navigator.of(context);
-
-            final props = ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
-            final notes = props.where((p) => p.key == 'notes').firstOrNull?.value ?? '';
-            final due = props.where((p) => p.key == 'due_date').firstOrNull?.dateValue;
-
-            final hasNotes = notes.trim().isNotEmpty;
-            final hasDueDate = due != null;
-            final hasPriority = item.priority != ItemPriority.none;
-            final hasNonActiveStatus = item.status != ItemStatus.active;
-            final hasTitle = _titleCtrl.text.trim().isNotEmpty;
-            final isEffectivelyEmpty = !hasTitle && !hasNotes && !hasDueDate && !hasPriority && !hasNonActiveStatus;
-
-            if (isEffectivelyEmpty) {
-              DebugConfig.db('TaskDetail auto-delete empty task id=${widget.itemId}');
-              await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-              if (!nav.mounted) return;
-              nav.pop();
-              return;
-            }
-
-            await _flushPendingSaves();
+            await _saveOrDelete();
             if (!nav.mounted) return;
             nav.pop();
           },
@@ -360,13 +350,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           : null,
       actions: [
         // Save
+        // Save
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
           tooltip: 'Αποθήκευση',
           onPressed: () async {
             final nav = Navigator.of(context);
-            await _save();
+            await _saveOrDelete();
             if (!mounted) return;
             nav.pop();
           },

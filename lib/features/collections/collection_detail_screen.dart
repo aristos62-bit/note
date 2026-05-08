@@ -52,8 +52,6 @@ class _CollectionDetailScreenState
   bool   _isSaving         = false;
   bool   _isEditingTitle   = false;
   String _lastSavedTitle   = '';
-  bool   _hasEverBeenSaved = false;
-  bool   _isAutoSaving     = false;
 
   // Ανίχνευση αλλαγών για επεξεργασία
   bool   _hasChanges       = false;
@@ -127,7 +125,6 @@ class _CollectionDetailScreenState
     debugPrint('   → metadata refreshed');
 
     _lastSavedTitle   = title;
-    _hasEverBeenSaved = true;
     _isEditingTitle   = false;
     _hasChanges       = false;   // ← reset after save
 
@@ -135,6 +132,25 @@ class _CollectionDetailScreenState
     setState(() => _isSaving = false);
     ref.invalidate(itemNotifierProvider);
     debugPrint('💾 _save() END - saved successfully');
+  }
+
+
+  Future<void> _saveOrDelete() async {
+    final title = _titleCtrl.text.trim();
+
+    if (title.isEmpty) {
+      // Κενός τίτλος → διαγραφή
+      DebugConfig.db('CollectionDetail delete empty collection id=${widget.collectionId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId);
+      return;
+    }
+
+    // Έχει τίτλο – αποθήκευση μόνο αν υπάρχουν αλλαγές
+    if (_hasChanges) {
+      await _save();
+    } else {
+      DebugConfig.db('CollectionDetail no changes, skip save');
+    }
   }
 
   // ── Favorite toggle ─────────────────────────────────────────
@@ -145,43 +161,6 @@ class _CollectionDetailScreenState
         .toggleFavorite(widget.collectionId, _isFavorite);
     setState(() => _isFavorite = !_isFavorite);
     ref.invalidate(itemNotifierProvider);
-  }
-
-  // ── Pop guard (με auto‑save) ────────────────────────────────
-
-  Future<bool> _onPopInvoked() async {
-    debugPrint('🔍 _onPopInvoked CALLED');
-    debugPrint('   widget.isNew = ${widget.isNew}');
-    debugPrint('   _hasEverBeenSaved = $_hasEverBeenSaved');
-    debugPrint('   _hasChanges = $_hasChanges');
-    final title = _titleCtrl.text.trim();
-    debugPrint('   current title = "$title"');
-
-    // Αν είναι νέο και δεν έχει αποθηκευτεί ποτέ
-    if (widget.isNew && !_hasEverBeenSaved) {
-      if (title.isNotEmpty) {
-        debugPrint('   → new item with title, auto-saving');
-        if (!_isAutoSaving) {
-          _isAutoSaving = true;
-          await _save();
-          _isAutoSaving = false;
-        }
-      } else {
-        debugPrint('   → new item without title, deleting');
-        await ref.read(itemNotifierProvider.notifier)
-            .deleteItem(widget.collectionId);
-      }
-      return true;
-    }
-
-    // Για υπάρχουσες συλλογές: αποθήκευση μόνο αν υπάρχουν αλλαγές
-    if (_hasChanges) {
-      debugPrint('   → changes detected, auto-saving');
-      await _save();
-    } else {
-      debugPrint('   → no changes, just pop');
-    }
-    return true;
   }
 
   // ── Fields editing ───────────────────────────────────────────
@@ -440,18 +419,12 @@ class _CollectionDetailScreenState
 
         return PopScope(
           canPop: false,
-          onPopInvokedWithResult: (didPop, result) async {
-            debugPrint('🚪 PopScope invoked, didPop=$didPop');
+          onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final canPop = await _onPopInvoked();
-            if (!mounted) return;
-            if (canPop) {
-              debugPrint('🚪 Actually popping screen');
-              if (!context.mounted)return;
-              Navigator.of(context).pop();
-            } else {
-              debugPrint('🚪 Pop denied');
-            }
+            final nav = Navigator.of(context);
+            await _saveOrDelete();
+            if (!nav.mounted) return;
+            nav.pop();
           },
           child: Scaffold(
             backgroundColor: context.cBg,
@@ -485,9 +458,10 @@ class _CollectionDetailScreenState
         icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
         onPressed: () async {
-          await _save();
-          if(!context.mounted)return;
-          if (mounted) Navigator.of(context).pop();
+          final nav = Navigator.of(context);
+          await _saveOrDelete();
+          if (!nav.mounted) return;
+          nav.pop();
         },
       ),
       // Favorite button

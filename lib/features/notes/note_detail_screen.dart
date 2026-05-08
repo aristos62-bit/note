@@ -38,7 +38,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
-  bool _hasEverBeenSaved = false;
 
   @override
   void initState() {
@@ -72,10 +71,10 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.itemId, title: title.isEmpty ? null : title);
     _lastSavedTitle = title;
-    _hasEverBeenSaved = true;
     if (!mounted) return;
     setState(() => _isSaving = false);
   }
+
 
   Future<void> _togglePin(Item item) async {
     DebugConfig.provider('NoteDetail togglePin id=${item.id}');
@@ -124,27 +123,20 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     );
   }
 
-  Future<bool> _onPopInvoked() async {
+  /// Ενιαία λογική για κουμπί Save και back arrow.
+  Future<void> _saveOrDelete() async {
     _saveDebounce?.cancel();
+    final title = _titleCtrl.text.trim();
 
-    if (widget.isNew && !_hasEverBeenSaved) {
-      final title = _titleCtrl.text.trim();
-      final blocks = ref.read(blocksStreamProvider(widget.itemId)).valueOrNull ?? [];
-      final hasBlockContent = blocks.any((b) => (b.text ?? '').trim().isNotEmpty);
-      final hasContent = title.isNotEmpty || hasBlockContent;
-
-      if (!hasContent) {
-        DebugConfig.db('NoteDetail auto-delete empty NEW note id=${widget.itemId}');
-        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-      } else {
-        if (title.isNotEmpty) await _saveTitle(title);
-        DebugConfig.db('NoteDetail auto-save NEW note with content id=${widget.itemId}');
-      }
-      return true;
+    if (title.isEmpty) {
+      // Κενός τίτλος → διαγραφή
+      DebugConfig.db('NoteDetail delete empty note id=${widget.itemId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      return;
     }
 
-    DebugConfig.nav('NoteDetail back keep note id=${widget.itemId}');
-    return true;
+    // Έχει τίτλο → αποθήκευση
+    await _saveTitle(title);
   }
 
   @override
@@ -174,11 +166,12 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
 
         return PopScope(
           canPop: false,
-          onPopInvokedWithResult: (didPop, result) async {
+          onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             final nav = Navigator.of(context);
-            final canPop = await _onPopInvoked();
-            if (canPop) nav.pop();
+            await _saveOrDelete();
+            if (!nav.mounted) return;
+            nav.pop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobileLayout(context, item),
@@ -251,10 +244,10 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
           tooltip: 'Αποθήκευση',
           onPressed: () async {
-            final title = _titleCtrl.text.trim();
-            await _saveTitle(title);
-            if (!context.mounted) return;
-            Navigator.of(context).pop();
+            final nav = Navigator.of(context);
+            await _saveOrDelete();
+            if (!nav.mounted) return;
+            nav.pop();
           },
         ),
         // Reminder

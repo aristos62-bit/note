@@ -634,12 +634,10 @@ class _CollectionEntryDetailScreenState
   bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
-  bool _hasEverBeenSaved = false;
   bool _propsLoaded = false;
   bool _isFavorite = false;
   bool _isPinned = false;
   bool _isArchived = false;
-  bool _isAutoSaving = false;
 
   // Ανίχνευση αλλαγών (για auto‑save σε επεξεργασία)
   bool _hasChanges = false;
@@ -738,7 +736,6 @@ class _CollectionEntryDetailScreenState
     }
 
     _lastSavedTitle = title;
-    _hasEverBeenSaved = true;
     _isEditingTitle = false;
     _hasChanges = false;   // reset after save
 
@@ -746,6 +743,25 @@ class _CollectionEntryDetailScreenState
     setState(() => _isSaving = false);
     ref.invalidate(itemNotifierProvider);
     DebugConfig.db('EntryDetail saved');
+  }
+
+
+  Future<void> _saveOrDelete() async {
+    final title = _titleCtrl.text.trim();
+
+    if (title.isEmpty) {
+      // Κενός τίτλος → διαγραφή
+      DebugConfig.db('EntryDetail delete empty entry id=${widget.entryId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
+      return;
+    }
+
+    // Έχει τίτλο – αποθήκευση μόνο αν υπάρχουν αλλαγές
+    if (_hasChanges) {
+      await _save();
+    } else {
+      DebugConfig.db('EntryDetail no changes, skip save');
+    }
   }
 
   Future<void> _toggleFavorite() async {
@@ -815,37 +831,6 @@ class _CollectionEntryDetailScreenState
   // ── Tag picker sheet ───────────────────────────────────────
   void _showTagPicker() {
     showTagPickerSheet(context, widget.entryId);
-  }
-
-  Future<bool> _onPopInvoked() async {
-    debugPrint('🔙 EntryDetail _onPopInvoked: isNew=${widget.isNew}, hasSaved=$_hasEverBeenSaved, hasChanges=$_hasChanges, title="${_titleCtrl.text.trim()}"');
-
-    // Αν είναι νέο και δεν έχει αποθηκευτεί ποτέ
-    if (widget.isNew && !_hasEverBeenSaved) {
-      final title = _titleCtrl.text.trim();
-      if (title.isNotEmpty) {
-        debugPrint('📝 Auto-saving new entry with title "$title"');
-        if (!_isAutoSaving) {
-          _isAutoSaving = true;
-          await _save();
-          _isAutoSaving = false;
-        }
-        return true;
-      } else {
-        debugPrint('🗑️ Deleting empty new entry');
-        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
-        return true;
-      }
-    }
-
-    // Υπάρχουσα εγγραφή (ή νέα που ήδη αποθηκεύτηκε) – αποθήκευση μόνο αν υπάρχουν αλλαγές
-    if (_hasChanges) {
-      debugPrint('📝 Changes detected, auto-saving entry');
-      await _save();
-    } else {
-      debugPrint('✅ No changes, just pop');
-    }
-    return true;
   }
 
   void _loadProps(List<ItemProperty> props) {
@@ -934,9 +919,10 @@ class _CollectionEntryDetailScreenState
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final canPop = await _onPopInvoked();
-            if (!context.mounted) return;
-            if (canPop) Navigator.of(context).pop();
+            final nav = Navigator.of(context);
+            await _saveOrDelete();
+            if (!nav.mounted) return;
+            nav.pop();
           },
           child: Scaffold(
             backgroundColor: context.cBg,
@@ -963,9 +949,10 @@ class _CollectionEntryDetailScreenState
                   icon: Icon(Icons.save_rounded, color: context.cPrimary),
                   tooltip: 'Αποθήκευση',
                   onPressed: () async {
-                    await _save();
-                    if (!context.mounted) return;
-                    if (mounted) Navigator.of(context).pop();
+                    final nav = Navigator.of(context);
+                    await _saveOrDelete();
+                    if (!nav.mounted) return;
+                    nav.pop();
                   },
                 ),
                 // Reminder

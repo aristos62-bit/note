@@ -70,9 +70,20 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     setState(() => _isSaving = false);
   }
 
-  Future<void> _save() async {
+  /// Αποθηκεύει αν υπάρχει τίτλος, αλλιώς διαγράφει τη συνήθεια.
+  Future<void> _saveOrDelete() async {
+    final title = _titleCtrl.text.trim();
+
+    if (title.isEmpty) {
+      // Κενός τίτλος → διαγραφή (είτε νέα είτε υπάρχουσα)
+      DebugConfig.db('HabitDetail delete empty habit id=${widget.itemId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      return;
+    }
+
+    // Έχει τίτλο → αποθήκευση (ακυρώνουμε τυχόν εκκρεμές debounce)
     _titleDebounce?.cancel();
-    await _saveTitle(_titleCtrl.text.trim());
+    await _saveTitle(title);
   }
 
   Future<void> _incrementProgress() async {
@@ -182,8 +193,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             final nav = Navigator.of(context);
-            _titleDebounce?.cancel();
-            await _saveTitle(_titleCtrl.text.trim());
+            await _saveOrDelete();
             if (!nav.mounted) return;
             nav.pop();
           },
@@ -255,7 +265,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                       strokeWidth: 2, color: context.cText2),
                 ),
                 const SizedBox(width: Spacing.xs),
-                Text('Αποθήκευση...',
+                Text('',
                     style: context.bodySm.withColor(context.cText2)),
               ])
             : null,
@@ -265,7 +275,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             tooltip: 'Αποθήκευση',
             onPressed: () async {
               final nav = Navigator.of(context);
-              await _save();
+              await _saveOrDelete();
               if (nav.mounted) nav.pop();
             },
           ),
@@ -439,27 +449,29 @@ class _HabitBody extends ConsumerWidget {
         ),
 
         // Heatmap
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md,
-                context.responsiveHPadding, Spacing.sm),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(Icons.calendar_month_rounded,
-                    size: 16, color: context.cText2),
-                const SizedBox(width: Spacing.xs),
-                Text('Ιστορικό', style: context.titleSm),
+        // Heatmap – εμφανίζεται μόνο αν έχουμε stats
+        if (stats != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md,
+                  context.responsiveHPadding, Spacing.sm),
+              child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.calendar_month_rounded,
+                      size: 16, color: context.cText2),
+                  const SizedBox(width: Spacing.xs),
+                  Text('Ιστορικό', style: context.titleSm),
+                ]),
+                const SizedBox(height: Spacing.md),
+                _HeatmapCalendar(
+                    completions: stats.completions,
+                    color: color,
+                    recurrence: stats.recurrence,
+                    goalCount: stats.goalCount),
               ]),
-              const SizedBox(height: Spacing.md),
-              _HeatmapCalendar(
-                  completions: stats?.completions ?? [],
-                  color: color,
-                  recurrence: stats!.recurrence,
-                  goalCount: stats.goalCount),
-            ]),
+            ),
           ),
-        ),
 
         // Settings
         SliverToBoxAdapter(
