@@ -101,7 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         tooltip: 'Νέος φάκελος',
         backgroundColor: context.cPrimary,
         foregroundColor: context.cOnPrimary,
-        child: const Icon(Icons.create_new_folder_rounded),
+        child: const Icon(Icons.add_rounded),
       ),
       body: CustomScrollView(
         slivers: [

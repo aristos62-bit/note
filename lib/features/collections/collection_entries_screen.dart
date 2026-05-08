@@ -5,6 +5,7 @@
 // ✅ Dark mode
 // ✅ DebugConfig
 // ✅ Save pattern ίδιο με NoteDetailScreen
+// ✅ Auto‑save κατά την επεξεργασία (back arrow) αν υπάρχουν αλλαγές
 // ✅ Υποστήριξη bulletList και numberedList (δυναμικές λίστες)
 // ✅ Πολυγραμμικό κείμενο για πεδίο text
 // ✅ Χρήση ItemColorHelper για background & contrast
@@ -638,6 +639,10 @@ class _CollectionEntryDetailScreenState
   bool _isFavorite = false;
   bool _isPinned = false;
   bool _isArchived = false;
+  bool _isAutoSaving = false;
+
+  // Ανίχνευση αλλαγών (για auto‑save σε επεξεργασία)
+  bool _hasChanges = false;
 
   final Map<String, bool> _boolValues = {};
   final Map<String, DateTime?> _dateValues = {};
@@ -666,12 +671,16 @@ class _CollectionEntryDetailScreenState
     super.dispose();
   }
 
-  void _onTitleChanged(String _) => _isEditingTitle = true;
+  void _onTitleChanged(String _) {
+    _isEditingTitle = true;
+    _hasChanges = true;
+  }
 
   void _addListItem(String key) {
     setState(() {
       _listValues.putIfAbsent(key, () => []);
       _listValues[key]!.add('');
+      _hasChanges = true;
     });
   }
 
@@ -679,6 +688,7 @@ class _CollectionEntryDetailScreenState
     setState(() {
       if (_listValues[key] != null && index < _listValues[key]!.length) {
         _listValues[key]!.removeAt(index);
+        _hasChanges = true;
       }
     });
   }
@@ -687,32 +697,34 @@ class _CollectionEntryDetailScreenState
     setState(() {
       if (_listValues[key] != null && index < _listValues[key]!.length) {
         _listValues[key]![index] = value;
+        _hasChanges = true;
       }
     });
   }
 
   Future<void> _save() async {
-    if (!mounted) return;
+    if (_isSaving) return;
     setState(() => _isSaving = true);
 
     final title = _titleCtrl.text.trim();
-    DebugConfig.db('EntryDetail save id=${widget.entryId}');
+    DebugConfig.db('EntryDetail save id=${widget.entryId} title="$title"');
 
+    // 1. Τίτλος
     await ref
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.entryId, title: title.isEmpty ? null : title);
 
-    final notifier =
-    ref.read(propertyNotifierProvider(widget.entryId).notifier);
-
+    // 2. Όλα τα properties
+    final notifier = ref.read(propertyNotifierProvider(widget.entryId).notifier);
     for (final f in widget.fields) {
       if (f.key.isEmpty) continue;
       switch (f.type) {
         case FieldType.toggle:
-          await notifier.setText(
-              f.key, (_boolValues[f.key] ?? false) ? 'true' : 'false');
+          await notifier.setText(f.key, (_boolValues[f.key] ?? false) ? 'true' : 'false');
+          break;
         case FieldType.date:
           await notifier.setDate(f.key, _dateValues[f.key]);
+          break;
         case FieldType.bulletList:
         case FieldType.numberedList:
           final list = _listValues[f.key] ?? [];
@@ -728,32 +740,42 @@ class _CollectionEntryDetailScreenState
     _lastSavedTitle = title;
     _hasEverBeenSaved = true;
     _isEditingTitle = false;
+    _hasChanges = false;   // reset after save
 
-    if (!context.mounted) return;
+    if (!mounted) return;
     setState(() => _isSaving = false);
     ref.invalidate(itemNotifierProvider);
-    if (mounted) Navigator.of(context).pop();
+    DebugConfig.db('EntryDetail saved');
   }
 
   Future<void> _toggleFavorite() async {
     await ref
         .read(itemNotifierProvider.notifier)
         .toggleFavorite(widget.entryId, _isFavorite);
-    setState(() => _isFavorite = !_isFavorite);
+    setState(() {
+      _isFavorite = !_isFavorite;
+      _hasChanges = true;
+    });
   }
 
   Future<void> _togglePin() async {
     await ref
         .read(itemNotifierProvider.notifier)
         .togglePin(widget.entryId, _isPinned);
-    setState(() => _isPinned = !_isPinned);
+    setState(() {
+      _isPinned = !_isPinned;
+      _hasChanges = true;
+    });
   }
 
   Future<void> _toggleArchive() async {
     await ref
         .read(itemNotifierProvider.notifier)
         .toggleArchive(widget.entryId, _isArchived);
-    setState(() => _isArchived = !_isArchived);
+    setState(() {
+      _isArchived = !_isArchived;
+      _hasChanges = true;
+    });
   }
 
   Future<void> _deleteEntry() async {
@@ -792,12 +814,36 @@ class _CollectionEntryDetailScreenState
 
   // ── Tag picker sheet ───────────────────────────────────────
   void _showTagPicker() {
-    showTagPickerSheet(context, widget.entryId);  // ✅ χρησιμοποιεί widget.entryId απευθείας
+    showTagPickerSheet(context, widget.entryId);
   }
+
   Future<bool> _onPopInvoked() async {
+    debugPrint('🔙 EntryDetail _onPopInvoked: isNew=${widget.isNew}, hasSaved=$_hasEverBeenSaved, hasChanges=$_hasChanges, title="${_titleCtrl.text.trim()}"');
+
+    // Αν είναι νέο και δεν έχει αποθηκευτεί ποτέ
     if (widget.isNew && !_hasEverBeenSaved) {
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
-      return true;
+      final title = _titleCtrl.text.trim();
+      if (title.isNotEmpty) {
+        debugPrint('📝 Auto-saving new entry with title "$title"');
+        if (!_isAutoSaving) {
+          _isAutoSaving = true;
+          await _save();
+          _isAutoSaving = false;
+        }
+        return true;
+      } else {
+        debugPrint('🗑️ Deleting empty new entry');
+        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
+        return true;
+      }
+    }
+
+    // Υπάρχουσα εγγραφή (ή νέα που ήδη αποθηκεύτηκε) – αποθήκευση μόνο αν υπάρχουν αλλαγές
+    if (_hasChanges) {
+      debugPrint('📝 Changes detected, auto-saving entry');
+      await _save();
+    } else {
+      debugPrint('✅ No changes, just pop');
     }
     return true;
   }
@@ -836,6 +882,8 @@ class _CollectionEntryDetailScreenState
       }
     }
     _propsLoaded = true;
+    // Αφού φορτώθηκαν τα existing props, δεν υπάρχουν αλλαγές ακόμα
+    _hasChanges = false;
   }
 
   @override
@@ -886,9 +934,9 @@ class _CollectionEntryDetailScreenState
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context);
             final canPop = await _onPopInvoked();
-            if (canPop) nav.pop();
+            if (!context.mounted) return;
+            if (canPop) Navigator.of(context).pop();
           },
           child: Scaffold(
             backgroundColor: context.cBg,
@@ -910,7 +958,7 @@ class _CollectionEntryDetailScreenState
               ])
                   : null,
               actions: [
-                // Save
+                // Save button
                 IconButton(
                   icon: Icon(Icons.save_rounded, color: context.cPrimary),
                   tooltip: 'Αποθήκευση',
@@ -981,7 +1029,7 @@ class _CollectionEntryDetailScreenState
                 80,
               ),
               children: [
-                // Τίτλος
+                // Title field
                 TextField(
                   controller: _titleCtrl,
                   onChanged: _onTitleChanged,
@@ -997,7 +1045,7 @@ class _CollectionEntryDetailScreenState
                 ),
                 Divider(color: ColorsUI.getBorder(context.brightness)),
                 const SizedBox(height: Spacing.sm),
-                // Πεδία
+                // Fields
                 ...widget.fields.map((f) => Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.md),
                   child: _FieldInput(
@@ -1006,15 +1054,21 @@ class _CollectionEntryDetailScreenState
                     boolValue: _boolValues[f.key] ?? false,
                     dateValue: _dateValues[f.key],
                     listItems: _listValues[f.key] ?? [],
-                    onBoolChange: (v) =>
-                        setState(() => _boolValues[f.key] = v),
-                    onDateChange: (v) =>
-                        setState(() => _dateValues[f.key] = v),
+                    onBoolChange: (v) {
+                      setState(() {
+                        _boolValues[f.key] = v;
+                        _hasChanges = true;
+                      });
+                    },
+                    onDateChange: (v) {
+                      setState(() {
+                        _dateValues[f.key] = v;
+                        _hasChanges = true;
+                      });
+                    },
                     onAddListItem: () => _addListItem(f.key),
-                    onRemoveListItem: (index) =>
-                        _removeListItem(f.key, index),
-                    onUpdateListItem: (index, val) =>
-                        _updateListItem(f.key, index, val),
+                    onRemoveListItem: (index) => _removeListItem(f.key, index),
+                    onUpdateListItem: (index, val) => _updateListItem(f.key, index, val),
                   ),
                 )),
                 // Tags section
