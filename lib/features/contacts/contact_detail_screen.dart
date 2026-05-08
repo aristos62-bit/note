@@ -1,6 +1,7 @@
 // lib/features/contacts/contact_detail_screen.dart
 //
-// Detail screen επαφής: όνομα, τηλέφωνο, email, εταιρεία, κ.α.
+// Detail screen επαφής: όνομα, πολλαπλά τηλέφωνα (αποθηκεύονται ως JSON),
+// email, εταιρεία, website, διεύθυνση, σημειώσεις, γενέθλια, tags.
 // ✅ Folder‑aware: δείχνει φάκελο
 // ✅ Save logic: isNew + manual Save button (ίδια με NoteDetailScreen)
 // ✅ Responsive: single col mobile / two‑panel tablet
@@ -9,6 +10,7 @@
 // ✅ AppBar: Αποθήκευση, Υπενθύμιση, Αγαπημένο, Pin, Αρχειοθέτηση, Διαγραφή
 // ✅ Tags: προβολή, προσθήκη, αφαίρεση
 //
+import 'dart:convert'; // 🆕 για jsonEncode / jsonDecode
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -36,7 +38,8 @@ class ContactDetailScreen extends ConsumerStatefulWidget {
 class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   // ── Controllers ─────────────────────────────────────────────
   late final TextEditingController _nameCtrl;
-  late final TextEditingController _phoneCtrl;
+  // 🆕 Λίστα controllers για πολλαπλά τηλέφωνα
+  late final List<TextEditingController> _phoneCtrls;
   late final TextEditingController _emailCtrl;
   late final TextEditingController _companyCtrl;
   late final TextEditingController _websiteCtrl;
@@ -44,13 +47,13 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   late final TextEditingController _notesCtrl;
 
   // ── Save state (ίδια λογική με NoteDetailScreen) ───────────
+  // ignore: prefer_final_fields
   bool _isSaving = false;
   bool _isEditingName = false;
   String _lastSavedName = '';
-  bool _hasEverBeenSaved = false;
 
-  // ── Cached props ───────────────────────────────────────────
-  String _lastPhone = '';
+  // ── Cached values ─────────────────────────────────────────
+  String _lastPhonesJson = '';   // 🆕 αντί για _lastPhone
   String _lastEmail = '';
   String _lastCompany = '';
   String _lastWebsite = '';
@@ -62,7 +65,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController();
-    _phoneCtrl = TextEditingController();
+    _phoneCtrls = [];   // 🆕
     _emailCtrl = TextEditingController();
     _companyCtrl = TextEditingController();
     _websiteCtrl = TextEditingController();
@@ -75,7 +78,9 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _phoneCtrl.dispose();
+    for (final c in _phoneCtrls) {
+      c.dispose();
+    }
     _emailCtrl.dispose();
     _companyCtrl.dispose();
     _websiteCtrl.dispose();
@@ -86,28 +91,50 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
   void _onNameChanged(String _) => _isEditingName = true;
 
-  Future<void> _save() async {
-    if (!mounted) return;
-    setState(() => _isSaving = true);
+  // 🆕 Προσθήκη νέου πεδίου τηλεφώνου
+  void _addPhoneField() {
+    setState(() {
+      _phoneCtrls.add(TextEditingController());
+    });
+  }
 
+  // 🆕 Αφαίρεση πεδίου τηλεφώνου (εκτός αν είναι το τελευταίο, μπορεί να μείνει κενό)
+  void _removePhoneField(int index) {
+    if (_phoneCtrls.length <= 1) return; // κρατάμε τουλάχιστον ένα κενό πεδίο
+    setState(() {
+      _phoneCtrls[index].dispose();
+      _phoneCtrls.removeAt(index);
+    });
+  }
+
+  /// Αποθηκεύει τις τρέχουσες τιμές των πεδίων στη βάση
+  /// μόνο αν έχουν αλλάξει σε σχέση με τις cached τιμές.
+  Future<void> _persistChanges() async {
     final name = _nameCtrl.text.trim();
-    final phone = _phoneCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final company = _companyCtrl.text.trim();
     final website = _websiteCtrl.text.trim();
     final address = _addressCtrl.text.trim();
     final notes = _notesCtrl.text.trim();
 
-    DebugConfig.db('ContactDetail save id=${widget.itemId} name="$name"');
+    final phonesList = _phoneCtrls
+        .map((c) => c.text.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    final phonesJson = jsonEncode(phonesList);
 
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .updateItem(widget.itemId, title: name.isEmpty ? null : name);
+    // Αποθήκευση μόνο αν άλλαξε κάτι
+    if (name != _lastSavedName) {
+      await ref
+          .read(itemNotifierProvider.notifier)
+          .updateItem(widget.itemId, title: name.isEmpty ? null : name);
+    }
 
     final notifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
 
-    if (phone != _lastPhone) {
-      await notifier.setText('phone', phone.isEmpty ? null : phone);
+    if (phonesJson != _lastPhonesJson) {
+      await notifier.setText('phones', phonesList.isEmpty ? null : phonesJson);
+      await notifier.remove('phone'); // Καθαρισμός του παλιού phone αν υπάρχει
     }
     if (email != _lastEmail) {
       await notifier.setText('email', email.isEmpty ? null : email);
@@ -125,21 +152,31 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       await notifier.setText('notes', notes.isEmpty ? null : notes);
     }
 
+    // Ενημέρωση cached τιμών
     _lastSavedName = name;
-    _lastPhone = phone;
+    _lastPhonesJson = phonesJson;
     _lastEmail = email;
     _lastCompany = company;
     _lastWebsite = website;
     _lastAddress = address;
     _lastNotes = notes;
-    _hasEverBeenSaved = true;
     _isEditingName = false;
 
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    ref.invalidate(itemNotifierProvider);
+    DebugConfig.db('ContactDetail changes persisted id=${widget.itemId}');
+  }
 
-    DebugConfig.db('ContactDetail saved successfully');
+  Future<void> _saveOrDelete() async {
+    final name = _nameCtrl.text.trim();
+
+    if (name.isEmpty) {
+      // Κενό όνομα → διαγραφή
+      DebugConfig.db('ContactDetail delete empty contact id=${widget.itemId}');
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      return;
+    }
+
+    // Έχει όνομα → αποθήκευση
+    await _persistChanges();
   }
 
   Future<void> _pickBirthday(BuildContext context) async {
@@ -167,17 +204,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         .read(propertyNotifierProvider(widget.itemId).notifier)
         .remove('birthday');
     setState(() => _lastBirthday = null);
-  }
-
-  Future<bool> _onPopInvoked() async {
-    if (widget.isNew && !_hasEverBeenSaved) {
-      DebugConfig.db(
-          'ContactDetail auto-delete NEW contact id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-      return true;
-    }
-    DebugConfig.nav('ContactDetail back keep id=${widget.itemId}');
-    return true;
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -209,7 +235,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         .toggleArchive(item.id, item.archived);
   }
 
-  // ── Reminder bottom sheet (ίδιο με NoteDetailScreen) ─────────
   Future<void> _showReminderDialog() async {
     final title =
     _nameCtrl.text.trim().isEmpty ? 'Επαφή' : _nameCtrl.text.trim();
@@ -233,9 +258,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     );
   }
 
-  // ── Tag picker sheet ────────────────────────────────────────
   void _showTagPicker() {
-    showTagPickerSheet(context, widget.itemId);  // χρησιμοποιεί widget.itemId
+    showTagPickerSheet(context, widget.itemId);
   }
 
   @override
@@ -269,8 +293,9 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             final nav = Navigator.of(context);
-            final canPop = await _onPopInvoked();
-            if (canPop) nav.pop();
+            await _saveOrDelete();
+            if (!nav.mounted) return;
+            nav.pop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
@@ -287,7 +312,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     body: _ContactBody(
       item: item,
       nameCtrl: _nameCtrl,
-      phoneCtrl: _phoneCtrl,
+      phoneCtrls: _phoneCtrls,   // 🆕
       emailCtrl: _emailCtrl,
       companyCtrl: _companyCtrl,
       websiteCtrl: _websiteCtrl,
@@ -299,6 +324,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       onClearBirthday: _clearBirthday,
       onSyncProps: _syncPropsFromDB,
       onShowTagPicker: _showTagPicker,
+      onAddPhone: _addPhoneField,      // 🆕
+      onRemovePhone: _removePhoneField, // 🆕
     ),
   );
 
@@ -320,7 +347,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           child: _ContactBody(
             item: item,
             nameCtrl: _nameCtrl,
-            phoneCtrl: _phoneCtrl,
+            phoneCtrls: _phoneCtrls,   // 🆕
             emailCtrl: _emailCtrl,
             companyCtrl: _companyCtrl,
             websiteCtrl: _websiteCtrl,
@@ -332,6 +359,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
             onClearBirthday: _clearBirthday,
             onSyncProps: _syncPropsFromDB,
             onShowTagPicker: _showTagPicker,
+            onAddPhone: _addPhoneField,      // 🆕
+            onRemovePhone: _removePhoneField, // 🆕
           ),
         ),
       ],
@@ -351,7 +380,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
             strokeWidth: 2, color: context.cText2),
       ),
       const SizedBox(width: Spacing.xs),
-      Text('Αποθήκευση...',
+      Text('',
           style: context.bodySm.withColor(context.cText2)),
     ])
         : null,
@@ -361,9 +390,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
         onPressed: () async {
-          await _save();
-          if (!context.mounted) return;
-          Navigator.of(context).pop();
+          final nav = Navigator.of(context);
+          await _saveOrDelete();
+          if (!nav.mounted) return;
+          nav.pop();
         },
       ),
       // Reminder
@@ -411,33 +441,60 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   );
 
   void _syncPropsFromDB(List<ItemProperty> props) {
-    if (_lastPhone.isNotEmpty) return;
+    // 🆕 Αν δεν έχουμε ακόμα τηλέφωνα, τα φορτώνουμε από τα props
+    if (_phoneCtrls.isEmpty) {
+      // Προσπαθούμε να διαβάσουμε 'phones' (JSON λίστα)
+      final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
+      List<String> phones = [];
+      if (phonesJson != null && phonesJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(phonesJson);
+          if (decoded is List) {
+            phones = decoded.map((e) => e.toString()).toList();
+          }
+        } catch (_) {
+          // Αγνοούμε – θα δοκιμάσουμε το παλιό 'phone'
+        }
+      }
+      // Fallback στο παλιό κλειδί 'phone'
+      if (phones.isEmpty) {
+        final oldPhone = props.where((p) => p.key == 'phone').firstOrNull?.value;
+        if (oldPhone != null && oldPhone.isNotEmpty) {
+          phones = [oldPhone];
+        }
+      }
+      // Αν δεν έχουμε κανένα τηλέφωνο, βάζουμε ένα κενό πεδίο
+      if (phones.isEmpty) {
+        phones = [''];
+      }
 
-    final phone = props.where((p) => p.key == 'phone').firstOrNull?.value ?? '';
+      // Δημιουργούμε controllers και ενημερώνουμε το cached json
+      for (final p in phones) {
+        _phoneCtrls.add(TextEditingController(text: p));
+      }
+      _lastPhonesJson = jsonEncode(phones.where((p) => p.isNotEmpty).toList());
+    } else if (_lastPhonesJson.isEmpty) {
+      // Έχουμε ήδη controllers αλλά δεν έχουμε cached – πιθανόν πρώτη φόρτωση
+      final currentPhones = _phoneCtrls.map((c) => c.text.trim()).where((p) => p.isNotEmpty).toList();
+      _lastPhonesJson = jsonEncode(currentPhones);
+    }
+
+    // Υπόλοιπα πεδία (ίδια λογική)
+    if (_lastEmail.isNotEmpty) return;
+
     final email = props.where((p) => p.key == 'email').firstOrNull?.value ?? '';
-    final company =
-        props.where((p) => p.key == 'company').firstOrNull?.value ?? '';
-    final website =
-        props.where((p) => p.key == 'website').firstOrNull?.value ?? '';
-    final address =
-        props.where((p) => p.key == 'address').firstOrNull?.value ?? '';
+    final company = props.where((p) => p.key == 'company').firstOrNull?.value ?? '';
+    final website = props.where((p) => p.key == 'website').firstOrNull?.value ?? '';
+    final address = props.where((p) => p.key == 'address').firstOrNull?.value ?? '';
     final notes = props.where((p) => p.key == 'notes').firstOrNull?.value ?? '';
     final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
 
-    if (_phoneCtrl.text.isEmpty && phone.isNotEmpty) _phoneCtrl.text = phone;
     if (_emailCtrl.text.isEmpty && email.isNotEmpty) _emailCtrl.text = email;
-    if (_companyCtrl.text.isEmpty && company.isNotEmpty) {
-      _companyCtrl.text = company;
-    }
-    if (_websiteCtrl.text.isEmpty && website.isNotEmpty) {
-      _websiteCtrl.text = website;
-    }
-    if (_addressCtrl.text.isEmpty && address.isNotEmpty) {
-      _addressCtrl.text = address;
-    }
+    if (_companyCtrl.text.isEmpty && company.isNotEmpty) _companyCtrl.text = company;
+    if (_websiteCtrl.text.isEmpty && website.isNotEmpty) _websiteCtrl.text = website;
+    if (_addressCtrl.text.isEmpty && address.isNotEmpty) _addressCtrl.text = address;
     if (_notesCtrl.text.isEmpty && notes.isNotEmpty) _notesCtrl.text = notes;
 
-    _lastPhone = phone;
     _lastEmail = email;
     _lastCompany = company;
     _lastWebsite = website;
@@ -470,13 +527,13 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// CONTACT BODY — η φόρμα
+// CONTACT BODY — η φόρμα (υποστηρίζει πολλαπλά τηλέφωνα)
 // ════════════════════════════════════════════════════════════════
 
 class _ContactBody extends ConsumerWidget {
   final Item item;
   final TextEditingController nameCtrl;
-  final TextEditingController phoneCtrl;
+  final List<TextEditingController> phoneCtrls; // 🆕
   final TextEditingController emailCtrl;
   final TextEditingController companyCtrl;
   final TextEditingController websiteCtrl;
@@ -488,11 +545,13 @@ class _ContactBody extends ConsumerWidget {
   final VoidCallback onClearBirthday;
   final ValueChanged<List<ItemProperty>> onSyncProps;
   final VoidCallback onShowTagPicker;
+  final VoidCallback onAddPhone;      // 🆕
+  final ValueChanged<int> onRemovePhone; // 🆕
 
   const _ContactBody({
     required this.item,
     required this.nameCtrl,
-    required this.phoneCtrl,
+    required this.phoneCtrls,
     required this.emailCtrl,
     required this.companyCtrl,
     required this.websiteCtrl,
@@ -504,6 +563,8 @@ class _ContactBody extends ConsumerWidget {
     required this.onClearBirthday,
     required this.onSyncProps,
     required this.onShowTagPicker,
+    required this.onAddPhone,
+    required this.onRemovePhone,
   });
 
   @override
@@ -584,14 +645,11 @@ class _ContactBody extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                _ContactField(
-                  icon: Icons.phone_rounded,
-                  label: 'Τηλέφωνο',
-                  controller: phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
-                  ],
+                // 🆕 Πολλαπλά τηλέφωνα
+                _PhoneListEditor(
+                  controllers: phoneCtrls,
+                  onAdd: onAddPhone,
+                  onRemove: onRemovePhone,
                 ),
                 _ContactField(
                   icon: Icons.email_rounded,
@@ -633,7 +691,7 @@ class _ContactBody extends ConsumerWidget {
           ),
         ),
 
-        // ── Tags section (ίδιο με NoteDetailScreen) ─────────
+        // ── Tags section ─────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
             padding:
@@ -687,8 +745,92 @@ class _ContactBody extends ConsumerWidget {
   }
 }
 
+// 🆕 Widget για λίστα τηλεφώνων
+class _PhoneListEditor extends StatelessWidget {
+  final List<TextEditingController> controllers;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  const _PhoneListEditor({
+    required this.controllers,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(Icons.phone_rounded, size: 18, color: context.cText2),
+            const SizedBox(width: Spacing.md),
+            Expanded(
+              child: Text('Τηλέφωνο${controllers.length > 1 ? ' (${controllers.length})' : ''}',
+                  style: context.bodySm.withColor(context.cText2)),
+            ),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.add_circle_outline_rounded, color: context.cPrimary, size: 22),
+              onPressed: onAdd,
+              tooltip: 'Προσθήκη τηλεφώνου',
+            ),
+          ],
+        ),
+        ...controllers.asMap().entries.map((entry) {
+          final index = entry.key;
+          final ctrl = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.sm),
+            child: Row(
+              children: [
+                const SizedBox(width: 18 + Spacing.md), // στοίχιση με το εικονίδιο
+                Expanded(
+                  child: TextField(
+                    controller: ctrl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
+                    ],
+                    style: context.bodyMd,
+                    decoration: InputDecoration(
+                      hintText: 'π.χ. 2101234567',
+                      hintStyle: context.bodyMd.withColor(context.cDisabled),
+                      filled: true,
+                      fillColor: ColorsUI.getSurface(context.brightness),
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadius.inputBR,
+                        borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: AppRadius.inputBR,
+                        borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: AppRadius.inputBR,
+                        borderSide: BorderSide(color: context.cPrimary, width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+                    ),
+                  ),
+                ),
+                if (controllers.length > 1)
+                  IconButton(
+                    icon: Icon(Icons.remove_circle_outline_rounded, color: context.cError, size: 22),
+                    onPressed: () => onRemove(index),
+                    tooltip: 'Αφαίρεση τηλεφώνου',
+                  ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
 // ════════════════════════════════════════════════════════════════
-// CONTACT FIELD
+// CONTACT FIELD (απλό, αμετάβλητο)
 // ════════════════════════════════════════════════════════════════
 
 class _ContactField extends StatelessWidget {
@@ -697,7 +839,6 @@ class _ContactField extends StatelessWidget {
   final TextEditingController controller;
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
-  final List<TextInputFormatter>? inputFormatters;
   final int maxLines;
 
   const _ContactField({
@@ -706,7 +847,6 @@ class _ContactField extends StatelessWidget {
     required this.controller,
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
-    this.inputFormatters,
     this.maxLines = 1,
   });
 
@@ -727,7 +867,6 @@ class _ContactField extends StatelessWidget {
               controller: controller,
               keyboardType: keyboardType,
               textCapitalization: textCapitalization,
-              inputFormatters: inputFormatters,
               maxLines: maxLines,
               style: context.bodyMd,
               decoration: InputDecoration(
@@ -761,7 +900,7 @@ class _ContactField extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// BIRTHDAY FIELD
+// BIRTHDAY FIELD (αμετάβλητο)
 // ════════════════════════════════════════════════════════════════
 
 class _BirthdayField extends StatelessWidget {
@@ -833,7 +972,7 @@ class _BirthdayField extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SUMMARY PANEL — tablet left panel (με tags)
+// SUMMARY PANEL — tablet left panel (δείχνει πολλαπλά τηλέφωνα)
 // ════════════════════════════════════════════════════════════════
 
 class _ContactSummaryPanel extends ConsumerWidget {
@@ -849,7 +988,25 @@ class _ContactSummaryPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
     final props = propsAsync.valueOrNull ?? [];
-    final phone = props.where((p) => p.key == 'phone').firstOrNull?.value;
+
+    // 🆕 Διαβάζουμε τα τηλέφωνα από 'phones' ή 'phone'
+    List<String> phones = [];
+    final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
+    if (phonesJson != null && phonesJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(phonesJson);
+        if (decoded is List) {
+          phones = decoded.map((e) => e.toString()).toList();
+        }
+      } catch (_) {}
+    }
+    if (phones.isEmpty) {
+      final oldPhone = props.where((p) => p.key == 'phone').firstOrNull?.value;
+      if (oldPhone != null && oldPhone.isNotEmpty) {
+        phones = [oldPhone];
+      }
+    }
+
     final email = props.where((p) => p.key == 'email').firstOrNull?.value;
     final company = props.where((p) => p.key == 'company').firstOrNull?.value;
     final tagsAsync = ref.watch(itemTagsProvider(item.id));
@@ -887,12 +1044,12 @@ class _ContactSummaryPanel extends ConsumerWidget {
           const SizedBox(height: Spacing.lg),
           const Divider(),
           const SizedBox(height: Spacing.sm),
-          if (phone != null)
-            _QuickAction(
-              icon: Icons.call_rounded,
-              label: phone,
-              color: context.cSuccess,
-            ),
+          // 🆕 Εμφάνιση όλων των τηλεφώνων
+          ...phones.map((p) => _QuickAction(
+            icon: Icons.call_rounded,
+            label: p,
+            color: context.cSuccess,
+          )),
           if (email != null)
             _QuickAction(
               icon: Icons.email_rounded,

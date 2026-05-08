@@ -108,14 +108,19 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     DebugConfig.db('JournalDetail saved successfully');
   }
 
-  Future<bool> _onPopInvoked() async {
-    if (widget.isNew && !_hasEverBeenSaved) {
-      DebugConfig.db('JournalDetail auto-delete empty NEW entry id=${widget.itemId}');
+  /// Ενιαία λογική για κουμπί Save και back arrow.
+  Future<void> _saveOrDelete() async {
+    final title = _titleCtrl.text.trim();
+
+    if (title.isEmpty) {
+      // Κενός τίτλος → διαγραφή
+      DebugConfig.db('JournalDetail delete empty entry id=${widget.itemId}');
       await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-      return true;
+      return;
     }
-    DebugConfig.nav('JournalDetail back keep id=${widget.itemId}');
-    return true;
+
+    // Έχει τίτλο → αποθήκευση
+    await _save();
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -228,12 +233,13 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
 
         return PopScope(
           canPop: false,
-          onPopInvokedWithResult: (didPop, _) async {
-            if (didPop) return;
-            final nav = Navigator.of(context);
-            final canPop = await _onPopInvoked();
-            if (canPop) nav.pop();
-          },
+            onPopInvokedWithResult: (didPop, _) async {
+              if (didPop) return;
+              final nav = Navigator.of(context);
+              await _saveOrDelete();
+              if (!nav.mounted) return;
+              nav.pop();
+            },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
             tablet: _buildTablet(context, item),
@@ -307,18 +313,21 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
               strokeWidth: 2, color: context.cText2),
         ),
         const SizedBox(width: Spacing.xs),
-        Text('Αποθήκευση...',
+        Text('',
             style: context.bodySm.withColor(context.cText2)),
       ])
           : null,
       actions: [
         // Save
+        // Save
         IconButton(
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
           tooltip: 'Αποθήκευση',
           onPressed: () async {
-            await _save();
-            if (mounted && context.mounted) Navigator.of(context).pop();
+            final nav = Navigator.of(context);
+            await _saveOrDelete();
+            if (!nav.mounted) return;
+            nav.pop();
           },
         ),
         // Reminder
