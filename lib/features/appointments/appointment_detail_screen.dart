@@ -176,12 +176,169 @@ class _AppointmentDetailScreenState
     setState(() {});
   }
 
+
+  /// Αποθηκεύει τα δεδομένα στη DB χωρίς validation και χωρίς navigation.
+  /// Χρησιμοποιείται από _save() και _onPopInvoked() (auto-save on back).
+  Future<void> _saveData() async {
+    final itemNotifier = ref.read(itemNotifierProvider.notifier);
+    final propertyNotifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
+
+    await itemNotifier.updateItem(
+      widget.itemId,
+      title: _titleCtrl.text.trim(),
+      favorite: _isFavorite,
+    );
+
+    await Future.wait([
+      propertyNotifier.setText(
+        'date', _selectedDate?.toIso8601String(),
+      ),
+      propertyNotifier.setText(
+        'time',
+        _selectedTime != null
+            ? '${_selectedTime!.hour}:${_selectedTime!.minute}'
+            : null,
+      ),
+      propertyNotifier.setText(
+        'location',
+        _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'notes',
+        _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_name',
+        _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_phone',
+        _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_email',
+        _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_company',
+        _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_website',
+        _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_address',
+        _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_notes',
+        _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim(),
+      ),
+      propertyNotifier.setText(
+        'contact_birthday',
+        _contactBirthday?.toIso8601String(),
+      ),
+    ]);
+
+    // Contact linking logic
+    final hasContactData = _contactNameCtrl.text.trim().isNotEmpty ||
+        _contactPhoneCtrl.text.trim().isNotEmpty ||
+        _contactEmailCtrl.text.trim().isNotEmpty ||
+        _contactCompanyCtrl.text.trim().isNotEmpty ||
+        _contactWebsiteCtrl.text.trim().isNotEmpty ||
+        _contactAddressCtrl.text.trim().isNotEmpty ||
+        _contactNotesCtrl.text.trim().isNotEmpty ||
+        _contactBirthday != null;
+
+    if (hasContactData) {
+      final workspaceId = ref.read(activeWorkspaceIdProvider);
+      if (workspaceId == null) return;
+
+      if (_linkedContactId == null) {
+        final shouldCreate = await _askCreateContact();
+        if (!mounted) return;
+        if (shouldCreate) {
+          final newContact = await itemNotifier.create(
+            type: ItemType.contact,
+            title: _contactNameCtrl.text.trim(),
+            folderId: null,
+          );
+          if (!mounted) return;
+          if (newContact != null) {
+            _linkedContactId = newContact.id;
+            final contactPropNotifier =
+            ref.read(propertyNotifierProvider(newContact.id).notifier);
+            await Future.wait([
+              contactPropNotifier.setText('name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim()),
+              contactPropNotifier.setText('phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim()),
+              contactPropNotifier.setText('email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim()),
+              contactPropNotifier.setText('company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim()),
+              contactPropNotifier.setText('website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim()),
+              contactPropNotifier.setText('address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim()),
+              contactPropNotifier.setText('notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim()),
+              if (_contactBirthday != null)
+                contactPropNotifier.setDate('birthday', _contactBirthday!),
+            ]);
+            if (!mounted) return;
+            await SuperNoteHelper.instance.relations.create(
+              fromItemId: widget.itemId,
+              toItemId: newContact.id,
+              type: RelationType.references,
+            );
+          }
+        }
+      } else {
+        final contactPropNotifier =
+        ref.read(propertyNotifierProvider(_linkedContactId!).notifier);
+        final currentContact =
+        await ref.read(itemByIdProvider(_linkedContactId!).future);
+        if (!mounted) return;
+        if (currentContact != null &&
+            currentContact.title != _contactNameCtrl.text.trim()) {
+          await itemNotifier.updateItem(
+            _linkedContactId!,
+            title: _contactNameCtrl.text.trim().isEmpty
+                ? null
+                : _contactNameCtrl.text.trim(),
+          );
+        }
+        await Future.wait([
+          contactPropNotifier.setText('name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim()),
+          contactPropNotifier.setText('phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim()),
+          contactPropNotifier.setText('email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim()),
+          contactPropNotifier.setText('company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim()),
+          contactPropNotifier.setText('website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim()),
+          contactPropNotifier.setText('address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim()),
+          contactPropNotifier.setText('notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim()),
+          if (_contactBirthday != null)
+            contactPropNotifier.setDate('birthday', _contactBirthday!)
+          else
+            contactPropNotifier.remove('birthday'),
+        ]);
+      }
+    } else {
+      if (_linkedContactId != null) {
+        final existing =
+        await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
+        if (!mounted) return;
+        for (final r in existing) {
+          if (r.toItemId == _linkedContactId &&
+              r.relationType == RelationType.references) {
+            await SuperNoteHelper.instance.relations.delete(r.id);
+          }
+        }
+        _linkedContactId = null;
+      }
+    }
+  }
   Future<void> _save() async {
+    // Validation μόνο εδώ (όχι στο _saveData)
     if (_titleCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Παρακαλώ εισάγετε τίτλο')),
+        const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
       );
-      return;
+      return; // ← μένει στην οθόνη, δεν κλείνει
     }
     if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -191,128 +348,15 @@ class _AppointmentDetailScreenState
     }
 
     setState(() => _isSaving = true);
-
-    final itemNotifier = ref.read(itemNotifierProvider.notifier);
-    final propertyNotifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
     final navigator = Navigator.of(context);
 
     try {
-      await itemNotifier.updateItem(
-        widget.itemId,
-        title: _titleCtrl.text.trim(),
-        favorite: _isFavorite,
-      );
-
-      await propertyNotifier.setText('date', _selectedDate!.toIso8601String());
-      await propertyNotifier.setText(
-        'time',
-        _selectedTime != null ? '${_selectedTime!.hour}:${_selectedTime!.minute}' : null,
-      );
-      await propertyNotifier.setText('location', _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim());
-      await propertyNotifier.setText('notes', _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim());
-
-      await propertyNotifier.setText('contact_name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
-      await propertyNotifier.setText('contact_phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim());
-      await propertyNotifier.setText('contact_email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim());
-      await propertyNotifier.setText('contact_company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim());
-      await propertyNotifier.setText('contact_website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim());
-      await propertyNotifier.setText('contact_address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim());
-      await propertyNotifier.setText('contact_notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim());
-      if (_contactBirthday != null) {
-        await propertyNotifier.setText('contact_birthday', _contactBirthday!.toIso8601String());
-      } else {
-        await propertyNotifier.setText('contact_birthday', null);
-      }
-
-      final hasContactData = _contactNameCtrl.text.trim().isNotEmpty ||
-          _contactPhoneCtrl.text.trim().isNotEmpty ||
-          _contactEmailCtrl.text.trim().isNotEmpty ||
-          _contactCompanyCtrl.text.trim().isNotEmpty ||
-          _contactWebsiteCtrl.text.trim().isNotEmpty ||
-          _contactAddressCtrl.text.trim().isNotEmpty ||
-          _contactNotesCtrl.text.trim().isNotEmpty ||
-          _contactBirthday != null;
-
-      if (hasContactData) {
-        final workspaceId = ref.read(activeWorkspaceIdProvider);
-        if (workspaceId == null) {
-          // ✅ Bug #1 fix: reset _isSaving πριν το return
-          if (mounted) setState(() => _isSaving = false);
-          return;
-        }
-
-        if (_linkedContactId == null) {
-          final shouldCreate = await _askCreateContact();
-          if (!mounted) return;
-          if (shouldCreate) {
-            final newContact = await itemNotifier.create(
-              type: ItemType.contact,
-              title: _contactNameCtrl.text.trim(),
-              folderId: null,
-            );
-            // ✅ Bug #3 fix: mounted check μετά το create
-            if (!mounted) return;
-            if (newContact != null) {
-              _linkedContactId = newContact.id;
-              final contactPropNotifier = ref.read(propertyNotifierProvider(newContact.id).notifier);
-              await contactPropNotifier.setText('name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
-              await contactPropNotifier.setText('phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim());
-              await contactPropNotifier.setText('email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim());
-              await contactPropNotifier.setText('company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim());
-              await contactPropNotifier.setText('website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim());
-              await contactPropNotifier.setText('address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim());
-              await contactPropNotifier.setText('notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim());
-              if (_contactBirthday != null) {
-                await contactPropNotifier.setDate('birthday', _contactBirthday!);
-              }
-              if (!mounted) return;
-              await SuperNoteHelper.instance.relations.create(
-                fromItemId: widget.itemId,
-                toItemId: newContact.id,
-                type: RelationType.references,
-              );
-            }
-          }
-        } else {
-          final contactPropNotifier = ref.read(propertyNotifierProvider(_linkedContactId!).notifier);
-          final currentContact = await ref.read(itemByIdProvider(_linkedContactId!).future);
-          if (!mounted) return;
-          if (currentContact != null && currentContact.title != _contactNameCtrl.text.trim()) {
-            await itemNotifier.updateItem(_linkedContactId!,
-                title: _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
-          }
-          await contactPropNotifier.setText('name', _contactNameCtrl.text.trim().isEmpty ? null : _contactNameCtrl.text.trim());
-          await contactPropNotifier.setText('phone', _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim());
-          await contactPropNotifier.setText('email', _contactEmailCtrl.text.trim().isEmpty ? null : _contactEmailCtrl.text.trim());
-          await contactPropNotifier.setText('company', _contactCompanyCtrl.text.trim().isEmpty ? null : _contactCompanyCtrl.text.trim());
-          await contactPropNotifier.setText('website', _contactWebsiteCtrl.text.trim().isEmpty ? null : _contactWebsiteCtrl.text.trim());
-          await contactPropNotifier.setText('address', _contactAddressCtrl.text.trim().isEmpty ? null : _contactAddressCtrl.text.trim());
-          await contactPropNotifier.setText('notes', _contactNotesCtrl.text.trim().isEmpty ? null : _contactNotesCtrl.text.trim());
-          if (_contactBirthday != null) {
-            await contactPropNotifier.setDate('birthday', _contactBirthday!);
-          } else {
-            await contactPropNotifier.remove('birthday');
-          }
-        }
-      } else {
-        if (_linkedContactId != null) {
-          final existing = await SuperNoteHelper.instance.relations.getFrom(widget.itemId);
-          if (!mounted) return;
-          for (final r in existing) {
-            if (r.toItemId == _linkedContactId && r.relationType == RelationType.references) {
-              await SuperNoteHelper.instance.relations.delete(r.id);
-            }
-          }
-          _linkedContactId = null;
-        }
-      }
-
+      await _saveData();
       if (mounted) {
         setState(() => _isSaving = false);
         navigator.pop();
       }
     } catch (e) {
-      // ✅ Bug #2 fix: reset _isSaving σε κάθε exception
       DebugConfig.error('AppointmentDetailScreen._save', e);
       if (mounted) {
         setState(() => _isSaving = false);
@@ -421,26 +465,34 @@ class _AppointmentDetailScreenState
   void _onTitleChanged(String value) => _isEditingTitle = true;
 
   Future<bool> _onPopInvoked() async {
-    if (widget.isNew && _titleCtrl.text.trim().isEmpty && !_isSaving) {
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+    if (_isSaving) return false; // περιμένουμε να τελειώσει το save
+
+    if (_titleCtrl.text.trim().isEmpty) {
+      // Τίτλος κενός → discard
+      if (widget.isNew) {
+        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      }
+      return true;
+    }
+
+    // Τίτλος ΟΚ → auto-save χωρίς validation
+    try {
+      await _saveData();
+    } catch (e) {
+      DebugConfig.error('AppointmentDetailScreen auto-save on pop', e);
     }
     return true;
   }
-
   Future<void> _togglePin(Item item) async {
     await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
-    if (!mounted) return;
-    ref.invalidate(itemStreamProvider(widget.itemId));
   }
 
   Future<void> _archive(Item item) async {
     final ok = await ConfirmDialog.archive(context);
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
-    if (!mounted) return;
-    ref.invalidate(itemStreamProvider(widget.itemId));
+    if (mounted) Navigator.of(context).pop();
   }
-
   Future<void> _delete(Item item) async {
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή ραντεβού;');
     if (!ok || !mounted) return;
