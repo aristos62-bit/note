@@ -80,11 +80,15 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     if (title == _lastSavedTitle) return;
     setState(() => _isSaving = true);
     DebugConfig.db('EventDetail saveTitle id=${widget.itemId} "$title"');
-    await ref.read(itemNotifierProvider.notifier)
-        .updateItem(widget.itemId, title: title.isEmpty ? null : title);
-    _lastSavedTitle = title;
-    if (!mounted) return;
-    setState(() => _isSaving = false);
+    try {
+      await ref.read(itemNotifierProvider.notifier)
+          .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+      _lastSavedTitle = title;
+    } catch (e) {
+      DebugConfig.error('EventDetail saveTitle', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _saveLocation(String location) async {
@@ -109,7 +113,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     await ref.read(itemNotifierProvider.notifier)
         .toggleFavorite(widget.itemId, _isFavorite);
     setState(() => _isFavorite = !_isFavorite);
-    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _togglePinned() async {
@@ -117,24 +120,61 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     await ref.read(itemNotifierProvider.notifier)
         .togglePin(widget.itemId, _isPinned);
     setState(() => _isPinned = !_isPinned);
-    ref.invalidate(itemNotifierProvider);
   }
 
   /// Ενιαία λογική για κουμπί Save και back arrow.
-  Future<void> _saveOrDelete() async {
+  /// Flush των debounce timers και αποθήκευση — χωρίς validation, χωρίς navigation.
+  /// Χρησιμοποιείται από _save() και _onPopInvoked() (auto-save on back).
+  Future<void> _saveData() async {
     _titleDebounce?.cancel();
     _locationDebounce?.cancel();
-    final title = _titleCtrl.text.trim();
+    await _flushSaves();
+  }
 
-    if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή
-      DebugConfig.db('EventDetail delete empty event id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+  /// Save button: validation + _saveData() + pop.
+  Future<void> _save() async {
+    if (_titleCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
+      );
       return;
     }
+    setState(() => _isSaving = true);
+    final navigator = Navigator.of(context, rootNavigator: false);
+    try {
+      await _saveData();
+      if (mounted) {
+        setState(() => _isSaving = false);
+        navigator.pop();
+      }
+    } catch (e) {
+      DebugConfig.error('EventDetail _save', e);
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
+        );
+      }
+    }
+  }
 
-    // Έχει τίτλο → αποθήκευση
-    await _flushSaves();
+  /// Back arrow: αν κενός τίτλος → delete μόνο αν isNew, αλλιώς pop.
+  /// Αν ΟΚ → auto-save + pop.
+  Future<bool> _onPopInvoked() async {
+    if (_isSaving) return false;
+    if (_titleCtrl.text.trim().isEmpty) {
+      if (widget.isNew) {
+        DebugConfig.db('EventDetail delete empty new event id=${widget.itemId}');
+        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      }
+      return true;
+    }
+    try {
+      await _saveData();
+    } catch (e) {
+      DebugConfig.error('EventDetail auto-save on pop', e);
+    }
+    return true;
   }
 
   Future<void> _pickStartTime(BuildContext context, DateTime? current) async {
@@ -142,6 +182,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     final init = current ?? now;
     final date = await showDatePicker(
       context: context,
+      locale: const Locale('el', 'GR'),
       initialDate: init,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
@@ -242,10 +283,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context, rootNavigator: false);
-            await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            final canPop = await _onPopInvoked();
+            if (context.mounted && canPop) Navigator.of(context, rootNavigator: false).pop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
@@ -321,12 +360,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       IconButton(
         icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
-        onPressed: () async {
-          final nav = Navigator.of(context, rootNavigator: false);
-          await _saveOrDelete();
-          if (!nav.mounted) return;
-          nav.pop();
-        },
+        onPressed: _save,
       ),
       // Reminder
       IconButton(
