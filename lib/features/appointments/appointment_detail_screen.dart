@@ -27,6 +27,7 @@ class _AppointmentDetailScreenState
     extends ConsumerState<AppointmentDetailScreen> {
   // --- Basic fields ---
   late TextEditingController _titleCtrl;
+  late final FocusNode _titleFocusNode;
   late TextEditingController _locationCtrl;
   late TextEditingController _notesCtrl;
   DateTime? _selectedDate;
@@ -52,6 +53,14 @@ class _AppointmentDetailScreenState
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
+    _titleFocusNode = FocusNode();
+    _titleFocusNode.addListener(() {
+      if (!mounted) return;
+
+      if (!_titleFocusNode.hasFocus && _isEditingTitle) {
+        setState(() => _isEditingTitle = false);
+      }
+    });
     _locationCtrl = TextEditingController();
     _notesCtrl = TextEditingController();
 
@@ -465,21 +474,23 @@ class _AppointmentDetailScreenState
   void _onTitleChanged(String value) => _isEditingTitle = true;
 
   Future<bool> _onPopInvoked() async {
-    if (_isSaving) return false; // περιμένουμε να τελειώσει το save
+    if (_isSaving) return false;
 
     if (_titleCtrl.text.trim().isEmpty) {
-      // Τίτλος κενός → discard
       if (widget.isNew) {
         await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
       }
       return true;
     }
 
-    // Τίτλος ΟΚ → auto-save χωρίς validation
+    // ✅ Κλειδώνει το save button κατά το auto-save
+    if (mounted) setState(() => _isSaving = true);
     try {
       await _saveData();
     } catch (e) {
       DebugConfig.error('AppointmentDetailScreen auto-save on pop', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
     return true;
   }
@@ -545,7 +556,11 @@ class _AppointmentDetailScreenState
       data: (item) {
         if (item == null) return _buildNotFound();
 
-        if (!_isEditingTitle && _titleCtrl.text != item.title) {
+        if (
+        !_isEditingTitle &&
+            !_isSaving &&
+            _titleCtrl.text != item.title
+        ) {
           _titleCtrl.text = item.title ?? '';
         }
 
@@ -578,7 +593,7 @@ class _AppointmentDetailScreenState
         // 1. Save
         IconButton(
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
-          onPressed: _save,
+          onPressed: _isSaving ? null : _save,
           tooltip: 'Αποθήκευση',
         ),
         // 2. Reminder (καμπάνα)
@@ -626,6 +641,7 @@ class _AppointmentDetailScreenState
           // Title field
           TextField(
             controller: _titleCtrl,
+            focusNode: _titleFocusNode,
             onChanged: _onTitleChanged,
             style: context.h2.copyWith(fontWeight: FontWeight.w600),
             maxLines: null,
@@ -758,6 +774,7 @@ class _AppointmentDetailScreenState
     _contactNameCtrl.dispose();
     _contactPhoneCtrl.dispose();
     _contactEmailCtrl.dispose();
+    _titleFocusNode.dispose();
     _contactCompanyCtrl.dispose();
     _contactWebsiteCtrl.dispose();
     _contactAddressCtrl.dispose();
