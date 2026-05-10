@@ -18,51 +18,20 @@ final showArchivedProvider = StateProvider<bool>((ref) => false);
 // Items του active workspace (με φίλτρα)
 // ─────────────────────────────────────────────────────────────────
 
-final itemsStreamProvider = StreamProvider<List<Item>>((ref) async* {
-  final db         = ref.watch(dbProvider);
-  final wsId       = ref.watch(activeWorkspaceIdProvider);
-  final typeFilter = ref.watch(activeItemTypeFilterProvider);
+final itemsStreamProvider = StreamProvider<List<Item>>((ref) {
+  final db          = ref.watch(dbProvider);
+  final wsId        = ref.watch(activeWorkspaceIdProvider);
+  final typeFilter  = ref.watch(activeItemTypeFilterProvider);
   final showArchived = ref.watch(showArchivedProvider);
 
-  if (wsId == null) {
-    yield const [];
-    return;
-  }
+  if (wsId == null) return Stream.value(const []);
 
-  // 1) Στείλε άμεσα το τρέχον snapshot (όπως παλιά ο FutureProvider)
-  final initial = await db.items.getByWorkspace(
+  return db.items.watchByWorkspace(
     wsId,
-    type: typeFilter,
+    type:            typeFilter,
     includeArchived: showArchived,
   );
-  yield initial;
-
-  // 2) Και μετά άκου τις αλλαγές από Isar
-  final changesStream = db.items.watchAll();
-
-  yield* changesStream.asyncMap((_) {
-    return db.items.getByWorkspace(
-      wsId,
-      type: typeFilter,
-      includeArchived: showArchived,
-    );
-  });
 });
-
-
-// /// Backwards-compatible provider: Future<List<Item>> πάνω από το real-time stream
-// final itemsProvider = FutureProvider<List<Item>>((ref) async {
-//   // Περιμένουμε μέχρι ο itemsStreamProvider να έχει data
-//   final asyncValue = ref.watch(itemsStreamProvider);
-//
-//   // Αν ήδη έχουμε data, το επιστρέφουμε
-//   if (asyncValue.hasValue) {
-//     return asyncValue.value!;
-//   }
-//
-//   // Αλλιώς, περιμένουμε το πρώτο data event
-//   return await ref.watch(itemsStreamProvider.future);
-// });
 
 /// Items ενός συγκεκριμένου folder
 final itemsByFolderProvider =
@@ -233,17 +202,9 @@ AsyncNotifierProvider<ItemNotifier, List<Item>>(ItemNotifier.new);
 
 /// Stream items ενός folder — real-time
 final itemsByFolderStreamProvider =
-StreamProvider.family<List<Item>, int>((ref, folderId) async* {
+StreamProvider.family<List<Item>, int>((ref, folderId) {
   final db = ref.watch(dbProvider);
-
-  // 1) Αρχικό snapshot
-  final initial = await db.items.getByFolder(folderId);
-  yield initial;
-
-  // 2) Reactive updates
-  yield* db.items.watchAll().asyncMap((_) {
-    return db.items.getByFolder(folderId);
-  });
+  return db.items.watchByFolder(folderId);
 });
 
 /// Pinned items ενός folder — real-time (derived από itemsByFolderStreamProvider)
@@ -271,33 +232,11 @@ StreamProvider.family<List<Item>, int>((ref, folderId) async* {
 });
 
 /// Stream με όλα τα soft‑deleted items του active workspace
-final trashedItemsStreamProvider = StreamProvider<List<Item>>((ref) async* {
+final trashedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
   final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) {
-    yield const [];
-    return;
-  }
-
-  // Αρχικό snapshot: όλα τα διαγραμμένα
-  final initial = await db.items.getByWorkspace(
-    wsId,
-    includeDeleted: true,   // συμπεριλαμβάνει deleted
-    includeArchived: true,  // δείχνουμε και archived αν υπάρχουν
-  );
-  // φιλτράρουμε μόνο αυτά με deletedAt != null
-  yield initial.where((i) => i.deletedAt != null).toList();
-
-  // Reactive updates
-  final changes = db.items.watchAll();
-  yield* changes.asyncMap((_) async {
-    final all = await db.items.getByWorkspace(
-      wsId,
-      includeDeleted: true,
-      includeArchived: true,
-    );
-    return all.where((i) => i.deletedAt != null).toList();
-  });
+  if (wsId == null) return Stream.value(const []);
+  return db.items.watchDeletedByWorkspace(wsId);
 });
 
 /// Pinned items ΟΛΩΝ των folders — real-time
@@ -394,59 +333,23 @@ StreamProvider.family<List<Item>, int>((ref, folderId) async* {
 // ─────────────────────────────────────────────────────────────────
 
 /// Stream όλων των pinned items του active workspace — ανεξάρτητο
-final pinnedItemsStreamProvider = StreamProvider<List<Item>>((ref) async* {
+final pinnedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
   final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) {
-    yield const [];
-    return;
-  }
-
-  // 1) Αρχικό snapshot
-  yield await db.items.getPinned(wsId);
-
-  // 2) Reactive updates: ακούμε όλες τις αλλαγές των items
-  //    (το Isar δεν έχει query‑specific watch, αλλά το watchAll είναι αποδοτικό)
-  await for (final _ in db.items.watchAll()) {
-    yield await db.items.getPinned(wsId);
-  }
+  if (wsId == null) return Stream.value(const []);
+  return db.items.watchPinnedByWorkspace(wsId);
 });
 
 /// Stream όλων των favorite items του active workspace — ανεξάρτητο
-final favoriteItemsStreamProvider = StreamProvider<List<Item>>((ref) async* {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) {
-    yield const [];
-    return;
-  }
-
-  // 1) Αρχικό snapshot
-  yield await db.items.getFavorites(wsId);
-
-  // 2) Reactive updates
-  await for (final _ in db.items.watchAll()) {
-    yield await db.items.getFavorites(wsId);
-  }
-});
-/// Ενιαίος provider για pinned + favorites — 1 rebuild αντί για 2
 final pinnedAndFavoritesProvider = StreamProvider<({List<Item> pinned, List<Item> favorites})>((ref) async* {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) {
-    yield (pinned: const <Item>[], favorites: const <Item>[]);
-    return;
-  }
-
-  yield (
-  pinned:    await db.items.getPinned(wsId),
-  favorites: await db.items.getFavorites(wsId),
+  yield* ref.watch(itemsStreamProvider).when(
+    data: (items) async* {
+      yield (
+      pinned:    items.where((i) => i.pinned   && i.deletedAt == null).toList(),
+      favorites: items.where((i) => i.favorite && i.deletedAt == null).toList(),
+      );
+    },
+    loading: () async* {},
+    error:   (_, __) async* {},
   );
-
-  await for (final _ in db.items.watchAll()) {
-    yield (
-    pinned:    await db.items.getPinned(wsId),
-    favorites: await db.items.getFavorites(wsId),
-    );
-  }
 });

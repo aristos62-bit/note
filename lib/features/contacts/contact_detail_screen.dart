@@ -110,12 +110,12 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   /// Αποθηκεύει τις τρέχουσες τιμές των πεδίων στη βάση
   /// μόνο αν έχουν αλλάξει σε σχέση με τις cached τιμές.
   Future<void> _persistChanges() async {
-    final name = _nameCtrl.text.trim();
-    final email = _emailCtrl.text.trim();
+    final name    = _nameCtrl.text.trim();
+    final email   = _emailCtrl.text.trim();
     final company = _companyCtrl.text.trim();
     final website = _websiteCtrl.text.trim();
     final address = _addressCtrl.text.trim();
-    final notes = _notesCtrl.text.trim();
+    final notes   = _notesCtrl.text.trim();
 
     final phonesList = _phoneCtrls
         .map((c) => c.text.trim())
@@ -123,60 +123,64 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         .toList();
     final phonesJson = jsonEncode(phonesList);
 
-    // Αποθήκευση μόνο αν άλλαξε κάτι
+    // 1. Τίτλος (πρώτα, ανεξάρτητα)
     if (name != _lastSavedName) {
-      await ref
-          .read(itemNotifierProvider.notifier)
+      await ref.read(itemNotifierProvider.notifier)
           .updateItem(widget.itemId, title: name.isEmpty ? null : name);
     }
 
+    // 2. Properties παράλληλα (μόνο αυτά που άλλαξαν)
     final notifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
+    final futures  = <Future<void>>[];
 
     if (phonesJson != _lastPhonesJson) {
-      await notifier.setText('phones', phonesList.isEmpty ? null : phonesJson);
-      await notifier.remove('phone'); // Καθαρισμός του παλιού phone αν υπάρχει
+      futures.add(notifier.setText('phones', phonesList.isEmpty ? null : phonesJson));
+      futures.add(notifier.remove('phone')); // καθαρισμός παλιού key
     }
-    if (email != _lastEmail) {
-      await notifier.setText('email', email.isEmpty ? null : email);
-    }
-    if (company != _lastCompany) {
-      await notifier.setText('company', company.isEmpty ? null : company);
-    }
-    if (website != _lastWebsite) {
-      await notifier.setText('website', website.isEmpty ? null : website);
-    }
-    if (address != _lastAddress) {
-      await notifier.setText('address', address.isEmpty ? null : address);
-    }
-    if (notes != _lastNotes) {
-      await notifier.setText('notes', notes.isEmpty ? null : notes);
-    }
+    if (email   != _lastEmail)   futures.add(notifier.setText('email',   email.isEmpty   ? null : email));
+    if (company != _lastCompany) futures.add(notifier.setText('company', company.isEmpty ? null : company));
+    if (website != _lastWebsite) futures.add(notifier.setText('website', website.isEmpty ? null : website));
+    if (address != _lastAddress) futures.add(notifier.setText('address', address.isEmpty ? null : address));
+    if (notes   != _lastNotes)   futures.add(notifier.setText('notes',   notes.isEmpty   ? null : notes));
 
-    // Ενημέρωση cached τιμών
-    _lastSavedName = name;
+    if (futures.isNotEmpty) await Future.wait(futures);
+
+    _lastSavedName  = name;
     _lastPhonesJson = phonesJson;
-    _lastEmail = email;
-    _lastCompany = company;
-    _lastWebsite = website;
-    _lastAddress = address;
-    _lastNotes = notes;
-    _isEditingName = false;
+    _lastEmail      = email;
+    _lastCompany    = company;
+    _lastWebsite    = website;
+    _lastAddress    = address;
+    _lastNotes      = notes;
+    _isEditingName  = false;
 
     DebugConfig.db('ContactDetail changes persisted id=${widget.itemId}');
   }
 
   Future<void> _saveOrDelete() async {
+    if (_isSaving) return;
     final name = _nameCtrl.text.trim();
 
     if (name.isEmpty) {
-      // Κενό όνομα → διαγραφή
       DebugConfig.db('ContactDetail delete empty contact id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      try {
+        if (widget.isNew) {
+          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+        }
+      } catch (e) {
+        DebugConfig.error('ContactDetail delete', e);
+      }
       return;
     }
 
-    // Έχει όνομα → αποθήκευση
-    await _persistChanges();
+    setState(() => _isSaving = true);
+    try {
+      await _persistChanges();
+    } catch (e) {
+      DebugConfig.error('ContactDetail save', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickBirthday(BuildContext context) async {
@@ -207,13 +211,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   }
 
   Future<void> _delete(BuildContext context) async {
-    final future = ConfirmDialog.delete(context, title: 'Διαγραφή επαφής;');
-    final ok = await future;
+    final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή επαφής;');
     if (!ok || !mounted) return;
     DebugConfig.db('ContactDetail delete id=${widget.itemId}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-    if (!mounted) return;
-    ref.invalidate(itemNotifierProvider);
     if (context.mounted) Navigator.of(context).pop();
   }
 
@@ -386,10 +387,17 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         : null,
     actions: [
       // Save
+      // Save
       IconButton(
         icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
         onPressed: () async {
+          if (_nameCtrl.text.trim().isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Παρακαλώ προσθέστε όνομα επαφής')),
+            );
+            return;
+          }
           final nav = Navigator.of(context);
           await _saveOrDelete();
           if (!nav.mounted) return;

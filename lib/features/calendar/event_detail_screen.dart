@@ -36,8 +36,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Timer? _titleDebounce;
   Timer? _locationDebounce;
   bool _isSaving = false;
+  bool _isSavingTitle = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
+  String? _pendingTitleValue;
   bool _isPinned = false;
   bool _isFavorite = false;
 
@@ -60,10 +62,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   void _onTitleChanged(String v) {
     _isEditingTitle = true;
+
+    final trimmed = v.trim();
+
+    // 🔥 NEW: ignore duplicate pending values
+    if (_pendingTitleValue == trimmed) return;
+
+    _pendingTitleValue = trimmed;
+
     _titleDebounce?.cancel();
     _titleDebounce = Timer(const Duration(milliseconds: 600), () async {
-      final title = _titleCtrl.text.trim();
+      final title = _pendingTitleValue ?? '';
+
       await _saveTitle(title);
+
       await Future.delayed(const Duration(milliseconds: 100));
       _isEditingTitle = false;
     });
@@ -71,22 +83,38 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   void _onLocationChanged(String v) {
     _locationDebounce?.cancel();
+
     _locationDebounce = Timer(
-        const Duration(milliseconds: 800), () => _saveLocation(v.trim()));
+      const Duration(milliseconds: 800),
+          () async {
+        await _saveLocation(v.trim());
+      },
+    );
   }
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
+
+    // 🔥 NEW: block parallel saves
+    if (_isSavingTitle) return;
+
+    // 🔥 NEW: avoid duplicate writes
     if (title == _lastSavedTitle) return;
+
+    _isSavingTitle = true;
     setState(() => _isSaving = true);
+
     DebugConfig.db('EventDetail saveTitle id=${widget.itemId} "$title"');
+
     try {
       await ref.read(itemNotifierProvider.notifier)
           .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+
       _lastSavedTitle = title;
     } catch (e) {
       DebugConfig.error('EventDetail saveTitle', e);
     } finally {
+      _isSavingTitle = false;
       if (mounted) setState(() => _isSaving = false);
     }
   }
@@ -110,16 +138,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   Future<void> _toggleFavorite() async {
     DebugConfig.provider('EventDetail toggleFavorite id=${widget.itemId}');
+
     await ref.read(itemNotifierProvider.notifier)
         .toggleFavorite(widget.itemId, _isFavorite);
-    setState(() => _isFavorite = !_isFavorite);
   }
 
   Future<void> _togglePinned() async {
     DebugConfig.provider('EventDetail togglePinned id=${widget.itemId}');
+
     await ref.read(itemNotifierProvider.notifier)
         .togglePin(widget.itemId, _isPinned);
-    setState(() => _isPinned = !_isPinned);
   }
 
   /// Ενιαία λογική για κουμπί Save και back arrow.
@@ -253,7 +281,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('EventDetailScreen build id=${widget.itemId}');
-    final itemAsync = ref.watch(itemStreamProvider(widget.itemId));
+    final itemAsync = ref.watch(
+      itemStreamProvider(widget.itemId).select((value) => value),
+    );
 
     return itemAsync.when(
       loading: () => _buildLoading(),
@@ -297,7 +327,23 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   Widget _buildMobile(BuildContext context, Item item) => Scaffold(
     backgroundColor: context.cBg,
-    appBar: _buildAppBar(context, item),
+    appBar: _EventDetailAppBar(
+      isSaving: _isSaving,
+      isPinned: _isPinned,
+      isFavorite: _isFavorite,
+
+      onSave: _save,
+      onReminder: _showReminderDialog,
+      onPin: _togglePinned,
+      onFavorite: _toggleFavorite,
+      onDelete: () => _delete(context),
+
+      brightness: context.brightness,
+      primaryColor: context.cPrimary,
+      textColor: context.cText,
+      text2Color: context.cText2,
+      errorColor: context.cError,
+    ),
     body: _EventBody(
       item: item,
       titleCtrl: _titleCtrl,
@@ -565,8 +611,11 @@ class _EventPropertiesPanel extends ConsumerWidget {
       ),
       error: (e, _) => const SizedBox.shrink(),
       data: (props) {
-        final startStr = props.where((p) => p.key == 'start_time').firstOrNull?.value;
-        final allDay = props.where((p) => p.key == 'all_day').firstOrNull?.value == 'true';
+        String? prop(String key) =>
+            props.where((p) => p.key == key).firstOrNull?.value;
+
+        final startStr = prop('start_time');
+        final allDay = prop('all_day') == 'true';
         final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
 
         return Column(
@@ -634,6 +683,88 @@ class _PropRow extends StatelessWidget {
           Expanded(child: child),
         ],
       ),
+    );
+  }
+}
+class _EventDetailAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final bool isSaving;
+  final bool isPinned;
+  final bool isFavorite;
+
+  final VoidCallback onSave;
+  final VoidCallback onReminder;
+  final VoidCallback onPin;
+  final VoidCallback onFavorite;
+  final VoidCallback onDelete;
+
+  final Brightness brightness;
+  final Color primaryColor;
+  final Color textColor;
+  final Color text2Color;
+  final Color errorColor;
+
+  const _EventDetailAppBar({
+    required this.isSaving,
+    required this.isPinned,
+    required this.isFavorite,
+    required this.onSave,
+    required this.onReminder,
+    required this.onPin,
+    required this.onFavorite,
+    required this.onDelete,
+    required this.brightness,
+    required this.primaryColor,
+    required this.textColor,
+    required this.text2Color,
+    required this.errorColor,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: ColorsUI.getSurface(brightness),
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      title: isSaving
+          ? const SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      )
+          : null,
+      actions: [
+        IconButton(
+          icon: Icon(Icons.save_rounded, color: primaryColor),
+          tooltip: 'Αποθήκευση',
+          onPressed: onSave,
+        ),
+        IconButton(
+          icon: Icon(Icons.notifications_none_rounded, color: text2Color),
+          onPressed: onReminder,
+          tooltip: 'Υπενθύμιση',
+        ),
+        IconButton(
+          icon: Icon(
+            isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+            color: isPinned ? primaryColor : text2Color,
+          ),
+          onPressed: onPin,
+        ),
+        IconButton(
+          icon: Icon(
+            isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+            color: isFavorite ? ColorsUI.getWarning(brightness) : text2Color,
+          ),
+          onPressed: onFavorite,
+        ),
+        IconButton(
+          icon: Icon(Icons.delete_outline_rounded, color: errorColor),
+          onPressed: onDelete,
+        ),
+      ],
     );
   }
 }

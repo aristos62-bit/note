@@ -87,51 +87,35 @@ class _CollectionDetailScreenState
   }
 
   Future<void> _save() async {
-    debugPrint('💾 _save() START');
-    if (_isSaving) {
-      debugPrint('   already saving, exit');
-      return;
-    }
+    if (_isSaving) return;
     setState(() => _isSaving = true);
     final title = _titleCtrl.text.trim();
-    debugPrint('   saving title = "$title"');
-    debugPrint('   fields count = ${_fields.length}');
+    DebugConfig.db('CollectionDetail save id=${widget.collectionId} title="$title"');
 
-    // 1. Τίτλος
-    debugPrint('   → updating item title...');
-    await ref.read(itemNotifierProvider.notifier)
-        .updateItem(widget.collectionId,
-        title: title.isEmpty ? 'Νέα Συλλογή' : title);
-    debugPrint('   → title updated');
+    try {
+      // 1. Τίτλος
+      await ref.read(itemNotifierProvider.notifier)
+          .updateItem(widget.collectionId,
+          title: title.isEmpty ? 'Νέα Συλλογή' : title);
 
-    // 2. Schema
-    debugPrint('   → saving schema...');
-    await ref.read(propertyNotifierProvider(widget.collectionId).notifier)
-        .setText('schema', FieldDef.listToJson(_fields));
-    debugPrint('   → schema saved');
+      // 2. Schema + icon + color παράλληλα
+      final notifier = ref.read(
+          propertyNotifierProvider(widget.collectionId).notifier);
+      await Future.wait([
+        notifier.setText('schema', FieldDef.listToJson(_fields)),
+        notifier.setText('icon', _icon),
+        notifier.setText('color', _color),
+      ]);
 
-    // 3. Icon + color
-    debugPrint('   → saving icon and color...');
-    await ref.read(propertyNotifierProvider(widget.collectionId).notifier)
-        .setText('icon', _icon);
-    await ref.read(propertyNotifierProvider(widget.collectionId).notifier)
-        .setText('color', _color);
-    debugPrint('   → icon/color saved');
-
-    // 4. Refresh item metadata
-    debugPrint('   → refreshing item metadata...');
-    await ref.read(itemNotifierProvider.notifier)
-        .updateItem(widget.collectionId);
-    debugPrint('   → metadata refreshed');
-
-    _lastSavedTitle   = title;
-    _isEditingTitle   = false;
-    _hasChanges       = false;   // ← reset after save
-
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    ref.invalidate(itemNotifierProvider);
-    debugPrint('💾 _save() END - saved successfully');
+      _lastSavedTitle = title;
+      _isEditingTitle = false;
+      _hasChanges     = false;
+      DebugConfig.db('CollectionDetail save done');
+    } catch (e) {
+      DebugConfig.error('CollectionDetail save', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
 
@@ -139,13 +123,15 @@ class _CollectionDetailScreenState
     final title = _titleCtrl.text.trim();
 
     if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή
       DebugConfig.db('CollectionDetail delete empty collection id=${widget.collectionId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId);
+      try {
+        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId);
+      } catch (e) {
+        DebugConfig.error('CollectionDetail delete', e);
+      }
       return;
     }
 
-    // Έχει τίτλο – αποθήκευση μόνο αν υπάρχουν αλλαγές
     if (_hasChanges) {
       await _save();
     } else {
@@ -160,7 +146,6 @@ class _CollectionDetailScreenState
     await ref.read(itemNotifierProvider.notifier)
         .toggleFavorite(widget.collectionId, _isFavorite);
     setState(() => _isFavorite = !_isFavorite);
-    ref.invalidate(itemNotifierProvider);
   }
 
   // ── Fields editing ───────────────────────────────────────────
@@ -454,12 +439,19 @@ class _CollectionDetailScreenState
         : null,
     actions: [
       // Save button
+      // Save button
       IconButton(
         icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
         onPressed: () async {
+          if (_titleCtrl.text.trim().isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Παρακαλώ προσθέστε όνομα συλλογής')),
+            );
+            return;
+          }
           final nav = Navigator.of(context);
-          await _saveOrDelete();
+          await _save();
           if (!nav.mounted) return;
           nav.pop();
         },

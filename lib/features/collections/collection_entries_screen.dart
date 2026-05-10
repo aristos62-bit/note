@@ -89,7 +89,6 @@ class _CollectionEntriesScreenState
         .read(propertyNotifierProvider(item.id).notifier)
         .setText('collection_id', widget.collection.id.toString());
 
-    ref.invalidate(itemNotifierProvider);
     if (!context.mounted) return;
     Navigator.of(context)
         .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
@@ -707,42 +706,38 @@ class _CollectionEntryDetailScreenState
     final title = _titleCtrl.text.trim();
     DebugConfig.db('EntryDetail save id=${widget.entryId} title="$title"');
 
-    // 1. Τίτλος
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .updateItem(widget.entryId, title: title.isEmpty ? null : title);
+    try {
+      // 1. Τίτλος
+      await ref
+          .read(itemNotifierProvider.notifier)
+          .updateItem(widget.entryId, title: title.isEmpty ? null : title);
 
-    // 2. Όλα τα properties
-    final notifier = ref.read(propertyNotifierProvider(widget.entryId).notifier);
-    for (final f in widget.fields) {
-      if (f.key.isEmpty) continue;
-      switch (f.type) {
-        case FieldType.toggle:
-          await notifier.setText(f.key, (_boolValues[f.key] ?? false) ? 'true' : 'false');
-          break;
-        case FieldType.date:
-          await notifier.setDate(f.key, _dateValues[f.key]);
-          break;
-        case FieldType.bulletList:
-        case FieldType.numberedList:
-          final list = _listValues[f.key] ?? [];
-          final json = jsonEncode(list);
-          await notifier.setText(f.key, json);
-          break;
-        default:
-          final val = _fieldCtrls[f.key]?.text.trim() ?? '';
-          await notifier.setText(f.key, val.isEmpty ? null : val);
-      }
+      // 2. Όλα τα properties παράλληλα
+      final notifier = ref.read(propertyNotifierProvider(widget.entryId).notifier);
+      await Future.wait(widget.fields.where((f) => f.key.isNotEmpty).map((f) {
+        switch (f.type) {
+          case FieldType.toggle:
+            return notifier.setText(f.key, (_boolValues[f.key] ?? false) ? 'true' : 'false');
+          case FieldType.date:
+            return notifier.setDate(f.key, _dateValues[f.key]);
+          case FieldType.bulletList:
+          case FieldType.numberedList:
+            return notifier.setText(f.key, jsonEncode(_listValues[f.key] ?? []));
+          default:
+            final val = _fieldCtrls[f.key]?.text.trim() ?? '';
+            return notifier.setText(f.key, val.isEmpty ? null : val);
+        }
+      }));
+
+      _lastSavedTitle = title;
+      _isEditingTitle = false;
+      _hasChanges     = false;
+      DebugConfig.db('EntryDetail saved');
+    } catch (e) {
+      DebugConfig.error('EntryDetail save', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-
-    _lastSavedTitle = title;
-    _isEditingTitle = false;
-    _hasChanges = false;   // reset after save
-
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    ref.invalidate(itemNotifierProvider);
-    DebugConfig.db('EntryDetail saved');
   }
 
 
@@ -750,13 +745,17 @@ class _CollectionEntryDetailScreenState
     final title = _titleCtrl.text.trim();
 
     if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή
       DebugConfig.db('EntryDetail delete empty entry id=${widget.entryId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
+      try {
+        if (widget.isNew) {
+          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
+        }
+      } catch (e) {
+        DebugConfig.error('EntryDetail delete', e);
+      }
       return;
     }
 
-    // Έχει τίτλο – αποθήκευση μόνο αν υπάρχουν αλλαγές
     if (_hasChanges) {
       await _save();
     } else {

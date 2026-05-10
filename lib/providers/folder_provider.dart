@@ -5,54 +5,20 @@ import 'workspace_provider.dart';
 import '../core/utils/debug_config.dart';
 
 /// Root folders (χωρίς parent) του active workspace – real-time
-final foldersStreamProvider = StreamProvider<List<Folder>>((ref) async* {
+final foldersStreamProvider = StreamProvider<List<Folder>>((ref) {
   final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
-
-  if (wsId == null) {
-    yield const [];
-    return;
-  }
-
-  // 1) Αρχικό snapshot
-  final initial = await db.folders.getByWorkspace(wsId);
-  DebugConfig.db('📁 foldersStreamProvider: wsId=$wsId, initial length=${initial.length}');
-  yield initial;
-
-  // 2) Reactive updates από Isar
-  final changes = db.folders.watchAll();
-
-  yield* changes.asyncMap((_) {
-    DebugConfig.db('📁 foldersStreamProvider: wsId=$wsId, initial length=${initial.length}');
-    return db.folders.getByWorkspace(wsId);
-  });
+  if (wsId == null) return Stream.value(const []);
+  DebugConfig.db('📁 foldersStreamProvider: wsId=$wsId');
+  return db.folders.watchByWorkspace(wsId);
 });
 
-/// Sub-folders ενός parent – real-time
 final subFoldersStreamProvider =
-StreamProvider.family<List<Folder>, int>((ref, parentId) async* {
+StreamProvider.family<List<Folder>, int>((ref, parentId) {
   final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
-
-  if (wsId == null) {
-    yield const [];
-    return;
-  }
-
-  final initial = await db.folders.getByWorkspace(
-    wsId,
-    parentId: parentId,
-  );
-  yield initial;
-
-  final changes = db.folders.watchAll();
-
-  yield* changes.asyncMap((_) {
-    return db.folders.getByWorkspace(
-      wsId,
-      parentId: parentId,
-    );
-  });
+  if (wsId == null) return Stream.value(const []);
+  return db.folders.watchByWorkspace(wsId, parentId: parentId);
 });
 
 /// Αν χρειαστεί one-shot Future<List<Folder>>

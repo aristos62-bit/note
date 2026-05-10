@@ -12,6 +12,7 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'contact_detail_screen.dart';
 import '../../helpers/item_color_helper.dart';
+import 'dart:convert';
 
 final _contactSearchQueryProvider = StateProvider<String>((ref) => '');
 final _contactTagFilterProvider = StateProvider<Set<String>>((ref) => {});
@@ -65,7 +66,6 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
       folderId: selectedFolderId,
     );
     if (item == null || !mounted) return;
-    ref.invalidate(itemNotifierProvider);
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ContactDetailScreen(itemId: item.id, isNew: true),
@@ -85,7 +85,6 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή επαφής;');
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    ref.invalidate(itemNotifierProvider);
   }
 
   @override
@@ -317,7 +316,20 @@ class _DraggableContactTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(contact.id));
     final props = propsAsync.valueOrNull ?? [];
-    final phone = props.where((p) => p.key == 'phone').firstOrNull?.value;
+
+// Υποστήριξη και του νέου 'phones' (JSON) και του παλιού 'phone'
+    String? phone;
+    final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
+    if (phonesJson != null && phonesJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(phonesJson);
+        if (decoded is List && decoded.isNotEmpty) {
+          phone = decoded.first.toString();
+        }
+      } catch (_) {}
+    }
+    phone ??= props.where((p) => p.key == 'phone').firstOrNull?.value;
+
     final email = props.where((p) => p.key == 'email').firstOrNull?.value;
     final name = contact.title ?? 'Χωρίς όνομα';
     final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
