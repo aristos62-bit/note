@@ -332,8 +332,63 @@ class ItemRepository {
 
   // ── WATCH (Reactive) ────────────────────────────────────
 
-  /// Stream που εκπέμπει κάθε φορά που αλλάζει κάποιο item
-  Stream<void> watchAll() => _isar.items.watchLazy();
+  /// Stream που εκπέμπει ΜΟΝΟ όταν αλλάξουν τα αποτελέσματα
+  /// της συγκεκριμένης query (workspace-scoped)
+  Stream<List<Item>> watchByWorkspace(
+      int workspaceId, {
+        ItemType? type,
+        bool includeArchived = false,
+        bool includeDeleted  = false,
+      }) {
+    return _isar.items
+        .filter()
+        .workspaceIdEqualTo(workspaceId)
+        .optional(!includeDeleted,  (q) => q.deletedAtIsNull())
+        .optional(!includeArchived, (q) => q.archivedEqualTo(false))
+        .optional(type != null,     (q) => q.typeEqualTo(type!))
+        .sortBySortOrder()
+        .watch(fireImmediately: true);
+  }
+
+  /// Stream items ενός folder — φωτιά ΜΟΝΟ αν αλλάξει το folder
+  Stream<List<Item>> watchByFolder(int folderId) {
+    return _isar.items
+        .filter()
+        .folderIdEqualTo(folderId)
+        .deletedAtIsNull()
+        .archivedEqualTo(false)
+        .sortBySortOrder()
+        .watch(fireImmediately: true);
+  }
+
+  /// Stream pinned items — φωτιά ΜΟΝΟ αν αλλάξει το pinned status
+  Stream<List<Item>> watchPinnedByWorkspace(int workspaceId) {
+    return _isar.items
+        .filter()
+        .workspaceIdEqualTo(workspaceId)
+        .pinnedEqualTo(true)
+        .deletedAtIsNull()
+        .watch(fireImmediately: true);
+  }
+
+  /// Stream favorite items — φωτιά ΜΟΝΟ αν αλλάξει το favorite status
+  Stream<List<Item>> watchFavoritesByWorkspace(int workspaceId) {
+    return _isar.items
+        .filter()
+        .workspaceIdEqualTo(workspaceId)
+        .favoriteEqualTo(true)
+        .deletedAtIsNull()
+        .watch(fireImmediately: true);
+  }
+
+  /// Stream soft-deleted items
+  Stream<List<Item>> watchDeletedByWorkspace(int workspaceId) {
+    return _isar.items
+        .filter()
+        .workspaceIdEqualTo(workspaceId)
+        .deletedAtIsNotNull()
+        .watch(fireImmediately: true);
+  }
 
   Stream<Item?> watchById(int id) =>
       _isar.items.watchObject(id, fireImmediately: true);
@@ -903,7 +958,23 @@ class FolderRepository {
     return folder;
   }
 
-  Stream<void> watchAll() => _isar.folders.watchLazy();
+  /// Stream folders ενός workspace — φωτιά ΜΟΝΟ αν αλλάξουν τα folders
+  Stream<List<Folder>> watchByWorkspace(int workspaceId, {int? parentId}) {
+    if (parentId != null) {
+      return _isar.folders
+          .filter()
+          .workspaceIdEqualTo(workspaceId)
+          .parentFolderIdEqualTo(parentId)
+          .sortBySortOrder()
+          .watch(fireImmediately: true);
+    }
+    return _isar.folders
+        .filter()
+        .workspaceIdEqualTo(workspaceId)
+        .parentFolderIdIsNull()
+        .sortBySortOrder()
+        .watch(fireImmediately: true);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
