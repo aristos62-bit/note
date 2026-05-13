@@ -958,6 +958,17 @@ class FolderRepository {
     return folder;
   }
 
+  /// Αναδιάταξη φακέλων (ενημερώνει το sortOrder με βάση τη νέα σειρά)
+  Future<void> reorder(List<Folder> foldersInNewOrder) async {
+    await _isar.writeTxn(() async {
+      for (int i = 0; i < foldersInNewOrder.length; i++) {
+        final folder = foldersInNewOrder[i];
+        folder.sortOrder = i.toDouble();
+      }
+      await _isar.folders.putAll(foldersInNewOrder);
+    });
+  }
+
   /// Stream folders ενός workspace — φωτιά ΜΟΝΟ αν αλλάξουν τα folders
   Stream<List<Folder>> watchByWorkspace(int workspaceId, {int? parentId}) {
     if (parentId != null) {
