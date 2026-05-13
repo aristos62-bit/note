@@ -903,9 +903,22 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
               // pinned πάνω από favorites
               if (a.pinned && !b.pinned) return -1;
               if (!a.pinned && b.pinned) return 1;
-              final aDate = a.updatedAt ?? a.createdAt;
-              final bDate = b.updatedAt ?? b.createdAt;
-              return bDate.compareTo(aDate);
+              // Αν και τα δύο pinned → sort by pinnedOrder
+              if (a.pinned && b.pinned) {
+                final aO = a.pinnedOrder;
+                final bO = b.pinnedOrder;
+                if (aO != null && bO != null) return aO.compareTo(bO);
+                if (aO != null) return -1;
+                if (bO != null) return 1;
+                return (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt);
+              }
+              // Αν και τα δύο favorites → sort by favoriteOrder
+              final aO = a.favoriteOrder;
+              final bO = b.favoriteOrder;
+              if (aO != null && bO != null) return aO.compareTo(bO);
+              if (aO != null) return -1;
+              if (bO != null) return 1;
+              return (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt);
             });
             items = combined;
             break;
@@ -1005,22 +1018,41 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
   @override
   void didUpdateWidget(covariant _ReorderableGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.items != widget.items) {
+
+    final oldIds = oldWidget.items.map((e) => e.id).toList();
+    final newIds = widget.items.map((e) => e.id).toList();
+    final currentIds = _items.map((e) => e.id).toList();
+
+    debugPrint('🔄 [didUpdateWidget] isPinnedMode=${widget.isPinnedMode}');
+    debugPrint('🔄 [didUpdateWidget] oldWidget.items : $oldIds');
+    debugPrint('🔄 [didUpdateWidget] widget.items    : $newIds');
+    debugPrint('🔄 [didUpdateWidget] _items (local)  : $currentIds');
+
+    if (oldIds.join(',') != newIds.join(',')) {
+      debugPrint('🔄 [didUpdateWidget] → RESET _items to widget.items !!');
       _items = List.from(widget.items);
+    } else {
+      debugPrint('🔄 [didUpdateWidget] → NO CHANGE');
     }
   }
 
   void _handleReorder(int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
+
     setState(() {
       final item = _items.removeAt(oldIndex);
-      _items.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+      _items.insert(newIndex, item);
     });
-    final newOrderIds = _items.map((i) => i.id).toList();
-    if (widget.isPinnedMode) {
-      ref.read(itemNotifierProvider.notifier).reorderPinned(newOrderIds);
-    } else {
-      ref.read(itemNotifierProvider.notifier).reorderFavorites(newOrderIds);
+
+    // Χωρίζουμε τα IDs ανά κατηγορία με βάση τη νέα σειρά
+    final pinnedIds   = _items.where((i) => i.pinned).map((i) => i.id).toList();
+    final favoriteIds = _items.where((i) => i.favorite && !i.pinned).map((i) => i.id).toList();
+
+    if (pinnedIds.isNotEmpty) {
+      ref.read(itemNotifierProvider.notifier).reorderPinned(pinnedIds);
+    }
+    if (favoriteIds.isNotEmpty) {
+      ref.read(itemNotifierProvider.notifier).reorderFavorites(favoriteIds);
     }
   }
 
@@ -1032,7 +1064,7 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
       child: ReorderableGridView.builder(
-        padding: const EdgeInsets.only(bottom: 100),
+        padding: const EdgeInsets.only(bottom: 80),
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

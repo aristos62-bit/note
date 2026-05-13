@@ -7,9 +7,11 @@
 // ✅ View mode toggle (pinned/favorites/all)
 // ✅ Fix: φίλτρα status/priority δεν χάνουν τη λίστα
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
-// ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθώθηκε)
+// ✅ Περιμένει τα settings πριν επιλέξει φάκελο
 // ✅ Search, tags (όπως το ItemListScreen)
 // ✅ Fix: κλείδωμα pop κατά το drag (αποφυγή ανεπιθύμητου back gesture)
+// ✅ Progress bar ανά κάρτα εργασίας (υποεργασίες, overdue, done)
+// ✅ Checkbox μπλοκαρισμένο όταν υπάρχουν υποεργασίες
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -44,12 +46,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   bool _searchActive = false;
   Timer? _debounce;
 
-  // int? selectedFolderId;
   Set<String> _visibleTagNames = {};
-
-  // ✅ Αν ο χρήστης έχει κάνει χειροκίνητη επιλογή, δεν ξαναβάζουμε system folder
-  // bool _userExplicitlySelected = false;
-  // bool _autoSelectDone = false; // Για να αποφύγουμε πολλαπλά setState
 
   @override
   void initState() {
@@ -82,7 +79,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     setState(() => _searchActive = !_searchActive);
     if (!_searchActive) {
       _searchCtrl.clear();
-      ref.read(_searchQueryProvider.notifier).state = '';
+      ref.read(_searchQueryProvider.notifier).state    = '';
       ref.read(_taskTagFilterProvider.notifier).state  = {};
     } else {
       Future.microtask(() => _searchFocus.requestFocus());
@@ -165,8 +162,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     final searchQuery    = ref.watch(_searchQueryProvider);
     final activeTags     = ref.watch(_taskTagFilterProvider);
     final foldersAsync   = ref.watch(foldersStreamProvider);
-    final settingsAsync  = ref.watch(settingsNotifierProvider); // ✅ περιμένουμε settings
-    final isDragging = ref.watch(isDraggingProvider);
+    final settingsAsync  = ref.watch(settingsNotifierProvider);
+    final isDragging     = ref.watch(isDraggingProvider);
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
     tryAutoSelectFolder(
@@ -175,7 +172,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       debugLabel: 'TaskList',
     );
 
-    return PopScope( // 🆕 κλείδωμα pop κατά το drag
+    return PopScope(
       canPop: !isDragging,
       child: Scaffold(
         backgroundColor: context.cBg,
@@ -538,6 +535,7 @@ class _TaskListBody extends ConsumerWidget {
       );
     }
 
+    // Grid mode: mainAxisExtent 94 (88 card + 4px bar + 2px padding)
     return SliverPadding(
       padding: EdgeInsets.symmetric(
         horizontal: context.responsiveHPadding,
@@ -548,7 +546,7 @@ class _TaskListBody extends ConsumerWidget {
           crossAxisCount:   cols,
           mainAxisSpacing:  Spacing.sm,
           crossAxisSpacing: Spacing.sm,
-          mainAxisExtent:   88,
+          mainAxisExtent:   94,
         ),
         delegate: SliverChildBuilderDelegate(
               (_, i) => Opacity(
@@ -568,7 +566,7 @@ class _TaskListBody extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// TASK CARD — φορτώνει dueDate & tags μόνο του
+// TASK CARD — με progress bar υποεργασιών
 // ════════════════════════════════════════════════════════════════
 
 class _TaskCard extends ConsumerWidget {
@@ -587,23 +585,116 @@ class _TaskCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final dueDate = propsAsync.valueOrNull
+    final dueDate    = propsAsync.valueOrNull
         ?.where((p) => p.key == 'due_date')
         .firstOrNull
         ?.dateValue;
     final tagsAsync = ref.watch(itemTagsProvider(item.id));
-    final tagNames = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
+    final tagNames  = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
+
+    // 🆕 Υποεργασίες για progress bar — real-time
+    final subtasksAsync = ref.watch(subtasksStreamProvider(item.id));
+    final subtasks      = subtasksAsync.valueOrNull ?? [];
+    final hasSubtasks   = subtasks.isNotEmpty;
 
     return DraggableItemWrapper(
       itemId: item.id,
-      child: ItemCard(
-        item: item,
-        dueDate: dueDate,
-        tagNames: tagNames,
-        compact: context.isMobile,
-        onTap: onTap,
-        onLongPress: onLongPress,
-        onCheckboxChanged: (_) => onToggleDone(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ItemCard(
+            item:     item,
+            dueDate:  dueDate,
+            tagNames: tagNames,
+            compact:  context.isMobile,
+            onTap:    onTap,
+            onLongPress: onLongPress,
+            // 🆕 Disable checkbox όταν υπάρχουν υποεργασίες
+            onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
+          ),
+          // 🆕 Progress bar
+          _TaskProgressBar(
+            item:      item,
+            subtasks:  subtasks,
+            dueDate:   dueDate,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TASK PROGRESS BAR
+// ════════════════════════════════════════════════════════════════
+
+class _TaskProgressBar extends StatelessWidget {
+  final Item       item;
+  final List<Item> subtasks;
+  final DateTime?  dueDate;
+
+  const _TaskProgressBar({
+    required this.item,
+    required this.subtasks,
+    required this.dueDate,
+  });
+
+  static const Color _green = Color(0xFF4CAF50);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDone = item.status == ItemStatus.done;
+    final now    = DateTime.now();
+    final today  = DateTime(now.year, now.month, now.day);
+    final isOverdue = dueDate != null &&
+        DateTime(dueDate!.year, dueDate!.month, dueDate!.day).isBefore(today);
+
+    final Color neutralColor = ColorsUI.getBorder(context.brightness);
+    final Color errorColor   = context.cError;
+
+    // Υπολογισμός τμημάτων μπάρας
+    final List<Widget> segments;
+
+    if (subtasks.isEmpty) {
+      // Χωρίς υποεργασίες
+      if (isDone) {
+        segments = [Expanded(child: Container(color: _green))];
+      } else if (isOverdue) {
+        segments = [Expanded(child: Container(color: errorColor))];
+      } else {
+        // Δεν υπάρχει ακόμα πρόοδος → faint neutral για σταθερό ύψος στο grid
+        segments = [Expanded(child: Container(color: neutralColor.withValues(alpha: 0.3)))];
+      }
+    } else {
+      // Με υποεργασίες: κάθε υποεργασία = 1/N του συνολικού
+      final doneCount   = subtasks.where((s) => s.status == ItemStatus.done).length;
+      final undoneCount = subtasks.length - doneCount;
+
+      segments = [
+        if (doneCount > 0)
+          Expanded(
+            flex: doneCount,
+            child: Container(color: _green),
+          ),
+        if (undoneCount > 0)
+          Expanded(
+            flex: undoneCount,
+            child: Container(
+              color: isOverdue ? errorColor : neutralColor.withValues(alpha: 0.5),
+            ),
+          ),
+      ];
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: SizedBox(
+          height: 4,
+          child: Row(children: segments),
+        ),
       ),
     );
   }
@@ -673,10 +764,10 @@ class _StatsBar extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value:            progress,
-              minHeight:        4,
-              backgroundColor:  ColorsUI.getBorder(context.brightness),
-              valueColor: AlwaysStoppedAnimation<Color>(context.cPrimary),
+              value:           progress,
+              minHeight:       4,
+              backgroundColor: ColorsUI.getBorder(context.brightness),
+              valueColor:      AlwaysStoppedAnimation<Color>(context.cPrimary),
             ),
           ),
           const SizedBox(height: Spacing.sm),
