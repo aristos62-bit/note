@@ -7,6 +7,7 @@
 // ✅ Responsive: mobile / tablet
 // ✅ Dark mode + DebugConfig
 // ✅ Square cards with type-specific background colors, 3 per row on tablet, 2 per row on mobile
+// ✅ Reorderable pinned/favorites (drag & drop)
 //
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,8 @@ import '../collections/collections.dart';
 import 'home_folder_view.dart';
 import 'package:go_router/go_router.dart';
 import '../../helpers/item_color_helper.dart';
+import 'package:reorderable_grid/reorderable_grid.dart';
+
 
 // ── View Mode for Home Screen ─────────────────────────────────
 enum ViewMode { pinned, favorites, both }
@@ -854,12 +857,10 @@ class _GreetingSection extends StatelessWidget {
 
 
 // ════════════════════════════════════════════════════════════════
-// PINNED & FAVORITES SECTION
-// Ξεχωριστό ConsumerWidget — κάνει rebuild ΜΟΝΟ όταν
-// αλλάζουν pinned/favorites, ΟΧΙ ολόκληρο το HomeScreen.
+// PINNED & FAVORITES SECTION with REORDERABLE GRID
 // ════════════════════════════════════════════════════════════════
 
-class _PinnedFavoritesSection extends ConsumerWidget {
+class _PinnedFavoritesSection extends ConsumerStatefulWidget {
   final List<Folder> folders;
   final ViewMode viewMode;
   final void Function(Item) onOpenItem;
@@ -872,28 +873,25 @@ class _PinnedFavoritesSection extends ConsumerWidget {
     required this.onRetry,
   });
 
-  Folder? _folderFor(Item item) {
-    if (item.folderId == null) return null;
-    return folders.where((f) => f.id == item.folderId).firstOrNull;
-  }
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PinnedFavoritesSection> createState() => _PinnedFavoritesSectionState();
+}
+
+class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection> {
+  @override
+  Widget build(BuildContext context) {
     final asyncData = ref.watch(pinnedAndFavoritesProvider);
 
     return asyncData.when(
       loading: () => const SizedBox.shrink(),
-      error: (e, _) => EmptyState.error(onRetry: onRetry),
+      error: (e, _) => EmptyState.error(onRetry: widget.onRetry),
       data: (data) {
-        final pinned    = data.pinned;
+        final pinned = data.pinned;
         final favorites = data.favorites;
 
-        DebugConfig.db('HOME pinned count=${pinned.length}');
-        DebugConfig.db('HOME favorites count=${favorites.length}');
-
-        // Συλλογή items βάσει viewMode
-        final List<Item> items;
-        switch (viewMode) {
+        List<Item> items;
+        bool isPinnedMode = false;
+        switch (widget.viewMode) {
           case ViewMode.both:
             final combined = <Item>[...pinned];
             for (final fav in favorites) {
@@ -902,6 +900,7 @@ class _PinnedFavoritesSection extends ConsumerWidget {
               }
             }
             combined.sort((a, b) {
+              // pinned πάνω από favorites
               if (a.pinned && !b.pinned) return -1;
               if (!a.pinned && b.pinned) return 1;
               final aDate = a.updatedAt ?? a.createdAt;
@@ -909,49 +908,31 @@ class _PinnedFavoritesSection extends ConsumerWidget {
               return bDate.compareTo(aDate);
             });
             items = combined;
+            break;
           case ViewMode.pinned:
             items = pinned;
+            isPinnedMode = true;
+            break;
           case ViewMode.favorites:
             items = favorites;
+            isPinnedMode = false;
+            break;
         }
 
-        if (items.isEmpty) return _buildEmpty(context);
-        return _buildGrid(context, items);
+        if (items.isEmpty) return _buildEmpty(context, widget.viewMode);
+
+        return _ReorderableGrid(
+          items: items,
+          isPinnedMode: isPinnedMode,
+          folders: widget.folders,
+          onOpenItem: widget.onOpenItem,
+        );
       },
     );
   }
 
-  Widget _buildGrid(BuildContext context, List<Item> items) {
-    final crossAxisCount = MediaQuery.of(context).size.width < 600 ? 3 : 4;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.md,
-        context.responsiveHPadding,
-        Spacing.md + MediaQuery.of(context).padding.bottom + 80,
-      ),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          mainAxisSpacing: Spacing.sm,
-          crossAxisSpacing: Spacing.sm,
-          childAspectRatio: 1.0,
-        ),
-        itemCount: items.length,
-        itemBuilder: (_, i) => _SquareItemCard(
-          item: items[i],
-          folder: _folderFor(items[i]),  // ← ΕΔΩ χρησιμοποιείται
-          onTap: () => onOpenItem(items[i]),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmpty(BuildContext context) {
-    final (icon, title, subtitle) = switch (viewMode) {
+  Widget _buildEmpty(BuildContext context, ViewMode mode) {
+    final (icon, title, subtitle) = switch (mode) {
       ViewMode.pinned => (
       Icons.push_pin_outlined,
       'Δεν υπάρχουν καρφιτσωμένα στοιχεία',
@@ -990,6 +971,96 @@ class _PinnedFavoritesSection extends ConsumerWidget {
     );
   }
 }
+
+// ════════════════════════════════════════════════════════════════
+// REORDERABLE GRID (με drag & drop) – Fixed height issue
+// ════════════════════════════════════════════════════════════════
+
+class _ReorderableGrid extends ConsumerStatefulWidget {
+  final List<Item> items;
+  final bool isPinnedMode;
+  final List<Folder> folders;
+  final void Function(Item) onOpenItem;
+
+  const _ReorderableGrid({
+    required this.items,
+    required this.isPinnedMode,
+    required this.folders,
+    required this.onOpenItem,
+  });
+
+  @override
+  ConsumerState<_ReorderableGrid> createState() => _ReorderableGridState();
+}
+
+class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
+  late List<Item> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List.from(widget.items);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReorderableGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.items != widget.items) {
+      _items = List.from(widget.items);
+    }
+  }
+
+  void _handleReorder(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    setState(() {
+      final item = _items.removeAt(oldIndex);
+      _items.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+    });
+    final newOrderIds = _items.map((i) => i.id).toList();
+    if (widget.isPinnedMode) {
+      ref.read(itemNotifierProvider.notifier).reorderPinned(newOrderIds);
+    } else {
+      ref.read(itemNotifierProvider.notifier).reorderFavorites(newOrderIds);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth < 600 ? 3 : 4;
+    const  spacing = Spacing.sm; // 8.0
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+      child: ReorderableGridView.builder(
+        padding: const EdgeInsets.only(bottom: 100),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: spacing,
+          crossAxisSpacing: spacing,
+          childAspectRatio: 1.0,
+        ),
+        onReorder: _handleReorder,
+          itemBuilder: (context, index) {
+            final item = _items[index];
+            final folder = widget.folders.where((f) => f.id == item.folderId).firstOrNull;
+            return Container(
+              key: ValueKey(item.id),
+              child: _SquareItemCard(
+                item: item,
+                folder: folder,
+                onTap: () => widget.onOpenItem(item),
+              ),
+            );
+          },
+          itemCount: _items.length,
+        ),
+    );
+  }
+}
+
+
 // ════════════════════════════════════════════════════════════════
 // SQUARE ITEM CARD with type-specific background color
 // and auto-contrast text color, fixed overflow
@@ -1011,7 +1082,6 @@ class _SquareItemCard extends StatelessWidget {
     final backgroundColor = ItemColorHelper.backgroundColorForType(item.type, context);
     final textColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final typeColor = ItemColorHelper.iconColorForType(item.type, context);
-
 
     return GestureDetector(
       onTap: onTap,

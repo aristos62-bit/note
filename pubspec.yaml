@@ -24,6 +24,7 @@ dependencies:
   intl: ^0.20.2
   collection: ^1.18.0
   rxdart: ^0.27.7
+  reorderable_grid: ^1.0.13
 
   # ─── NOTIFICATIONS ────────────────────────────────────────
   flutter_local_notifications: ^17.2.2

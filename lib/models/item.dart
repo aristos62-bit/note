@@ -101,6 +101,12 @@ class Item {
   /// χωρίς να ξαναγράψουμε όλα τα records
   double sortOrder = 0.0;
 
+  /// Σειρά εμφάνισης στα pinned items (null = default σειρά)
+  double? pinnedOrder;
+
+  /// Σειρά εμφάνισης στα favorite items (null = default σειρά)
+  double? favoriteOrder;
+
   // ─── Template ───────────────────────────────────────────
   /// Αν αυτό το item δημιουργήθηκε από template, εδώ είναι το ID
   int? templateId;

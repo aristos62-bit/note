@@ -106,8 +106,6 @@ class SuperNoteHelper {
   }
 
   /// Δημιουργία default data αν η DB είναι κενή
-  // lib/helpers/super_note_helper.dart (απόσπασμα – μόνο η αλλαγμένη μέθοδος)
-
   Future<void> _ensureDefaults() async {
     // 1. Default workspace
     final wsCount = await _isar.workspaces.count();
@@ -158,6 +156,22 @@ class SuperNoteHelper {
 class ItemRepository {
   ItemRepository(this._isar);
   final Isar _isar;
+
+  // Βοηθητική ταξινόμησης για pinned/favorites
+  List<Item> _sortByOrder(List<Item> items, double? Function(Item) orderGetter, DateTime Function(Item) timeGetter) {
+    final list = List<Item>.from(items);
+    list.sort((a, b) {
+      final aOrder = orderGetter(a);
+      final bOrder = orderGetter(b);
+      if (aOrder == null && bOrder == null) {
+        return timeGetter(b).compareTo(timeGetter(a));
+      }
+      if (aOrder == null) return 1;
+      if (bOrder == null) return -1;
+      return aOrder.compareTo(bOrder);
+    });
+    return list;
+  }
 
   // ── CREATE ──────────────────────────────────────────────
 
@@ -224,22 +238,24 @@ class ItemRepository {
         .findAll();
   }
 
-  Future<List<Item>> getPinned(int workspaceId) {
-    return _isar.items
+  Future<List<Item>> getPinned(int workspaceId) async {
+    final items = await _isar.items
         .filter()
         .workspaceIdEqualTo(workspaceId)
         .pinnedEqualTo(true)
         .deletedAtIsNull()
         .findAll();
+    return _sortByOrder(items, (i) => i.pinnedOrder, (i) => i.updatedAt ?? i.createdAt);
   }
 
-  Future<List<Item>> getFavorites(int workspaceId) {
-    return _isar.items
+  Future<List<Item>> getFavorites(int workspaceId) async {
+    final items = await _isar.items
         .filter()
         .workspaceIdEqualTo(workspaceId)
         .favoriteEqualTo(true)
         .deletedAtIsNull()
         .findAll();
+    return _sortByOrder(items, (i) => i.favoriteOrder, (i) => i.updatedAt ?? i.createdAt);
   }
 
   /// Full-text search στον τίτλο
@@ -274,9 +290,15 @@ class ItemRepository {
     if (color != null) item.color = color;
     if (status != null) item.status = status;
     if (priority != null) item.priority = priority;
-    if (pinned != null) item.pinned = pinned;
+    if (pinned != null) {
+      item.pinned = pinned;
+      if (!pinned) item.pinnedOrder = null;
+    }
     if (archived != null) item.archived = archived;
-    if (favorite != null) item.favorite = favorite;
+    if (favorite != null) {
+      item.favorite = favorite;
+      if (!favorite) item.favoriteOrder = null;
+    }
     if (folderId != null) item.folderId = folderId;
     if (sortOrder != null) item.sortOrder = sortOrder;
 
@@ -330,6 +352,60 @@ class ItemRepository {
     });
   }
 
+  // ── REORDER (new) ──────────────────────────────────────────
+
+  Future<void> reorderPinned(List<int> itemIds) async {
+    await _isar.writeTxn(() async {
+      for (int i = 0; i < itemIds.length; i++) {
+        final item = await _isar.items.get(itemIds[i]);
+        if (item != null && item.pinned) {
+          item.pinnedOrder = i.toDouble();
+          item.isDirty = true;
+          await _isar.items.put(item);
+        }
+      }
+      if (itemIds.isNotEmpty) {
+        final anyItem = await _isar.items.get(itemIds.first);
+        if (anyItem != null) {
+          final allPinned = await getPinned(anyItem.workspaceId);
+          for (final item in allPinned) {
+            if (!itemIds.contains(item.id) && item.pinnedOrder != null) {
+              item.pinnedOrder = null;
+              item.isDirty = true;
+              await _isar.items.put(item);
+            }
+          }
+        }
+      }
+    });
+  }
+
+  Future<void> reorderFavorites(List<int> itemIds) async {
+    await _isar.writeTxn(() async {
+      for (int i = 0; i < itemIds.length; i++) {
+        final item = await _isar.items.get(itemIds[i]);
+        if (item != null && item.favorite) {
+          item.favoriteOrder = i.toDouble();
+          item.isDirty = true;
+          await _isar.items.put(item);
+        }
+      }
+      if (itemIds.isNotEmpty) {
+        final anyItem = await _isar.items.get(itemIds.first);
+        if (anyItem != null) {
+          final allFavorites = await getFavorites(anyItem.workspaceId);
+          for (final item in allFavorites) {
+            if (!itemIds.contains(item.id) && item.favoriteOrder != null) {
+              item.favoriteOrder = null;
+              item.isDirty = true;
+              await _isar.items.put(item);
+            }
+          }
+        }
+      }
+    });
+  }
+
   // ── WATCH (Reactive) ────────────────────────────────────
 
   /// Stream που εκπέμπει ΜΟΝΟ όταν αλλάξουν τα αποτελέσματα
@@ -368,7 +444,8 @@ class ItemRepository {
         .workspaceIdEqualTo(workspaceId)
         .pinnedEqualTo(true)
         .deletedAtIsNull()
-        .watch(fireImmediately: true);
+        .watch(fireImmediately: true)
+        .map((items) => _sortByOrder(items, (i) => i.pinnedOrder, (i) => i.updatedAt ?? i.createdAt));
   }
 
   /// Stream favorite items — φωτιά ΜΟΝΟ αν αλλάξει το favorite status
@@ -378,7 +455,8 @@ class ItemRepository {
         .workspaceIdEqualTo(workspaceId)
         .favoriteEqualTo(true)
         .deletedAtIsNull()
-        .watch(fireImmediately: true);
+        .watch(fireImmediately: true)
+        .map((items) => _sortByOrder(items, (i) => i.favoriteOrder, (i) => i.updatedAt ?? i.createdAt));
   }
 
   /// Stream soft-deleted items
@@ -418,7 +496,7 @@ class ItemRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// BlockRepository
+// BlockRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class BlockRepository {
@@ -530,7 +608,7 @@ class BlockRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// PropertyRepository
+// PropertyRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class PropertyRepository {
@@ -620,7 +698,7 @@ class PropertyRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// TagRepository
+// TagRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class TagRepository {
@@ -713,8 +791,6 @@ class TagRepository {
   }
 
   Future<List<Tag>> getAll(int workspaceId) {
-    // .filter() με condition επιτρέπει sort — αυτό είναι σωστό
-    // αλλά το sortByUsageCountDesc() χρειάζεται το workspaceId condition πρώτα
     return _isar.tags
         .filter()
         .workspaceIdEqualTo(workspaceId)
@@ -724,7 +800,7 @@ class TagRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// RelationRepository
+// RelationRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class RelationRepository {
@@ -786,7 +862,7 @@ class RelationRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ReminderRepository
+// ReminderRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class ReminderRepository {
@@ -881,11 +957,10 @@ class ReminderRepository {
           .deleteAll();
     });
   }
-
 }
 
 // ─────────────────────────────────────────────────────────────────
-// FolderRepository
+// FolderRepository (αμετάβλητο εκτός από reorder που προστέθηκε)
 // ─────────────────────────────────────────────────────────────────
 
 class FolderRepository {
@@ -958,17 +1033,6 @@ class FolderRepository {
     return folder;
   }
 
-  /// Αναδιάταξη φακέλων (ενημερώνει το sortOrder με βάση τη νέα σειρά)
-  Future<void> reorder(List<Folder> foldersInNewOrder) async {
-    await _isar.writeTxn(() async {
-      for (int i = 0; i < foldersInNewOrder.length; i++) {
-        final folder = foldersInNewOrder[i];
-        folder.sortOrder = i.toDouble();
-      }
-      await _isar.folders.putAll(foldersInNewOrder);
-    });
-  }
-
   /// Stream folders ενός workspace — φωτιά ΜΟΝΟ αν αλλάξουν τα folders
   Stream<List<Folder>> watchByWorkspace(int workspaceId, {int? parentId}) {
     if (parentId != null) {
@@ -986,10 +1050,21 @@ class FolderRepository {
         .sortBySortOrder()
         .watch(fireImmediately: true);
   }
+
+  /// Αναδιάταξη φακέλων (drag & drop)
+  Future<void> reorder(List<Folder> foldersInNewOrder) async {
+    await _isar.writeTxn(() async {
+      for (int i = 0; i < foldersInNewOrder.length; i++) {
+        final folder = foldersInNewOrder[i];
+        folder.sortOrder = i.toDouble();
+      }
+      await _isar.folders.putAll(foldersInNewOrder);
+    });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// WorkspaceRepository
+// WorkspaceRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class WorkspaceRepository {
@@ -1031,8 +1106,6 @@ class WorkspaceRepository {
   }
 
   Future<List<Workspace>> getAll() {
-    // Σωστό: .where() όταν δεν υπάρχουν filter conditions
-    // .filter() χωρίς condition δεν επιτρέπει .sortBy...()
     return _isar.workspaces.where().sortBySortOrder().findAll();
   }
 
@@ -1045,7 +1118,7 @@ class WorkspaceRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// AttachmentRepository
+// AttachmentRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class AttachmentRepository {
@@ -1100,7 +1173,7 @@ class AttachmentRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// SettingsRepository
+// SettingsRepository (αμετάβλητο)
 // ─────────────────────────────────────────────────────────────────
 
 class SettingsRepository {
