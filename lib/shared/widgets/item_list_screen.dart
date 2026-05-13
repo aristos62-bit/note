@@ -71,21 +71,13 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   }
 
   Future<void> _createItem() async {
-    // 🆕 Διαβάζουμε τον τρέχον επιλεγμένο φάκελο από τον κεντρικό provider
     final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
     final notifier = ref.read(itemNotifierProvider.notifier);
-    final item = await notifier.create(
-      type: widget.itemType,
-      folderId: selectedFolderId,
-    );
+    final item = await notifier.create(type: widget.itemType, folderId: selectedFolderId);
     if (item == null || !mounted) return;
-    ref.invalidate(itemNotifierProvider);
-    if (!mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => widget.detailScreenBuilder(context, item, isNew: true),
-      ),
+      MaterialPageRoute(builder: (_) => widget.detailScreenBuilder(context, item, isNew: true)),
     );
   }
 
@@ -120,13 +112,11 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   Future<void> _togglePin(Item item) async {
     Navigator.pop(context);
     await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
-    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _toggleFav(Item item) async {
     Navigator.pop(context);
     await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
-    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _archive(Item item) async {
@@ -134,7 +124,6 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
     final ok = await ConfirmDialog.archive(context);
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
-    ref.invalidate(itemNotifierProvider);
   }
 
   Future<void> _delete(Item item) async {
@@ -142,7 +131,6 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή;');
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    ref.invalidate(itemNotifierProvider);
   }
 
   @override
@@ -181,7 +169,6 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
                 if (value == 'archived') {
                   final show = ref.read(showArchivedProvider);
                   ref.read(showArchivedProvider.notifier).state = !show;
-                  ref.invalidate(itemNotifierProvider);
                 }
               },
               itemBuilder: (_) => [
@@ -295,7 +282,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
     }
     if (tags.isNotEmpty) {
       list = list.where((item) {
-        final t = ref.watch(itemTagsProvider(item.id)).valueOrNull ?? [];
+        final t = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
         return t.map((e) => e.name).any((n) => tags.contains(n));
       }).toList();
     }

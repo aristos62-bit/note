@@ -76,7 +76,6 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
       folderId: selectedFolderId,
     );
     if (item == null || !mounted) return;
-    ref.invalidate(itemNotifierProvider);
     Navigator.of(context).push(AppTransitions.slideRoute(
         JournalDetailScreen(itemId: item.id, isNew: true)));
   }
@@ -90,7 +89,6 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    ref.invalidate(itemNotifierProvider);
   }
 
   Future<DateTime> _getDisplayDate(Item item) async {
@@ -162,7 +160,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
           const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(itemNotifierProvider),
+              onRefresh: () async => ref.invalidate(itemsStreamProvider),
               child: entriesAsync.when(
                 loading: () => _LoadingList(),
                 error: (e, _) => EmptyState.error(
@@ -221,7 +219,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError || !snapshot.hasData) {
-                        return EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider));
+                        return EmptyState.error(onRetry: () => ref.invalidate(itemsStreamProvider));
                       }
                       final processed = snapshot.data!;
                       return ResponsiveLayout(

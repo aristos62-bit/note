@@ -86,26 +86,28 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     setState(() => _isSaving = true);
     DebugConfig.db('JournalDetail save id=${widget.itemId} title="$title"');
 
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .updateItem(widget.itemId, title: title.isEmpty ? null : title);
-
-    if (contentChanged) {
+    try {
       await ref
-          .read(propertyNotifierProvider(widget.itemId).notifier)
-          .setText('content', content.isEmpty ? null : content);
+          .read(itemNotifierProvider.notifier)
+          .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+
+      if (contentChanged) {
+        if (!mounted) return;
+        await ref
+            .read(propertyNotifierProvider(widget.itemId).notifier)
+            .setText('content', content.isEmpty ? null : content);
+      }
+
+      _lastSavedTitle = title;
+      _lastSavedContent = content;
+      _hasEverBeenSaved = true;
+      _isEditingTitle = false;
+      DebugConfig.db('JournalDetail saved successfully');
+    } catch (e) {
+      DebugConfig.error('JournalDetail _save', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-
-    _lastSavedTitle = title;
-    _lastSavedContent = content;
-    _hasEverBeenSaved = true;
-    _isEditingTitle = false;
-
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-
-    ref.invalidate(itemNotifierProvider);
-    DebugConfig.db('JournalDetail saved successfully');
   }
 
   /// Ενιαία λογική για κουμπί Save και back arrow.
@@ -113,25 +115,26 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     final title = _titleCtrl.text.trim();
 
     if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή
-      DebugConfig.db('JournalDetail delete empty entry id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      // Κενός τίτλος → διαγραφή μόνο αν isNew
+      if (widget.isNew) {
+        DebugConfig.db('JournalDetail delete empty new entry id=${widget.itemId}');
+        try {
+          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+        } catch (e) {
+          DebugConfig.error('JournalDetail _saveOrDelete delete', e);
+        }
+      }
       return;
     }
 
     // Έχει τίτλο → αποθήκευση
     await _save();
   }
-
   Future<void> _delete(BuildContext context) async {
-    final future =
-    ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
-    final ok = await future;
+    final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
     if (!ok || !mounted) return;
     DebugConfig.db('JournalDetail delete id=${widget.itemId}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-    if (!mounted) return;
-    ref.invalidate(itemNotifierProvider);
     if (context.mounted) Navigator.of(context).pop();
   }
 
@@ -233,13 +236,13 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
 
         return PopScope(
           canPop: false,
-            onPopInvokedWithResult: (didPop, _) async {
-              if (didPop) return;
-              final nav = Navigator.of(context);
-              await _saveOrDelete();
-              if (!nav.mounted) return;
-              nav.pop();
-            },
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            if (_isSaving) return;
+            final nav = Navigator.of(context);
+            await _saveOrDelete();
+            if (mounted) nav.pop();
+          },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
             tablet: _buildTablet(context, item),
@@ -323,11 +326,29 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
         IconButton(
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
           tooltip: 'Αποθήκευση',
-          onPressed: () async {
+          onPressed: _isSaving
+              ? null
+              : () async {
+            if (_titleCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
+              );
+              return;
+            }
             final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            setState(() => _isSaving = true);
+            try {
+              await _save();
+              if (mounted) nav.pop();
+            } catch (e) {
+              DebugConfig.error('JournalDetail save button', e);
+              if (mounted) {
+                setState(() => _isSaving = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
+                );
+              }
+            }
           },
         ),
         // Reminder

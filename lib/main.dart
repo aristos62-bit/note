@@ -76,6 +76,7 @@ class SuperNoteApp extends ConsumerWidget {
       themeMode: _toThemeMode(appTheme),
       theme: AppThemeData.light,
       darkTheme: AppThemeData.dark,
+      themeAnimationDuration: Duration.zero,  // ✅ instant switch, μηδέν animation frames
       routerConfig: router,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(

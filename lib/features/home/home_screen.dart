@@ -154,187 +154,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-          // Content
+          // Content — ξεχωριστό ConsumerWidget για αποφυγή rebuild ολόκληρου HomeScreen
           if (selectedFolderId == null)
-            _buildContentView(context, ref, folders)
+            SliverToBoxAdapter(
+              child: _PinnedFavoritesSection(
+                folders: folders,
+                viewMode: _viewMode,
+                onOpenItem: (item) => _openItem(context, item),
+                onRetry: () => ref.invalidate(pinnedAndFavoritesProvider),
+              ),
+            )
           else
             _buildFolderContent(context, folders),
         ],
-      ),
-    );
-  }
-
-  // ── Content for "Όλοι" — pinned/favorites/both ───────────────
-
-  Widget _buildContentView(
-      BuildContext context,
-      WidgetRef ref,
-      List<Folder> folders,
-      ) {
-    final asyncData = ref.watch(pinnedAndFavoritesProvider);
-
-    return asyncData.when(
-      loading: () => const SliverToBoxAdapter(
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => SliverToBoxAdapter(
-        child: EmptyState.error(
-          onRetry: () => ref.invalidate(pinnedAndFavoritesProvider),
-        ),
-      ),
-      data: (data) {
-        final pinned = data.pinned;
-        final favorites = data.favorites;
-
-        DebugConfig.db('HOME pinned count=${pinned.length}');
-        DebugConfig.db('HOME favorites count=${favorites.length}');
-
-        // both mode
-        if (_viewMode == ViewMode.both) {
-          final combined = <Item>[...pinned];
-
-          for (final fav in favorites) {
-            if (!combined.any((i) => i.id == fav.id)) {
-              combined.add(fav);
-            }
-          }
-
-          combined.sort((a, b) {
-            if (a.pinned && !b.pinned) return -1;
-            if (!a.pinned && b.pinned) return 1;
-
-            final aDate = a.updatedAt ?? a.createdAt;
-            final bDate = b.updatedAt ?? b.createdAt;
-
-            return bDate.compareTo(aDate);
-          });
-
-          if (combined.isEmpty) {
-            return _buildEmptyState(context);
-          }
-
-          return _buildItemsGrid(
-            context,
-            combined,
-            folders: folders,
-            isPinnedMode: false,
-          );
-        }
-
-        // pinned mode
-        if (_viewMode == ViewMode.pinned) {
-          if (pinned.isEmpty) return _buildEmptyState(context);
-
-          return _buildItemsGrid(
-            context,
-            pinned,
-            folders: folders,
-            isPinnedMode: true,
-          );
-        }
-
-        // favorites mode
-        if (favorites.isEmpty) return _buildEmptyState(context);
-
-        return _buildItemsGrid(
-          context,
-          favorites,
-          folders: folders,
-          isPinnedMode: false,
-        );
-      },
-    );
-  }
-
-  // ── Build items grid (square cards, responsive columns) ─────
-
-  Widget _buildItemsGrid(
-      BuildContext context,
-      List<Item> items, {
-        required List<Folder> folders,
-        required bool isPinnedMode,
-      }) {
-    if (items.isEmpty) {
-      return _buildEmptyState(context);
-    }
-
-    // Responsive columns: 3 on tablet/desktop, 2 on mobile
-    final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth < 600 ? 3 : 4;
-
-    return SliverPadding(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.md,
-        context.responsiveHPadding,
-        Spacing.md + MediaQuery.of(context).padding.bottom + 80,
-      ),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          mainAxisSpacing: Spacing.sm,
-          crossAxisSpacing: Spacing.sm,
-          childAspectRatio: 1.0, // τετράγωνα
-        ),
-        delegate: SliverChildBuilderDelegate(
-              (_, i) => _SquareItemCard(
-            item: items[i],
-            folder: _folderFor(items[i], folders),
-            onTap: () => _openItem(context, items[i]),
-          ),
-          childCount: items.length,
-        ),
-      ),
-    );
-  }
-
-  // ── Empty state for "Όλοι" section ───────────────────────────
-
-  Widget _buildEmptyState(BuildContext context) {
-    String message;
-    IconData icon;
-
-    switch (_viewMode) {
-      case ViewMode.pinned:
-        message = 'Δεν υπάρχουν καρφιτσωμένα στοιχεία';
-        icon = Icons.push_pin_outlined;
-        break;
-      case ViewMode.favorites:
-        message = 'Δεν υπάρχουν αγαπημένα στοιχεία';
-        icon = Icons.star_outline_rounded;
-        break;
-      case ViewMode.both:
-        message = 'Δεν υπάρχουν στοιχεία';
-        icon = Icons.inbox_rounded;
-        break;
-    }
-
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          context.responsiveHPadding,
-          Spacing.xl,
-          context.responsiveHPadding,
-          0,
-        ),
-        child: Column(children: [
-          Icon(icon, size: 56, color: context.cDisabled),
-          const SizedBox(height: Spacing.md),
-          Text(message, style: context.titleMd),
-          const SizedBox(height: Spacing.sm),
-          Text(
-            switch (_viewMode) {
-              ViewMode.pinned =>
-              'Δημιούργησε φακέλους\nκαρφίτσωσε στοιχεία για να τα βλέπεις εδώ.',
-              ViewMode.favorites =>
-              'Δημιούργησε φακέλους\nπρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
-              ViewMode.both =>
-              'Δημιούργησε φακέλους\nκαρφίτσωσε ή αποθήκευσε στοιχεία ως αγαπημένα\nγια να τα βλέπεις εδώ.',
-            },
-            style: context.bodyMd.withColor(context.cText2),
-            textAlign: TextAlign.center,
-          ),
-        ]),
       ),
     );
   }
@@ -353,11 +185,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── Helpers ──────────────────────────────────────────────────
-
-  Folder? _folderFor(Item item, List<Folder> folders) {
-    if (item.folderId == null) return null;
-    return folders.where((f) => f.id == item.folderId).firstOrNull;
-  }
 
   void _openItem(BuildContext context, Item item) {
     DebugConfig.nav('HomeScreen → ${item.type.name} id=${item.id}');
@@ -1025,6 +852,144 @@ class _GreetingSection extends StatelessWidget {
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// PINNED & FAVORITES SECTION
+// Ξεχωριστό ConsumerWidget — κάνει rebuild ΜΟΝΟ όταν
+// αλλάζουν pinned/favorites, ΟΧΙ ολόκληρο το HomeScreen.
+// ════════════════════════════════════════════════════════════════
+
+class _PinnedFavoritesSection extends ConsumerWidget {
+  final List<Folder> folders;
+  final ViewMode viewMode;
+  final void Function(Item) onOpenItem;
+  final VoidCallback onRetry;
+
+  const _PinnedFavoritesSection({
+    required this.folders,
+    required this.viewMode,
+    required this.onOpenItem,
+    required this.onRetry,
+  });
+
+  Folder? _folderFor(Item item) {
+    if (item.folderId == null) return null;
+    return folders.where((f) => f.id == item.folderId).firstOrNull;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(pinnedAndFavoritesProvider);
+
+    return asyncData.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => EmptyState.error(onRetry: onRetry),
+      data: (data) {
+        final pinned    = data.pinned;
+        final favorites = data.favorites;
+
+        DebugConfig.db('HOME pinned count=${pinned.length}');
+        DebugConfig.db('HOME favorites count=${favorites.length}');
+
+        // Συλλογή items βάσει viewMode
+        final List<Item> items;
+        switch (viewMode) {
+          case ViewMode.both:
+            final combined = <Item>[...pinned];
+            for (final fav in favorites) {
+              if (!combined.any((i) => i.id == fav.id)) {
+                combined.add(fav);
+              }
+            }
+            combined.sort((a, b) {
+              if (a.pinned && !b.pinned) return -1;
+              if (!a.pinned && b.pinned) return 1;
+              final aDate = a.updatedAt ?? a.createdAt;
+              final bDate = b.updatedAt ?? b.createdAt;
+              return bDate.compareTo(aDate);
+            });
+            items = combined;
+          case ViewMode.pinned:
+            items = pinned;
+          case ViewMode.favorites:
+            items = favorites;
+        }
+
+        if (items.isEmpty) return _buildEmpty(context);
+        return _buildGrid(context, items);
+      },
+    );
+  }
+
+  Widget _buildGrid(BuildContext context, List<Item> items) {
+    final crossAxisCount = MediaQuery.of(context).size.width < 600 ? 3 : 4;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveHPadding,
+        Spacing.md,
+        context.responsiveHPadding,
+        Spacing.md + MediaQuery.of(context).padding.bottom + 80,
+      ),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: Spacing.sm,
+          crossAxisSpacing: Spacing.sm,
+          childAspectRatio: 1.0,
+        ),
+        itemCount: items.length,
+        itemBuilder: (_, i) => _SquareItemCard(
+          item: items[i],
+          folder: _folderFor(items[i]),  // ← ΕΔΩ χρησιμοποιείται
+          onTap: () => onOpenItem(items[i]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty(BuildContext context) {
+    final (icon, title, subtitle) = switch (viewMode) {
+      ViewMode.pinned => (
+      Icons.push_pin_outlined,
+      'Δεν υπάρχουν καρφιτσωμένα στοιχεία',
+      'Καρφίτσωσε στοιχεία για να τα βλέπεις εδώ.',
+      ),
+      ViewMode.favorites => (
+      Icons.star_outline_rounded,
+      'Δεν υπάρχουν αγαπημένα στοιχεία',
+      'Πρόσθεσε αγαπημένα για να τα βλέπεις εδώ.',
+      ),
+      ViewMode.both => (
+      Icons.inbox_rounded,
+      'Δεν υπάρχουν στοιχεία',
+      'Καρφίτσωσε ή αποθήκευσε στοιχεία ως αγαπημένα\nγια να τα βλέπεις εδώ.',
+      ),
+    };
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveHPadding,
+        Spacing.xl,
+        context.responsiveHPadding,
+        0,
+      ),
+      child: Column(children: [
+        Icon(icon, size: 56, color: context.cDisabled),
+        const SizedBox(height: Spacing.md),
+        Text(title, style: context.titleMd),
+        const SizedBox(height: Spacing.sm),
+        Text(
+          subtitle,
+          style: context.bodyMd.withColor(context.cText2),
+          textAlign: TextAlign.center,
+        ),
+      ]),
+    );
+  }
+}
 // ════════════════════════════════════════════════════════════════
 // SQUARE ITEM CARD with type-specific background color
 // and auto-contrast text color, fixed overflow

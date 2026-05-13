@@ -16,27 +16,22 @@ import '../../shared/widgets/widgets.dart';
 
 // ── Local subtasks provider ───────────────────────────────────────
 
-final _subtasksProvider = FutureProvider.family<List<Item>, int>((ref, parentId) async {
+final _subtasksProvider = StreamProvider.family<List<Item>, int>((ref, parentId) async* {
   DebugConfig.db('_subtasksProvider parentId=$parentId');
 
-  final itemsAsync = ref.watch(itemsStreamProvider);
-  final allItems = itemsAsync.maybeWhen(
-    data: (list) => list,
-    orElse: () => <Item>[],
-  );
-
-  final subtasks = <Item>[];
-  for (final item in allItems) {
-    if (item.type != ItemType.task) continue;
-    final props = await ref.read(itemPropertiesProvider(item.id).future);
-    final parentIdStr = props.where((p) => p.key == 'parent_id').firstOrNull?.value;
-    if (parentIdStr != null && int.tryParse(parentIdStr) == parentId) {
-      subtasks.add(item);
+  yield* ref.watch(itemsStreamProvider.stream).asyncMap((allItems) async {
+    final subtasks = <Item>[];
+    for (final item in allItems) {
+      if (item.type != ItemType.task) continue;
+      final props = await ref.read(itemPropertiesProvider(item.id).future);
+      final parentIdStr = props.where((p) => p.key == 'parent_id').firstOrNull?.value;
+      if (parentIdStr != null && int.tryParse(parentIdStr) == parentId) {
+        subtasks.add(item);
+      }
     }
-  }
-
-  DebugConfig.db('_subtasksProvider found ${subtasks.length} subtasks');
-  return subtasks;
+    DebugConfig.db('_subtasksProvider found ${subtasks.length} subtasks');
+    return subtasks;
+  });
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -45,7 +40,8 @@ final _subtasksProvider = FutureProvider.family<List<Item>, int>((ref, parentId)
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
-  const TaskDetailScreen({super.key, required this.itemId});
+  final bool isNew;
+  const TaskDetailScreen({super.key, required this.itemId, this.isNew = false});
 
   @override
   ConsumerState<TaskDetailScreen> createState() => _TaskDetailScreenState();
@@ -105,37 +101,48 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
     setState(() => _isSaving = true);
     DebugConfig.db('TaskDetail saveTitle id=${widget.itemId} "$title"');
-    await ref.read(itemNotifierProvider.notifier)
-        .updateItem(widget.itemId, title: title.isEmpty ? null : title);
-
-    _lastSavedTitle = title;
-    if (!mounted) return;
-    setState(() => _isSaving = false);
+    try {
+      await ref.read(itemNotifierProvider.notifier)
+          .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+      _lastSavedTitle = title;
+    } catch (e) {
+      DebugConfig.error('TaskDetail _saveTitle', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _saveOrDelete() async {
     final title = _titleCtrl.text.trim();
 
     if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή ( αν είναι νέα ή υπάρχουσα).
-      DebugConfig.db('TaskDetail delete empty task id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      if (widget.isNew) {
+        DebugConfig.db('TaskDetail delete empty new task id=${widget.itemId}');
+        try {
+          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+        } catch (e) {
+          DebugConfig.error('TaskDetail _saveOrDelete delete', e);
+        }
+      }
       return;
     }
 
-    // Έχει τίτλο → αποθήκευση.
-    await _flushPendingSaves();
-    if (!mounted) return;
-    setState(() => _isSaving = true);
-    DebugConfig.db('TaskDetail manualSave id=${widget.itemId}');
-    if (!mounted) return;
-    setState(() => _isSaving = false);
+    // Έχει τίτλο → flush όλων των εκκρεμών saves
+    try {
+      await _flushPendingSaves();
+    } catch (e) {
+      DebugConfig.error('TaskDetail _saveOrDelete', e);
+    }
   }
 
   Future<void> _saveNotes(String notes) async {
     DebugConfig.db('TaskDetail saveNotes id=${widget.itemId}');
-    await ref.read(propertyNotifierProvider(widget.itemId).notifier)
-        .setText('notes', notes.isEmpty ? null : notes);
+    try {
+      await ref.read(propertyNotifierProvider(widget.itemId).notifier)
+          .setText('notes', notes.isEmpty ? null : notes);
+    } catch (e) {
+      DebugConfig.error('TaskDetail _saveNotes', e);
+    }
   }
 
   Future<void> _flushPendingSaves() async {
@@ -172,6 +179,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     final init = current ?? now;
     final picked = await showDatePicker(
       context: context,
+      locale: const Locale('el', 'GR'),
       initialDate: init.isBefore(now) ? now : init,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
@@ -252,10 +260,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
+            if (_isSaving) return;
             final nav = Navigator.of(context);
             await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            if (mounted) nav.pop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
@@ -350,16 +358,35 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           : null,
       actions: [
         // Save
-        // Save
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
           tooltip: 'Αποθήκευση',
-          onPressed: () async {
+          onPressed: _isSaving
+              ? null
+              : () async {
+            if (_titleCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
+              );
+              return;
+            }
+            _notesDebounce?.cancel();
             final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (!mounted) return;
-            nav.pop();
+            setState(() => _isSaving = true);
+            try {
+              await _flushPendingSaves();
+              if (mounted) nav.pop();
+            } catch (e) {
+              DebugConfig.error('TaskDetail save button', e);
+              if (mounted) {
+                setState(() => _isSaving = false);
+                if (!context.mounted)return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
+                );
+              }
+            }
           },
         ),
         // Reminder

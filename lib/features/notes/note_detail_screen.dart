@@ -67,12 +67,16 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     if (title == _lastSavedTitle) return;
     setState(() => _isSaving = true);
     DebugConfig.db('NoteDetail saveTitle id=${widget.itemId} "$title"');
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .updateItem(widget.itemId, title: title.isEmpty ? null : title);
-    _lastSavedTitle = title;
-    if (!mounted) return;
-    setState(() => _isSaving = false);
+    try {
+      await ref
+          .read(itemNotifierProvider.notifier)
+          .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+      _lastSavedTitle = title;
+    } catch (e) {
+      DebugConfig.error('NoteDetail _saveTitle', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
 
@@ -129,9 +133,15 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     final title = _titleCtrl.text.trim();
 
     if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή
-      DebugConfig.db('NoteDetail delete empty note id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      // Κενός τίτλος → διαγραφή μόνο αν isNew
+      if (widget.isNew) {
+        DebugConfig.db('NoteDetail delete empty new note id=${widget.itemId}');
+        try {
+          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+        } catch (e) {
+          DebugConfig.error('NoteDetail _saveOrDelete delete', e);
+        }
+      }
       return;
     }
 
@@ -168,10 +178,10 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
+            if (_isSaving) return;
             final nav = Navigator.of(context);
             await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            if (mounted) nav.pop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobileLayout(context, item),
@@ -239,15 +249,36 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           : null,
       actions: [
         // Save
+        // Save
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
           tooltip: 'Αποθήκευση',
-          onPressed: () async {
+          onPressed: _isSaving
+              ? null
+              : () async {
+            if (_titleCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
+              );
+              return;
+            }
+            _saveDebounce?.cancel();
             final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            setState(() => _isSaving = true);
+            try {
+              await _saveTitle(_titleCtrl.text.trim());
+              if (mounted) nav.pop();
+            } catch (e) {
+              DebugConfig.error('NoteDetail save button', e);
+              if (mounted) {
+                setState(() => _isSaving = false);
+                if (!context.mounted)return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
+                );
+              }
+            }
           },
         ),
         // Reminder

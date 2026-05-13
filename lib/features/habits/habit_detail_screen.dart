@@ -62,12 +62,16 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     if (!mounted) return;
     if (title == _lastSavedTitle) return;
     setState(() => _isSaving = true);
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .updateItem(widget.itemId, title: title.isEmpty ? null : title);
-    _lastSavedTitle = title;
-    if (!mounted) return;
-    setState(() => _isSaving = false);
+    try {
+      await ref
+          .read(itemNotifierProvider.notifier)
+          .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+      _lastSavedTitle = title;
+    } catch (e) {
+      DebugConfig.error('HabitDetail _saveTitle', e);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   /// Αποθηκεύει αν υπάρχει τίτλος, αλλιώς διαγράφει τη συνήθεια.
@@ -75,15 +79,25 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final title = _titleCtrl.text.trim();
 
     if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή (είτε νέα είτε υπάρχουσα)
-      DebugConfig.db('HabitDetail delete empty habit id=${widget.itemId}');
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+      // Κενός τίτλος → διαγραφή μόνο αν isNew
+      if (widget.isNew) {
+        DebugConfig.db('HabitDetail delete empty new habit id=${widget.itemId}');
+        try {
+          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+        } catch (e) {
+          DebugConfig.error('HabitDetail _saveOrDelete delete', e);
+        }
+      }
       return;
     }
 
     // Έχει τίτλο → αποθήκευση (ακυρώνουμε τυχόν εκκρεμές debounce)
     _titleDebounce?.cancel();
-    await _saveTitle(title);
+    try {
+      await _saveTitle(title);
+    } catch (e) {
+      DebugConfig.error('HabitDetail _saveOrDelete save', e);
+    }
   }
 
   Future<void> _incrementProgress() async {
@@ -192,10 +206,10 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
+            if (_isSaving) return;
             final nav = Navigator.of(context);
             await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            if (mounted) nav.pop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
@@ -273,10 +287,31 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           IconButton(
             icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
             tooltip: 'Αποθήκευση',
-            onPressed: () async {
+            onPressed: _isSaving
+                ? null
+                : () async {
+              if (_titleCtrl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
+                );
+                return;
+              }
+              _titleDebounce?.cancel();
               final nav = Navigator.of(context);
-              await _saveOrDelete();
-              if (nav.mounted) nav.pop();
+              setState(() => _isSaving = true);
+              try {
+                await _saveTitle(_titleCtrl.text.trim());
+                if (mounted) nav.pop();
+              } catch (e) {
+                DebugConfig.error('HabitDetail save button', e);
+                if (mounted) {
+                  setState(() => _isSaving = false);
+                  if (!context.mounted)return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
+                  );
+                }
+              }
             },
           ),
           IconButton(

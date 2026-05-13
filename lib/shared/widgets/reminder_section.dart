@@ -110,81 +110,89 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
   Future<void> _loadData() async {
     DebugConfig.notif('ReminderSection._loadData: itemId=${widget.itemId}');
     setState(() => _isLoading = true);
-    final reminders = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
-    DebugConfig.notif('ReminderSection._loadData: found ${reminders.length} reminders for item ${widget.itemId}');
-    for (final r in reminders) {
-      DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule}');
+    try {
+      final reminders = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
+      DebugConfig.notif('ReminderSection._loadData: found ${reminders.length} reminders for item ${widget.itemId}');
+      for (final r in reminders) {
+        DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule}');
+      }
+      if (reminders.isNotEmpty) {
+        final r = reminders.first;
+        _reminderId = r.id;
+        _triggerDateTime = r.triggerAt;
+        _enabled = true;
+        _recurrence = rruleToRecurrence(r.rrule);
+        DebugConfig.notif('ReminderSection._loadData: loaded existing reminder id=${r.id}, enabled=true');
+      } else {
+        _reminderId = null;
+        _triggerDateTime = null;
+        _enabled = false;
+        _recurrence = null;
+        DebugConfig.notif('ReminderSection._loadData: no reminders found, enabled=false');
+      }
+    } catch (e) {
+      DebugConfig.error('ReminderSection._loadData', e);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    if (reminders.isNotEmpty) {
-      final r = reminders.first;
-      _reminderId = r.id;
-      _triggerDateTime = r.triggerAt;
-      _enabled = true;
-      _recurrence = rruleToRecurrence(r.rrule);
-      DebugConfig.notif('ReminderSection._loadData: loaded existing reminder id=${r.id}, enabled=true');
-    } else {
-      _reminderId = null;
-      _triggerDateTime = null;
-      _enabled = false;
-      _recurrence = null;
-      DebugConfig.notif('ReminderSection._loadData: no reminders found, enabled=false');
-    }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _saveReminder() async {
     DebugConfig.notif('ReminderSection._saveReminder: enabled=$_enabled, trigger=$_triggerDateTime, reminderId=$_reminderId, itemId=${widget.itemId}');
+    try {
+      if (!_enabled || _triggerDateTime == null) {
+        DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger → deleting if exists');
+        if (_reminderId != null) {
+          DebugConfig.notif('ReminderSection._saveReminder: deleting ALL reminders for itemId=${widget.itemId}');
+          await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
+          _reminderId = null;
+          DebugConfig.notif('ReminderSection._saveReminder: all reminders deleted');
+        }
+        return;
+      }
 
-    if (!_enabled || _triggerDateTime == null) {
-      DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger → deleting if exists');
+      final rrule = recurrenceToRRULE(_recurrence);
+      const title = 'Υπενθύμιση';
+      final body = widget.itemTitle;
+      DebugConfig.notif('ReminderSection._saveReminder: rrule=$rrule, title=$title, body=$body');
+
       if (_reminderId != null) {
-        DebugConfig.notif('ReminderSection._saveReminder: deleting ALL reminders for itemId=${widget.itemId}');
-        await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
-        _reminderId = null;
-        DebugConfig.notif('ReminderSection._saveReminder: all reminders deleted');
-      }
-      return;
-    }
-
-    final rrule = recurrenceToRRULE(_recurrence);
-    const title = 'Υπενθύμιση';
-    final body = widget.itemTitle;
-    DebugConfig.notif('ReminderSection._saveReminder: rrule=$rrule, title=$title, body=$body');
-
-    if (_reminderId != null) {
-      DebugConfig.notif('ReminderSection._saveReminder: updating existing reminder id=$_reminderId');
-      final existing = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
-      DebugConfig.notif('ReminderSection._saveReminder: found ${existing.length} existing reminders');
-      if (existing.isNotEmpty) {
-        final r = existing.first;
-        DebugConfig.notif('ReminderSection._saveReminder: before update: id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
-        r.triggerAt = _triggerDateTime!;
-        r.rrule = rrule;
-        r.title = title;
-        r.body = body;
-        r.updatedAt = DateTime.now();
-        await SuperNoteHelper.instance.isar.writeTxn(() async {
-          await SuperNoteHelper.instance.isar.reminders.put(r);
-        });
-        DebugConfig.notif('ReminderSection._saveReminder: updated reminder id=${r.id}, new trigger=${r.triggerAt}');
-        await ReminderScheduler.instance.scheduleReminder(r);
+        DebugConfig.notif('ReminderSection._saveReminder: updating existing reminder id=$_reminderId');
+        final existing = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
+        DebugConfig.notif('ReminderSection._saveReminder: found ${existing.length} existing reminders');
+        if (existing.isNotEmpty) {
+          final r = existing.first;
+          DebugConfig.notif('ReminderSection._saveReminder: before update: id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
+          r.triggerAt = _triggerDateTime!;
+          r.rrule = rrule;
+          r.title = title;
+          r.body = body;
+          r.updatedAt = DateTime.now();
+          await SuperNoteHelper.instance.isar.writeTxn(() async {
+            await SuperNoteHelper.instance.isar.reminders.put(r);
+          });
+          DebugConfig.notif('ReminderSection._saveReminder: updated reminder id=${r.id}, new trigger=${r.triggerAt}');
+          await ReminderScheduler.instance.scheduleReminder(r);
+        } else {
+          DebugConfig.notif('ReminderSection._saveReminder: WARNING - _reminderId=$_reminderId but no reminders found in DB!');
+        }
       } else {
-        DebugConfig.notif('ReminderSection._saveReminder: WARNING - _reminderId=$_reminderId but no reminders found in DB!');
+        DebugConfig.notif('ReminderSection._saveReminder: creating NEW reminder for itemId=${widget.itemId}');
+        final newReminder = await SuperNoteHelper.instance.reminders.create(
+          itemId: widget.itemId,
+          triggerAt: _triggerDateTime!,
+          rrule: rrule,
+          title: title,
+          body: body,
+        );
+        _reminderId = newReminder.id;
+        DebugConfig.notif('ReminderSection._saveReminder: created reminder id=${newReminder.id}, trigger=${newReminder.triggerAt}, status=${newReminder.status.name}');
+        await ReminderScheduler.instance.scheduleReminder(newReminder);
       }
-    } else {
-      DebugConfig.notif('ReminderSection._saveReminder: creating NEW reminder for itemId=${widget.itemId}');
-      final newReminder = await SuperNoteHelper.instance.reminders.create(
-        itemId: widget.itemId,
-        triggerAt: _triggerDateTime!,
-        rrule: rrule,
-        title: title,
-        body: body,
-      );
-      _reminderId = newReminder.id;
-      DebugConfig.notif('ReminderSection._saveReminder: created reminder id=${newReminder.id}, trigger=${newReminder.triggerAt}, status=${newReminder.status.name}');
-      await ReminderScheduler.instance.scheduleReminder(newReminder);
+      DebugConfig.notif('ReminderSection._saveReminder: DONE');
+    } catch (e) {
+      DebugConfig.error('ReminderSection._saveReminder', e);
     }
-    DebugConfig.notif('ReminderSection._saveReminder: DONE');
   }
 
   Future<void> _pickDateTime() async {
@@ -193,11 +201,11 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     final initial = _triggerDateTime ?? widget.defaultStartTime ?? now.add(const Duration(hours: 1));
     final date = await showDatePicker(
       context: context,
+      locale: const Locale('el', 'GR'),
       initialDate: initial,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
       helpText: 'Ημερομηνία υπενθύμισης',
-      locale: const Locale('el'),
     );
     if (!mounted) return;
     if (date == null) {

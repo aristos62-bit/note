@@ -73,6 +73,7 @@ class _AppointmentDetailScreenState
     _contactNotesCtrl = TextEditingController();
 
     _loadData();
+    DebugConfig.nav('AppointmentDetailScreen init id=${widget.itemId}');
   }
 
   Future<void> _loadData() async {
@@ -478,6 +479,7 @@ class _AppointmentDetailScreenState
 
     if (_titleCtrl.text.trim().isEmpty) {
       if (widget.isNew) {
+        DebugConfig.db('AppointmentDetail delete empty appointment id=${widget.itemId}');
         await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
       }
       return true;

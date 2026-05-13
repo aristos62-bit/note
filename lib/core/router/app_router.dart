@@ -115,11 +115,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: ':id',
                 name: 'task-detail',
                 pageBuilder: (context, state) {
-                  final id =
-                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-                  DebugConfig.nav('Router → TaskDetail id=$id');
+                  final id     = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  final isNew  = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → TaskDetail id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
-                      state, TaskDetailScreen(itemId: id));
+                      state, TaskDetailScreen(itemId: id, isNew: isNew));
                 },
               ),
             ],
