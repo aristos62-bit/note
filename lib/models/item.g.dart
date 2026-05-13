@@ -42,91 +42,101 @@ const ItemSchema = CollectionSchema(
       name: r'favorite',
       type: IsarType.bool,
     ),
-    r'folderId': PropertySchema(
+    r'favoriteOrder': PropertySchema(
       id: 5,
+      name: r'favoriteOrder',
+      type: IsarType.double,
+    ),
+    r'folderId': PropertySchema(
+      id: 6,
       name: r'folderId',
       type: IsarType.long,
     ),
     r'icon': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'icon',
       type: IsarType.string,
     ),
     r'isDeleted': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isDirty': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'isDirty',
       type: IsarType.bool,
     ),
     r'isVisible': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'isVisible',
       type: IsarType.bool,
     ),
     r'localVersion': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'localVersion',
       type: IsarType.long,
     ),
     r'pinned': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'pinned',
       type: IsarType.bool,
     ),
+    r'pinnedOrder': PropertySchema(
+      id: 13,
+      name: r'pinnedOrder',
+      type: IsarType.double,
+    ),
     r'priority': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'priority',
       type: IsarType.byte,
       enumMap: _ItempriorityEnumValueMap,
     ),
     r'serverVersion': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'serverVersion',
       type: IsarType.long,
     ),
     r'sortOrder': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'sortOrder',
       type: IsarType.double,
     ),
     r'status': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'status',
       type: IsarType.string,
       enumMap: _ItemstatusEnumValueMap,
     ),
     r'syncedAt': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'syncedAt',
       type: IsarType.dateTime,
     ),
     r'templateId': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'templateId',
       type: IsarType.long,
     ),
     r'title': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 19,
+      id: 21,
       name: r'type',
       type: IsarType.string,
       enumMap: _ItemtypeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'workspaceId': PropertySchema(
-      id: 21,
+      id: 23,
       name: r'workspaceId',
       type: IsarType.long,
     )
@@ -316,23 +326,25 @@ void _itemSerialize(
   writer.writeDateTime(offsets[2], object.createdAt);
   writer.writeDateTime(offsets[3], object.deletedAt);
   writer.writeBool(offsets[4], object.favorite);
-  writer.writeLong(offsets[5], object.folderId);
-  writer.writeString(offsets[6], object.icon);
-  writer.writeBool(offsets[7], object.isDeleted);
-  writer.writeBool(offsets[8], object.isDirty);
-  writer.writeBool(offsets[9], object.isVisible);
-  writer.writeLong(offsets[10], object.localVersion);
-  writer.writeBool(offsets[11], object.pinned);
-  writer.writeByte(offsets[12], object.priority.index);
-  writer.writeLong(offsets[13], object.serverVersion);
-  writer.writeDouble(offsets[14], object.sortOrder);
-  writer.writeString(offsets[15], object.status.name);
-  writer.writeDateTime(offsets[16], object.syncedAt);
-  writer.writeLong(offsets[17], object.templateId);
-  writer.writeString(offsets[18], object.title);
-  writer.writeString(offsets[19], object.type.name);
-  writer.writeDateTime(offsets[20], object.updatedAt);
-  writer.writeLong(offsets[21], object.workspaceId);
+  writer.writeDouble(offsets[5], object.favoriteOrder);
+  writer.writeLong(offsets[6], object.folderId);
+  writer.writeString(offsets[7], object.icon);
+  writer.writeBool(offsets[8], object.isDeleted);
+  writer.writeBool(offsets[9], object.isDirty);
+  writer.writeBool(offsets[10], object.isVisible);
+  writer.writeLong(offsets[11], object.localVersion);
+  writer.writeBool(offsets[12], object.pinned);
+  writer.writeDouble(offsets[13], object.pinnedOrder);
+  writer.writeByte(offsets[14], object.priority.index);
+  writer.writeLong(offsets[15], object.serverVersion);
+  writer.writeDouble(offsets[16], object.sortOrder);
+  writer.writeString(offsets[17], object.status.name);
+  writer.writeDateTime(offsets[18], object.syncedAt);
+  writer.writeLong(offsets[19], object.templateId);
+  writer.writeString(offsets[20], object.title);
+  writer.writeString(offsets[21], object.type.name);
+  writer.writeDateTime(offsets[22], object.updatedAt);
+  writer.writeLong(offsets[23], object.workspaceId);
 }
 
 Item _itemDeserialize(
@@ -347,27 +359,29 @@ Item _itemDeserialize(
   object.createdAt = reader.readDateTime(offsets[2]);
   object.deletedAt = reader.readDateTimeOrNull(offsets[3]);
   object.favorite = reader.readBool(offsets[4]);
-  object.folderId = reader.readLongOrNull(offsets[5]);
-  object.icon = reader.readStringOrNull(offsets[6]);
+  object.favoriteOrder = reader.readDoubleOrNull(offsets[5]);
+  object.folderId = reader.readLongOrNull(offsets[6]);
+  object.icon = reader.readStringOrNull(offsets[7]);
   object.id = id;
-  object.isDirty = reader.readBool(offsets[8]);
-  object.localVersion = reader.readLong(offsets[10]);
-  object.pinned = reader.readBool(offsets[11]);
+  object.isDirty = reader.readBool(offsets[9]);
+  object.localVersion = reader.readLong(offsets[11]);
+  object.pinned = reader.readBool(offsets[12]);
+  object.pinnedOrder = reader.readDoubleOrNull(offsets[13]);
   object.priority =
-      _ItempriorityValueEnumMap[reader.readByteOrNull(offsets[12])] ??
+      _ItempriorityValueEnumMap[reader.readByteOrNull(offsets[14])] ??
           ItemPriority.none;
-  object.serverVersion = reader.readLongOrNull(offsets[13]);
-  object.sortOrder = reader.readDouble(offsets[14]);
+  object.serverVersion = reader.readLongOrNull(offsets[15]);
+  object.sortOrder = reader.readDouble(offsets[16]);
   object.status =
-      _ItemstatusValueEnumMap[reader.readStringOrNull(offsets[15])] ??
+      _ItemstatusValueEnumMap[reader.readStringOrNull(offsets[17])] ??
           ItemStatus.active;
-  object.syncedAt = reader.readDateTimeOrNull(offsets[16]);
-  object.templateId = reader.readLongOrNull(offsets[17]);
-  object.title = reader.readStringOrNull(offsets[18]);
-  object.type = _ItemtypeValueEnumMap[reader.readStringOrNull(offsets[19])] ??
+  object.syncedAt = reader.readDateTimeOrNull(offsets[18]);
+  object.templateId = reader.readLongOrNull(offsets[19]);
+  object.title = reader.readStringOrNull(offsets[20]);
+  object.type = _ItemtypeValueEnumMap[reader.readStringOrNull(offsets[21])] ??
       ItemType.note;
-  object.updatedAt = reader.readDateTimeOrNull(offsets[20]);
-  object.workspaceId = reader.readLong(offsets[21]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[22]);
+  object.workspaceId = reader.readLong(offsets[23]);
   return object;
 }
 
@@ -389,41 +403,45 @@ P _itemDeserializeProp<P>(
     case 4:
       return (reader.readBool(offset)) as P;
     case 5:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 7:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
       return (reader.readBool(offset)) as P;
     case 9:
       return (reader.readBool(offset)) as P;
     case 10:
-      return (reader.readLong(offset)) as P;
-    case 11:
       return (reader.readBool(offset)) as P;
+    case 11:
+      return (reader.readLong(offset)) as P;
     case 12:
+      return (reader.readBool(offset)) as P;
+    case 13:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 14:
       return (_ItempriorityValueEnumMap[reader.readByteOrNull(offset)] ??
           ItemPriority.none) as P;
-    case 13:
-      return (reader.readLongOrNull(offset)) as P;
-    case 14:
-      return (reader.readDouble(offset)) as P;
     case 15:
+      return (reader.readLongOrNull(offset)) as P;
+    case 16:
+      return (reader.readDouble(offset)) as P;
+    case 17:
       return (_ItemstatusValueEnumMap[reader.readStringOrNull(offset)] ??
           ItemStatus.active) as P;
-    case 16:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 17:
-      return (reader.readLongOrNull(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 19:
+      return (reader.readLongOrNull(offset)) as P;
+    case 20:
+      return (reader.readStringOrNull(offset)) as P;
+    case 21:
       return (_ItemtypeValueEnumMap[reader.readStringOrNull(offset)] ??
           ItemType.note) as P;
-    case 20:
+    case 22:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 21:
+    case 23:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1631,6 +1649,84 @@ extension ItemQueryFilter on QueryBuilder<Item, Item, QFilterCondition> {
     });
   }
 
+  QueryBuilder<Item, Item, QAfterFilterCondition> favoriteOrderIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'favoriteOrder',
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> favoriteOrderIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'favoriteOrder',
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> favoriteOrderEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'favoriteOrder',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> favoriteOrderGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'favoriteOrder',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> favoriteOrderLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'favoriteOrder',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> favoriteOrderBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'favoriteOrder',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<Item, Item, QAfterFilterCondition> folderIdIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1980,6 +2076,84 @@ extension ItemQueryFilter on QueryBuilder<Item, Item, QFilterCondition> {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'pinned',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> pinnedOrderIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'pinnedOrder',
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> pinnedOrderIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'pinnedOrder',
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> pinnedOrderEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'pinnedOrder',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> pinnedOrderGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'pinnedOrder',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> pinnedOrderLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'pinnedOrder',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterFilterCondition> pinnedOrderBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'pinnedOrder',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
       ));
     });
   }
@@ -2894,6 +3068,18 @@ extension ItemQuerySortBy on QueryBuilder<Item, Item, QSortBy> {
     });
   }
 
+  QueryBuilder<Item, Item, QAfterSortBy> sortByFavoriteOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'favoriteOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterSortBy> sortByFavoriteOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'favoriteOrder', Sort.desc);
+    });
+  }
+
   QueryBuilder<Item, Item, QAfterSortBy> sortByFolderId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'folderId', Sort.asc);
@@ -2975,6 +3161,18 @@ extension ItemQuerySortBy on QueryBuilder<Item, Item, QSortBy> {
   QueryBuilder<Item, Item, QAfterSortBy> sortByPinnedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pinned', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterSortBy> sortByPinnedOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pinnedOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterSortBy> sortByPinnedOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pinnedOrder', Sort.desc);
     });
   }
 
@@ -3160,6 +3358,18 @@ extension ItemQuerySortThenBy on QueryBuilder<Item, Item, QSortThenBy> {
     });
   }
 
+  QueryBuilder<Item, Item, QAfterSortBy> thenByFavoriteOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'favoriteOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterSortBy> thenByFavoriteOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'favoriteOrder', Sort.desc);
+    });
+  }
+
   QueryBuilder<Item, Item, QAfterSortBy> thenByFolderId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'folderId', Sort.asc);
@@ -3253,6 +3463,18 @@ extension ItemQuerySortThenBy on QueryBuilder<Item, Item, QSortThenBy> {
   QueryBuilder<Item, Item, QAfterSortBy> thenByPinnedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pinned', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterSortBy> thenByPinnedOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pinnedOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Item, Item, QAfterSortBy> thenByPinnedOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pinnedOrder', Sort.desc);
     });
   }
 
@@ -3409,6 +3631,12 @@ extension ItemQueryWhereDistinct on QueryBuilder<Item, Item, QDistinct> {
     });
   }
 
+  QueryBuilder<Item, Item, QDistinct> distinctByFavoriteOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'favoriteOrder');
+    });
+  }
+
   QueryBuilder<Item, Item, QDistinct> distinctByFolderId() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'folderId');
@@ -3449,6 +3677,12 @@ extension ItemQueryWhereDistinct on QueryBuilder<Item, Item, QDistinct> {
   QueryBuilder<Item, Item, QDistinct> distinctByPinned() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'pinned');
+    });
+  }
+
+  QueryBuilder<Item, Item, QDistinct> distinctByPinnedOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'pinnedOrder');
     });
   }
 
@@ -3553,6 +3787,12 @@ extension ItemQueryProperty on QueryBuilder<Item, Item, QQueryProperty> {
     });
   }
 
+  QueryBuilder<Item, double?, QQueryOperations> favoriteOrderProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'favoriteOrder');
+    });
+  }
+
   QueryBuilder<Item, int?, QQueryOperations> folderIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'folderId');
@@ -3592,6 +3832,12 @@ extension ItemQueryProperty on QueryBuilder<Item, Item, QQueryProperty> {
   QueryBuilder<Item, bool, QQueryOperations> pinnedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'pinned');
+    });
+  }
+
+  QueryBuilder<Item, double?, QQueryOperations> pinnedOrderProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'pinnedOrder');
     });
   }
 

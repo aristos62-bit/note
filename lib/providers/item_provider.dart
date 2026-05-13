@@ -195,10 +195,28 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     await ref.read(dbProvider).items.update(itemId, folderId: newFolderId);
     ref.invalidateSelf();
   }
+
+  // ─── ΝΕΕΣ ΜΕΘΟΔΟΙ ΓΙΑ REORDER PINNED / FAVORITES ─────────────
+
+  /// Αναδιάταξη pinned items (αποθήκευση νέας σειράς)
+  Future<void> reorderPinned(List<int> newOrder) async {
+    await ref.read(dbProvider).items.reorderPinned(newOrder);
+    ref.invalidateSelf();
+    ref.invalidate(pinnedItemsProvider);
+    ref.invalidate(pinnedAndFavoritesProvider);
+  }
+
+  /// Αναδιάταξη favorite items (αποθήκευση νέας σειράς)
+  Future<void> reorderFavorites(List<int> newOrder) async {
+    await ref.read(dbProvider).items.reorderFavorites(newOrder);
+    ref.invalidateSelf();
+    ref.invalidate(pinnedAndFavoritesProvider);
+  }
 }
 
 final itemNotifierProvider =
 AsyncNotifierProvider<ItemNotifier, List<Item>>(ItemNotifier.new);
+
 // ─────────────────────────────────────────────────────────────────
 // Real-time items ανά folder (για home folder view)
 // ─────────────────────────────────────────────────────────────────

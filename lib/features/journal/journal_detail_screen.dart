@@ -344,6 +344,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
               DebugConfig.error('JournalDetail save button', e);
               if (mounted) {
                 setState(() => _isSaving = false);
+                if (!context.mounted)return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
                 );
