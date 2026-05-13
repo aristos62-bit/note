@@ -5,6 +5,10 @@
 // ✅ Dark mode: ColorsUI + context extensions
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ Reminders: μόνο από εικονίδιο AppBar
+// ✅ Υποεργασίες: inline επεξεργασία τίτλου + διαγραφή
+// ✅ Αυτόματη ολοκλήρωση εργασίας όταν ολοκληρωθούν όλα τα υποέργα
+// ✅ Checkbox κλειδωμένο όταν υπάρχουν υποεργασίες
+// ✅ Real-time ενημέρωση μέσω subtasksStreamProvider
 //
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -14,32 +18,12 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 
-// ── Local subtasks provider ───────────────────────────────────────
-
-final _subtasksProvider = StreamProvider.family<List<Item>, int>((ref, parentId) async* {
-  DebugConfig.db('_subtasksProvider parentId=$parentId');
-
-  yield* ref.watch(itemsStreamProvider.stream).asyncMap((allItems) async {
-    final subtasks = <Item>[];
-    for (final item in allItems) {
-      if (item.type != ItemType.task) continue;
-      final props = await ref.read(itemPropertiesProvider(item.id).future);
-      final parentIdStr = props.where((p) => p.key == 'parent_id').firstOrNull?.value;
-      if (parentIdStr != null && int.tryParse(parentIdStr) == parentId) {
-        subtasks.add(item);
-      }
-    }
-    DebugConfig.db('_subtasksProvider found ${subtasks.length} subtasks');
-    return subtasks;
-  });
-});
-
 // ════════════════════════════════════════════════════════════════
 // TASK DETAIL SCREEN
 // ════════════════════════════════════════════════════════════════
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
-  final int itemId;
+  final int  itemId;
   final bool isNew;
   const TaskDetailScreen({super.key, required this.itemId, this.isNew = false});
 
@@ -50,17 +34,17 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _notesCtrl;
-  late final FocusNode _titleFocusNode;
+  late final FocusNode             _titleFocusNode;
   Timer? _notesDebounce;
-  bool  _isSaving = false;
-  bool  _isEditingTitle = false;
+  bool   _isSaving      = false;
+  bool   _isEditingTitle = false;
   String _lastSavedTitle = '';
 
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController();
-    _notesCtrl = TextEditingController();
+    _titleCtrl      = TextEditingController();
+    _notesCtrl      = TextEditingController();
     _titleFocusNode = FocusNode();
 
     _titleFocusNode.addListener(() {
@@ -127,7 +111,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       return;
     }
 
-    // Έχει τίτλο → flush όλων των εκκρεμών saves
     try {
       await _flushPendingSaves();
     } catch (e) {
@@ -154,7 +137,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   Future<void> _toggleDone(Item item) async {
-    final newStatus = item.status == ItemStatus.done ? ItemStatus.active : ItemStatus.done;
+    final newStatus =
+    item.status == ItemStatus.done ? ItemStatus.active : ItemStatus.done;
     DebugConfig.db('TaskDetail toggleDone id=${item.id} → ${newStatus.name}');
     await ref.read(itemNotifierProvider.notifier).updateItem(item.id, status: newStatus);
   }
@@ -171,26 +155,26 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   Future<void> _setDueDate(DateTime? date) async {
     DebugConfig.db('TaskDetail setDueDate id=${widget.itemId} $date');
-    await ref.read(propertyNotifierProvider(widget.itemId).notifier).setDate('due_date', date);
+    await ref.read(propertyNotifierProvider(widget.itemId).notifier)
+        .setDate('due_date', date);
   }
 
   Future<void> _pickDueDate(BuildContext context, DateTime? current) async {
-    final now = DateTime.now();
+    final now  = DateTime.now();
     final init = current ?? now;
     final picked = await showDatePicker(
-      context: context,
-      locale: const Locale('el', 'GR'),
+      context:     context,
+      locale:      const Locale('el', 'GR'),
       initialDate: init.isBefore(now) ? now : init,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
+      firstDate:   DateTime(now.year - 1),
+      lastDate:    DateTime(now.year + 5),
     );
     if (picked == null || !mounted) return;
     await _setDueDate(picked);
   }
 
   Future<void> _deleteTask(BuildContext context, Item item) async {
-    final future = ConfirmDialog.delete(context, title: 'Διαγραφή εργασίας;');
-    final ok = await future;
+    final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή εργασίας;');
     if (!ok || !mounted) return;
     DebugConfig.db('TaskDetail delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
@@ -208,23 +192,24 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
   }
 
-  // --- Εμφάνιση bottom sheet με ReminderSection ---
   Future<void> _showReminderDialog() async {
-    final title = _titleCtrl.text.trim().isEmpty ? 'Εργασία' : _titleCtrl.text.trim();
+    final title = _titleCtrl.text.trim().isEmpty
+        ? 'Εργασία'
+        : _titleCtrl.text.trim();
     await showModalBottomSheet(
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topLeft:  Radius.circular(AppRadius.bottomSheet),
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(Spacing.lg),
         child: ReminderSection(
-          itemId: widget.itemId,
-          itemTitle: title,
+          itemId:           widget.itemId,
+          itemTitle:        title,
           defaultStartTime: null,
         ),
       ),
@@ -238,7 +223,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
     return itemAsync.when(
       loading: () => _buildLoading(),
-      error: (e, _) {
+      error:   (e, _) {
         DebugConfig.error('TaskDetail load failed', e);
         return _buildError();
       },
@@ -249,10 +234,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           _lastSavedTitle = item.title ?? '';
         }
         if (!_isEditingTitle && _titleCtrl.text != (item.title ?? '')) {
-          final cursorAtEnd = _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
+          final cursorAtEnd =
+              _titleCtrl.selection.baseOffset == _titleCtrl.text.length;
           _titleCtrl.text = item.title ?? '';
           if (cursorAtEnd) {
-            _titleCtrl.selection = TextSelection.collapsed(offset: _titleCtrl.text.length);
+            _titleCtrl.selection = TextSelection.collapsed(
+                offset: _titleCtrl.text.length);
           }
         }
 
@@ -315,7 +302,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ),
             ),
           ),
-          VerticalDivider(width: 1, color: ColorsUI.getBorder(context.brightness)),
+          VerticalDivider(
+              width: 1, color: ColorsUI.getBorder(context.brightness)),
           Expanded(
             child: _TaskBody(
               item:           item,
@@ -341,19 +329,20 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   AppBar _buildAppBar(BuildContext context, Item item) {
     return AppBar(
       backgroundColor: context.cBg,
-      elevation: 0,
-      scrolledUnderElevation: 1,
-      titleSpacing: 0,
+      elevation:                0,
+      scrolledUnderElevation:   1,
+      titleSpacing:             0,
       actionsPadding: const EdgeInsets.symmetric(horizontal: 4),
       title: _isSaving
           ? Row(mainAxisSize: MainAxisSize.min, children: [
         SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2, color: context.cText2),
+          width: 14, height: 14,
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: context.cText2),
         ),
         const SizedBox(width: Spacing.xs),
-        Text('Αποθήκευση...', style: context.bodySm.withColor(context.cText2)),
+        Text('Αποθήκευση...',
+            style: context.bodySm.withColor(context.cText2)),
       ])
           : null,
       actions: [
@@ -367,7 +356,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               : () async {
             if (_titleCtrl.text.trim().isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
+                const SnackBar(
+                    content: Text('Παρακαλώ προσθέστε τίτλο')),
               );
               return;
             }
@@ -381,9 +371,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               DebugConfig.error('TaskDetail save button', e);
               if (mounted) {
                 setState(() => _isSaving = false);
-                if (!context.mounted)return;
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
+                  SnackBar(
+                      content:
+                      Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
                 );
               }
             }
@@ -392,51 +384,63 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         // Reminder
         IconButton(
           visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.notifications_none_rounded, color: context.cText2, size: 20),
+          icon: Icon(Icons.notifications_none_rounded,
+              color: context.cText2, size: 20),
           onPressed: _showReminderDialog,
-          tooltip: 'Υπενθύμιση',
+          tooltip:   'Υπενθύμιση',
         ),
         // Favorite
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(
-            item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: item.favorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
+            item.favorite
+                ? Icons.star_rounded
+                : Icons.star_outline_rounded,
+            color: item.favorite
+                ? ColorsUI.getWarning(context.brightness)
+                : context.cText2,
             size: 20,
           ),
-          tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+          tooltip:   item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
           onPressed: () => _toggleFav(item),
         ),
         // Pin
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(
-            item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+            item.pinned
+                ? Icons.push_pin_rounded
+                : Icons.push_pin_outlined,
             color: item.pinned ? context.cPrimary : context.cText2,
             size: 20,
           ),
-          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+          tooltip:   item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
           onPressed: () => _togglePin(item),
         ),
         // Archive
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(
-            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+            item.archived
+                ? Icons.unarchive_rounded
+                : Icons.archive_rounded,
             color: context.cText2,
             size: 20,
           ),
-          tooltip: item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
+          tooltip:   item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
           onPressed: () async {
-            await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+            await ref
+                .read(itemNotifierProvider.notifier)
+                .toggleArchive(item.id, item.archived);
           },
         ),
         // Delete
         IconButton(
           visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.delete_outline_rounded, color: context.cError, size: 20),
+          icon: Icon(Icons.delete_outline_rounded,
+              color: context.cError, size: 20),
           onPressed: () => _deleteTask(context, item),
-          tooltip: 'Διαγραφή',
+          tooltip:   'Διαγραφή',
         ),
       ],
     );
@@ -451,14 +455,16 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Widget _buildError() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
-    body: EmptyState.error(onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
+    body: EmptyState.error(
+        onRetry: () =>
+            ref.invalidate(itemStreamProvider(widget.itemId))),
   );
 
   Widget _buildNotFound() => Scaffold(
     backgroundColor: context.cBg,
     appBar: AppBar(backgroundColor: context.cBg),
     body: const EmptyState(
-      icon: Icons.task_alt,
+      icon:  Icons.task_alt,
       title: 'Η εργασία δεν βρέθηκε',
     ),
   );
@@ -469,11 +475,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 // ════════════════════════════════════════════════════════════════
 
 class _TaskBody extends ConsumerWidget {
-  final Item item;
-  final TextEditingController titleCtrl;
-  final FocusNode titleFocusNode;
-  final TextEditingController notesCtrl;
-  final bool isSaving;
+  final Item                       item;
+  final TextEditingController      titleCtrl;
+  final FocusNode                  titleFocusNode;
+  final TextEditingController      notesCtrl;
+  final bool                       isSaving;
   final ValueChanged<String>       onTitleChange;
   final ValueChanged<String>       onNotesChange;
   final VoidCallback               onToggleDone;
@@ -481,7 +487,7 @@ class _TaskBody extends ConsumerWidget {
   final ValueChanged<ItemPriority> onSetPriority;
   final ValueChanged<DateTime?>    onPickDueDate;
   final VoidCallback               onClearDue;
-  final bool hideProperties;
+  final bool                       hideProperties;
 
   const _TaskBody({
     required this.item,
@@ -507,6 +513,10 @@ class _TaskBody extends ConsumerWidget {
     final tagsAsync  = ref.watch(itemTagsProvider(item.id));
     final tags       = tagsAsync.valueOrNull ?? [];
 
+    // 🆕 Έλεγχος υποεργασιών — αν υπάρχουν, το checkbox μπλοκάρεται
+    final subtasksAsync = ref.watch(subtasksStreamProvider(item.id));
+    final hasSubtasks   = (subtasksAsync.valueOrNull ?? []).isNotEmpty;
+
     if (!notesCtrl.selection.isValid && notesCtrl.text != notesVal) {
       notesCtrl.text = notesVal;
     }
@@ -525,10 +535,12 @@ class _TaskBody extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(top: 6, right: Spacing.md),
+                  padding:
+                  const EdgeInsets.only(top: 6, right: Spacing.md),
                   child: _DoneCheckbox(
                     isDone: isDone,
-                    onTap:  onToggleDone,
+                    // 🆕 null = disabled όταν έχει υποεργασίες
+                    onTap: hasSubtasks ? null : onToggleDone,
                   ),
                 ),
                 Expanded(
@@ -559,7 +571,8 @@ class _TaskBody extends ConsumerWidget {
         if (!hideProperties)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+              padding: EdgeInsets.symmetric(
+                  horizontal: context.responsiveHPadding),
               child: _PropertiesPanel(
                 item:          item,
                 onSetStatus:   onSetStatus,
@@ -573,7 +586,9 @@ class _TaskBody extends ConsumerWidget {
         if (tags.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),
+              padding: EdgeInsets.symmetric(
+                  horizontal: context.responsiveHPadding,
+                  vertical:   Spacing.sm),
               child: TagChipList.readOnly(
                 tagNames:  tags.map((t) => t.name).toList(),
                 tagColors: tags.map((t) => t.color).toList(),
@@ -583,8 +598,10 @@ class _TaskBody extends ConsumerWidget {
 
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-            child: Divider(color: ColorsUI.getBorder(context.brightness)),
+            padding: EdgeInsets.symmetric(
+                horizontal: context.responsiveHPadding),
+            child: Divider(
+                color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
 
@@ -600,7 +617,8 @@ class _TaskBody extends ConsumerWidget {
                 Row(children: [
                   Icon(Icons.notes_rounded, size: 16, color: context.cText2),
                   const SizedBox(width: Spacing.xs),
-                  Text('Σημειώσεις', style: context.labelMd.withColor(context.cText2)),
+                  Text('Σημειώσεις',
+                      style: context.labelMd.withColor(context.cText2)),
                 ]),
                 const SizedBox(height: Spacing.sm),
                 TextField(
@@ -623,11 +641,14 @@ class _TaskBody extends ConsumerWidget {
 
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-            child: Divider(color: ColorsUI.getBorder(context.brightness)),
+            padding: EdgeInsets.symmetric(
+                horizontal: context.responsiveHPadding),
+            child: Divider(
+                color: ColorsUI.getBorder(context.brightness)),
           ),
         ),
 
+        // 🆕 Χρησιμοποιεί subtasksStreamProvider μέσω providers.dart
         _SubtasksSection(parentId: item.id),
 
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -641,22 +662,31 @@ class _TaskBody extends ConsumerWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _DoneCheckbox extends StatelessWidget {
-  final bool isDone;
-  final VoidCallback onTap;
-  const _DoneCheckbox({required this.isDone, required this.onTap});
+  final bool          isDone;
+  /// null = απενεργοποιημένο (όταν υπάρχουν υποεργασίες)
+  final VoidCallback? onTap;
+
+  const _DoneCheckbox({required this.isDone, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final isDisabled = onTap == null;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: AppDuration.normal,
         width: 26, height: 26,
         decoration: BoxDecoration(
-          color: isDone ? context.cPrimary : Colors.transparent,
+          color: isDone
+              ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.sm),
           border: Border.all(
-            color: isDone ? context.cPrimary : ColorsUI.getBorder(context.brightness),
+            color: isDone
+                ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
+                : isDisabled
+                ? ColorsUI.getBorder(context.brightness).withValues(alpha: 0.4)
+                : ColorsUI.getBorder(context.brightness),
             width: 2,
           ),
         ),
@@ -674,7 +704,7 @@ class _DoneCheckbox extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _PropertiesPanel extends ConsumerWidget {
-  final Item item;
+  final Item                       item;
   final ValueChanged<ItemStatus>   onSetStatus;
   final ValueChanged<ItemPriority> onSetPriority;
   final ValueChanged<DateTime?>    onPickDueDate;
@@ -691,7 +721,10 @@ class _PropertiesPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final dueDate    = propsAsync.valueOrNull?.where((p) => p.key == 'due_date').firstOrNull?.dateValue;
+    final dueDate    = propsAsync.valueOrNull
+        ?.where((p) => p.key == 'due_date')
+        .firstOrNull
+        ?.dateValue;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -746,7 +779,11 @@ class _PropRow extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: context.cText2),
           const SizedBox(width: Spacing.sm),
-          SizedBox(width: 110, child: Text(label, style: context.bodyMd.withColor(context.cText2))),
+          SizedBox(
+            width: 110,
+            child: Text(label,
+                style: context.bodyMd.withColor(context.cText2)),
+          ),
           Expanded(child: child),
         ],
       ),
@@ -755,7 +792,7 @@ class _PropRow extends StatelessWidget {
 }
 
 class _StatusSelector extends StatelessWidget {
-  final ItemStatus current;
+  final ItemStatus               current;
   final ValueChanged<ItemStatus> onSelect;
   const _StatusSelector({required this.current, required this.onSelect});
 
@@ -768,7 +805,9 @@ class _StatusSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opt = _opts.firstWhere((o) => o.$1 == current, orElse: () => _opts.first);
+    final opt = _opts.firstWhere(
+            (o) => o.$1 == current,
+        orElse: () => _opts.first);
     return GestureDetector(
       onTap: () => _pick(context),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -798,12 +837,19 @@ class _StatusSelector extends StatelessWidget {
           Text('Κατάσταση', style: context.titleMd),
           const SizedBox(height: Spacing.xs),
           ..._opts.map((o) => ListTile(
-            leading: Icon(o.$3, color: o.$1 == current ? context.cPrimary : context.cText2),
+            leading: Icon(o.$3,
+                color: o.$1 == current ? context.cPrimary : context.cText2),
             title: Text(o.$2, style: context.bodyMd.copyWith(
-              fontWeight: o.$1 == current ? FontWeight.w600 : FontWeight.normal,
+              fontWeight:
+              o.$1 == current ? FontWeight.w600 : FontWeight.normal,
             )),
-            trailing: o.$1 == current ? Icon(Icons.check_rounded, color: context.cPrimary) : null,
-            onTap: () { Navigator.pop(context); onSelect(o.$1); },
+            trailing: o.$1 == current
+                ? Icon(Icons.check_rounded, color: context.cPrimary)
+                : null,
+            onTap: () {
+              Navigator.pop(context);
+              onSelect(o.$1);
+            },
           )),
           const SizedBox(height: Spacing.md),
         ],
@@ -813,7 +859,7 @@ class _StatusSelector extends StatelessWidget {
 }
 
 class _PrioritySelector extends StatelessWidget {
-  final ItemPriority current;
+  final ItemPriority               current;
   final ValueChanged<ItemPriority> onSelect;
   const _PrioritySelector({required this.current, required this.onSelect});
 
@@ -831,7 +877,8 @@ class _PrioritySelector extends StatelessWidget {
       onTap: () => _pick(context),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (current == ItemPriority.none)
-          Text('Καμία', style: context.bodyMd.withColor(context.cText2))
+          Text('Καμία',
+              style: context.bodyMd.withColor(context.cText2))
         else
           PriorityBadge(priority: current, size: BadgeSize.small),
         const SizedBox(width: 2),
@@ -859,12 +906,18 @@ class _PrioritySelector extends StatelessWidget {
           ..._opts.map((p) => ListTile(
             leading: p == ItemPriority.none
                 ? Icon(Icons.remove_rounded, color: context.cText2)
-                : Icon(PriorityBadge.iconFor(p), color: context.priorityColor(p)),
+                : Icon(PriorityBadge.iconFor(p),
+                color: context.priorityColor(p)),
             title: p == ItemPriority.none
                 ? Text('Καμία', style: context.bodyMd)
                 : PriorityBadge(priority: p),
-            trailing: p == current ? Icon(Icons.check_rounded, color: context.cPrimary) : null,
-            onTap: () { Navigator.pop(context); onSelect(p); },
+            trailing: p == current
+                ? Icon(Icons.check_rounded, color: context.cPrimary)
+                : null,
+            onTap: () {
+              Navigator.pop(context);
+              onSelect(p);
+            },
           )),
           const SizedBox(height: Spacing.md),
         ],
@@ -874,10 +927,11 @@ class _PrioritySelector extends StatelessWidget {
 }
 
 class _DueDateSelector extends StatelessWidget {
-  final DateTime? date;
+  final DateTime?  date;
   final VoidCallback onPick;
   final VoidCallback? onClear;
-  const _DueDateSelector({required this.date, required this.onPick, this.onClear});
+  const _DueDateSelector(
+      {required this.date, required this.onPick, this.onClear});
 
   @override
   Widget build(BuildContext context) {
@@ -894,7 +948,8 @@ class _DueDateSelector extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(
           date != null ? date!.due : 'Χωρίς προθεσμία',
-          style: context.bodyMd.withColor(date != null ? labelColor : context.cText2),
+          style: context.bodyMd.withColor(
+              date != null ? labelColor : context.cText2),
         ),
         const SizedBox(width: Spacing.xs),
         if (date != null && onClear != null)
@@ -922,58 +977,184 @@ class _SubtasksSection extends ConsumerStatefulWidget {
 }
 
 class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
-  final _ctrl  = TextEditingController();
+  final _ctrl         = TextEditingController();
+  final _addFocusNode = FocusNode(); // ✅ Dedicated focus για add field
   bool _adding = false;
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _addFocusNode.dispose();
     super.dispose();
   }
 
+  /// Προσθήκη νέας υποεργασίας.
+  /// Αν η εργασία ήταν ολοκληρωμένη, επιστρέφει σε active.
   Future<void> _addSubtask(String title) async {
     if (title.trim().isEmpty) return;
-    DebugConfig.db('SubtasksSection add "$title" parent=${widget.parentId}');
+    DebugConfig.db(
+        'SubtasksSection add "${title.trim()}" parent=${widget.parentId}');
 
-    final newItem = await ref.read(itemNotifierProvider.notifier).create(type: ItemType.task, title: title.trim());
+    final newItem = await ref
+        .read(itemNotifierProvider.notifier)
+        .create(type: ItemType.task, title: title.trim());
+
     if (newItem != null) {
-      await ref.read(propertyNotifierProvider(newItem.id).notifier).setText('parent_id', widget.parentId.toString());
+      await ref
+          .read(propertyNotifierProvider(newItem.id).notifier)
+          .setText('parent_id', widget.parentId.toString());
+
+      // ✅ Explicit refresh — το setText δεν πυροδοτεί itemsStreamProvider
+      ref.invalidate(subtasksStreamProvider(widget.parentId));
+
+      // Αν η εργασία ήταν ολοκληρωμένη → επαναφορά σε active
+      final parent =
+      await ref.read(itemByIdProvider(widget.parentId).future);
+      if (parent?.status == ItemStatus.done) {
+        await ref
+            .read(itemNotifierProvider.notifier)
+            .updateItem(widget.parentId, status: ItemStatus.active);
+        DebugConfig.db(
+            'SubtasksSection: parent reverted to active (new subtask added)');
+      }
     }
 
     _ctrl.clear();
     if (mounted) setState(() => _adding = false);
-    ref.invalidate(_subtasksProvider(widget.parentId));
+  }
+
+  /// Toggle υποεργασίας με λογική αυτόματης ολοκλήρωσης/επαναφοράς εργασίας.
+  Future<void> _onToggleSubtask(
+      Item subtask, List<Item> allSubtasks) async {
+    final next = subtask.status == ItemStatus.done
+        ? ItemStatus.active
+        : ItemStatus.done;
+
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .updateItem(subtask.id, status: next);
+    DebugConfig.db(
+        'SubtasksSection toggle subtask id=${subtask.id} → ${next.name}');
+
+    if (next == ItemStatus.done) {
+      // ✅ Φρέσκια λίστα από το stream — αποφεύγει stale allSubtasks
+      final freshSubtasks =
+          ref.read(subtasksStreamProvider(widget.parentId)).valueOrNull
+              ?? allSubtasks;
+
+      final allDone = freshSubtasks.every(
+            (s) => s.id == subtask.id || s.status == ItemStatus.done,
+      );
+      if (allDone) {
+        await ref
+            .read(itemNotifierProvider.notifier)
+            .updateItem(widget.parentId, status: ItemStatus.done);
+        // ✅ Ρητή ενημέρωση itemStreamProvider ώστε το detail να δει αμέσως done
+        ref.invalidate(itemStreamProvider(widget.parentId));
+        DebugConfig.db(
+            'SubtasksSection: parent auto-completed (all subtasks done)');
+      }
+    } else {
+      // Αναίρεση: αν η εργασία ήταν ολοκληρωμένη → επαναφορά σε active
+      final parent =
+      await ref.read(itemByIdProvider(widget.parentId).future);
+      if (parent?.status == ItemStatus.done) {
+        await ref
+            .read(itemNotifierProvider.notifier)
+            .updateItem(widget.parentId, status: ItemStatus.active);
+        // ✅ Ρητή ενημέρωση και για την επαναφορά
+        ref.invalidate(itemStreamProvider(widget.parentId));
+        DebugConfig.db(
+            'SubtasksSection: parent reverted to active (subtask un-done)');
+      }
+    }
+  }
+
+  /// Διαγραφή υποεργασίας.
+  Future<void> _deleteSubtask(int subtaskId) async {
+    DebugConfig.db(
+        'SubtasksSection delete subtask id=$subtaskId parent=${widget.parentId}');
+    await ref.read(itemNotifierProvider.notifier).deleteItem(subtaskId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final subtasksAsync = ref.watch(_subtasksProvider(widget.parentId));
+    // 🆕 Real-time stream από subtasksStreamProvider
+    final subtasksAsync = ref.watch(subtasksStreamProvider(widget.parentId));
 
     return SliverToBoxAdapter(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
+        padding: EdgeInsets.fromLTRB(
+          context.responsiveHPadding, Spacing.sm,
+          context.responsiveHPadding, Spacing.sm,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(children: [
-                  Icon(Icons.checklist_rounded, size: 16, color: context.cText2),
+                  Icon(Icons.checklist_rounded,
+                      size: 16, color: context.cText2),
                   const SizedBox(width: Spacing.xs),
-                  Text('Υποεργασίες', style: context.labelMd.withColor(context.cText2)),
+                  Text('Υποεργασίες',
+                      style: context.labelMd.withColor(context.cText2)),
+                  // Badge με αριθμό υποεργασιών
+                  if (subtasksAsync.valueOrNull?.isNotEmpty == true) ...[
+                    const SizedBox(width: Spacing.xs),
+                    subtasksAsync.when(
+                      data: (subtasks) {
+                        final done = subtasks
+                            .where((s) => s.status == ItemStatus.done)
+                            .length;
+                        return Text(
+                          '$done/${subtasks.length}',
+                          style: context.labelSm.withColor(
+                            done == subtasks.length
+                                ? const Color(0xFF4CAF50)
+                                : context.cText2,
+                          ),
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error:   (_, __) => const SizedBox.shrink(),
+                    ),
+                  ],
                 ]),
                 GestureDetector(
-                  onTap: () => setState(() => _adding = !_adding),
-                  child: Icon(_adding ? Icons.close_rounded : Icons.add_rounded, size: 20, color: context.cPrimary),
+                  onTap: () {
+                    final wasAdding = _adding;
+                    setState(() => _adding = !_adding);
+                    if (wasAdding) {
+                      // Κλείσιμο — καθαρισμός
+                      _ctrl.clear();
+                      _addFocusNode.unfocus();
+                    } else {
+                      // ✅ Αναγκαστική εστίαση ακόμη κι αν focus ήταν σε τίτλο/σημειώσεις
+                      Future.microtask(() {
+                        if (mounted) _addFocusNode.requestFocus();
+                      });
+                    }
+                  },
+                  child: Icon(
+                    _adding
+                        ? Icons.close_rounded
+                        : Icons.add_rounded,
+                    size: 20, color: context.cPrimary,
+                  ),
                 ),
               ],
             ),
+
             const SizedBox(height: Spacing.sm),
+
+            // Πεδίο εισαγωγής
             if (_adding) ...[
               TextField(
                 controller:  _ctrl,
-                autofocus:   true,
+                focusNode:   _addFocusNode, // ✅ αντί autofocus: true
                 onSubmitted: _addSubtask,
                 style:       context.bodyMd,
                 decoration: InputDecoration(
@@ -987,27 +1168,33 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
                   fillColor: ColorsUI.getSurface(context.brightness),
                   border: OutlineInputBorder(
                     borderRadius: AppRadius.inputBR,
-                    borderSide: BorderSide.none,
+                    borderSide:   BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.md, vertical: Spacing.sm),
                 ),
               ),
               const SizedBox(height: Spacing.sm),
             ],
+
+            // Λίστα υποεργασιών
             subtasksAsync.when(
               loading: () => const SizedBox.shrink(),
               error:   (_, __) => const SizedBox.shrink(),
               data: (subtasks) => subtasks.isEmpty
-                  ? Text('Δεν υπάρχουν υποεργασίες', style: context.bodySm.withColor(context.cDisabled))
+                  ? Text(
+                'Δεν υπάρχουν υποεργασίες',
+                style: context.bodySm.withColor(context.cDisabled),
+              )
                   : Column(
-                children: subtasks.map((s) => _SubtaskTile(
+                children: subtasks
+                    .map((s) => _SubtaskTile(
                   task:     s,
-                  onToggle: () async {
-                    final next = s.status == ItemStatus.done ? ItemStatus.active : ItemStatus.done;
-                    await ref.read(itemNotifierProvider.notifier).updateItem(s.id, status: next);
-                    ref.invalidate(_subtasksProvider(widget.parentId));
-                  },
-                )).toList(),
+                  onToggle: () =>
+                      _onToggleSubtask(s, subtasks),
+                  onDelete: () => _deleteSubtask(s.id),
+                ))
+                    .toList(),
               ),
             ),
           ],
@@ -1017,48 +1204,168 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
   }
 }
 
-class _SubtaskTile extends StatelessWidget {
-  final Item task;
+// ════════════════════════════════════════════════════════════════
+// SUBTASK TILE — με inline επεξεργασία τίτλου και διαγραφή
+// ════════════════════════════════════════════════════════════════
+
+class _SubtaskTile extends ConsumerStatefulWidget {
+  final Item         task;
   final VoidCallback onToggle;
-  const _SubtaskTile({required this.task, required this.onToggle});
+  final VoidCallback onDelete;
+
+  const _SubtaskTile({
+    required this.task,
+    required this.onToggle,
+    required this.onDelete,
+  });
+
+  @override
+  ConsumerState<_SubtaskTile> createState() => _SubtaskTileState();
+}
+
+class _SubtaskTileState extends ConsumerState<_SubtaskTile> {
+  late final TextEditingController _ctrl;
+  late final FocusNode             _focusNode;
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl      = TextEditingController(text: widget.task.title ?? '');
+    _focusNode = FocusNode();
+
+    // Αυτόματη αποθήκευση όταν χάνει focus
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _editing) {
+        _saveEdit();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_SubtaskTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Ενημέρωση controller αν άλλαξε ο τίτλος εξωτερικά
+    if (!_editing && widget.task.title != oldWidget.task.title) {
+      _ctrl.text = widget.task.title ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveEdit() async {
+    final title = _ctrl.text.trim();
+    if (title == widget.task.title || title.isEmpty) {
+      if (mounted) setState(() => _editing = false);
+      if (title.isEmpty) _ctrl.text = widget.task.title ?? '';
+      return;
+    }
+    DebugConfig.db(
+        'SubtaskTile saveEdit id=${widget.task.id} "$title"');
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .updateItem(widget.task.id, title: title);
+    if (mounted) setState(() => _editing = false);
+  }
+
+  void _startEdit() {
+    setState(() {
+      _editing   = true;
+      _ctrl.text = widget.task.title ?? '';
+      _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDone = task.status == ItemStatus.done;
+    final isDone = widget.task.status == ItemStatus.done;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-      child: Row(children: [
-        GestureDetector(
-          onTap: onToggle,
-          child: AnimatedContainer(
-            duration: AppDuration.fast,
-            width: 20, height: 20,
-            decoration: BoxDecoration(
-              color: isDone ? context.cPrimary : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppRadius.xs),
-              border: Border.all(
-                color: isDone ? context.cPrimary : ColorsUI.getBorder(context.brightness),
-                width: 2,
+      child: Row(
+        children: [
+          // Checkbox
+          GestureDetector(
+            onTap: widget.onToggle,
+            child: AnimatedContainer(
+              duration: AppDuration.fast,
+              width: 20, height: 20,
+              decoration: BoxDecoration(
+                color: isDone ? context.cPrimary : Colors.transparent,
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+                border: Border.all(
+                  color: isDone
+                      ? context.cPrimary
+                      : ColorsUI.getBorder(context.brightness),
+                  width: 2,
+                ),
+              ),
+              child: isDone
+                  ? Icon(Icons.check_rounded, size: 13,
+                  color: ColorsUI.getAccessibleTextColor(context.cPrimary))
+                  : null,
+            ),
+          ),
+
+          const SizedBox(width: Spacing.sm),
+
+          // Τίτλος ή TextField επεξεργασίας
+          Expanded(
+            child: _editing
+                ? TextField(
+              controller:    _ctrl,
+              focusNode:     _focusNode,
+              autofocus:     true,
+              style:         context.bodyMd,
+              onSubmitted:   (_) => _saveEdit(),
+              decoration: InputDecoration(
+                hintText:      'Τίτλος υποεργασίας...',
+                hintStyle:     context.bodyMd.withColor(context.cDisabled),
+                border:        InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                isDense:       true,
+              ),
+            )
+                : GestureDetector(
+              onTap: _startEdit,
+              child: Text(
+                widget.task.title ?? 'Χωρίς τίτλο',
+                style: context.bodyMd.copyWith(
+                  decoration:      isDone ? TextDecoration.lineThrough : null,
+                  decorationColor: context.cDisabled,
+                  color: isDone ? context.cDisabled : context.cText,
+                ),
               ),
             ),
-            child: isDone
-                ? Icon(Icons.check_rounded, size: 13,
-                color: ColorsUI.getAccessibleTextColor(context.cPrimary))
-                : null,
           ),
-        ),
-        const SizedBox(width: Spacing.sm),
-        Expanded(
-          child: Text(
-            task.title ?? 'Χωρίς τίτλο',
-            style: context.bodyMd.copyWith(
-              decoration:      isDone ? TextDecoration.lineThrough : null,
-              decorationColor: context.cDisabled,
-              color: isDone ? context.cDisabled : context.cText,
+
+          // Κουμπί: Save (editing) ή Delete (normal)
+          if (_editing)
+            IconButton(
+              icon: Icon(Icons.check_rounded,
+                  size: 18, color: context.cPrimary),
+              onPressed: _saveEdit,
+              padding:        EdgeInsets.zero,
+              constraints:    const BoxConstraints(),
+              visualDensity:  VisualDensity.compact,
+            )
+          else
+            IconButton(
+              icon: Icon(Icons.close_rounded,
+                  size: 16, color: context.cText2),
+              onPressed: widget.onDelete,
+              padding:       EdgeInsets.zero,
+              constraints:   const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
+              tooltip:       'Διαγραφή υποεργασίας',
             ),
-          ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
