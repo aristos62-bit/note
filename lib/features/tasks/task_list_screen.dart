@@ -99,12 +99,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     );
 
     if (item == null || !mounted) return;
-    _openDetail(item.id);
+    _openDetail(item.id, isNew: true);
   }
 
-  void _openDetail(int id) {
-    DebugConfig.nav('TaskList → TaskDetail id=$id');
-    context.push(AppRoutes.task(id));
+  void _openDetail(int id, {bool isNew = false}) {
+    DebugConfig.nav('TaskList → TaskDetail id=$id isNew=$isNew');
+    context.push(AppRoutes.task(id), extra: isNew);
   }
 
   Future<void> _toggleDone(Item item) async {

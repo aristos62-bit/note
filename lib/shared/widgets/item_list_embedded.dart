@@ -73,8 +73,9 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
 
   @override
   Widget build(BuildContext context) {
-    final itemsAsync = ref.watch(itemsStreamProvider);
+    final itemsAsync   = ref.watch(itemsStreamProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
+    final viewMode     = ref.watch(listViewModeProvider);
 
     DebugConfig.db('📁 ItemListEmbedded: foldersAsync.hasValue=${foldersAsync.hasValue}, count=${foldersAsync.valueOrNull?.length ?? 0}');
     if (foldersAsync.hasValue) {
@@ -126,11 +127,11 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
           const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(itemNotifierProvider),
+              onRefresh: () async => ref.invalidate(itemsStreamProvider),
               child: itemsAsync.when(
                 loading: () => _EmbeddedLoadingList(),
                 error: (e, _) => EmptyState.error(
-                  onRetry: () => ref.invalidate(itemNotifierProvider),
+                  onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (allItems) {
                   var items = allItems
@@ -143,7 +144,6 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                         .toList();
                   }
 
-                  final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
                       items = items.where((i) => i.pinned).toList();
@@ -158,7 +158,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                   final visibleTagNames = <String>{};
                   for (final item in items) {
                     final tags =
-                        ref.watch(itemTagsProvider(item.id)).valueOrNull ?? [];
+                        ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
                     for (final t in tags) {
                       visibleTagNames.add(t.name);
                     }
@@ -174,14 +174,11 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                   var filtered = _filterItems(items, searchQuery);
 
                   if (activeTags.isNotEmpty) {
-                    // ✅ Loop 2: tag filtering
-                    if (activeTags.isNotEmpty) {
-                      filtered = filtered.where((item) {
-                        final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
-                        final tagNames = tags.map((t) => t.name);
-                        return tagNames.any((name) => activeTags.contains(name));
-                      }).toList();
-                    }
+                    filtered = filtered.where((item) {
+                      final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
+                      final tagNames = tags.map((t) => t.name);
+                      return tagNames.any((name) => activeTags.contains(name));
+                    }).toList();
                   }
 
                   if (filtered.isEmpty) {
@@ -234,39 +231,26 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
 
   Future<void> _togglePin(Item item) async {
     Navigator.pop(context);
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .togglePin(item.id, item.pinned);
-    ref.invalidate(itemNotifierProvider);
+    await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
   }
 
   Future<void> _toggleFav(Item item) async {
     Navigator.pop(context);
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleFavorite(item.id, item.favorite);
-    ref.invalidate(itemNotifierProvider);
+    await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
   }
 
   Future<void> _archive(Item item) async {
     Navigator.pop(context);
     final ok = await ConfirmDialog.archive(context);
     if (!ok || !mounted) return;
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleArchive(item.id, item.archived);
-    ref.invalidate(itemNotifierProvider);
+    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
   }
 
   Future<void> _delete(Item item) async {
     Navigator.pop(context);
-    final ok = await ConfirmDialog.delete(
-      context,
-      title: 'Διαγραφή στοιχείου;',
-    );
+    final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή στοιχείου;');
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    ref.invalidate(itemNotifierProvider);
   }
 }
 

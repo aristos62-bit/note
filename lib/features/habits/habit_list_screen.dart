@@ -72,7 +72,6 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
     final notifier = ref.read(itemNotifierProvider.notifier);
     final item = await notifier.create(type: ItemType.habit, folderId: selectedFolderId);
     if (item == null || !mounted) return;
-    ref.invalidate(itemNotifierProvider);
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => HabitDetailScreen(itemId: item.id, isNew: true)),
     );
@@ -93,7 +92,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
 
   @override
   Widget build(BuildContext context) {
-    final habitsAsync = ref.watch(itemNotifierProvider);
+    final habitsAsync = ref.watch(itemsStreamProvider);
     final searchQuery = ref.watch(_habitSearchQueryProvider);
     final activeTags = ref.watch(_habitTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
@@ -146,11 +145,11 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
           const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(itemNotifierProvider),
+              onRefresh: () async => ref.invalidate(itemsStreamProvider),
               child: habitsAsync.when(
                 loading: () => _LoadingList(),
                 error: (e, _) => EmptyState.error(
-                  onRetry: () => ref.invalidate(itemNotifierProvider),
+                  onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (items) {
                   var habitsOnly = items.where((it) => it.type == ItemType.habit).toList();
@@ -246,7 +245,6 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
           if (value == 'archived') {
             final show = ref.read(showArchivedProvider);
             ref.read(showArchivedProvider.notifier).state = !show;
-            ref.invalidate(itemNotifierProvider);
           }
         },
         itemBuilder: (_) => [

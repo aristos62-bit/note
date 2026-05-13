@@ -10,12 +10,12 @@ import 'event_detail_screen.dart';
 final _monthEventsProvider =
 FutureProvider.family<Map<DateTime, List<Item>>, DateTime>(
         (ref, month) async {
-      final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
+      final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
       final events = allItems.where((i) => i.type == ItemType.event).toList();
       final result = <DateTime, List<Item>>{};
 
       for (final event in events) {
-        final props = await ref.watch(itemPropertiesProvider(event.id).future);
+        final props = await ref.read(itemPropertiesProvider(event.id).future);
         final startStr =
             props.where((p) => p.key == 'start_time').firstOrNull?.value;
         if (startStr == null) continue;
@@ -233,25 +233,34 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
 
   Future<void> _createEvent(
       BuildContext context, WidgetRef ref, DateTime selectedDay) async {
-    // 🆕 Διαβάζουμε το τρέχον επιλεγμένο folder από τον κεντρικό provider
     final selectedFolderId = ref.read(selectedFolderIdProvider);
 
-    final item = await ref.read(itemNotifierProvider.notifier).create(
-      type: ItemType.event,
-      folderId: selectedFolderId,
-    );
-    if (item == null || !context.mounted) return;
+    try {
+      final item = await ref.read(itemNotifierProvider.notifier).create(
+        type: ItemType.event,
+        folderId: selectedFolderId,
+      );
+      if (item == null || !context.mounted) return;
 
-    final startTime = DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
-    await ref
-        .read(propertyNotifierProvider(item.id).notifier)
-        .setDate('start_time', startTime);
+      final startTime = DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
+      final endTime   = startTime.add(const Duration(hours: 1));
+      final propNotifier = ref.read(propertyNotifierProvider(item.id).notifier);
+      await propNotifier.setDate('start_time', startTime);
+      await propNotifier.setDate('end_time',   endTime);
 
-    if (!context.mounted) return;
-    Navigator.of(context).push(
-      AppTransitions.slideRoute(
-          EventDetailScreen(itemId: item.id, isNew: true)),
-    );
+      if (!context.mounted) return;
+      Navigator.of(context).push(
+        AppTransitions.slideRoute(
+            EventDetailScreen(itemId: item.id, isNew: true)),
+      );
+    } catch (e) {
+      DebugConfig.error('CalendarScreen _createEvent', e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Σφάλμα δημιουργίας συμβάντος')),
+        );
+      }
+    }
   }
 }
 
@@ -324,7 +333,7 @@ class _MonthGrid extends StatelessWidget {
                     color: isSelected
                         ? context.cPrimary
                         : isToday
-                        ? context.cPrimary.withAlpha(30)
+                        ? context.cPrimary.withValues(alpha: 0.12)
                         : Colors.transparent,
                     shape: BoxShape.circle,
                     border: isToday && !isSelected

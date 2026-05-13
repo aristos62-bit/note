@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/item.dart';
 import 'db_provider.dart';
 import 'workspace_provider.dart';
+import 'dart:async';
 
 // ─────────────────────────────────────────────────────────────────
 // Filters (για το UI — φίλτρα λίστας)
@@ -19,9 +20,9 @@ final showArchivedProvider = StateProvider<bool>((ref) => false);
 // ─────────────────────────────────────────────────────────────────
 
 final itemsStreamProvider = StreamProvider<List<Item>>((ref) {
-  final db          = ref.watch(dbProvider);
-  final wsId        = ref.watch(activeWorkspaceIdProvider);
-  final typeFilter  = ref.watch(activeItemTypeFilterProvider);
+  final db           = ref.watch(dbProvider);
+  final wsId         = ref.watch(activeWorkspaceIdProvider);
+  final typeFilter   = ref.watch(activeItemTypeFilterProvider);
   final showArchived = ref.watch(showArchivedProvider);
 
   if (wsId == null) return Stream.value(const []);
@@ -30,6 +31,8 @@ final itemsStreamProvider = StreamProvider<List<Item>>((ref) {
     wsId,
     type:            typeFilter,
     includeArchived: showArchived,
+  ).map((items) =>
+      items.where((i) => i.title != null && i.title!.isNotEmpty).toList()
   );
 });
 
@@ -341,15 +344,51 @@ final pinnedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
 });
 
 /// Stream όλων των favorite items του active workspace — ανεξάρτητο
-final pinnedAndFavoritesProvider = StreamProvider<({List<Item> pinned, List<Item> favorites})>((ref) async* {
-  yield* ref.watch(itemsStreamProvider).when(
-    data: (items) async* {
-      yield (
-      pinned:    items.where((i) => i.pinned   && i.deletedAt == null).toList(),
-      favorites: items.where((i) => i.favorite && i.deletedAt == null).toList(),
-      );
-    },
-    loading: () async* {},
-    error:   (_, __) async* {},
-  );
+/// Stream pinned + favorites — ανεξάρτητα Isar queries.
+/// ΔΕΝ εξαρτάται από itemsStreamProvider.
+/// Φωτίζει ΜΟΝΟ όταν αλλάξει pinned ή favorite status.
+final pinnedAndFavoritesProvider =
+StreamProvider<({List<Item> pinned, List<Item> favorites})>((ref) {
+  final db   = ref.watch(dbProvider);
+  final wsId = ref.watch(activeWorkspaceIdProvider);
+
+  if (wsId == null) {
+    return Stream.value((pinned: <Item>[], favorites: <Item>[]));
+  }
+
+  // ignore: close_sinks — κλείνει στο onDispose
+  final controller =
+  StreamController<({List<Item> pinned, List<Item> favorites})>();
+
+  List<Item> currentPinned    = [];
+  List<Item> currentFavorites = [];
+  bool pinnedLoaded    = false;
+  bool favoritesLoaded = false;
+
+  void emit() {
+    if (pinnedLoaded && favoritesLoaded && !controller.isClosed) {
+      controller.add((pinned: currentPinned, favorites: currentFavorites));
+    }
+  }
+
+  final pinnedSub = db.items.watchPinnedByWorkspace(wsId).listen((items) {
+    currentPinned = items;
+    pinnedLoaded  = true;
+    emit();
+  });
+
+  final favoritesSub =
+  db.items.watchFavoritesByWorkspace(wsId).listen((items) {
+    currentFavorites = items;
+    favoritesLoaded  = true;
+    emit();
+  });
+
+  ref.onDispose(() {
+    pinnedSub.cancel();
+    favoritesSub.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
 });
