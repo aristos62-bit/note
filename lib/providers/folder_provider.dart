@@ -97,6 +97,14 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
     ref.invalidate(foldersProvider);
   }
 
+  /// Αναδιάταξη φακέλων (drag & drop)
+  Future<void> reorderFolders(List<Folder> newOrder) async {
+    await ref.read(dbProvider).folders.reorder(newOrder);
+    ref.invalidateSelf();
+    ref.invalidate(foldersStreamProvider);
+    ref.invalidate(foldersProvider);
+  }
+
   Future<void> rename(int id, {
     String? name,
     String? icon,
