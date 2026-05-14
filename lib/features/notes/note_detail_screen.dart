@@ -737,120 +737,115 @@ class _BlockTileState extends State<_BlockTile> {
     final isBullet = effectiveType == BlockType.bulletList;
     final isNumbered = effectiveType == BlockType.numbered;
 
-    return GestureDetector(
-      onLongPress: () {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: ColorsUI.getSurface(context.brightness),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(AppRadius.bottomSheet),
-              topRight: Radius.circular(AppRadius.bottomSheet),
-            ),
-          ),
-          builder: (_) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
-                ),
-                ListTile(
-                  leading: Icon(Icons.delete_outline_rounded, color: context.cError),
-                  title: Text('Διαγραφή block', style: TextStyle(color: context.cError)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    widget.onDelete();
-                  },
-                ),
-                const SizedBox(height: Spacing.sm),
-              ],
-            ),
-          ),
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Spacing.xs / 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isChecklist)
-              GestureDetector(
-                onTap: widget.onToggleCheck,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 3, right: Spacing.sm),
-                  child: AnimatedContainer(
-                    duration: AppDuration.fast,
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: widget.block.checked ? context.cPrimary : Colors.transparent,
-                      borderRadius: BorderRadius.circular(AppRadius.xs),
-                      border: Border.all(
-                        color: widget.block.checked ? context.cPrimary : ColorsUI.getBorder(context.brightness),
-                        width: 2,
-                      ),
-                    ),
-                    child: widget.block.checked
-                        ? Icon(Icons.check, size: 13, color: ColorsUI.getAccessibleTextColor(context.cPrimary))
-                        : null,
-                  ),
-                ),
-              )
-            else if (isBullet)
-              Padding(
-                padding: const EdgeInsets.only(top: 9, right: Spacing.sm),
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(color: context.cText2, shape: BoxShape.circle),
-                ),
-              )
-            else if (isNumbered)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, right: Spacing.xs),
-                  child: SizedBox(
-                    width: 24,
-                    child: Text(
-                      '${widget.index + 1}.',
-                      style: context.bodyMd.withColor(context.cText2),
-                      textAlign: TextAlign.right,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xs / 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Prefix (checklist / bullet / numbered / quote) ──────
+          if (isChecklist)
+            GestureDetector(
+              onTap: widget.onToggleCheck,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 3, right: Spacing.sm),
+                child: AnimatedContainer(
+                  duration: AppDuration.fast,
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: widget.block.checked ? context.cPrimary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
+                    border: Border.all(
+                      color: widget.block.checked
+                          ? context.cPrimary
+                          : ColorsUI.getBorder(context.brightness),
+                      width: 2,
                     ),
                   ),
-                )
-              else if (isQuote)
-                  Container(
-                    width: 3,
-                    margin: const EdgeInsets.only(right: Spacing.sm, top: 2),
-                    decoration: BoxDecoration(
-                      color: context.cPrimary.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-
-            Expanded(
-              child: TextField(
-                controller: _ctrl,
-                focusNode: _focusNode,
-                onChanged: _onChange,
-                style: _textStyle(context).copyWith(
-                  decoration: (isChecklist && widget.block.checked) ? TextDecoration.lineThrough : null,
-                  color: (isChecklist && widget.block.checked) ? context.cDisabled : null,
-                ),
-                maxLines: null,
-                decoration: InputDecoration(
-                  hintText: _hintFor(widget.block.type),
-                  hintStyle: _textStyle(context).withColor(context.cDisabled),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
+                  child: widget.block.checked
+                      ? Icon(Icons.check, size: 13,
+                      color: ColorsUI.getAccessibleTextColor(context.cPrimary))
+                      : null,
                 ),
               ),
+            )
+          else if (isBullet)
+            Padding(
+              padding: const EdgeInsets.only(top: 9, right: Spacing.sm),
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: context.cText2, shape: BoxShape.circle),
+              ),
+            )
+          else if (isNumbered)
+              Padding(
+                padding: const EdgeInsets.only(top: 2, right: Spacing.xs),
+                child: SizedBox(
+                  width: 24,
+                  child: Text(
+                    '${widget.index + 1}.',
+                    style: context.bodyMd.withColor(context.cText2),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              )
+            else if (isQuote)
+                Container(
+                  width: 3,
+                  margin: const EdgeInsets.only(right: Spacing.sm, top: 2),
+                  decoration: BoxDecoration(
+                    color: context.cPrimary.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+          // ── TextField ────────────────────────────────────────────
+          Expanded(
+            child: TextField(
+              controller: _ctrl,
+              focusNode: _focusNode,
+              onChanged: _onChange,
+              style: _textStyle(context).copyWith(
+                decoration: (isChecklist && widget.block.checked)
+                    ? TextDecoration.lineThrough
+                    : null,
+                color: (isChecklist && widget.block.checked)
+                    ? context.cDisabled
+                    : null,
+              ),
+              maxLines: null,
+              decoration: InputDecoration(
+                hintText: _hintFor(widget.block.type),
+                hintStyle: _textStyle(context).withColor(context.cDisabled),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
-          ],
-        ),
+          ),
+
+          // ✅ Delete icon — πάντα ορατό, κόκκινο κυκλάκι
+          GestureDetector(
+            onTap: () {
+              _debounce?.cancel();
+              widget.onDelete();
+            },
+            child: Container(
+              margin: const EdgeInsets.only(left: Spacing.xs, top: 2),
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: context.cError, width: 1.5),
+              ),
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: context.cError,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
