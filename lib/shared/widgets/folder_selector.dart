@@ -76,7 +76,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                 builder: (context, candidateData, rejectedData) {
                   return LongPressDraggable<int>(
                     data: idx,
-                    delay: const Duration(milliseconds: 400),
+                    delay: const Duration(milliseconds: 200),
                     feedback: Material(
                       color: Colors.transparent,
                       child: _FolderChip(

@@ -1019,20 +1019,17 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
   void didUpdateWidget(covariant _ReorderableGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final oldIds = oldWidget.items.map((e) => e.id).toList();
-    final newIds = widget.items.map((e) => e.id).toList();
-    final currentIds = _items.map((e) => e.id).toList();
+    final streamIds = widget.items.map((e) => e.id).join(',');
+    final localIds  = _items.map((e) => e.id).join(',');
+    final oldIds    = oldWidget.items.map((e) => e.id).join(',');
 
-    debugPrint('🔄 [didUpdateWidget] isPinnedMode=${widget.isPinnedMode}');
-    debugPrint('🔄 [didUpdateWidget] oldWidget.items : $oldIds');
-    debugPrint('🔄 [didUpdateWidget] widget.items    : $newIds');
-    debugPrint('🔄 [didUpdateWidget] _items (local)  : $currentIds');
+    // Reset αν: το stream άλλαξε (νέα DB σειρά)
+    //       Ή: local αποκλίνει από stream χωρίς ο χρήστης να έχει κάνει drag
+    final streamChanged = oldIds != streamIds;
+    final localDrifted  = localIds != streamIds && oldIds == streamIds;
 
-    if (oldIds.join(',') != newIds.join(',')) {
-      debugPrint('🔄 [didUpdateWidget] → RESET _items to widget.items !!');
-      _items = List.from(widget.items);
-    } else {
-      debugPrint('🔄 [didUpdateWidget] → NO CHANGE');
+    if (streamChanged || localDrifted) {
+      setState(() => _items = List.from(widget.items));
     }
   }
 
@@ -1044,7 +1041,6 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
       _items.insert(newIndex, item);
     });
 
-    // Χωρίζουμε τα IDs ανά κατηγορία με βάση τη νέα σειρά
     final pinnedIds   = _items.where((i) => i.pinned).map((i) => i.id).toList();
     final favoriteIds = _items.where((i) => i.favorite && !i.pinned).map((i) => i.id).toList();
 
