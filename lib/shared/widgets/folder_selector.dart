@@ -51,7 +51,6 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
             final folder = entry.value;
             final folderColor = _colorFromHex(folder.color, context.cPrimary);
             final isDragOver = _dragOverIndex == idx;
-            // System folders δεν είναι draggable
             final isSystem = folder.isSystem == true;
 
             return Padding(
@@ -67,34 +66,17 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                     setState(() => _dragOverIndex = null);
                     return;
                   }
-
-                  // Δημιουργία νέας σειράς
                   final newOrder = List<Folder>.from(folders);
                   final draggedFolder = newOrder.removeAt(draggedIndex);
                   newOrder.insert(idx, draggedFolder);
-
-                  // Ενημέρωση DB μέσω notifier
                   await ref.read(folderNotifierProvider.notifier).reorderFolders(newOrder);
                   setState(() => _dragOverIndex = null);
                 },
                 onLeave: (_) => setState(() => _dragOverIndex = null),
                 builder: (context, candidateData, rejectedData) {
-                  // Αν είναι system folder, δεν είναι draggable
-                  if (isSystem) {
-                    return _FolderChip(
-                      label: folder.name,
-                      icon: Icons.folder_rounded,
-                      isSelected: widget.selectedFolderId == folder.id,
-                      color: folderColor,
-                      onTap: () => widget.onSelect(folder.id),
-                      onLongPress: widget.onFolderLongPress != null
-                          ? () => widget.onFolderLongPress!(folder)
-                          : null,
-                    );
-                  }
-
-                  return Draggable<int>(
+                  return LongPressDraggable<int>(
                     data: idx,
+                    delay: const Duration(milliseconds: 400),
                     feedback: Material(
                       color: Colors.transparent,
                       child: _FolderChip(
@@ -114,9 +96,6 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                         isSelected: widget.selectedFolderId == folder.id,
                         color: folderColor,
                         onTap: () => widget.onSelect(folder.id),
-                        onLongPress: widget.onFolderLongPress != null
-                            ? () => widget.onFolderLongPress!(folder)
-                            : null,
                       ),
                     ),
                     child: _FolderChip(
@@ -125,10 +104,11 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                       isSelected: widget.selectedFolderId == folder.id,
                       color: folderColor,
                       onTap: () => widget.onSelect(folder.id),
-                      onLongPress: widget.onFolderLongPress != null
+                      isDragOver: isDragOver,
+                      // System folder: χωρίς 3 τελείες, κανονικό drag
+                      onMoreTap: (!isSystem && widget.onFolderLongPress != null)
                           ? () => widget.onFolderLongPress!(folder)
                           : null,
-                      isDragOver: isDragOver,
                     ),
                   );
                 },
@@ -150,13 +130,17 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
   }
 }
 
+// ════════════════════════════════════════════════════════════════
+// FOLDER CHIP
+// ════════════════════════════════════════════════════════════════
+
 class _FolderChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool isSelected;
   final Color color;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
+  final VoidCallback? onMoreTap;   // ✅ νέο: 3 τελείες
   final bool isDragOver;
   final bool isDragging;
 
@@ -166,7 +150,7 @@ class _FolderChip extends StatelessWidget {
     required this.isSelected,
     required this.color,
     required this.onTap,
-    this.onLongPress,
+    this.onMoreTap,
     this.isDragOver = false,
     this.isDragging = false,
   });
@@ -175,12 +159,11 @@ class _FolderChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
       child: AnimatedContainer(
         duration: AppDuration.fast,
         width: 80,
         height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
               ? color
@@ -197,23 +180,60 @@ class _FolderChip extends StatelessWidget {
             width: isDragOver ? 2 : 1,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Icon(icon, size: 18, color: isSelected ? Colors.white : color),
-            const SizedBox(height: Spacing.sm),
-            Flexible(
-              child: Text(
-                label,
-                style: context.labelMd.copyWith(
-                  color: isSelected ? Colors.white : color,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
+            // ── Κύριο περιεχόμενο ──────────────────────────────
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 18,
+                      color: isSelected ? Colors.white : color),
+                  const SizedBox(height: 4),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: context.labelSm.copyWith(
+                        color: isSelected ? Colors.white : color,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
+
+            // ── 3 τελείες (top-right) — μόνο αν υπάρχει callback ──
+            if (onMoreTap != null && !isDragging)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: GestureDetector(
+                  onTap: onMoreTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.25)
+                          : color.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.more_vert_rounded,
+                      size: 13,
+                      color: isSelected ? Colors.white : color,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
