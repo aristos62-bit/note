@@ -98,14 +98,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: context.cBg,
-      // ✅ FAB για δημιουργία νέου φακέλου
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: selectedFolderId == null
+          ? FloatingActionButton(
         onPressed: () => _showCreateFolderDialog(context, ref),
         tooltip: 'Νέος φάκελος',
         backgroundColor: context.cPrimary,
         foregroundColor: context.cOnPrimary,
         child: const Icon(Icons.add_rounded),
-      ),
+      )
+          : null,  // ❌ κανένα FAB – το HomeFolderView έχει το δικό του για νέα items
       body: CustomScrollView(
         slivers: [
           // AppBar
@@ -889,6 +890,11 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
         final pinned = data.pinned;
         final favorites = data.favorites;
 
+        DebugConfig.print('📊 FAVORITES COUNT: ${favorites.length}');
+        for (var f in favorites) {
+          DebugConfig.print('   - ${f.title} (folderId: ${f.folderId})');
+        }
+
         List<Item> items;
         bool isPinnedMode = false;
         switch (widget.viewMode) {
@@ -1048,6 +1054,7 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
       ref.read(itemNotifierProvider.notifier).reorderPinned(pinnedIds);
     }
     if (favoriteIds.isNotEmpty) {
+      DebugConfig.print('🔄 reorderFavorites called with ids: $favoriteIds');
       ref.read(itemNotifierProvider.notifier).reorderFavorites(favoriteIds);
     }
   }

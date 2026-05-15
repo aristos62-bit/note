@@ -25,6 +25,7 @@ import '../models/user.dart';
 import '../models/device.dart';
 import '../models/app_settings.dart';
 import 'package:flutter/foundation.dart';
+import '../core/core.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // SuperNoteHelper — Singleton
@@ -384,6 +385,7 @@ class ItemRepository {
     await _isar.writeTxn(() async {
       for (int i = 0; i < itemIds.length; i++) {
         final item = await _isar.items.get(itemIds[i]);
+        DebugConfig.print('   setting favoriteOrder for item ${item?.id} (folder ${item?.folderId}) to $i');
         if (item != null && item.favorite) {
           item.favoriteOrder = i.toDouble();
           item.isDirty = true;
