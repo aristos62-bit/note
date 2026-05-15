@@ -1038,6 +1038,11 @@ class _CollectionEntryDetailScreenState
                     field: f,
                     ctrl: _fieldCtrls[f.key],
                     boolValue: _boolValues[f.key] ?? false,
+                    onAnyChange: () {
+                      setState(() {
+                        _hasChanges = true;
+                      });
+                    },
                     dateValue: _dateValues[f.key],
                     listItems: _listValues[f.key] ?? [],
                     onBoolChange: (v) {
@@ -1138,6 +1143,7 @@ class _FieldInput extends StatelessWidget {
   final DateTime? dateValue;
   final List<String> listItems;
   final ValueChanged<bool> onBoolChange;
+  final VoidCallback onAnyChange;
   final ValueChanged<DateTime?> onDateChange;
   final VoidCallback onAddListItem;
   final ValueChanged<int> onRemoveListItem;
@@ -1150,6 +1156,7 @@ class _FieldInput extends StatelessWidget {
     required this.dateValue,
     required this.listItems,
     required this.onBoolChange,
+    required this.onAnyChange,
     required this.onDateChange,
     required this.onAddListItem,
     required this.onRemoveListItem,
@@ -1240,6 +1247,10 @@ class _FieldInput extends StatelessWidget {
           ),
           _ => TextField(
             controller: ctrl,
+            onChanged: (v) {
+              DebugConfig.db('FIELD CHANGE key=${field.key} value=$v');
+              onAnyChange();
+            },
             keyboardType: field.type == FieldType.number
                 ? TextInputType.number
                 : field.type == FieldType.url

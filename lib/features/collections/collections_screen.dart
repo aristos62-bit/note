@@ -221,14 +221,14 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
-    // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
-    final selectedFolderId = ref.watch(selectedFolderIdProvider);
-
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
       settingsAsync: settingsAsync,
       debugLabel: 'CollectionsScreen',
     );
+
+    // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -323,12 +323,17 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                     .where((i) => i.type == ItemType.project)
                     .toList();
 
+                DebugConfig.nav('ALL COLLECTIONS COUNT = ${collections.length}');
+                for (final c in collections) {
+                  DebugConfig.nav('COLLECTION id=${c.id} folderId=${c.folderId}');
+                }
+                DebugConfig.nav('SELECTED folderId = $selectedFolderId');
+
                 if (selectedFolderId != null) {
                   collections = collections
                       .where((c) => c.folderId == selectedFolderId)
                       .toList();
                 }
-
                 final viewMode = ref.watch(listViewModeProvider);
                 switch (viewMode) {
                   case ListViewMode.pinned:
