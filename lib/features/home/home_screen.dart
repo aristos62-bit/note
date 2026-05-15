@@ -1025,16 +1025,13 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
   void didUpdateWidget(covariant _ReorderableGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final streamIds = widget.items.map((e) => e.id).join(',');
-    final localIds  = _items.map((e) => e.id).join(',');
-    final oldIds    = oldWidget.items.map((e) => e.id).join(',');
+    String fingerprint(List<Item> items) =>
+        items.map((i) => '${i.id}:${i.pinned}:${i.favorite}').join(',');
 
-    // Reset αν: το stream άλλαξε (νέα DB σειρά)
-    //       Ή: local αποκλίνει από stream χωρίς ο χρήστης να έχει κάνει drag
-    final streamChanged = oldIds != streamIds;
-    final localDrifted  = localIds != streamIds && oldIds == streamIds;
+    final streamFp = fingerprint(widget.items);
+    final oldFp    = fingerprint(oldWidget.items);
 
-    if (streamChanged || localDrifted) {
+    if (oldFp != streamFp) {
       setState(() => _items = List.from(widget.items));
     }
   }
