@@ -48,12 +48,12 @@ class ItemCard extends StatelessWidget {
 
     // ⭐ Χρώμα φόντου: πάντα από τον τύπο (ItemColorHelper)
     final backgroundColor =
-    ItemColorHelper.backgroundColorForType(item.type, context);
+        ItemColorHelper.backgroundColorForType(item.type, context);
 
     // ⭐ Χρώμα κειμένου: βέλτιστη αντίθεση πάνω στο background
     final foregroundColor =
-    ItemColorHelper.textColorForBackground(backgroundColor, context);
-    final secondaryForeground = foregroundColor.withValues(alpha:0.7);
+        ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
 
     return GestureDetector(
       onTap: () {
@@ -109,11 +109,35 @@ class ItemCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!isCompact)
-                _TrailingSection(
-                  item: item,
-                  foregroundColor: foregroundColor,
-                ),
+              Builder(
+                builder: (context) {
+                  final shouldShowTrailing = item.favorite || item.pinned;
+
+                  DebugConfig.print(
+                    'ItemCard TRAILING CHECK id=${item.id} '
+                    'favorite=${item.favorite} pinned=${item.pinned} '
+                    'show=$shouldShowTrailing isCompact=$isCompact',
+                  );
+
+                  if (!shouldShowTrailing) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return _TrailingSection(
+                    item: item,
+                    foregroundColor: foregroundColor,
+                  );
+                },
+              ),
+              Builder(
+                builder: (context) {
+                  DebugConfig.print(
+                    'ItemCard HIDDEN TRAILING id=${item.id} isCompact=$isCompact',
+                  );
+
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ),
         ),
@@ -219,7 +243,8 @@ class _TitleRow extends StatelessWidget {
                 ),
               ),
               child: _isDone
-                  ? Icon(Icons.check, size: 14,
+                  ? Icon(Icons.check,
+                  size: 14,
                   color: ColorsUI.getAccessibleTextColor(typeColor))
                   : null,
             ),
@@ -237,17 +262,30 @@ class _TitleRow extends StatelessWidget {
             style: (compact ? context.bodyMd : context.titleMd).copyWith(
               color: item.title?.isNotEmpty == true
                   ? foregroundColor
-                  : foregroundColor.withValues(alpha:0.5),
+                  : foregroundColor.withValues(alpha: 0.5),
               decoration: _isDone ? TextDecoration.lineThrough : null,
-              decorationColor: foregroundColor.withValues(alpha:0.5),
+              decorationColor: foregroundColor.withValues(alpha: 0.5),
             ),
             maxLines: compact ? 1 : 2,
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        // ⭐ STAR (favorite) – αριστερά από το pin, ίδιο μέγεθος 14
+        if (item.favorite) ...[
+          const SizedBox(width: Spacing.xs),
+          Icon(
+            Icons.star_rounded,
+            size: 14,
+            color: foregroundColor,
+          ),
+        ],
         if (item.pinned) ...[
           const SizedBox(width: Spacing.xs),
-          Icon(Icons.push_pin_rounded, size: 14, color: typeColor),
+          Icon(
+            Icons.push_pin_rounded,
+            size: 14,
+            color: foregroundColor,
+          ),
         ],
       ],
     );
@@ -336,17 +374,18 @@ class _TrailingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: Spacing.sm),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (item.favorite)
-            Icon(Icons.star_rounded, size: 16,
-                color: ColorsUI.getWarning(context.brightness)),
-          Icon(Icons.chevron_right_rounded, size: 20,
-              color: foregroundColor.withValues(alpha:0.5)),
-        ],
+    DebugConfig.print(
+      'ItemCard TrailingSection id=${item.id} favorite=${item.favorite}',
+    );
+
+    return SizedBox(
+      width: 28,
+      child: Center(
+        child: Icon(
+          Icons.chevron_right_rounded,
+          size: 20,
+          color: foregroundColor.withValues(alpha: 0.5),
+        ),
       ),
     );
   }
@@ -380,7 +419,7 @@ class _PriorityChip extends StatelessWidget {
     final color = context.priorityColor(priority);
     return Container(
       padding:
-      const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+          const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
       decoration: BoxDecoration(
         color: context.priorityColorSoft(priority),
         borderRadius: BorderRadius.circular(AppRadius.badge),
@@ -423,7 +462,7 @@ class _DueDateChip extends StatelessWidget {
 
     return Container(
       padding:
-      const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+          const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
       decoration: BoxDecoration(
         color: (isOverdue || isToday)
             ? color.withValues(alpha: 0.1)
@@ -437,7 +476,9 @@ class _DueDateChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isOverdue ? Icons.warning_amber_rounded : Icons.calendar_today_rounded,
+            isOverdue
+                ? Icons.warning_amber_rounded
+                : Icons.calendar_today_rounded,
             size: 10,
             color: color,
           ),
@@ -466,11 +507,12 @@ class _TagChipSmall extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding:
-      const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+          const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha:0.15), // ελαφρύ overlay για αντίθεση
+        color:
+            Colors.white.withValues(alpha: 0.15), // ελαφρύ overlay για αντίθεση
         borderRadius: BorderRadius.circular(AppRadius.badge),
-        border: Border.all(color: textColor.withValues(alpha:0.3)),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
       ),
       child: Text(
         name,
