@@ -116,65 +116,71 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Widget build(BuildContext context) {
     DebugConfig.provider('HomeFolderView build folder=${folder.id}');
 
-    final statsAsync = ref.watch(folderStatsProvider(folder.id));
-    final pinnedAsync = ref.watch(pinnedByFolderStreamProvider(folder.id));
+    final statsAsync     = ref.watch(folderStatsProvider(folder.id));
+    final pinnedAsync    = ref.watch(pinnedByFolderStreamProvider(folder.id));
     final favoritesAsync = ref.watch(favoritesByFolderStreamProvider(folder.id));
-    final recentAsync = ref.watch(recentByFolderProvider(folder.id));
+    final recentAsync    = ref.watch(recentByFolderProvider(folder.id));
+    final isDragging     = ref.watch(isDraggingProvider);   // ← ΝΕΟ
 
     final folderColor = _colorFromHex(folder.color, context.cPrimary);
 
-    return Stack(
-      children: [
-        RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(itemsByFolderStreamProvider(folder.id));
-            ref.invalidate(folderStatsProvider(folder.id));
-            ref.invalidate(pinnedByFolderStreamProvider(folder.id));
-            ref.invalidate(favoritesByFolderStreamProvider(folder.id));
-            ref.invalidate(recentByFolderProvider(folder.id));
-          },
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: statsAsync.when(
-                  loading: () => _StatsRowSkeleton(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (stats) => _FolderStatsRow(stats: stats),
+    return PopScope(                                         // ← ΝΕΟ: προστασία back gesture κατά drag
+      canPop: !isDragging,
+      child: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(itemsByFolderStreamProvider(folder.id));
+              ref.invalidate(folderStatsProvider(folder.id));
+              ref.invalidate(pinnedByFolderStreamProvider(folder.id));
+              ref.invalidate(favoritesByFolderStreamProvider(folder.id));
+              ref.invalidate(recentByFolderProvider(folder.id));
+            },
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: statsAsync.when(
+                    loading: () => _StatsRowSkeleton(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (stats) => _FolderStatsRow(stats: stats),
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: _FolderViewModeToggle(
-                  current: _viewMode,
-                  onChanged: (mode) {
-                    DebugConfig.nav('HomeFolderView: mode changed to $mode');
-                    if (mode == FolderViewMode.all) {
-                      Navigator.of(context).push(AppTransitions.slideRoute(
-                          FolderBrowserScreen(folder: folder)));
-                    } else {
-                      setState(() => _viewMode = mode);
-                    }
-                  },
+                SliverToBoxAdapter(
+                  child: _FolderViewModeToggle(
+                    current: _viewMode,
+                    onChanged: (mode) {
+                      DebugConfig.nav('HomeFolderView: mode changed to $mode');
+                      if (mode == FolderViewMode.all) {
+                        Navigator.of(context).push(AppTransitions.slideRoute(
+                            FolderBrowserScreen(folder: folder)));
+                      } else {
+                        setState(() => _viewMode = mode);
+                      }
+                    },
+                  ),
                 ),
-              ),
-              if (_viewMode == FolderViewMode.all)
-                const SliverToBoxAdapter(child: SizedBox.shrink())
-              else
-                _buildContent(context, pinnedAsync, favoritesAsync, recentAsync),
-            ],
+                // ← ΝΕΟ: φάκελοι ως drag targets — σύρε item πάνω σε φάκελο για μεταφορά
+                const SliverToBoxAdapter(child: DraggableFolderSelector()),
+                if (_viewMode == FolderViewMode.all)
+                  const SliverToBoxAdapter(child: SizedBox.shrink())
+                else
+                  _buildContent(context, pinnedAsync, favoritesAsync, recentAsync),
+              ],
+            ),
           ),
-        ),
-        Positioned(
-          right: Spacing.md,
-          bottom: Spacing.lg,
-          child: FloatingActionButton(
-            onPressed: () => _showCreateMenu(context),
-            backgroundColor: folderColor,
-            foregroundColor: Colors.white,
-            tooltip: 'Νέο στοιχείο',
-            child: const Icon(Icons.add_rounded),
+          Positioned(
+            right: Spacing.md,
+            bottom: Spacing.lg,
+            child: FloatingActionButton(
+              onPressed: () => _showCreateMenu(context),
+              backgroundColor: folderColor,
+              foregroundColor: Colors.white,
+              tooltip: 'Νέο στοιχείο',
+              child: const Icon(Icons.add_rounded),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -230,9 +236,12 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
           delegate: SliverChildBuilderDelegate(
                 (_, i) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
-              child: _FolderItemCard(
-                item: items[i],
-                onTap: () => _openItem(context, items[i]),
+              child: DraggableItemWrapper(          // ← ΝΕΟ: κάνει το item draggable
+                itemId: items[i].id,
+                child: _FolderItemCard(
+                  item: items[i],
+                  onTap: () => _openItem(context, items[i]),
+                ),
               ),
             ),
             childCount: items.length,
@@ -253,9 +262,12 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
             mainAxisExtent: 100,
           ),
           delegate: SliverChildBuilderDelegate(
-                (_, i) => _FolderItemCard(
-              item: items[i],
-              onTap: () => _openItem(context, items[i]),
+                (_, i) => DraggableItemWrapper(          // ← ΝΕΟ: κάνει το item draggable
+              itemId: items[i].id,
+              child: _FolderItemCard(
+                item: items[i],
+                onTap: () => _openItem(context, items[i]),
+              ),
             ),
             childCount: items.length,
           ),
