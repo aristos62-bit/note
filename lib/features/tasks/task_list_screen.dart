@@ -275,8 +275,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                   },
                   data: (allItems) {
                     var tasks = allItems
-                        .where((i) => i.type == ItemType.task)
+                        .where((i) => i.type == ItemType.task && i.deletedAt == null)
                         .toList();
+                    tasks = tasks.where((task) {
+                      final props = ref.watch(itemPropertiesProvider(task.id)).valueOrNull ?? [];
+                      return !props.any((p) => p.key == 'parent_id');
+                    }).toList();
 
                     final viewMode = ref.watch(listViewModeProvider);
                     switch (viewMode) {

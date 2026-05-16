@@ -19,6 +19,13 @@ class _DraggableFolderSelectorState
     extends ConsumerState<DraggableFolderSelector> {
   int? _dragOverFolderId;
 
+  /// Αλλαγή επιλεγμένου φακέλου — guard αποφεύγει διπλά events
+  void _selectFolder(int? id) {
+    if (ref.read(selectedFolderIdProvider) == id) return; // ίδια τιμή: skip
+    ref.read(selectedFolderIdProvider.notifier).state = id;
+    DebugConfig.nav('DraggableFolderSelector: select folder id=$id');
+  }
+
   @override
   Widget build(BuildContext context) {
     // Διαβάζουμε τα folders από τον αντίστοιχο provider
@@ -27,12 +34,6 @@ class _DraggableFolderSelectorState
 
     // Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
-
-    // Μέθοδος αλλαγής φακέλου (ενημέρωση του κεντρικού provider)
-    void selectFolder(int? id) {
-      ref.read(selectedFolderIdProvider.notifier).state = id;
-      DebugConfig.nav('DraggableFolderSelector: select folder id=$id');
-    }
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -49,7 +50,7 @@ class _DraggableFolderSelectorState
               icon: Icons.folder_open_rounded,
               color: context.cPrimary,
               isSelected: selectedFolderId == null,
-              selectFolder: selectFolder,
+              selectFolder: _selectFolder,
             ),
             const SizedBox(width: Spacing.xs),
             ...folders.map((f) {
@@ -60,7 +61,7 @@ class _DraggableFolderSelectorState
                 icon: Icons.folder_rounded,
                 color: color,
                 isSelected: selectedFolderId == f.id,
-                selectFolder: selectFolder,
+                selectFolder: _selectFolder,
               );
             }),
           ],
