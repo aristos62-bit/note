@@ -695,42 +695,75 @@ class _MoodPicker extends ConsumerWidget {
       children: [
         Text('Διάθεση', style: context.labelMd.withColor(context.cText2)),
         const SizedBox(height: Spacing.xs),
-        Wrap(
-          spacing: Spacing.xs,
-          runSpacing: Spacing.xs,
-          children: _moods.map((m) {
-            final isSelected = current == m.$1;
-            return GestureDetector(
-              onTap: () async {
-                DebugConfig.db('Journal mood: ${m.$1} id=$itemId');
-                final newMood = isSelected ? null : m.$1;
-                await ref
-                    .read(propertyNotifierProvider(itemId).notifier)
-                    .setText('mood', newMood);
-              },
-              child: Tooltip(
-                message: m.$2,
-                child: AnimatedContainer(
-                  duration: AppDuration.fast,
-                  padding: const EdgeInsets.all(Spacing.sm),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? context.cPrimary.withValues(alpha: 0.12)
-                        : ColorsUI.getSurface(context.brightness),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(
-                      color: isSelected
-                          ? context.cPrimary.withValues(alpha: 0.4)
-                          : ColorsUI.getBorder(context.brightness),
-                      width: isSelected ? 1.5 : 1.0,
+        SizedBox(
+          height: 92,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _moods.map((m) {
+                final isSelected = current == m.$1;
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: Spacing.xs),
+                  child: GestureDetector(
+                    onTap: () async {
+                      DebugConfig.db('Journal mood: ${m.$1} id=$itemId');
+
+                      final newMood = isSelected ? null : m.$1;
+
+                      await ref
+                          .read(propertyNotifierProvider(itemId).notifier)
+                          .setText('mood', newMood);
+                    },
+                    child: AnimatedContainer(
+                      duration: AppDuration.fast,
+                      width: 72,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? context.cPrimary.withValues(alpha: 0.12)
+                            : ColorsUI.getSurface(context.brightness),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(
+                          color: isSelected
+                              ? context.cPrimary.withValues(alpha: 0.4)
+                              : ColorsUI.getBorder(context.brightness),
+                          width: isSelected ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            m.$1,
+                            style: TextStyle(
+                              fontSize: isSelected ? 22 : 18,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            m.$2,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: context.labelSm.copyWith(
+                              fontSize: 11,
+                              color: isSelected
+                                  ? context.cPrimary
+                                  : context.cText2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  child: Text(m.$1,
-                      style: TextStyle(fontSize: isSelected ? 22 : 18)),
-                ),
-              ),
-            );
-          }).toList(),
+                );
+              }).toList(),
+            ),
+          ),
         ),
       ],
     );

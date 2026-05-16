@@ -293,7 +293,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           visualDensity: VisualDensity.compact,
           icon: Icon(
             item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: item.favorite ? ColorsUI.getWarning(context.brightness) : context.cText2,
+            color: item.favorite
+                ? ColorsUI.getWarning(context.brightness)
+                : context.cText,
             size: 20,
           ),
           onPressed: () => _toggleFav(item),
@@ -304,7 +306,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           visualDensity: VisualDensity.compact,
           icon: Icon(
             item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            color: item.pinned ? context.cPrimary : context.cText2,
+            color: item.pinned
+                ? context.cPrimary
+                : context.cText,
             size: 20,
           ),
           onPressed: () => _togglePin(item),
