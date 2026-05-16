@@ -408,6 +408,21 @@ class ItemRepository {
     });
   }
 
+  /// Ενοποιημένη αναδιάταξη για ViewMode.both.
+  /// Αποθηκεύει pinnedOrder για ΟΛΑ τα items (pinned και fav-only)
+  /// σε ένα transaction → ένα μόνο stream event → χωρίς intermediate state.
+  Future<void> reorderCombined(List<int> itemIds) async {
+    await _isar.writeTxn(() async {
+      for (int i = 0; i < itemIds.length; i++) {
+        final item = await _isar.items.get(itemIds[i]);
+        if (item != null) {
+          item.pinnedOrder = i.toDouble();
+          item.isDirty = true;
+          await _isar.items.put(item);
+        }
+      }
+    });
+  }
   // ── WATCH (Reactive) ────────────────────────────────────
 
   /// Stream που εκπέμπει ΜΟΝΟ όταν αλλάξουν τα αποτελέσματα

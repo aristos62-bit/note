@@ -896,7 +896,6 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
         }
 
         List<Item> items;
-        bool isPinnedMode = false;
         switch (widget.viewMode) {
           case ViewMode.both:
             final combined = <Item>[...pinned];
@@ -905,36 +904,26 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
                 combined.add(fav);
               }
             }
+            // Νέος unified sort: χρησιμοποιεί pinnedOrder για ΟΛΑ τα items.
+            // Δεν υπάρχει πλέον αναγκαστική σειρά pinned-πριν-fav.
+            // Τα items με pinnedOrder=null (νέα / ποτέ reordered) πάνε στο τέλος.
             combined.sort((a, b) {
-              // pinned πάνω από favorites
-              if (a.pinned && !b.pinned) return -1;
-              if (!a.pinned && b.pinned) return 1;
-              // Αν και τα δύο pinned → sort by pinnedOrder
-              if (a.pinned && b.pinned) {
-                final aO = a.pinnedOrder;
-                final bO = b.pinnedOrder;
-                if (aO != null && bO != null) return aO.compareTo(bO);
-                if (aO != null) return -1;
-                if (bO != null) return 1;
+              final aO = a.pinnedOrder;
+              final bO = b.pinnedOrder;
+              if (aO == null && bO == null) {
                 return (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt);
               }
-              // Αν και τα δύο favorites → sort by favoriteOrder
-              final aO = a.favoriteOrder;
-              final bO = b.favoriteOrder;
-              if (aO != null && bO != null) return aO.compareTo(bO);
-              if (aO != null) return -1;
-              if (bO != null) return 1;
-              return (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt);
+              if (aO == null) return 1;
+              if (bO == null) return -1;
+              return aO.compareTo(bO);
             });
             items = combined;
             break;
           case ViewMode.pinned:
             items = pinned;
-            isPinnedMode = true;
             break;
           case ViewMode.favorites:
             items = favorites;
-            isPinnedMode = false;
             break;
         }
 
@@ -942,7 +931,7 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
 
         return _ReorderableGrid(
           items: items,
-          isPinnedMode: isPinnedMode,
+          viewMode: widget.viewMode,
           folders: widget.folders,
           onOpenItem: widget.onOpenItem,
         );
@@ -997,13 +986,13 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
 
 class _ReorderableGrid extends ConsumerStatefulWidget {
   final List<Item> items;
-  final bool isPinnedMode;
+  final ViewMode viewMode;
   final List<Folder> folders;
   final void Function(Item) onOpenItem;
 
   const _ReorderableGrid({
     required this.items,
-    required this.isPinnedMode,
+    required this.viewMode,
     required this.folders,
     required this.onOpenItem,
   });
@@ -1025,8 +1014,9 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
   void didUpdateWidget(covariant _ReorderableGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // Fingerprint: id + flags + pinnedOrder (χρησιμοποιείται ως unified order σε ViewMode.both)
     String fingerprint(List<Item> items) =>
-        items.map((i) => '${i.id}:${i.pinned}:${i.favorite}').join(',');
+        items.map((i) => '${i.id}:${i.pinned}:${i.favorite}:${i.pinnedOrder}').join(',');
 
     final streamFp = fingerprint(widget.items);
     final oldFp    = fingerprint(oldWidget.items);
@@ -1044,15 +1034,26 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
       _items.insert(newIndex, item);
     });
 
-    final pinnedIds   = _items.where((i) => i.pinned).map((i) => i.id).toList();
-    final favoriteIds = _items.where((i) => i.favorite && !i.pinned).map((i) => i.id).toList();
+    if (widget.viewMode == ViewMode.both) {
+      // ViewMode.both: ενοποιημένη αναδιάταξη — pinnedOrder για ΟΛΑ τα items.
+      // Ένα transaction → ένα stream event → χωρίς intermediate state που
+      // ακύρωνε το drag (αιτία του bug).
+      // Δεν υπάρχει πλέον αναγκαστική σειρά pinned-πριν-fav.
+      final allIds = _items.map((i) => i.id).toList();
+      DebugConfig.print('🔄 reorderCombined (ViewMode.both): $allIds');
+      ref.read(itemNotifierProvider.notifier).reorderCombined(allIds);
+    } else {
+      // ViewMode.pinned / ViewMode.favorites: αναδιάταξη μόνο στην αντίστοιχη ενότητα
+      final pinnedIds   = _items.where((i) => i.pinned).map((i) => i.id).toList();
+      final favoriteIds = _items.where((i) => i.favorite && !i.pinned).map((i) => i.id).toList();
 
-    if (pinnedIds.isNotEmpty) {
-      ref.read(itemNotifierProvider.notifier).reorderPinned(pinnedIds);
-    }
-    if (favoriteIds.isNotEmpty) {
-      DebugConfig.print('🔄 reorderFavorites called with ids: $favoriteIds');
-      ref.read(itemNotifierProvider.notifier).reorderFavorites(favoriteIds);
+      if (pinnedIds.isNotEmpty) {
+        ref.read(itemNotifierProvider.notifier).reorderPinned(pinnedIds);
+      }
+      if (favoriteIds.isNotEmpty) {
+        DebugConfig.print('🔄 reorderFavorites: $favoriteIds');
+        ref.read(itemNotifierProvider.notifier).reorderFavorites(favoriteIds);
+      }
     }
   }
 
