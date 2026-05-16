@@ -212,6 +212,12 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     ref.invalidateSelf();
     ref.invalidate(pinnedAndFavoritesProvider);
   }
+
+  /// Ενοποιημένη αναδιάταξη για ViewMode.both
+  Future<void> reorderCombined(List<int> itemIds) async {
+    await ref.read(dbProvider).items.reorderCombined(itemIds);
+    ref.invalidateSelf();
+  }
 }
 
 final itemNotifierProvider =
