@@ -159,8 +159,6 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
                     },
                   ),
                 ),
-                // ← ΝΕΟ: φάκελοι ως drag targets — σύρε item πάνω σε φάκελο για μεταφορά
-                const SliverToBoxAdapter(child: DraggableFolderSelector()),
                 if (_viewMode == FolderViewMode.all)
                   const SliverToBoxAdapter(child: SizedBox.shrink())
                 else
