@@ -24,7 +24,7 @@ DisableProgramGroupPage=no
 AllowNoIcons=yes
 
 ; Output
-OutputDir=.\InstallerOutput
+OutputDir=C:\Users\Vaggelis\Flutter Projects\super_note\InstallerOutput
 OutputBaseFilename=SuperNoteSetup
 Compression=lzma2/ultra64
 SolidCompression=yes

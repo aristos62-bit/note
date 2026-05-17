@@ -158,11 +158,18 @@ if not exist "%INNO_PATH%" (
     exit /b
 )
 
-"%INNO_PATH%" "%ISS_PATH%" >nul
-    echo [DONE] Windows Setup Created.
-) else (
-    echo [WARNING] Inno Setup not found.
+echo [INFO] Building installer...
+
+"%INNO_PATH%" "%ISS_PATH%"
+
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Inno Setup build FAILED.
+    pause
+    exit /b
 )
+
+echo [DONE] Windows Setup Created.
 
 :: =========================
 echo.
