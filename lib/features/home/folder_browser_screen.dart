@@ -465,11 +465,19 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
     title: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(_folder.icon ?? '📁', style: const TextStyle(fontSize: 20)),
-        const SizedBox(width: Spacing.sm),
+        Text(_folder.icon ?? '📁', style: const TextStyle(fontSize: 18)),
+        const SizedBox(width: Spacing.xs),
         Flexible(
-          child: Text(_folder.name,
-              style: context.titleMd, overflow: TextOverflow.ellipsis),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_folder.name,
+                  style: context.titleSm, overflow: TextOverflow.ellipsis),
+              Text('Όλα τα Στοιχεία',
+                  style: context.labelSm.withColor(context.cText2)),
+            ],
+          ),
         ),
       ],
     ),
