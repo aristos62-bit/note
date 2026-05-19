@@ -315,6 +315,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
         ),
         // Archive
+        // Archive
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(
@@ -324,7 +325,12 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           ),
           tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
           onPressed: () async {
-            await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+            final wasArchived = item.archived;
+            await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, wasArchived);
+            // Αν μόλις αρχειοθετήσαμε (όχι unarchive), γυρνάμε πίσω
+            if (!wasArchived && mounted) {
+              Navigator.of(context).pop();
+            }
           },
         ),
         // Delete
