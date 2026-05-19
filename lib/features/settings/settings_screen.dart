@@ -1195,7 +1195,7 @@ class _PreferredFolderTile extends ConsumerWidget {
         ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
           leading: Icon(preferredId == null ? Icons.home_rounded : Icons.folder_rounded, color: context.cText2, size: 22),
-          title: Text('Προεπιλογή', style: context.bodyMd),
+          title: Text('Προεπιλογή Φακέλου', style: context.bodyMd),
           subtitle: Text(selectedName, style: context.bodySm.withColor(context.cText2)),
           trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: context.cDisabled),
           onTap: () => _showPicker(context, ref),
