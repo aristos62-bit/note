@@ -294,9 +294,22 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
 // ════════════════════════════════════════════════════════════════
 
 Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async {
-  final reminders = await ref.read(pastPendingRemindersProvider.future);
+  // Φόρτωση απευθείας — τοπική DB, χωρίς loading dialog
+  final List<Reminder> reminders;
+  try {
+    reminders = await ref.read(pastPendingRemindersProvider.future);
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Σφάλμα φόρτωσης: $e')),
+      );
+    }
+    return;
+  }
+
+  if (!context.mounted) return;
+
   if (reminders.isEmpty) {
-    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Δεν υπάρχουν παρελθούσες υπενθυμίσεις.')),
     );
@@ -306,110 +319,194 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
   List<Reminder> mutableReminders = List.from(reminders);
   final selectedIds = <int>{};
 
-  if (!context.mounted) return;
   await showDialog(
     context: context,
+    useRootNavigator: true, // ✅ ρητά — αποφεύγουμε GoRouter confusion
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModal) {
+        final allSelected =
+            mutableReminders.isNotEmpty &&
+                selectedIds.length == mutableReminders.length;
+
+        // ── Βοηθητική: διαγραφή μιας υπενθύμισης ──────────────
+        Future<void> deleteSingle(Reminder r) async {
+          await ReminderScheduler.instance.cancelReminder(r.id);
+          await SuperNoteHelper.instance.reminders.delete(r.id);
+          setModal(() {
+            selectedIds.remove(r.id);
+            mutableReminders.remove(r);
+          });
+          ref.invalidate(pastPendingRemindersProvider);
+          if (mutableReminders.isEmpty && ctx.mounted) {
+            Navigator.of(ctx, rootNavigator: true).pop(); // ✅
+          }
+        }
+
+        // ── Βοηθητική: διαγραφή συνόλου ids ───────────────────
+        Future<void> deleteSelected(Set<int> ids) async {
+          final toDelete = mutableReminders
+              .where((r) => ids.contains(r.id))
+              .toList();
+          for (final r in toDelete) {
+            await ReminderScheduler.instance.cancelReminder(r.id);
+            await SuperNoteHelper.instance.reminders.delete(r.id);
+          }
+          setModal(() {
+            mutableReminders.removeWhere((r) => ids.contains(r.id));
+            selectedIds.clear();
+          });
+          ref.invalidate(pastPendingRemindersProvider);
+          if (mutableReminders.isEmpty && ctx.mounted) {
+            Navigator.of(ctx, rootNavigator: true).pop(); // ✅
+          }
+        }
+
         return AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.warning_amber_rounded),
               const SizedBox(width: Spacing.sm),
-              Text('Παρελθούσες Υπενθυμίσεις (${mutableReminders.length})'),
+              Expanded(
+                child: Text(
+                  'Παρελθούσες Υπενθυμίσεις (${mutableReminders.length})',
+                  style: ctx.titleMd,
+                ),
+              ),
             ],
           ),
-          content: Container(
+          content: SizedBox(
             width: double.maxFinite,
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.6),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: mutableReminders.length,
-              separatorBuilder: (_, __) => const Divider(),
-              itemBuilder: (_, i) {
-                final r = mutableReminders[i];
-                final isSelected = selectedIds.contains(r.id);
-                return FutureBuilder<Item?>(
-                  future: SuperNoteHelper.instance.items.getById(r.itemId),
-                  builder: (_, snapshot) {
-                    final item = snapshot.data;
-                    final title = item?.title ?? 'Άγνωστο στοιχείο';
-                    final type = item?.type.name ?? 'item';
-                    return CheckboxListTile(
-                      value: isSelected,
-                      onChanged: (selected) {
-                        setModal(() {
-                          if (selected == true) {
-                            selectedIds.add(r.id);
-                          } else {
-                            selectedIds.remove(r.id);
-                          }
-                        });
-                      },
-                      title: Text(title, style: ctx.bodyMd),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Τύπος: $type', style: ctx.bodySm.withColor(ctx.cText2)),
-                          Text('Έπρεπε να εμφανιστεί: ${AppDateUtils.formatDateTime(r.triggerAt)}',
-                              style: ctx.bodySm.withColor(ctx.cError)),
-                        ],
-                      ),
-                      secondary: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        onPressed: () async {
-                          await ReminderScheduler.instance.cancelReminder(r.id);
-                          await SuperNoteHelper.instance.reminders.delete(r.id);
-                          setModal(() {
-                            selectedIds.remove(r.id);
-                            mutableReminders.remove(r);
-                          });
-                          ref.invalidate(pastPendingRemindersProvider);
-                          if (!context.mounted) return;
-                          if (mutableReminders.isEmpty) Navigator.pop(ctx);
-                        },
-                      ),
-                    );
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── "Επιλογή όλων" header ───────────────────────
+                CheckboxListTile(
+                  value: allSelected,
+                  tristate: false,
+                  onChanged: (v) {
+                    setModal(() {
+                      if (v == true) {
+                        selectedIds.addAll(mutableReminders.map((r) => r.id));
+                      } else {
+                        selectedIds.clear();
+                      }
+                    });
                   },
-                );
-              },
+                  title: Text(
+                    allSelected ? 'Αποεπιλογή όλων' : 'Επιλογή όλων',
+                    style: ctx.bodyMd.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
+                ),
+                const Divider(height: 1),
+                // ── Λίστα υπενθυμίσεων ─────────────────────────
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: mutableReminders.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final r = mutableReminders[i];
+                      final isSelected = selectedIds.contains(r.id);
+                      return FutureBuilder<Item?>(
+                        future: SuperNoteHelper.instance.items.getById(r.itemId),
+                        builder: (_, snapshot) {
+                          final item = snapshot.data;
+                          final title = item?.title ?? 'Άγνωστο στοιχείο';
+                          final type = item?.type.name ?? 'item';
+                          return CheckboxListTile(
+                            value: isSelected,
+                            onChanged: (selected) {
+                              setModal(() {
+                                if (selected == true) {
+                                  selectedIds.add(r.id);
+                                } else {
+                                  selectedIds.remove(r.id);
+                                }
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: const EdgeInsets.only(
+                              left: Spacing.xs,
+                              right: Spacing.xs,
+                            ),
+                            title: Text(title, style: ctx.bodyMd),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Τύπος: $type',
+                                  style: ctx.bodySm.withColor(ctx.cText2),
+                                ),
+                                Text(
+                                  'Έληξε: ${AppDateUtils.formatDateTime(r.triggerAt)}',
+                                  style: ctx.bodySm.withColor(ctx.cError),
+                                ),
+                              ],
+                            ),
+                            secondary: IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: ctx.cError,
+                                size: 20,
+                              ),
+                              tooltip: 'Διαγραφή',
+                              onPressed: () => deleteSingle(r),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Άκυρο')),
-            if (selectedIds.isNotEmpty)
-              TextButton(
-                onPressed: () async {
-                  for (final id in selectedIds.toList()) {
-                    await ReminderScheduler.instance.cancelReminder(id);
-                    await SuperNoteHelper.instance.reminders.delete(id);
-                  }
-                  setModal(() {
-                    selectedIds.clear();
-                    mutableReminders.removeWhere((r) => selectedIds.contains(r.id));
-                  });
-                  ref.invalidate(pastPendingRemindersProvider);
-                  if (!context.mounted) return;
-                  if (mutableReminders.isEmpty) Navigator.pop(ctx);
-                },
-                child: Text('Διαγραφή επιλεγμένων (${selectedIds.length})'),
-              ),
+            // Άκυρο
             TextButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(), // ✅
+              child: const Text('Άκυρο'),
+            ),
+
+            // Διαγραφή επιλεγμένων — μόνο αν υπάρχει μερική επιλογή
+            if (selectedIds.isNotEmpty && !allSelected)
+              FilledButton.tonal(
+                onPressed: () async {
+                  final confirm = await ConfirmDialog.show(
+                    ctx,
+                    title: 'Διαγραφή επιλεγμένων;',
+                    subtitle: 'Θα διαγραφούν ${selectedIds.length} υπενθυμίσεις.',
+                    confirmLabel: 'Διαγραφή',
+                  );
+                  if (confirm != true) return;
+                  await deleteSelected(Set.from(selectedIds));
+                },
+                child: Text('Επιλεγμένες (${selectedIds.length})'),
+              ),
+
+            // Διαγραφή όλων
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: ctx.cError,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () async {
                 final confirm = await ConfirmDialog.show(
                   ctx,
                   title: 'Διαγραφή όλων;',
-                  subtitle: 'Θα διαγραφούν όλες οι παρελθούσες υπενθυμίσεις.',
+                  subtitle:
+                  'Θα διαγραφούν όλες οι ${mutableReminders.length} παρελθούσες υπενθυμίσεις.',
                   confirmLabel: 'Ναι, διαγραφή όλων',
                 );
                 if (confirm != true) return;
-                for (final r in mutableReminders) {
-                  await ReminderScheduler.instance.cancelReminder(r.id);
-                  await SuperNoteHelper.instance.reminders.delete(r.id);
-                }
-                ref.invalidate(pastPendingRemindersProvider);
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
+                await deleteSelected(
+                  mutableReminders.map((r) => r.id).toSet(),
+                );
               },
               child: const Text('Διαγραφή όλων'),
             ),
