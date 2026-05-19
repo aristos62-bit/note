@@ -5,6 +5,13 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 
+// ── Type-safe wrapper για folder reorder drag ──────────────────
+// Διαχωρίζει τα folder drag (index) από item drag (database ID)
+class _FolderDragData {
+  final int index;
+  const _FolderDragData(this.index);
+}
+
 class FolderChipSelector extends ConsumerStatefulWidget {
   final List<Folder> folders;
   final int? selectedFolderId;
@@ -55,27 +62,42 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
 
             return Padding(
               padding: const EdgeInsets.only(right: Spacing.xs),
-              child: DragTarget<int>(
+              child: DragTarget<Object>(               // ✅ Object: δέχεται int (item) ΚΑΙ _FolderDragData (folder)
                 onWillAcceptWithDetails: (details) {
                   setState(() => _dragOverIndex = idx);
                   return true;
                 },
                 onAcceptWithDetails: (details) async {
-                  final draggedIndex = details.data;
-                  if (draggedIndex == idx) {
-                    setState(() => _dragOverIndex = null);
-                    return;
+                  final data = details.data;
+
+                  if (data is _FolderDragData) {
+                    // ── Folder reorder ──────────────────────────
+                    final fromIdx = data.index;
+                    if (fromIdx == idx) {
+                      setState(() => _dragOverIndex = null);
+                      return;
+                    }
+                    final newOrder = List<Folder>.from(folders);
+                    final draggedFolder = newOrder.removeAt(fromIdx); // ✅ ασφαλές: είναι σίγουρα έγκυρο folder index
+                    newOrder.insert(idx, draggedFolder);
+                    await ref
+                        .read(folderNotifierProvider.notifier)
+                        .reorderFolders(newOrder);
+
+                  } else if (data is int) {
+                    // ── Item → Folder move ──────────────────────
+                    final itemId = data;
+                    await ref
+                        .read(itemNotifierProvider.notifier)
+                        .moveToFolder(itemId, folder.id);
                   }
-                  final newOrder = List<Folder>.from(folders);
-                  final draggedFolder = newOrder.removeAt(draggedIndex);
-                  newOrder.insert(idx, draggedFolder);
-                  await ref.read(folderNotifierProvider.notifier).reorderFolders(newOrder);
+
                   setState(() => _dragOverIndex = null);
                 },
                 onLeave: (_) => setState(() => _dragOverIndex = null),
                 builder: (context, candidateData, rejectedData) {
-                  return LongPressDraggable<int>(
-                    data: idx,
+                  return LongPressDraggable<_FolderDragData>( // ✅ typed: περνά _FolderDragData, όχι int
+                    data: _FolderDragData(idx),
                     delay: const Duration(milliseconds: 200),
                     feedback: Material(
                       color: Colors.transparent,
@@ -105,7 +127,6 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                       color: folderColor,
                       onTap: () => widget.onSelect(folder.id),
                       isDragOver: isDragOver,
-                      // System folder: χωρίς 3 τελείες, κανονικό drag
                       onMoreTap: (!isSystem && widget.onFolderLongPress != null)
                           ? () => widget.onFolderLongPress!(folder)
                           : null,
@@ -131,7 +152,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// FOLDER CHIP
+// FOLDER CHIP (αναλλοίωτο)
 // ════════════════════════════════════════════════════════════════
 
 class _FolderChip extends StatelessWidget {
@@ -140,7 +161,7 @@ class _FolderChip extends StatelessWidget {
   final bool isSelected;
   final Color color;
   final VoidCallback onTap;
-  final VoidCallback? onMoreTap;   // ✅ νέο: 3 τελείες
+  final VoidCallback? onMoreTap;
   final bool isDragOver;
   final bool isDragging;
 
@@ -183,7 +204,6 @@ class _FolderChip extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // ── Κύριο περιεχόμενο ──────────────────────────────
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -213,8 +233,6 @@ class _FolderChip extends StatelessWidget {
                 ],
               ),
             ),
-
-            // ── 3 τελείες (top-right) — μόνο αν υπάρχει callback ──
             if (onMoreTap != null && !isDragging)
               Positioned(
                 top: -2,

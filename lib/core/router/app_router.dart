@@ -760,46 +760,6 @@ class _TabletShell extends StatelessWidget {
   }
 }
 
-// // ════════════════════════════════════════════════════════════════
-// // COMING SOON SCREEN — placeholder για Βήμα 3 features
-// // ════════════════════════════════════════════════════════════════
-//
-// class _ComingSoonScreen extends StatelessWidget {
-//   final String title;
-//   final IconData icon;
-//
-//   const _ComingSoonScreen({
-//     required this.title,
-//     required this.icon,
-//   });
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: context.cBg,
-//       appBar: AppBar(
-//         backgroundColor: context.cBg,
-//         elevation: 0,
-//         title: Text(title),
-//       ),
-//       body: Center(
-//         child: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             Icon(icon, size: 72, color: context.cDisabled),
-//             const SizedBox(height: Spacing.md),
-//             Text('Σύντομα διαθέσιμο', style: context.titleMd),
-//             const SizedBox(height: Spacing.sm),
-//             Text('Αυτή η λειτουργία βρίσκεται\nυπό ανάπτυξη.',
-//                 style: context.bodyMd.withColor(context.cText2),
-//                 textAlign: TextAlign.center),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
 // ════════════════════════════════════════════════════════════════
 // ROUTER ERROR SCREEN
 // ════════════════════════════════════════════════════════════════
