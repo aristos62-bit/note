@@ -40,7 +40,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
           // Το "Όλοι" δεν είναι draggable
           _FolderChip(
             label: 'Όλοι',
-            icon: Icons.folder_open_rounded,
+            icon: '📂',
             isSelected: widget.selectedFolderId == null,
             color: context.cPrimary,
             onTap: () => widget.onSelect(null),
@@ -81,7 +81,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                       color: Colors.transparent,
                       child: _FolderChip(
                         label: folder.name,
-                        icon: Icons.folder_rounded,
+                        icon: folder.icon ?? '📁',
                         isSelected: false,
                         color: folderColor,
                         onTap: () {},
@@ -92,7 +92,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                       opacity: 0.3,
                       child: _FolderChip(
                         label: folder.name,
-                        icon: Icons.folder_rounded,
+                        icon: folder.icon ?? '📁',
                         isSelected: widget.selectedFolderId == folder.id,
                         color: folderColor,
                         onTap: () => widget.onSelect(folder.id),
@@ -100,7 +100,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                     ),
                     child: _FolderChip(
                       label: folder.name,
-                      icon: Icons.folder_rounded,
+                      icon: folder.icon ?? '📁',
                       isSelected: widget.selectedFolderId == folder.id,
                       color: folderColor,
                       onTap: () => widget.onSelect(folder.id),
@@ -136,7 +136,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
 
 class _FolderChip extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final String icon;
   final bool isSelected;
   final Color color;
   final VoidCallback onTap;
@@ -188,8 +188,13 @@ class _FolderChip extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 18,
-                      color: isSelected ? Colors.white : color),
+                  Text(
+                    icon,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: isSelected ? Colors.white : color,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Flexible(
                     child: Text(
