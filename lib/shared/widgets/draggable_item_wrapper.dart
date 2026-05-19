@@ -1,10 +1,13 @@
 // lib/shared/widgets/draggable_item_wrapper.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 
 /// Ενιαίο Draggable wrapper για όλα τα item cards.
-/// Αναλαμβάνει το isDraggingProvider και το feedback sizing.
+/// Χρησιμοποιεί LongPressDraggable ώστε το γρήγορο swipe
+/// να πηγαίνει στο scroll και μόνο το παρατεταμένο πάτημα
+/// να ενεργοποιεί το drag-to-reorder.
 class DraggableItemWrapper extends ConsumerWidget {
   final int itemId;
   final Widget child;
@@ -22,9 +25,12 @@ class DraggableItemWrapper extends ConsumerWidget {
     final feedbackWidth =
         MediaQuery.of(context).size.width * feedbackWidthFactor;
 
-    return Draggable<int>(
+    return LongPressDraggable<int>(           // ✅ LongPress αντί για άμεσο drag
       data: itemId,
+      delay: const Duration(milliseconds: 400), // ✅ 400ms → αρκετός χρόνος για scroll
+      hapticFeedbackOnStart: true,              // ✅ haptic feedback όταν αρχίζει το drag
       onDragStarted: () {
+        HapticFeedback.mediumImpact();          // ✅ επιπλέον haptic για confirmation
         ref.read(isDraggingProvider.notifier).state = true;
       },
       onDragEnd: (_) {
@@ -34,6 +40,8 @@ class DraggableItemWrapper extends ConsumerWidget {
         width: feedbackWidth,
         child: Material(
           color: Colors.transparent,
+          elevation: 6,                         // ✅ σκιά κατά το drag για οπτικό feedback
+          borderRadius: BorderRadius.circular(8),
           child: child,
         ),
       ),
