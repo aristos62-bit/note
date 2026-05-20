@@ -127,6 +127,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _ctrl = TextEditingController(text: widget.initialQuery ?? '');
     DebugConfig.nav('SearchScreen init query="${widget.initialQuery}"');
 
+    // ✅ Reset πάντα κατά το άνοιγμα — ο provider είναι global
+    // και κρατά παλιά αποτελέσματα μεταξύ navigations
+    ref.read(_searchNotifierProvider.notifier).clear();
+
     if (widget.initialQuery?.isNotEmpty == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _doSearch());
     } else {
