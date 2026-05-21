@@ -53,7 +53,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   String _lastSavedName = '';
 
   // ── Cached values ─────────────────────────────────────────
-  String _lastPhonesJson = '';   // 🆕 αντί για _lastPhone
+  String _lastPhonesJson = ''; // 🆕 αντί για _lastPhone
   String _lastEmail = '';
   String _lastCompany = '';
   String _lastWebsite = '';
@@ -65,7 +65,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController();
-    _phoneCtrls = [];   // 🆕
+    _phoneCtrls = []; // 🆕
     _emailCtrl = TextEditingController();
     _companyCtrl = TextEditingController();
     _websiteCtrl = TextEditingController();
@@ -110,12 +110,12 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   /// Αποθηκεύει τις τρέχουσες τιμές των πεδίων στη βάση
   /// μόνο αν έχουν αλλάξει σε σχέση με τις cached τιμές.
   Future<void> _persistChanges() async {
-    final name    = _nameCtrl.text.trim();
-    final email   = _emailCtrl.text.trim();
+    final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
     final company = _companyCtrl.text.trim();
     final website = _websiteCtrl.text.trim();
     final address = _addressCtrl.text.trim();
-    final notes   = _notesCtrl.text.trim();
+    final notes = _notesCtrl.text.trim();
 
     final phonesList = _phoneCtrls
         .map((c) => c.text.trim())
@@ -125,34 +125,44 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
     // 1. Τίτλος (πρώτα, ανεξάρτητα)
     if (name != _lastSavedName) {
-      await ref.read(itemNotifierProvider.notifier)
+      await ref
+          .read(itemNotifierProvider.notifier)
           .updateItem(widget.itemId, title: name.isEmpty ? null : name);
     }
 
     // 2. Properties παράλληλα (μόνο αυτά που άλλαξαν)
     final notifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
-    final futures  = <Future<void>>[];
+    final futures = <Future<void>>[];
 
     if (phonesJson != _lastPhonesJson) {
-      futures.add(notifier.setText('phones', phonesList.isEmpty ? null : phonesJson));
+      futures.add(
+          notifier.setText('phones', phonesList.isEmpty ? null : phonesJson));
       futures.add(notifier.remove('phone')); // καθαρισμός παλιού key
     }
-    if (email   != _lastEmail)   futures.add(notifier.setText('email',   email.isEmpty   ? null : email));
-    if (company != _lastCompany) futures.add(notifier.setText('company', company.isEmpty ? null : company));
-    if (website != _lastWebsite) futures.add(notifier.setText('website', website.isEmpty ? null : website));
-    if (address != _lastAddress) futures.add(notifier.setText('address', address.isEmpty ? null : address));
-    if (notes   != _lastNotes)   futures.add(notifier.setText('notes',   notes.isEmpty   ? null : notes));
+    if (email != _lastEmail)
+      futures.add(notifier.setText('email', email.isEmpty ? null : email));
+    if (company != _lastCompany)
+      futures
+          .add(notifier.setText('company', company.isEmpty ? null : company));
+    if (website != _lastWebsite)
+      futures
+          .add(notifier.setText('website', website.isEmpty ? null : website));
+    if (address != _lastAddress)
+      futures
+          .add(notifier.setText('address', address.isEmpty ? null : address));
+    if (notes != _lastNotes)
+      futures.add(notifier.setText('notes', notes.isEmpty ? null : notes));
 
     if (futures.isNotEmpty) await Future.wait(futures);
 
-    _lastSavedName  = name;
+    _lastSavedName = name;
     _lastPhonesJson = phonesJson;
-    _lastEmail      = email;
-    _lastCompany    = company;
-    _lastWebsite    = website;
-    _lastAddress    = address;
-    _lastNotes      = notes;
-    _isEditingName  = false;
+    _lastEmail = email;
+    _lastCompany = company;
+    _lastWebsite = website;
+    _lastAddress = address;
+    _lastNotes = notes;
+    _isEditingName = false;
 
     DebugConfig.db('ContactDetail changes persisted id=${widget.itemId}');
   }
@@ -165,7 +175,9 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       DebugConfig.db('ContactDetail delete empty contact id=${widget.itemId}');
       try {
         if (widget.isNew) {
-          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+          await ref
+              .read(itemNotifierProvider.notifier)
+              .deleteItem(widget.itemId);
         }
       } catch (e) {
         DebugConfig.error('ContactDetail delete', e);
@@ -238,7 +250,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
   Future<void> _showReminderDialog() async {
     final title =
-    _nameCtrl.text.trim().isEmpty ? 'Επαφή' : _nameCtrl.text.trim();
+        _nameCtrl.text.trim().isEmpty ? 'Επαφή' : _nameCtrl.text.trim();
     await showModalBottomSheet(
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
@@ -308,151 +320,159 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   }
 
   Widget _buildMobile(BuildContext context, Item item) => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: _buildAppBar(context, item),
-    body: _ContactBody(
-      item: item,
-      nameCtrl: _nameCtrl,
-      phoneCtrls: _phoneCtrls,   // 🆕
-      emailCtrl: _emailCtrl,
-      companyCtrl: _companyCtrl,
-      websiteCtrl: _websiteCtrl,
-      addressCtrl: _addressCtrl,
-      notesCtrl: _notesCtrl,
-      birthday: _lastBirthday,
-      onNameChanged: _onNameChanged,
-      onPickBirthday: () => _pickBirthday(context),
-      onClearBirthday: _clearBirthday,
-      onSyncProps: _syncPropsFromDB,
-      onShowTagPicker: _showTagPicker,
-      onAddPhone: _addPhoneField,      // 🆕
-      onRemovePhone: _removePhoneField, // 🆕
-    ),
-  );
+        backgroundColor: context.cBg,
+        appBar: _buildAppBar(context, item),
+        body: _ContactBody(
+          item: item,
+          properties:
+          ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [],
+          tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+          nameCtrl: _nameCtrl,
+          phoneCtrls: _phoneCtrls,
+          emailCtrl: _emailCtrl,
+          companyCtrl: _companyCtrl,
+          websiteCtrl: _websiteCtrl,
+          addressCtrl: _addressCtrl,
+          notesCtrl: _notesCtrl,
+          birthday: _lastBirthday,
+          onNameChanged: _onNameChanged,
+          onPickBirthday: () => _pickBirthday(context),
+          onClearBirthday: _clearBirthday,
+          onSyncProps: _syncPropsFromDB,
+          onShowTagPicker: _showTagPicker,
+          onAddPhone: _addPhoneField, // 🆕
+          onRemovePhone: _removePhoneField, // 🆕
+        ),
+      );
 
   Widget _buildTablet(BuildContext context, Item item) => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: _buildAppBar(context, item),
-    body: Row(
-      children: [
-        SizedBox(
-          width: context.isDesktop ? 280 : 240,
-          child: _ContactSummaryPanel(
-            item: item,
-            onShowTagPicker: _showTagPicker,
-          ),
+        backgroundColor: context.cBg,
+        appBar: _buildAppBar(context, item),
+        body: Row(
+          children: [
+            SizedBox(
+              width: context.isDesktop ? 280 : 240,
+              child: _ContactSummaryPanel(
+                item: item,
+                properties: ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [],
+                tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+                onShowTagPicker: _showTagPicker,
+              ),
+            ),
+            VerticalDivider(
+                width: 1, color: ColorsUI.getBorder(context.brightness)),
+            Expanded(
+              child: _ContactBody(
+                item: item,
+                properties: ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [],
+                tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+                nameCtrl: _nameCtrl,
+                phoneCtrls: _phoneCtrls, // 🆕
+                emailCtrl: _emailCtrl,
+                companyCtrl: _companyCtrl,
+                websiteCtrl: _websiteCtrl,
+                addressCtrl: _addressCtrl,
+                notesCtrl: _notesCtrl,
+                birthday: _lastBirthday,
+                onNameChanged: _onNameChanged,
+                onPickBirthday: () => _pickBirthday(context),
+                onClearBirthday: _clearBirthday,
+                onSyncProps: _syncPropsFromDB,
+                onShowTagPicker: _showTagPicker,
+                onAddPhone: _addPhoneField, // 🆕
+                onRemovePhone: _removePhoneField, // 🆕
+              ),
+            ),
+          ],
         ),
-        VerticalDivider(
-            width: 1, color: ColorsUI.getBorder(context.brightness)),
-        Expanded(
-          child: _ContactBody(
-            item: item,
-            nameCtrl: _nameCtrl,
-            phoneCtrls: _phoneCtrls,   // 🆕
-            emailCtrl: _emailCtrl,
-            companyCtrl: _companyCtrl,
-            websiteCtrl: _websiteCtrl,
-            addressCtrl: _addressCtrl,
-            notesCtrl: _notesCtrl,
-            birthday: _lastBirthday,
-            onNameChanged: _onNameChanged,
-            onPickBirthday: () => _pickBirthday(context),
-            onClearBirthday: _clearBirthday,
-            onSyncProps: _syncPropsFromDB,
-            onShowTagPicker: _showTagPicker,
-            onAddPhone: _addPhoneField,      // 🆕
-            onRemovePhone: _removePhoneField, // 🆕
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 
   AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
-    backgroundColor: context.cBg,
-    elevation: 0,
-    scrolledUnderElevation: 1,
-    title: _isSaving
-        ? Row(mainAxisSize: MainAxisSize.min, children: [
-      SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(
-            strokeWidth: 2, color: context.cText2),
-      ),
-      const SizedBox(width: Spacing.xs),
-      Text('',
-          style: context.bodySm.withColor(context.cText2)),
-    ])
-        : null,
-    actions: [
-      // Save
-      // Save
-      IconButton(
-        icon: Icon(Icons.save_rounded, color: context.cPrimary),
-        tooltip: 'Αποθήκευση',
-        onPressed: () async {
-          if (_nameCtrl.text.trim().isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Παρακαλώ προσθέστε όνομα επαφής')),
-            );
-            return;
-          }
-          final nav = Navigator.of(context);
-          await _saveOrDelete();
-          if (!nav.mounted) return;
-          nav.pop();
-        },
-      ),
-      // Reminder
-      IconButton(
-        icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
-        onPressed: _showReminderDialog,
-        tooltip: 'Υπενθύμιση',
-      ),
-      // Favorite
-      IconButton(
-        icon: Icon(
-          item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-          color: item.favorite
-              ? ColorsUI.getWarning(context.brightness)
-              : context.cText2,
-        ),
-        onPressed: () => _toggleFav(item),
-        tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-      ),
-      // Pin
-      IconButton(
-        icon: Icon(
-          item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-          color: item.pinned ? context.cPrimary : context.cText2,
-        ),
-        onPressed: () => _togglePin(item),
-        tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-      ),
-      // Archive
-      IconButton(
-        icon: Icon(
-          item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
-          color: context.cText2,
-        ),
-        onPressed: () => _toggleArchive(item),
-        tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-      ),
-      // Delete
-      IconButton(
-        icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-        onPressed: () => _delete(context),
-        tooltip: 'Διαγραφή',
-      ),
-    ],
-  );
+        backgroundColor: context.cBg,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        title: _isSaving
+            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: context.cText2),
+                ),
+                const SizedBox(width: Spacing.xs),
+                Text('', style: context.bodySm.withColor(context.cText2)),
+              ])
+            : null,
+        actions: [
+          // Save
+          // Save
+          IconButton(
+            icon: Icon(Icons.save_rounded, color: context.cPrimary),
+            tooltip: 'Αποθήκευση',
+            onPressed: () async {
+              if (_nameCtrl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Παρακαλώ προσθέστε όνομα επαφής')),
+                );
+                return;
+              }
+              final nav = Navigator.of(context);
+              await _saveOrDelete();
+              if (!nav.mounted) return;
+              nav.pop();
+            },
+          ),
+          // Reminder
+          IconButton(
+            icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
+            onPressed: _showReminderDialog,
+            tooltip: 'Υπενθύμιση',
+          ),
+          // Favorite
+          IconButton(
+            icon: Icon(
+              item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+              color: item.favorite
+                  ? ColorsUI.getWarning(context.brightness)
+                  : context.cText2,
+            ),
+            onPressed: () => _toggleFav(item),
+            tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+          ),
+          // Pin
+          IconButton(
+            icon: Icon(
+              item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+              color: item.pinned ? context.cPrimary : context.cText2,
+            ),
+            onPressed: () => _togglePin(item),
+            tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
+          ),
+          // Archive
+          IconButton(
+            icon: Icon(
+              item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
+              color: context.cText2,
+            ),
+            onPressed: () => _toggleArchive(item),
+            tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
+          ),
+          // Delete
+          IconButton(
+            icon: Icon(Icons.delete_outline_rounded, color: context.cError),
+            onPressed: () => _delete(context),
+            tooltip: 'Διαγραφή',
+          ),
+        ],
+      );
 
   void _syncPropsFromDB(List<ItemProperty> props) {
     // 🆕 Αν δεν έχουμε ακόμα τηλέφωνα, τα φορτώνουμε από τα props
     if (_phoneCtrls.isEmpty) {
       // Προσπαθούμε να διαβάσουμε 'phones' (JSON λίστα)
-      final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
+      final phonesJson =
+          props.where((p) => p.key == 'phones').firstOrNull?.value;
       List<String> phones = [];
       if (phonesJson != null && phonesJson.isNotEmpty) {
         try {
@@ -466,7 +486,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       }
       // Fallback στο παλιό κλειδί 'phone'
       if (phones.isEmpty) {
-        final oldPhone = props.where((p) => p.key == 'phone').firstOrNull?.value;
+        final oldPhone =
+            props.where((p) => p.key == 'phone').firstOrNull?.value;
         if (oldPhone != null && oldPhone.isNotEmpty) {
           phones = [oldPhone];
         }
@@ -483,7 +504,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       _lastPhonesJson = jsonEncode(phones.where((p) => p.isNotEmpty).toList());
     } else if (_lastPhonesJson.isEmpty) {
       // Έχουμε ήδη controllers αλλά δεν έχουμε cached – πιθανόν πρώτη φόρτωση
-      final currentPhones = _phoneCtrls.map((c) => c.text.trim()).where((p) => p.isNotEmpty).toList();
+      final currentPhones = _phoneCtrls
+          .map((c) => c.text.trim())
+          .where((p) => p.isNotEmpty)
+          .toList();
       _lastPhonesJson = jsonEncode(currentPhones);
     }
 
@@ -491,16 +515,22 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     if (_lastEmail.isNotEmpty) return;
 
     final email = props.where((p) => p.key == 'email').firstOrNull?.value ?? '';
-    final company = props.where((p) => p.key == 'company').firstOrNull?.value ?? '';
-    final website = props.where((p) => p.key == 'website').firstOrNull?.value ?? '';
-    final address = props.where((p) => p.key == 'address').firstOrNull?.value ?? '';
+    final company =
+        props.where((p) => p.key == 'company').firstOrNull?.value ?? '';
+    final website =
+        props.where((p) => p.key == 'website').firstOrNull?.value ?? '';
+    final address =
+        props.where((p) => p.key == 'address').firstOrNull?.value ?? '';
     final notes = props.where((p) => p.key == 'notes').firstOrNull?.value ?? '';
     final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
 
     if (_emailCtrl.text.isEmpty && email.isNotEmpty) _emailCtrl.text = email;
-    if (_companyCtrl.text.isEmpty && company.isNotEmpty) _companyCtrl.text = company;
-    if (_websiteCtrl.text.isEmpty && website.isNotEmpty) _websiteCtrl.text = website;
-    if (_addressCtrl.text.isEmpty && address.isNotEmpty) _addressCtrl.text = address;
+    if (_companyCtrl.text.isEmpty && company.isNotEmpty)
+      _companyCtrl.text = company;
+    if (_websiteCtrl.text.isEmpty && website.isNotEmpty)
+      _websiteCtrl.text = website;
+    if (_addressCtrl.text.isEmpty && address.isNotEmpty)
+      _addressCtrl.text = address;
     if (_notesCtrl.text.isEmpty && notes.isNotEmpty) _notesCtrl.text = notes;
 
     _lastEmail = email;
@@ -512,26 +542,26 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   }
 
   Widget _buildLoading() => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: AppBar(backgroundColor: context.cBg),
-    body: const Center(child: CircularProgressIndicator()),
-  );
+        backgroundColor: context.cBg,
+        appBar: AppBar(backgroundColor: context.cBg),
+        body: const Center(child: CircularProgressIndicator()),
+      );
 
   Widget _buildError() => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: AppBar(backgroundColor: context.cBg),
-    body: EmptyState.error(
-        onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
-  );
+        backgroundColor: context.cBg,
+        appBar: AppBar(backgroundColor: context.cBg),
+        body: EmptyState.error(
+            onRetry: () => ref.invalidate(itemStreamProvider(widget.itemId))),
+      );
 
   Widget _buildNotFound() => Scaffold(
-    backgroundColor: context.cBg,
-    appBar: AppBar(backgroundColor: context.cBg),
-    body: const EmptyState(
-      icon: Icons.person_off_rounded,
-      title: 'Η επαφή δεν βρέθηκε',
-    ),
-  );
+        backgroundColor: context.cBg,
+        appBar: AppBar(backgroundColor: context.cBg),
+        body: const EmptyState(
+          icon: Icons.person_off_rounded,
+          title: 'Η επαφή δεν βρέθηκε',
+        ),
+      );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -540,6 +570,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
 class _ContactBody extends ConsumerWidget {
   final Item item;
+  final List<ItemProperty> properties;
+  final List<Tag> tags;
   final TextEditingController nameCtrl;
   final List<TextEditingController> phoneCtrls; // 🆕
   final TextEditingController emailCtrl;
@@ -553,11 +585,13 @@ class _ContactBody extends ConsumerWidget {
   final VoidCallback onClearBirthday;
   final ValueChanged<List<ItemProperty>> onSyncProps;
   final VoidCallback onShowTagPicker;
-  final VoidCallback onAddPhone;      // 🆕
-  final ValueChanged<int> onRemovePhone; // 🆕
+  final VoidCallback onAddPhone;
+  final ValueChanged<int> onRemovePhone;
 
   const _ContactBody({
     required this.item,
+    required this.properties,
+    required this.tags,
     required this.nameCtrl,
     required this.phoneCtrls,
     required this.emailCtrl,
@@ -577,8 +611,7 @@ class _ContactBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final props = propsAsync.valueOrNull ?? [];
+    final props = properties;
     if (props.isNotEmpty) onSyncProps(props);
 
     final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
@@ -589,7 +622,7 @@ class _ContactBody extends ConsumerWidget {
     final name = item.title ?? '';
     final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    final tagsAsync = ref.watch(itemTagsProvider(item.id));
+    final tags = this.tags;
 
     return CustomScrollView(
       slivers: [
@@ -703,7 +736,7 @@ class _ContactBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding:
-            EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+                EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -726,21 +759,17 @@ class _ContactBody extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: Spacing.xs),
-                tagsAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (tags) => TagChipList.interactive(
-                    tagNames: tags.map((t) => t.name).toList(),
-                    tagColors: tags.map((t) => t.color).toList(),
-                    onTagDelete: (name) async {
-                      final tag = tags.firstWhere((t) => t.name == name,
-                          orElse: () => tags.first);
-                      await ref
-                          .read(tagNotifierProvider.notifier)
-                          .removeFromItem(item.id, tag.id);
-                    },
-                    onAdd: onShowTagPicker,
-                  ),
+                TagChipList.interactive(
+                  tagNames: tags.map((t) => t.name).toList(),
+                  tagColors: tags.map((t) => t.color).toList(),
+                  onTagDelete: (name) async {
+                    final tag = tags.firstWhere((t) => t.name == name,
+                        orElse: () => tags.first);
+                    await ref
+                        .read(tagNotifierProvider.notifier)
+                        .removeFromItem(item.id, tag.id);
+                  },
+                  onAdd: onShowTagPicker,
                 ),
               ],
             ),
@@ -774,12 +803,14 @@ class _PhoneListEditor extends StatelessWidget {
             Icon(Icons.phone_rounded, size: 18, color: context.cText2),
             const SizedBox(width: Spacing.md),
             Expanded(
-              child: Text('Τηλέφωνο${controllers.length > 1 ? ' (${controllers.length})' : ''}',
+              child: Text(
+                  'Τηλέφωνο${controllers.length > 1 ? ' (${controllers.length})' : ''}',
                   style: context.bodySm.withColor(context.cText2)),
             ),
             const Spacer(),
             IconButton(
-              icon: Icon(Icons.add_circle_outline_rounded, color: context.cPrimary, size: 22),
+              icon: Icon(Icons.add_circle_outline_rounded,
+                  color: context.cPrimary, size: 22),
               onPressed: onAdd,
               tooltip: 'Προσθήκη τηλεφώνου',
             ),
@@ -792,13 +823,15 @@ class _PhoneListEditor extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: Spacing.sm),
             child: Row(
               children: [
-                const SizedBox(width: 18 + Spacing.md), // στοίχιση με το εικονίδιο
+                const SizedBox(
+                    width: 18 + Spacing.md), // στοίχιση με το εικονίδιο
                 Expanded(
                   child: TextField(
                     controller: ctrl,
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'[0-9+\-\s()]')),
                     ],
                     style: context.bodyMd,
                     decoration: InputDecoration(
@@ -808,23 +841,28 @@ class _PhoneListEditor extends StatelessWidget {
                       fillColor: ColorsUI.getSurface(context.brightness),
                       border: OutlineInputBorder(
                         borderRadius: AppRadius.inputBR,
-                        borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                        borderSide: BorderSide(
+                            color: ColorsUI.getBorder(context.brightness)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: AppRadius.inputBR,
-                        borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                        borderSide: BorderSide(
+                            color: ColorsUI.getBorder(context.brightness)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: AppRadius.inputBR,
-                        borderSide: BorderSide(color: context.cPrimary, width: 1.5),
+                        borderSide:
+                            BorderSide(color: context.cPrimary, width: 1.5),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.md, vertical: Spacing.sm),
                     ),
                   ),
                 ),
                 if (controllers.length > 1)
                   IconButton(
-                    icon: Icon(Icons.remove_circle_outline_rounded, color: context.cError, size: 22),
+                    icon: Icon(Icons.remove_circle_outline_rounded,
+                        color: context.cError, size: 22),
                     onPressed: () => onRemove(index),
                     tooltip: 'Αφαίρεση τηλεφώνου',
                   ),
@@ -885,12 +923,12 @@ class _ContactField extends StatelessWidget {
                 border: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
                   borderSide:
-                  BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                      BorderSide(color: ColorsUI.getBorder(context.brightness)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
                   borderSide:
-                  BorderSide(color: ColorsUI.getBorder(context.brightness)),
+                      BorderSide(color: ColorsUI.getBorder(context.brightness)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: AppRadius.inputBR,
@@ -944,7 +982,7 @@ class _BirthdayField extends StatelessWidget {
                   color: ColorsUI.getSurface(context.brightness),
                   borderRadius: AppRadius.inputBR,
                   border:
-                  Border.all(color: ColorsUI.getBorder(context.brightness)),
+                      Border.all(color: ColorsUI.getBorder(context.brightness)),
                 ),
                 child: Row(children: [
                   Expanded(
@@ -985,17 +1023,20 @@ class _BirthdayField extends StatelessWidget {
 
 class _ContactSummaryPanel extends ConsumerWidget {
   final Item item;
+  final List<ItemProperty> properties;
+  final List<Tag> tags;
   final VoidCallback onShowTagPicker;
 
   const _ContactSummaryPanel({
     required this.item,
+    required this.properties,
+    required this.tags,
     required this.onShowTagPicker,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final props = propsAsync.valueOrNull ?? [];
+    final props = properties;
 
     // 🆕 Διαβάζουμε τα τηλέφωνα από 'phones' ή 'phone'
     List<String> phones = [];
@@ -1017,7 +1058,7 @@ class _ContactSummaryPanel extends ConsumerWidget {
 
     final email = props.where((p) => p.key == 'email').firstOrNull?.value;
     final company = props.where((p) => p.key == 'company').firstOrNull?.value;
-    final tagsAsync = ref.watch(itemTagsProvider(item.id));
+    final tags = this.tags;
 
     final color = ColorsUI.itemTypeColor(ItemType.contact, context.brightness);
     final name = item.title ?? '';
@@ -1054,10 +1095,10 @@ class _ContactSummaryPanel extends ConsumerWidget {
           const SizedBox(height: Spacing.sm),
           // 🆕 Εμφάνιση όλων των τηλεφώνων
           ...phones.map((p) => _QuickAction(
-            icon: Icons.call_rounded,
-            label: p,
-            color: context.cSuccess,
-          )),
+                icon: Icons.call_rounded,
+                label: p,
+                color: context.cSuccess,
+              )),
           if (email != null)
             _QuickAction(
               icon: Icons.email_rounded,
@@ -1067,13 +1108,9 @@ class _ContactSummaryPanel extends ConsumerWidget {
           const Divider(height: Spacing.xl),
           Text('Tags', style: context.labelMd.withColor(context.cText2)),
           const SizedBox(height: Spacing.sm),
-          tagsAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (tags) => TagChipList.readOnly(
-              tagNames: tags.map((t) => t.name).toList(),
-              tagColors: tags.map((t) => t.color).toList(),
-            ),
+          TagChipList.readOnly(
+            tagNames: tags.map((t) => t.name).toList(),
+            tagColors: tags.map((t) => t.color).toList(),
           ),
           const SizedBox(height: Spacing.sm),
           TextButton.icon(
