@@ -41,6 +41,8 @@ class SuperNoteHelper {
     return _instance!;
   }
 
+  static bool get isInitialized => _instance != null;
+
   final Isar _isar;
 
   /// Πρόσβαση στο raw Isar instance (για advanced queries)

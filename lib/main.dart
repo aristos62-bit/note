@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -10,15 +11,31 @@ import 'core/core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('el');
+
+  if (kIsWeb) {
+    runApp(const _WebNotSupportedApp());
+    return;
+  }
+
+  await initializeDateFormatting();
   DebugConfig.startup('App started');
 
-  // ✅ Παράλληλη εκτέλεση — Isar και Notifications μαζί
-  await Future.wait([
-    SuperNoteHelper.init(),
-    NotificationService.instance.init(),
-  ]);
-  DebugConfig.startup('DB and Notifications initialized');
+  // ✅ Παράλληλη εκτέλεση με error handling
+  try {
+    await Future.wait([
+      SuperNoteHelper.init(),
+      NotificationService.instance.init(),
+    ]);
+    DebugConfig.startup('DB and Notifications initialized');
+  } catch (e, stack) {
+    DebugConfig.error('Init failed', e, stack);
+  }
+
+  // ❌ Αν απέτυχε η DB, δείχνουμε error screen
+  if (!SuperNoteHelper.isInitialized) {
+    runApp(const _InitErrorApp());
+    return;
+  }
 
   final container = ProviderContainer();
   DebugConfig.startup('ProviderContainer created');
@@ -43,18 +60,29 @@ void main() async {
     ),
   );
 
-  // ✅ Βαριές εργασίες ΜΕΤΑ το runApp — ο χρήστης βλέπει UI αμέσως
+  // ✅ Βαριές εργασίες ΜΕΤΑ το runApp
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    // Άδειες notifications (εμφανίζεται dialog — δεν πρέπει να μπλοκάρει startup)
-    final hasPermission = await NotificationService.instance.requestPermission();
-    DebugConfig.startup('Notifications requestPermission -> $hasPermission');
+    try {
+      final hasPermission =
+          await NotificationService.instance.requestPermission();
+      DebugConfig.startup('Notifications requestPermission -> $hasPermission');
+    } catch (e, stack) {
+      DebugConfig.error('requestPermission failed', e, stack);
+    }
 
-    // Προγραμματισμός reminders
-    await ReminderScheduler.instance.scheduleAll();
-    DebugConfig.startup('Reminders scheduled');
+    try {
+      await ReminderScheduler.instance.scheduleAll();
+      DebugConfig.startup('Reminders scheduled');
+    } catch (e, stack) {
+      DebugConfig.error('scheduleAll failed', e, stack);
+    }
 
-    await ReminderScheduler.instance.refreshRecurringReminders();
-    DebugConfig.startup('Recurring reminders refreshed');
+    try {
+      await ReminderScheduler.instance.refreshRecurringReminders();
+      DebugConfig.startup('Recurring reminders refreshed');
+    } catch (e, stack) {
+      DebugConfig.error('refreshRecurringReminders failed', e, stack);
+    }
   });
 }
 
@@ -66,6 +94,7 @@ class SuperNoteApp extends ConsumerWidget {
     final settings = ref.watch(settingsStreamProvider);
     final appTheme  = settings.value?.theme     ?? AppTheme.system;
     final fontScale = settings.value?.fontScale ?? 1.0;
+    final locale    = _localeFromLanguage(settings.value?.language ?? AppLanguage.auto);
     final router = ref.watch(appRouterProvider);
 
     DebugConfig.provider('SuperNoteApp.build theme=${appTheme.name}');
@@ -76,7 +105,8 @@ class SuperNoteApp extends ConsumerWidget {
       themeMode: _toThemeMode(appTheme),
       theme: AppThemeData.light,
       darkTheme: AppThemeData.dark,
-      themeAnimationDuration: Duration.zero,  // ✅ instant switch, μηδέν animation frames
+      themeAnimationDuration:
+          Duration.zero, // ✅ instant switch, μηδέν animation frames
       routerConfig: router,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
@@ -93,16 +123,27 @@ class SuperNoteApp extends ConsumerWidget {
         Locale('en'),
         Locale('el'),
       ],
-      locale: const Locale('el'),
+      locale: locale,
     );
   }
 
   ThemeMode _toThemeMode(AppTheme theme) {
     switch (theme) {
-      case AppTheme.light:  return ThemeMode.light;
-      case AppTheme.dark:   return ThemeMode.dark;
-      case AppTheme.system: return ThemeMode.system;
+      case AppTheme.light:
+        return ThemeMode.light;
+      case AppTheme.dark:
+        return ThemeMode.dark;
+      case AppTheme.system:
+        return ThemeMode.system;
     }
+  }
+}
+
+Locale? _localeFromLanguage(AppLanguage lang) {
+  switch (lang) {
+    case AppLanguage.greek:   return const Locale('el');
+    case AppLanguage.english: return const Locale('en');
+    case AppLanguage.auto:    return null;
   }
 }
 
@@ -116,15 +157,101 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     DebugConfig.print('🔔 [LIFECYCLE] state=$state');
     if (state == AppLifecycleState.resumed) {
-      DebugConfig.startup('App resumed — debounced refreshing recurring reminders');
+      DebugConfig.startup(
+          'App resumed — debounced refreshing recurring reminders');
       // Debounced version to avoid multiple rapid calls
       await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
     }
 
     if (!_disposed && state == AppLifecycleState.detached) {
       _disposed = true;
+      WidgetsBinding.instance.removeObserver(this);
       container.dispose();
       DebugConfig.startup('ProviderContainer disposed');
     }
+  }
+}
+
+/// Fallback error screen όταν αποτυγχάνει η αρχικοποίηση της DB.
+class _InitErrorApp extends StatelessWidget {
+  const _InitErrorApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Color(0xFF1E1E2E),
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline_rounded,
+                    size: 64, color: Colors.redAccent),
+                SizedBox(height: 24),
+                Text(
+                  'Σφάλμα εκκίνησης',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Η εφαρμογή δεν μπόρεσε να αρχικοποιηθεί.\n'
+                  'Παρακαλώ δοκιμάστε ξανά ή επικοινωνήστε με την υποστήριξη.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+class _WebNotSupportedApp extends StatelessWidget {
+  const _WebNotSupportedApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Color(0xFF1E1E2E),
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.language_outlined,
+                    size: 64, color: Colors.orangeAccent),
+                SizedBox(height: 24),
+                Text(
+                  'Web δεν υποστηρίζεται',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Η SuperNote απαιτεί τοπική βάση δεδομένων (Isar)\n'
+                      'και δεν λειτουργεί σε web browser προς το παρόν.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
