@@ -16,7 +16,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -156,7 +155,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   Widget build(BuildContext context) {
     DebugConfig.provider('TaskListScreen build');
 
-    final itemsAsync     = ref.watch(itemsStreamProvider);
+    final itemsAsync     = ref.watch(tasksWithDetailsProvider); // ✅ parallel batch load
     final statusFilter   = ref.watch(_statusFilterProvider);
     final priorityFilter = ref.watch(_priorityFilterProvider);
     final searchQuery    = ref.watch(_searchQueryProvider);
@@ -264,7 +263,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () async => ref.invalidate(itemsStreamProvider),
+                onRefresh: () async => ref.invalidate(tasksWithDetailsProvider),
                 child: itemsAsync.when(
                   loading: () => _LoadingList(),
                   error: (e, _) {
@@ -273,22 +272,19 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                       onRetry: () => ref.invalidate(itemsStreamProvider),
                     );
                   },
-                  data: (allItems) {
-                    var tasks = allItems
-                        .where((i) => i.type == ItemType.task && i.deletedAt == null)
+                  data: (allTasks) {
+                    // ✅ parentId ήδη φορτωμένο — μηδέν ref.read(itemPropertiesProvider) εδώ
+                    var tasks = allTasks
+                        .where((td) => td.task.deletedAt == null && td.parentId == null)
                         .toList();
-                    tasks = tasks.where((task) {
-                      final props = ref.read(itemPropertiesProvider(task.id)).valueOrNull ?? [];
-                      return !props.any((p) => p.key == 'parent_id');
-                    }).toList();
 
                     final viewMode = ref.watch(listViewModeProvider);
                     switch (viewMode) {
                       case ListViewMode.pinned:
-                        tasks = tasks.where((t) => t.pinned).toList();
+                        tasks = tasks.where((td) => td.task.pinned).toList();
                         break;
                       case ListViewMode.favorites:
-                        tasks = tasks.where((t) => t.favorite).toList();
+                        tasks = tasks.where((td) => td.task.favorite).toList();
                         break;
                       case ListViewMode.all:
                         break;
@@ -296,44 +292,41 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 
                     if (selectedFolderId != null) {
                       tasks = tasks
-                          .where((t) => t.folderId == selectedFolderId)
+                          .where((td) => td.task.folderId == selectedFolderId)
                           .toList();
                     }
 
                     if (searchQuery.isNotEmpty) {
                       final q = searchQuery.toLowerCase();
                       tasks = tasks
-                          .where((t) =>
-                          (t.title ?? '').toLowerCase().contains(q))
+                          .where((td) =>
+                          (td.task.title ?? '').toLowerCase().contains(q))
                           .toList();
                     }
 
                     if (statusFilter != null) {
                       tasks = tasks
-                          .where((t) => t.status == statusFilter)
+                          .where((td) => td.task.status == statusFilter)
                           .toList();
                     }
 
                     if (priorityFilter != null) {
                       tasks = tasks
-                          .where((t) => t.priority == priorityFilter)
+                          .where((td) => td.task.priority == priorityFilter)
                           .toList();
                     }
 
+                    // ✅ Tags ήδη φορτωμένα — μηδέν ref.read(itemTagsProvider) εδώ
                     if (activeTags.isNotEmpty) {
-                      tasks = tasks.where((task) {
-                        final tagsAsync =
-                            ref.read(itemTagsProvider(task.id)).valueOrNull ?? [];
-                        return tagsAsync
-                            .any((tag) => activeTags.contains(tag.name));
-                      }).toList();
+                      tasks = tasks
+                          .where((td) =>
+                          td.tags.any((tag) => activeTags.contains(tag.name)))
+                          .toList();
                     }
 
                     final visibleTagNames = <String>{};
-                    for (final task in tasks) {
-                      final tagsAsync =
-                          ref.read(itemTagsProvider(task.id)).valueOrNull ?? [];
-                      for (final tag in tagsAsync) {
+                    for (final td in tasks) {
+                      for (final tag in td.tags) {
                         visibleTagNames.add(tag.name);
                       }
                     }
@@ -356,7 +349,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 
                     return Column(
                       children: [
-                        _StatsBar(tasks: tasks),
+                        // _StatsBar παραμένει με List<Item>
+                        _StatsBar(tasks: tasks.map((td) => td.task).toList()),
                         Expanded(
                           child: _TaskListBody(
                             tasks:        tasks,
@@ -424,7 +418,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 // ════════════════════════════════════════════════════════════════
 
 class _TaskListBody extends ConsumerWidget {
-  final List<Item> tasks;
+  // ✅ List<TaskWithDetails> — dueDate ήδη φορτωμένο, μηδέν ref.watch σε loop
+  final List<TaskWithDetails> tasks;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
   final ValueChanged<Item> onToggleDone;
@@ -441,33 +436,30 @@ class _TaskListBody extends ConsumerWidget {
     final now   = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    final overdue  = <Item>[];
-    final todayT   = <Item>[];
-    final upcoming = <Item>[];
-    final noDate   = <Item>[];
-    final done     = <Item>[];
+    final overdue  = <TaskWithDetails>[];
+    final todayT   = <TaskWithDetails>[];
+    final upcoming = <TaskWithDetails>[];
+    final noDate   = <TaskWithDetails>[];
+    final done     = <TaskWithDetails>[];
 
-    for (final task in tasks) {
-      if (task.status == ItemStatus.done) {
-        done.add(task);
+    for (final td in tasks) {
+      if (td.task.status == ItemStatus.done) {
+        done.add(td);
         continue;
       }
-      final propsAsync = ref.watch(itemPropertiesProvider(task.id));
-      final dueDate    = propsAsync.valueOrNull
-          ?.where((p) => p.key == 'due_date')
-          .firstOrNull
-          ?.dateValue;
+      // ✅ Άμεση πρόσβαση — μηδέν ref.watch(itemPropertiesProvider)
+      final dueDate = td.dueDate;
 
       if (dueDate == null) {
-        noDate.add(task);
+        noDate.add(td);
       } else {
         final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
         if (dueDay.isBefore(today)) {
-          overdue.add(task);
+          overdue.add(td);
         } else if (dueDay == today) {
-          todayT.add(task);
+          todayT.add(td);
         } else {
-          upcoming.add(task);
+          upcoming.add(td);
         }
       }
     }
@@ -476,23 +468,23 @@ class _TaskListBody extends ConsumerWidget {
       slivers: [
         if (overdue.isNotEmpty) ...[
           _SectionHeader(label: 'Ληξιπρόθεσμες', color: context.cError),
-          _buildSliver(context, ref, overdue),
+          _buildSliver(context, overdue),
         ],
         if (todayT.isNotEmpty) ...[
           _SectionHeader(label: 'Σήμερα', color: context.cWarning),
-          _buildSliver(context, ref, todayT),
+          _buildSliver(context, todayT),
         ],
         if (upcoming.isNotEmpty) ...[
           _SectionHeader(label: 'Επερχόμενες', color: context.cPrimary),
-          _buildSliver(context, ref, upcoming),
+          _buildSliver(context, upcoming),
         ],
         if (noDate.isNotEmpty) ...[
           const _SectionHeader(label: 'Χωρίς ημερομηνία'),
-          _buildSliver(context, ref, noDate),
+          _buildSliver(context, noDate),
         ],
         if (done.isNotEmpty) ...[
           _SectionHeader(label: 'Ολοκληρωμένες (${done.length})'),
-          _buildSliver(context, ref, done, dimmed: true),
+          _buildSliver(context, done, dimmed: true),
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
@@ -501,8 +493,7 @@ class _TaskListBody extends ConsumerWidget {
 
   Widget _buildSliver(
       BuildContext context,
-      WidgetRef ref,
-      List<Item> items, {
+      List<TaskWithDetails> items, {
         bool dimmed = false,
       }) {
     final cols = context.gridColumns;
@@ -520,17 +511,10 @@ class _TaskListBody extends ConsumerWidget {
               child: Opacity(
                 opacity: dimmed ? 0.6 : 1.0,
                 child: _TaskCard(
-                  item:         items[i],
-                  dueDate:  ref.read(itemPropertiesProvider(items[i].id))
-                      .valueOrNull
-                      ?.where((p) => p.key == 'due_date')
-                      .firstOrNull
-                      ?.dateValue,
-                  tags:     ref.read(itemTagsProvider(items[i].id))
-                      .valueOrNull ?? [],
-                  onTap:        () => onTap(items[i]),
-                  onLongPress:  () => onLongPress(items[i]),
-                  onToggleDone: () => onToggleDone(items[i]),
+                  td:           items[i],
+                  onTap:        () => onTap(items[i].task),
+                  onLongPress:  () => onLongPress(items[i].task),
+                  onToggleDone: () => onToggleDone(items[i].task),
                 ),
               ),
             ),
@@ -540,7 +524,7 @@ class _TaskListBody extends ConsumerWidget {
       );
     }
 
-    // Grid mode: mainAxisExtent 94 (88 card + 4px bar + 2px padding)
+    // Grid mode
     return SliverPadding(
       padding: EdgeInsets.symmetric(
         horizontal: context.responsiveHPadding,
@@ -557,17 +541,10 @@ class _TaskListBody extends ConsumerWidget {
               (_, i) => Opacity(
             opacity: dimmed ? 0.6 : 1.0,
             child: _TaskCard(
-              item:         items[i],
-              dueDate:  ref.read(itemPropertiesProvider(items[i].id))
-                  .valueOrNull
-                  ?.where((p) => p.key == 'due_date')
-                  .firstOrNull
-                  ?.dateValue,
-              tags:     ref.read(itemTagsProvider(items[i].id))
-                  .valueOrNull ?? [],
-              onTap:        () => onTap(items[i]),
-              onLongPress:  () => onLongPress(items[i]),
-              onToggleDone: () => onToggleDone(items[i]),
+              td:           items[i],
+              onTap:        () => onTap(items[i].task),
+              onLongPress:  () => onLongPress(items[i].task),
+              onToggleDone: () => onToggleDone(items[i].task),
             ),
           ),
           childCount: items.length,
@@ -582,17 +559,14 @@ class _TaskListBody extends ConsumerWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _TaskCard extends ConsumerWidget {
-  final Item item;
-  final DateTime? dueDate;
-  final List<Tag> tags;
+  // ✅ TaskWithDetails — dueDate + tags ήδη φορτωμένα
+  final TaskWithDetails td;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onToggleDone;
 
   const _TaskCard({
-    required this.item,
-    required this.dueDate,
-    required this.tags,
+    required this.td,
     required this.onTap,
     required this.onLongPress,
     required this.onToggleDone,
@@ -600,34 +574,35 @@ class _TaskCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tagNames = tags.map((t) => t.name).toList();
+    // ✅ Άμεση πρόσβαση — μηδέν ref.watch(itemPropertiesProvider)
+    // ✅ Άμεση πρόσβαση — μηδέν ref.watch(itemTagsProvider)
+    final dueDate  = td.dueDate;
+    final tagNames = td.tags.map((t) => t.name).toList();
 
-    // 🆕 Υποεργασίες για progress bar — real-time
-    final subtasksAsync = ref.watch(subtasksStreamProvider(item.id));
+    // ✅ Subtasks: παραμένει reactive — αλλάζουν ανεξάρτητα από τα properties
+    final subtasksAsync = ref.watch(subtasksStreamProvider(td.task.id));
     final subtasks      = subtasksAsync.valueOrNull ?? [];
     final hasSubtasks   = subtasks.isNotEmpty;
 
     return DraggableItemWrapper(
-      itemId: item.id,
+      itemId: td.task.id,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           ItemCard(
-            item:     item,
-            dueDate:  dueDate,
-            tagNames: tagNames,
-            compact:  context.isMobile,
-            onTap:    onTap,
+            item:        td.task,
+            dueDate:     dueDate,
+            tagNames:    tagNames,
+            compact:     context.isMobile,
+            onTap:       onTap,
             onLongPress: onLongPress,
-            // 🆕 Disable checkbox όταν υπάρχουν υποεργασίες
             onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
           ),
-          // 🆕 Progress bar
           _TaskProgressBar(
-            item:      item,
-            subtasks:  subtasks,
-            dueDate:   dueDate,
+            item:     td.task,
+            subtasks: subtasks,
+            dueDate:  dueDate,
           ),
         ],
       ),
