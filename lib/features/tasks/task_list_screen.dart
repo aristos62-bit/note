@@ -278,7 +278,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                         .where((i) => i.type == ItemType.task && i.deletedAt == null)
                         .toList();
                     tasks = tasks.where((task) {
-                      final props = ref.watch(itemPropertiesProvider(task.id)).valueOrNull ?? [];
+                      final props = ref.read(itemPropertiesProvider(task.id)).valueOrNull ?? [];
                       return !props.any((p) => p.key == 'parent_id');
                     }).toList();
 
@@ -323,7 +323,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                     if (activeTags.isNotEmpty) {
                       tasks = tasks.where((task) {
                         final tagsAsync =
-                            ref.watch(itemTagsProvider(task.id)).valueOrNull ?? [];
+                            ref.read(itemTagsProvider(task.id)).valueOrNull ?? [];
                         return tagsAsync
                             .any((tag) => activeTags.contains(tag.name));
                       }).toList();
@@ -332,18 +332,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                     final visibleTagNames = <String>{};
                     for (final task in tasks) {
                       final tagsAsync =
-                          ref.watch(itemTagsProvider(task.id)).valueOrNull ?? [];
+                          ref.read(itemTagsProvider(task.id)).valueOrNull ?? [];
                       for (final tag in tagsAsync) {
                         visibleTagNames.add(tag.name);
                       }
                     }
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      if (!const SetEquality<String>()
-                          .equals(_visibleTagNames, visibleTagNames)) {
-                        setState(() => _visibleTagNames = visibleTagNames);
-                      }
-                    });
+                    _visibleTagNames = visibleTagNames;
 
                     if (tasks.isEmpty) {
                       final hasFilters = searchQuery.isNotEmpty ||
