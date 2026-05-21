@@ -8,11 +8,13 @@ class TaskWithDetails {
   final Item task;
   final DateTime? dueDate;
   final List<Tag> tags;
+  final int? parentId; // ← ΝΕΟ: αποφεύγουμε ref.read(itemPropertiesProvider) στο build
 
   TaskWithDetails({
     required this.task,
     required this.dueDate,
     required this.tags,
+    this.parentId, // ← ΝΕΟ
   });
 }
 
@@ -37,7 +39,13 @@ final tasksWithDetailsProvider = StreamProvider<List<TaskWithDetails>>((ref) asy
               .where((p) => p.key == 'due_date')
               .firstOrNull
               ?.dateValue;
-          return TaskWithDetails(task: task, dueDate: dueDate, tags: tags);
+          // ✅ Εξαγωγή parentId — μηδέν extra DB query, τα properties φορτώθηκαν ήδη
+          final parentIdStr = properties
+              .where((p) => p.key == 'parent_id')
+              .firstOrNull
+              ?.value;
+          final parentId = parentIdStr != null ? int.tryParse(parentIdStr) : null;
+          return TaskWithDetails(task: task, dueDate: dueDate, tags: tags, parentId: parentId);
         }),
       );
       yield result;
