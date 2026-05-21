@@ -1049,9 +1049,7 @@ class _CollectionEntryDetailScreenState
                     ctrl: _fieldCtrls[f.key],
                     boolValue: _boolValues[f.key] ?? false,
                     onAnyChange: () {
-                      setState(() {
-                        _hasChanges = true;
-                      });
+                      _hasChanges = true;
                     },
                     dateValue: _dateValues[f.key],
                     listItems: _listValues[f.key] ?? [],
