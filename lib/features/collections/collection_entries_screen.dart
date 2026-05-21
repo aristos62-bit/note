@@ -861,7 +861,12 @@ class _CollectionEntryDetailScreenState
           break;
         default:
           if (_fieldCtrls[f.key]?.text.isEmpty == true && val.isNotEmpty) {
-            _fieldCtrls[f.key]?.text = val;
+            // ✅ Χρησιμοποιούμε .value αντί .text για να τοποθετήσουμε
+            // τον κέρσορα στο τέλος — το .text = val επιλέγει ΟΛΟ το κείμενο
+            _fieldCtrls[f.key]?.value = TextEditingValue(
+              text: val,
+              selection: TextSelection.collapsed(offset: val.length),
+            );
           }
       }
     }
@@ -899,8 +904,13 @@ class _CollectionEntryDetailScreenState
         }
 
         if (!_isEditingTitle && _titleCtrl.text != (item.title ?? '')) {
-          _titleCtrl.text = item.title ?? '';
-          if (_lastSavedTitle.isEmpty && (item.title ?? '').isNotEmpty) {
+          final newTitle = item.title ?? '';
+          // ✅ Κέρσορας στο τέλος — αποφεύγουμε select-all
+          _titleCtrl.value = TextEditingValue(
+            text: newTitle,
+            selection: TextSelection.collapsed(offset: newTitle.length),
+          );
+          if (_lastSavedTitle.isEmpty && newTitle.isNotEmpty) {
             _lastSavedTitle = item.title ?? '';
           }
           if (_isFavorite != item.favorite) {
