@@ -201,6 +201,14 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
 
                   contacts.sort((a, b) => (a.title ?? '').compareTo(b.title ?? ''));
 
+                  final contactProps = <int, _ContactProps>{};
+                  for (final c in contacts) {
+                    final props = ref.read(itemPropertiesProvider(c.id)).valueOrNull;
+                    if (props != null) {
+                      contactProps[c.id] = _extractContactProps(props);
+                    }
+                  }
+
                   if (contacts.isEmpty) {
                     if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
                       return EmptyState.search(query: searchQuery);
@@ -209,8 +217,8 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
                   }
 
                   return ResponsiveLayout(
-                    mobile: _ContactListMobile(contacts: contacts, onTap: _openDetail, onDelete: _delete),
-                    tablet: _ContactGrid(contacts: contacts, onTap: _openDetail, onDelete: _delete),
+                    mobile: _ContactListMobile(contacts: contacts, contactProps: contactProps, onTap: _openDetail, onDelete: _delete),
+                    tablet: _ContactGrid(contacts: contacts, contactProps: contactProps, onTap: _openDetail, onDelete: _delete),
                   );
                 },
               ),
@@ -236,15 +244,36 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
   );
 }
 
+// ── Contact props helper ──────────────────────────────────────
+
+typedef _ContactProps = ({String? phone, String? email});
+
+_ContactProps _extractContactProps(List<ItemProperty> props) {
+  String? phone;
+  final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
+  if (phonesJson != null && phonesJson.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(phonesJson);
+      if (decoded is List && decoded.isNotEmpty) {
+        phone = decoded.first.toString();
+      }
+    } catch (_) {}
+  }
+  phone ??= props.where((p) => p.key == 'phone').firstOrNull?.value;
+  final email = props.where((p) => p.key == 'email').firstOrNull?.value;
+  return (phone: phone, email: email);
+}
+
 // ──────────────────────────────────────────────
 // Mobile list
 // ──────────────────────────────────────────────
 class _ContactListMobile extends StatelessWidget {
   final List<Item> contacts;
+  final Map<int, _ContactProps> contactProps;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
 
-  const _ContactListMobile({required this.contacts, required this.onTap, required this.onDelete});
+  const _ContactListMobile({required this.contacts, required this.contactProps, required this.onTap, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +297,13 @@ class _ContactListMobile extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.xs),
               child: Text(letter, style: context.labelMd.withColor(context.cText2)),
             ),
-            ...group.map((item) => _DraggableContactTile(contact: item, onTap: onTap, onDelete: onDelete)),
+            ...group.map((item) => _DraggableContactTile(
+              contact: item,
+              phone: contactProps[item.id]?.phone,
+              email: contactProps[item.id]?.email,
+              onTap: onTap,
+              onDelete: onDelete,
+            )),
           ],
         );
       },
@@ -281,10 +316,11 @@ class _ContactListMobile extends StatelessWidget {
 // ──────────────────────────────────────────────
 class _ContactGrid extends StatelessWidget {
   final List<Item> contacts;
+  final Map<int, _ContactProps> contactProps;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
 
-  const _ContactGrid({required this.contacts, required this.onTap, required this.onDelete});
+  const _ContactGrid({required this.contacts, required this.contactProps, required this.onTap, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -297,7 +333,13 @@ class _ContactGrid extends StatelessWidget {
         mainAxisExtent: 90,
       ),
       itemCount: contacts.length,
-      itemBuilder: (_, i) => _DraggableContactTile(contact: contacts[i], onTap: onTap, onDelete: onDelete),
+      itemBuilder: (_, i) => _DraggableContactTile(
+        contact: contacts[i],
+        phone: contactProps[contacts[i].id]?.phone,
+        email: contactProps[contacts[i].id]?.email,
+        onTap: onTap,
+        onDelete: onDelete,
+      ),
     );
   }
 }
@@ -305,32 +347,23 @@ class _ContactGrid extends StatelessWidget {
 // ──────────────────────────────────────────────
 // Draggable Contact Tile
 // ──────────────────────────────────────────────
-class _DraggableContactTile extends ConsumerWidget {
+class _DraggableContactTile extends StatelessWidget {
   final Item contact;
+  final String? phone;
+  final String? email;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
 
-  const _DraggableContactTile({required this.contact, required this.onTap, required this.onDelete});
+  const _DraggableContactTile({
+    required this.contact,
+    required this.phone,
+    required this.email,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(contact.id));
-    final props = propsAsync.valueOrNull ?? [];
-
-// Υποστήριξη και του νέου 'phones' (JSON) και του παλιού 'phone'
-    String? phone;
-    final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
-    if (phonesJson != null && phonesJson.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(phonesJson);
-        if (decoded is List && decoded.isNotEmpty) {
-          phone = decoded.first.toString();
-        }
-      } catch (_) {}
-    }
-    phone ??= props.where((p) => p.key == 'phone').firstOrNull?.value;
-
-    final email = props.where((p) => p.key == 'email').firstOrNull?.value;
+  Widget build(BuildContext context) {
     final name = contact.title ?? 'Χωρίς όνομα';
     final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
 

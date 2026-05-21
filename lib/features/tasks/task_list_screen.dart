@@ -521,6 +521,13 @@ class _TaskListBody extends ConsumerWidget {
                 opacity: dimmed ? 0.6 : 1.0,
                 child: _TaskCard(
                   item:         items[i],
+                  dueDate:  ref.read(itemPropertiesProvider(items[i].id))
+                      .valueOrNull
+                      ?.where((p) => p.key == 'due_date')
+                      .firstOrNull
+                      ?.dateValue,
+                  tags:     ref.read(itemTagsProvider(items[i].id))
+                      .valueOrNull ?? [],
                   onTap:        () => onTap(items[i]),
                   onLongPress:  () => onLongPress(items[i]),
                   onToggleDone: () => onToggleDone(items[i]),
@@ -551,6 +558,13 @@ class _TaskListBody extends ConsumerWidget {
             opacity: dimmed ? 0.6 : 1.0,
             child: _TaskCard(
               item:         items[i],
+              dueDate:  ref.read(itemPropertiesProvider(items[i].id))
+                  .valueOrNull
+                  ?.where((p) => p.key == 'due_date')
+                  .firstOrNull
+                  ?.dateValue,
+              tags:     ref.read(itemTagsProvider(items[i].id))
+                  .valueOrNull ?? [],
               onTap:        () => onTap(items[i]),
               onLongPress:  () => onLongPress(items[i]),
               onToggleDone: () => onToggleDone(items[i]),
@@ -569,12 +583,16 @@ class _TaskListBody extends ConsumerWidget {
 
 class _TaskCard extends ConsumerWidget {
   final Item item;
+  final DateTime? dueDate;
+  final List<Tag> tags;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onToggleDone;
 
   const _TaskCard({
     required this.item,
+    required this.dueDate,
+    required this.tags,
     required this.onTap,
     required this.onLongPress,
     required this.onToggleDone,
@@ -582,13 +600,7 @@ class _TaskCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-    final dueDate    = propsAsync.valueOrNull
-        ?.where((p) => p.key == 'due_date')
-        .firstOrNull
-        ?.dateValue;
-    final tagsAsync = ref.watch(itemTagsProvider(item.id));
-    final tagNames  = tagsAsync.valueOrNull?.map((t) => t.name).toList() ?? [];
+    final tagNames = tags.map((t) => t.name).toList();
 
     // 🆕 Υποεργασίες για progress bar — real-time
     final subtasksAsync = ref.watch(subtasksStreamProvider(item.id));
