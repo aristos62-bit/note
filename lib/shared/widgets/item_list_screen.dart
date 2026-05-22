@@ -354,18 +354,36 @@ class _TagFilterRow extends StatelessWidget {
   }
 }
 
-class _ItemListBody extends StatelessWidget {
+class _ItemListBody extends ConsumerWidget {
   final List<Item> items;
   final ItemType itemType;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
-  const _ItemListBody({required this.items, required this.itemType, required this.onTap, required this.onLongPress});
+
+  const _ItemListBody({
+    required this.items,
+    required this.itemType,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
+    if (oldIndex == newIndex) return;
+    final reordered = List<Item>.from(items);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+    ref.read(itemNotifierProvider.notifier).reorder(reordered);
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return ResponsiveItemList<Item>(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ReorderableItemList(
       items: items,
-      itemBuilder: (ctx, item) => ItemCardBuilder(
+      onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
+      // ── ΝΕΟ: κλειδώνει back gesture κατά το reorder drag ──
+      onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
+      onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
+      itemBuilder: (ctx, item, index) => ItemCardBuilder(
         item: item,
         onTap: onTap,
         onLongPress: onLongPress,

@@ -558,12 +558,9 @@ class _AppointmentDetailScreenState
       data: (item) {
         if (item == null) return _buildNotFound();
 
-        if (
-        !_isEditingTitle &&
-            !_isSaving &&
-            _titleCtrl.text != item.title
-        ) {
-          _titleCtrl.text = item.title ?? '';
+        // Συγχρονισμός μόνο στην αρχική φόρτωση (όταν ο controller είναι άδειος)
+        if (_titleCtrl.text.isEmpty && item.title != null && item.title!.isNotEmpty) {
+          _titleCtrl.text = item.title!;
         }
 
         return PopScope(

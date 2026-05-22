@@ -140,18 +140,18 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       futures.add(notifier.remove('phone')); // καθαρισμός παλιού key
     }
     if (email != _lastEmail)
-      futures.add(notifier.setText('email', email.isEmpty ? null : email));
+      {futures.add(notifier.setText('email', email.isEmpty ? null : email));}
     if (company != _lastCompany)
-      futures
-          .add(notifier.setText('company', company.isEmpty ? null : company));
+      {futures
+          .add(notifier.setText('company', company.isEmpty ? null : company));}
     if (website != _lastWebsite)
-      futures
-          .add(notifier.setText('website', website.isEmpty ? null : website));
+      {futures
+          .add(notifier.setText('website', website.isEmpty ? null : website));}
     if (address != _lastAddress)
-      futures
-          .add(notifier.setText('address', address.isEmpty ? null : address));
+      {futures
+          .add(notifier.setText('address', address.isEmpty ? null : address));}
     if (notes != _lastNotes)
-      futures.add(notifier.setText('notes', notes.isEmpty ? null : notes));
+      {futures.add(notifier.setText('notes', notes.isEmpty ? null : notes));}
 
     if (futures.isNotEmpty) await Future.wait(futures);
 
@@ -526,11 +526,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
     if (_emailCtrl.text.isEmpty && email.isNotEmpty) _emailCtrl.text = email;
     if (_companyCtrl.text.isEmpty && company.isNotEmpty)
-      _companyCtrl.text = company;
+      {_companyCtrl.text = company;}
     if (_websiteCtrl.text.isEmpty && website.isNotEmpty)
-      _websiteCtrl.text = website;
+      {_websiteCtrl.text = website;}
     if (_addressCtrl.text.isEmpty && address.isNotEmpty)
-      _addressCtrl.text = address;
+      {_addressCtrl.text = address;}
     if (_notesCtrl.text.isEmpty && notes.isNotEmpty) _notesCtrl.text = notes;
 
     _lastEmail = email;

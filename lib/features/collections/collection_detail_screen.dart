@@ -93,10 +93,12 @@ class _CollectionDetailScreenState
     DebugConfig.db('CollectionDetail save id=${widget.collectionId} title="$title"');
 
     try {
-      // 1. Τίτλος
+      // 1. Τίτλος + χρώμα στο Item model (για να το διαβάζει το card)
       await ref.read(itemNotifierProvider.notifier)
           .updateItem(widget.collectionId,
-          title: title.isEmpty ? 'Νέα Συλλογή' : title);
+        title: title.isEmpty ? 'Νέα Συλλογή' : title,
+        color: _color,
+      );
 
       // 2. Schema + icon + color παράλληλα
       final notifier = ref.read(

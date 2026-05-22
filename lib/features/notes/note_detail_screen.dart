@@ -329,6 +329,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
             await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, wasArchived);
             // Αν μόλις αρχειοθετήσαμε (όχι unarchive), γυρνάμε πίσω
             if (!wasArchived && mounted) {
+              if (!context.mounted)return;
               Navigator.of(context).pop();
             }
           },
