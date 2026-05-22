@@ -23,6 +23,7 @@ import '../../shared/widgets/widgets.dart';
 import '../../helpers/item_color_helper.dart';
 import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
+import 'package:reorderable_grid/reorderable_grid.dart';
 
 // Provider για real‑time αντιστοίχηση collectionId -> πλήθος εγγραφών
 final collectionEntriesCountProvider = Provider<Map<int, int>>((ref) {
@@ -378,8 +379,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                   });
                 }
 
-                collections.sort((a, b) => (a.title ?? '').compareTo(b.title ?? ''));
-
                 if (collections.isEmpty) {
                   if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
                     return EmptyState.search(query: searchQuery);
@@ -387,7 +386,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                   return _EmptyCollections(onCreate: _createCollection);
                 }
 
-                return _CollectionsGrid(
+                return _CollectionsReorderableGrid(
                   collections: collections,
                   onTap: (item) => _openCollection(context, item),
                   onEdit: (item) => _editCollection(context, ref, item),
@@ -406,47 +405,89 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
 // COLLECTIONS GRID (with draggable cards)
 // ════════════════════════════════════════════════════════════════
 
-class _CollectionsGrid extends StatelessWidget {
+class _CollectionsReorderableGrid extends ConsumerWidget {
   final List<Item> collections;
-  // ← αφαιρούμε το cols
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onEdit;
   final ValueChanged<Item> onDelete;
 
-  const _CollectionsGrid({
+  const _CollectionsReorderableGrid({
     required this.collections,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
+  void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
+    if (oldIndex == newIndex) return;
+    final reordered = List<Item>.from(collections);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+    ref.read(itemNotifierProvider.notifier).reorder(reordered);
+  }
+
+  bool _canDrag(Item item) => !item.pinned && !item.favorite;
+
   @override
-  Widget build(BuildContext context) {
-    // Auto-detect: mobile→2, tablet/desktop→gridColumns+1
+  Widget build(BuildContext context, WidgetRef ref) {
     final cols = context.gridColumns == 1
         ? 3
         : (context.gridColumns == 2 ? 4 : 6);
 
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.md,
-        context.responsiveHPadding,
-        80,
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        mainAxisSpacing: Spacing.md,
-        crossAxisSpacing: Spacing.md,
-        childAspectRatio: 1,
-      ),
-      itemCount: collections.length,
-      itemBuilder: (_, i) => _DraggableCollectionCard(
-        item: collections[i],
-        onTap: () => onTap(collections[i]),
-        onEdit: () => onEdit(collections[i]),
-        onDelete: () => onDelete(collections[i]),
-      ),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            context.responsiveHPadding,
+            Spacing.md,
+            context.responsiveHPadding,
+            80,
+          ),
+          sliver: SliverReorderableGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols,
+              mainAxisSpacing: Spacing.md,
+              crossAxisSpacing: Spacing.md,
+              childAspectRatio: 1,
+            ),
+            itemCount: collections.length,
+            onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
+            itemDragEnable: (i) => _canDrag(collections[i]),
+            autoScroll: false,
+            itemBuilder: (ctx, i) {
+              final item = collections[i];
+              final canDrag = _canDrag(item);
+              return Stack(
+                key: ValueKey(item.id),
+                clipBehavior: Clip.none,
+                children: [
+                  _DraggableCollectionCard(
+                    item: item,
+                    onTap: () => onTap(item),
+                    onEdit: () => onEdit(item),
+                    onDelete: () => onDelete(item),
+                  ),
+                  if (canDrag)
+                    Positioned(
+                      right: 2, bottom: 2,
+                      child: ReorderableGridDragStartListener(
+                        index: i, enabled: true,
+                        child: RotatedBox(
+                          quarterTurns: 1,
+                          child: Icon(
+                            Icons.drag_handle_rounded,
+                            size: 28,
+                            color: context.cText2.withValues(alpha: 1),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -471,10 +512,10 @@ class _DraggableCollectionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final counts = ref.watch(collectionEntriesCountProvider);
-    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.project, context);
+    final customColor = _colorFromString(item.color);
+    final backgroundColor = customColor ?? ItemColorHelper.backgroundColorForType(ItemType.project, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
-    final customColor = _colorFromString(item.color);
     final accentColor = customColor ?? ItemColorHelper.iconColorForType(ItemType.project, context);
     final icon = item.icon ?? '📦';
 
@@ -529,14 +570,21 @@ class _DraggableCollectionCard extends ConsumerWidget {
       ),
     );
 
-    return DraggableItemWrapper(
-      itemId: item.id,
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: () => _showActions(context, ref),
-        child: cardContent,
-      ),
-    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth;
+        final screenWidth = MediaQuery.of(context).size.width;
+        return DraggableItemWrapper(
+          itemId: item.id,
+          feedbackWidthFactor: cardWidth / screenWidth,
+          child: GestureDetector(
+            onTap: onTap,
+            onLongPress: () => _showActions(context, ref),
+            child: cardContent,
+          ),
+        );
+      },
+    );;
   }
 
   Color? _colorFromString(String? hex) {

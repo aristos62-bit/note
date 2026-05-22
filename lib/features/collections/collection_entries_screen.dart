@@ -114,7 +114,10 @@ class _CollectionEntriesScreenState
     final fields = FieldDef.listFromJson(schema);
     final searchQuery = ref.watch(_entriesSearchQueryProvider);
     final activeTags = ref.watch(_entriesTagFilterProvider);
-    final accentColor = _colorFromItem(widget.collection);
+    final collectionAsync = ref.watch(itemStreamProvider(widget.collection.id));
+    final collection = collectionAsync.valueOrNull ?? widget.collection;
+    final accentColor = _colorFromItem(collection);
+    DebugConfig.print('ENTRIES COLOR CHECK: collection.id=${collection.id} color="${collection.color}" accentColor=$accentColor');
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -219,6 +222,7 @@ class _CollectionEntriesScreenState
               error: (e, _) => EmptyState.error(),
               data: (allItems) {
                 return _EntriesList(
+                  key: ValueKey('entries_${accentColor.value}'),
                   collectionId: widget.collection.id,
                   fields: fields,
                   accentColor: accentColor,
@@ -266,6 +270,7 @@ class _EntriesList extends ConsumerWidget {
   final ValueChanged<Set<String>> onVisibleTagsChanged;
 
   const _EntriesList({
+    super.key,
     required this.collectionId,
     required this.fields,
     required this.accentColor,
@@ -402,20 +407,22 @@ class _FilteredEntriesList extends ConsumerWidget {
       );
     }
 
-    return ListView.separated(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical: Spacing.sm,
-      ),
-      itemCount: entries.length,
-      separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
-      itemBuilder: (_, i) => _EntryCard(
-        entry: entries[i],
+    return ReorderableItemList(
+      items: entries,
+      onReorder: (oldIndex, newIndex) {
+        if (oldIndex == newIndex) return;
+        final reordered = List<Item>.from(entries);
+        final item = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+        ref.read(itemNotifierProvider.notifier).reorder(reordered);
+      },
+      itemBuilder: (ctx, entry, index) => _EntryCard(
+        entry: entry,
         fields: fields,
         accentColor: accentColor,
         onTap: () => Navigator.of(context)
             .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
-          entryId: entries[i].id,
+          entryId: entry.id,
           collectionId: collectionId,
           fields: fields,
           isNew: false,
@@ -427,7 +434,7 @@ class _FilteredEntriesList extends ConsumerWidget {
           if (!ok || !context.mounted) return;
           await ref
               .read(itemNotifierProvider.notifier)
-              .deleteItem(entries[i].id);
+              .deleteItem(entry.id);
           ref.invalidate(itemNotifierProvider);
         },
       ),
@@ -461,11 +468,10 @@ class _EntryCard extends ConsumerWidget {
 
     final previewFields = fields.take(3).toList();
 
-    final backgroundColor =
-    ItemColorHelper.backgroundColorForType(ItemType.knowledge, context);
+    final backgroundColor = accentColor.withValues(alpha: 0.85);
     final foregroundColor =
-    ItemColorHelper.textColorForBackground(backgroundColor, context);
-    final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
+    ItemColorHelper.textColorForBackground(accentColor, context);
+    final secondaryForeground = foregroundColor.withValues(alpha: 0.85);
 
     return GestureDetector(
       onTap: onTap,
@@ -475,7 +481,7 @@ class _EntryCard extends ConsumerWidget {
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: AppRadius.cardBR,
-          border: Border.all(color: ColorsUI.getBorder(context.brightness)),
+          border: Border.all(color: accentColor.withValues(alpha: 0.5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

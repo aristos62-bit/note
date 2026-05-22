@@ -418,7 +418,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 // ════════════════════════════════════════════════════════════════
 
 class _TaskListBody extends ConsumerWidget {
-  // ✅ List<TaskWithDetails> — dueDate ήδη φορτωμένο, μηδέν ref.watch σε loop
   final List<TaskWithDetails> tasks;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
@@ -447,9 +446,7 @@ class _TaskListBody extends ConsumerWidget {
         done.add(td);
         continue;
       }
-      // ✅ Άμεση πρόσβαση — μηδέν ref.watch(itemPropertiesProvider)
       final dueDate = td.dueDate;
-
       if (dueDate == null) {
         noDate.add(td);
       } else {
@@ -464,93 +461,82 @@ class _TaskListBody extends ConsumerWidget {
       }
     }
 
-    return CustomScrollView(
-      slivers: [
-        if (overdue.isNotEmpty) ...[
-          _SectionHeader(label: 'Ληξιπρόθεσμες', color: context.cError),
-          _buildSliver(context, overdue),
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveHPadding, 0,
+        context.responsiveHPadding, 80,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (overdue.isNotEmpty) ...[
+            _SectionHeader(label: 'Ληξιπρόθεσμες', color: context.cError),
+            _buildSection(context, ref, overdue),
+          ],
+          if (todayT.isNotEmpty) ...[
+            _SectionHeader(label: 'Σήμερα', color: context.cWarning),
+            _buildSection(context, ref, todayT),
+          ],
+          if (upcoming.isNotEmpty) ...[
+            _SectionHeader(label: 'Επερχόμενες', color: context.cPrimary),
+            _buildSection(context, ref, upcoming),
+          ],
+          if (noDate.isNotEmpty) ...[
+            const _SectionHeader(label: 'Χωρίς ημερομηνία'),
+            _buildSection(context, ref, noDate),
+          ],
+          if (done.isNotEmpty) ...[
+            _SectionHeader(label: 'Ολοκληρωμένες (${done.length})'),
+            _buildSection(context, ref, done, dimmed: true),
+          ],
         ],
-        if (todayT.isNotEmpty) ...[
-          _SectionHeader(label: 'Σήμερα', color: context.cWarning),
-          _buildSliver(context, todayT),
-        ],
-        if (upcoming.isNotEmpty) ...[
-          _SectionHeader(label: 'Επερχόμενες', color: context.cPrimary),
-          _buildSliver(context, upcoming),
-        ],
-        if (noDate.isNotEmpty) ...[
-          const _SectionHeader(label: 'Χωρίς ημερομηνία'),
-          _buildSliver(context, noDate),
-        ],
-        if (done.isNotEmpty) ...[
-          _SectionHeader(label: 'Ολοκληρωμένες (${done.length})'),
-          _buildSliver(context, done, dimmed: true),
-        ],
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
+      ),
     );
   }
 
-  Widget _buildSliver(
+  Widget _buildSection(
       BuildContext context,
+      WidgetRef ref,
       List<TaskWithDetails> items, {
         bool dimmed = false,
       }) {
-    final cols = context.gridColumns;
-
-    if (cols == 1) {
-      return SliverPadding(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.responsiveHPadding,
-          vertical:   Spacing.xs,
-        ),
-        sliver: SliverList(
-          delegate: SliverChildBuilderDelegate(
-                (_, i) => Padding(
-              padding: const EdgeInsets.only(bottom: Spacing.sm),
-              child: Opacity(
-                opacity: dimmed ? 0.6 : 1.0,
-                child: _TaskCard(
-                  td:           items[i],
-                  onTap:        () => onTap(items[i].task),
-                  onLongPress:  () => onLongPress(items[i].task),
-                  onToggleDone: () => onToggleDone(items[i].task),
-                ),
-              ),
-            ),
-            childCount: items.length,
-          ),
-        ),
-      );
-    }
-
-    // Grid mode
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical:   Spacing.xs,
-      ),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount:   cols,
-          mainAxisSpacing:  Spacing.sm,
-          crossAxisSpacing: Spacing.sm,
-          mainAxisExtent:   94,
-        ),
-        delegate: SliverChildBuilderDelegate(
-              (_, i) => Opacity(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.md),
+      child: ReorderableItemList(
+        items: items.map((td) => td.task).toList(),
+        gridItemExtent: 94,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        onReorder: (oldIndex, newIndex) =>
+            _onTaskReorder(ref, items, oldIndex, newIndex),
+        itemBuilder: (ctx, item, index) {
+          final td = items.firstWhere((t) => t.task.id == item.id);
+          return Opacity(
             opacity: dimmed ? 0.6 : 1.0,
             child: _TaskCard(
-              td:           items[i],
-              onTap:        () => onTap(items[i].task),
-              onLongPress:  () => onLongPress(items[i].task),
-              onToggleDone: () => onToggleDone(items[i].task),
+              td: td,
+              onTap: () => onTap(td.task),
+              onLongPress: () => onLongPress(td.task),
+              onToggleDone: () => onToggleDone(td.task),
             ),
-          ),
-          childCount: items.length,
-        ),
+          );
+        },
       ),
     );
+  }
+
+  void _onTaskReorder(
+      WidgetRef ref,
+      List<TaskWithDetails> items,
+      int oldIndex,
+      int newIndex,
+      ) {
+    if (oldIndex == newIndex) return;
+    final reordered = List<TaskWithDetails>.from(items);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+    ref.read(itemNotifierProvider.notifier)
+        .reorder(reordered.map((td) => td.task).toList());
   }
 }
 
@@ -587,7 +573,7 @@ class _TaskCard extends ConsumerWidget {
     return DraggableItemWrapper(
       itemId: td.task.id,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+       crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           ItemCard(
@@ -697,16 +683,14 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          context.responsiveHPadding, Spacing.md,
-          context.responsiveHPadding, Spacing.xs,
-        ),
-        child: Text(
-          label,
-          style: context.labelMd.withColor(color ?? context.cText2),
-        ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveHPadding, Spacing.md,
+        context.responsiveHPadding, Spacing.xs,
+      ),
+      child: Text(
+        label,
+        style: context.labelMd.withColor(color ?? context.cText2),
       ),
     );
   }

@@ -90,6 +90,14 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
   }
 
+  void _reorderHabits(List<Item> items, int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    final reordered = List<Item>.from(items);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+    ref.read(itemNotifierProvider.notifier).reorder(reordered);
+  }
+
   @override
   Widget build(BuildContext context) {
     final habitsAsync = ref.watch(itemsStreamProvider);
@@ -202,10 +210,12 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
                     children: [
                       _TodayProgress(habits: habitsOnly),
                       Expanded(
-                        child: ResponsiveItemList<Item>(
+                        child: ReorderableItemList(
                           items: habitsOnly,
                           gridItemExtent: 140,
-                          itemBuilder: (ctx, item) => _DraggableHabitCard(
+                          onReorder: (oldIndex, newIndex) =>
+                              _reorderHabits(habitsOnly, oldIndex, newIndex),
+                          itemBuilder: (ctx, item, index) => _DraggableHabitCard(
                             habit: item,
                             onTap: () => _openDetail(item.id),
                             onDelete: () => _delete(context, item),
