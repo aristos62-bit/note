@@ -36,3 +36,73 @@
 
 ### Επόμενα βήματα (δεν πρόλαβαν)
 - Διερεύνηση άλλων θεμάτων (π.χ. SearchScreen route που λείπει από app_router, ή άλλα προβλήματα)
+
+---
+
+## Session 2 — 22-05-2026
+
+### Στόχος 1
+Προσθήκη drag-and-drop reorder στις custom list screens (collections + collection entries).
+
+### Αλλαγές
+
+**Collections reorder** (`collections_screen.dart`):
+- Αντικατάσταση `_CollectionsGrid` (`GridView.builder`) με `_CollectionsReorderableGrid`
+- Χρήση `SliverReorderableGrid` + `ReorderableGridDragStartListener` (immediate drag, όχι long-press)
+- ReorderHandle redesign: bottom-right corner, 48×48 transparent, `RotatedBox(quarterTurns:1)` + `Icons.drag_handle_rounded` + `cText2.withValues(alpha:0.5)`
+- `_canDrag(Item item) => !item.pinned && !item.favorite`
+
+**Entries reorder** (`collection_entries_screen.dart`):
+- Αντικατάσταση `ListView.separated` με shared `ReorderableItemList` (list mode)
+
+**Bug fixes:**
+- Αφαίρεση alphabetical `collections.sort()` (γραμμή 382) που αναιρούσε το reorder
+- Αφαίρεση `-1` adjustment στο `_onReorder` για `SliverReorderableGrid`
+
+**ReorderHandle consistency** (`reorder_handle.dart`):
+- Εναρμόνιση style: `RotatedBox` + `drag_handle_rounded` + `cText2`
+
+### Στόχος 2
+Διόρθωση 6 προβλημάτων reminders/notifications.
+
+| Fix | Περιγραφή | Αρχεία |
+|-----|-----------|--------|
+| 1 | `pastPendingRemindersProvider`: `getPending()` φιλτράρει triggerAt∈[now, now+7d] → νέα `getPastPending()` χωρίς upper bound | `super_note_helper.dart` |
+| 2 | Recurring update: `_saveReminder` άλλαζε μόνο root χωρίς να καθαρίζει παιδιά → `deleteReminderThread` + recreate + `refreshRecurringReminders` | `reminder_section.dart`, `reminder_scheduler.dart` |
+| 3 | Habits double-scheduling: `refreshRecurringReminders` δημιουργούσε child reminders για habit roots → filtering habits | `reminder_scheduler.dart` |
+| 4 | Notification tap: `_onTap` ήταν TODO → static callback `onNotificationTap` + navigation στο `main.dart` | `notification_service.dart`, `main.dart` |
+| 5 | Timezone: hardcoded `Europe/Athens` → system `timeZoneName` με fallback `UTC` | `notification_service.dart` |
+| 6 | Status check: `scheduleReminder` δεν έλεγχε `reminder.status` → skip αν status≠pending | `reminder_scheduler.dart` |
+
+### Στόχος 3
+Διόρθωση notification tap navigation — δεν πήγαινε στο σωστό item.
+
+**Fix notification tap** (`main.dart`, `app_router.dart`):
+- Μετακίνηση `onNotificationTap` assignment πριν το `runApp` (όχι σε postFrameCallback)
+- Επέκταση `switch` για όλα τα `ItemType`: note, task, habit, event, appointment, journal, contact
+- Προσθήκη missing route builders: `AppRoutes.event()`, `AppRoutes.appointment()`
+- Cold start fix: `getNotificationAppLaunchDetails()` ΠΡΙΝ το `init()` για να πιάσει notification taps σε cold start (το `onDidReceiveNotificationResponse` ΔΕΝ πυροδοτείται πάντα σε cold start)
+- Stub `onNotificationTap` πριν το `init()` ως fallback για warm start
+- Νέα μέθοδος `NotificationService.getLaunchPayload()` (`notification_service.dart`)
+
+### Εκκρεμότητες — Επόμενα βήματα
+
+**Reorder bugs (collections + entries):**
+- Τα pinned+favorite items ΔΕΝ πρέπει να μετακινούνται — αλλάζουν θέση όταν drag-άρονται άλλα items δίπλα/μπροστά τους
+- Λύση: αφαίρεση drag handle από pinned/favorite items, να μένουν πάντα στην αρχή της λίστας
+- Check: `_canDrag` ήδη υπάρχει, αλλά χρειάζεται να μπλοκάρει και τη μετακίνηση ΑΛΛΩΝ items μπροστά τους
+
+**Home screen folder reorder:**
+- Προσθήκη drag-and-drop reorder και στα items μέσα στους φακέλους της αρχικής (HomeFolderView)
+
+**Appointment favorite bug fix (έγινε σήμερα):**
+- `item_provider.dart:155` — `ref.invalidate(itemByIdProvider(id))` μετά από `updateItem`
+- `appointment_detail_screen.dart` — `_toggleFav` με άμεσο provider call + `item.favorite` από stream
+
+**Notification tap cold start fix (έγινε σήμερα):**
+- `NotificationService.getLaunchPayload()` — `getNotificationAppLaunchDetails()` πριν το `init()`
+- stub→real handler pattern + επεξεργασία pending payload
+
+**Εκκρεμότητες γενικά:**
+- Αφαίρεση debug logs πριν το release
+- Έλεγχος collections/entries reorder persistence

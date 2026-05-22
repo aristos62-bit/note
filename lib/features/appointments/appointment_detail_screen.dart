@@ -500,6 +500,11 @@ class _AppointmentDetailScreenState
     await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
   }
 
+  Future<void> _toggleFav(Item item) async {
+    await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
+    setState(() => _isFavorite = !item.favorite);
+  }
+
   Future<void> _archive(Item item) async {
     final ok = await ConfirmDialog.archive(context);
     if (!ok || !mounted) return;
@@ -610,10 +615,10 @@ class _AppointmentDetailScreenState
         ),
         // 4. Favorite
         IconButton(
-          icon: Icon(_isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: _isFavorite ? ColorsUI.getWarning(context.brightness) : context.cText2),
-          onPressed: () => setState(() => _isFavorite = !_isFavorite),
-          tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+          icon: Icon(item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+              color: item.favorite ? ColorsUI.getWarning(context.brightness) : context.cText2),
+          onPressed: () => _toggleFav(item),
+          tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
         ),
         // 5. Archive
         IconButton(

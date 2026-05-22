@@ -158,23 +158,45 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
 
       if (_reminderId != null) {
         DebugConfig.notif('ReminderSection._saveReminder: updating existing reminder id=$_reminderId');
-        final existing = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
-        DebugConfig.notif('ReminderSection._saveReminder: found ${existing.length} existing reminders');
-        if (existing.isNotEmpty) {
-          final r = existing.first;
-          DebugConfig.notif('ReminderSection._saveReminder: before update: id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
-          r.triggerAt = _triggerDateTime!;
-          r.rrule = rrule;
-          r.title = title;
-          r.body = body;
-          r.updatedAt = DateTime.now();
+        if (rrule != null) {
+          DebugConfig.notif('ReminderSection._saveReminder: recurring update, deleting old thread and recreating');
+          await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
+          final root = Reminder()
+            ..itemId = widget.itemId
+            ..triggerAt = _triggerDateTime!
+            ..rrule = rrule
+            ..title = title
+            ..body = body
+            ..status = ReminderStatus.pending
+            ..createdAt = DateTime.now();
           await SuperNoteHelper.instance.isar.writeTxn(() async {
-            await SuperNoteHelper.instance.isar.reminders.put(r);
+            await SuperNoteHelper.instance.isar.reminders.put(root);
           });
-          DebugConfig.notif('ReminderSection._saveReminder: updated reminder id=${r.id}, new trigger=${r.triggerAt}');
-          await ReminderScheduler.instance.scheduleReminder(r);
+          _reminderId = root.id;
+          DebugConfig.notif('ReminderSection._saveReminder: created new root id=${root.id}, trigger=${root.triggerAt}');
+          await ReminderScheduler.instance.scheduleReminder(root);
+          await ReminderScheduler.instance.refreshRecurringReminders();
+          DebugConfig.notif('ReminderSection._saveReminder: recurring update DONE');
         } else {
-          DebugConfig.notif('ReminderSection._saveReminder: WARNING - _reminderId=$_reminderId but no reminders found in DB!');
+          DebugConfig.notif('ReminderSection._saveReminder: one-shot update');
+          final existing = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
+          DebugConfig.notif('ReminderSection._saveReminder: found ${existing.length} existing reminders');
+          if (existing.isNotEmpty) {
+            final r = existing.first;
+            DebugConfig.notif('ReminderSection._saveReminder: before update: id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
+            r.triggerAt = _triggerDateTime!;
+            r.rrule = null;
+            r.title = title;
+            r.body = body;
+            r.updatedAt = DateTime.now();
+            await SuperNoteHelper.instance.isar.writeTxn(() async {
+              await SuperNoteHelper.instance.isar.reminders.put(r);
+            });
+            DebugConfig.notif('ReminderSection._saveReminder: updated reminder id=${r.id}, new trigger=${r.triggerAt}');
+            await ReminderScheduler.instance.scheduleReminder(r);
+          } else {
+            DebugConfig.notif('ReminderSection._saveReminder: WARNING - _reminderId=$_reminderId but no reminders found in DB!');
+          }
         }
       } else {
         DebugConfig.notif('ReminderSection._saveReminder: creating NEW reminder for itemId=${widget.itemId}');

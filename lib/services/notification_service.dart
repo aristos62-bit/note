@@ -56,7 +56,7 @@ import 'package:super_note/core/utils/debug_config.dart';
 class NotificationService {
   NotificationService._internal();
   static final NotificationService instance = NotificationService._internal();
-
+  static void Function(String payload)? onNotificationTap;
   final FlutterLocalNotificationsPlugin _plugin =
   FlutterLocalNotificationsPlugin();
 
@@ -74,7 +74,12 @@ class NotificationService {
     if (_initialized) return;
 
     tz_data.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Europe/Athens'));
+    final localTimezone = DateTime.now().timeZoneName;
+    try {
+      tz.setLocalLocation(tz.getLocation(localTimezone));
+    } catch (_) {
+      tz.setLocalLocation(tz.getLocation('UTC'));
+    }
 
     const androidSettings =
     AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -93,6 +98,22 @@ class NotificationService {
 
     await _createAndroidChannel();
     _initialized = true;
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // COLD START — Έλεγχος αν το app ξεκίνησε από notification tap
+  // ─────────────────────────────────────────────────────────
+
+  Future<String?> getLaunchPayload() async {
+    try {
+      final details = await _plugin.getNotificationAppLaunchDetails();
+      if (details?.didNotificationLaunchApp == true) {
+        return details?.notificationResponse?.payload;
+      }
+    } catch (_) {
+      // ignore
+    }
+    return null;
   }
 
   // ─────────────────────────────────────────────────────────
@@ -229,8 +250,10 @@ class NotificationService {
   );
 
   static void _onTap(NotificationResponse r) {
-    // TODO: GoRouter navigation με payload (itemId)
-    // AppRouter.instance.push('/item/${r.payload}');
+    DebugConfig.notif('NotificationService._onTap: payload=${r.payload}');
+    if (r.payload != null && onNotificationTap != null) {
+      onNotificationTap!(r.payload!);
+    }
   }
 
   @pragma('vm:entry-point')

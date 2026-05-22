@@ -20,6 +20,20 @@ void main() async {
   await initializeDateFormatting();
   DebugConfig.startup('App started');
 
+  // ✅ Cold start: έλεγχος πριν το init() αν το app ξεκίνησε από notification
+  final coldStartPayload = await NotificationService.instance.getLaunchPayload();
+  if (coldStartPayload != null) {
+    DebugConfig.notif('Cold start notification payload: $coldStartPayload');
+  }
+
+  // ✅ Stub: πιάνει notification taps που έρχονται ΚΑΤΑ την init (σε περίπτωση που
+  //    το onDidReceiveNotificationResponse πυροδοτηθεί)
+  String? pendingNotificationPayload;
+  NotificationService.onNotificationTap = (payload) {
+    DebugConfig.notif('onNotificationTap (stub): payload=$payload');
+    pendingNotificationPayload = payload;
+  };
+
   // ✅ Παράλληλη εκτέλεση με error handling
   try {
     await Future.wait([
@@ -39,6 +53,50 @@ void main() async {
 
   final container = ProviderContainer();
   DebugConfig.startup('ProviderContainer created');
+
+  // ✅ Η πραγματική υλοποίηση navigation
+  Future<void> handleNotificationTap(String payload) async {
+    DebugConfig.notif('handleNotificationTap: payload=$payload');
+    final itemId = int.tryParse(payload);
+    if (itemId == null) {
+      DebugConfig.notif('handleNotificationTap: invalid payload, skipping');
+      return;
+    }
+    final item = await SuperNoteHelper.instance.items.getById(itemId);
+    if (item == null) {
+      DebugConfig.notif('handleNotificationTap: item $itemId not found, skipping');
+      return;
+    }
+    DebugConfig.notif('handleNotificationTap: itemId=$itemId type=${item.type.name}');
+    final route = switch (item.type) {
+      ItemType.note        => AppRoutes.note(item.id),
+      ItemType.task        => AppRoutes.task(item.id),
+      ItemType.habit       => AppRoutes.habit(item.id),
+      ItemType.event       => AppRoutes.event(item.id),
+      ItemType.appointment => AppRoutes.appointment(item.id),
+      ItemType.journal     => AppRoutes.journal_(item.id),
+      ItemType.contact     => AppRoutes.contact(item.id),
+      _ => null,
+    };
+    DebugConfig.notif('handleNotificationTap: route=$route');
+    if (route != null) {
+      DebugConfig.notif('handleNotificationTap: pushing $route');
+      await container.read(appRouterProvider).push(route);
+      DebugConfig.notif('handleNotificationTap: push completed');
+    } else {
+      DebugConfig.notif('handleNotificationTap: no route for type ${item.type.name}');
+    }
+  }
+
+  // ✅ Real handler — αντικαθιστά το stub
+  NotificationService.onNotificationTap = handleNotificationTap;
+
+  // ✅ Επεξεργασία payload: cold start > stub > τίποτα
+  final effectivePayload = coldStartPayload ?? pendingNotificationPayload;
+  if (effectivePayload != null) {
+    DebugConfig.notif('Processing notification payload: $effectivePayload');
+    handleNotificationTap(effectivePayload);
+  }
 
   WidgetsBinding.instance.addObserver(
     _AppLifecycleObserver(container),
@@ -69,7 +127,6 @@ void main() async {
     } catch (e, stack) {
       DebugConfig.error('requestPermission failed', e, stack);
     }
-
     try {
       await ReminderScheduler.instance.scheduleAll();
       DebugConfig.startup('Reminders scheduled');

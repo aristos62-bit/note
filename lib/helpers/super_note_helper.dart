@@ -976,8 +976,18 @@ class ReminderRepository {
           .deleteAll();
     });
   }
-}
 
+  Future<List<Reminder>> getPastPending() {
+    final now = DateTime.now();
+    return _isar.reminders
+        .filter()
+        .statusEqualTo(ReminderStatus.pending)
+        .triggerAtLessThan(now)
+        .sortByTriggerAt()
+        .findAll();
+  }
+
+}
 // ─────────────────────────────────────────────────────────────────
 // FolderRepository (αμετάβλητο εκτός από reorder που προστέθηκε)
 // ─────────────────────────────────────────────────────────────────
