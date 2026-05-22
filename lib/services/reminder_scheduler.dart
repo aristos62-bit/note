@@ -83,11 +83,22 @@ class ReminderScheduler {
         .parentReminderIdIsNull()
         .findAll();
 
+    // Εξαίρεση: habits έχουν δικό τους scheduling (habit_service)
+    final filtered = <Reminder>[];
+    for (final r in allRecurring) {
+      final item = await SuperNoteHelper.instance.items.getById(r.itemId);
+      if (item != null && item.type == ItemType.habit) {
+        DebugConfig.notif('refreshRecurringReminders: skipping habit root id=${r.id}');
+        continue;
+      }
+      filtered.add(r);
+    }
+
     DebugConfig.notif('Found ${allRecurring.length} recurring root reminders');
     final now = DateTime.now();
     int createdTotal = 0;
 
-    for (final root in allRecurring) {
+    for (final root in filtered) {
       final rrule = root.rrule!;
       if (rrule.isEmpty) continue;
 
@@ -273,6 +284,10 @@ class ReminderScheduler {
     if (!settings.notificationsEnabled) return;
     if (reminder.triggerAt.isBefore(DateTime.now())) {
       DebugConfig.notif('scheduleReminder: trigger in past, skipping');
+      return;
+    }
+    if (reminder.status != ReminderStatus.pending) {
+      DebugConfig.notif('scheduleReminder: status is ${reminder.status.name}, skipping');
       return;
     }
     await _scheduleOne(

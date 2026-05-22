@@ -33,9 +33,7 @@ final archivedItemsProvider = FutureProvider<List<Item>>((ref) async {
 
 // ── Provider για παρελθούσες pending υπενθυμίσεις ──────────────
 final pastPendingRemindersProvider = FutureProvider<List<Reminder>>((ref) async {
-  final allReminders = await SuperNoteHelper.instance.reminders.getPending();
-  final now = DateTime.now();
-  return allReminders.where((r) => r.triggerAt.isBefore(now)).toList();
+  return SuperNoteHelper.instance.reminders.getPastPending();
 });
 
 // ════════════════════════════════════════════════════════════════

@@ -152,6 +152,7 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       favorite: favorite,
     );
     ref.invalidateSelf();
+    ref.invalidate(itemByIdProvider(id));
   }
 
   /// Soft delete

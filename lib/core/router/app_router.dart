@@ -66,6 +66,8 @@ class AppRoutes {
   static String journal_(int id) => '/journal/$id';
   static String contact(int id) => '/contacts/$id';
   static String collection(int id) => '/collections/$id';
+  static String event(int id) => '/calendar/$id';
+  static String appointment(int id) => '/appointments/$id';
 }
 
 // ── Router Provider ────────────────────────────────────────────
