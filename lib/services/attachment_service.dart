@@ -88,22 +88,16 @@ class AttachmentService {
   // Διέγραψε από disk ΚΑΙ DB
   // ─────────────────────────────────────────────────────────
 
-  Future<void> delete(int attachmentId) async {
-    // final attachments = await SuperNoteHelper.instance.attachments
-    //     .getForItem(0); // Placeholder — φέρνουμε by id παρακάτω
-    // TODO: Πρόσθεσε getById στο AttachmentRepository αν χρειαστεί
-
-    await SuperNoteHelper.instance.attachments.delete(attachmentId);
-  }
-
-  Future<void> deleteFile(Attachment attachment) async {
-    // Διέγραψε από disk
-    final file = File(attachment.localPath);
-    if (await file.exists()) await file.delete();
-
-    // Διέγραψε από DB
-    await SuperNoteHelper.instance.attachments.delete(attachment.id);
-  }
+Future<void> delete(int attachmentId) async {
+  final attachment = await SuperNoteHelper.instance.attachments
+      .getById(attachmentId);
+  if (attachment == null) return;
+  // Διέγραψε από disk
+  final file = File(attachment.localPath);
+  if (await file.exists()) await file.delete();
+  // Διέγραψε από DB
+  await SuperNoteHelper.instance.attachments.delete(attachmentId);
+}
 
   // ─────────────────────────────────────────────────────────
   // PRIVATE

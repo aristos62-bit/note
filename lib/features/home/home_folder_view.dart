@@ -116,10 +116,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Widget build(BuildContext context) {
     DebugConfig.provider('HomeFolderView build folder=${folder.id}');
 
-    final statsAsync     = ref.watch(folderStatsProvider(folder.id));
-    final pinnedAsync    = ref.watch(pinnedByFolderStreamProvider(folder.id));
-    final favoritesAsync = ref.watch(favoritesByFolderStreamProvider(folder.id));
-    final recentAsync    = ref.watch(recentByFolderProvider(folder.id));
+    final folderData     = ref.watch(folderViewDataProvider(folder.id));
     final isDragging     = ref.watch(isDraggingProvider);   // ← ΝΕΟ
 
     final folderColor = _colorFromHex(folder.color, context.cPrimary);
@@ -131,18 +128,15 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
           RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(itemsByFolderStreamProvider(folder.id));
-              ref.invalidate(folderStatsProvider(folder.id));
-              ref.invalidate(pinnedByFolderStreamProvider(folder.id));
-              ref.invalidate(favoritesByFolderStreamProvider(folder.id));
-              ref.invalidate(recentByFolderProvider(folder.id));
+              ref.invalidate(folderViewDataProvider(folder.id));
             },
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  child: statsAsync.when(
+                  child: folderData.when(
                     loading: () => _StatsRowSkeleton(),
                     error: (_, __) => const SizedBox.shrink(),
-                    data: (stats) => _FolderStatsRow(stats: stats),
+                    data: (data) => _FolderStatsRow(stats: data.stats),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -162,7 +156,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
                 if (_viewMode == FolderViewMode.all)
                   const SliverToBoxAdapter(child: SizedBox.shrink())
                 else
-                  _buildContent(context, pinnedAsync, favoritesAsync, recentAsync),
+                  _buildContent(context, folderData),
               ],
             ),
           ),
@@ -184,41 +178,24 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
 
   Widget _buildContent(
       BuildContext context,
-      AsyncValue<List<Item>> pinnedAsync,
-      AsyncValue<List<Item>> favoritesAsync,
-      AsyncValue<List<Item>> recentAsync,
+      AsyncValue<FolderViewData> folderData,
       ) {
-    switch (_viewMode) {
-      case FolderViewMode.pinned:
-        return pinnedAsync.when(
-          loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-          error: (e, _) {
-            DebugConfig.error('HomeFolderView pinned', e);
-            return const SliverToBoxAdapter(child: SizedBox.shrink());
-          },
-          data: (items) => _buildItemsList(context, items),
-        );
-      case FolderViewMode.favorites:
-        return favoritesAsync.when(
-          loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-          error: (e, _) {
-            DebugConfig.error('HomeFolderView favorites', e);
-            return const SliverToBoxAdapter(child: SizedBox.shrink());
-          },
-          data: (items) => _buildItemsList(context, items),
-        );
-      case FolderViewMode.recent:
-        return recentAsync.when(
-          loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-          error: (e, _) {
-            DebugConfig.error('HomeFolderView recent', e);
-            return const SliverToBoxAdapter(child: SizedBox.shrink());
-          },
-          data: (items) => _buildItemsList(context, items),
-        );
-      case FolderViewMode.all:
+    return folderData.when(
+      loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+      error: (e, _) {
+        DebugConfig.error('HomeFolderView data', e);
         return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
+      },
+      data: (data) {
+        final items = switch (_viewMode) {
+          FolderViewMode.pinned => data.pinned,
+          FolderViewMode.favorites => data.favorites,
+          FolderViewMode.recent => data.recent,
+          FolderViewMode.all => <Item>[],
+        };
+        return _buildItemsList(context, items);
+      },
+    );
   }
 
   Widget _buildItemsList(BuildContext context, List<Item> items) {

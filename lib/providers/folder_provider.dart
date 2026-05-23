@@ -28,6 +28,13 @@ final foldersProvider = FutureProvider<List<Folder>>((ref) async {
   return await ref.watch(foldersStreamProvider.future);
 });
 
+/// Real-time stream ενός folder by ID
+final folderByIdProvider =
+    StreamProvider.family<Folder?, int>((ref, id) {
+  final db = ref.watch(dbProvider);
+  return db.folders.watchById(id);
+});
+
 // ─── 🆕 ΚΕΝΤΡΙΚΟ PROVIDER ΓΙΑ ΤΟ ΕΠΙΛΕΓΜΕΝΟ FOLDER ──────────────────
 /// Το id του φακέλου που έχει επιλέξει ο χρήστης ή έχει προεπιλεγεί.
 /// Όλες οι οθόνες και ο DraggableFolderSelector διαβάζουν από εδώ.

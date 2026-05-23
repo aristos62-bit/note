@@ -31,8 +31,6 @@ final itemsStreamProvider = StreamProvider<List<Item>>((ref) {
     wsId,
     type:            typeFilter,
     includeArchived: showArchived,
-  ).map((items) =>
-      items.where((i) => i.title != null && i.title!.isNotEmpty).toList()
   );
 });
 
@@ -343,6 +341,49 @@ StreamProvider.family<List<Item>, int>((ref, folderId) async* {
       return bDate.compareTo(aDate);
     });
     return active.take(10).toList();
+  }
+
+  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
+    data: (items) async* {
+      yield compute(items);
+    },
+    loading: () async* {},
+    error: (_, __) async* {},
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Combined data για HomeFolderView (αντικαθιστά 4 ξεχωριστά providers)
+// ─────────────────────────────────────────────────────────────────
+
+class FolderViewData {
+  final Map<ItemType, int> stats;
+  final List<Item> pinned;
+  final List<Item> favorites;
+  final List<Item> recent;
+
+  FolderViewData({
+    required this.stats,
+    required this.pinned,
+    required this.favorites,
+    required this.recent,
+  });
+}
+
+/// Ένας provider — 1 rebuild αντί για 4
+final folderViewDataProvider =
+    StreamProvider.family<FolderViewData, int>((ref, folderId) async* {
+  FolderViewData compute(List<Item> items) {
+    final stats = <ItemType, int>{};
+    for (final type in ItemType.values) {
+      stats[type] = items.where((i) => i.type == type && i.deletedAt == null).length;
+    }
+    final pinned = items.where((i) => i.pinned && i.deletedAt == null).toList();
+    final favorites = items.where((i) => i.favorite && i.deletedAt == null).toList();
+    final active = items.where((i) => !i.archived && i.deletedAt == null).toList();
+    active.sort((a, b) => (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt));
+    final recent = active.take(10).toList();
+    return FolderViewData(stats: stats, pinned: pinned, favorites: favorites, recent: recent);
   }
 
   yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(

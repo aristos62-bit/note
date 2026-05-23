@@ -1046,6 +1046,9 @@ class FolderRepository {
 
   Future<Folder?> getById(int id) => _isar.folders.get(id);
 
+  Stream<Folder?> watchById(int id) =>
+      _isar.folders.watchObject(id, fireImmediately: true);
+
   Future<Folder?> update(int id, {
     String? name,
     String? icon,
@@ -1193,6 +1196,8 @@ class AttachmentRepository {
         .sortByCreatedAt()
         .findAll();
   }
+
+  Future<Attachment?> getById(int id) => _isar.attachments.get(id);
 
   Future<void> delete(int id) async {
     await _isar.writeTxn(() async {
