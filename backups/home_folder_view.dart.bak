@@ -116,51 +116,56 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Widget build(BuildContext context) {
     DebugConfig.provider('HomeFolderView build folder=${folder.id}');
 
-    final folderData  = ref.watch(folderViewDataProvider(folder.id));
-    // ΝΕΟ: itemsByFolderStreamProvider → ταξινόμηση από sortOrder (κρατά τη σειρά μετά reorder)
-    final allItems    = ref.watch(itemsByFolderStreamProvider(folder.id));
-    final isDragging  = ref.watch(isDraggingProvider);
+    final statsAsync     = ref.watch(folderStatsProvider(folder.id));
+    final pinnedAsync    = ref.watch(pinnedByFolderStreamProvider(folder.id));
+    final favoritesAsync = ref.watch(favoritesByFolderStreamProvider(folder.id));
+    final recentAsync    = ref.watch(recentByFolderProvider(folder.id));
+    final isDragging     = ref.watch(isDraggingProvider);   // ← ΝΕΟ
+
     final folderColor = _colorFromHex(folder.color, context.cPrimary);
 
-    return PopScope(
+    return PopScope(                                         // ← ΝΕΟ: προστασία back gesture κατά drag
       canPop: !isDragging,
       child: Stack(
         children: [
-          // Column αντί CustomScrollView → επιτρέπει ReorderableItemList με Expanded
-          Column(
-            children: [
-              // Stats — fixed header
-              folderData.when(
-                loading: () => _StatsRowSkeleton(),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (data) => _FolderStatsRow(stats: data.stats),
-              ),
-              // ViewMode toggle — fixed header
-              _FolderViewModeToggle(
-                current: _viewMode,
-                onChanged: (mode) {
-                  DebugConfig.nav('HomeFolderView: mode changed to $mode');
-                  if (mode == FolderViewMode.all) {
-                    Navigator.of(context).push(AppTransitions.slideRoute(
-                        FolderBrowserScreen(folder: folder)));
-                  } else {
-                    setState(() => _viewMode = mode);
-                  }
-                },
-              ),
-              // Scrollable list — Expanded παίρνει το υπόλοιπο ύψος
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(itemsByFolderStreamProvider(folder.id));
-                    ref.invalidate(folderViewDataProvider(folder.id));
-                  },
-                  child: _buildContent(context, allItems),
+          RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(itemsByFolderStreamProvider(folder.id));
+              ref.invalidate(folderStatsProvider(folder.id));
+              ref.invalidate(pinnedByFolderStreamProvider(folder.id));
+              ref.invalidate(favoritesByFolderStreamProvider(folder.id));
+              ref.invalidate(recentByFolderProvider(folder.id));
+            },
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: statsAsync.when(
+                    loading: () => _StatsRowSkeleton(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (stats) => _FolderStatsRow(stats: stats),
+                  ),
                 ),
-              ),
-            ],
+                SliverToBoxAdapter(
+                  child: _FolderViewModeToggle(
+                    current: _viewMode,
+                    onChanged: (mode) {
+                      DebugConfig.nav('HomeFolderView: mode changed to $mode');
+                      if (mode == FolderViewMode.all) {
+                        Navigator.of(context).push(AppTransitions.slideRoute(
+                            FolderBrowserScreen(folder: folder)));
+                      } else {
+                        setState(() => _viewMode = mode);
+                      }
+                    },
+                  ),
+                ),
+                if (_viewMode == FolderViewMode.all)
+                  const SliverToBoxAdapter(child: SizedBox.shrink())
+                else
+                  _buildContent(context, pinnedAsync, favoritesAsync, recentAsync),
+              ],
+            ),
           ),
-          // FAB πάνω από τη λίστα
           Positioned(
             right: Spacing.md,
             bottom: Spacing.lg,
@@ -177,85 +182,115 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
     );
   }
 
-  // Δέχεται πλέον allItems (sortOrder-sorted) αντί για folderViewData
   Widget _buildContent(
       BuildContext context,
-      AsyncValue<List<Item>> allItemsAsync,
+      AsyncValue<List<Item>> pinnedAsync,
+      AsyncValue<List<Item>> favoritesAsync,
+      AsyncValue<List<Item>> recentAsync,
       ) {
-    if (_viewMode == FolderViewMode.all) return const SizedBox.shrink();
-
-    return allItemsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) {
-        DebugConfig.error('HomeFolderView data', e);
-        return const SizedBox.shrink();
-      },
-      data: (all) {
-        // Τοπικό φιλτράρισμα — η σειρά εξαρτάται από sortOrder (watchByFolder)
-        // Μετά από reorder() το stream ξανα-εκπέμπει στη ΝΕΑ σειρά sortOrder ✓
-        final items = switch (_viewMode) {
-          FolderViewMode.pinned    => all.where((i) => i.pinned   && i.deletedAt == null).toList(),
-          FolderViewMode.favorites => all.where((i) => i.favorite && i.deletedAt == null).toList(),
-          FolderViewMode.recent    => all.where((i) => i.deletedAt == null && !i.archived).take(10).toList(),
-          FolderViewMode.all       => <Item>[],
-        };
-        return _buildItemsList(context, items);
-      },
-    );
+    switch (_viewMode) {
+      case FolderViewMode.pinned:
+        return pinnedAsync.when(
+          loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+          error: (e, _) {
+            DebugConfig.error('HomeFolderView pinned', e);
+            return const SliverToBoxAdapter(child: SizedBox.shrink());
+          },
+          data: (items) => _buildItemsList(context, items),
+        );
+      case FolderViewMode.favorites:
+        return favoritesAsync.when(
+          loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+          error: (e, _) {
+            DebugConfig.error('HomeFolderView favorites', e);
+            return const SliverToBoxAdapter(child: SizedBox.shrink());
+          },
+          data: (items) => _buildItemsList(context, items),
+        );
+      case FolderViewMode.recent:
+        return recentAsync.when(
+          loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+          error: (e, _) {
+            DebugConfig.error('HomeFolderView recent', e);
+            return const SliverToBoxAdapter(child: SizedBox.shrink());
+          },
+          data: (items) => _buildItemsList(context, items),
+        );
+      case FolderViewMode.all:
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
   }
 
   Widget _buildItemsList(BuildContext context, List<Item> items) {
     if (items.isEmpty) return _buildEmptyState(context);
 
-    return ReorderableItemList(
-      items: items,
-      gridItemExtent: 100,
-      onReorder: (oldIdx, newIdx) {
-        if (oldIdx == newIdx) return;
-        final reordered = List<Item>.from(items);
-        final moved = reordered.removeAt(oldIdx);
-        reordered.insert(newIdx > oldIdx ? newIdx - 1 : newIdx, moved);
-        // Ανανεώνει sortOrder → itemsByFolderStreamProvider εκπέμπει στη νέα σειρά ✓
-        ref.read(itemNotifierProvider.notifier).reorder(reordered);
-      },
-      onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
-      onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
-      // DraggableItemWrapper: διατηρεί folder-to-folder drag
-      itemBuilder: (ctx, item, index) => DraggableItemWrapper(
-        itemId: item.id,
-        child: _FolderItemCard(
-          item: item,
-          onTap: () => _openItem(context, item),
+    if (context.isMobile) {
+      return SliverPadding(
+        padding: EdgeInsets.fromLTRB(
+          context.responsiveHPadding, Spacing.md,
+          context.responsiveHPadding, 100,
         ),
-      ),
-    );
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+                (_, i) => Padding(
+              padding: const EdgeInsets.only(bottom: Spacing.sm),
+              child: DraggableItemWrapper(          // ← ΝΕΟ: κάνει το item draggable
+                itemId: items[i].id,
+                child: _FolderItemCard(
+                  item: items[i],
+                  onTap: () => _openItem(context, items[i]),
+                ),
+              ),
+            ),
+            childCount: items.length,
+          ),
+        ),
+      );
+    } else {
+      return SliverPadding(
+        padding: EdgeInsets.fromLTRB(
+          context.responsiveHPadding, Spacing.md,
+          context.responsiveHPadding, 100,
+        ),
+        sliver: SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: context.gridColumns,
+            mainAxisSpacing: Spacing.sm,
+            crossAxisSpacing: Spacing.sm,
+            mainAxisExtent: 100,
+          ),
+          delegate: SliverChildBuilderDelegate(
+                (_, i) => DraggableItemWrapper(          // ← ΝΕΟ: κάνει το item draggable
+              itemId: items[i].id,
+              child: _FolderItemCard(
+                item: items[i],
+                onTap: () => _openItem(context, items[i]),
+              ),
+            ),
+            childCount: items.length,
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildEmptyState(BuildContext context) {
     final (icon, title, subtitle) = switch (_viewMode) {
-      FolderViewMode.pinned    => (Icons.push_pin_outlined,    'Δεν υπάρχουν καρφιτσωμένα στοιχεία', 'Καρφίτσωσε στοιχεία για να τα βλέπεις εδώ.'),
-      FolderViewMode.favorites => (Icons.star_outline_rounded, 'Δεν υπάρχουν αγαπημένα στοιχεία',    'Πρόσθεσε αγαπημένα για να τα βλέπεις εδώ.'),
-      FolderViewMode.recent    => (Icons.history_rounded,      'Δεν υπάρχουν πρόσφατα στοιχεία',     'Δημιούργησε στοιχεία στον φάκελο για να τα βλέπεις εδώ.'),
-      FolderViewMode.all       => (Icons.inbox_rounded,        'Ο φάκελος είναι άδειος',              'Πάτα + για να δημιουργήσεις το πρώτο στοιχείο.'),
+      FolderViewMode.pinned => (Icons.push_pin_outlined, 'Δεν υπάρχουν καρφιτσωμένα στοιχεία', 'Καρφίτσωσε στοιχεία για να τα βλέπεις εδώ.'),
+      FolderViewMode.favorites => (Icons.star_outline_rounded, 'Δεν υπάρχουν αγαπημένα στοιχεία', 'Πρόσθεσε αγαπημένα για να τα βλέπεις εδώ.'),
+      FolderViewMode.recent => (Icons.history_rounded, 'Δεν υπάρχουν πρόσφατα στοιχεία', 'Δημιούργησε στοιχεία στον φάκελο για να τα βλέπεις εδώ.'),
+      FolderViewMode.all => (Icons.inbox_rounded, 'Ο φάκελος είναι άδειος', 'Πάτα + για να δημιουργήσεις το πρώτο στοιχείο.'),
     };
-    // Center αντί SliverToBoxAdapter — συμβατό με Column+Expanded
-    return Center(
+    return SliverToBoxAdapter(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            context.responsiveHPadding, Spacing.xl,
-            context.responsiveHPadding, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: context.cDisabled),
-            const SizedBox(height: Spacing.md),
-            Text(title, style: context.titleMd),
-            const SizedBox(height: Spacing.sm),
-            Text(subtitle,
-                style: context.bodyMd.withColor(context.cText2),
-                textAlign: TextAlign.center),
-          ],
-        ),
+        padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.xl, context.responsiveHPadding, 0),
+        child: Column(children: [
+          Icon(icon, size: 56, color: context.cDisabled),
+          const SizedBox(height: Spacing.md),
+          Text(title, style: context.titleMd),
+          const SizedBox(height: Spacing.sm),
+          Text(subtitle, style: context.bodyMd.withColor(context.cText2), textAlign: TextAlign.center),
+        ]),
       ),
     );
   }
