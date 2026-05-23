@@ -584,7 +584,7 @@ class _DraggableCollectionCard extends ConsumerWidget {
           ),
         );
       },
-    );;
+    );
   }
 
   Color? _colorFromString(String? hex) {

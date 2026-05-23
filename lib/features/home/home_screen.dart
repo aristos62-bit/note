@@ -29,45 +29,29 @@ enum ViewMode { pinned, favorites, both }
 
 // ── Εικονίδια για νέο φάκελο (24) ─────────────────────────────
 const _kFolderIcons = [
-  '📁',
-  '💼',
-  '🏠',
-  '📚',
-  '🎵',
-  '🎮',
-  '⚽',
-  '🌍',
-  '🔬',
-  '🎨',
-  '✈️',
-  '🍕',
-  '🏆',
-  '🖼️',
-  '📝',
-  '⭐',
-  '🎬',
-  '💡',
-  '🛒',
-  '🏋️',
-  '🌱',
-  '📊',
-  '🔐',
-  '🎯',
+  '📁',  '💼',  '🏠',  '📚',  '🎵',  '🎮',  '⚽',  '🌍',  '🔬',
+  '✈️',  '🍕',  '🏆',  '🖼️',  '📝',  '⭐',  '🎬',  '💡',  '🛒',
+  '🏋️',  '🌱',  '📊',  '🔐',  '🎯','😊', '👤', '👥', '🧠', '🗣️',
+  '🛠️', '⚙️', '🔧', '🧰', '📐',  '💻', '📱', '📋', '🏷️', '🔔',
+  '⏰', '💬', '🚀', '🔑', '🎉','🎨','👦', '👧', '👴', '👵', '👨',
+  '👩', '👶', '🧑', '👪', '🧠','🛠️', '⚙️', '🔧', '🧰', '📐',
+  '💻', '📱', '🔑', '🚀', '🎉',
 ];
 
 const _kFolderColors = [
-  '#6366F1',
-  '#8B5CF6',
-  '#EC4899',
-  '#EF4444',
-  '#F97316',
-  '#EAB308',
-  '#22C55E',
-  '#14B8A6',
-  '#06B6D4',
-  '#3B82F6',
-  '#64748B',
-  '#E11D48',
+  // Σκούρο → Ανοιχτό
+  '#6366F1', '#A1A3F7',   // Indigo
+  '#8B5CF6', '#B99DFA',   // Purple
+  '#EC4899', '#F491C2',   // Pink
+  '#EF4444', '#F58F8F',   // Red
+  '#F97316', '#FBAB73',   // Orange
+  '#EAB308', '#F2D16B',   // Yellow
+  '#22C55E', '#7ADC9E',   // Green
+  '#14B8A6', '#72D4CA',   // Teal
+  '#06B6D4', '#6AD3E5',   // Cyan
+  '#3B82F6', '#89B4FA',   // Blue
+  '#64748B', '#A2ACB9',   // Slate
+  '#E11D48', '#ED7791',   // Rose
 ];
 
 // ════════════════════════════════════════════════════════════════
@@ -328,8 +312,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   spacing: Spacing.sm,
                   runSpacing: Spacing.sm,
                   children: _kFolderColors.map((hex) {
-                    final c = Color(
-                        int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+                    Color c;
+                    try {
+                      c = Color(
+                          int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+                    } catch (_) {
+                      c = const Color(0xFF6366F1);
+                    }
                     final isActive = selectedColor == hex;
                     return GestureDetector(
                       onTap: () => setDialog(() => selectedColor = hex),
@@ -452,8 +441,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   spacing: Spacing.sm,
                   runSpacing: Spacing.sm,
                   children: _kFolderColors.map((hex) {
-                    final c = Color(
-                        int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+                    Color c;
+                    try {
+                      c = Color(int.parse(
+                          'FF${hex.replaceAll('#', '')}', radix: 16));
+                    } catch (_) {
+                      c = const Color(0xFF6366F1);
+                    }
                     final isActive = selectedColor == hex;
                     return GestureDetector(
                       onTap: () => setDialog(() => selectedColor = hex),
@@ -884,7 +878,7 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
     final asyncData = ref.watch(pinnedAndFavoritesProvider);
 
     return asyncData.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => _LoadingSkeleton(),
       error: (e, _) => EmptyState.error(onRetry: widget.onRetry),
       data: (data) {
         final pinned = data.pinned;
@@ -1093,6 +1087,54 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// LOADING SKELETON for PinnedFavoritesSection
+// ════════════════════════════════════════════════════════════════
+
+class _LoadingSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth < 600 ? 3 : 4;
+    final placeholderColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 120,
+            height: 16,
+            decoration: BoxDecoration(
+              color: placeholderColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: Spacing.sm,
+              crossAxisSpacing: Spacing.sm,
+              childAspectRatio: 1.0,
+            ),
+            itemCount: crossAxisCount * 2,
+            itemBuilder: (_, __) => Container(
+              decoration: BoxDecoration(
+                color: placeholderColor,
+                borderRadius: AppRadius.cardBR,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ════════════════════════════════════════════════════════════════
 // SQUARE ITEM CARD with type-specific background color

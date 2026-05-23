@@ -69,13 +69,17 @@ class BackupService {
     // Κλείσιμο της DB
     await SuperNoteHelper.instance.close();
 
-    final dbDir = await getApplicationDocumentsDirectory();
-    final destPath = p.join(dbDir.path, _dbFileName);
+    try {
+      final dbDir = await getApplicationDocumentsDirectory();
+      final destPath = p.join(dbDir.path, _dbFileName);
+      await File(srcPath).copy(destPath);
+    } catch (e) {
+      // Απέτυχε το copy — ξανάνοιξε την παλιά DB
+      try { await SuperNoteHelper.init(); } catch (_) {}
+      rethrow;
+    }
 
-    // Αντικατάσταση
-    await File(srcPath).copy(destPath);
-
-    // Επανεκκίνηση DB
+    // Επανεκκίνηση DB με το νέο αρχείο
     await SuperNoteHelper.init();
     return true;
   }
