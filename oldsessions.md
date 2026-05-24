@@ -87,13 +87,11 @@
 
 ### Εκκρεμότητες — Επόμενα βήματα
 
-**Reorder bugs (collections + entries):**
-- Τα pinned+favorite items ΔΕΝ πρέπει να μετακινούνται — αλλάζουν θέση όταν drag-άρονται άλλα items δίπλα/μπροστά τους
-- Λύση: αφαίρεση drag handle από pinned/favorite items, να μένουν πάντα στην αρχή της λίστας
-- Check: `_canDrag` ήδη υπάρχει, αλλά χρειάζεται να μπλοκάρει και τη μετακίνηση ΑΛΛΩΝ items μπροστά τους
+**Reorder bugs (collections + entries):** ✅ Fixed
+- Τα pinned+favorite items ΔΕΝ μετακινούνται πλέον όταν drag-άρονται άλλα items
 
-**Home screen folder reorder:**
-- Προσθήκη drag-and-drop reorder και στα items μέσα στους φακέλους της αρχικής (HomeFolderView)
+**Home screen folder reorder:** ✅ Fixed
+- Drag-and-drop reorder προστέθηκε και στα items μέσα στους φακέλους της αρχικής (HomeFolderView)
 
 **Appointment favorite bug fix (έγινε σήμερα):**
 - `item_provider.dart:155` — `ref.invalidate(itemByIdProvider(id))` μετά από `updateItem`
@@ -140,10 +138,54 @@
 
 ### Εκκρεμότητες
 - Ολοκλήρωση αξιολόγησης εμφάνισης και λειτουργικότητας
-- Reorder bugs (pinned/favorite items)
-- Home screen folder reorder
+- Reorder bugs (pinned/favorite items) — ✅ Fixed (session 6)
+- Home screen folder reorder — ✅ Fixed (session 6)
 - `value` deprecated στο collection_entries_screen.dart
 - Αφαίρεση debug logs
+
+---
+
+## Session 6 — 24-05-2026
+
+### Στόχος 1
+Διόρθωση bugs σε επαναλαμβανόμενες υπενθυμίσεις (duplicate notifications + λάθος μέρα).
+
+### Προβλήματα από logs
+1. **Item 124 (ημερήσιο)**: Root id=133 και child id=134 είχαν ίδιο `triggerAt` → 2 notifications
+2. **Item 209 (εβδομαδιαίο Δευ+Παρ)**: Root id=139 είχε trigger=Σάββατο (BYDAY=MO,FR) → χτύπησε και Σάββατο και Παρασκευή
+
+### Διορθώσεις (έκανε ο χρήστης με οδηγίες)
+
+| Fix | Περιγραφή | Αρχείο | Γραμμές |
+|-----|-----------|--------|---------|
+| A | `refreshRecurringReminders`: αφαίρεση `todayAtTriggerTime - interval` που προκαλούσε child με ίδια ώρα με root | `reminder_scheduler.dart` | 177-178 |
+| B1 | `_saveReminder` recurring UPDATE: αφαίρεση `scheduleReminder(root)` — το root (με συγκεκριμένη ημερομηνία) δεν πρέπει να προγραμματίζεται | `reminder_section.dart` | 177 |
+| B2 | `_saveReminder` recurring CREATE: `refreshRecurringReminders()` αντί για `scheduleReminder(newReminder)` | `reminder_section.dart` | 212-217 |
+| C | `scheduleAll()`: φιλτράρισμα roots με rrule ώστε να μην προγραμματίζονται στο startup | `reminder_scheduler.dart` | 34-43 |
+
+### Αρχεία που άλλαξαν
+- **`lib/services/reminder_scheduler.dart`**: Fix A (start χωρίς interval subtraction) + Fix C (filter roots in scheduleAll)
+- **`lib/shared/widgets/reminder_section.dart`**: Fix B1 (update path) + Fix B2 (create path για recurring)
+
+### Backup
+- `backups/reminder_scheduler.dart.backup.20260524`
+- `backups/reminder_section.dart.backup.20260524`
+
+### Επόμενο βήμα — Session 7
+**Νέο feature: Import επαφών από κινητό στις Ρυθμίσεις**
+
+Ο χρήστης θα μπορεί:
+- Να επιλέγει στις Ρυθμίσεις αν θέλει να εισαγάγει επαφές από το τηλέφωνο
+- Να επιλέγει ποια πεδία θα μεταφερθούν (όνομα, τηλέφωνο, email, εταιρεία, website, διεύθυνση, γενέθλια, φωτογραφία)
+- Αποφυγή duplicates (match με όνομα/τηλέφωνο)
+- Progress indicator για πολλές επαφές
+
+Απαιτεί:
+- Package `flutter_contacts` (προτείνεται) ή `contacts_service` στο pubspec.yaml
+- Runtime permission (pattern από NotificationService.requestPermission)
+- UI επιλογής πεδίων στη SettingsScreen
+- Mapping phone contact fields → Item(contact) + ItemProperty
+- Φωτογραφία: αποθήκευση ως base64 σε ItemProperty ή attachment
 
 ---
 
@@ -195,6 +237,139 @@ Refactor Home Screen — καλύτερη απόδοση, ασφάλεια (stal
 - DebugConfig.print calls — θα κλείσει ο χρήστης συνολικά μετά την ανάπτυξη
 - Loading skeleton αντί για SizedBox.shrink() — ✅ Fixed (session 5)
 - Διερεύνηση compile errors που βλέπει ο χρήστης στην Home Folder View (αν υπάρχουν)
+
+---
+
+## Session 7 — 24-05-2026 (συνέχεια 25-05-2026)
+
+### Στόχος
+Import επαφών από κινητό — Πλήρης υλοποίηση.
+
+### Αλλαγές που έγιναν
+
+**Βήμα 1 — Package `flutter_contacts`**
+- `pubspec.yaml`: προστέθηκε `flutter_contacts: ^2.1.0`
+- `flutter pub get`
+
+**Βήμα 2 — Permissions στα manifest**
+- `AndroidManifest.xml:11`: `<uses-permission android:name="android.permission.READ_CONTACTS"/>`
+- `Info.plist:27-28`: `NSContactsUsageDescription` (ελληνικό string)
+
+**Βήμα 3 — Νέο service `ContactImportService`**
+- `lib/services/contact_import_service.dart`: singleton (24 γρ.)
+- `requestPermission()` + `fetchContacts()`
+- `services.dart` barrel: export (γρ. 14)
+
+**Βήμα 4 — UI tile στις Ρυθμίσεις**
+- `settings_screen.dart:148-153`: `_ActionTile` "Εισαγωγή επαφών"
+- stub `_importContacts()`
+
+**Βήμα 5 — Πλήρης επέκταση (25-05-2026)**
+
+`lib/services/contact_import_service.dart` — 357 γραμμές:
+- `ContactField` enum: name, phones, email, company, website, address, birthday, notes, photo
+- `ImportProgress` class: current, total, contactName, status, fraction
+- `ImportResult` class: imported, skipped, errors, errorDetails
+- `importContacts()`: fetch → dedup → map → save (με progress callback)
+- `_existsInDb()`: duplicate check — ίδιο όνομα (case insensitive) Ή ίδιο τηλέφωνο (μέσω JSON)
+- `_mapContactToItem()`: mapping όλων των πεδίων με `Future.wait` (παράλληλη αποθήκευση)
+
+Mapping:
+| flutter_contacts | Isar |
+|---|---|
+| `displayName` | `Item.title` |
+| `phones[].number` | `ItemProperty("phones", jsonEncode[...])` |
+| `emails[].address` | `ItemProperty("email")` |
+| `organizations[].name` | `ItemProperty("company")` |
+| `websites[].url` | `ItemProperty("website")` |
+| `addresses[].street+city+...` | `ItemProperty("address")` |
+| `events[].year+month+day` | `ItemProperty("birthday", date)` |
+| `notes[].note` | `ItemProperty("notes")` |
+| `photo.fullSize/thumbnail` | `ItemProperty("photo", base64)` |
+
+`lib/features/settings/settings_screen.dart` — 3 νέοι διάλογοι:
+- `_showFieldSelectionDialog()` — checkbox list πεδίων (προ-επιλεγμένα όλα)
+- `_ImportProgressDialog` — `LinearProgressIndicator` + όνομα επαφής + αριθμός
+- `_showImportSummary()` — εισήχθησαν / παραλείφθηκαν / σφάλματα
+
+Backups:
+- `backups/contact_import_service.dart.backup.20260524`
+- `backups/settings_screen.dart.backup.20260524`
+
+**Βήμα 6 — Επιλογή επαφών + Διαχείριση εισαγμένων (25-05-2026)**
+
+`lib/features/settings/settings_screen.dart`:
+- **`_showContactSelectionDialog()`** — dialog με search + checkboxes, "Επιλογή όλων" / "Αποεπιλογή"
+- **`_showImportedContactsDialog()`** — dialog στο group Βάση για διαγραφή εισαγμένων επαφών (μία-μία ή όλες)
+- Ροή import: permission → fetch → **contact selection** → field selection → import → summary
+- `_ImportProgressDialog` δέχεται πλέον `List<Contact>` (όχι fetch internally)
+
+`lib/services/contact_import_service.dart`:
+- `importContacts()` δέχεται `List<Contact>` αντί να κάνει fetch internally
+- `_mapContactToItem()`: προστέθηκε marker `ItemProperty("_imported", "true", isVisible: false)`
+- Νέο `getImportedContactIds()` — query για όλες τις import-marked επαφές
+- Νέο `deleteImported(Set<int>)` — soft delete επιλεγμένων
+
+### Εκκρεμότητες
+- ✅ Επιλογή πεδίων
+- ✅ Mapping Contact → Item + ItemProperty
+- ✅ Progress indicator
+- ✅ Αποφυγή duplicates
+- ✅ Φωτογραφία ως base64
+- ✅ Επιλογή επαφών (όλες ή επιλεγμένες)
+- ✅ Διαχείριση/διαγραφή εισαγμένων (μία-μία ή όλες)
+- ❌ Δοκιμή σε πραγματική συσκευή
+
+---
+
+## Session 8 — 24-05-2026
+
+### Στόχος
+Διόρθωση permission denied + επιλογή φακέλου στη ροή import επαφών.
+
+### Προβλήματα
+
+**1. Permission πάντα `granted=false`**
+- Αιτία: το manifest είχε μόνο `READ_CONTACTS` αλλά το `request()` ζητούσε `PermissionType.readWrite` (θέλει και `WRITE_CONTACTS`)
+- Δεν εμφανιζόταν καν dialog άδειας
+
+**2. Imported contact δεν εμφανιζόταν στο `/contacts`**
+- Το `folderId` ερχόταν από `settings.preferredFolderId` που ήταν `null`
+- Η επαφή δημιουργόταν χωρίς folder → αόρατη στο φιλτραρισμένο contact list
+
+### Αλλαγές
+
+**`android/app/src/main/AndroidManifest.xml` (γρ. 11):**
+- Προστέθηκε `<uses-permission android:name="android.permission.WRITE_CONTACTS"/>`
+
+**`lib/services/contact_import_service.dart` (γρ. ~24-36):**
+- `requestPermission()`: πρώτα `check(PermissionType.read)`, μετά `request(PermissionType.read)` αντί για `readWrite`
+
+**`lib/features/settings/settings_screen.dart`:**
+- Νέος διάλογος `_showFolderPickerDialog()` — λίστα όλων των folders του workspace με εικονίδια, προ-επιλογή από `preferredFolderId`
+- `_importContacts()`: η ροή έγινε permission → fetch → **contact selection** → **field selection** → **🔹 folder picker** → import → summary
+- Αν ο χρήστης πατήσει Ακύρωση στο folder picker, το import σταματάει
+
+### Backup
+- `backups/settings_screen.dart.backup.20260524.2`
+
+### Session 8b (same day) — Crash fix + duplicate detection fix
+
+**Πρόβλημα 1 — Crash στο folder picker**
+- `int.parse(folder.icon!)` κρασάρε όταν το εικονίδιο είναι emoji (π.χ. `"🏠"`)
+- **Fix**: αντικατάσταση `Icon(IconData(int.parse(...)))` με `Text(folder.icon ?? '📁')`
+
+**Πρόβλημα 2 — Duplicate detection έβρισκε soft-deleted items**
+- `_existsInDb()` δεν φιλτράριζε `deletedAt` → orphaned items εμπόδιζαν re-import
+- **Fixes στο `contact_import_service.dart`:**
+  - Name check: `.deletedAtIsNull()`
+  - Phone check: `parent.deletedAt != null` → skip
+  - `deleteImported()`: διαγραφή `ItemProperty` του deleted item
+
+### Τελική κατάσταση (από logs)
+- Permission ✅, folder picker ✅, import ✅, detail ✅, delete ✅
+- 123 contacts fetched, 0 duplicates (μετά το fix)
+- `deleteImported` καθαρίζει ItemProperties → δεν μένουν orphaned
 
 ---
 

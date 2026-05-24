@@ -11,3 +11,4 @@ export 'search_service.dart';
 export 'habit_service.dart';
 export 'attachment_service.dart';
 export 'backup_service.dart';
+export 'contact_import_service.dart';
