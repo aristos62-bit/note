@@ -31,8 +31,11 @@ class ReminderScheduler {
     await NotificationService.instance.cancelAll();
     DebugConfig.notif('ReminderScheduler.scheduleAll: cancelAll done');
 
-    final pending = await SuperNoteHelper.instance.reminders.getPending();
-    DebugConfig.notif('ReminderScheduler.scheduleAll: found ${pending.length} pending reminders');
+    var pending = await SuperNoteHelper.instance.reminders.getPending();
+    // Φιλτράρισμα: roots με rrule → δεν προγραμματίζονται απευθείας.
+    // Μόνο one-shot (rrule=null) και children (parentReminderId!=null) προχωρούν.
+    pending = pending.where((r) => r.rrule == null || r.rrule!.isEmpty).toList();
+    DebugConfig.notif('ReminderScheduler.scheduleAll: found ${pending.length} pending reminders (after filtering recurring roots)');
     for (final r in pending) {
       DebugConfig.notif('  pending: id=${r.id} trigger=${r.triggerAt} status=${r.status.name} itemId=${r.itemId}');
     }
@@ -171,14 +174,10 @@ class ReminderScheduler {
         rootHour, rootMinute, rootSecond,
       );
 
-      // Αν η σημερινή ώρα trigger δεν έχει περάσει ακόμα → ξεκινάμε από χθες
-      // ώστε nextOccurrence να επιστρέψει σήμερα στη σωστή ώρα
-      final DateTime start;
-      if (todayAtTriggerTime.isAfter(now)) {
-        start = todayAtTriggerTime.subtract(Duration(days: recurrence.interval));
-      } else {
-        start = todayAtTriggerTime;
-      }
+      // Ξεκινάμε από σήμερα στην ώρα trigger.
+      // Το nextOccurrence επιστρέφει ΠΑΝΤΑ μετά από το from,
+      // οπότε τα παιδιά είναι πάντα μετά την ώρα του root → όχι duplicate
+      final DateTime start = todayAtTriggerTime;
 
       DateTime current = start;
       while (nextOccurrences.length < batchSize) {

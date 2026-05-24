@@ -57,7 +57,7 @@ class ItemCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        DebugConfig.nav('ItemCard.onTap id=${item.id} type=${item.type.name}');
+        // DebugConfig.nav('ItemCard.onTap id=${item.id} type=${item.type.name}');
         onTap?.call();
       },
       onLongPress: onLongPress,
@@ -113,11 +113,11 @@ class ItemCard extends StatelessWidget {
                 builder: (context) {
                   final shouldShowTrailing = item.favorite || item.pinned;
 
-                  DebugConfig.print(
-                    'ItemCard TRAILING CHECK id=${item.id} '
-                    'favorite=${item.favorite} pinned=${item.pinned} '
-                    'show=$shouldShowTrailing isCompact=$isCompact',
-                  );
+                  // DebugConfig.print(
+                  //   'ItemCard TRAILING CHECK id=${item.id} '
+                  //   'favorite=${item.favorite} pinned=${item.pinned} '
+                  //   'show=$shouldShowTrailing isCompact=$isCompact',
+                  // );
 
                   if (!shouldShowTrailing) {
                     return const SizedBox.shrink();
@@ -131,9 +131,9 @@ class ItemCard extends StatelessWidget {
               ),
               Builder(
                 builder: (context) {
-                  DebugConfig.print(
-                    'ItemCard HIDDEN TRAILING id=${item.id} isCompact=$isCompact',
-                  );
+                  // DebugConfig.print(
+                  //   'ItemCard HIDDEN TRAILING id=${item.id} isCompact=$isCompact',
+                  // );
 
                   return const SizedBox.shrink();
                 },
@@ -224,8 +224,8 @@ class _TitleRow extends StatelessWidget {
         if (_showCheckbox) ...[
           GestureDetector(
             onTap: () {
-              DebugConfig.print(
-                  'ItemCard checkbox id=${item.id} done=${!_isDone}');
+              // DebugConfig.print(
+              //     'ItemCard checkbox id=${item.id} done=${!_isDone}');
               onCheckboxChanged?.call(!_isDone);
             },
             child: AnimatedContainer(
@@ -374,10 +374,10 @@ class _TrailingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    DebugConfig.print(
-      'ItemCard TrailingSection id=${item.id} favorite=${item.favorite}',
-    );
-
+    // DebugConfig.print(
+    //   'ItemCard TrailingSection id=${item.id} favorite=${item.favorite}',
+    // );
+    //
     return SizedBox(
       width: 28,
       child: Center(
