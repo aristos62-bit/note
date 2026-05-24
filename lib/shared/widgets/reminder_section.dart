@@ -174,7 +174,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           });
           _reminderId = root.id;
           DebugConfig.notif('ReminderSection._saveReminder: created new root id=${root.id}, trigger=${root.triggerAt}');
-          await ReminderScheduler.instance.scheduleReminder(root);
+          // Μην προγραμματίζεις το root — τα παιδιά από refreshRecurringReminders το αντικαθιστούν
           await ReminderScheduler.instance.refreshRecurringReminders();
           DebugConfig.notif('ReminderSection._saveReminder: recurring update DONE');
         } else {
@@ -209,7 +209,12 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         );
         _reminderId = newReminder.id;
         DebugConfig.notif('ReminderSection._saveReminder: created reminder id=${newReminder.id}, trigger=${newReminder.triggerAt}, status=${newReminder.status.name}');
-        await ReminderScheduler.instance.scheduleReminder(newReminder);
+        if (rrule != null) {
+          // Αναδρομικό: τα παιδιά από refreshRecurringReminders το αντικαθιστούν
+          await ReminderScheduler.instance.refreshRecurringReminders();
+        } else {
+          await ReminderScheduler.instance.scheduleReminder(newReminder);
+        }
       }
       DebugConfig.notif('ReminderSection._saveReminder: DONE');
     } catch (e) {
