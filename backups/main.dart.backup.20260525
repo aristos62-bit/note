@@ -80,9 +80,9 @@ void main() async {
     };
     DebugConfig.notif('handleNotificationTap: route=$route');
     if (route != null) {
-      DebugConfig.notif('handleNotificationTap: navigating to $route via go()');
-      container.read(appRouterProvider).go(route);
-      DebugConfig.notif('handleNotificationTap: go completed');
+      DebugConfig.notif('handleNotificationTap: pushing $route');
+      await container.read(appRouterProvider).push(route);
+      DebugConfig.notif('handleNotificationTap: push completed');
     } else {
       DebugConfig.notif('handleNotificationTap: no route for type ${item.type.name}');
     }
@@ -91,10 +91,11 @@ void main() async {
   // ✅ Real handler — αντικαθιστά το stub
   NotificationService.onNotificationTap = handleNotificationTap;
 
-  // ✅ Αποθήκευση payload — η πραγματική navigation γίνεται ΜΕΤΑ το runApp (postFrameCallback)
-  final deferredNotificationPayload = coldStartPayload ?? pendingNotificationPayload;
-  if (deferredNotificationPayload != null) {
-    DebugConfig.notif('Deferring notification navigation for after runApp: payload=$deferredNotificationPayload');
+  // ✅ Επεξεργασία payload: cold start > stub > τίποτα
+  final effectivePayload = coldStartPayload ?? pendingNotificationPayload;
+  if (effectivePayload != null) {
+    DebugConfig.notif('Processing notification payload: $effectivePayload');
+    handleNotificationTap(effectivePayload);
   }
 
   WidgetsBinding.instance.addObserver(
@@ -138,16 +139,6 @@ void main() async {
       DebugConfig.startup('Recurring reminders refreshed');
     } catch (e, stack) {
       DebugConfig.error('refreshRecurringReminders failed', e, stack);
-    }
-
-    try {
-      if (deferredNotificationPayload != null) {
-        DebugConfig.notif('PostFrameCallback: processing deferred notification payload=$deferredNotificationPayload');
-        handleNotificationTap(deferredNotificationPayload);
-        DebugConfig.notif('PostFrameCallback: deferred notification navigation done');
-      }
-    } catch (e, stack) {
-      DebugConfig.error('PostFrameCallback: deferred notification navigation failed', e, stack);
     }
   });
 }
