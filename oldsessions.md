@@ -39,8 +39,56 @@
 
 ---
 
-## Session 2 — 22-05-2026
+## Session 10 — 27-05-2026
 
+### Στόχος
+Διόρθωση προβολής χρωματιστών κουκκίδων (ροζ/χρυσό/μπλε) στο ημερολόγιο για την επιλεγμένη ημέρα.
+
+### Πρόβλημα
+Στην `CalendarScreen`, όταν μια ημέρα είναι selected (συμπεριλαμβανομένης της today που είναι εξ ορισμού selected), οι κουκκίδες τύπου συμβάντος (birthday→ροζ, specialDay→χρυσό, event→primary) εμφανίζονταν ως **1 λευκή κουκκίδα** αντί για όλες με τα κανονικά τους χρώματα. Ο λόγος ήταν ότι ο κώδικας στο `isSelected` branch έδειχνε μόνο `[markers.first]` με `forceColor: Colors.white`.
+
+### Αλλαγές
+
+**`lib/features/calendar/calendar_screen.dart`:**
+
+| Γραμμές | Περιγραφή |
+|---------|-----------|
+| 597-606 | `isSelected` branch: `markers: [markers.first]` → `markers: markers`, αφαίρεση `forceColor: Colors.white` και `isToday` |
+| 587-594 | `!isSelected` branch: αφαίρεση `isToday:` (ίδιο, απλά καθαρισμός) |
+| 627-634 | `_DayMarkerRow`: αφαίρεση unused `isToday` + `forceColor` params |
+| 636-637 | `_colorFor`: αφαίρεση `if (forceColor != null)` dead code |
+
+**Αποτέλεσμα:** Και για selected και για non-selected ημέρες, όλες οι κουκκίδες εμφανίζονται με τα κανονικά τους χρώματα (ροζ `#EC4899`, χρυσό `#F59E0B`, primary).
+
+---
+### Στόχος
+Διόρθωση compile errors από προσθήκη `RecurrenceType.yearly` + UI fixes στο recurrence picker.
+
+### Πρόβλημα
+Το `RecurrenceType.yearly` προστέθηκε στο enum (`recurrence.dart:4`) αλλά 3 switch statements δεν το χειρίζονταν:
+
+1. `habit_service.dart:646` — `_isPeriodComplete`: έλειπε case yearly
+2. `habit_service.dart:729` — `_prevPeriodStart`: έλειπε case yearly
+3. `reminder_section.dart:16` — `recurrenceToRRULE`: έλειπε case yearly
+4. `reminder_section.dart:69` — `rruleToRecurrence`: το `freq='YEARLY'` πήγαινε σε `default` → `RecurrenceType.daily`
+
+Επίσης δεν γινόταν parse το `BYMONTH` από το RRULE, οπότε το yearly reminder εμφανιζόταν ως "Καθημερινά".
+
+### Διορθώσεις (από χρήστη με οδηγίες)
+
+| Βήμα | Περιγραφή | Αρχείο |
+|------|-----------|--------|
+| 1 | Προσθήκη `case RecurrenceType.yearly` στο `_isPeriodComplete` (έλεγχος αν η συγκεκριμένη μέρα-μήνα είναι completed) | `habit_service.dart` ~690 |
+| 2 | Προσθήκη `case RecurrenceType.yearly` στο `_prevPeriodStart` (αφαίρεση interval ετών) | `habit_service.dart` ~743 |
+| 3 | Προσθήκη `case RecurrenceType.yearly` στο `recurrenceToRRULE` (BYMONTH+BYMONTHDAY) | `reminder_section.dart` ~38 |
+| 4 | Προσθήκη `case 'YEARLY'` στο `rruleToRecurrence` + parse `BYMONTH` | `reminder_section.dart` ~69-73 |
+| 5 | Αλλαγή type selector από `Row` με `Expanded` σε `ListView` horizontal scroll + label 'Κάθε Χρόνο' για yearly | `reminder_section.dart` ~439-469 |
+
+### Αρχεία που άλλαξαν
+- `lib/services/habit_service.dart`
+- `lib/shared/widgets/reminder_section.dart`
+
+---
 ### Στόχος 1
 Προσθήκη drag-and-drop reorder στις custom list screens (collections + collection entries).
 
@@ -370,6 +418,29 @@ Backups:
 - Permission ✅, folder picker ✅, import ✅, detail ✅, delete ✅
 - 123 contacts fetched, 0 duplicates (μετά το fix)
 - `deleteImported` καθαρίζει ItemProperties → δεν μένουν orphaned
+
+---
+
+## Session 10 — 27-05-2026
+
+### Στόχος
+Διόρθωση προβολής χρωματιστών κουκκίδων (ροζ/χρυσό/μπλε) στο ημερολόγιο για την επιλεγμένη ημέρα.
+
+### Πρόβλημα
+Στην `CalendarScreen`, όταν μια ημέρα είναι selected (συμπεριλαμβανομένης της today που είναι εξ ορισμού selected), οι κουκκίδες τύπου συμβάντος (birthday→ροζ, specialDay→χρυσό, event→primary) εμφανίζονταν ως **1 λευκή κουκκίδα** αντί για όλες με τα κανονικά τους χρώματα. Ο λόγος ήταν ότι ο κώδικας στο `isSelected` branch έδειχνε μόνο `[markers.first]` με `forceColor: Colors.white`.
+
+### Αλλαγές
+
+**`lib/features/calendar/calendar_screen.dart`:**
+
+| Γραμμές | Περιγραφή |
+|---------|-----------|
+| 597-606 | `isSelected` branch: `markers: [markers.first]` → `markers: markers`, αφαίρεση `forceColor: Colors.white` και `isToday` |
+| 587-594 | `!isSelected` branch: αφαίρεση `isToday:` (ίδιο, απλά καθαρισμός) |
+| 627-634 | `_DayMarkerRow`: αφαίρεση unused `isToday` + `forceColor` params |
+| 636-637 | `_colorFor`: αφαίρεση `if (forceColor != null)` dead code |
+
+**Αποτέλεσμα:** Και για selected και για non-selected ημέρες, όλες οι κουκκίδες εμφανίζονται με τα κανονικά τους χρώματα (ροζ `#EC4899`, χρυσό `#F59E0B`, primary).
 
 ---
 

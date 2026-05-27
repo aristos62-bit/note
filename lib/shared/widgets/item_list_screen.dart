@@ -18,16 +18,23 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../widgets/widgets.dart';
 
+// ΜΕΤΑ:
 class ItemListScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
   final String title;
   final Widget Function(BuildContext context, Item item, {bool isNew}) detailScreenBuilder;
+
+  /// Προαιρετικό override για το FAB.
+  /// Αν οριστεί, χρησιμοποιείται αντί του default FAB.
+  /// Το widget είναι υπεύθυνο για τη δική του visibility λογική.
+  final Widget? floatingActionButtonOverride;
 
   const ItemListScreen({
     super.key,
     required this.itemType,
     required this.title,
     required this.detailScreenBuilder,
+    this.floatingActionButtonOverride,  // ← ΝΕΟ
   });
 
   @override
@@ -184,13 +191,15 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
             ),
           ],
         ),
-        floatingActionButton: selectedFolderId != null
-            ? FloatingActionButton(
-          onPressed: _createItem,
-          tooltip: 'Νέο',
-          child: const Icon(Icons.add_rounded),
-        )
-            : null,
+        // ΜΕΤΑ:
+        floatingActionButton: widget.floatingActionButtonOverride ??
+            (selectedFolderId != null
+                ? FloatingActionButton(
+              onPressed: _createItem,
+              tooltip: 'Νέο',
+              child: const Icon(Icons.add_rounded),
+            )
+                : null),
         body: Column(
           children: [
             if (_searchActive)

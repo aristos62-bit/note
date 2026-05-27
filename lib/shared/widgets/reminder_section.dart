@@ -35,6 +35,11 @@ String? recurrenceToRRULE(Recurrence? recurrence) {
     // Custom will not be stored as custom; it's mapped to daily/weekly/monthly.
     // However, keep for safety.
       return 'FREQ=DAILY;INTERVAL=${recurrence.interval}';
+    case RecurrenceType.yearly:
+      if (recurrence.days != null && recurrence.days!.length == 2) {
+        return 'FREQ=YEARLY;INTERVAL=${recurrence.interval};BYMONTH=${recurrence.days![0]};BYMONTHDAY=${recurrence.days![1]}';
+      }
+      return 'FREQ=YEARLY;INTERVAL=${recurrence.interval}';
   }
 }
 
@@ -54,9 +59,14 @@ Recurrence? rruleToRecurrence(String? rrule) {
       days = byday.split(',').map((d) => dayMapRev[d]).whereType<int>().toList();
     }
     if (p.startsWith('BYMONTHDAY=')) {
-      // Υποστηρίζει και "15" (παλιά) και "1,15" (νέα) μορφή
       final raw = p.substring(11);
       days = raw.split(',').map((s) => int.tryParse(s.trim())).whereType<int>().toList();
+    }
+    if (p.startsWith('BYMONTH=')) {
+      final byMonth = int.tryParse(p.substring(8));
+      if (byMonth != null) {
+        days = [byMonth, ...(days ?? [])];
+      }
     }
   }
 
@@ -65,6 +75,7 @@ Recurrence? rruleToRecurrence(String? rrule) {
     case 'DAILY': type = RecurrenceType.daily; break;
     case 'WEEKLY': type = RecurrenceType.weekly; break;
     case 'MONTHLY': type = RecurrenceType.monthly; break;
+    case 'YEARLY': type = RecurrenceType.yearly; break;
     default: type = RecurrenceType.daily;
   }
   return Recurrence(
@@ -426,16 +437,20 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
           Text('Επανάληψη υπενθύμισης', style: context.titleMd),
           const SizedBox(height: Spacing.md),
           // Type selector
-          Row(
-            children: RecurrenceType.values.map((t) {
-              final isActive = _type == t;
-              return Expanded(
-                child: GestureDetector(
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: RecurrenceType.values.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 4),
+              itemBuilder: (context, index) {
+                final t = RecurrenceType.values[index];
+                final isActive = _type == t;
+                return GestureDetector(
                   onTap: () => setState(() => _type = t),
                   child: AnimatedContainer(
                     duration: AppDuration.fast,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
                     decoration: BoxDecoration(
                       color: isActive ? context.cPrimary.withValues(alpha: 0.12) : Colors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -447,14 +462,15 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                       child: Text(
                         t == RecurrenceType.daily ? 'Καθημερινά' :
                         t == RecurrenceType.weekly ? 'Εβδομαδιαία' :
-                        t == RecurrenceType.monthly ? 'Μηνιαία' : 'Προσαρμοσμένο',
+                        t == RecurrenceType.monthly ? 'Μηνιαία' :
+                        t == RecurrenceType.yearly ? 'Κάθε Χρόνο' : 'Προσαρμοσμένο',
                         style: context.labelSm.withColor(isActive ? context.cPrimary : context.cText),
                       ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              },
+            ),
           ),
           const SizedBox(height: Spacing.md),
           // Interval (common for all types)

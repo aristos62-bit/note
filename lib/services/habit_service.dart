@@ -2,8 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../helpers/super_note_helper.dart';
-import '../models/item_property.dart';
-import '../models/recurrence.dart';
+import '../models/models.dart';
 import '../core/core.dart';
 import 'reminder_scheduler.dart';
 
@@ -687,6 +686,16 @@ class HabitService {
           }
           return false;
         }
+      case RecurrenceType.yearly:
+        if (recurrence.days != null && recurrence.days!.length == 2) {
+          final targetDate = DateTime(
+            periodStart.year,
+            recurrence.days![0],
+            recurrence.days![1],
+          );
+          return completionDays.contains(_dateOnly(targetDate));
+        }
+        return completionDays.contains(_dateOnly(periodStart));
     }
   }
 
@@ -740,6 +749,8 @@ class HabitService {
           year--;
         }
         return DateTime(year, month, 1);
+      case RecurrenceType.yearly:
+        return DateTime(periodStart.year - recurrence.interval, 1, 1);
     }
   }
 
