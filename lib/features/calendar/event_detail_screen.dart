@@ -14,6 +14,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../services/reminder_scheduler.dart';
 
 class EventDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
@@ -41,6 +42,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   String? _pendingTitleValue;
   bool _isPinned = false;
   bool _isFavorite = false;
+  bool _isArchived = false;
 
   @override
   void initState() {
@@ -212,11 +214,18 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Future<void> _pickStartTime(BuildContext context, DateTime? current) async {
     final now = DateTime.now();
     final init = current ?? now;
+
+    // Για γενέθλια και ειδική μέρα επιτρέπουμε παλιές ημερομηνίες
+    final item = ref.read(itemStreamProvider(widget.itemId)).valueOrNull;
+    final isBirthdayOrSpecial = item?.icon == '🎂' || item?.icon == '⭐';
+    final firstDate =
+        isBirthdayOrSpecial ? DateTime(1900) : DateTime(now.year - 1);
+
     final date = await showDatePicker(
       context: context,
       locale: const Locale('el', 'GR'),
       initialDate: init,
-      firstDate: DateTime(now.year - 1),
+      firstDate: firstDate,
       lastDate: DateTime(now.year + 5),
     );
     if (date == null || !mounted) return;
@@ -232,6 +241,22 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     await ref
         .read(propertyNotifierProvider(widget.itemId).notifier)
         .setDate('start_time', dt);
+
+    // Αν είναι γενέθλια ή ειδική ημέρα, ενημέρωσε και την
+    // επαναλαμβανόμενη υπενθύμιση με το νέο μήνα/ημέρα
+    if (isBirthdayOrSpecial) {
+      final newRrule =
+          'FREQ=YEARLY;INTERVAL=1;BYMONTH=${date.month};BYMONTHDAY=${date.day}';
+      final newTrigger = DateTime(
+        date.year, date.month, date.day, dt.hour, dt.minute,
+      );
+      await ref.read(dbProvider).reminders.updateRootReminderForItem(
+            widget.itemId,
+            newRrule: newRrule,
+            newTriggerAt: newTrigger,
+          );
+      await ReminderScheduler.instance.refreshRecurringReminders();
+    }
   }
 
   Future<void> _toggleAllDay(bool newValue) async {
@@ -249,6 +274,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
     if (!context.mounted) return;
     Navigator.of(context, rootNavigator: false).pop();
+  }
+
+  Future<void> _archive() async {
+    final ok = await ConfirmDialog.archive(context);
+    if (!ok || !mounted) return;
+    DebugConfig.db('EventDetail archive id=${widget.itemId}');
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .toggleArchive(widget.itemId, _isArchived);
+    if (mounted) Navigator.of(context, rootNavigator: false).pop();
   }
 
   // --- Υπολογισμός startDateTime για υπενθύμιση ---
@@ -320,6 +355,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
         if (_isFavorite != item.favorite) _isFavorite = item.favorite;
         if (_isPinned != item.pinned) _isPinned = item.pinned;
+        if (_isArchived != item.archived) _isArchived = item.archived;
 
         return PopScope(
           canPop: false,
@@ -344,10 +380,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           isSaving: _isSaving,
           isPinned: _isPinned,
           isFavorite: _isFavorite,
+          isArchived: _isArchived,
           onSave: _save,
           onReminder: _showReminderDialog,
           onPin: _togglePinned,
           onFavorite: _toggleFavorite,
+          onArchive: _archive,
           onDelete: () => _delete(context),
           brightness: context.brightness,
           primaryColor: context.cPrimary,
@@ -444,6 +482,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             ),
             onPressed: _toggleFavorite,
             tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
+          ),
+          // Archive
+          IconButton(
+            icon: Icon(
+              item.archived
+                  ? Icons.unarchive_rounded
+                  : Icons.archive_rounded,
+              color: context.cText2,
+            ),
+            onPressed: _archive,
+            tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
           ),
           // Delete
           IconButton(
@@ -752,11 +801,13 @@ class _EventDetailAppBar extends StatelessWidget
   final bool isSaving;
   final bool isPinned;
   final bool isFavorite;
+  final bool isArchived;
 
   final VoidCallback onSave;
   final VoidCallback onReminder;
   final VoidCallback onPin;
   final VoidCallback onFavorite;
+  final VoidCallback onArchive;
   final VoidCallback onDelete;
 
   final Brightness brightness;
@@ -769,10 +820,12 @@ class _EventDetailAppBar extends StatelessWidget
     required this.isSaving,
     required this.isPinned,
     required this.isFavorite,
+    required this.isArchived,
     required this.onSave,
     required this.onReminder,
     required this.onPin,
     required this.onFavorite,
+    required this.onArchive,
     required this.onDelete,
     required this.brightness,
     required this.primaryColor,
@@ -825,6 +878,16 @@ class _EventDetailAppBar extends StatelessWidget
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: errorColor),
           onPressed: onDelete,
+        ),
+        IconButton(
+          icon: Icon(
+            isArchived
+                ? Icons.unarchive_rounded
+                : Icons.archive_rounded,
+            color: text2Color,
+          ),
+          onPressed: onArchive,
+          tooltip: isArchived ? 'Επαναφορά' : 'Αρχειοθέτηση',
         ),
       ],
     );

@@ -401,8 +401,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                 const SizedBox(width: Spacing.sm),
                 Text(
                   ref.watch(showArchivedProvider)
-                      ? 'Απόκρυψη αρχείου'
-                      : 'Εμφάνιση αρχείου',
+                      ? 'Απόκρυψη συμπιεσμένων αρχείων'
+                      : 'Εμφάνιση συμπιεσμένων αρχείων',
                 ),
               ]),
             ),

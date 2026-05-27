@@ -987,6 +987,26 @@ class ReminderRepository {
         .findAll();
   }
 
+  /// Ενημερώνει το root reminder ενός item (το πρώτο με rrule)
+  /// Βάζει νέο rrule και triggerAt, π.χ. όταν αλλάζει η ημερομηνία γενεθλίων.
+  Future<void> updateRootReminderForItem(
+    int itemId, {
+    required String newRrule,
+    required DateTime newTriggerAt,
+  }) async {
+    final reminders = await getForItem(itemId);
+    final root = reminders.where(
+      (r) => r.rrule != null && r.parentReminderId == null,
+    ).firstOrNull;
+    if (root == null) return;
+    root.rrule = newRrule;
+    root.triggerAt = newTriggerAt;
+    root.updatedAt = DateTime.now();
+    await _isar.writeTxn(() async {
+      await _isar.reminders.put(root);
+    });
+  }
+
 }
 // ─────────────────────────────────────────────────────────────────
 // FolderRepository (αμετάβλητο εκτός από reorder που προστέθηκε)

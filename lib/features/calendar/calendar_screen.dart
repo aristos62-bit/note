@@ -158,6 +158,33 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     );
   }
 
+  Widget _buildArchivedToggle(WidgetRef ref) {
+    final showArchived = ref.watch(showArchivedProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: Row(
+        children: [
+          const Spacer(),
+          TextButton.icon(
+            icon: Icon(
+              showArchived
+                  ? Icons.unarchive_rounded
+                  : Icons.archive_rounded,
+              size: 18,
+            ),
+            label: Text(
+              showArchived ? 'Απόκρυψη συμπιεσμένων αρχείων' : 'Εμφάνιση συμπιεσμένων αρχείων',
+              style: context.labelSm,
+            ),
+            onPressed: () {
+              ref.read(showArchivedProvider.notifier).state = !showArchived;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMobile(
     BuildContext context,
     WidgetRef ref,
@@ -176,6 +203,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
               ref.read(_selectedDayProvider.notifier).state = day,
         ),
         const Divider(height: 1),
+        _buildArchivedToggle(ref),
         Flexible(
           fit: FlexFit.tight,
           child: ItemListEmbedded(
@@ -219,14 +247,22 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
         const VerticalDivider(width: 1),
         Flexible(
           fit: FlexFit.tight,
-          child: ItemListEmbedded(
-            key: _listKey,
-            itemType: ItemType.event,
-            folderId: ref.watch(selectedFolderIdProvider),
-            showFolderSelector: false,
-            onItemTap: (item) => Navigator.of(context).push(
-              AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
-            ),
+          child: Column(
+            children: [
+              _buildArchivedToggle(ref),
+              Flexible(
+                fit: FlexFit.tight,
+                child: ItemListEmbedded(
+                  key: _listKey,
+                  itemType: ItemType.event,
+                  folderId: ref.watch(selectedFolderIdProvider),
+                  showFolderSelector: false,
+                  onItemTap: (item) => Navigator.of(context).push(
+                    AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
