@@ -442,5 +442,53 @@ Backups:
 
 **Αποτέλεσμα:** Και για selected και για non-selected ημέρες, όλες οι κουκκίδες εμφανίζονται με τα κανονικά τους χρώματα (ροζ `#EC4899`, χρυσό `#F59E0B`, primary).
 
+### Βελτίωση — Επιλογή παλιάς ημερομηνίας σε Γενέθλια/Ειδική Ημέρα
+
+**Πρόβλημα:** Ο date picker στο `EventDetailScreen` περιόριζε την επιλογή στο `now.year - 1` για όλους τους τύπους συμβάντων, ενώ για γενέθλια και ειδικές ημέρες ο χρήστης θέλει να βάζει ημερομηνίες από παλιά (π.χ. 1900).
+
+**Αλλαγή στο `lib/features/calendar/event_detail_screen.dart` (γραμμές 216-220):**
+```dart
+final item = ref.read(itemStreamProvider(widget.itemId)).valueOrNull;
+final isBirthdayOrSpecial = item?.icon == '🎂' || item?.icon == '⭐';
+final firstDate =
+    isBirthdayOrSpecial ? DateTime(1900) : DateTime(now.year - 1);
+```
+
+**Αποτέλεσμα:** Γενέθλια (`🎂`) και Ειδική Ημέρα (`⭐`) επιτρέπουν ημερομηνίες από το 1900. Τα κανονικά συμβάντα παραμένουν στο `now.year - 1` όπως πριν.
+
+### Βελτίωση — Αυτόματη ενημέρωση ετήσιας υπενθύμισης όταν αλλάζει η ημερομηνία
+
+**Πρόβλημα:** Όταν ο χρήστης άλλαζε την ημερομηνία ενός γενεθλίου ή ειδικής ημέρας σε παλιά ημερομηνία (π.χ. 15 Μαρτίου), η ετήσια υπενθύμιση κρατούσε το `BYMONTH`/`BYMONTHDAY` της αρχικής ημερομηνίας (από `selectedDay` τη στιγμή δημιουργίας).
+
+**Αλλαγές:**
+
+**`lib/helpers/super_note_helper.dart` (γραμμές 990-1008):**
+- Νέα μέθοδος `ReminderRepository.updateRootReminderForItem()` — βρίσκει το root reminder ενός item (το πρώτο με rrule) και ενημερώνει το `rrule` + `triggerAt` + `updatedAt`
+
+**`lib/features/calendar/event_detail_screen.dart` (γραμμές 244-258):**
+- Στο `_pickStartTime`, μετά το `setDate('start_time', dt)`, αν είναι γενέθλια ή ειδική ημέρα:
+  - Υπολογίζει νέο RRULE: `FREQ=YEARLY;BYMONTH=<νέος μήνας>;BYMONTHDAY=<νέα μέρα>`
+  - Καλεί `updateRootReminderForItem` + `ReminderScheduler.instance.refreshRecurringReminders()`
+
+**Αποτέλεσμα:** Η ετήσια υπενθύμιση ακολουθεί πλέον την ημερομηνία που διάλεξε ο χρήστης, ακόμα κι αν είναι διαφορετική από την αρχική κατά τη δημιουργία.
+
+### Προσθήκη — Archive στο EventDetailScreen
+
+**Πρόβλημα:** Το `EventDetailScreen` δεν είχε κουμπί αρχειοθέτησης, σε αντίθεση με τα `TaskDetailScreen` και `AppointmentDetailScreen`.
+
+**Αλλαγές στο `lib/features/calendar/event_detail_screen.dart`:**
+
+| Γραμμές | Περιγραφή |
+|---------|-----------|
+| 45 | Νέο state `_isArchived` |
+| 347 | Tracking `_isArchived` από `item.archived` στο build |
+| 279-288 | Νέα μέθοδος `_archive()` — ConfirmDialog + toggleArchive + pop |
+| 373-374 | Πέρασμα `isArchived` και `onArchive` στο `_EventDetailAppBar` (mobile) |
+| 481-489 | Κουμπί archive στο tablet `_buildAppBar` |
+| 817, 825, 836, 843 | `isArchived` + `onArchive` στο `_EventDetailAppBar` class |
+| 885-893 | Κουμπί archive στο `_EventDetailAppBar.build` |
+
+**Σημείωση:** Το archive δεν επηρεάζει τις υπάρχουσες υπενθυμίσεις — η ετήσια ειδοποίηση θα συνεχίσει να έρχεται ακόμα κι αν το event είναι archived.
+
 ---
 
