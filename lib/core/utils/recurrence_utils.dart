@@ -5,49 +5,41 @@ import '../../models/models.dart';
 /// Μετατρέπει ένα αντικείμενο Recurrence σε RRULE string (RFC 5545).
 String? recurrenceToRRULE(Recurrence? recurrence) {
   if (recurrence == null) return null;
-  switch (recurrence.type) {
-    case RecurrenceType.daily:
-      return 'FREQ=DAILY;INTERVAL=${recurrence.interval}';
-    case RecurrenceType.weekly:
-      if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-        const dayMap = {1: 'MO', 2: 'TU', 3: 'WE', 4: 'TH', 5: 'FR', 6: 'SA', 7: 'SU'};
-        final byday = recurrence.days!.map((d) => dayMap[d]).join(',');
-        return 'FREQ=WEEKLY;INTERVAL=${recurrence.interval};BYDAY=$byday';
-      } else {
-        return 'FREQ=WEEKLY;INTERVAL=${recurrence.interval}';
-      }
-    case RecurrenceType.monthly:
-      if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-        final byMonthDay = recurrence.days!.join(',');
-        return 'FREQ=MONTHLY;INTERVAL=${recurrence.interval};BYMONTHDAY=$byMonthDay';
-      } else {
-        return 'FREQ=MONTHLY;INTERVAL=${recurrence.interval}';
-      }
-    case RecurrenceType.custom:
-      return 'FREQ=DAILY;INTERVAL=${recurrence.interval}';
-  }
+  return recurrence.toRRULE();
 }
 
 /// Μετατρέπει ένα RRULE string (από Reminder.rrule) σε Recurrence αντικείμενο.
 Recurrence? rruleToRecurrence(String? rrule) {
   if (rrule == null || rrule.isEmpty) return null;
+
   final parts = rrule.split(';');
   String? freq;
   int interval = 1;
   List<int>? days;
+  int? byMonth;
+  int? byMonthDay;
 
   for (final p in parts) {
-    if (p.startsWith('FREQ=')) freq = p.substring(5);
-    if (p.startsWith('INTERVAL=')) interval = int.tryParse(p.substring(9)) ?? 1;
+    if (p.startsWith('FREQ='))       freq        = p.substring(5);
+    if (p.startsWith('INTERVAL='))   interval    = int.tryParse(p.substring(9)) ?? 1;
+    if (p.startsWith('BYMONTH='))    byMonth     = int.tryParse(p.substring(8));
     if (p.startsWith('BYDAY=')) {
       final byday = p.substring(6);
       const dayMapRev = {'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6, 'SU': 7};
       days = byday.split(',').map((d) => dayMapRev[d]).whereType<int>().toList();
     }
     if (p.startsWith('BYMONTHDAY=')) {
-      // Υποστηρίζει και "15" (παλιά) και "1,15" (νέα) μορφή
       final raw = p.substring(11);
-      days = raw.split(',').map((s) => int.tryParse(s.trim())).whereType<int>().toList();
+      // Για MONTHLY: comma-separated list
+      // Για YEARLY: single int — θα χρησιμοποιηθεί παρακάτω
+      byMonthDay = int.tryParse(raw.split(',').first.trim());
+      if (freq != 'YEARLY') {
+        // MONTHLY: διατήρησε όλες τις μέρες στη λίστα days
+        days = raw.split(',')
+            .map((s) => int.tryParse(s.trim()))
+            .whereType<int>()
+            .toList();
+      }
     }
   }
 
@@ -61,6 +53,13 @@ Recurrence? rruleToRecurrence(String? rrule) {
       break;
     case 'MONTHLY':
       type = RecurrenceType.monthly;
+      break;
+    case 'YEARLY':
+      type = RecurrenceType.yearly;
+      // Για YEARLY: days = [month, day] από BYMONTH + BYMONTHDAY
+      if (byMonth != null && byMonthDay != null) {
+        days = [byMonth, byMonthDay];
+      }
       break;
     default:
       type = RecurrenceType.daily;
