@@ -147,7 +147,13 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   }
 
   Future<void> _toggleArchive(Item item) async {
-    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: widget.itemId,
+      isArchived: item.archived,
+      label: ItemLabel.journal,
+    );
   }
 
   Future<void> _loadEntryDate() async {

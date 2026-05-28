@@ -492,3 +492,89 @@ final firstDate =
 
 ---
 
+## Session 11 — 28-05-2026
+
+### Στόχος
+Διόρθωση build warnings + προσθήκη archive toggle στο journal list screen.
+
+### Αλλαγές
+
+**Warning 1 — Kotlin Gradle Plugin**
+- `android/gradle.properties:4`: `android.builtInKotlin=false` → `android.builtInKotlin=true`
+- `android/app/build.gradle.kts:3`: αφαίρεση `id("kotlin-android")`
+- `android/app/build.gradle.kts:19-21`: αφαίρεση `kotlinOptions` (μετά επαναφορά με `jvmTarget = "17"` για συμβατότητα JVM)
+
+**Warning 2 — Java source/target 8 obsolete**
+- `android/app/build.gradle.kts:40-42`: προσθήκη `tasks.withType<JavaCompile> { options.compilerArgs.add("-Xlint:-options") }`
+- `android/build.gradle.kts:43-47`: ίδια ρύθμιση για όλα τα subprojects
+
+**Αποτέλεσμα:** Build καθαρό — 0 warnings, app τρέχει κανονικά.
+
+**Feature — Archive menu στο Journal list**
+- `lib/features/journal/journal_list_screen.dart`: προσθήκη `PopupMenuButton` στο AppBar (archive toggle), ίδιο pattern με notes/tasks/habits
+
+---
+
+## Session 12 — 28-05-2026
+
+### Στόχος
+Διόρθωση archive στο `journal_detail_screen` + ομογενοποίηση archive behavior σε όλα τα detail screens.
+
+### Προβλήματα που εντοπίστηκαν
+
+1. **`journal_detail_screen.dart:149-151`** — Το `_toggleArchive` δεν είχε ConfirmDialog, δεν έκανε pop μετά το archive, ούτε SnackBar. Το item εξαφανιζόταν (archived=true → stream το απέκλειε) και η οθόνη έμενε σε "not found" state.
+
+2. **Ασυνέπεια μεταξύ screens** — Κάθε detail screen είχε διαφορετική συμπεριφορά archive:
+   | Screen | ConfirmDialog | Pop |
+   |--------|:---:|:---:|
+   | appointment/event | ✅ | ✅ πάντα |
+   | notes | ❌ | ✅ μόνο archive |
+   | journal (πριν) | ❌ | ❌ |
+   | tasks/habits/contacts/entries | ❌ | ❌ |
+
+### Λύση — Νέο helper `archive_helper.dart`
+
+- Δημιουργήθηκε `lib/shared/widgets/archive_helper.dart` — κεντρική συνάρτηση `handleArchive()`
+- Συμπεριφορά: **Archive** → ConfirmDialog + SnackBar + pop · **Unarchive** → SnackBar + stay
+- Προστέθηκε export στο barrel `lib/shared/widgets/widgets.dart`
+
+### Αρχεία που δημιουργήθηκαν
+- `lib/shared/widgets/archive_helper.dart`
+
+### Αρχεία που άλλαξαν
+- `lib/shared/widgets/widgets.dart` — export archive_helper
+- `lib/shared/widgets/archive_helper.dart` — νέο helper `handleArchive()`
+- `lib/features/journal/journal_detail_screen.dart` — `_toggleArchive` → `handleArchive` ✅
+- `lib/features/notes/note_detail_screen.dart` — inline → `handleArchive` ✅
+- `lib/features/tasks/task_detail_screen.dart` — inline → `handleArchive` ✅
+- `lib/features/habits/habit_detail_screen.dart` — `_toggleArchive` → `handleArchive` ✅
+- `lib/features/contacts/contact_detail_screen.dart` — `_toggleArchive` → `handleArchive` ✅
+- `lib/features/appointments/appointment_detail_screen.dart` — `_archive` → `handleArchive` ✅
+- `lib/features/calendar/event_detail_screen.dart` — `_archive` → `handleArchive` ✅
+- `lib/features/collections/collection_entries_screen.dart` — `_toggleArchive` → `handleArchive` ✅
+
+---
+
+## Session 12b — 28-05-2026 (Provider cleanup)
+
+### Στόχος
+Αφαίρεση dead code providers που derive από `itemsStreamProvider` και δεν χρησιμοποιούνται.
+
+### Αλλαγή στο `lib/providers/item_provider.dart`
+Αφαιρέθηκαν 7 ανενεργοί providers (‑111 γραμμές, 460→349):
+
+| Provider | Γραμμές | Λόγος |
+|----------|:-------:|-------|
+| `allPinnedStreamProvider` | 269-277 | dead code (κανένα feature δεν το χρησιμοποιεί) |
+| `allFavoritesStreamProvider` | 280-288 | dead code |
+| `folderStatsProvider` | 291-309 | dead code (αντικαταστάθηκε από `folderViewDataProvider`) |
+| `todayTasksByFolderProvider` | 312-330 | dead code |
+| `recentByFolderProvider` | 333-353 | dead code (αντικαταστάθηκε από `folderViewDataProvider`) |
+| `pinnedByFolderStreamProvider` | 237-246 | ήδη σχολιασμένο |
+| `favoritesByFolderStreamProvider` | 249-258 | ήδη σχολιασμένο |
+
+### Εκκρεμότητες
+- `tasksWithDetailsProvider` + `subtasksStreamProvider` — ακόμα derive από `itemsStreamProvider`, χρησιμοποιούνται. Θέλουν νέες independent watch methods στο `super_note_helper.dart`
+
+---
+

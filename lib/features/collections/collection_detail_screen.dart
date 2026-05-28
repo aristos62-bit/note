@@ -627,7 +627,7 @@ class _CollectionDetailScreenState
           ReorderableListView.builder(
             shrinkWrap: true,
             physics:    const NeverScrollableScrollPhysics(),
-            onReorder:  _reorderFields,
+            onReorderItem:  _reorderFields,
             itemCount:  _fields.length,
             itemBuilder: (_, i) {
               final f = _fields[i];

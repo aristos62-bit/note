@@ -428,11 +428,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             size: 20,
           ),
           tooltip:   item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
-          onPressed: () async {
-            await ref
-                .read(itemNotifierProvider.notifier)
-                .toggleArchive(item.id, item.archived);
-          },
+          onPressed: () => handleArchive(
+            context: context,
+            ref: ref,
+            itemId: item.id,
+            isArchived: item.archived,
+            label: ItemLabel.task,
+          ),
         ),
         // Delete
         IconButton(
