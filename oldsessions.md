@@ -595,3 +595,20 @@ final firstDate =
 
 ---
 
+## Session 13 — 28-05-2026
+
+### Στόχος
+Διόρθωση κομμένου label "Όλοι" στο `DraggableFolderSelector` (οθόνες Σημειώσεις, Εργασίες κλπ.).
+
+### Πρόβλημα
+Στις list screens (Notes, Tasks, Habits κλπ.) το `DraggableFolderSelector` είχε `height: 56`, αλλά το περιεχόμενο (vertical padding 8 + Icon 18px + SizedBox 8 + labelMd 12px×1.33 + vertical padding 8) χρειαζόταν ~62px, προκαλώντας overflow 4-5px. Το "Όλοι" εμφανιζόταν κομμένο στο κάτω μέρος μετά από navigation.
+
+### Αλλαγή
+**`lib/shared/widgets/draggable_folder_selector.dart:113`:**
+- `height: 56` → `height: 58`
+
+### Σημείωση
+- Η αρχική οθόνη χρησιμοποιεί διαφορετικό widget (`FolderChipSelector`/`_FolderChip` στο `folder_selector.dart`) και ΔΕΝ επηρεάστηκε.
+
+---
+
