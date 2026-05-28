@@ -110,7 +110,7 @@ class _DraggableFolderSelectorState
           onTap: () => selectFolder(folderId),
           child: Container(
             width: 80,
-            height: 56,
+            height: 58,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
