@@ -256,6 +256,29 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
         onPressed: _toggleSearch,
         tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
       ),
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert_rounded),
+        onSelected: (value) {
+          if (value == 'archived') {
+            final show = ref.read(showArchivedProvider);
+            ref.read(showArchivedProvider.notifier).state = !show;
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: 'archived',
+            child: Row(children: [
+              const Icon(Icons.archive_rounded, size: 18),
+              const SizedBox(width: Spacing.sm),
+              Text(
+                ref.watch(showArchivedProvider)
+                    ? 'Απόκρυψη συμπιεσμένων αρχείων'
+                    : 'Εμφάνιση συμπιεσμένων αρχείων',
+              ),
+            ]),
+          ),
+        ],
+      ),
     ],
   );
 

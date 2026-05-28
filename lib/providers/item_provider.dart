@@ -233,123 +233,12 @@ StreamProvider.family<List<Item>, int>((ref, folderId) {
   return db.items.watchByFolder(folderId);
 });
 
-/// Pinned items ενός folder — real-time (derived από itemsByFolderStreamProvider)
-final pinnedByFolderStreamProvider =
-StreamProvider.family<List<Item>, int>((ref, folderId) async* {
-  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
-    data: (items) async* {
-      yield items.where((i) => i.pinned && i.deletedAt == null).toList();
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
-});
-
-/// Favorite items ενός συγκεκριμένου folder — real-time
-final favoritesByFolderStreamProvider =
-StreamProvider.family<List<Item>, int>((ref, folderId) async* {
-  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
-    data: (items) async* {
-      yield items.where((i) => i.favorite && i.deletedAt == null).toList();
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
-});
-
 /// Stream με όλα τα soft‑deleted items του active workspace
 final trashedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
   final db   = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
   if (wsId == null) return Stream.value(const []);
   return db.items.watchDeletedByWorkspace(wsId);
-});
-
-/// Pinned items ΟΛΩΝ των folders — real-time
-final allPinnedStreamProvider = StreamProvider<List<Item>>((ref) async* {
-  yield* ref.watch(itemsStreamProvider).when(
-    data: (items) async* {
-      yield items.where((i) => i.pinned && i.deletedAt == null).toList();
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
-});
-
-/// Favorite items ΟΛΩΝ των folders — real-time
-final allFavoritesStreamProvider = StreamProvider<List<Item>>((ref) async* {
-  yield* ref.watch(itemsStreamProvider).when(
-    data: (items) async* {
-      yield items.where((i) => i.favorite && i.deletedAt == null).toList();
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
-});
-
-/// Stats ανά τύπο για συγκεκριμένο folder — real-time
-final folderStatsProvider =
-StreamProvider.family<Map<ItemType, int>, int>((ref, folderId) async* {
-  Map<ItemType, int> computeCounts(List<Item> items) {
-    final counts = <ItemType, int>{};
-    for (final type in ItemType.values) {
-      counts[type] =
-          items.where((i) => i.type == type && i.deletedAt == null).length;
-    }
-    return counts;
-  }
-
-  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
-    data: (items) async* {
-      yield computeCounts(items);
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
-});
-
-/// Today's tasks για συγκεκριμένο folder (due today ή overdue, μη completed)
-final todayTasksByFolderProvider =
-StreamProvider.family<List<Item>, int>((ref, folderId) async* {
-  List<Item> filter(List<Item> items) {
-    return items.where((i) {
-      if (i.type != ItemType.task) return false;
-      if (i.status == ItemStatus.done) return false;
-      if (i.deletedAt != null) return false;
-      return true;
-    }).toList();
-  }
-
-  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
-    data: (items) async* {
-      yield filter(items);
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
-});
-
-/// Recent items ενός folder (τελευταία 10, ταξινομημένα κατά updatedAt)
-final recentByFolderProvider =
-StreamProvider.family<List<Item>, int>((ref, folderId) async* {
-  List<Item> compute(List<Item> items) {
-    final active =
-    items.where((i) => !i.archived && i.deletedAt == null).toList();
-    active.sort((a, b) {
-      final aDate = a.updatedAt ?? a.createdAt;
-      final bDate = b.updatedAt ?? b.createdAt;
-      return bDate.compareTo(aDate);
-    });
-    return active.take(10).toList();
-  }
-
-  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
-    data: (items) async* {
-      yield compute(items);
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
 });
 
 // ─────────────────────────────────────────────────────────────────

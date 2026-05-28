@@ -71,7 +71,7 @@ class ReorderableItemList extends StatelessWidget {
           ),
         );
       },
-      onReorder: onReorder,
+      onReorderItem: onReorder,
       onReorderStart: (_) => onReorderStart?.call(),  // ← ΝΕΟ
       onReorderEnd: (_) => onReorderEnd?.call(),       // ← ΝΕΟ
       buildDefaultDragHandles: false,

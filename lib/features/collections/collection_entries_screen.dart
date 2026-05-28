@@ -790,13 +790,13 @@ class _CollectionEntryDetailScreenState
   }
 
   Future<void> _toggleArchive() async {
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleArchive(widget.entryId, _isArchived);
-    setState(() {
-      _isArchived = !_isArchived;
-      _hasChanges = true;
-    });
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: widget.entryId,
+      isArchived: _isArchived,
+      label: ItemLabel.entry,
+    );
   }
 
   Future<void> _deleteEntry() async {

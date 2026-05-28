@@ -277,13 +277,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   }
 
   Future<void> _archive() async {
-    final ok = await ConfirmDialog.archive(context);
-    if (!ok || !mounted) return;
-    DebugConfig.db('EventDetail archive id=${widget.itemId}');
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleArchive(widget.itemId, _isArchived);
-    if (mounted) Navigator.of(context, rootNavigator: false).pop();
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: widget.itemId,
+      isArchived: _isArchived,
+      label: ItemLabel.event,
+    );
   }
 
   // --- Υπολογισμός startDateTime για υπενθύμιση ---

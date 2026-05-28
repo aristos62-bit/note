@@ -506,10 +506,13 @@ class _AppointmentDetailScreenState
   }
 
   Future<void> _archive(Item item) async {
-    final ok = await ConfirmDialog.archive(context);
-    if (!ok || !mounted) return;
-    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
-    if (mounted) Navigator.of(context).pop();
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: item.id,
+      isArchived: item.archived,
+      label: ItemLabel.appointment,
+    );
   }
   Future<void> _delete(Item item) async {
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή ραντεβού;');

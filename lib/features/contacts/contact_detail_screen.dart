@@ -243,9 +243,13 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   }
 
   Future<void> _toggleArchive(Item item) async {
-    await ref
-        .read(itemNotifierProvider.notifier)
-        .toggleArchive(item.id, item.archived);
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: item.id,
+      isArchived: item.archived,
+      label: ItemLabel.contact,
+    );
   }
 
   Future<void> _showReminderDialog() async {

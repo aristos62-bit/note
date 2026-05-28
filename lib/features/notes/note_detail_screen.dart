@@ -324,15 +324,13 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
             size: 20,
           ),
           tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-          onPressed: () async {
-            final wasArchived = item.archived;
-            await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, wasArchived);
-            // Αν μόλις αρχειοθετήσαμε (όχι unarchive), γυρνάμε πίσω
-            if (!wasArchived && mounted) {
-              if (!context.mounted)return;
-              Navigator.of(context).pop();
-            }
-          },
+          onPressed: () => handleArchive(
+            context: context,
+            ref: ref,
+            itemId: item.id,
+            isArchived: item.archived,
+            label: ItemLabel.note,
+          ),
         ),
         // Delete
         IconButton(
