@@ -573,8 +573,25 @@ final firstDate =
 | `pinnedByFolderStreamProvider` | 237-246 | ήδη σχολιασμένο |
 | `favoritesByFolderStreamProvider` | 249-258 | ήδη σχολιασμένο |
 
+## Session 12c — 28-05-2026 (Task providers optimization)
+
+### Στόχος
+Αντικατάσταση derived-from-itemsStreamProvider των task providers με independent Isar watch stream.
+
+### Αλλαγές στο `lib/providers/task_provider.dart`
+
+| Βήμα | Γραμμές | Περιγραφή |
+|:----:|:-------:|-----------|
+| 1 | 21-32 | Νέο `tasksStreamProvider` — independent Isar query `watchByWorkspace(wsId, type: ItemType.task, includeArchived: showArchived)` |
+| 2 | 37-68 | `tasksWithDetailsProvider`: derive από `tasksStreamProvider` αντί `itemsStreamProvider` — αφαίρεση `.where` filter |
+| 3 | 73-102 | `subtasksStreamProvider`: listen στο `tasksStreamProvider` αντί `itemsStreamProvider` — αφαίρεση περιττού type check |
+
+### Αποτέλεσμα
+- Τα task providers ΔΕΝ ανανεώνονται πλέον όταν αλλάζει note/journal/habit κλπ.
+- Από 94 → 102 γραμμές
+
 ### Εκκρεμότητες
-- `tasksWithDetailsProvider` + `subtasksStreamProvider` — ακόμα derive από `itemsStreamProvider`, χρησιμοποιούνται. Θέλουν νέες independent watch methods στο `super_note_helper.dart`
+- Κανένα
 
 ---
 
