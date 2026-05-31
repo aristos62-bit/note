@@ -21,6 +21,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import 'collections_screen.dart' show FieldDef, FieldType;
 
@@ -427,16 +428,7 @@ class _FilteredEntriesList extends ConsumerWidget {
           fields: fields,
           isNew: false,
         ))),
-        onDelete: () async {
-          final future =
-          ConfirmDialog.delete(context, title: 'Διαγραφή εγγραφής;');
-          final ok = await future;
-          if (!ok || !context.mounted) return;
-          await ref
-              .read(itemNotifierProvider.notifier)
-              .deleteItem(entry.id);
-          ref.invalidate(itemNotifierProvider);
-        },
+        onShare: () => ShareService.shareItem(context, entry.id),
       ),
     );
   }
@@ -451,14 +443,14 @@ class _EntryCard extends ConsumerWidget {
   final List<FieldDef> fields;
   final Color accentColor;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback? onShare;
 
   const _EntryCard({
     required this.entry,
     required this.fields,
     required this.accentColor,
     required this.onTap,
-    required this.onDelete,
+    this.onShare,
   });
 
   @override
@@ -475,7 +467,6 @@ class _EntryCard extends ConsumerWidget {
 
     return GestureDetector(
       onTap: onTap,
-      onLongPress: () => _showActions(context),
       child: Container(
         padding: const EdgeInsets.all(Spacing.md),
         decoration: BoxDecoration(
@@ -498,6 +489,14 @@ class _EntryCard extends ConsumerWidget {
                   Icon(Icons.star_rounded,
                       size: 12,
                       color: ColorsUI.getWarning(context.brightness)),
+                if (onShare != null) ...[
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: onShare,
+                    child: Icon(Icons.share_rounded, size: 14,
+                        color: foregroundColor.withValues(alpha: 0.6)),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: Spacing.xs),
@@ -558,53 +557,6 @@ class _EntryCard extends ConsumerWidget {
     );
   }
 
-  void _showActions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.cBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_rounded),
-              title: const Text('Επεξεργασία'),
-              onTap: () {
-                Navigator.pop(context);
-                onTap();
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_outline_rounded,
-                  color: context.cError),
-              title: Text('Διαγραφή',
-                  style: TextStyle(color: context.cError)),
-              onTap: () {
-                Navigator.pop(context);
-                onDelete();
-              },
-            ),
-            const SizedBox(height: Spacing.sm),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ════════════════════════════════════════════════════════════════

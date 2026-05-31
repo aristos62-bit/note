@@ -29,7 +29,7 @@ class _AppointmentDetailScreenState
   late TextEditingController _titleCtrl;
   late final FocusNode _titleFocusNode;
   late TextEditingController _locationCtrl;
-  late TextEditingController _notesCtrl;
+  String _notesText = '';
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isFavorite = false;
@@ -62,7 +62,6 @@ class _AppointmentDetailScreenState
       }
     });
     _locationCtrl = TextEditingController();
-    _notesCtrl = TextEditingController();
 
     _contactNameCtrl = TextEditingController();
     _contactPhoneCtrl = TextEditingController();
@@ -107,7 +106,7 @@ class _AppointmentDetailScreenState
           _locationCtrl.text = p.value ?? '';
           break;
         case 'notes':
-          _notesCtrl.text = p.value ?? '';
+          _notesText = p.value ?? '';
           break;
         case 'contact_name':
           _contactNameCtrl.text = p.value ?? '';
@@ -212,10 +211,6 @@ class _AppointmentDetailScreenState
       propertyNotifier.setText(
         'location',
         _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
-      ),
-      propertyNotifier.setText(
-        'notes',
-        _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       ),
       propertyNotifier.setText(
         'contact_name',
@@ -342,6 +337,14 @@ class _AppointmentDetailScreenState
       }
     }
   }
+  Future<void> _saveNotes(String text) async {
+    final propertyNotifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
+    await propertyNotifier.setText(
+      'notes',
+      text.trim().isEmpty ? null : text.trim(),
+    );
+  }
+
   Future<void> _save() async {
     // Validation μόνο εδώ (όχι στο _saveData)
     if (_titleCtrl.text.trim().isEmpty) {
@@ -741,14 +744,11 @@ class _AppointmentDetailScreenState
           const SizedBox(height: Spacing.md),
 
           // Notes (appointment)
-          TextField(
-            controller: _notesCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Σημειώσεις ραντεβού',
-              border: OutlineInputBorder(),
-              alignLabelWithHint: true,
-            ),
-            maxLines: 5,
+          ContentFieldWidget(
+            initialText: _notesText,
+            hintText: 'Σημειώσεις ραντεβού...',
+            onSaved: _saveNotes,
+            debounce: const Duration(milliseconds: 500),
           ),
         ],
       ),
@@ -777,7 +777,6 @@ class _AppointmentDetailScreenState
   void dispose() {
     _titleCtrl.dispose();
     _locationCtrl.dispose();
-    _notesCtrl.dispose();
     _contactNameCtrl.dispose();
     _contactPhoneCtrl.dispose();
     _contactEmailCtrl.dispose();

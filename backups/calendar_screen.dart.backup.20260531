@@ -1,0 +1,766 @@
+// lib/features/calendar/calendar_screen.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/core.dart';
+import '../../models/models.dart';
+import '../../providers/providers.dart';
+import '../../shared/widgets/widgets.dart';
+import 'event_detail_screen.dart';
+import '../../services/reminder_scheduler.dart';
+
+// ── Τύποι δημιουργίας συμβάντος ─────────────────────────────
+enum _EventCreationType { event, birthday, specialDay }
+
+// ── Τύπος ενδείξεων ημερολογίου (για sorting/display) ────────
+enum _DayMarkerType { birthday, specialDay, event }
+
+final _monthEventsProvider =
+    FutureProvider.family<Map<DateTime, List<Item>>, DateTime>(
+        (ref, month) async {
+  final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
+  final events = allItems.where((i) => i.type == ItemType.event).toList();
+  final result = <DateTime, List<Item>>{};
+
+  for (final event in events) {
+    final props = await ref.read(itemPropertiesProvider(event.id).future);
+    final startStr =
+        props.where((p) => p.key == 'start_time').firstOrNull?.value;
+    if (startStr == null) continue;
+    final start = DateTime.tryParse(startStr);
+    if (start == null) continue;
+    if (start.year != month.year || start.month != month.month) continue;
+    final day = DateTime(start.year, start.month, start.day);
+    result.putIfAbsent(day, () => []).add(event);
+  }
+  return result;
+});
+
+final _selectedDayProvider = StateProvider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+});
+
+final _focusedMonthProvider = StateProvider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month);
+});
+
+class CalendarScreen extends ConsumerStatefulWidget {
+  const CalendarScreen({super.key});
+
+  @override
+  ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends ConsumerState<CalendarScreen>
+    with FolderAutoSelectMixin {
+  final GlobalKey<ItemListEmbeddedState> _listKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final focusedMonth = ref.watch(_focusedMonthProvider);
+    final selectedDay = ref.watch(_selectedDayProvider);
+    final monthAsync = ref.watch(_monthEventsProvider(focusedMonth));
+    final foldersAsync = ref.watch(foldersStreamProvider);
+    final settingsAsync = ref.watch(settingsNotifierProvider);
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
+    tryAutoSelectFolder(
+      foldersAsync: foldersAsync,
+      settingsAsync: settingsAsync,
+      debugLabel: 'CalendarList',
+    );
+
+    return Scaffold(
+      backgroundColor: context.cBg,
+      appBar: _buildAppBar(context, ref, focusedMonth),
+      floatingActionButton: selectedFolderId != null
+          ? FloatingActionButton(
+              onPressed: () => _showCreationMenu(context, ref, selectedDay),
+              tooltip: 'Νέο συμβάν',
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
+      body: Column(
+        children: [
+          const DraggableFolderSelector(),
+          Expanded(
+            child: ResponsiveLayout(
+              mobile: _buildMobile(
+                  context, ref, focusedMonth, selectedDay, monthAsync),
+              tablet: _buildTablet(
+                  context, ref, focusedMonth, selectedDay, monthAsync),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  AppBar _buildAppBar(
+      BuildContext context, WidgetRef ref, DateTime focusedMonth) {
+    const months = [
+      'Ιανουάριος',
+      'Φεβρουάριος',
+      'Μάρτιος',
+      'Απρίλιος',
+      'Μάιος',
+      'Ιούνιος',
+      'Ιούλιος',
+      'Αύγουστος',
+      'Σεπτέμβριος',
+      'Οκτώβριος',
+      'Νοέμβριος',
+      'Δεκέμβριος',
+    ];
+
+    return AppBar(
+      backgroundColor: context.cBg,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      title: Text(
+        '${months[focusedMonth.month - 1]} ${focusedMonth.year}',
+        style: context.titleLg,
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.search_rounded),
+          onPressed: () => _listKey.currentState?.toggleSearch(),
+          tooltip: 'Αναζήτηση',
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_left_rounded),
+          onPressed: () {
+            final cur = ref.read(_focusedMonthProvider);
+            ref.read(_focusedMonthProvider.notifier).state =
+                DateTime(cur.year, cur.month - 1);
+          },
+        ),
+        TextButton(
+          onPressed: () {
+            final now = DateTime.now();
+            ref.read(_focusedMonthProvider.notifier).state =
+                DateTime(now.year, now.month);
+            ref.read(_selectedDayProvider.notifier).state =
+                DateTime(now.year, now.month, now.day);
+          },
+          child: const Text('Σήμερα'),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right_rounded),
+          onPressed: () {
+            final cur = ref.read(_focusedMonthProvider);
+            ref.read(_focusedMonthProvider.notifier).state =
+                DateTime(cur.year, cur.month + 1);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildArchivedToggle(WidgetRef ref) {
+    final showArchived = ref.watch(showArchivedProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: Row(
+        children: [
+          const Spacer(),
+          TextButton.icon(
+            icon: Icon(
+              showArchived
+                  ? Icons.unarchive_rounded
+                  : Icons.archive_rounded,
+              size: 18,
+            ),
+            label: Text(
+              showArchived ? 'Απόκρυψη συμπιεσμένων αρχείων' : 'Εμφάνιση συμπιεσμένων αρχείων',
+              style: context.labelSm,
+            ),
+            onPressed: () {
+              ref.read(showArchivedProvider.notifier).state = !showArchived;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobile(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime focusedMonth,
+    DateTime selectedDay,
+    AsyncValue<Map<DateTime, List<Item>>> monthAsync,
+  ) {
+    return Column(
+      children: [
+        _MonthGrid(
+          focusedMonth: focusedMonth,
+          selectedDay: selectedDay,
+          // ✅ Περνάμε ολόκληρο το map (items με icon info)
+          dayEvents: monthAsync.valueOrNull ?? {},
+          onDayTap: (day) =>
+              ref.read(_selectedDayProvider.notifier).state = day,
+        ),
+        const Divider(height: 1),
+        _buildArchivedToggle(ref),
+        Flexible(
+          fit: FlexFit.tight,
+          child: ItemListEmbedded(
+            key: _listKey,
+            itemType: ItemType.event,
+            folderId: ref.watch(selectedFolderIdProvider),
+            showFolderSelector: false,
+            onItemTap: (item) => Navigator.of(context).push(
+              AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTablet(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime focusedMonth,
+    DateTime selectedDay,
+    AsyncValue<Map<DateTime, List<Item>>> monthAsync,
+  ) {
+    return Row(
+      children: [
+        SizedBox(
+          width: context.isDesktop ? 400 : 340,
+          child: Column(
+            children: [
+              _MonthGrid(
+                focusedMonth: focusedMonth,
+                selectedDay: selectedDay,
+                dayEvents: monthAsync.valueOrNull ?? {},
+                onDayTap: (day) =>
+                    ref.read(_selectedDayProvider.notifier).state = day,
+              ),
+              const Divider(height: 1),
+            ],
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Flexible(
+          fit: FlexFit.tight,
+          child: Column(
+            children: [
+              _buildArchivedToggle(ref),
+              Flexible(
+                fit: FlexFit.tight,
+                child: ItemListEmbedded(
+                  key: _listKey,
+                  itemType: ItemType.event,
+                  folderId: ref.watch(selectedFolderIdProvider),
+                  showFolderSelector: false,
+                  onItemTap: (item) => Navigator.of(context).push(
+                    AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Creation menu
+  // ──────────────────────────────────────────────────────────────
+
+  Future<void> _showCreationMenu(
+      BuildContext context, WidgetRef ref, DateTime selectedDay) async {
+    final type = await showModalBottomSheet<_EventCreationType>(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                margin:
+                    const EdgeInsets.only(top: Spacing.md, bottom: Spacing.sm),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.cBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.lg, vertical: Spacing.sm),
+              child: Row(
+                children: [Text('Νέο συμβάν', style: context.titleMd)],
+              ),
+            ),
+            const Divider(height: 1),
+            _EventTypeOption(
+              icon: Icons.event_rounded,
+              iconBgColor: Colors.indigo.shade100,
+              iconColor: Colors.indigo.shade600,
+              title: 'Συμβάν',
+              subtitle: 'Προγραμματισμένο γεγονός',
+              onTap: () => Navigator.pop(context, _EventCreationType.event),
+            ),
+            _EventTypeOption(
+              icon: Icons.cake_rounded,
+              iconBgColor: Colors.pink.shade100,
+              iconColor: Colors.pink.shade600,
+              title: 'Γενέθλια',
+              subtitle: 'Αυτόματη ετήσια υπενθύμιση',
+              onTap: () => Navigator.pop(context, _EventCreationType.birthday),
+            ),
+            _EventTypeOption(
+              icon: Icons.star_rounded,
+              iconBgColor: Colors.amber.shade100,
+              iconColor: Colors.amber.shade700,
+              title: 'Ειδική Ημέρα',
+              subtitle: 'Σημαντική ημερομηνία',
+              onTap: () =>
+                  Navigator.pop(context, _EventCreationType.specialDay),
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
+    );
+
+    if (type == null || !context.mounted) return;
+    switch (type) {
+      case _EventCreationType.event:
+        await _createEvent(context, ref, selectedDay);
+      case _EventCreationType.birthday:
+        await _createBirthdayEvent(context, ref, selectedDay);
+      case _EventCreationType.specialDay:
+        await _createEventWithIcon(context, ref, selectedDay, '⭐');
+    }
+  }
+
+  Future<void> _createEvent(
+      BuildContext context, WidgetRef ref, DateTime selectedDay) async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
+    try {
+      final item = await ref.read(itemNotifierProvider.notifier).create(
+            type: ItemType.event,
+            folderId: selectedFolderId,
+          );
+      if (item == null || !context.mounted) return;
+      final startTime =
+          DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
+      final endTime = startTime.add(const Duration(hours: 1));
+      final propNotifier = ref.read(propertyNotifierProvider(item.id).notifier);
+      await propNotifier.setDate('start_time', startTime);
+      await propNotifier.setDate('end_time', endTime);
+      if (!context.mounted) return;
+      Navigator.of(context).push(
+        AppTransitions.slideRoute(
+            EventDetailScreen(itemId: item.id, isNew: true)),
+      );
+    } catch (e) {
+      DebugConfig.error('CalendarScreen _createEvent', e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Σφάλμα δημιουργίας συμβάντος')),
+        );
+      }
+    }
+  }
+
+  Future<void> _createBirthdayEvent(
+      BuildContext context, WidgetRef ref, DateTime selectedDay) async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
+
+    try {
+      final item = await ref.read(itemNotifierProvider.notifier).create(
+            type: ItemType.event,
+            folderId: selectedFolderId,
+            icon: '🎂',
+          );
+      if (item == null || !context.mounted) return;
+
+      final startTime =
+          DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
+      final endTime = startTime.add(const Duration(hours: 1));
+      final propNotifier = ref.read(propertyNotifierProvider(item.id).notifier);
+      await propNotifier.setDate('start_time', startTime);
+      await propNotifier.setDate('end_time', endTime);
+
+      // ✅ Ετήσιο recurring reminder
+      final month = selectedDay.month;
+      final day = selectedDay.day;
+      final rrule = 'FREQ=YEARLY;INTERVAL=1;BYMONTH=$month;BYMONTHDAY=$day';
+
+      await ref.read(dbProvider).reminders.create(
+            itemId: item.id,
+            triggerAt: startTime,
+            rrule: rrule,
+            title: '🎂 Γενέθλια',
+            body: 'Σήμερα είναι γενέθλια!',
+          );
+
+      await ReminderScheduler.instance.refreshRecurringReminders();
+
+      if (!context.mounted) return;
+      Navigator.of(context).push(
+        AppTransitions.slideRoute(
+            EventDetailScreen(itemId: item.id, isNew: true)),
+      );
+    } catch (e) {
+      DebugConfig.error('CalendarScreen _createBirthdayEvent', e);
+    }
+  }
+
+  Future<void> _createEventWithIcon(BuildContext context, WidgetRef ref,
+      DateTime selectedDay, String icon) async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
+    try {
+      final item = await ref.read(itemNotifierProvider.notifier).create(
+            type: ItemType.event,
+            folderId: selectedFolderId,
+            icon: icon,
+          );
+      if (item == null || !context.mounted) return;
+      final startTime =
+          DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
+      final endTime = startTime.add(const Duration(hours: 1));
+      final propNotifier = ref.read(propertyNotifierProvider(item.id).notifier);
+      await propNotifier.setDate('start_time', startTime);
+      await propNotifier.setDate('end_time', endTime);
+      if (!context.mounted) return;
+      Navigator.of(context).push(
+        AppTransitions.slideRoute(
+            EventDetailScreen(itemId: item.id, isNew: true)),
+      );
+    } catch (e) {
+      DebugConfig.error('CalendarScreen _createEventWithIcon', e);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// EVENT TYPE OPTION TILE (κοινό για το menu)
+// ════════════════════════════════════════════════════════════════
+
+class _EventTypeOption extends StatelessWidget {
+  final IconData icon;
+  final Color iconBgColor;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _EventTypeOption({
+    required this.icon,
+    required this.iconBgColor,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg, vertical: Spacing.xs),
+      leading: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: iconBgColor,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Icon(icon, color: iconColor, size: 24),
+      ),
+      title: Text(title,
+          style: context.bodyMd.copyWith(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: context.bodySm.withColor(context.cText2)),
+      onTap: onTap,
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// MONTH GRID — με ενδείξεις τύπου συμβάντος
+// ════════════════════════════════════════════════════════════════
+
+class _MonthGrid extends ConsumerWidget {
+  final DateTime focusedMonth;
+  final DateTime selectedDay;
+
+  /// Όλα τα items ανά ημέρα — χρησιμοποιείται για τον τύπο δείκτη
+  final Map<DateTime, List<Item>> dayEvents;
+  final ValueChanged<DateTime> onDayTap;
+
+  static const _weekDays = ['Δ', 'Τ', 'Τ', 'Π', 'Π', 'Σ', 'Κ'];
+
+  // ── Χρώματα δεικτών ────────────────────────────────────────
+  static const _birthdayColor = Color(0xFFEC4899); // pink-500
+  static const _specialDayColor = Color(0xFFF59E0B); // amber-500
+
+  const _MonthGrid({
+    required this.focusedMonth,
+    required this.selectedDay,
+    required this.dayEvents,
+    required this.onDayTap,
+  });
+
+  /// Υπολογίζει ποιοι τύποι markers υπάρχουν για μια ημέρα.
+  /// Επιστρέφει ταξινομημένη λίστα (birthday πρώτα).
+  List<_DayMarkerType> _markersFor(DateTime date) {
+    final items = dayEvents[date];
+    if (items == null || items.isEmpty) return [];
+
+    final types = <_DayMarkerType>{};
+    for (final item in items) {
+      if (item.icon == '🎂') {
+        types.add(_DayMarkerType.birthday);
+      } else if (item.icon == '⭐') {
+        types.add(_DayMarkerType.specialDay);
+      } else {
+        types.add(_DayMarkerType.event);
+      }
+    }
+
+    // Ταξινόμηση: birthday > specialDay > event
+    return types.toList()..sort((a, b) => a.index.compareTo(b.index));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final firstOfMonth = DateTime(focusedMonth.year, focusedMonth.month, 1);
+    final startOffset = (firstOfMonth.weekday - 1) % 7;
+    final daysInMonth =
+        DateUtils.getDaysInMonth(focusedMonth.year, focusedMonth.month);
+
+    return Container(
+      color: ColorsUI.getSurface(context.brightness),
+      padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm, vertical: Spacing.sm),
+      child: Column(
+        children: [
+          // ── Επικεφαλίδες ημερών ───────────────────────────
+          Row(
+            children: _weekDays
+                .map((d) => Expanded(
+                      child: Center(
+                        child: Text(d,
+                            style: context.labelSm.withColor(context.cText2)),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: Spacing.xs),
+
+          // ── Grid ημερών ────────────────────────────────────
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisExtent: 44,
+            ),
+            itemCount: startOffset + daysInMonth,
+            itemBuilder: (_, index) {
+              if (index < startOffset) return const SizedBox.shrink();
+
+              final day = index - startOffset + 1;
+              final date = DateTime(focusedMonth.year, focusedMonth.month, day);
+
+              final isToday = date == today;
+              final isSelected = date == selectedDay;
+              final markers = _markersFor(date);
+
+              return GestureDetector(
+                onTap: () => onDayTap(date),
+                child: Container(
+                  margin: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? context.cPrimary
+                        : isToday
+                            ? context.cPrimary.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: isToday && !isSelected
+                        ? Border.all(color: context.cPrimary, width: 1.5)
+                        : null,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // ── Αριθμός ημέρας ──────────────────
+                      Text(
+                        '$day',
+                        style: context.bodyMd.withColor(
+                          isSelected
+                              ? ColorsUI.getAccessibleTextColor(
+                                  context.cPrimary)
+                              : isToday
+                                  ? context.cPrimary
+                                  : context.cText,
+                        ),
+                      ),
+
+                      // ── Δείκτες τύπου συμβάντων ─────────
+                      if (markers.isNotEmpty && !isSelected)
+                        Positioned(
+                          bottom: 3,
+                          child: _DayMarkerRow(
+                            markers: markers,
+                            primary: context.cPrimary,
+                          ),
+                        ),
+
+                      // ── Αν selected και έχει events:
+                      //    δείχνουμε όλες τις κουκκίδες με
+                      //    κανονικά χρώματα ─────────────────
+                      if (markers.isNotEmpty && isSelected)
+                        Positioned(
+                          bottom: 3,
+                          child: _DayMarkerRow(
+                            markers: markers,
+                            primary: context.cPrimary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // ── Legend ────────────────────────────────────────
+          const SizedBox(height: Spacing.xs),
+          const _CalendarLegend(),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// DAY MARKER ROW — σειρά κουκκίδων ανά τύπο
+// ════════════════════════════════════════════════════════════════
+
+class _DayMarkerRow extends StatelessWidget {
+  final List<_DayMarkerType> markers;
+  final Color primary;
+
+  const _DayMarkerRow({
+    required this.markers,
+    required this.primary,
+  });
+
+  Color _colorFor(_DayMarkerType type, Color primary) {
+    switch (type) {
+      case _DayMarkerType.birthday:
+        return _MonthGrid._birthdayColor;
+      case _DayMarkerType.specialDay:
+        return _MonthGrid._specialDayColor;
+      case _DayMarkerType.event:
+        return primary;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Δείχνουμε max 3 κουκκίδες
+    final visible = markers.take(3).toList();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < visible.length; i++) ...[
+          if (i > 0) const SizedBox(width: 2),
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: _colorFor(visible[i], primary),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// CALENDAR LEGEND — υπόμνημα χρωμάτων
+// ════════════════════════════════════════════════════════════════
+
+class _CalendarLegend extends StatelessWidget {
+  const _CalendarLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm, vertical: Spacing.xs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const _LegendItem(
+            color: _MonthGrid._birthdayColor,
+            label: 'Γενέθλια',
+          ),
+          const SizedBox(width: Spacing.md),
+          const _LegendItem(
+            color: _MonthGrid._specialDayColor,
+            label: 'Ειδική ημέρα',
+          ),
+          const SizedBox(width: Spacing.md),
+          _LegendItem(
+            color: Theme.of(context).colorScheme.primary,
+            label: 'Συμβάν',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendItem({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: context.labelSm.withColor(context.cText2),
+        ),
+      ],
+    );
+  }
+}

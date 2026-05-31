@@ -33,9 +33,7 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 
 class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   late final TextEditingController _titleCtrl;
-  late final TextEditingController _notesCtrl;
   late final FocusNode             _titleFocusNode;
-  Timer? _notesDebounce;
   bool   _isSaving      = false;
   bool   _isEditingTitle = false;
   String _lastSavedTitle = '';
@@ -44,7 +42,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   void initState() {
     super.initState();
     _titleCtrl      = TextEditingController();
-    _notesCtrl      = TextEditingController();
     _titleFocusNode = FocusNode();
 
     _titleFocusNode.addListener(() {
@@ -61,22 +58,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   @override
   void dispose() {
-    _notesDebounce?.cancel();
     _titleCtrl.dispose();
-    _notesCtrl.dispose();
     _titleFocusNode.dispose();
     super.dispose();
   }
 
   void _onTitleChanged(String value) {
     _isEditingTitle = true;
-  }
-
-  void _onNotesChanged(String value) {
-    _notesDebounce?.cancel();
-    _notesDebounce = Timer(const Duration(milliseconds: 800), () {
-      _saveNotes(value.trim());
-    });
   }
 
   Future<void> _saveTitle(String title) async {
@@ -130,10 +118,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   Future<void> _flushPendingSaves() async {
     await _saveTitle(_titleCtrl.text.trim());
-    if (_notesDebounce?.isActive == true) {
-      _notesDebounce!.cancel();
-      await _saveNotes(_notesCtrl.text.trim());
-    }
   }
 
   Future<void> _toggleDone(Item item) async {
@@ -269,10 +253,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         item:           item,
         titleCtrl:      _titleCtrl,
         titleFocusNode: _titleFocusNode,
-        notesCtrl:      _notesCtrl,
         isSaving:       _isSaving,
         onTitleChange:  _onTitleChanged,
-        onNotesChange:  _onNotesChanged,
+        onNotesSaved:   _saveNotes,
         onToggleDone:   () => _toggleDone(item),
         onSetStatus:    _setStatus,
         onSetPriority:  _setPriority,
@@ -309,10 +292,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               item:           item,
               titleCtrl:      _titleCtrl,
               titleFocusNode: _titleFocusNode,
-              notesCtrl:      _notesCtrl,
               isSaving:       _isSaving,
               onTitleChange:  _onTitleChanged,
-              onNotesChange:  _onNotesChanged,
+              onNotesSaved:   _saveNotes,
               onToggleDone:   () => _toggleDone(item),
               onSetStatus:    _setStatus,
               onSetPriority:  _setPriority,
@@ -361,7 +343,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               );
               return;
             }
-            _notesDebounce?.cancel();
             final nav = Navigator.of(context);
             setState(() => _isSaving = true);
             try {
@@ -480,10 +461,9 @@ class _TaskBody extends ConsumerWidget {
   final Item                       item;
   final TextEditingController      titleCtrl;
   final FocusNode                  titleFocusNode;
-  final TextEditingController      notesCtrl;
   final bool                       isSaving;
   final ValueChanged<String>       onTitleChange;
-  final ValueChanged<String>       onNotesChange;
+  final ValueChanged<String>       onNotesSaved;
   final VoidCallback               onToggleDone;
   final ValueChanged<ItemStatus>   onSetStatus;
   final ValueChanged<ItemPriority> onSetPriority;
@@ -495,10 +475,9 @@ class _TaskBody extends ConsumerWidget {
     required this.item,
     required this.titleCtrl,
     required this.titleFocusNode,
-    required this.notesCtrl,
     required this.isSaving,
     required this.onTitleChange,
-    required this.onNotesChange,
+    required this.onNotesSaved,
     required this.onToggleDone,
     required this.onSetStatus,
     required this.onSetPriority,
@@ -518,10 +497,6 @@ class _TaskBody extends ConsumerWidget {
     // 🆕 Έλεγχος υποεργασιών — αν υπάρχουν, το checkbox μπλοκάρεται
     final subtasksAsync = ref.watch(subtasksStreamProvider(item.id));
     final hasSubtasks   = (subtasksAsync.valueOrNull ?? []).isNotEmpty;
-
-    if (!notesCtrl.selection.isValid && notesCtrl.text != notesVal) {
-      notesCtrl.text = notesVal;
-    }
 
     final isDone = item.status == ItemStatus.done;
 
@@ -623,18 +598,11 @@ class _TaskBody extends ConsumerWidget {
                       style: context.labelMd.withColor(context.cText2)),
                 ]),
                 const SizedBox(height: Spacing.sm),
-                TextField(
-                  controller: notesCtrl,
-                  onChanged:  onNotesChange,
-                  style:      context.bodyMd,
-                  maxLines:   null,
-                  minLines:   3,
-                  decoration: InputDecoration(
-                    hintText:  'Πρόσθεσε σημειώσεις...',
-                    hintStyle: context.bodyMd.withColor(context.cDisabled),
-                    border:    InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
+                ContentFieldWidget(
+                  initialText: notesVal,
+                  hintText: 'Πρόσθεσε σημειώσεις...',
+                  onSaved: onNotesSaved,
+                  debounce: const Duration(milliseconds: 800),
                 ),
               ],
             ),

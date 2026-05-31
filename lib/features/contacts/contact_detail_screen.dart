@@ -16,8 +16,10 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+import '../../helpers/super_note_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/reminder_scheduler.dart';
 import '../../shared/widgets/widgets.dart';
 
 class ContactDetailScreen extends ConsumerStatefulWidget {
@@ -44,7 +46,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   late final TextEditingController _companyCtrl;
   late final TextEditingController _websiteCtrl;
   late final TextEditingController _addressCtrl;
-  late final TextEditingController _notesCtrl;
+  String _notesValue = '';
 
   // ── Save state (ίδια λογική με NoteDetailScreen) ───────────
   // ignore: prefer_final_fields
@@ -70,7 +72,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     _companyCtrl = TextEditingController();
     _websiteCtrl = TextEditingController();
     _addressCtrl = TextEditingController();
-    _notesCtrl = TextEditingController();
     DebugConfig.nav(
         'ContactDetailScreen init id=${widget.itemId} isNew=${widget.isNew}');
   }
@@ -85,7 +86,6 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     _companyCtrl.dispose();
     _websiteCtrl.dispose();
     _addressCtrl.dispose();
-    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -115,7 +115,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     final company = _companyCtrl.text.trim();
     final website = _websiteCtrl.text.trim();
     final address = _addressCtrl.text.trim();
-    final notes = _notesCtrl.text.trim();
+    final notes = _notesValue.trim();
 
     final phonesList = _phoneCtrls
         .map((c) => c.text.trim())
@@ -139,19 +139,24 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           notifier.setText('phones', phonesList.isEmpty ? null : phonesJson));
       futures.add(notifier.remove('phone')); // καθαρισμός παλιού key
     }
-    if (email != _lastEmail)
-      {futures.add(notifier.setText('email', email.isEmpty ? null : email));}
-    if (company != _lastCompany)
-      {futures
-          .add(notifier.setText('company', company.isEmpty ? null : company));}
-    if (website != _lastWebsite)
-      {futures
-          .add(notifier.setText('website', website.isEmpty ? null : website));}
-    if (address != _lastAddress)
-      {futures
-          .add(notifier.setText('address', address.isEmpty ? null : address));}
-    if (notes != _lastNotes)
-      {futures.add(notifier.setText('notes', notes.isEmpty ? null : notes));}
+    if (email != _lastEmail) {
+      futures.add(notifier.setText('email', email.isEmpty ? null : email));
+    }
+    if (company != _lastCompany) {
+      futures
+          .add(notifier.setText('company', company.isEmpty ? null : company));
+    }
+    if (website != _lastWebsite) {
+      futures
+          .add(notifier.setText('website', website.isEmpty ? null : website));
+    }
+    if (address != _lastAddress) {
+      futures
+          .add(notifier.setText('address', address.isEmpty ? null : address));
+    }
+    if (notes != _lastNotes) {
+      futures.add(notifier.setText('notes', notes.isEmpty ? null : notes));
+    }
 
     if (futures.isNotEmpty) await Future.wait(futures);
 
@@ -220,6 +225,102 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         .read(propertyNotifierProvider(widget.itemId).notifier)
         .remove('birthday');
     setState(() => _lastBirthday = null);
+  }
+
+  Future<void> _createBirthdayReminder(DateTime birthday) async {
+    final item = ref.read(itemStreamProvider(widget.itemId)).valueOrNull;
+    if (item == null) return;
+    final name = item.title ?? '';
+
+    final existing =
+        await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
+    final existingRoot = existing
+        .where(
+          (r) =>
+              r.rrule?.contains('YEARLY') == true && r.parentReminderId == null,
+        )
+        .firstOrNull;
+
+    if (existingRoot != null) {
+      if (!mounted) return;
+      final replace = await ConfirmDialog.show(
+        context,
+        title: 'Ετήσια υπενθύμιση',
+        subtitle:
+            'Υπάρχει ήδη ετήσια υπενθύμιση γενεθλίων για $name. Θέλετε να την αντικαταστήσετε;',
+        confirmLabel: 'Αντικατάσταση',
+        cancelLabel: 'Άκυρο',
+        icon: Icons.cake_rounded,
+      );
+      if (!replace || !mounted) return;
+
+      final now = DateTime.now();
+      final triggerThisYear =
+          DateTime(now.year, birthday.month, birthday.day, 9, 0);
+      final triggerAt = triggerThisYear.isAfter(now)
+          ? triggerThisYear
+          : DateTime(now.year + 1, birthday.month, birthday.day, 9, 0);
+
+      final rrule =
+          'FREQ=YEARLY;INTERVAL=1;BYMONTH=${birthday.month};BYMONTHDAY=${birthday.day}';
+
+      await ReminderScheduler.instance.deleteReminderThread(existingRoot.id);
+      await SuperNoteHelper.instance.reminders.create(
+        itemId: widget.itemId,
+        triggerAt: triggerAt,
+        rrule: rrule,
+        title: 'Γενέθλια $name',
+        body: 'Γενέθλια $name',
+      );
+      await ReminderScheduler.instance.refreshRecurringReminders();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Αντικαταστάθηκε η υπενθύμιση γενεθλίων για $name')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Ετήσια υπενθύμιση',
+      subtitle:
+          'Θέλετε να δημιουργήσετε ετήσια υπενθύμιση γενεθλίων για $name;',
+      confirmLabel: 'Ναι',
+      cancelLabel: 'Όχι',
+      icon: Icons.cake_rounded,
+    );
+    if (!confirmed || !mounted) return;
+
+    final now = DateTime.now();
+    final triggerThisYear =
+        DateTime(now.year, birthday.month, birthday.day, 9, 0);
+    final triggerAt = triggerThisYear.isAfter(now)
+        ? triggerThisYear
+        : DateTime(now.year + 1, birthday.month, birthday.day, 9, 0);
+
+    final rrule =
+        'FREQ=YEARLY;INTERVAL=1;BYMONTH=${birthday.month};BYMONTHDAY=${birthday.day}';
+
+    await SuperNoteHelper.instance.reminders.create(
+      itemId: widget.itemId,
+      triggerAt: triggerAt,
+      rrule: rrule,
+      title: 'Γενέθλια $name',
+      body: 'Γενέθλια $name',
+    );
+    await ReminderScheduler.instance.refreshRecurringReminders();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Δημιουργήθηκε ετήσια υπενθύμιση γενεθλίων για $name')),
+      );
+    }
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -323,73 +424,93 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     );
   }
 
-  Widget _buildMobile(BuildContext context, Item item) => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: _buildAppBar(context, item),
-        body: _ContactBody(
-          item: item,
-          properties:
-          ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [],
-          tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
-          nameCtrl: _nameCtrl,
-          phoneCtrls: _phoneCtrls,
-          emailCtrl: _emailCtrl,
-          companyCtrl: _companyCtrl,
-          websiteCtrl: _websiteCtrl,
-          addressCtrl: _addressCtrl,
-          notesCtrl: _notesCtrl,
-          birthday: _lastBirthday,
-          onNameChanged: _onNameChanged,
-          onPickBirthday: () => _pickBirthday(context),
-          onClearBirthday: _clearBirthday,
-          onSyncProps: _syncPropsFromDB,
-          onShowTagPicker: _showTagPicker,
-          onAddPhone: _addPhoneField, // 🆕
-          onRemovePhone: _removePhoneField, // 🆕
-        ),
-      );
+  Widget _buildMobile(BuildContext context, Item item) {
+    final props =
+        ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
+    final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
+    final birthday = bdStr != null ? DateTime.tryParse(bdStr) : null;
 
-  Widget _buildTablet(BuildContext context, Item item) => Scaffold(
-        backgroundColor: context.cBg,
-        appBar: _buildAppBar(context, item),
-        body: Row(
-          children: [
-            SizedBox(
-              width: context.isDesktop ? 280 : 240,
-              child: _ContactSummaryPanel(
-                item: item,
-                properties: ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [],
-                tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
-                onShowTagPicker: _showTagPicker,
-              ),
+    return Scaffold(
+      backgroundColor: context.cBg,
+      appBar: _buildAppBar(context, item),
+      body: _ContactBody(
+        item: item,
+        properties: props,
+        tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+        nameCtrl: _nameCtrl,
+        phoneCtrls: _phoneCtrls,
+        emailCtrl: _emailCtrl,
+        companyCtrl: _companyCtrl,
+        websiteCtrl: _websiteCtrl,
+        addressCtrl: _addressCtrl,
+        notesValue: _notesValue,
+        onNotesChanged: (v) => _notesValue = v,
+        birthday: birthday,
+        onNameChanged: _onNameChanged,
+        onPickBirthday: () => _pickBirthday(context),
+        onClearBirthday: _clearBirthday,
+        onCreateBirthdayReminder:
+            birthday != null ? () => _createBirthdayReminder(birthday) : null,
+        onSyncProps: _syncPropsFromDB,
+        onShowTagPicker: _showTagPicker,
+        onAddPhone: _addPhoneField,
+        onRemovePhone: _removePhoneField,
+      ),
+    );
+  }
+
+  Widget _buildTablet(BuildContext context, Item item) {
+    final props =
+        ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
+    final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
+    final birthday = bdStr != null ? DateTime.tryParse(bdStr) : null;
+
+    return Scaffold(
+      backgroundColor: context.cBg,
+      appBar: _buildAppBar(context, item),
+      body: Row(
+        children: [
+          SizedBox(
+            width: context.isDesktop ? 280 : 240,
+            child: _ContactSummaryPanel(
+              item: item,
+              properties: props,
+              tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+              onShowTagPicker: _showTagPicker,
             ),
-            VerticalDivider(
-                width: 1, color: ColorsUI.getBorder(context.brightness)),
-            Expanded(
-              child: _ContactBody(
-                item: item,
-                properties: ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [],
-                tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
-                nameCtrl: _nameCtrl,
-                phoneCtrls: _phoneCtrls, // 🆕
-                emailCtrl: _emailCtrl,
-                companyCtrl: _companyCtrl,
-                websiteCtrl: _websiteCtrl,
-                addressCtrl: _addressCtrl,
-                notesCtrl: _notesCtrl,
-                birthday: _lastBirthday,
-                onNameChanged: _onNameChanged,
-                onPickBirthday: () => _pickBirthday(context),
-                onClearBirthday: _clearBirthday,
-                onSyncProps: _syncPropsFromDB,
-                onShowTagPicker: _showTagPicker,
-                onAddPhone: _addPhoneField, // 🆕
-                onRemovePhone: _removePhoneField, // 🆕
-              ),
+          ),
+          VerticalDivider(
+              width: 1, color: ColorsUI.getBorder(context.brightness)),
+          Expanded(
+            child: _ContactBody(
+              item: item,
+              properties: props,
+              tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+              nameCtrl: _nameCtrl,
+              phoneCtrls: _phoneCtrls,
+              emailCtrl: _emailCtrl,
+              companyCtrl: _companyCtrl,
+              websiteCtrl: _websiteCtrl,
+              addressCtrl: _addressCtrl,
+              notesValue: _notesValue,
+              onNotesChanged: (v) => _notesValue = v,
+              birthday: birthday,
+              onNameChanged: _onNameChanged,
+              onPickBirthday: () => _pickBirthday(context),
+              onClearBirthday: _clearBirthday,
+              onCreateBirthdayReminder: birthday != null
+                  ? () => _createBirthdayReminder(birthday)
+                  : null,
+              onSyncProps: _syncPropsFromDB,
+              onShowTagPicker: _showTagPicker,
+              onAddPhone: _addPhoneField,
+              onRemovePhone: _removePhoneField,
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 
   AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
         backgroundColor: context.cBg,
@@ -529,13 +650,16 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
 
     if (_emailCtrl.text.isEmpty && email.isNotEmpty) _emailCtrl.text = email;
-    if (_companyCtrl.text.isEmpty && company.isNotEmpty)
-      {_companyCtrl.text = company;}
-    if (_websiteCtrl.text.isEmpty && website.isNotEmpty)
-      {_websiteCtrl.text = website;}
-    if (_addressCtrl.text.isEmpty && address.isNotEmpty)
-      {_addressCtrl.text = address;}
-    if (_notesCtrl.text.isEmpty && notes.isNotEmpty) _notesCtrl.text = notes;
+    if (_companyCtrl.text.isEmpty && company.isNotEmpty) {
+      _companyCtrl.text = company;
+    }
+    if (_websiteCtrl.text.isEmpty && website.isNotEmpty) {
+      _websiteCtrl.text = website;
+    }
+    if (_addressCtrl.text.isEmpty && address.isNotEmpty) {
+      _addressCtrl.text = address;
+    }
+    if (_notesValue.isEmpty && notes.isNotEmpty) _notesValue = notes;
 
     _lastEmail = email;
     _lastCompany = company;
@@ -582,11 +706,13 @@ class _ContactBody extends ConsumerWidget {
   final TextEditingController companyCtrl;
   final TextEditingController websiteCtrl;
   final TextEditingController addressCtrl;
-  final TextEditingController notesCtrl;
+  final String notesValue;
+  final ValueChanged<String> onNotesChanged;
   final DateTime? birthday;
   final ValueChanged<String> onNameChanged;
   final VoidCallback onPickBirthday;
   final VoidCallback onClearBirthday;
+  final VoidCallback? onCreateBirthdayReminder;
   final ValueChanged<List<ItemProperty>> onSyncProps;
   final VoidCallback onShowTagPicker;
   final VoidCallback onAddPhone;
@@ -602,11 +728,13 @@ class _ContactBody extends ConsumerWidget {
     required this.companyCtrl,
     required this.websiteCtrl,
     required this.addressCtrl,
-    required this.notesCtrl,
+    required this.notesValue,
+    required this.onNotesChanged,
     required this.birthday,
     required this.onNameChanged,
     required this.onPickBirthday,
     required this.onClearBirthday,
+    this.onCreateBirthdayReminder,
     required this.onSyncProps,
     required this.onShowTagPicker,
     required this.onAddPhone,
@@ -724,12 +852,37 @@ class _ContactBody extends ConsumerWidget {
                   birthday: displayBirthday,
                   onPick: onPickBirthday,
                   onClear: onClearBirthday,
+                  onCreateReminder: onCreateBirthdayReminder,
                 ),
-                _ContactField(
-                  icon: Icons.notes_rounded,
-                  label: 'Σημειώσεις',
-                  controller: notesCtrl,
-                  maxLines: 4,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Spacing.xs + 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Icon(Icons.notes_rounded, size: 18, color: context.cText2),
+                      ),
+                      const SizedBox(width: Spacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Σημειώσεις',
+                                style: context.bodySm.withColor(context.cText2)),
+                            const SizedBox(height: 4),
+                            ContentFieldWidget(
+                              initialText: notesValue,
+                              hintText: 'Πρόσθεσε σημειώσεις...',
+                              onChanged: onNotesChanged,
+                              onSaved: (text) {},
+                              autoDeleteEmpty: false,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -957,11 +1110,13 @@ class _BirthdayField extends StatelessWidget {
   final DateTime? birthday;
   final VoidCallback onPick;
   final VoidCallback onClear;
+  final VoidCallback? onCreateReminder;
 
   const _BirthdayField({
     required this.birthday,
     required this.onPick,
     required this.onClear,
+    this.onCreateReminder,
   });
 
   @override
@@ -970,11 +1125,20 @@ class _BirthdayField extends StatelessWidget {
         ? DateFormat.yMMMMd('el_GR').format(birthday!)
         : 'Επιλογή ημερομηνίας';
 
+    final hasBirthday = birthday != null;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs + 2),
       child: Row(
         children: [
-          Icon(Icons.cake_rounded, size: 18, color: context.cText2),
+          GestureDetector(
+            onTap: hasBirthday ? onCreateReminder : null,
+            child: Icon(
+              Icons.cake_rounded,
+              size: 18,
+              color: hasBirthday ? const Color(0xFFEC4899) : context.cText2,
+            ),
+          ),
           const SizedBox(width: Spacing.md),
           Expanded(
             child: GestureDetector(

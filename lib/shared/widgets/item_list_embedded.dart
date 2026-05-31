@@ -21,6 +21,7 @@ class ItemListEmbedded extends ConsumerStatefulWidget {
   final int? folderId;
   final ValueChanged<Item> onItemTap;
   final bool showFolderSelector;
+  final void Function(Item)? onShare;
 
   const ItemListEmbedded({
     super.key,
@@ -28,6 +29,7 @@ class ItemListEmbedded extends ConsumerStatefulWidget {
     this.folderId,
     required this.onItemTap,
     this.showFolderSelector = true,
+    this.onShare,
   });
 
   @override
@@ -193,6 +195,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                     itemType: widget.itemType,
                     onTap: widget.onItemTap,
                     onLongPress: (item) => _showItemActions(context, item),
+                    onShare: widget.onShare,
                   );
                 },
               ),
@@ -352,12 +355,14 @@ class _EmbeddedItemListBody extends ConsumerWidget {
   final ItemType itemType;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
+  final void Function(Item)? onShare;
 
   const _EmbeddedItemListBody({
     required this.items,
     required this.itemType,
     required this.onTap,
     required this.onLongPress,
+    this.onShare,
   });
 
   void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
@@ -380,6 +385,7 @@ class _EmbeddedItemListBody extends ConsumerWidget {
         item: item,
         onTap: onTap,
         onLongPress: onLongPress,
+        onShare: onShare != null ? () => onShare!(item) : null,
       ),
     );
   }

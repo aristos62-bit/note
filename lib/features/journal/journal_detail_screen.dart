@@ -34,13 +34,12 @@ class JournalDetailScreen extends ConsumerStatefulWidget {
 
 class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   late final TextEditingController _titleCtrl;
-  late final TextEditingController _contentCtrl;
 
-  // ── Save state (ίδιο με NoteDetailScreen) ──────────────────
+  // ── Save state ──────────────────
   bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
-  String _lastSavedContent = '';
+  String _pendingContent = '';
   bool _hasEverBeenSaved = false;
 
   // ── Entry date state ───────────────────────────────────────
@@ -50,7 +49,6 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
-    _contentCtrl = TextEditingController();
     DebugConfig.nav(
         'JournalDetailScreen init id=${widget.itemId} isNew=${widget.isNew}');
     _loadEntryDate();
@@ -59,7 +57,6 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   @override
   void dispose() {
     _titleCtrl.dispose();
-    _contentCtrl.dispose();
     super.dispose();
   }
 
@@ -67,18 +64,27 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     _isEditingTitle = true;
   }
 
-  void _onContentChanged(String value) {}
+  void _onContentChanged(String value) {
+    _pendingContent = value;
+  }
+
+  Future<void> _onContentSaved(String content) async {
+    DebugConfig.db('JournalDetail saveContent id=${widget.itemId}');
+    try {
+      await ref
+          .read(propertyNotifierProvider(widget.itemId).notifier)
+          .setText('content', content.isEmpty ? null : content);
+    } catch (e) {
+      DebugConfig.error('JournalDetail saveContent', e);
+    }
+  }
 
   Future<void> _save() async {
     if (!mounted) return;
 
     final title = _titleCtrl.text.trim();
-    final content = _contentCtrl.text.trim();
 
-    final titleChanged = title != _lastSavedTitle;
-    final contentChanged = content != _lastSavedContent;
-
-    if (!titleChanged && !contentChanged && _hasEverBeenSaved) {
+    if (title == _lastSavedTitle && _pendingContent.isEmpty && _hasEverBeenSaved) {
       DebugConfig.db('JournalDetail save: no changes, skip');
       return;
     }
@@ -91,15 +97,12 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
           .read(itemNotifierProvider.notifier)
           .updateItem(widget.itemId, title: title.isEmpty ? null : title);
 
-      if (contentChanged) {
+      if (_pendingContent.isNotEmpty) {
         if (!mounted) return;
-        await ref
-            .read(propertyNotifierProvider(widget.itemId).notifier)
-            .setText('content', content.isEmpty ? null : content);
+        await _onContentSaved(_pendingContent);
       }
 
       _lastSavedTitle = title;
-      _lastSavedContent = content;
       _hasEverBeenSaved = true;
       _isEditingTitle = false;
       DebugConfig.db('JournalDetail saved successfully');
@@ -264,10 +267,10 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     body: _JournalBody(
       item: item,
       titleCtrl: _titleCtrl,
-      contentCtrl: _contentCtrl,
       isSaving: _isSaving,
       onTitleChanged: _onTitleChanged,
       onContentChanged: _onContentChanged,
+      onContentSaved: _onContentSaved,
       entryDate: _entryDate,
       onSetEntryDate: _setEntryDate,
       onShowReminder: _showReminderDialog,
@@ -294,10 +297,10 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
           child: _JournalBody(
             item: item,
             titleCtrl: _titleCtrl,
-            contentCtrl: _contentCtrl,
             isSaving: _isSaving,
             onTitleChanged: _onTitleChanged,
             onContentChanged: _onContentChanged,
+            onContentSaved: _onContentSaved,
             entryDate: _entryDate,
             onSetEntryDate: _setEntryDate,
             onShowReminder: _showReminderDialog,
@@ -432,10 +435,10 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
 class _JournalBody extends ConsumerStatefulWidget {
   final Item item;
   final TextEditingController titleCtrl;
-  final TextEditingController contentCtrl;
   final bool isSaving;
   final ValueChanged<String> onTitleChanged;
   final ValueChanged<String> onContentChanged;
+  final ValueChanged<String> onContentSaved;
   final DateTime? entryDate;
   final ValueChanged<DateTime?> onSetEntryDate;
   final VoidCallback onShowReminder;
@@ -444,10 +447,10 @@ class _JournalBody extends ConsumerStatefulWidget {
   const _JournalBody({
     required this.item,
     required this.titleCtrl,
-    required this.contentCtrl,
     required this.isSaving,
     required this.onTitleChanged,
     required this.onContentChanged,
+    required this.onContentSaved,
     this.entryDate,
     required this.onSetEntryDate,
     required this.onShowReminder,
@@ -459,19 +462,12 @@ class _JournalBody extends ConsumerStatefulWidget {
 }
 
 class _JournalBodyState extends ConsumerState<_JournalBody> {
-  bool _contentLoaded = false;
-
   @override
   Widget build(BuildContext context) {
     final propsAsync = ref.watch(itemPropertiesProvider(widget.item.id));
     final props = propsAsync.valueOrNull ?? [];
     final dbContent =
         props.where((p) => p.key == 'content').firstOrNull?.value ?? '';
-
-    if (!_contentLoaded && dbContent.isNotEmpty) {
-      widget.contentCtrl.text = dbContent;
-      _contentLoaded = true;
-    }
 
     // Tags για το body section
     final tagsAsync = ref.watch(itemTagsProvider(widget.item.id));
@@ -541,18 +537,13 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
               context.responsiveHPadding,
               Spacing.sm,
             ),
-            child: TextField(
-              controller: widget.contentCtrl,
-              onChanged: widget.onContentChanged,
+            child: ContentFieldWidget(
+              initialText: dbContent,
+              hintText: 'Γράψε τις σκέψεις σου...',
               style: context.bodyLg,
-              maxLines: null,
-              minLines: 10,
-              decoration: InputDecoration(
-                hintText: 'Γράψε τις σκέψεις σου...',
-                hintStyle: context.bodyLg.withColor(context.cDisabled),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
+              onChanged: widget.onContentChanged,
+              onSaved: widget.onContentSaved,
+              debounce: const Duration(milliseconds: 500),
             ),
           ),
         ),

@@ -23,3 +23,5 @@ export 'responsive_item_list.dart';
 export 'reorder_handle.dart';
 export 'reorderable_item_list.dart';
 export 'archive_helper.dart';
+export 'content_field_widget.dart';
+export 'block_editor_widget.dart';

@@ -1,0 +1,537 @@
+//
+// Home Folder View — εμφάνιση περιεχομένου φακέλου
+// ✅ ViewMode: pinned | favorites | recent | all
+// ✅ Real-time
+// ✅ Responsive
+// ✅ Dark mode
+//
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/core.dart';
+import '../../models/models.dart';
+import '../../providers/providers.dart';
+import '../../shared/widgets/widgets.dart';
+import 'folder_browser_screen.dart';
+import 'package:go_router/go_router.dart';
+import '../../helpers/item_color_helper.dart';
+
+// ── View Mode για το φάκελο ───────────────────────────────────
+enum FolderViewMode { pinned, favorites, recent, all }
+
+// ════════════════════════════════════════════════════════════════
+// HOME FOLDER VIEW
+// ════════════════════════════════════════════════════════════════
+
+class HomeFolderView extends ConsumerStatefulWidget {
+  final Folder folder;
+  const HomeFolderView({super.key, required this.folder});
+
+  @override
+  ConsumerState<HomeFolderView> createState() => _HomeFolderViewState();
+}
+
+class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
+  Folder get folder => widget.folder;
+  FolderViewMode _viewMode = FolderViewMode.recent;
+
+  void _showCreateMenu(BuildContext context) {
+    const types = [
+      (ItemType.note, '📝', 'Σημείωση'),
+      (ItemType.task, '✅', 'Εργασία'),
+      (ItemType.event, '📅', 'Συμβάν'),
+      (ItemType.habit, '🔄', 'Συνήθεια'),
+      (ItemType.journal, '📖', 'Ημερολόγιο'),
+      (ItemType.contact, '👤', 'Επαφή'),
+      (ItemType.project, '📦', 'Συλλογή'),
+      (ItemType.appointment, '📅', 'Ραντεβού'),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: context.cBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+              child: Text('Νέο στοιχείο σε "${folder.name}"', style: context.titleSm),
+            ),
+            const Divider(),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ...types.map((t) => ListTile(
+                      leading: Text(t.$2, style: const TextStyle(fontSize: 22)),
+                      title: Text(t.$3, style: context.bodyMd),
+                      trailing: Icon(Icons.chevron_right_rounded, size: 18, color: context.cDisabled),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await _createItem(context, t.$1);
+                      },
+                    )),
+                    const SizedBox(height: Spacing.sm),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createItem(BuildContext context, ItemType type) async {
+    DebugConfig.nav('🔨 _createItem called with type: ${type.name}');
+    DebugConfig.nav('HomeFolderView createItem type=${type.name}');
+    final item = await ref.read(itemNotifierProvider.notifier).create(
+      type: type,
+      folderId: folder.id,
+    );
+    if (item == null || !mounted) return;
+    DebugConfig.nav('✅ Item created: id=${item.id}, type=${item.type}');
+    ref.invalidate(itemNotifierProvider);
+    if (!context.mounted)return;
+    _openItem(context, item, isNew: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    DebugConfig.provider('HomeFolderView build folder=${folder.id}');
+
+    final folderData  = ref.watch(folderViewDataProvider(folder.id));
+    // ΝΕΟ: itemsByFolderStreamProvider → ταξινόμηση από sortOrder (κρατά τη σειρά μετά reorder)
+    final allItems    = ref.watch(itemsByFolderStreamProvider(folder.id));
+    final isDragging  = ref.watch(isDraggingProvider);
+    final folderColor = _colorFromHex(folder.color, context.cPrimary);
+
+    return PopScope(
+      canPop: !isDragging,
+      child: Stack(
+        children: [
+          // Column αντί CustomScrollView → επιτρέπει ReorderableItemList με Expanded
+          Column(
+            children: [
+              // Stats — fixed header
+              folderData.when(
+                loading: () => _StatsRowSkeleton(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (data) => _FolderStatsRow(stats: data.stats),
+              ),
+              // ViewMode toggle — fixed header
+              _FolderViewModeToggle(
+                current: _viewMode,
+                onChanged: (mode) {
+                  DebugConfig.nav('HomeFolderView: mode changed to $mode');
+                  if (mode == FolderViewMode.all) {
+                    Navigator.of(context).push(AppTransitions.slideRoute(
+                        FolderBrowserScreen(folder: folder)));
+                  } else {
+                    setState(() => _viewMode = mode);
+                  }
+                },
+              ),
+              // Scrollable list — Expanded παίρνει το υπόλοιπο ύψος
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(itemsByFolderStreamProvider(folder.id));
+                    ref.invalidate(folderViewDataProvider(folder.id));
+                  },
+                  child: _buildContent(context, allItems),
+                ),
+              ),
+            ],
+          ),
+          // FAB πάνω από τη λίστα
+          Positioned(
+            right: Spacing.md,
+            bottom: Spacing.lg,
+            child: FloatingActionButton(
+              onPressed: () => _showCreateMenu(context),
+              backgroundColor: folderColor,
+              foregroundColor: Colors.white,
+              tooltip: 'Νέο στοιχείο',
+              child: const Icon(Icons.add_rounded),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Δέχεται πλέον allItems (sortOrder-sorted) αντί για folderViewData
+  Widget _buildContent(
+      BuildContext context,
+      AsyncValue<List<Item>> allItemsAsync,
+      ) {
+    if (_viewMode == FolderViewMode.all) return const SizedBox.shrink();
+
+    return allItemsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) {
+        DebugConfig.error('HomeFolderView data', e);
+        return const SizedBox.shrink();
+      },
+      data: (all) {
+        // Τοπικό φιλτράρισμα — η σειρά εξαρτάται από sortOrder (watchByFolder)
+        // Μετά από reorder() το stream ξανα-εκπέμπει στη ΝΕΑ σειρά sortOrder ✓
+        final items = switch (_viewMode) {
+          FolderViewMode.pinned    => all.where((i) => i.pinned   && i.deletedAt == null).toList(),
+          FolderViewMode.favorites => all.where((i) => i.favorite && i.deletedAt == null).toList(),
+          FolderViewMode.recent    => all.where((i) => i.deletedAt == null && !i.archived).take(10).toList(),
+          FolderViewMode.all       => <Item>[],
+        };
+        return _buildItemsList(context, items);
+      },
+    );
+  }
+
+  Widget _buildItemsList(BuildContext context, List<Item> items) {
+    if (items.isEmpty) return _buildEmptyState(context);
+
+    return ReorderableItemList(
+      items: items,
+      gridItemExtent: 100,
+      onReorder: (oldIdx, newIdx) {
+        if (oldIdx == newIdx) return;
+        final reordered = List<Item>.from(items);
+        final moved = reordered.removeAt(oldIdx);
+        reordered.insert(newIdx > oldIdx ? newIdx - 1 : newIdx, moved);
+        // Ανανεώνει sortOrder → itemsByFolderStreamProvider εκπέμπει στη νέα σειρά ✓
+        ref.read(itemNotifierProvider.notifier).reorder(reordered);
+      },
+      onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
+      onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
+      // DraggableItemWrapper: διατηρεί folder-to-folder drag
+      itemBuilder: (ctx, item, index) => DraggableItemWrapper(
+        itemId: item.id,
+        child: _FolderItemCard(
+          item: item,
+          onTap: () => _openItem(context, item),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final (icon, title, subtitle) = switch (_viewMode) {
+      FolderViewMode.pinned    => (Icons.push_pin_outlined,    'Δεν υπάρχουν καρφιτσωμένα στοιχεία', 'Καρφίτσωσε στοιχεία για να τα βλέπεις εδώ.'),
+      FolderViewMode.favorites => (Icons.star_outline_rounded, 'Δεν υπάρχουν αγαπημένα στοιχεία',    'Πρόσθεσε αγαπημένα για να τα βλέπεις εδώ.'),
+      FolderViewMode.recent    => (Icons.history_rounded,      'Δεν υπάρχουν πρόσφατα στοιχεία',     'Δημιούργησε στοιχεία στον φάκελο για να τα βλέπεις εδώ.'),
+      FolderViewMode.all       => (Icons.inbox_rounded,        'Ο φάκελος είναι άδειος',              'Πάτα + για να δημιουργήσεις το πρώτο στοιχείο.'),
+    };
+    // Center αντί SliverToBoxAdapter — συμβατό με Column+Expanded
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            context.responsiveHPadding, Spacing.xl,
+            context.responsiveHPadding, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56, color: context.cDisabled),
+            const SizedBox(height: Spacing.md),
+            Text(title, style: context.titleMd),
+            const SizedBox(height: Spacing.sm),
+            Text(subtitle,
+                style: context.bodyMd.withColor(context.cText2),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Color _colorFromHex(String? hex, Color fallback) {
+    if (hex == null || hex.isEmpty) return fallback;
+    try {
+      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  void _openItem(BuildContext context, Item item, {bool isNew = false}) {
+    DebugConfig.nav('HomeFolderView → ${item.type.name} id=${item.id}');
+    switch (item.type) {
+      case ItemType.task:
+        context.push(AppRoutes.task(item.id));
+        break;
+      case ItemType.contact:
+        context.push(AppRoutes.contact(item.id));
+        break;
+      case ItemType.journal:
+        context.push(AppRoutes.journal_(item.id));
+        break;
+      case ItemType.habit:
+        context.push(AppRoutes.habit(item.id));
+        break;
+      case ItemType.event:
+        context.push('/calendar/${item.id}');
+        break;
+      case ItemType.project:
+        context.push(AppRoutes.collection(item.id));
+        break;
+      case ItemType.appointment:
+        context.push('/appointments/${item.id}');
+        break;
+      default:
+        context.push(AppRoutes.note(item.id));
+    }
+  }
+
+}
+
+// ════════════════════════════════════════════════════════════════
+// FOLDER VIEW MODE TOGGLE (κυκλικά κουμπιά, μόνο εικονίδια)
+// ════════════════════════════════════════════════════════════════
+
+class _FolderViewModeToggle extends StatelessWidget {
+  final FolderViewMode current;
+  final ValueChanged<FolderViewMode> onChanged;
+
+  const _FolderViewModeToggle({required this.current, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: Spacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _ToggleButton(
+            icon: Icons.push_pin_rounded,
+            tooltip: 'Καρφιτσωμένα',
+            isSelected: current == FolderViewMode.pinned,
+            activeColor: Colors.red,
+            onTap: () => onChanged(FolderViewMode.pinned),
+          ),
+          const SizedBox(width: Spacing.md),
+          _ToggleButton(
+            icon: Icons.star_rounded,
+            tooltip: 'Αγαπημένα',
+            isSelected: current == FolderViewMode.favorites,
+            activeColor: Colors.amber,
+            onTap: () => onChanged(FolderViewMode.favorites),
+          ),
+          const SizedBox(width: Spacing.md),
+          _ToggleButton(
+            icon: Icons.history_rounded,
+            tooltip: 'Πρόσφατα',
+            isSelected: current == FolderViewMode.recent,
+            activeColor: Colors.blue,
+            onTap: () => onChanged(FolderViewMode.recent),
+          ),
+          const SizedBox(width: Spacing.md),
+          _ToggleButton(
+            icon: Icons.list_rounded,
+            tooltip: 'Όλα',
+            isSelected: current == FolderViewMode.all,
+            activeColor: Colors.green,
+            onTap: () => onChanged(FolderViewMode.all),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final bool isSelected;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _ToggleButton({
+    required this.icon,
+    required this.tooltip,
+    required this.isSelected,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected ? activeColor : context.cText2;
+    final bgColor = isSelected
+        ? activeColor.withValues(alpha: 0.12)
+        : ColorsUI.getSurface(context.brightness);
+    final borderColor = isSelected ? activeColor : ColorsUI.getBorder(context.brightness);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Tooltip(
+        message: tooltip,
+        child: AnimatedContainer(
+          duration: AppDuration.fast,
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: bgColor,
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor, width: 1.5),
+          ),
+          child: Icon(icon, size: 18, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// FOLDER STATS ROW (unchanged)
+// ════════════════════════════════════════════════════════════════
+
+class _FolderStatsRow extends StatelessWidget {
+  final Map<ItemType, int> stats;
+  const _FolderStatsRow({required this.stats});
+
+  static const _shown = [ItemType.note, ItemType.task, ItemType.event, ItemType.habit, ItemType.contact];
+
+  @override
+  Widget build(BuildContext context) {
+    final activeTypes = _shown.where((t) => (stats[t] ?? 0) > 0).toList();
+    if (activeTypes.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),
+      child: SizedBox(
+        height: 36,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+          itemCount: activeTypes.length,
+          separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
+          itemBuilder: (_, i) {
+            final type = activeTypes[i];
+            final count = stats[type] ?? 0;
+            final color = ColorsUI.itemTypeColor(type, context.brightness);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ItemTypeIcon(type, size: 14, color: color),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$count',
+                    style: context.labelSm.withColor(color).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _StatsRowSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),
+      child: SizedBox(
+        height: 36,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+          itemCount: 3,
+          separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
+          itemBuilder: (_, __) => Container(
+            width: 50,
+            height: 28,
+            decoration: BoxDecoration(
+              color: ColorsUI.getBorder(context.brightness).withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// FOLDER ITEM CARD (με χρώμα ανά τύπο, ίδια δομή)
+// ════════════════════════════════════════════════════════════════
+
+class _FolderItemCard extends StatelessWidget {
+  final Item item;
+  final VoidCallback onTap;
+  const _FolderItemCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = ItemColorHelper.backgroundColorForType(item.type, context);
+    final textColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
+    final itemColor = ItemColorHelper.iconColorForType(item.type, context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(Spacing.sm),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: AppRadius.cardBR,
+          border: Border.all(color: itemColor.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                ItemTypeIcon(item.type, size: 13, color: itemColor),
+                const SizedBox(width: Spacing.xs),
+                Text(
+                  ItemTypeIcon.labelFor(item.type),
+                  style: context.labelSm.copyWith(color: textColor),
+                ),
+                const Spacer(),
+                if (item.pinned)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(Icons.push_pin_rounded, size: 12, color: textColor),
+                  ),
+                if (item.favorite)
+                  Icon(Icons.star_rounded, size: 12, color: textColor),
+              ],
+            ),
+            const SizedBox(height: Spacing.xs),
+            Text(
+              item.title ?? 'Χωρίς τίτλο',
+              style: context.bodyMd.copyWith(color: textColor),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

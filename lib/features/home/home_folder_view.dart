@@ -13,6 +13,7 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'folder_browser_screen.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 
 // ── View Mode για το φάκελο ───────────────────────────────────
@@ -226,6 +227,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
         child: _FolderItemCard(
           item: item,
           onTap: () => _openItem(context, item),
+          onShare: () => ShareService.shareItem(context, item.id),
         ),
       ),
     );
@@ -484,7 +486,8 @@ class _StatsRowSkeleton extends StatelessWidget {
 class _FolderItemCard extends StatelessWidget {
   final Item item;
   final VoidCallback onTap;
-  const _FolderItemCard({required this.item, required this.onTap});
+  final VoidCallback? onShare;
+  const _FolderItemCard({required this.item, required this.onTap, this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -520,6 +523,14 @@ class _FolderItemCard extends StatelessWidget {
                   ),
                 if (item.favorite)
                   Icon(Icons.star_rounded, size: 12, color: textColor),
+                if (onShare != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: GestureDetector(
+                      onTap: onShare,
+                      child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: Spacing.xs),

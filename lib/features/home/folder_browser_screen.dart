@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
 import '../notes/note_detail_screen.dart';
 import '../tasks/task_detail_screen.dart';
@@ -458,6 +459,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
                         items: filteredItems,
                         onTap: (i) => _openExisting(context, i),
                         onDelete: (i) => _deleteItem(i),
+                        onShare: (i) => ShareService.shareItem(context, i.id),
                         // ── ΝΕΟ: reorder callbacks ──────────────────
                         onReorder: (oldIdx, newIdx) {
                           if (oldIdx == newIdx) return;
@@ -478,6 +480,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
                         items: filteredItems,
                         onTap: (i) => _openExisting(context, i),
                         onDelete: (i) => _deleteItem(i),
+                        onShare: (i) => ShareService.shareItem(context, i.id),
                       ),
                     );
                   },
@@ -564,6 +567,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
         items: folderItems,
         onTap: (item) => _openExisting(context, item),
         folder: _folder,
+        onShare: (item) => ShareService.shareItem(context, item.id),
       ),
     );
   }
@@ -645,6 +649,7 @@ class _ItemsList extends StatelessWidget {
   final List<Item> items;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onDelete;
+  final ValueChanged<Item>? onShare;
   // ── ΝΕΟ ──────────────────────────────────────────────────────
   final void Function(int oldIndex, int newIndex) onReorder;
   final VoidCallback? onReorderStart;
@@ -654,6 +659,7 @@ class _ItemsList extends StatelessWidget {
     required this.items,
     required this.onTap,
     required this.onDelete,
+    this.onShare,
     required this.onReorder,      // ← ΝΕΟ
     this.onReorderStart,          // ← ΝΕΟ
     this.onReorderEnd,            // ← ΝΕΟ
@@ -672,6 +678,7 @@ class _ItemsList extends StatelessWidget {
         compact: true,
         onTap: () => onTap(item),
         onLongPress: () => _showActions(ctx, item),
+        onShare: onShare != null ? () => onShare!(item) : null,
       ),
     );
   }
@@ -740,11 +747,13 @@ class _ItemsGrid extends StatelessWidget {
   final List<Item> items;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onDelete;
+  final ValueChanged<Item>? onShare;
 
   const _ItemsGrid({
     required this.items,
     required this.onTap,
     required this.onDelete,
+    this.onShare,
   });
 
   @override
@@ -766,6 +775,7 @@ class _ItemsGrid extends StatelessWidget {
       itemBuilder: (_, i) => ItemCard(
         item: items[i],
         onTap: () => onTap(items[i]),
+        onShare: onShare != null ? () => onShare!(items[i]) : null,
       ),
     );
   }
@@ -778,12 +788,14 @@ class _ItemsGrid extends StatelessWidget {
 class _FolderSearchSheet extends StatefulWidget {
   final List<Item> items;
   final ValueChanged<Item> onTap;
+  final ValueChanged<Item>? onShare;
   final Folder folder;
 
   const _FolderSearchSheet({
     required this.items,
     required this.onTap,
     required this.folder,
+    this.onShare,
   });
 
   @override
@@ -892,6 +904,9 @@ class _FolderSearchSheetState extends State<_FolderSearchSheet> {
                         Navigator.pop(context);
                         widget.onTap(_results[i]);
                       },
+                      onShare: widget.onShare != null
+                          ? () => widget.onShare!(_results[i])
+                          : null,
                     ),
                   ),
           ),

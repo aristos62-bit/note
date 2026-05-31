@@ -612,3 +612,365 @@ final firstDate =
 
 ---
 
+## Session 14 — 28-05-2026
+
+### Στόχος
+Δημιουργία ετήσιας υπενθύμισης γενεθλίων από την οθόνη επαφής.
+
+### Περιγραφή
+Όταν μια επαφή έχει συμπληρωμένα γενέθλια, το εικονίδιο τούρτας γίνεται ροζ (#EC4899). Πατώντας το, εμφανίζεται dialog επιβεβαίωσης. Αν ο χρήστης επιλέξει Ναι, δημιουργείται αυτόματη ετήσια υπενθύμιση (RRULE yearly) στις 9:00 π.μ. της ημέρας των γενεθλίων, με τίτλο "Γενέθλια {όνομα επαφής}". Αν τα γενέθλια για φέτος έχουν ήδη περάσει, η υπενθύμιση προγραμματίζεται για του χρόνου.
+
+### Αλλαγή στο `lib/features/contacts/contact_detail_screen.dart`
+
+| Γραμμές | Περιγραφή |
+|---------|-----------|
+| 19 | Import `super_note_helper.dart` |
+| 22 | Import `reminder_scheduler.dart` |
+| 227-265 | Νέα μέθοδος `_createBirthdayReminder(DateTime)` — ConfirmDialog → create reminder (9AM, yearly rrule) → refreshRecurringReminders → SnackBar |
+| 595, 616 | `_ContactBody`: νέο optional param `onCreateBirthdayReminder` |
+| 731 | Πέρασμα `onCreateReminder: onCreateBirthdayReminder` στο `_BirthdayField` |
+| 387-389, 429-431 | Mobile & tablet: `onCreateBirthdayReminder` callback |
+| 1007-1039 | `_BirthdayField`: νέο param `onCreateReminder`, cake icon ροζ + tappable όταν υπάρχει birthday |
+
+### Διορθώσεις (ίδιο session)
+
+| Πρόβλημα | Αιτία | Fix |
+|----------|-------|-----|
+| Το `onCreateBirthdayReminder` ήταν null μετά από re-entry | Εξαρτιόταν από `_lastBirthday` που συγχρονιζόταν αργά μέσω `_syncPropsFromDB` | `_buildMobile`/`_buildTablet` διαβάζουν birthday απευθείας από `itemPropertiesProvider` |
+| Πολλαπλές υπενθυμίσεις αν πατηθεί η τούρτα ξανά | Δεν υπήρχε έλεγχος ύπαρξης | `_createBirthdayReminder` ελέγχει αν υπάρχει ήδη yearly root — αν ναι, προσφέρει αντικατάσταση |
+
+### Backup
+- `backups/contact_detail_screen.dart.backup.20260528`
+
+---
+
+## Session 15 — 28-05-2026
+
+### Στόχος
+Διόρθωση συμπεριφοράς toggle "Ειδοποιήσεις" στις Ρυθμίσεις — cancel/re-schedule όταν αλλάζει.
+
+### Πρόβλημα
+- **ON → OFF**: Οι προγραμματισμένες ειδοποιήσεις παρέμεναν ενεργές (δεν ακυρώνονταν)
+- **OFF → ON**: Τα pending reminders δεν ξαναπρογραμματίζονταν παρά μόνο μετά από restart
+
+### Αλλαγή στο `lib/providers/settings_provider.dart`
+
+| Γραμμές | Περιγραφή |
+|---------|-----------|
+| 4-5 | Import `notification_service.dart`, `reminder_scheduler.dart` |
+| 51-58 | `toggleNotifications`: OFF → `cancelAll()`, ON → `scheduleAll()` |
+
+---
+
+## Session 16 — 31-05-2026
+
+### Στόχος
+Δημιουργία shared ContentEditorWidget για ομοιόμορφη εισαγωγή περιεχομένου σε όλα τα detail screens.
+
+### Τι έγινε
+
+**Νέα shared widgets:**
+
+| Αρχείο | Περιγραφή |
+|--------|-----------|
+| `lib/shared/widgets/content_field_widget.dart` | `ContentFieldWidget` — shared TextField με auto-delete empty (focus loss), debounced save, cursorAtStart, maxLines:null |
+| `lib/shared/widgets/block_editor_widget.dart` | `BlockEditorWidget` (extracted από note), `BlockTileWidget`, `NewBlockBar` — block editor με types (checklist, bullet, numbered, quote, code, heading) |
+| `lib/shared/widgets/widgets.dart` | +2 exports |
+
+**Αλλαγές σε υπάρχοντα screens:**
+
+| Screen | Πριν | Μετά |
+|--------|------|------|
+| `note_detail_screen.dart` | −390 γρ: private `_BlocksSliver`, `_BlockTile`, `_NewBlockBar` | `BlockEditorWidget` (shared) |
+| `task_detail_screen.dart` | `_notesCtrl` + `_notesDebounce` + inline TextField | `ContentFieldWidget` (auto-save 800ms) |
+| `journal_detail_screen.dart` | `_contentCtrl` + `_onContentChanged` + inline TextField | `ContentFieldWidget` (auto-save 500ms) |
+
+**Συμπεριφορές που υλοποιήθηκαν:**
+1. Auto-delete empty on focus loss
+2. Cursor at start για νέα πεδία
+3. Auto-expand (maxLines: null)
+4. Tap για cursor positioning, long press για selection
+5. Debounced auto-save (configurable)
+
+**Backups:**
+- `backups/note_detail_screen.dart.backup.20260531`
+- `backups/task_detail_screen.dart.backup.20260531`
+- `backups/journal_detail_screen.dart.backup.20260531`
+
+**Αποτέλεσμα:** `flutter analyze` — No issues found.
+
+**Εκκρεμότητες:**
+- [ ] Έλεγχος από χρήστη σε λειτουργία
+- [ ] Προαιρετικά: appointment_detail_screen + contact_detail_screen notes fields
+
+---
+
+## Session 17 — 31-05-2026
+
+### Στόχος
+Εφαρμογή `ContentFieldWidget` στα notes fields των υπόλοιπων detail screens.
+
+### Αλλαγές
+
+**`lib/features/appointments/appointment_detail_screen.dart`:**
+- Αντικατάσταση `_notesCtrl` (TextEditingController) + TextField με `ContentFieldWidget`
+- Νέα `String _notesText` state variable
+- Αφαίρεση notes save από `_saveData()` — γίνεται αυτόματα μέσω `_saveNotes()` callback
+- Auto-save με debounce 500ms
+
+**`lib/features/contacts/contact_detail_screen.dart`:**
+- Αντικατάσταση `_notesCtrl` (TextEditingController) + `_ContactField` με `ContentFieldWidget` (icon + label inline)
+- Νέα `String _notesValue` state variable
+- Παρακολούθηση αλλαγών μέσω `onNotesChanged` callback
+- `_persistChanges()` διαβάζει από `_notesValue` αντί `_notesCtrl.text`
+
+**Δεν άλλαξαν:**
+- `event_detail_screen.dart` — location field έχει ήδη debounce save, δεν ταιριάζει η αντικατάσταση
+- `habit_detail_screen.dart` — μόνο title, όχι notes field
+- `collection_detail_screen.dart` — μόνο title + field defs, όχι notes field
+
+**Backups:**
+- `backups/appointment_detail_screen.dart.backup.20260531`
+- `backups/contact_detail_screen.dart.backup.20260531`
+- `backups/event_detail_screen.dart.backup.20260531`
+
+**Αποτέλεσμα:** `flutter analyze` — No issues found.
+
+**Εκκρεμότητες:**
+- [ ] Έλεγχος από χρήστη σε λειτουργία (appointment + contact notes fields)
+- [ ] Αν χρειαστεί, event_detail_screen location field μελλοντικά
+
+---
+
+## Session 18 — 31-05-2026 (Σχεδιασμός Share Feature)
+
+### Απόφαση
+To share feature θα χρησιμοποιεί **μόνο system share sheet** (`share_plus`), όχι custom panel. Το system sheet ήδη περιλαμβάνει Messenger, Viber, Email κλπ.
+
+### Τι χρειάζεται για υλοποίηση
+
+**1. Νέο package:** `share_plus` (`flutter pub add share_plus`)
+
+**2. Νέο service:** `lib/services/share_service.dart`
+- `formatItemContent(Item, blocks, properties, subtasks)` → μορφοποιημένο κείμενο
+- `shareItem(context, itemId)` → load data, format, `Share.share(text)`
+- Μορφοποίηση ανά ItemType:
+  - **note**: Title + blocks (heading→`# `, checklist→`[x]`, bullet→`• `, numbered→`1. `, quote→`> `, code→``````)
+  - **task**: Title + priority + due_date + notes + subtasks
+  - **appointment**: Title + date/time + location + notes + contact info
+  - **contact**: Name + phones + email + company + website + address + birthday + notes
+  - **event**: Title + date/time + location
+  - **journal**: Title + content
+  - **habit**: Title + stats
+
+**3. Τροποποίηση:** `lib/shared/widgets/item_card.dart`
+- Νέο προαιρετικό `onShare` callback
+- Share icon (`Icons.share_rounded`) κάτω δεξιά της κάρτας
+
+**4. Τροποποίηση:** List screens (`item_list_screen.dart` κλπ.)
+- Πέρασμα `onShare` στο ItemCard
+- Φόρτωση δεδομένων (blocks/properties) και κλήση shareItem
+
+**5. Barrel export:** `lib/shared/widgets/widgets.dart` → export `share_service.dart`
+
+---
+
+## Session 19 — 31-05-2026
+
+### Στόχος
+Υλοποίηση Share Feature — system share sheet για όλους τους τύπους items.
+
+### Βήματα
+
+**1. `share_plus` package**
+- `flutter pub add share_plus` (v12.0.2)
+
+**2. `lib/services/share_service.dart`** (νέο αρχείο — 294 γρ.)
+- `ShareService.shareItem(context, itemId)`: φορτώνει item + blocks + properties + subtasks και καλεί `SharePlus.instance.share()`
+- Μορφοποίηση ανά ItemType:
+  - **note**: Title + blocks (heading→`# `, checklist→`[x]`, bullet→`• `, numbered→`1. `, quote→`> `, code→``` ```)
+  - **task**: Title + priority + due_date + notes + subtasks (✅/⬜)
+  - **appointment**: Title + date/time + location + notes
+  - **contact**: Name + phones + email + company + website + address + birthday + notes
+  - **event**: Title + date/time + location
+  - **journal**: Title + content (blocks)
+  - **habit**: Title + icon
+
+**3. `lib/shared/widgets/item_card.dart`**
+- Νέο optional `onShare` callback
+- `_TrailingSection`: share icon (`Icons.share_rounded`, 16px) πάνω από το chevron όταν υπάρχει `onShare`
+
+**4. `lib/shared/widgets/responsive_item_list.dart`**
+- `ItemCardBuilder`: νέο optional `onShare` → περνιέται στο `ItemCard`
+
+**5. `lib/shared/widgets/item_list_screen.dart`**
+- `_ItemListBody`: νέο optional `onShare` → περνιέται στα `ItemCardBuilder`
+- Στο `ItemListScreen.build`: `onShare: (item) => ShareService.shareItem(context, item.id)`
+
+**6. `lib/features/home/folder_browser_screen.dart`**
+- `_ItemsList`, `_ItemsGrid`, `_FolderSearchSheet`: νέο optional `onShare` → περνιέται στο `ItemCard`
+- Κλήσεις από `_FolderBrowserScreenState`: `onShare: (i) => ShareService.shareItem(context, i.id)`
+
+**7. `lib/features/tasks/task_list_screen.dart`**
+- `_TaskCard`: `onShare: () => ShareService.shareItem(context, td.task.id)` στο `ItemCard`
+
+**8. `lib/services/services.dart`**
+- Export `share_service.dart`
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `pubspec.yaml` | +share_plus |
+| `lib/services/share_service.dart` | Νέο (format: bold title + bullets + section separators) |
+| `lib/services/services.dart` | +export |
+| `lib/shared/widgets/item_card.dart` | +onShare, share icon |
+| `lib/shared/widgets/responsive_item_list.dart` | +onShare σε ItemCardBuilder |
+| `lib/shared/widgets/item_list_screen.dart` | +ShareService, onShare |
+| `lib/features/home/folder_browser_screen.dart` | +ShareService, onShare |
+| `lib/features/tasks/task_list_screen.dart` | +ShareService, onShare |
+
+### Backups
+- `backups/item_card.dart.backup.20260531`
+- `backups/responsive_item_list.dart.backup.20260531`
+- `backups/item_list_screen.dart.backup.20260531`
+- `backups/item_list_embedded.dart.backup.20260531`
+- `backups/services.dart.backup.20260531`
+- `backups/folder_browser_screen.dart.backup.20260531`
+- `backups/task_list_screen.dart.backup.20260531`
+
+### Formatting improvements (share text readability)
+- **Title**: `**Bold**` με markdown (υποστηρίζεται από messenger/viber/whatsapp)
+- **Fields**: `• emoji label: value` με bullet prefix
+- **Sections** (notes, subtasks): `── Section ──` separator
+- **Blocks**: checklist → `☑`/`☐`, divider → `── ──`
+
+### Αποτέλεσμα
+`flutter analyze` — No issues found.
+
+### Εκκρεμότητες
+- [ ] Δοκιμή σε πραγματική συσκευή/emulator
+
+---
+
+## Session 20 — 31-05-2026
+
+### Στόχος
+Προσθήκη share icon σε όλες τις κάρτες όλων των screens — ολοκλήρωση Share Feature.
+
+### Πρόβλημα
+To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (ItemCard) και Folder Browser. Έλειπε από:
+- Habits, Contacts, Collections, Journal (custom `_Draggable*` cards)
+- Calendar (ItemListEmbedded)
+- Home screen `_SquareItemCard` και Home folder `_FolderItemCard`
+
+### Αλλαγές
+
+**Pattern:** Στα 4 `_Draggable*` cards (habits, contacts, collections, journal), προστέθηκε `onShare` callback + "Κοινοποίηση" ListTile στο υπάρχον long-press bottom sheet (action sheet). Καμία αλλαγή στο card layout.
+
+| Αρχείο | Αλλαγές |
+|--------|---------|
+| `lib/features/habits/habit_list_screen.dart` | +import services, +`onShare` στο `_DraggableHabitCard`, Share ListTile στο `_showActions`, wiring στο `_HabitListContent.build` |
+| `lib/features/contacts/contact_list_screen.dart` | +import services, +`onShare` στο `_DraggableContactTile`/`_ContactListMobile`/`_ContactGrid`, Share στο `_showActions`, wiring |
+| `lib/features/collections/collections_screen.dart` | +import services, +`onShare` στο `_DraggableCollectionCard`/`_CollectionsReorderableGrid`, Share στο `_showActions`, wiring |
+| `lib/features/journal/journal_list_screen.dart` | +import services, +`onShare` στο `_DraggableJournalCard`/`_JournalListMobile`/`_JournalListTablet`, Share στο `_showActions`, wiring |
+| `lib/shared/widgets/item_list_embedded.dart` | +`onShare` param στο `ItemListEmbedded` widget + state + `_EmbeddedItemListBody`, περνιέται στο `ItemCardBuilder` |
+| `lib/features/calendar/calendar_screen.dart` | +import services, `onShare` στα 2 `ItemListEmbedded` instances (mobile + tablet) |
+| `lib/features/home/home_screen.dart` | +import services, +`onShare` στο `_SquareItemCard` (share icon 12px στο header row), wiring στο `_ReorderableGrid` |
+| `lib/features/home/home_folder_view.dart` | +import services, +`onShare` στο `_FolderItemCard` (share icon 12px στο header row), wiring στο `_HomeFolderViewState._buildItemsList` |
+
+**Cleanup:** Αφαίρεση redundant imports `reminder_scheduler.dart` από calendar_screen και habit_list_screen (εξάγεται ήδη από το `services.dart` barrel).
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `habit_list_screen.dart` | +onShare + import services - redundant import |
+| `contact_list_screen.dart` | +onShare + import services |
+| `collections_screen.dart` | +onShare + import services |
+| `journal_list_screen.dart` | +onShare + import services |
+| `item_list_embedded.dart` | +onShare param |
+| `calendar_screen.dart` | +onShare + import services - redundant import |
+| `home_screen.dart` | +onShare + import services |
+| `home_folder_view.dart` | +onShare + import services |
+
+### Backups
+- `backups/habit_list_screen.dart.backup.20260531`
+- `backups/contact_list_screen.dart.backup.20260531`
+- `backups/collections_screen.dart.backup.20260531`
+- `backups/journal_list_screen.dart.backup.20260531`
+- `backups/item_list_embedded.dart.backup.20260531`
+- `backups/calendar_screen.dart.backup.20260531`
+- `backups/home_screen.dart.backup.20260531`
+- `backups/home_folder_view.dart.backup.20260531`
+
+### Mid-session corrections (ίδιο session)
+Μετά από δοκιμή, αποφασίστηκε αλλαγή pattern:
+- **Collection entries** (`_EntryCard`): Share icon (14px) απευθείας στην κάρτα, long-press action sheet αφαιρέθηκε εντελώς (ούτε Edit/Delete)
+- **Chevron right arrow**: Αφαιρέθηκε από `ItemCard._TrailingSection` και `_DraggableContactTile`
+- **Removed imports**: `reminder_scheduler.dart` από calendar_screen, habit_list_screen (εξάγεται από `services.dart` barrel)
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `item_card.dart` | −chevron_right_rounded |
+| `collection_entries_screen.dart` | +onShare + share icon στην κάρτα −long-press action sheet entirely |
+| `contact_list_screen.dart` | +onShare + import services −chevron |
+
+### Backups
+- `backups/collection_entries_screen.dart.backup.20260531`
+
+### Αποτελέσματα
+- `flutter analyze` — **No issues found**
+- `flutter build apk --release` — **Επιτυχές** (64.8MB, λόγω share_plus native libs)
+
+### Εκκρεμότητες
+- [ ] Δοκιμή share σε πραγματική συσκευή για όλες τις νέες οθόνες
+
+---
+
+## Session 21 — 31-05-2026
+
+### Στόχος
+Ολοκλήρωση Share Feature — share icon πάνω σε όλες τις custom cards (habits + contacts) αντί για long-press action sheet.
+
+### Πρόβλημα
+Στα habits και contacts, το share ήταν προσβάσιμο μόνο μέσω long-press action sheet (από Session 20). Ο χρήστης δεν το ήθελε και δεν λειτουργούσε σωστά.
+
+### Αλλαγές
+
+**Habits** (`habit_list_screen.dart:425-444`):
+- Title έγινε `Row(Expanded(Text) + share icon (16px, δεξιά))`
+- Αφαιρέθηκε το share icon από την κάτω γραμμή (δίπλα στο `displayText`)
+- Αφαιρέθηκε το "Κοινοποίηση" από το `_showActions` action sheet
+
+**Contacts** (`contact_list_screen.dart:405-416`):
+- Προστέθηκε share icon (16px) στην κάρτα, αριστερά από το star
+- Αφαιρέθηκε το "Κοινοποίηση" από το `_showActions` action sheet
+
+### Share patterns (τελικό — όλες οι οθόνες)
+
+| Οθόνη | Widget | Μέθοδος |
+|-------|--------|---------|
+| Notes / Tasks / Appointments | `ItemCard` | Trailing share icon (`_TrailingSection`) |
+| Calendar | `ItemListEmbedded` → `ItemCardBuilder` | Trailing share icon |
+| Habits | `_DraggableHabitCard` | Share icon 16px πάνω δεξιά (title row) |
+| Contacts | `_DraggableContactTile` | Share icon 16px δεξιά (δίπλα στο star) |
+| Collections | `_DraggableCollectionCard` | Long-press action sheet → Share |
+| Collection Entries | `_EntryCard` | Share icon 14px στο header row, ΚΑΜΙΑ long-press |
+| Journal | `_DraggableJournalCard` | Long-press action sheet → Share |
+| Home cards | `_SquareItemCard` | Share icon 16px στο header row |
+| Home folder view | `_FolderItemCard` | Share icon 16px στο header row |
+| Folder browser | `ItemCard` | Τrailing share icon |
+
+### Backup
+- `backups/habit_list_screen.dart.20260531.backup`
+- `backups/contact_list_screen.dart.20260531.backup`
+
+### Αποτελέσματα
+- `flutter analyze` — **No issues found**
+- File `C:\Users\Vaggelis\Flutter Projects\super_note\oldsessions.md` — ενημερώθηκε
+
+### Εκκρεμότητες
+- [ ] Δοκιμή share σε πραγματική συσκευή για όλες τις οθόνες
+
+---
+

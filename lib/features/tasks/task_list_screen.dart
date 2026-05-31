@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -584,6 +585,7 @@ class _TaskCard extends ConsumerWidget {
             onTap:       onTap,
             onLongPress: onLongPress,
             onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
+            onShare:    () => ShareService.shareItem(context, td.task.id),
           ),
           _TaskProgressBar(
             item:     td.task,

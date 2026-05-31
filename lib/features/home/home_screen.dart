@@ -20,6 +20,7 @@ import '../settings/settings.dart';
 import '../collections/collections.dart';
 import 'home_folder_view.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import 'package:reorderable_grid/reorderable_grid.dart';
 
@@ -1078,6 +1079,7 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
                 item: item,
                 folder: folder,
                 onTap: () => widget.onOpenItem(item),
+                onShare: () => ShareService.shareItem(context, item.id),
               ),
             );
           },
@@ -1145,11 +1147,13 @@ class _SquareItemCard extends StatelessWidget {
   final Item item;
   final Folder? folder;
   final VoidCallback onTap;
+  final VoidCallback? onShare;
 
   const _SquareItemCard({
     required this.item,
     required this.folder,
     required this.onTap,
+    this.onShare,
   });
 
   @override
@@ -1197,6 +1201,16 @@ class _SquareItemCard extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 2),
                       child: Icon(Icons.star_rounded, size: 12, color: textColor),
                     ),
+                  if (onShare != null) ...[
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: onShare,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 2),
+                        child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: Spacing.xs),
