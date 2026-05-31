@@ -23,6 +23,7 @@ class ItemCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final ValueChanged<bool>? onCheckboxChanged;
+  final VoidCallback? onShare;
 
   const ItemCard({
     super.key,
@@ -33,6 +34,7 @@ class ItemCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onCheckboxChanged,
+    this.onShare,
   });
 
   @override
@@ -111,31 +113,12 @@ class ItemCard extends StatelessWidget {
               ),
               Builder(
                 builder: (context) {
-                  final shouldShowTrailing = item.favorite || item.pinned;
-
-                  // DebugConfig.print(
-                  //   'ItemCard TRAILING CHECK id=${item.id} '
-                  //   'favorite=${item.favorite} pinned=${item.pinned} '
-                  //   'show=$shouldShowTrailing isCompact=$isCompact',
-                  // );
-
-                  if (!shouldShowTrailing) {
-                    return const SizedBox.shrink();
-                  }
+                  if (onShare == null) return const SizedBox.shrink();
 
                   return _TrailingSection(
-                    item: item,
                     foregroundColor: foregroundColor,
+                    onShare: onShare,
                   );
-                },
-              ),
-              Builder(
-                builder: (context) {
-                  // DebugConfig.print(
-                  //   'ItemCard HIDDEN TRAILING id=${item.id} isCompact=$isCompact',
-                  // );
-
-                  return const SizedBox.shrink();
                 },
               ),
             ],
@@ -364,28 +347,31 @@ class _MetaRow extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _TrailingSection extends StatelessWidget {
-  final Item item;
   final Color foregroundColor;
+  final VoidCallback? onShare;
 
   const _TrailingSection({
-    required this.item,
     required this.foregroundColor,
+    this.onShare,
   });
 
   @override
   Widget build(BuildContext context) {
-    // DebugConfig.print(
-    //   'ItemCard TrailingSection id=${item.id} favorite=${item.favorite}',
-    // );
-    //
     return SizedBox(
       width: 28,
-      child: Center(
-        child: Icon(
-          Icons.chevron_right_rounded,
-          size: 20,
-          color: foregroundColor.withValues(alpha: 0.5),
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (onShare != null)
+            GestureDetector(
+              onTap: onShare,
+              child: Icon(
+                Icons.share_rounded,
+                size: 16,
+                color: foregroundColor.withValues(alpha: 0.5),
+              ),
+            ),
+        ],
       ),
     );
   }

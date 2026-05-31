@@ -19,7 +19,7 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 
 import 'habit_detail_screen.dart';
-import '../../services/reminder_scheduler.dart';
+import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 
 final _habitSearchQueryProvider = StateProvider<String>((ref) => '');
@@ -219,6 +219,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
                             habit: item,
                             onTap: () => _openDetail(item.id),
                             onDelete: () => _delete(context, item),
+                            onShare: () => ShareService.shareItem(context, item.id),
                           ),
                         ),
                       ),
@@ -348,8 +349,9 @@ class _DraggableHabitCard extends ConsumerWidget {
   final Item habit;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onShare;
 
-  const _DraggableHabitCard({required this.habit, required this.onTap, required this.onDelete});
+  const _DraggableHabitCard({required this.habit, required this.onTap, required this.onDelete, this.onShare});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -420,11 +422,25 @@ class _DraggableHabitCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              habit.title ?? 'Χωρίς τίτλο',
-              style: context.titleSm.copyWith(color: foregroundColor),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    habit.title ?? 'Χωρίς τίτλο',
+                    style: context.titleSm.copyWith(color: foregroundColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (onShare != null)
+                  GestureDetector(
+                    onTap: onShare,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: Spacing.sm),
+                      child: Icon(Icons.share_rounded, size: 16, color: accentColor),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: Spacing.xs),
             ClipRRect(

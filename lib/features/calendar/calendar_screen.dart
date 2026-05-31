@@ -6,7 +6,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'event_detail_screen.dart';
-import '../../services/reminder_scheduler.dart';
+import '../../services/services.dart';
 
 // ── Τύποι δημιουργίας συμβάντος ─────────────────────────────
 enum _EventCreationType { event, birthday, specialDay }
@@ -214,6 +214,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
             ),
+            onShare: (item) => ShareService.shareItem(context, item.id),
           ),
         ),
       ],
@@ -260,6 +261,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                   onItemTap: (item) => Navigator.of(context).push(
                     AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
                   ),
+                  onShare: (item) => ShareService.shareItem(context, item.id),
                 ),
               ),
             ],

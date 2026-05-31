@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/services.dart';
 import '../widgets/widgets.dart';
 
 // ΜΕΤΑ:
@@ -272,6 +273,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
                       itemType: widget.itemType,
                       onTap: _openDetail,
                       onLongPress: (item) => _showItemActions(context, item),
+                      onShare: (item) => ShareService.shareItem(context, item.id),
                     );
                   },
                 ),
@@ -368,12 +370,14 @@ class _ItemListBody extends ConsumerWidget {
   final ItemType itemType;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
+  final ValueChanged<Item>? onShare;
 
   const _ItemListBody({
     required this.items,
     required this.itemType,
     required this.onTap,
     required this.onLongPress,
+    this.onShare,
   });
 
   void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
@@ -396,6 +400,7 @@ class _ItemListBody extends ConsumerWidget {
         item: item,
         onTap: onTap,
         onLongPress: onLongPress,
+        onShare: onShare != null ? () => onShare!(item) : null,
       ),
     );
   }

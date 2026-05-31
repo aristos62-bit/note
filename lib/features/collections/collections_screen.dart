@@ -20,6 +20,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
@@ -391,6 +392,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                   onTap: (item) => _openCollection(context, item),
                   onEdit: (item) => _editCollection(context, ref, item),
                   onDelete: (item) => _delete(context, ref, item),
+                  onShare: (item) => ShareService.shareItem(context, item.id),
                 );
               },
             ),
@@ -410,12 +412,14 @@ class _CollectionsReorderableGrid extends ConsumerWidget {
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onEdit;
   final ValueChanged<Item> onDelete;
+  final void Function(Item)? onShare;
 
   const _CollectionsReorderableGrid({
     required this.collections,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    this.onShare,
   });
 
   void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
@@ -466,6 +470,7 @@ class _CollectionsReorderableGrid extends ConsumerWidget {
                     onTap: () => onTap(item),
                     onEdit: () => onEdit(item),
                     onDelete: () => onDelete(item),
+                    onShare: onShare != null ? () => onShare!(item) : null,
                   ),
                   if (canDrag)
                     Positioned(
@@ -501,12 +506,14 @@ class _DraggableCollectionCard extends ConsumerWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onShare;
 
   const _DraggableCollectionCard({
     required this.item,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    this.onShare,
   });
 
   @override
@@ -645,6 +652,15 @@ class _DraggableCollectionCard extends ConsumerWidget {
                 onTap();
               },
             ),
+            if (onShare != null)
+              ListTile(
+                leading: const Icon(Icons.share_rounded),
+                title: const Text('Κοινοποίηση'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onShare!();
+                },
+              ),
             ListTile(
               leading: Icon(Icons.delete_outline_rounded, color: context.cError),
               title: Text('Διαγραφή', style: TextStyle(color: context.cError)),

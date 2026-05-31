@@ -1,6 +1,8 @@
 // lib/providers/settings_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
+import '../services/notification_service.dart';
+import '../services/reminder_scheduler.dart';
 import 'db_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────
@@ -46,8 +48,14 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> setDefaultView(DefaultView view) =>
       updateSettings((s) => s.defaultView = view);
 
-  Future<void> toggleNotifications(bool enabled) =>
-      updateSettings((s) => s.notificationsEnabled = enabled);
+  Future<void> toggleNotifications(bool enabled) async {
+    await updateSettings((s) => s.notificationsEnabled = enabled);
+    if (enabled) {
+      await ReminderScheduler.instance.scheduleAll();
+    } else {
+      await NotificationService.instance.cancelAll();
+    }
+  }
 
   Future<void> toggleSync(bool enabled) =>
       updateSettings((s) => s.syncEnabled = enabled);

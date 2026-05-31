@@ -11,6 +11,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'contact_detail_screen.dart';
+import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import 'dart:convert';
 
@@ -217,8 +218,8 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
                   }
 
                   return ResponsiveLayout(
-                    mobile: _ContactListMobile(contacts: contacts, contactProps: contactProps, onTap: _openDetail, onDelete: _delete),
-                    tablet: _ContactGrid(contacts: contacts, contactProps: contactProps, onTap: _openDetail, onDelete: _delete),
+                    mobile: _ContactListMobile(contacts: contacts, contactProps: contactProps, onTap: _openDetail, onDelete: _delete, onShare: (item) => ShareService.shareItem(context, item.id)),
+                    tablet: _ContactGrid(contacts: contacts, contactProps: contactProps, onTap: _openDetail, onDelete: _delete, onShare: (item) => ShareService.shareItem(context, item.id)),
                   );
                 },
               ),
@@ -272,8 +273,9 @@ class _ContactListMobile extends StatelessWidget {
   final Map<int, _ContactProps> contactProps;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
+  final void Function(Item)? onShare;
 
-  const _ContactListMobile({required this.contacts, required this.contactProps, required this.onTap, required this.onDelete});
+  const _ContactListMobile({required this.contacts, required this.contactProps, required this.onTap, required this.onDelete, this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +305,7 @@ class _ContactListMobile extends StatelessWidget {
               email: contactProps[item.id]?.email,
               onTap: onTap,
               onDelete: onDelete,
+              onShare: onShare != null ? () => onShare!(item) : null,
             )),
           ],
         );
@@ -319,8 +322,9 @@ class _ContactGrid extends StatelessWidget {
   final Map<int, _ContactProps> contactProps;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
+  final void Function(Item)? onShare;
 
-  const _ContactGrid({required this.contacts, required this.contactProps, required this.onTap, required this.onDelete});
+  const _ContactGrid({required this.contacts, required this.contactProps, required this.onTap, required this.onDelete, this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +343,7 @@ class _ContactGrid extends StatelessWidget {
         email: contactProps[contacts[i].id]?.email,
         onTap: onTap,
         onDelete: onDelete,
+        onShare: onShare != null ? () => onShare!(contacts[i]) : null,
       ),
     );
   }
@@ -353,6 +358,7 @@ class _DraggableContactTile extends StatelessWidget {
   final String? email;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
+  final VoidCallback? onShare;
 
   const _DraggableContactTile({
     required this.contact,
@@ -360,6 +366,7 @@ class _DraggableContactTile extends StatelessWidget {
     required this.email,
     required this.onTap,
     required this.onDelete,
+    this.onShare,
   });
 
   @override
@@ -395,9 +402,16 @@ class _DraggableContactTile extends StatelessWidget {
               ],
             ),
           ),
+          if (onShare != null)
+            GestureDetector(
+              onTap: onShare,
+              child: Padding(
+                padding: const EdgeInsets.only(left: Spacing.sm),
+                child: Icon(Icons.share_rounded, size: 16, color: foregroundColor.withValues(alpha: 0.7)),
+              ),
+            ),
           if (contact.favorite)
             Icon(Icons.star_rounded, size: 16, color: ColorsUI.getWarning(context.brightness)),
-          Icon(Icons.chevron_right_rounded, size: 18, color: secondaryForeground),
         ],
       ),
     );

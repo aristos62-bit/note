@@ -78,12 +78,14 @@ class ItemCardBuilder extends ConsumerWidget {
   final Item item;
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
+  final VoidCallback? onShare;
 
   const ItemCardBuilder({
     super.key,
     required this.item,
     required this.onTap,
     required this.onLongPress,
+    this.onShare,
   });
 
   @override
@@ -103,6 +105,7 @@ class ItemCardBuilder extends ConsumerWidget {
         compact: context.isMobile,
         onTap: () => onTap(item),
         onLongPress: () => onLongPress(item),
+        onShare: onShare,
       ),
     );
   }

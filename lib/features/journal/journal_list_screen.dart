@@ -19,6 +19,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'journal_detail_screen.dart';
+import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 
 final _journalSearchQueryProvider = StateProvider<String>((ref) => '');
@@ -227,11 +228,13 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
                           entriesWithDate: processed,
                           onTap: _openDetail,
                           onDelete: _delete,
+                          onShare: (item) => ShareService.shareItem(context, item.id),
                         ),
                         tablet: _JournalListTablet(
                           entriesWithDate: processed,
                           onTap: _openDetail,
                           onDelete: _delete,
+                          onShare: (item) => ShareService.shareItem(context, item.id),
                         ),
                       );
                     },
@@ -303,7 +306,8 @@ class _JournalListMobile extends StatelessWidget {
   final List<_EntryWithDate> entriesWithDate;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
-  const _JournalListMobile({required this.entriesWithDate, required this.onTap, required this.onDelete});
+  final void Function(Item)? onShare;
+  const _JournalListMobile({required this.entriesWithDate, required this.onTap, required this.onDelete, this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +326,7 @@ class _JournalListMobile extends StatelessWidget {
             ),
             ...group.items.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
-              child: _DraggableJournalCard(item: item, onTap: onTap, onDelete: onDelete),
+              child: _DraggableJournalCard(item: item, onTap: onTap, onDelete: onDelete, onShare: onShare != null ? () => onShare!(item) : null),
             )),
           ],
         );
@@ -338,7 +342,8 @@ class _JournalListTablet extends StatelessWidget {
   final List<_EntryWithDate> entriesWithDate;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
-  const _JournalListTablet({required this.entriesWithDate, required this.onTap, required this.onDelete});
+  final void Function(Item)? onShare;
+  const _JournalListTablet({required this.entriesWithDate, required this.onTap, required this.onDelete, this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +361,7 @@ class _JournalListTablet extends StatelessWidget {
         item: entriesWithDate[i].entry,
         onTap: onTap,
         onDelete: onDelete,
+        onShare: onShare != null ? () => onShare!(entriesWithDate[i].entry) : null,
       ),
     );
   }
@@ -368,7 +374,8 @@ class _DraggableJournalCard extends ConsumerWidget {
   final Item item;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
-  const _DraggableJournalCard({required this.item, required this.onTap, required this.onDelete});
+  final VoidCallback? onShare;
+  const _DraggableJournalCard({required this.item, required this.onTap, required this.onDelete, this.onShare});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -464,6 +471,8 @@ class _DraggableJournalCard extends ConsumerWidget {
           children: [
             Container(margin: const EdgeInsets.symmetric(vertical: Spacing.sm), width: 40, height: 4, decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2))),
             ListTile(leading: const Icon(Icons.edit_rounded), title: const Text('Επεξεργασία'), onTap: () { Navigator.pop(context); onTap(item.id); }),
+            if (onShare != null)
+              ListTile(leading: const Icon(Icons.share_rounded), title: const Text('Κοινοποίηση'), onTap: () { Navigator.pop(context); onShare!(); }),
             ListTile(leading: Icon(Icons.delete_outline_rounded, color: context.cError), title: Text('Διαγραφή', style: TextStyle(color: context.cError)), onTap: () { Navigator.pop(context); onDelete(item); }),
             const SizedBox(height: Spacing.sm),
           ],
