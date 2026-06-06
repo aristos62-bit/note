@@ -20,6 +20,7 @@ class ItemCard extends StatelessWidget {
   final DateTime? dueDate;
   final List<String> tagNames;
   final bool compact;
+  final bool isArchived;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final ValueChanged<bool>? onCheckboxChanged;
@@ -31,6 +32,7 @@ class ItemCard extends StatelessWidget {
     this.dueDate,
     this.tagNames = const [],
     this.compact = false,
+    this.isArchived = false,
     this.onTap,
     this.onLongPress,
     this.onCheckboxChanged,
@@ -87,28 +89,29 @@ class ItemCard extends StatelessWidget {
                     horizontal: Spacing.md,
                     vertical: isCompact ? Spacing.sm : Spacing.md,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _TitleRow(
-                        item: item,
-                        typeColor: accentColor,
-                        compact: isCompact,
-                        onCheckboxChanged: onCheckboxChanged,
-                        foregroundColor: foregroundColor,
-                      ),
-                      const SizedBox(height: Spacing.xs),
-                      _MetaRow(
-                        item: item,
-                        dueDate: dueDate,
-                        tagNames: tagNames,
-                        compact: isCompact,
-                        foregroundColor: foregroundColor,
-                        secondaryColor: secondaryForeground,
-                      ),
-                    ],
-                  ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _TitleRow(
+                          item: item,
+                          typeColor: accentColor,
+                          compact: isCompact,
+                          onCheckboxChanged: onCheckboxChanged,
+                          foregroundColor: foregroundColor,
+                        ),
+                        const SizedBox(height: Spacing.xs),
+                        _MetaRow(
+                          item: item,
+                          dueDate: dueDate,
+                          tagNames: tagNames,
+                          isArchived: isArchived,
+                          compact: isCompact,
+                          foregroundColor: foregroundColor,
+                          secondaryColor: secondaryForeground,
+                        ),
+                      ],
+                    ),
                 ),
               ),
               Builder(
@@ -283,6 +286,7 @@ class _MetaRow extends StatelessWidget {
   final Item item;
   final DateTime? dueDate;
   final List<String> tagNames;
+  final bool isArchived;
   final bool compact;
   final Color foregroundColor;
   final Color secondaryColor;
@@ -291,6 +295,7 @@ class _MetaRow extends StatelessWidget {
     required this.item,
     required this.dueDate,
     required this.tagNames,
+    this.isArchived = false,
     required this.compact,
     required this.foregroundColor,
     required this.secondaryColor,
@@ -300,6 +305,10 @@ class _MetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxTags = context.responsive(mobile: 1, tablet: 2, desktop: 3);
     final chips = <Widget>[];
+
+    if (isArchived) {
+      chips.add(_ArchivedChip(textColor: secondaryColor));
+    }
 
     if (item.priority != ItemPriority.none) {
       chips.add(_PriorityChip(priority: item.priority));
@@ -380,6 +389,31 @@ class _TrailingSection extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 // PRIORITY CHIP
 // ════════════════════════════════════════════════════════════════
+
+class _ArchivedChip extends StatelessWidget {
+  final Color textColor;
+  const _ArchivedChip({required this.textColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = textColor.withValues(alpha: 0.12);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppRadius.badge),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.archive_rounded, size: 10, color: textColor),
+          const SizedBox(width: 3),
+          Text('Αρχείο', style: context.labelSm.copyWith(color: textColor)),
+        ],
+      ),
+    );
+  }
+}
 
 class _PriorityChip extends StatelessWidget {
   final ItemPriority priority;

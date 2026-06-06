@@ -974,3 +974,446 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 
 ---
 
+## Session 22 — 06-06-2026 (Empty Title Fix — Detail Screens)
+
+### Στόχος
+Διόρθωση δημιουργίας empty-title items στη DB όταν ο χρήστης φεύγει από νέο item μέσω bottom nav (ή οποιονδήποτε non-back μηχανισμό).
+
+### Πρόβλημα
+- **Bottom nav (context.go) bypasses PopScope.onPopInvokedWithResult** → `_saveOrDelete()` ΔΕΝ καλείται
+- **GoRouter direct go()** (notification tap, bottom nav) → αλλάζει screen χωρίς save
+- Μόνο `dispose()` του State έπιανε αυτή την περίπτωση, αλλά τα περισσότερα screens δεν είχαν protection
+
+### Fix — Dispose Safety Net
+Σε **7 detail screens**, προστέθηκε `dispose()` check: αν `isNew && title.isEmpty` → `softDelete(id)`
+
+| Screen | Αρχείο | Γραμμές dispose |
+|--------|--------|:---------:|
+| NoteDetailScreen | `note_detail_screen.dart` | 51-60 |
+| TaskDetailScreen | `task_detail_screen.dart` | 59-67 |
+| EventDetailScreen | `event_detail_screen.dart` | 56-66 |
+| HabitDetailScreen | `habit_detail_screen.dart` | 47-57 |
+| AppointmentDetailScreen | `appointment_detail_screen.dart` | 776-790 |
+| JournalDetailScreen | `journal_detail_screen.dart` | 58-64 |
+| ContactDetailScreen | `contact_detail_screen.dart` | 80-93 |
+
+### CollectionDetailScreen Fix
+- `_saveOrDelete()`: **δεν είχε `widget.isNew` guard** → σβήνει ΟΠΟΙΑΔΗΠΟΤΕ collection (ακόμα και υπάρχουσα) με empty title → **BUG**
+- Διόρθωση: guard με `widget.isNew` για delete path
+- **Υπάρχουσα collection** με emptied title: dialog "Η Συλλογή δεν έχει τίτλο" (Ακυρο/Συνέχεια) → cascade delete των entries
+- `dispose()` safety net (ίδιο pattern)
+- Νέες helper methods: `_hasCollectionEntries()`, `_deleteCollectionEntries()`
+- Χρήση Riverpod providers (`itemsStreamProvider`, `itemPropertiesProvider`) αντί raw Isar queries
+
+### CollectionEntryDetailScreen Fix
+- **Save button** χωρίς τίτλο: SnackBar "Παρακαλώ προσθέστε τίτλο" + stay (όπως όλα τα άλλα screens)
+- Πριν: καλούσε `_saveOrDelete()` → delete αν isNew → pop χωρίς μήνυμα
+- Τώρα: empty title check → SnackBar → return (δεν pop)
+- `_save()` αντί `_saveOrDelete()` στο save button
+- `dispose()` safety net (ίδιο pattern)
+
+### Verification
+- `flutter analyze` — **No issues found**
+- `flutter run --release` — tested: dialog εμφανίστηκε, delete έγινε, count μηδενίστηκε ✅
+- Backups: `backups/*.backup.20260606` (και για τα 9 αρχεία)
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `note_detail_screen.dart` | dispose safety net |
+| `task_detail_screen.dart` | dispose safety net |
+| `event_detail_screen.dart` | dispose safety net |
+| `habit_detail_screen.dart` | dispose safety net |
+| `appointment_detail_screen.dart` | dispose safety net |
+| `journal_detail_screen.dart` | dispose safety net |
+| `contact_detail_screen.dart` | dispose safety net |
+| `collection_detail_screen.dart` | `_saveOrDelete()` guard + dialog + cascade + dispose safety net |
+| `collection_entries_screen.dart` | dispose safety net + Save button SnackBar |
+
+### Βασικές Αρχές (Lessons Learned)
+1. **Bottom nav (`context.go`) bypasses PopScope** — μόνο `dispose()` καλύπτει αυτό το path
+2. **`softDelete()` είναι idempotent** — μπορεί να κληθεί πολλαπλές φορές χωρίς συνέπειες
+3. **`ref` είναι unavailable μετά το dispose** — χρήση `SuperNoteHelper.instance` αντί provider calls
+4. **`use_build_context_synchronously** — `if (!mounted) return;` πριν από κάθε χρήση context μετά από await
+
+---
+
+## Session 23 — 06-06-2026 (Edge Case Protection Strategy — Design Phase)
+
+### Στόχος
+Δημιουργία ολοκληρωμένης στρατηγικής προστασίας της εφαρμογής από όλα τα πιθανά edge cases, όχι μόνο screens αλλά και services, providers, app lifecycle, platform channels, DB integrity.
+
+### Αποτελέσματα Έρευνας
+Χαρτογραφήθηκαν **9 κατηγορίες edge cases** σε όλο το codebase:
+
+### 1. Init Failures
+| Risk | Υπάρχουσα Προστασία |
+|------|:-------------------:|
+| Isar DB fail → _InitErrorApp | ✅ |
+| Notification init fail → silent | ✅ (try-catch) |
+| Workspace missing → warning μόνο | ⚠️ |
+| System folder missing → created in _ensureDefaults | ✅ |
+
+### 2. Navigation Edge Cases
+| Risk | Κατάσταση |
+|------|:---------:|
+| Bottom nav bypasses PopScope | ✅ Fix Session 22 (dispose) |
+| GoRouter direct go() (notification) | ⚠️ Μερικώς (dispose safety net) |
+| Rapid navigation / double tap | ❌ |
+| Cold start notification → route may be gone | ⚠️ (deferred pattern exists) |
+
+### 3. Provider Race Conditions ⚠️ ΣΟΒΑΡΟ
+| Risk | Περιγραφή |
+|------|-----------|
+| **Future.wait χωρίς cancellation** | `tasksWithDetailsProvider`, `folderViewDataProvider` — stale results |
+| **Stale reads στο PropertyNotifier** | Πολλαπλά `set*` calls ταυτόχρονα διαβάζουν DB αντί state |
+| **habitsStatsProvider loop risk** | `ref.listen` + `ref.invalidateSelf()` → potential infinite loop |
+| **Κανένα AutoDispose** | Όλοι οι providers μένουν στη μνήμη |
+| **ref.read αντί ref.watch** | `tasksWithDetailsProvider` → one-shot, δεν αντιδρά σε αλλαγές properties/tags |
+
+### 4. Service Resilience
+| Service | Πρόβλημα |
+|---------|----------|
+| **AttachmentService** | **0 try-catch** — file I/O exceptions propagate απρόβλεπτα |
+| **ReminderScheduler** | Μόνο `_scheduleOne` has try-catch, batch failures silent |
+| **BackupService** | Import failure → partial DB corruption possible (έχει re-init fallback) |
+| **HabitService** | JSON parse catches σιωπηλά, άλλες exceptions propagate |
+
+### 5. DB Write Integrity
+| Risk | Impact |
+|------|--------|
+| **Καμία Isar transaction** για multi-step ops (create item + properties + tags + reminders) | Partial writes |
+| **Cascade soft-delete δεν υπάρχει** | Orphaned properties/blocks/tags/reminders |
+| **PropertyNotifier batch updates not atomic** | Interleaved writes |
+
+### 6. App Lifecycle & Sudden Termination
+| Event | Χειρισμός |
+|-------|:---------:|
+| resumed | ✅ Debounced refreshRecurringReminders |
+| paused | ❌ Κανένα save |
+| inactive | ❌ Κανένα save |
+| detached | ✅ ProviderContainer.dispose() |
+| **Device destruction / crash** | ❌ Partial save → corrupted state |
+
+### 7. Async Gaps
+| Risk | Κατάσταση |
+|------|:---------:|
+| `use_build_context_synchronously` | ⚠️ Μερικώς fixed (Session 22 detail screens) |
+| `mounted` check after `ref.read(...).future` | ❌ Κανένα screen δεν ελέγχει |
+| Service calls χωρίς try-catch | ⚠️ Μερικά services |
+
+### 8. Platform Channel Failures
+| Channel | Risk |
+|---------|------|
+| File picker | ✅ Cancel handled |
+| File I/O | ❌ AttachmentService unhandled |
+| Share sheet | ❌ Unhandled failure |
+| Notification permissions | ⚠️ Denial handled, unexpected errors not |
+
+### 9. Data Integrity
+| Risk | Status |
+|------|:-----:|
+| Duplicate prevention | ⚠️ Μόνο contact import |
+| Reminder scheduling dedup | ❌ |
+| `ItemRepository.create` workspaceId validation | ❌ |
+
+---
+
+### Προτεινόμενη Στρατηγική — 4 Layers
+
+```
+┌─────────────────────────────────────────────┐
+│          Layer 4: App Lifecycle             │
+│  Save-on-pause · Crash recovery · Auto-save │
+├─────────────────────────────────────────────┤
+│        Layer 3: Service Resilience          │
+│  Try-catch · Transactions · Cascade helpers │
+├─────────────────────────────────────────────┤
+│       Layer 2: Provider Reliability         │
+│  AutoDispose · Cancellation · Error bounds  │
+├─────────────────────────────────────────────┤
+│     Layer 1: Screen Protection (Mixin)      │
+│  detail_screen_mixin · _isSaving · mounted  │
+└─────────────────────────────────────────────┘
+```
+
+### Layer 1 Details — `detail_screen_mixin.dart`
+Κεντρικό mixin για όλους τους `ConsumerState<ConsumerStatefulWidget>` που:
+- Παρέχει `_isSaving` gate + dirty tracking
+- mounted checks μετά από κάθε await
+- dispose() safety net (standardized από Session 22)
+- Reminder subscription auto-cleanup
+- `showSnackBar()` + `showConfirm()` utilities
+- `safePop()` με mounted check
+- DebugConfig logging built-in
+
+### Βασικός Κανόνας Εκτέλεσης
+1. Πάντα backup πριν από edit
+2. flutter analyze μετά από κάθε αλλαγή
+3. Έλεγχος επιπτώσεων: verify ότι η αλλαγή δεν σπάει existing functionality
+4. DebugConfig.print/logging σε κάθε νέο κώδικα
+
+### Αρχεία που δεν αλλάζουν (για μη σπάσει τίποτα)
+- `_save()` κάθε screen (inject via callback)
+- Δομή widget (extends/createState)
+- Providers και services
+- Barrel files και imports
+
+---
+
+## Session 24 — 06-06-2026 (Layer 1 Implementation — Mixin + Router Fix)
+
+### Στόχος
+Υλοποίηση Layer 1 της edge case protection strategy: detail_screen_mixin + migration screens + fix isNew propagation σε όλες τις εισόδους.
+
+### Τι έγινε
+
+**1. Δημιουργία `detail_screen_mixin.dart`**
+- `lib/shared/mixins/detail_screen_mixin.dart` — 150 γραμμές
+- Παρέχει: `initScreen()`, `disposeScreen()`, `executeSave()`, `executeSaveOrDelete()`, `safePop()`, `showSnackBar()`, `showConfirm()`
+- `flutter analyze` ✅
+- Barrel export στο `widgets.dart`
+
+**2. NoteDetailScreen → Mixin Migration (POC)**
+- Backup: `backups/note_detail_screen.dart.backup.20260606`
+- `with DetailScreenMixin<NoteDetailScreen>`
+- `initScreen()` αντί για manual log
+- `disposeScreen()` αντί για inline if-check
+- `executeSave()` + `safePop()` στο save button (από 25 γραμμές → 5)
+- `executeSaveOrDelete()` στο back button
+- `_saveOrDelete()` αφαιρέθηκε (20 γραμμές)
+- `flutter analyze` ✅ | `flutter run` ✅
+
+**3. TaskDetailScreen → Mixin Migration**
+- Backup: `backups/task_detail_screen.dart.backup.20260606`
+- Ίδιο pattern με NoteDetailScreen
+- `flutter analyze` ✅
+
+**4. Fix: `isNew` propagation από HomeFolderView → όλες τις GoRouter routes**
+- **Πρόβλημα**: `HomeFolderView._openItem()` δεχόταν `isNew` parameter αλλά ΔΕΝ το προωθούσε — χρησιμοποιούσε `context.push(route)` χωρίς `extra: isNew`
+- Επιπλέον: **μόνο Task και Event routes** διάβαζαν `state.extra` για `isNew`
+
+**Αρχεία που άλλαξαν:**
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `app_router.dart` | 6 routes (Note, Appointment, Habit, Collection, Journal, Contact): `final isNew = (state.extra as bool?) ?? false;` + pass to screen |
+| `home_folder_view.dart` | `_openItem`: `context.push(route, extra: isNew)` αντί για `context.push(route)` |
+
+**Πίνακας entry points μετά το fix:**
+| Είσοδος | Navigation | `isNew` |
+|---------|-----------|:-------:|
+| HomeFolderView (+ button) | GoRouter `context.push(route, extra: isNew)` | ✅ |
+| ItemListScreen (Notes/Tasks κλπ) | `Navigator.push(MaterialPageRoute)` | ✅ |
+| CalendarScreen (Συμβάντα) | `Navigator.push(AppTransitions.slideRoute)` | ✅ |
+| CollectionsScreen (νέα συλλογή) | `Navigator.push(AppTransitions.slideRoute)` | ✅ |
+| CollectionEntriesScreen (νέα εγγραφή) | `Navigator.push(AppTransitions.slideRoute)` | ✅ |
+| Notification tap (cold/warm start) | GoRouter context.go | ✅ (existing item) |
+
+### Backups
+- `backups/app_router.dart.backup.20260606`
+- `backups/home_folder_view.dart.backup.20260606`
+- `backups/note_detail_screen.dart.backup.20260606`
+- `backups/task_detail_screen.dart.backup.20260606`
+
+### Αποτελέσματα
+- `flutter analyze` — **No issues found**
+- `flutter build apk --release` — **Επιτυχές**
+- 2 screens migrated to mixin (από 9)
+- 6 GoRouter routes fixed
+- 1 entry point fixed (HomeFolderView)
+
+### Επόμενα Βήματα (επόμενο session)
+1. Migrate υπόλοιπα 7 detail screens στο mixin:
+   - EventDetailScreen
+   - HabitDetailScreen
+   - AppointmentDetailScreen
+   - JournalDetailScreen
+   - ContactDetailScreen
+   - CollectionDetailScreen
+   - CollectionEntryDetailScreen
+2. Layer 2: Provider Reliability (cancellation tokens, AutoDispose, error boundaries)
+3. Layer 3: Service Resilience (AttachmentService try-catch, transaction wrappers)
+4. Layer 4: App Lifecycle & Crash Recovery (save-on-pause, startup crash detection)
+
+---
+
+## Session 25 — 06-06-2026 (Layer 1 Complete — All 9 Screens on Mixin)
+
+### Στόχος
+Ολοκλήρωση Layer 1: migration όλων των detail screens στο `DetailScreenMixin` + flutter analyze pass.
+
+### Τι έγινε
+
+**1. EventDetailScreen → Mixin Migration**
+- Backup: `backups/event_detail_screen.dart.backup.20260606`
+- `with DetailScreenMixin<EventDetailScreen>`
+- `_saveData()` + `_save()` wrapper + `_onPopInvoked()` pattern
+- Αφαίρεση `super_note_helper.dart` import (unused μετά το disposeScreen)
+- `flutter analyze` ✅
+
+**2. HabitDetailScreen → Mixin Migration**
+- Backup: `backups/habit_detail_screen.dart.backup.20260606`
+- Ίδιο pattern
+- Αφαίρεση `super_note_helper.dart` import
+- `flutter analyze` ✅
+
+**3. AppointmentDetailScreen → Mixin Migration**
+- Backup: `backups/appointment_detail_screen.dart.backup.20260606`
+- Κρατήθηκε `super_note_helper.dart` import (χρειάζεται για relations)
+- Date validation kept outside mixin
+- `_isSaving` αφαιρέθηκε (dead field μετά την αφαίρεση manual save)
+- `flutter analyze` ✅
+
+**4. JournalDetailScreen → Mixin Migration**
+- Backup: `backups/journal_detail_screen.dart.backup.20260606`
+- Custom `_saveData()` with `_pendingContent` + `_onContentSaved`
+- `_onPopInvoked()` uses `executeSaveOrDelete` with custom `deleteFn`
+- `flutter analyze` ✅
+
+**5. ContactDetailScreen → Mixin Migration**
+- Backup: `backups/contact_detail_screen.dart.backup.20260606`
+- Multiple controllers (`_phoneCtrls`, `_emailCtrl`, κλπ.)
+- `_persistChanges()` as `saveFn` (parallel property writes)
+- `SuperNoteHelper` import κρατήθηκε (birthday reminders)
+- `flutter analyze` ✅
+
+**6. CollectionDetailScreen → Mixin Migration**
+- Backup: `backups/collection_detail_screen.dart.backup.20260606`
+- Special case: existing empty collection → warning dialog + entry deletion
+- `_saveOrDelete()` split into `_saveData()` + `_save()` + `_onPopInvoked()`
+- Αφαίρεση `super_note_helper.dart` import
+- `flutter analyze` ✅
+
+**7. CollectionEntryDetailScreen → Mixin Migration**
+- Backup: `backups/collection_entries_screen.dart.backup.20260606`
+- Multiple field types (toggle, date, select, bulletList, numberedList, text)
+- `_hasChanges` flag για auto-save μόνο όταν υπάρχουν αλλαγές
+- `_saveData()` saves title + all properties in parallel
+- Αφαίρεση `super_note_helper.dart` import
+- `flutter analyze` ✅
+
+### Συνοπτικά backups
+- `backups/event_detail_screen.dart.backup.20260606`
+- `backups/habit_detail_screen.dart.backup.20260606`
+- `backups/appointment_detail_screen.dart.backup.20260606`
+- `backups/journal_detail_screen.dart.backup.20260606`
+- `backups/contact_detail_screen.dart.backup.20260606`
+- `backups/collection_detail_screen.dart.backup.20260606`
+- `backups/collection_entries_screen.dart.backup.20260606`
+
+### Αποτελέσματα
+- `flutter analyze` — **No issues found**
+- 7/7 remaining screens migrated (σύνολο 9/9)
+- Layer 1 complete ✅
+
+### Επόμενα Βήματα
+1. Layer 2: Provider Reliability (cancellation tokens, AutoDispose, error boundaries)
+2. Layer 3: Service Resilience (AttachmentService try-catch, transaction wrappers)
+3. Layer 4: App Lifecycle & Crash Recovery (save-on-pause, startup crash detection)
+
+---
+
+## Session 26 — 06-06-2026 (Archive UX Fix — Visual Indicator + Educational Hint)
+
+### Στόχος
+Διόρθωση archive/unarchive από context menu σε list screens — το unarchive (μέσω long-press → "Επαναφορά") δεν κρατούσε την αλλαγή.
+
+### Διάγνωση (προηγήθηκε)
+- Αρχική υπόθεση: το `_archive()` έκανε `updateItem` με `ref.read(itemByIdProvider(id)).valueOrNull` (stale read) αντί για `handleArchive()` του `archive_helper.dart`
+- **Fix applied**: `_archive` → `handleArchive()` σε `item_list_screen.dart`, `item_list_embedded.dart`, `task_list_screen.dart`
+- Προστέθηκε debug logging σε `archive_helper.dart`, `item_list_screen.dart` (`toggleArchive` ENTER/BEFORE/AFTER), `super_note_helper.dart` (`ItemRepository.update` με writeTxn state)
+- **Αποτέλεσμα debug**: το archive/unarchive από context menu *δεν κρατούσε* — το `save` έτρεχε αλλά η DB επέστρεφε `archived=false`. Πιθανή αιτία: stale Isar object ή context menu state inconsistency
+
+### Αλλαγή Στρατηγικής
+Ο χρήστης διαπίστωσε ότι η λειτουργία "Εμφάνιση συμπιεσμένων αρχείων" **απλώς εμφανίζει** τα archived items — δεν τα επαναφέρει. Για unarchive ο χρήστης πρέπει να κάνει **long-press → "Επαναφορά"**. Αποφασίστηκε να **μην συνεχιστεί η διερεύνηση του persistence bug** και αντ' αυτού να γίνει **UI/UX βελτίωση**:
+1. Οπτική ένδειξη (ημιδιαφάνεια + ετικέτα "Αρχείο") για archived items όταν είναι ενεργό το "show archived"
+2. Εκπαιδευτικό SnackBar hint ("Πατήστε παρατεταμένα…") όταν ο χρήστης ενεργοποιεί το show archived (μία φορά ανά session)
+
+### Αλλαγές
+
+**1. `lib/shared/widgets/item_card.dart`**
+- Νέο optional param `isArchived` (default `false`)
+- `_MetaRow`: αν `isArchived`, εμφανίζεται `_ArchivedChip` με `Icons.archive_rounded` + text "Αρχείο" (`context.labelXs`, `ColorsUI.getWarning` background)
+
+**2. `lib/shared/widgets/responsive_item_list.dart`**
+- `ItemCardBuilder`: `ref.watch(showArchivedProvider)` — αν `item.archived && showArchived`, wrapping με `Opacity(opacity: 0.5)` + πέρασμα `isArchived: true` στο `ItemCard`
+- DebugConfig.db logging archived/showArchived/isArchived
+
+**3. `lib/features/tasks/task_list_screen.dart`**
+- `_TaskCard`: ίδιο pattern με ItemCardBuilder — `showArchivedProvider` watch + `Opacity(0.5)` + `isArchived: true`
+- `_TaskListScreenState`: νέο `_showArchiveHintShown = false`
+- PopupMenuButton: SnackBar hint όταν showArchived → true
+
+**4. `lib/features/habits/habit_list_screen.dart`**
+- `_DraggableHabitCard.build`: `ref.watch(showArchivedProvider)` + `Opacity(0.5)` wrap
+- `_HabitListScreenState`: νέο `_showArchiveHintShown = false`
+- PopupMenuButton: SnackBar hint
+
+**5. `lib/features/journal/journal_list_screen.dart`**
+- `_DraggableJournalCard.build`: `ref.watch(showArchivedProvider)` + `isArchived` passed as param to `_buildDraggable` + `Opacity(0.5)` wrap
+- `_JournalListScreenState`: νέο `_showArchiveHintShown = false`
+- PopupMenuButton: SnackBar hint
+
+**6. `lib/features/calendar/calendar_screen.dart`**
+- `_CalendarScreenState`: νέο `_showArchiveHintShown = false`
+- `_buildArchivedToggle`: SnackBar hint στο onPressed
+
+**7. `lib/shared/widgets/item_list_screen.dart`**
+- `_ItemListScreenState`: νέο `_showArchiveHintShown = false`
+- PopupMenuButton: SnackBar hint
+
+### SnackBar hint (κοινό)
+```dart
+'Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά'
+```
+Εμφανίζεται **μία φορά ανά session** (per-instance `_showArchiveHintShown` flag).
+
+### Αρχεία που άλλαξαν
+
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `item_card.dart` | +isArchived param, +`_ArchivedChip` στο `_MetaRow` |
+| `responsive_item_list.dart` | `ItemCardBuilder`: showArchivedProvider → Opacity(0.5) + isArchived |
+| `task_list_screen.dart` | `_TaskCard`: opacity + SnackBar hint |
+| `habit_list_screen.dart` | `_DraggableHabitCard`: opacity + SnackBar hint |
+| `journal_list_screen.dart` | `_DraggableJournalCard`: opacity + SnackBar hint |
+| `calendar_screen.dart` | SnackBar hint στο `_buildArchivedToggle` |
+| `item_list_screen.dart` | SnackBar hint στο PopupMenuButton |
+
+### Backups
+- `backups/item_card.dart.backup.20260606`
+- `backups/responsive_item_list.dart.backup.20260606`
+- `backups/task_list_screen.dart.backup.20260606`
+- `backups/habit_list_screen.dart.backup.20260606`
+- `backups/journal_list_screen.dart.backup.20260606`
+- `backups/calendar_screen.dart.backup.20260606`
+- `backups/item_list_screen.dart.backup.20260606`
+
+### Αποτελέσματα
+- `flutter analyze` — **8 info-level issues only** (prefer_const_constructors για runtime SnackBar strings — αναμενόμενο, όχι errors)
+- `isArchived` optional param (`false` by default) — όλες οι υπάρχουσες χρήσεις του `ItemCard` (home screen, folder browser) unaffected
+- `ItemCardBuilder` shared από `ItemListScreen` και `ItemListEmbedded` → calendar events also get visual treatment automatically
+
+### Εκκρεμότητες για επόμενο session
+1. **Δοκιμή** σε emulator/συσκευή:
+   - Archive ένα item → go σε άλλη list screen → go back → verify item is still archived
+   - "Εμφάνιση συμπιεσμένων αρχείων" → verify opacity + "Αρχείο" chip
+   - Long-press → "Επαναφορά" → verify item back to normal + opacity removed
+   - Έλεγχος SnackBar hint εμφανίζεται μόνο μία φορά
+2. **Αφαίρεση debug logging** από:
+   - `archive_helper.dart` (toggleArchive ENTER/BEFORE/AFTER)
+   - `item_list_screen.dart` (_archive DONE)
+   - `super_note_helper.dart` (ItemRepository.update writeTxn state)
+   - `responsive_item_list.dart` / `task_list_screen.dart` / `habit_list_screen.dart` / `journal_list_screen.dart` (DebugConfig.db στα card builders)
+   - **Προσοχή**: μην αφαιρεθούν πριν ολοκληρωθεί η δοκιμή — χρειάζονται για debugging αν το persistence bug επανεμφανιστεί
+3. **Αν το persistence bug παραμένει** (archive/unarchive από context menu):
+   - Η πιθανότερη αιτία είναι ότι στο `item_list_screen.dart` το long-press bottom sheet χρησιμοποιεί `ref.read(itemByIdProvider(id)).valueOrNull` αντί για fresh DB read
+   - Εναλλακτική: αντικατάσταση του context menu handler με απευθείας `SuperNoteHelper.instance.itemRepository.toggleArchive(id)` bypassing providers
+
+### Σημειώσεις
+- Το debug logging που προστέθηκε στο Session 26 παραμένει ενεργό — ΘΑ ΤΟ ΒΛΕΠΕΙΣ στο output κατά τη δοκιμή. Μην ανησυχείς, είναι intentional.
+- Τα debug logs είναι `DebugConfig.db(...)` με prefix `🗄️ DB |`
+- Το unarchive από detail screens (`handleArchive()` via `archive_helper.dart`) δούλευε πάντα — το πρόβλημα ήταν ΜΟΝΟ στο context menu των list screens
+
+---
+

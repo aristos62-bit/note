@@ -34,9 +34,12 @@ Future<void> handleArchive({
   bool showPopOnArchive = true,
   bool showPopOnUnarchive = false,
 }) async {
+  DebugConfig.db('ArchiveHelper ENTER id=$itemId isArchived=$isArchived label=$label');
   if (isArchived) {
     // ── Unarchive: χωρίς επιβεβαίωση ──
+    DebugConfig.db('ArchiveHelper BEFORE toggleArchive id=$itemId (unarchive)');
     await ref.read(itemNotifierProvider.notifier).toggleArchive(itemId, isArchived);
+    DebugConfig.db('ArchiveHelper AFTER toggleArchive id=$itemId (unarchive)');
     if (!context.mounted) return;
     DebugConfig.db('ArchiveHelper unarchive id=$itemId');
     ScaffoldMessenger.of(context).showSnackBar(

@@ -24,7 +24,8 @@ class AppointmentDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _AppointmentDetailScreenState
-    extends ConsumerState<AppointmentDetailScreen> {
+    extends ConsumerState<AppointmentDetailScreen>
+    with DetailScreenMixin<AppointmentDetailScreen> {
   // --- Basic fields ---
   late TextEditingController _titleCtrl;
   late final FocusNode _titleFocusNode;
@@ -33,7 +34,6 @@ class _AppointmentDetailScreenState
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isFavorite = false;
-  bool _isSaving = false;
   bool _isEditingTitle = false;
 
   // --- Contact fields ---
@@ -48,6 +48,9 @@ class _AppointmentDetailScreenState
 
   bool _contactSectionExpanded = false;
   int? _linkedContactId;
+
+  @override
+  TextEditingController get titleCtrl => _titleCtrl;
 
   @override
   void initState() {
@@ -72,7 +75,7 @@ class _AppointmentDetailScreenState
     _contactNotesCtrl = TextEditingController();
 
     _loadData();
-    DebugConfig.nav('AppointmentDetailScreen init id=${widget.itemId}');
+    initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   Future<void> _loadData() async {
@@ -346,38 +349,12 @@ class _AppointmentDetailScreenState
   }
 
   Future<void> _save() async {
-    // Validation μόνο εδώ (όχι στο _saveData)
-    if (_titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
-      );
-      return; // ← μένει στην οθόνη, δεν κλείνει
-    }
     if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Επιλέξτε ημερομηνία')),
-      );
+      showSnackBar('Επιλέξτε ημερομηνία');
       return;
     }
-
-    setState(() => _isSaving = true);
-    final navigator = Navigator.of(context);
-
-    try {
-      await _saveData();
-      if (mounted) {
-        setState(() => _isSaving = false);
-        navigator.pop();
-      }
-    } catch (e) {
-      DebugConfig.error('AppointmentDetailScreen._save', e);
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
-        );
-      }
-    }
+    final ok = await executeSave(() => _saveData());
+    if (ok && mounted) safePop();
   }
 
   Future<bool> _askCreateContact() async {
@@ -478,25 +455,10 @@ class _AppointmentDetailScreenState
   void _onTitleChanged(String value) => _isEditingTitle = true;
 
   Future<bool> _onPopInvoked() async {
-    if (_isSaving) return false;
-
-    if (_titleCtrl.text.trim().isEmpty) {
-      if (widget.isNew) {
-        DebugConfig.db('AppointmentDetail delete empty appointment id=${widget.itemId}');
-        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-      }
-      return true;
-    }
-
-    // ✅ Κλειδώνει το save button κατά το auto-save
-    if (mounted) setState(() => _isSaving = true);
-    try {
-      await _saveData();
-    } catch (e) {
-      DebugConfig.error('AppointmentDetailScreen auto-save on pop', e);
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+    await executeSaveOrDelete(
+      saveFn: _saveData,
+      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
+    );
     return true;
   }
   Future<void> _togglePin(Item item) async {
@@ -596,14 +558,11 @@ class _AppointmentDetailScreenState
       backgroundColor: context.cBg,
       elevation: 0,
       scrolledUnderElevation: 1,
-      title: _isSaving
-          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-          : null,
       actions: [
         // 1. Save
         IconButton(
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
-          onPressed: _isSaving ? null : _save,
+          onPressed: _save,
           tooltip: 'Αποθήκευση',
         ),
         // 2. Reminder (καμπάνα)
@@ -775,6 +734,7 @@ class _AppointmentDetailScreenState
 
   @override
   void dispose() {
+    disposeScreen();
     _titleCtrl.dispose();
     _locationCtrl.dispose();
     _contactNameCtrl.dispose();

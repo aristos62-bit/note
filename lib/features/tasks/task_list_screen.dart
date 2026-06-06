@@ -44,6 +44,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   final _searchCtrl  = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
+  bool _showArchiveHintShown = false;
   Timer? _debounce;
 
   Set<String> _visibleTagNames = {};
@@ -139,9 +140,15 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 
   Future<void> _archive(Item item) async {
     Navigator.pop(context);
-    final ok = await ConfirmDialog.archive(context);
-    if (!ok || !mounted) return;
-    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: item.id,
+      isArchived: item.archived,
+      label: ItemLabel.task,
+      showPopOnArchive: false,
+      showPopOnUnarchive: false,
+    );
   }
 
   Future<void> _delete(Item item) async {
@@ -392,6 +399,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
             if (value == 'archived') {
               final show = ref.read(showArchivedProvider);
               ref.read(showArchivedProvider.notifier).state = !show;
+              if (!show && !_showArchiveHintShown) {
+                _showArchiveHintShown = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                    );
+                  }
+                });
+              }
             }
           },
           itemBuilder: (_) => [
@@ -561,15 +578,16 @@ class _TaskCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ Άμεση πρόσβαση — μηδέν ref.watch(itemPropertiesProvider)
-    // ✅ Άμεση πρόσβαση — μηδέν ref.watch(itemTagsProvider)
     final dueDate  = td.dueDate;
     final tagNames = td.tags.map((t) => t.name).toList();
 
-    // ✅ Subtasks: παραμένει reactive — αλλάζουν ανεξάρτητα από τα properties
     final subtasksAsync = ref.watch(subtasksStreamProvider(td.task.id));
     final subtasks      = subtasksAsync.valueOrNull ?? [];
     final hasSubtasks   = subtasks.isNotEmpty;
+    final showArchived = ref.watch(showArchivedProvider);
+    final isArchived = td.task.archived && showArchived;
+
+    DebugConfig.db('TaskCard id=${td.task.id} archived=${td.task.archived} showArchived=$showArchived isArchived=$isArchived');
 
     return DraggableItemWrapper(
       itemId: td.task.id,
@@ -577,16 +595,31 @@ class _TaskCard extends ConsumerWidget {
        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          ItemCard(
-            item:        td.task,
-            dueDate:     dueDate,
-            tagNames:    tagNames,
-            compact:     context.isMobile,
-            onTap:       onTap,
-            onLongPress: onLongPress,
-            onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
-            onShare:    () => ShareService.shareItem(context, td.task.id),
-          ),
+          isArchived
+              ? Opacity(
+                  opacity: 0.5,
+                  child: ItemCard(
+                    item:        td.task,
+                    dueDate:     dueDate,
+                    tagNames:    tagNames,
+                    compact:     context.isMobile,
+                    isArchived:  true,
+                    onTap:       onTap,
+                    onLongPress: onLongPress,
+                    onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
+                    onShare:    () => ShareService.shareItem(context, td.task.id),
+                  ),
+                )
+              : ItemCard(
+                  item:        td.task,
+                  dueDate:     dueDate,
+                  tagNames:    tagNames,
+                  compact:     context.isMobile,
+                  onTap:       onTap,
+                  onLongPress: onLongPress,
+                  onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
+                  onShare:    () => ShareService.shareItem(context, td.task.id),
+                ),
           _TaskProgressBar(
             item:     td.task,
             subtasks: subtasks,

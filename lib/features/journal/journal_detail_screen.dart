@@ -32,11 +32,14 @@ class JournalDetailScreen extends ConsumerStatefulWidget {
       _JournalDetailScreenState();
 }
 
-class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
+class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
+    with DetailScreenMixin<JournalDetailScreen> {
   late final TextEditingController _titleCtrl;
 
+  @override
+  TextEditingController get titleCtrl => _titleCtrl;
+
   // ── Save state ──────────────────
-  bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
   String _pendingContent = '';
@@ -49,13 +52,13 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
-    DebugConfig.nav(
-        'JournalDetailScreen init id=${widget.itemId} isNew=${widget.isNew}');
+    initScreen(itemId: widget.itemId, isNew: widget.isNew);
     _loadEntryDate();
   }
 
   @override
   void dispose() {
+    disposeScreen();
     _titleCtrl.dispose();
     super.dispose();
   }
@@ -79,9 +82,8 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     }
   }
 
-  Future<void> _save() async {
-    if (!mounted) return;
-
+  /// ?�?��?�?�? ?? save logic (no ?�?U?I management)
+  Future<void> _saveData() async {
     final title = _titleCtrl.text.trim();
 
     if (title == _lastSavedTitle && _pendingContent.isEmpty && _hasEverBeenSaved) {
@@ -89,49 +91,36 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
     DebugConfig.db('JournalDetail save id=${widget.itemId} title="$title"');
 
-    try {
-      await ref
-          .read(itemNotifierProvider.notifier)
-          .updateItem(widget.itemId, title: title.isEmpty ? null : title);
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .updateItem(widget.itemId, title: title.isEmpty ? null : title);
 
-      if (_pendingContent.isNotEmpty) {
-        if (!mounted) return;
-        await _onContentSaved(_pendingContent);
-      }
-
-      _lastSavedTitle = title;
-      _hasEverBeenSaved = true;
-      _isEditingTitle = false;
-      DebugConfig.db('JournalDetail saved successfully');
-    } catch (e) {
-      DebugConfig.error('JournalDetail _save', e);
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
+    if (_pendingContent.isNotEmpty) {
+      if (!mounted) return;
+      await _onContentSaved(_pendingContent);
     }
+
+    _lastSavedTitle = title;
+    _hasEverBeenSaved = true;
+    _isEditingTitle = false;
+    DebugConfig.db('JournalDetail saved successfully');
   }
 
-  /// Ενιαία λογική για κουμπί Save και back arrow.
-  Future<void> _saveOrDelete() async {
-    final title = _titleCtrl.text.trim();
+  /// ??? wrapper ?�? executeSave + pop
+  Future<void> _save() async {
+    final ok = await executeSave(() => _saveData());
+    if (ok && mounted) safePop();
+  }
 
-    if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή μόνο αν isNew
-      if (widget.isNew) {
-        DebugConfig.db('JournalDetail delete empty new entry id=${widget.itemId}');
-        try {
-          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-        } catch (e) {
-          DebugConfig.error('JournalDetail _saveOrDelete delete', e);
-        }
-      }
-      return;
-    }
-
-    // Έχει τίτλο → αποθήκευση
-    await _save();
+  /// ??? logic ??? back arrow (auto-save ?? pop)
+  Future<bool> _onPopInvoked() async {
+    await executeSaveOrDelete(
+      saveFn: _saveData,
+      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
+    );
+    return true;
   }
   Future<void> _delete(BuildContext context) async {
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή καταχώρησης;');
@@ -247,10 +236,8 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            if (_isSaving) return;
-            final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (mounted) nav.pop();
+            await _onPopInvoked();
+            if (mounted) safePop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
@@ -267,7 +254,6 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
     body: _JournalBody(
       item: item,
       titleCtrl: _titleCtrl,
-      isSaving: _isSaving,
       onTitleChanged: _onTitleChanged,
       onContentChanged: _onContentChanged,
       onContentSaved: _onContentSaved,
@@ -297,7 +283,6 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
           child: _JournalBody(
             item: item,
             titleCtrl: _titleCtrl,
-            isSaving: _isSaving,
             onTitleChanged: _onTitleChanged,
             onContentChanged: _onContentChanged,
             onContentSaved: _onContentSaved,
@@ -316,50 +301,13 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
       backgroundColor: context.cBg,
       elevation: 0,
       scrolledUnderElevation: 1,
-      title: _isSaving
-          ? Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: context.cText2),
-        ),
-        const SizedBox(width: Spacing.xs),
-        Text('',
-            style: context.bodySm.withColor(context.cText2)),
-      ])
-          : null,
+      title: null,
       actions: [
-        // Save
         // Save
         IconButton(
           icon: Icon(Icons.save_rounded, color: context.cPrimary),
           tooltip: 'Αποθήκευση',
-          onPressed: _isSaving
-              ? null
-              : () async {
-            if (_titleCtrl.text.trim().isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
-              );
-              return;
-            }
-            final nav = Navigator.of(context);
-            setState(() => _isSaving = true);
-            try {
-              await _save();
-              if (mounted) nav.pop();
-            } catch (e) {
-              DebugConfig.error('JournalDetail save button', e);
-              if (mounted) {
-                setState(() => _isSaving = false);
-                if (!context.mounted)return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
-                );
-              }
-            }
-          },
+          onPressed: _save,
         ),
         // Reminder
         IconButton(
@@ -435,7 +383,6 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen> {
 class _JournalBody extends ConsumerStatefulWidget {
   final Item item;
   final TextEditingController titleCtrl;
-  final bool isSaving;
   final ValueChanged<String> onTitleChanged;
   final ValueChanged<String> onContentChanged;
   final ValueChanged<String> onContentSaved;
@@ -447,7 +394,6 @@ class _JournalBody extends ConsumerStatefulWidget {
   const _JournalBody({
     required this.item,
     required this.titleCtrl,
-    required this.isSaving,
     required this.onTitleChanged,
     required this.onContentChanged,
     required this.onContentSaved,

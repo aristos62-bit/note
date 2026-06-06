@@ -37,9 +37,13 @@ class ContactDetailScreen extends ConsumerStatefulWidget {
       _ContactDetailScreenState();
 }
 
-class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
+class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
+    with DetailScreenMixin<ContactDetailScreen> {
   // ── Controllers ─────────────────────────────────────────────
   late final TextEditingController _nameCtrl;
+
+  @override
+  TextEditingController get titleCtrl => _nameCtrl;
   // 🆕 Λίστα controllers για πολλαπλά τηλέφωνα
   late final List<TextEditingController> _phoneCtrls;
   late final TextEditingController _emailCtrl;
@@ -48,9 +52,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   late final TextEditingController _addressCtrl;
   String _notesValue = '';
 
-  // ── Save state (ίδια λογική με NoteDetailScreen) ───────────
-  // ignore: prefer_final_fields
-  bool _isSaving = false;
+  // ── Save state ───────────
   bool _isEditingName = false;
   String _lastSavedName = '';
 
@@ -67,17 +69,17 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController();
-    _phoneCtrls = []; // 🆕
+    _phoneCtrls = [];
     _emailCtrl = TextEditingController();
     _companyCtrl = TextEditingController();
     _websiteCtrl = TextEditingController();
     _addressCtrl = TextEditingController();
-    DebugConfig.nav(
-        'ContactDetailScreen init id=${widget.itemId} isNew=${widget.isNew}');
+    initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
+    disposeScreen();
     _nameCtrl.dispose();
     for (final c in _phoneCtrls) {
       c.dispose();
@@ -172,32 +174,19 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     DebugConfig.db('ContactDetail changes persisted id=${widget.itemId}');
   }
 
-  Future<void> _saveOrDelete() async {
-    if (_isSaving) return;
-    final name = _nameCtrl.text.trim();
+  /// ??? wrapper ??? executeSave + pop
+  Future<void> _save() async {
+    final ok = await executeSave(() => _persistChanges());
+    if (ok && mounted) safePop();
+  }
 
-    if (name.isEmpty) {
-      DebugConfig.db('ContactDetail delete empty contact id=${widget.itemId}');
-      try {
-        if (widget.isNew) {
-          await ref
-              .read(itemNotifierProvider.notifier)
-              .deleteItem(widget.itemId);
-        }
-      } catch (e) {
-        DebugConfig.error('ContactDetail delete', e);
-      }
-      return;
-    }
-
-    setState(() => _isSaving = true);
-    try {
-      await _persistChanges();
-    } catch (e) {
-      DebugConfig.error('ContactDetail save', e);
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+  /// ??? logic ??? back arrow (auto-save ?? pop)
+  Future<bool> _onPopInvoked() async {
+    await executeSaveOrDelete(
+      saveFn: _persistChanges,
+      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
+    );
+    return true;
   }
 
   Future<void> _pickBirthday(BuildContext context) async {
@@ -410,10 +399,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            await _onPopInvoked();
+            if (mounted) safePop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
@@ -516,37 +503,13 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         backgroundColor: context.cBg,
         elevation: 0,
         scrolledUnderElevation: 1,
-        title: _isSaving
-            ? Row(mainAxisSize: MainAxisSize.min, children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: context.cText2),
-                ),
-                const SizedBox(width: Spacing.xs),
-                Text('', style: context.bodySm.withColor(context.cText2)),
-              ])
-            : null,
+        title: null,
         actions: [
-          // Save
           // Save
           IconButton(
             icon: Icon(Icons.save_rounded, color: context.cPrimary),
             tooltip: 'Αποθήκευση',
-            onPressed: () async {
-              if (_nameCtrl.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Παρακαλώ προσθέστε όνομα επαφής')),
-                );
-                return;
-              }
-              final nav = Navigator.of(context);
-              await _saveOrDelete();
-              if (!nav.mounted) return;
-              nav.pop();
-            },
+            onPressed: _save,
           ),
           // Reminder
           IconButton(

@@ -30,8 +30,8 @@ class DebugConfig {
   static const bool _logNav      = true;  // Navigation
   static const bool _logProvider = true;  // Riverpod provider changes
   static const bool _logNotif    = true;  // Notifications
-  static const bool _logSync     = false; // Sync operations (verbose)
-  static const bool _logSearch   = false; // Search queries (verbose)
+  static const bool _logSync     = true; // Sync operations (verbose)
+  static const bool _logSearch   = true; // Search queries (verbose)
 
   // ─────────────────────────────────────────────────────────
   // STARTUP TIMER

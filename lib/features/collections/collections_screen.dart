@@ -151,6 +151,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
+  bool _showArchiveHintShown = false;
   Timer? _debounce;
 
   @override
@@ -244,6 +245,35 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
             icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
             onPressed: _toggleSearch,
             tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              if (value == 'archived') {
+                final show = ref.read(showArchivedProvider);
+                ref.read(showArchivedProvider.notifier).state = !show;
+                if (!show && !_showArchiveHintShown) {
+                  _showArchiveHintShown = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                      );
+                    }
+                  });
+                }
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'archived',
+                child: Row(children: [
+                  const Icon(Icons.archive_rounded, size: 18),
+                  const SizedBox(width: Spacing.sm),
+                  Text(ref.watch(showArchivedProvider) ? 'Απόκρυψη συμπιεσμένων αρχείων' : 'Εμφάνιση συμπιεσμένων αρχείων'),
+                ]),
+              ),
+            ],
           ),
         ],
       ),
