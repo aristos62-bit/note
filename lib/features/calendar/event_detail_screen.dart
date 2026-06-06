@@ -30,7 +30,8 @@ class EventDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
+class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
+    with DetailScreenMixin<EventDetailScreen> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _locationCtrl;
   Timer? _titleDebounce;
@@ -45,17 +46,21 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   bool _isArchived = false;
 
   @override
+  TextEditingController get titleCtrl => _titleCtrl;
+
+  @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
     _locationCtrl = TextEditingController();
-    DebugConfig.nav('EventDetailScreen init id=${widget.itemId}');
+    initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
     _titleDebounce?.cancel();
     _locationDebounce?.cancel();
+    disposeScreen();
     _titleCtrl.dispose();
     _locationCtrl.dispose();
     super.dispose();
@@ -166,48 +171,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
 
   /// Save button: validation + _saveData() + pop.
   Future<void> _save() async {
-    if (_titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
-      );
-      return;
-    }
-    setState(() => _isSaving = true);
-    final navigator = Navigator.of(context, rootNavigator: false);
-    try {
-      await _saveData();
-      if (mounted) {
-        setState(() => _isSaving = false);
-        navigator.pop();
-      }
-    } catch (e) {
-      DebugConfig.error('EventDetail _save', e);
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
-        );
-      }
-    }
+    final ok = await executeSave(() => _saveData());
+    if (ok && mounted) safePop();
   }
 
   /// Back arrow: αν κενός τίτλος → delete μόνο αν isNew, αλλιώς pop.
   /// Αν ΟΚ → auto-save + pop.
   Future<bool> _onPopInvoked() async {
-    if (_isSaving) return false;
-    if (_titleCtrl.text.trim().isEmpty) {
-      if (widget.isNew) {
-        DebugConfig.db(
-            'EventDetail delete empty new event id=${widget.itemId}');
-        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-      }
-      return true;
-    }
-    try {
-      await _saveData();
-    } catch (e) {
-      DebugConfig.error('EventDetail auto-save on pop', e);
-    }
+    await executeSaveOrDelete(
+      saveFn: _saveData,
+      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
+    );
     return true;
   }
 

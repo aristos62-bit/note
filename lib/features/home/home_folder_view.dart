@@ -272,31 +272,31 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   }
 
   void _openItem(BuildContext context, Item item, {bool isNew = false}) {
-    DebugConfig.nav('HomeFolderView → ${item.type.name} id=${item.id}');
+    DebugConfig.nav('HomeFolderView → ${item.type.name} id=${item.id} isNew=$isNew');
     switch (item.type) {
       case ItemType.task:
-        context.push(AppRoutes.task(item.id));
+        context.push(AppRoutes.task(item.id), extra: isNew);
         break;
       case ItemType.contact:
-        context.push(AppRoutes.contact(item.id));
+        context.push(AppRoutes.contact(item.id), extra: isNew);
         break;
       case ItemType.journal:
-        context.push(AppRoutes.journal_(item.id));
+        context.push(AppRoutes.journal_(item.id), extra: isNew);
         break;
       case ItemType.habit:
-        context.push(AppRoutes.habit(item.id));
+        context.push(AppRoutes.habit(item.id), extra: isNew);
         break;
       case ItemType.event:
-        context.push('/calendar/${item.id}');
+        context.push('/calendar/${item.id}', extra: isNew);
         break;
       case ItemType.project:
-        context.push(AppRoutes.collection(item.id));
+        context.push(AppRoutes.collection(item.id), extra: isNew);
         break;
       case ItemType.appointment:
-        context.push('/appointments/${item.id}');
+        context.push('/appointments/${item.id}', extra: isNew);
         break;
       default:
-        context.push(AppRoutes.note(item.id));
+        context.push(AppRoutes.note(item.id), extra: isNew);
     }
   }
 

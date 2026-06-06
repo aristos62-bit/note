@@ -96,17 +96,34 @@ class ItemCardBuilder extends ConsumerWidget {
         ?.map((t) => t.name)
         .toList() ??
         [];
+    final showArchived = ref.watch(showArchivedProvider);
+    final isArchived = item.archived && showArchived;
+
+    DebugConfig.db('ItemCardBuilder id=${item.id} archived=${item.archived} showArchived=$showArchived isArchived=$isArchived');
 
     return DraggableItemWrapper(
       itemId: item.id,
-      child: ItemCard(
-        item: item,
-        tagNames: tagNames,
-        compact: context.isMobile,
-        onTap: () => onTap(item),
-        onLongPress: () => onLongPress(item),
-        onShare: onShare,
-      ),
+      child: isArchived
+          ? Opacity(
+              opacity: 0.5,
+              child: ItemCard(
+                item: item,
+                tagNames: tagNames,
+                compact: context.isMobile,
+                isArchived: true,
+                onTap: () => onTap(item),
+                onLongPress: () => onLongPress(item),
+                onShare: onShare,
+              ),
+            )
+          : ItemCard(
+              item: item,
+              tagNames: tagNames,
+              compact: context.isMobile,
+              onTap: () => onTap(item),
+              onLongPress: () => onLongPress(item),
+              onShare: onShare,
+            ),
     );
   }
 }

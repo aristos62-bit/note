@@ -244,9 +244,29 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
 
   Future<void> _archive(Item item) async {
     Navigator.pop(context);
-    final ok = await ConfirmDialog.archive(context);
-    if (!ok || !mounted) return;
-    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: item.id,
+      isArchived: item.archived,
+      label: _labelForType(widget.itemType),
+      showPopOnArchive: false,
+      showPopOnUnarchive: false,
+    );
+  }
+
+  ItemLabel _labelForType(ItemType type) {
+    switch (type) {
+      case ItemType.note:        return ItemLabel.note;
+      case ItemType.task:        return ItemLabel.task;
+      case ItemType.event:       return ItemLabel.event;
+      case ItemType.contact:     return ItemLabel.contact;
+      case ItemType.habit:       return ItemLabel.habit;
+      case ItemType.journal:     return ItemLabel.journal;
+      case ItemType.appointment: return ItemLabel.appointment;
+      case ItemType.knowledge:   return ItemLabel.entry;
+      default:                   return ItemLabel.note;
+    }
   }
 
   Future<void> _delete(Item item) async {

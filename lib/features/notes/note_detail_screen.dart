@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
@@ -32,7 +33,8 @@ class NoteDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<NoteDetailScreen> createState() => _NoteDetailScreenState();
 }
 
-class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
+class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
+    with DetailScreenMixin<NoteDetailScreen> {
   late final TextEditingController _titleCtrl;
   Timer? _saveDebounce;
   bool _isSaving = false;
@@ -40,15 +42,19 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
   String _lastSavedTitle = '';
 
   @override
+  TextEditingController get titleCtrl => _titleCtrl;
+
+  @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
-    DebugConfig.nav('NoteDetailScreen init id=${widget.itemId}');
+    initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
     _saveDebounce?.cancel();
+    disposeScreen();
     _titleCtrl.dispose();
     super.dispose();
   }
@@ -127,28 +133,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     );
   }
 
-  /// Ενιαία λογική για κουμπί Save και back arrow.
-  Future<void> _saveOrDelete() async {
-    _saveDebounce?.cancel();
-    final title = _titleCtrl.text.trim();
-
-    if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή μόνο αν isNew
-      if (widget.isNew) {
-        DebugConfig.db('NoteDetail delete empty new note id=${widget.itemId}');
-        try {
-          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-        } catch (e) {
-          DebugConfig.error('NoteDetail _saveOrDelete delete', e);
-        }
-      }
-      return;
-    }
-
-    // Έχει τίτλο → αποθήκευση
-    await _saveTitle(title);
-  }
-
   @override
   Widget build(BuildContext context) {
     final itemAsync = ref.watch(itemStreamProvider(widget.itemId));
@@ -179,9 +163,12 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             if (_isSaving) return;
-            final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (mounted) nav.pop();
+            _saveDebounce?.cancel();
+            await executeSaveOrDelete(
+              saveFn: () => _saveTitle(titleCtrl.text.trim()),
+              deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
+            );
+            if (mounted) safePop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobileLayout(context, item),
@@ -257,28 +244,11 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
           onPressed: _isSaving
               ? null
               : () async {
-            if (_titleCtrl.text.trim().isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
-              );
-              return;
-            }
             _saveDebounce?.cancel();
-            final nav = Navigator.of(context);
-            setState(() => _isSaving = true);
-            try {
-              await _saveTitle(_titleCtrl.text.trim());
-              if (mounted) nav.pop();
-            } catch (e) {
-              DebugConfig.error('NoteDetail save button', e);
-              if (mounted) {
-                setState(() => _isSaving = false);
-                if (!context.mounted)return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
-                );
-              }
-            }
+            final saved = await executeSave(
+              () => _saveTitle(titleCtrl.text.trim()),
+            );
+            if (saved) safePop();
           },
         ),
         // Reminder

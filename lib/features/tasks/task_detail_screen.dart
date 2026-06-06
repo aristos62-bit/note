@@ -14,6 +14,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
@@ -31,12 +32,16 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<TaskDetailScreen> createState() => _TaskDetailScreenState();
 }
 
-class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
+class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
+    with DetailScreenMixin<TaskDetailScreen> {
   late final TextEditingController _titleCtrl;
   late final FocusNode             _titleFocusNode;
   bool   _isSaving      = false;
   bool   _isEditingTitle = false;
   String _lastSavedTitle = '';
+
+  @override
+  TextEditingController get titleCtrl => _titleCtrl;
 
   @override
   void initState() {
@@ -53,11 +58,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       }
     });
 
-    DebugConfig.nav('TaskDetailScreen init id=${widget.itemId}');
+    initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
+    disposeScreen();
     _titleCtrl.dispose();
     _titleFocusNode.dispose();
     super.dispose();
@@ -81,28 +87,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       DebugConfig.error('TaskDetail _saveTitle', e);
     } finally {
       if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  Future<void> _saveOrDelete() async {
-    final title = _titleCtrl.text.trim();
-
-    if (title.isEmpty) {
-      if (widget.isNew) {
-        DebugConfig.db('TaskDetail delete empty new task id=${widget.itemId}');
-        try {
-          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-        } catch (e) {
-          DebugConfig.error('TaskDetail _saveOrDelete delete', e);
-        }
-      }
-      return;
-    }
-
-    try {
-      await _flushPendingSaves();
-    } catch (e) {
-      DebugConfig.error('TaskDetail _saveOrDelete', e);
     }
   }
 
@@ -232,9 +216,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             if (_isSaving) return;
-            final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (mounted) nav.pop();
+            await executeSaveOrDelete(
+              saveFn: _flushPendingSaves,
+              deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
+            );
+            if (mounted) safePop();
           },
           child: ResponsiveLayout(
             mobile: _buildMobile(context, item),
@@ -336,30 +322,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           onPressed: _isSaving
               ? null
               : () async {
-            if (_titleCtrl.text.trim().isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Παρακαλώ προσθέστε τίτλο')),
-              );
-              return;
-            }
-            final nav = Navigator.of(context);
-            setState(() => _isSaving = true);
-            try {
-              await _flushPendingSaves();
-              if (mounted) nav.pop();
-            } catch (e) {
-              DebugConfig.error('TaskDetail save button', e);
-              if (mounted) {
-                setState(() => _isSaving = false);
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content:
-                      Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
-                );
-              }
-            }
+            final saved = await executeSave(_flushPendingSaves);
+            if (saved) safePop();
           },
         ),
         // Reminder

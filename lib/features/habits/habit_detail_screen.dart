@@ -27,7 +27,8 @@ class HabitDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<HabitDetailScreen> createState() => _HabitDetailScreenState();
 }
 
-class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
+class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
+    with DetailScreenMixin<HabitDetailScreen> {
   late final TextEditingController _titleCtrl;
   Timer? _titleDebounce;
   bool _isSaving = false;
@@ -37,15 +38,19 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   bool _isFavorite = false;
 
   @override
+  TextEditingController get titleCtrl => _titleCtrl;
+
+  @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
-    DebugConfig.nav('HabitDetailScreen init id=${widget.itemId}');
+    initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
     _titleDebounce?.cancel();
+    disposeScreen();
     _titleCtrl.dispose();
     super.dispose();
   }
@@ -76,28 +81,13 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 
   /// Αποθηκεύει αν υπάρχει τίτλος, αλλιώς διαγράφει τη συνήθεια.
   Future<void> _saveOrDelete() async {
-    final title = _titleCtrl.text.trim();
-
-    if (title.isEmpty) {
-      // Κενός τίτλος → διαγραφή μόνο αν isNew
-      if (widget.isNew) {
-        DebugConfig.db('HabitDetail delete empty new habit id=${widget.itemId}');
-        try {
-          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-        } catch (e) {
-          DebugConfig.error('HabitDetail _saveOrDelete delete', e);
-        }
-      }
-      return;
-    }
-
-    // Έχει τίτλο → αποθήκευση (ακυρώνουμε τυχόν εκκρεμές debounce)
-    _titleDebounce?.cancel();
-    try {
-      await _saveTitle(title);
-    } catch (e) {
-      DebugConfig.error('HabitDetail _saveOrDelete save', e);
-    }
+    await executeSaveOrDelete(
+      saveFn: () async {
+        _titleDebounce?.cancel();
+        await _saveTitle(_titleCtrl.text.trim());
+      },
+      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
+    );
   }
 
   Future<void> _incrementProgress() async {

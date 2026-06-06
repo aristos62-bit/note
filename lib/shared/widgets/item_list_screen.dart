@@ -47,6 +47,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
+  bool _showArchiveHintShown = false;
   Timer? _debounce;
   final _searchQueryProvider = StateProvider<String>((ref) => '');
   final _activeTagFilterProvider = StateProvider<Set<String>>((ref) => {});
@@ -128,10 +129,32 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   }
 
   Future<void> _archive(Item item) async {
+    DebugConfig.db('ItemListScreen _archive id=${item.id} archived=${item.archived}');
     Navigator.pop(context);
-    final ok = await ConfirmDialog.archive(context);
-    if (!ok || !mounted) return;
-    await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, item.archived);
+    await handleArchive(
+      context: context,
+      ref: ref,
+      itemId: item.id,
+      isArchived: item.archived,
+      label: _labelForType(widget.itemType),
+      showPopOnArchive: false,
+      showPopOnUnarchive: false,
+    );
+    DebugConfig.db('ItemListScreen _archive DONE id=${item.id}');
+  }
+
+  ItemLabel _labelForType(ItemType type) {
+    switch (type) {
+      case ItemType.note:        return ItemLabel.note;
+      case ItemType.task:        return ItemLabel.task;
+      case ItemType.event:       return ItemLabel.event;
+      case ItemType.contact:     return ItemLabel.contact;
+      case ItemType.habit:       return ItemLabel.habit;
+      case ItemType.journal:     return ItemLabel.journal;
+      case ItemType.appointment: return ItemLabel.appointment;
+      case ItemType.knowledge:   return ItemLabel.entry;
+      default:                   return ItemLabel.note;
+    }
   }
 
   Future<void> _delete(Item item) async {
@@ -177,6 +200,16 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
                 if (value == 'archived') {
                   final show = ref.read(showArchivedProvider);
                   ref.read(showArchivedProvider.notifier).state = !show;
+                  if (!show && !_showArchiveHintShown) {
+                    _showArchiveHintShown = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                        );
+                      }
+                    });
+                  }
                 }
               },
               itemBuilder: (_) => [

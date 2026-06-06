@@ -47,6 +47,7 @@ class _CollectionEntriesScreenState
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
+  bool _showArchiveHintShown = false;
   Timer? _debounce;
 
   Set<String> _visibleTagNames = {};
@@ -142,6 +143,35 @@ class _CollectionEntriesScreenState
                 : Icons.search_rounded),
             onPressed: _toggleSearch,
             tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              if (value == 'archived') {
+                final show = ref.read(showArchivedProvider);
+                ref.read(showArchivedProvider.notifier).state = !show;
+                if (!show && !_showArchiveHintShown) {
+                  _showArchiveHintShown = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                      );
+                    }
+                  });
+                }
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'archived',
+                child: Row(children: [
+                  const Icon(Icons.archive_rounded, size: 18),
+                  const SizedBox(width: Spacing.sm),
+                  Text(ref.watch(showArchivedProvider) ? 'Απόκρυψη συμπιεσμένων αρχείων' : 'Εμφάνιση συμπιεσμένων αρχείων'),
+                ]),
+              ),
+            ],
           ),
         ],
       ),
@@ -583,12 +613,16 @@ class CollectionEntryDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _CollectionEntryDetailScreenState
-    extends ConsumerState<CollectionEntryDetailScreen> {
+    extends ConsumerState<CollectionEntryDetailScreen>
+    with DetailScreenMixin<CollectionEntryDetailScreen> {
   late final TextEditingController _titleCtrl;
+
+  @override
+  TextEditingController get titleCtrl => _titleCtrl;
+
   final Map<String, TextEditingController> _fieldCtrls = {};
   final Map<String, List<String>> _listValues = {};
 
-  bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
   bool _propsLoaded = false;
@@ -613,12 +647,12 @@ class _CollectionEntryDetailScreenState
         _fieldCtrls[f.key] = TextEditingController();
       }
     }
-    DebugConfig.nav('EntryDetail init id=${widget.entryId} '
-        'isNew=${widget.isNew}');
+    initScreen(itemId: widget.entryId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
+    disposeScreen();
     _titleCtrl.dispose();
     for (final c in _fieldCtrls.values) {
       c.dispose();
@@ -657,68 +691,57 @@ class _CollectionEntryDetailScreenState
     });
   }
 
-  Future<void> _save() async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
-
+  Future<void> _saveData() async {
     final title = _titleCtrl.text.trim();
     DebugConfig.db('EntryDetail save id=${widget.entryId} title="$title"');
 
-    try {
-      // 1. Τίτλος
-      await ref
-          .read(itemNotifierProvider.notifier)
-          .updateItem(widget.entryId, title: title.isEmpty ? null : title);
+    // 1. ??lo?
+    await ref
+        .read(itemNotifierProvider.notifier)
+        .updateItem(widget.entryId, title: title.isEmpty ? null : title);
 
-      // 2. Όλα τα properties παράλληλα
-      final notifier = ref.read(propertyNotifierProvider(widget.entryId).notifier);
-      await Future.wait(widget.fields.where((f) => f.key.isNotEmpty).map((f) {
-        switch (f.type) {
-          case FieldType.toggle:
-            return notifier.setText(f.key, (_boolValues[f.key] ?? false) ? 'true' : 'false');
-          case FieldType.date:
-            return notifier.setDate(f.key, _dateValues[f.key]);
-          case FieldType.bulletList:
-          case FieldType.numberedList:
-            return notifier.setText(f.key, jsonEncode(_listValues[f.key] ?? []));
-          default:
-            final val = _fieldCtrls[f.key]?.text.trim() ?? '';
-            return notifier.setText(f.key, val.isEmpty ? null : val);
-        }
-      }));
+    // 2. ?�λα τα properties παράλληλα
+    final notifier = ref.read(propertyNotifierProvider(widget.entryId).notifier);
+    await Future.wait(widget.fields.where((f) => f.key.isNotEmpty).map((f) {
+      switch (f.type) {
+        case FieldType.toggle:
+          return notifier.setText(f.key, (_boolValues[f.key] ?? false) ? 'true' : 'false');
+        case FieldType.date:
+          return notifier.setDate(f.key, _dateValues[f.key]);
+        case FieldType.bulletList:
+        case FieldType.numberedList:
+          return notifier.setText(f.key, jsonEncode(_listValues[f.key] ?? []));
+        default:
+          final val = _fieldCtrls[f.key]?.text.trim() ?? '';
+          return notifier.setText(f.key, val.isEmpty ? null : val);
+      }
+    }));
 
-      _lastSavedTitle = title;
-      _isEditingTitle = false;
-      _hasChanges     = false;
-      DebugConfig.db('EntryDetail saved');
-    } catch (e) {
-      DebugConfig.error('EntryDetail save', e);
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+    _lastSavedTitle = title;
+    _isEditingTitle = false;
+    _hasChanges     = false;
+    DebugConfig.db('EntryDetail saved');
   }
 
+  /// ??? wrapper ??? executeSave + pop
+  Future<void> _save() async {
+    final ok = await executeSave(() => _saveData());
+    if (ok && mounted) safePop();
+  }
 
-  Future<void> _saveOrDelete() async {
-    final title = _titleCtrl.text.trim();
-
-    if (title.isEmpty) {
-      DebugConfig.db('EntryDetail delete empty entry id=${widget.entryId}');
-      try {
-        if (widget.isNew) {
-          await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
+  /// ??? logic ??? back arrow (auto-save ?? pop)
+  Future<bool> _onPopInvoked() async {
+    await executeSaveOrDelete(
+      saveFn: () async {
+        if (_hasChanges) {
+          await _saveData();
+        } else {
+          DebugConfig.db('EntryDetail no changes, skip save');
         }
-      } catch (e) {
-        DebugConfig.error('EntryDetail delete', e);
-      }
-      return;
-    }
-
-    if (_hasChanges) {
-      await _save();
-    } else {
-      DebugConfig.db('EntryDetail no changes, skip save');
-    }
+      },
+      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId),
+    );
+    return true;
   }
 
   Future<void> _toggleFavorite() async {
@@ -886,10 +909,8 @@ class _CollectionEntryDetailScreenState
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            await _onPopInvoked();
+            if (mounted) safePop();
           },
           child: Scaffold(
             backgroundColor: context.cBg,
@@ -897,30 +918,13 @@ class _CollectionEntryDetailScreenState
               backgroundColor: context.cBg,
               elevation: 0,
               scrolledUnderElevation: 1,
-              title: _isSaving
-                  ? Row(mainAxisSize: MainAxisSize.min, children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: context.cText2),
-                ),
-                const SizedBox(width: Spacing.xs),
-                Text('',
-                    style: context.bodySm.withColor(context.cText2)),
-              ])
-                  : null,
+              title: null,
               actions: [
                 // Save button
                 IconButton(
                   icon: Icon(Icons.save_rounded, color: context.cPrimary),
                   tooltip: 'Αποθήκευση',
-                  onPressed: () async {
-                    final nav = Navigator.of(context);
-                    await _saveOrDelete();
-                    if (!nav.mounted) return;
-                    nav.pop();
-                  },
+                  onPressed: _save,
                 ),
                 // Reminder
                 IconButton(

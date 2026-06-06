@@ -37,6 +37,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
+  bool _showArchiveHintShown = false;
   Timer? _debounce;
   Set<String> _visibleTagNames = {};
 
@@ -265,6 +266,16 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
           if (value == 'archived') {
             final show = ref.read(showArchivedProvider);
             ref.read(showArchivedProvider.notifier).state = !show;
+            if (!show && !_showArchiveHintShown) {
+              _showArchiveHintShown = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                  );
+                }
+              });
+            }
           }
         },
         itemBuilder: (_) => [
@@ -380,18 +391,21 @@ class _DraggableJournalCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final propsAsync = ref.watch(itemPropertiesProvider(item.id));
+    final showArchived = ref.watch(showArchivedProvider);
+    final isArchived = item.archived && showArchived;
+    DebugConfig.db('JournalCard id=${item.id} archived=${item.archived} showArchived=$showArchived isArchived=$isArchived');
     final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.journal, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
     final accentColor = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
 
     return propsAsync.when(
-      loading: () => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
-      error: (_, __) => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor),
+      loading: () => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor, isArchived),
+      error: (_, __) => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor, isArchived),
       data: (props) {
         final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
         final displayDate = entryDateStr != null ? DateTime.tryParse(entryDateStr) : (item.updatedAt ?? item.createdAt);
-        return _buildDraggable(context, displayDate, backgroundColor, foregroundColor, secondaryForeground, accentColor);
+        return _buildDraggable(context, displayDate, backgroundColor, foregroundColor, secondaryForeground, accentColor, isArchived);
       },
     );
   }
@@ -403,6 +417,7 @@ class _DraggableJournalCard extends ConsumerWidget {
       Color foregroundColor,
       Color secondaryForeground,
       Color accentColor,
+      bool isArchived,
       ) {
     final date = displayDate ?? (item.updatedAt ?? item.createdAt);
     const weekDays = ['', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
@@ -448,7 +463,7 @@ class _DraggableJournalCard extends ConsumerWidget {
       ),
     );
 
-    return DraggableItemWrapper(
+    final result = DraggableItemWrapper(
       itemId: item.id,
       child: GestureDetector(
         onTap: () => onTap(item.id),
@@ -456,6 +471,10 @@ class _DraggableJournalCard extends ConsumerWidget {
         child: card,
       ),
     );
+
+    return isArchived
+        ? Opacity(opacity: 0.5, child: result)
+        : result;
   }
 
   void _showActions(BuildContext context) {

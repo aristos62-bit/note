@@ -55,6 +55,7 @@ class CalendarScreen extends ConsumerStatefulWidget {
 class _CalendarScreenState extends ConsumerState<CalendarScreen>
     with FolderAutoSelectMixin {
   final GlobalKey<ItemListEmbeddedState> _listKey = GlobalKey();
+  bool _showArchiveHintShown = false;
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +179,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
             ),
             onPressed: () {
               ref.read(showArchivedProvider.notifier).state = !showArchived;
+              if (!showArchived && !_showArchiveHintShown) {
+                _showArchiveHintShown = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                    );
+                  }
+                });
+              }
             },
           ),
         ],

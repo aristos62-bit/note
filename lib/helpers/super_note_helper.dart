@@ -297,7 +297,10 @@ class ItemRepository {
       item.pinned = pinned;
       if (!pinned) item.pinnedOrder = null;
     }
-    if (archived != null) item.archived = archived;
+    if (archived != null) {
+      DebugConfig.db('ItemRepository.update id=$id setting archived=$archived (was=${item.archived})');
+      item.archived = archived;
+    }
     if (favorite != null) {
       item.favorite = favorite;
       if (!favorite) item.favoriteOrder = null;
@@ -309,9 +312,11 @@ class ItemRepository {
     item.localVersion++;
     item.isDirty = true;
 
+    DebugConfig.db('ItemRepository.update id=$id BEFORE writeTxn localVersion=${item.localVersion}');
     await _isar.writeTxn(() async {
       await _isar.items.put(item);
     });
+    DebugConfig.db('ItemRepository.update id=$id AFTER writeTxn - OK');
 
     return item;
   }

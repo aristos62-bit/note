@@ -100,9 +100,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pageBuilder: (context, state) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-                  DebugConfig.nav('Router → NoteDetail id=$id');
+                  final isNew = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → NoteDetail id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
-                      state, NoteDetailScreen(itemId: id));
+                      state, NoteDetailScreen(itemId: id, isNew: isNew));
                 },
               ),
             ],
@@ -137,8 +138,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'appointment-detail',
                 pageBuilder: (context, state) {
                   final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  final isNew = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → AppointmentDetail id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
-                      state, AppointmentDetailScreen(itemId: id));
+                      state, AppointmentDetailScreen(itemId: id, isNew: isNew));
                 },
               ),
             ],
@@ -163,9 +166,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pageBuilder: (context, state) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-                  DebugConfig.nav('Router → HabitDetail id=$id');
+                  final isNew = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → HabitDetail id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
-                      state, HabitDetailScreen(itemId: id));
+                      state, HabitDetailScreen(itemId: id, isNew: isNew));
                 },
               ),
             ],
@@ -201,8 +205,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'collection-detail',
                 pageBuilder: (context, state) {
                   final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  final isNew = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → CollectionDetail id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
-                      state, CollectionDetailScreen(collectionId: id));
+                      state, CollectionDetailScreen(collectionId: id, isNew: isNew));
                 },
               ),
             ],
@@ -218,10 +224,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'journal-detail',
                 pageBuilder: (context, state) {
                   final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-                  DebugConfig.nav('Router → JournalDetail id=$id');
+                  final isNew = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → JournalDetail id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
                     state,
-                    JournalDetailScreen(itemId: id), // ✔ σωστό
+                    JournalDetailScreen(itemId: id, isNew: isNew),
                   );
                 },
               ),
@@ -240,8 +247,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pageBuilder: (context, state) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  final isNew = (state.extra as bool?) ?? false;
+                  DebugConfig.nav('Router → ContactDetail id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
-                      state, ContactDetailScreen(itemId: id));
+                      state, ContactDetailScreen(itemId: id, isNew: isNew));
                 },
               ),
             ],

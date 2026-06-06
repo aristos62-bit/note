@@ -35,6 +35,7 @@ class HabitListScreen extends ConsumerStatefulWidget {
 class _HabitListScreenState extends ConsumerState<HabitListScreen>
     with FolderAutoSelectMixin {
   bool _searchActive = false;
+  bool _showArchiveHintShown = false;
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _debounce;
@@ -256,6 +257,16 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
           if (value == 'archived') {
             final show = ref.read(showArchivedProvider);
             ref.read(showArchivedProvider.notifier).state = !show;
+            if (!show && !_showArchiveHintShown) {
+              _showArchiveHintShown = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                  );
+                }
+              });
+            }
           }
         },
         itemBuilder: (_) => [
@@ -357,6 +368,9 @@ class _DraggableHabitCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(habitStatsProvider(habit.id)).valueOrNull;
     if (stats == null) return const SizedBox.shrink();
+    final showArchived = ref.watch(showArchivedProvider);
+    final isArchived = habit.archived && showArchived;
+    DebugConfig.db('HabitCard id=${habit.id} archived=${habit.archived} showArchived=$showArchived isArchived=$isArchived');
 
     final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.habit, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
@@ -482,7 +496,7 @@ class _DraggableHabitCard extends ConsumerWidget {
       ),
     );
 
-    return DraggableItemWrapper(
+    final result = DraggableItemWrapper(
       itemId: habit.id,
       child: GestureDetector(
         onTap: onTap,
@@ -490,6 +504,10 @@ class _DraggableHabitCard extends ConsumerWidget {
         child: card,
       ),
     );
+
+    return isArchived
+        ? Opacity(opacity: 0.5, child: result)
+        : result;
   }
 
   void _showActions(BuildContext context) {

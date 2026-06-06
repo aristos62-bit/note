@@ -45,11 +45,14 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _CollectionDetailScreenState
-    extends ConsumerState<CollectionDetailScreen> {
+    extends ConsumerState<CollectionDetailScreen>
+    with DetailScreenMixin<CollectionDetailScreen> {
   late final TextEditingController _titleCtrl;
 
+  @override
+  TextEditingController get titleCtrl => _titleCtrl;
+
   // Save state
-  bool   _isSaving         = false;
   bool   _isEditingTitle   = false;
   String _lastSavedTitle   = '';
 
@@ -69,12 +72,12 @@ class _CollectionDetailScreenState
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
-    DebugConfig.nav('CollectionDetail init id=${widget.collectionId} '
-        'isNew=${widget.isNew}');
+    initScreen(itemId: widget.collectionId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
+    disposeScreen();
     _titleCtrl.dispose();
     super.dispose();
   }
@@ -86,58 +89,92 @@ class _CollectionDetailScreenState
     _hasChanges = true;
   }
 
-  Future<void> _save() async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
+  Future<void> _saveData() async {
     final title = _titleCtrl.text.trim();
     DebugConfig.db('CollectionDetail save id=${widget.collectionId} title="$title"');
 
-    try {
-      // 1. Τίτλος + χρώμα στο Item model (για να το διαβάζει το card)
-      await ref.read(itemNotifierProvider.notifier)
-          .updateItem(widget.collectionId,
-        title: title.isEmpty ? 'Νέα Συλλογή' : title,
-        color: _color,
-      );
+    // 1. ??? + ?�?��? στο Item model (??α να το διαβ?�?ει το card)
+    await ref.read(itemNotifierProvider.notifier)
+        .updateItem(widget.collectionId,
+      title: title.isEmpty ? 'Νέα Συλλογή' : title,
+      color: _color,
+    );
 
-      // 2. Schema + icon + color παράλληλα
-      final notifier = ref.read(
-          propertyNotifierProvider(widget.collectionId).notifier);
-      await Future.wait([
-        notifier.setText('schema', FieldDef.listToJson(_fields)),
-        notifier.setText('icon', _icon),
-        notifier.setText('color', _color),
-      ]);
+    // 2. Schema + icon + color παράλληλα
+    final notifier = ref.read(
+        propertyNotifierProvider(widget.collectionId).notifier);
+    await Future.wait([
+      notifier.setText('schema', FieldDef.listToJson(_fields)),
+      notifier.setText('icon', _icon),
+      notifier.setText('color', _color),
+    ]);
 
-      _lastSavedTitle = title;
-      _isEditingTitle = false;
-      _hasChanges     = false;
-      DebugConfig.db('CollectionDetail save done');
-    } catch (e) {
-      DebugConfig.error('CollectionDetail save', e);
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+    _lastSavedTitle = title;
+    _isEditingTitle = false;
+    _hasChanges     = false;
+    DebugConfig.db('CollectionDetail save done');
   }
 
+  /// ??? wrapper ??? executeSave + pop
+  Future<void> _save() async {
+    final ok = await executeSave(() => _saveData());
+    if (ok && mounted) safePop();
+  }
 
-  Future<void> _saveOrDelete() async {
-    final title = _titleCtrl.text.trim();
-
-    if (title.isEmpty) {
-      DebugConfig.db('CollectionDetail delete empty collection id=${widget.collectionId}');
-      try {
-        await ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId);
-      } catch (e) {
-        DebugConfig.error('CollectionDetail delete', e);
-      }
-      return;
+  /// ??? logic ??? back arrow (auto-save ?? pop)
+  Future<bool> _onPopInvoked() async {
+    final title = titleCtrl.text.trim();
+    if (title.isEmpty && !widget.isNew) {
+      final hasEntries = await _hasCollectionEntries();
+      if (!mounted) return true;
+      final subtitle = hasEntries
+          ? 'Παρακαλώ δώστε τίτλο στη Συλλογή γιατί έχει περιεχόμενο το οποίο θα χαθεί αν συνεχίσετε.'
+          : 'Η Συλλογή δεν έχει τίτλο. Αν συνεχίσετε θα διαγραφεί.';
+      final confirmed = await ConfirmDialog.show(
+        context,
+        title: 'Η Συλλογή δεν έχει τίτλο',
+        subtitle: subtitle,
+        confirmLabel: 'Συνέχεια',
+        cancelLabel: 'Ακυρο',
+        icon: Icons.warning_rounded,
+        isDestructive: true,
+      );
+      if (!confirmed || !mounted) return true;
+      if (hasEntries) await _deleteCollectionEntries();
+      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId);
+      return true;
     }
+    await executeSaveOrDelete(
+      saveFn: () async {
+        if (_hasChanges) {
+          await _saveData();
+        } else {
+          DebugConfig.db('CollectionDetail no changes, skip save');
+        }
+      },
+      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId),
+    );
+    return true;
+  }
 
-    if (_hasChanges) {
-      await _save();
-    } else {
-      DebugConfig.db('CollectionDetail no changes, skip save');
+  Future<bool> _hasCollectionEntries() async {
+    final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
+    for (final entry in allItems.where((i) => i.type == ItemType.knowledge)) {
+      final props = await ref.read(itemPropertiesProvider(entry.id).future);
+      final colId = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
+      if (colId == widget.collectionId.toString()) return true;
+    }
+    return false;
+  }
+
+  Future<void> _deleteCollectionEntries() async {
+    final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
+    for (final entry in allItems.where((i) => i.type == ItemType.knowledge)) {
+      final props = await ref.read(itemPropertiesProvider(entry.id).future);
+      final colId = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
+      if (colId == widget.collectionId.toString()) {
+        await ref.read(itemNotifierProvider.notifier).deleteItem(entry.id);
+      }
     }
   }
 
@@ -408,10 +445,8 @@ class _CollectionDetailScreenState
           canPop: false,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
-            final nav = Navigator.of(context);
-            await _saveOrDelete();
-            if (!nav.mounted) return;
-            nav.pop();
+            await _onPopInvoked();
+            if (mounted) safePop();
           },
           child: Scaffold(
             backgroundColor: context.cBg,
@@ -427,36 +462,13 @@ class _CollectionDetailScreenState
     backgroundColor:        context.cBg,
     elevation:              0,
     scrolledUnderElevation: 1,
-    title: _isSaving
-        ? Row(mainAxisSize: MainAxisSize.min, children: [
-      SizedBox(
-        width: 14, height: 14,
-        child: CircularProgressIndicator(
-            strokeWidth: 2, color: context.cText2),
-      ),
-      const SizedBox(width: Spacing.xs),
-      Text('Αποθήκευση...',
-          style: context.bodySm.withColor(context.cText2)),
-    ])
-        : null,
+    title: null,
     actions: [
-      // Save button
       // Save button
       IconButton(
         icon: Icon(Icons.save_rounded, color: context.cPrimary),
         tooltip: 'Αποθήκευση',
-        onPressed: () async {
-          if (_titleCtrl.text.trim().isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Παρακαλώ προσθέστε όνομα συλλογής')),
-            );
-            return;
-          }
-          final nav = Navigator.of(context);
-          await _save();
-          if (!nav.mounted) return;
-          nav.pop();
-        },
+        onPressed: _save,
       ),
       // Favorite button
       IconButton(
