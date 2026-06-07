@@ -673,12 +673,18 @@ class _ItemsList extends StatelessWidget {
       onReorder: onReorder,
       onReorderStart: onReorderStart,
       onReorderEnd: onReorderEnd,
-      itemBuilder: (ctx, item, index) => ItemCard(
-        item: item,
-        compact: true,
-        onTap: () => onTap(item),
-        onLongPress: () => _showActions(ctx, item),
-        onShare: onShare != null ? () => onShare!(item) : null,
+      itemBuilder: (ctx, item, index) => Consumer(
+        builder: (_, ref, __) {
+          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+          return ItemCard(
+            item: item,
+            compact: true,
+            customBackgroundColor: overrideColor,
+            onTap: () => onTap(item),
+            onLongPress: () => _showActions(ctx, item),
+            onShare: onShare != null ? () => onShare!(item) : null,
+          );
+        },
       ),
     );
   }
@@ -772,10 +778,16 @@ class _ItemsGrid extends StatelessWidget {
         mainAxisExtent: 100,
       ),
       itemCount: items.length,
-      itemBuilder: (_, i) => ItemCard(
-        item: items[i],
-        onTap: () => onTap(items[i]),
-        onShare: onShare != null ? () => onShare!(items[i]) : null,
+      itemBuilder: (_, i) => Consumer(
+        builder: (_, ref, __) {
+          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(items[i].type));
+          return ItemCard(
+            item: items[i],
+            customBackgroundColor: overrideColor,
+            onTap: () => onTap(items[i]),
+            onShare: onShare != null ? () => onShare!(items[i]) : null,
+          );
+        },
       ),
     );
   }
@@ -897,16 +909,22 @@ class _FolderSearchSheetState extends State<_FolderSearchSheet> {
                     itemCount: _results.length,
                     separatorBuilder: (_, __) =>
                         const SizedBox(height: Spacing.sm),
-                    itemBuilder: (_, i) => ItemCard(
-                      item: _results[i],
-                      compact: true,
-                      onTap: () {
-                        Navigator.pop(context);
-                        widget.onTap(_results[i]);
+                    itemBuilder: (_, i) => Consumer(
+                      builder: (_, ref, __) {
+                        final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(_results[i].type));
+                        return ItemCard(
+                          item: _results[i],
+                          compact: true,
+                          customBackgroundColor: overrideColor,
+                          onTap: () {
+                            Navigator.pop(context);
+                            widget.onTap(_results[i]);
+                          },
+                          onShare: widget.onShare != null
+                              ? () => widget.onShare!(_results[i])
+                              : null,
+                        );
                       },
-                      onShare: widget.onShare != null
-                          ? () => widget.onShare!(_results[i])
-                          : null,
                     ),
                   ),
           ),

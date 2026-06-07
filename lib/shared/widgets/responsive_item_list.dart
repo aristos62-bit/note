@@ -79,6 +79,8 @@ class ItemCardBuilder extends ConsumerWidget {
   final ValueChanged<Item> onTap;
   final ValueChanged<Item> onLongPress;
   final VoidCallback? onShare;
+  // ✅ ΝΕΟ: tags περνάνε από τον parent — μηδέν ref.watch per-item
+  final List<String> tagNames;
 
   const ItemCardBuilder({
     super.key,
@@ -86,18 +88,15 @@ class ItemCardBuilder extends ConsumerWidget {
     required this.onTap,
     required this.onLongPress,
     this.onShare,
+    this.tagNames = const [],   // ← default κενή λίστα για backwards compat
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tagNames = ref
-        .watch(itemTagsProvider(item.id))
-        .valueOrNull
-        ?.map((t) => t.name)
-        .toList() ??
-        [];
-    final showArchived = ref.watch(showArchivedProvider);
-    final isArchived = item.archived && showArchived;
+    // ✅ Αφαιρέθηκε: ref.watch(itemTagsProvider(item.id)) — N+1 query
+    final showArchived  = ref.watch(showArchivedProvider);
+    final isArchived    = item.archived && showArchived;
+    final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
 
     DebugConfig.db('ItemCardBuilder id=${item.id} archived=${item.archived} showArchived=$showArchived isArchived=$isArchived');
 
@@ -105,25 +104,27 @@ class ItemCardBuilder extends ConsumerWidget {
       itemId: item.id,
       child: isArchived
           ? Opacity(
-              opacity: 0.5,
-              child: ItemCard(
-                item: item,
-                tagNames: tagNames,
-                compact: context.isMobile,
-                isArchived: true,
-                onTap: () => onTap(item),
-                onLongPress: () => onLongPress(item),
-                onShare: onShare,
-              ),
-            )
+        opacity: 0.5,
+        child: ItemCard(
+          item: item,
+          tagNames: tagNames,
+          compact: context.isMobile,
+          isArchived: true,
+          customBackgroundColor: overrideColor,
+          onTap: () => onTap(item),
+          onLongPress: () => onLongPress(item),
+          onShare: onShare,
+        ),
+      )
           : ItemCard(
-              item: item,
-              tagNames: tagNames,
-              compact: context.isMobile,
-              onTap: () => onTap(item),
-              onLongPress: () => onLongPress(item),
-              onShare: onShare,
-            ),
+        item: item,
+        tagNames: tagNames,
+        compact: context.isMobile,
+        customBackgroundColor: overrideColor,
+        onTap: () => onTap(item),
+        onLongPress: () => onLongPress(item),
+        onShare: onShare,
+      ),
     );
   }
 }

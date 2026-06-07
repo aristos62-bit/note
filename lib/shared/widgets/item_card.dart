@@ -21,6 +21,7 @@ class ItemCard extends StatelessWidget {
   final List<String> tagNames;
   final bool compact;
   final bool isArchived;
+  final Color? customBackgroundColor;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final ValueChanged<bool>? onCheckboxChanged;
@@ -33,6 +34,7 @@ class ItemCard extends StatelessWidget {
     this.tagNames = const [],
     this.compact = false,
     this.isArchived = false,
+    this.customBackgroundColor,
     this.onTap,
     this.onLongPress,
     this.onCheckboxChanged,
@@ -50,8 +52,8 @@ class ItemCard extends StatelessWidget {
     final isCompact = compact ||
         (context.isMobile && item.title != null && item.title!.length < 30);
 
-    // ⭐ Χρώμα φόντου: πάντα από τον τύπο (ItemColorHelper)
-    final backgroundColor =
+    // ⭐ Χρώμα φόντου: αν έχει οριστεί override από settings, αλλιώς default από τύπο
+    final backgroundColor = customBackgroundColor ??
         ItemColorHelper.backgroundColorForType(item.type, context);
 
     // ⭐ Χρώμα κειμένου: βέλτιστη αντίθεση πάνω στο background

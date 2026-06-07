@@ -41,6 +41,8 @@ class ReminderScheduler {
     }
 
     for (final reminder in pending) {
+      final scheduledItem = await SuperNoteHelper.instance.items.getById(reminder.itemId);
+      DebugConfig.notif('  scheduleAll: scheduling id=${reminder.id} itemId=${reminder.itemId} archived=${scheduledItem?.archived}');
       await _scheduleOne(
         reminder,
         sound:     settings.soundEnabled,
@@ -331,7 +333,8 @@ class ReminderScheduler {
             : item.title ?? 'Χωρίς τίτλο';
       }
     }
-
+    final item = await SuperNoteHelper.instance.items.getById(reminder.itemId);
+    DebugConfig.notif('_scheduleOne: itemId=${reminder.itemId} archived=${item?.archived} title="${item?.title}"');
     try {
       await NotificationService.instance.schedule(
         id: reminder.id,

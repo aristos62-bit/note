@@ -3,7 +3,12 @@ import '../models/models.dart';
 import '../core/theme/ui_tokens.dart';
 
 class ItemColorHelper {
-  static Color backgroundColorForType(ItemType type, BuildContext context) {
+  static Color backgroundColorForType(ItemType type, BuildContext context,
+      {String? overrideHex}) {
+    if (overrideHex != null) {
+      final parsed = _parseHex(overrideHex);
+      if (parsed != null) return parsed;
+    }
     final isDark = context.brightness == Brightness.dark;
     switch (type) {
       case ItemType.note:
@@ -38,5 +43,14 @@ class ItemColorHelper {
 
   static Color iconColorForType(ItemType type, BuildContext context) {
     return ColorsUI.itemTypeColor(type, context.brightness);
+  }
+
+  static Color? _parseHex(String hex) {
+    try {
+      final clean = hex.replaceFirst('#', '');
+      return Color(int.parse('FF$clean', radix: 16));
+    } catch (_) {
+      return null;
+    }
   }
 }

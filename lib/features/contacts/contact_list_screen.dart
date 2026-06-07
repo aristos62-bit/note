@@ -329,13 +329,19 @@ class _ContactListMobile extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.xs),
               child: Text(letter, style: context.labelMd.withColor(context.cText2)),
             ),
-            ...group.map((item) => _DraggableContactTile(
-              contact: item,
-              phone: contactProps[item.id]?.phone,
-              email: contactProps[item.id]?.email,
-              onTap: onTap,
-              onDelete: onDelete,
-              onShare: onShare != null ? () => onShare!(item) : null,
+            ...group.map((item) => Consumer(
+              builder: (_, ref, __) {
+                final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+                return _DraggableContactTile(
+                  contact: item,
+                  phone: contactProps[item.id]?.phone,
+                  email: contactProps[item.id]?.email,
+                  onTap: onTap,
+                  onDelete: onDelete,
+                  onShare: onShare != null ? () => onShare!(item) : null,
+                  cardBackgroundColor: overrideColor,
+                );
+              },
             )),
           ],
         );
@@ -367,13 +373,19 @@ class _ContactGrid extends StatelessWidget {
         mainAxisExtent: 90,
       ),
       itemCount: contacts.length,
-      itemBuilder: (_, i) => _DraggableContactTile(
-        contact: contacts[i],
-        phone: contactProps[contacts[i].id]?.phone,
-        email: contactProps[contacts[i].id]?.email,
-        onTap: onTap,
-        onDelete: onDelete,
-        onShare: onShare != null ? () => onShare!(contacts[i]) : null,
+      itemBuilder: (_, i) => Consumer(
+        builder: (_, ref, __) {
+          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(contacts[i].type));
+          return _DraggableContactTile(
+            contact: contacts[i],
+            phone: contactProps[contacts[i].id]?.phone,
+            email: contactProps[contacts[i].id]?.email,
+            onTap: onTap,
+            onDelete: onDelete,
+            onShare: onShare != null ? () => onShare!(contacts[i]) : null,
+            cardBackgroundColor: overrideColor,
+          );
+        },
       ),
     );
   }
@@ -389,6 +401,7 @@ class _DraggableContactTile extends StatelessWidget {
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
   final VoidCallback? onShare;
+  final Color? cardBackgroundColor;
 
   const _DraggableContactTile({
     required this.contact,
@@ -397,6 +410,7 @@ class _DraggableContactTile extends StatelessWidget {
     required this.onTap,
     required this.onDelete,
     this.onShare,
+    this.cardBackgroundColor,
   });
 
   @override
@@ -404,7 +418,8 @@ class _DraggableContactTile extends StatelessWidget {
     final name = contact.title ?? 'Χωρίς όνομα';
     final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.contact, context);
+    final backgroundColor = cardBackgroundColor ??
+        ItemColorHelper.backgroundColorForType(ItemType.contact, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
     final accentColor = ItemColorHelper.iconColorForType(ItemType.contact, context);

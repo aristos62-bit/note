@@ -1,24 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import 'providers.dart';
-import 'dart:async';
 
-/// Επεκτείνει ένα Item με dueDate και tags
+/// Επεκτείνει ένα Item με dueDate, tags, parentId και subtasks
 class TaskWithDetails {
   final Item task;
   final DateTime? dueDate;
   final List<Tag> tags;
-  final int? parentId; // ← ΝΕΟ: αποφεύγουμε ref.read(itemPropertiesProvider) στο build
+  final int? parentId;
+  final List<Item> subtasks; // ✅ ΝΕΟ — μηδέν ref.watch στο _TaskCard
 
   TaskWithDetails({
     required this.task,
     required this.dueDate,
     required this.tags,
-    this.parentId, // ← ΝΕΟ
+    this.parentId,
+    this.subtasks = const [],
   });
 }
 
-/// Ανεξάρτητο stream μόνο για tasks — ΔΕΝ derive από itemsStreamProvider
+/// Ανεξάρτητο stream μόνο για tasks
 final tasksStreamProvider = StreamProvider<List<Item>>((ref) {
   final db = ref.watch(dbProvider);
   final wsId = ref.watch(activeWorkspaceIdProvider);
@@ -31,14 +32,12 @@ final tasksStreamProvider = StreamProvider<List<Item>>((ref) {
   );
 });
 
-/// ✅ Real-time stream με TaskWithDetails.
-/// Αντικατέστησε το FutureProvider που χρησιμοποιούσε ref.read (non-reactive).
-/// Τώρα χρησιμοποιεί ref.watch(itemsStreamProvider) για αυτόματη ανανέωση.
+/// ✅ Real-time stream με TaskWithDetails + subtasks.
+/// Ένα μόνο Future.wait — μηδέν cascade rebuilds.
 final tasksWithDetailsProvider = StreamProvider<List<TaskWithDetails>>((ref) async* {
   yield* ref.watch(tasksStreamProvider).when(
     data: (tasks) async* {
-
-      // Future.wait: όλα τα tasks φορτώνονται παράλληλα
+      // Πρώτο pass: batch load properties + tags παράλληλα
       final result = await Future.wait(
         tasks.map((task) async {
           final results = await Future.wait([
@@ -51,52 +50,53 @@ final tasksWithDetailsProvider = StreamProvider<List<TaskWithDetails>>((ref) asy
               .where((p) => p.key == 'due_date')
               .firstOrNull
               ?.dateValue;
-          // ✅ Εξαγωγή parentId — μηδέν extra DB query, τα properties φορτώθηκαν ήδη
           final parentIdStr = properties
               .where((p) => p.key == 'parent_id')
               .firstOrNull
               ?.value;
           final parentId = parentIdStr != null ? int.tryParse(parentIdStr) : null;
-          return TaskWithDetails(task: task, dueDate: dueDate, tags: tags, parentId: parentId);
+          return TaskWithDetails(
+            task: task,
+            dueDate: dueDate,
+            tags: tags,
+            parentId: parentId,
+          );
         }),
       );
-      yield result;
+
+      // ✅ Δεύτερο pass: subtasks από cache — μηδέν DB queries
+      final withSubtasks = result.map((td) {
+        if (td.parentId != null) return td; // subtask δεν έχει δικά του subtasks
+        final subs = result
+            .where((other) => other.parentId == td.task.id)
+            .map((other) => other.task)
+            .toList()
+          ..sort((a, b) => a.id.compareTo(b.id));
+        return TaskWithDetails(
+          task: td.task,
+          dueDate: td.dueDate,
+          tags: td.tags,
+          parentId: td.parentId,
+          subtasks: subs,
+        );
+      }).toList();
+
+      yield withSubtasks;
     },
     loading: () async* {},
     error:   (_, __) async* {},
   );
 });
 
-/// ✅ Stream υποεργασιών ενός task — real-time reactive.
-/// Χρησιμοποιεί ref.listen αντί του deprecated .stream.
-/// Σταθερή σειρά εισαγωγής μέσω sort by id.
+/// Subtasks για χρήση στο task_detail_screen — παράγεται από cache
 final subtasksStreamProvider =
-StreamProvider.family<List<Item>, int>((ref, parentId) {
-  final controller = StreamController<List<Item>>();
-
-  Future<void> refresh() async {
-    final tasks = ref.read(tasksStreamProvider).valueOrNull ?? [];
-    final result = <Item>[];
-    for (final task in tasks) {
-      final props = await ref.read(itemPropertiesProvider(task.id).future);
-      final pid = props
-          .where((p) => p.key == 'parent_id')
-          .firstOrNull
-          ?.value;
-      if (pid != null && int.tryParse(pid) == parentId) {
-        result.add(task);
-      }
-    }
-    result.sort((a, b) => a.id.compareTo(b.id));
-    if (!controller.isClosed) controller.add(result);
-  }
-
-  ref.listen<AsyncValue<List<Item>>>(
-    tasksStreamProvider,
-        (_, next) { if (next.hasValue) refresh(); },
-    fireImmediately: true,
+StreamProvider.family<List<Item>, int>((ref, parentId) async* {
+  yield* ref.watch(tasksWithDetailsProvider).when(
+    data: (allTasks) async* {
+      final td = allTasks.where((t) => t.task.id == parentId).firstOrNull;
+      yield td?.subtasks ?? [];
+    },
+    loading: () async* {},
+    error:   (_, __) async* {},
   );
-
-  ref.onDispose(() => controller.close());
-  return controller.stream;
 });

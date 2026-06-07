@@ -262,7 +262,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                    const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
                   );
                 }
               });
@@ -372,7 +372,8 @@ class _DraggableHabitCard extends ConsumerWidget {
     final isArchived = habit.archived && showArchived;
     DebugConfig.db('HabitCard id=${habit.id} archived=${habit.archived} showArchived=$showArchived isArchived=$isArchived');
 
-    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.habit, context);
+    final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(ItemType.habit));
+    final backgroundColor = overrideColor ?? ItemColorHelper.backgroundColorForType(ItemType.habit, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
     final accentColor = ItemColorHelper.iconColorForType(ItemType.habit, context);

@@ -205,7 +205,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                          const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
                         );
                       }
                     });
@@ -294,7 +294,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
                       }
                     });
 
-                    var filtered = _filterItems(items, searchQuery, activeTags);
+                    var filtered = _filterItemsWithTags(items, searchQuery, activeTags, ref);
                     if (filtered.isEmpty) {
                       if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
                         return EmptyState.search(query: searchQuery);
@@ -318,13 +318,15 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
     );
   }
 
-  List<Item> _filterItems(List<Item> items, String query, Set<String> tags) {
+  List<Item> _filterItemsWithTags(
+      List<Item> items, String query, Set<String> tags, WidgetRef ref) {
     var list = items;
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
       list = list.where((i) => (i.title ?? '').toLowerCase().contains(q)).toList();
     }
     if (tags.isNotEmpty) {
+      // ✅ Χρησιμοποιεί valueOrNull — ήδη cached από το ref.watch στο build()
       list = list.where((item) {
         final t = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
         return t.map((e) => e.name).any((n) => tags.contains(n));
@@ -423,14 +425,23 @@ class _ItemListBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ✅ Batch load tags για όλα τα items μαζί — 1 watch group αντί για N
+    final tagsMap = {
+      for (final item in items)
+        item.id: ref.watch(itemTagsProvider(item.id))
+            .valueOrNull
+            ?.map((t) => t.name)
+            .toList() ?? const <String>[],
+    };
+
     return ReorderableItemList(
       items: items,
       onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
-      // ── ΝΕΟ: κλειδώνει back gesture κατά το reorder drag ──
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
       onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
       itemBuilder: (ctx, item, index) => ItemCardBuilder(
         item: item,
+        tagNames: tagsMap[item.id] ?? const [],
         onTap: onTap,
         onLongPress: onLongPress,
         onShare: onShare != null ? () => onShare!(item) : null,

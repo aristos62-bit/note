@@ -1,6 +1,8 @@
 // lib/providers/settings_provider.dart
+import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/app_settings.dart';
+import '../models/models.dart';
 import '../services/notification_service.dart';
 import '../services/reminder_scheduler.dart';
 import 'db_provider.dart';
@@ -18,6 +20,33 @@ final settingsStreamProvider = StreamProvider<AppSettings?>((ref) {
 final settingsProvider = FutureProvider<AppSettings>((ref) {
   return ref.watch(dbProvider).settings.get();
 });
+
+// ── Helpers για itemTypeColorsJson ──────────────────────────────
+
+Map<String, String?> _itemTypeColorsFromJson(String? json) {
+  if (json == null || json.isEmpty) return {};
+  try {
+    final decoded = jsonDecode(json);
+    if (decoded is! Map) return {};
+    return decoded.map((k, v) => MapEntry(k.toString(), v?.toString()));
+  } catch (_) {
+    return {};
+  }
+}
+
+String _itemTypeColorsToJson(Map<String, String?> map) {
+  return jsonEncode(map);
+}
+
+Color? _parseHexColor(String? hex) {
+  if (hex == null || hex.isEmpty) return null;
+  try {
+    final clean = hex.replaceFirst('#', '');
+    return Color(int.parse('FF$clean', radix: 16));
+  } catch (_) {
+    return null;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // SettingsNotifier — για updates
@@ -71,6 +100,18 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
 
   Future<void> setAccentColor(String hex) =>
       updateSettings((s) => s.accentColor = hex);
+
+  Future<void> setItemTypeColor(ItemType type, String? hex) async {
+    await updateSettings((s) {
+      final map = _itemTypeColorsFromJson(s.itemTypeColorsJson);
+      if (hex == null) {
+        map.remove(type.name);
+      } else {
+        map[type.name] = hex;
+      }
+      s.itemTypeColorsJson = map.isEmpty ? null : _itemTypeColorsToJson(map);
+    });
+  }
 }
 
 final settingsNotifierProvider =
@@ -96,4 +137,14 @@ final onboardingCompleteProvider = Provider<bool>((ref) {
 final preferredFolderIdProvider = Provider<int?>((ref) {
   final settingsAsync = ref.watch(settingsNotifierProvider);
   return settingsAsync.valueOrNull?.preferredFolderId;
+});
+
+/// Επιστρέφει το override χρώμα για ένα ItemType (ή null για default)
+final itemTypeCardColorOverrideProvider =
+    Provider.family<Color?, ItemType>((ref, type) {
+  final settingsAsync = ref.watch(settingsNotifierProvider);
+  final json = settingsAsync.valueOrNull?.itemTypeColorsJson;
+  final map = _itemTypeColorsFromJson(json);
+  final hex = map[type.name];
+  return _parseHexColor(hex);
 });
