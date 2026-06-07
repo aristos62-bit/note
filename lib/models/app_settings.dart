@@ -44,5 +44,9 @@ class AppSettings {
 
   bool hasCompletedOnboarding = false;
 
+  /// JSON map: ItemType.name → hex color (null = default)
+  /// Π.χ. {"habit":"#0000FF","task":"#FF0000"}
+  String? itemTypeColorsJson;
+
   DateTime updatedAt = DateTime.now();
 }

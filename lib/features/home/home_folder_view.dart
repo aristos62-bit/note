@@ -222,14 +222,18 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
       onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
       // DraggableItemWrapper: διατηρεί folder-to-folder drag
-      itemBuilder: (ctx, item, index) => DraggableItemWrapper(
-        itemId: item.id,
-        child: _FolderItemCard(
-          item: item,
-          onTap: () => _openItem(context, item),
-          onShare: () => ShareService.shareItem(context, item.id),
-        ),
-      ),
+      itemBuilder: (ctx, item, index) {
+        final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+        return DraggableItemWrapper(
+          itemId: item.id,
+          child: _FolderItemCard(
+            item: item,
+            onTap: () => _openItem(context, item),
+            onShare: () => ShareService.shareItem(context, item.id),
+            cardBackgroundColor: overrideColor,
+          ),
+        );
+      },
     );
   }
 
@@ -487,11 +491,13 @@ class _FolderItemCard extends StatelessWidget {
   final Item item;
   final VoidCallback onTap;
   final VoidCallback? onShare;
-  const _FolderItemCard({required this.item, required this.onTap, this.onShare});
+  final Color? cardBackgroundColor;
+  const _FolderItemCard({required this.item, required this.onTap, this.onShare, this.cardBackgroundColor});
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = ItemColorHelper.backgroundColorForType(item.type, context);
+    final backgroundColor = cardBackgroundColor ??
+        ItemColorHelper.backgroundColorForType(item.type, context);
     final textColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final itemColor = ItemColorHelper.iconColorForType(item.type, context);
 

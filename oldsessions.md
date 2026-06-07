@@ -1417,3 +1417,40 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 
 ---
 
+## Session 27 — 07-06-2026
+
+### Στόχος
+Προσθήκη per-item-type card color customization στις Ρυθμίσεις.
+
+### Τι έγινε
+
+**Feature: Card Color Customization (Settings)**
+- Backed up all 10 files to `backups/*.backup.20260607`
+- Added `itemTypeColorsJson` field to `AppSettings` model + ran build_runner
+- Created `SettingsNotifier.setItemTypeColor(ItemType, String?)` στο `settings_provider.dart`
+- Created `itemTypeCardColorOverrideProvider` (family by `ItemType`) exposing `Color?`
+- Updated `ItemColorHelper.backgroundColorForType` — optional overrideHex param
+- Added `_ItemTypeColorsTile` + `_ColorPickerSheet` (60+ preset colors) στις Ρυθμίσεις
+- Added `Color? customBackgroundColor` param to `ItemCard`
+- `responsive_item_list.dart` `ItemCardBuilder` watches provider, passes color
+- Updated 7 card locations to use override color:
+  - `task_list_screen.dart` — `_TaskCard` (ConsumerWidget) → ref.watch + customBackgroundColor
+  - `home_folder_view.dart` — `_FolderItemCard` accepts `cardBackgroundColor`, parent watches
+  - `home_screen.dart` — `_SquareItemCard` accepts `cardBackgroundColor`, parent watches
+  - `folder_browser_screen.dart` — 3 ItemCard usages wrapped σε `Consumer`
+  - `habit_list_screen.dart` — `overrideColor ?? backgroundColorForType()`
+  - `contact_list_screen.dart` — `_DraggableContactTile` accepts `cardBackgroundColor`, parent `Consumer`
+  - `journal_list_screen.dart` — `overrideColor ?? backgroundColorForType()`
+- Excluded `collections_screen.dart` (already has own color system)
+
+**Bug fix: Color palette not scrollable**
+- Wrapped `_ColorPickerSheet` column σε `SingleChildScrollView`
+
+**Filter: Remove unused item types**
+- Filtered out `goal`, `bookmark`, `finance`, `checklist`, `knowledge`
+- Only `note`, `task`, `event`, `contact`, `habit`, `journal`, `appointment` remain
+
+### Αποτελέσματα
+- `flutter analyze` — **No issues found**
+- Backups: `backups/*.backup.20260607`
+

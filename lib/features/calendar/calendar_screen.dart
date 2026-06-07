@@ -184,7 +184,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                      const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
                     );
                   }
                 });

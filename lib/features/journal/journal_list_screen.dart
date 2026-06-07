@@ -394,7 +394,8 @@ class _DraggableJournalCard extends ConsumerWidget {
     final showArchived = ref.watch(showArchivedProvider);
     final isArchived = item.archived && showArchived;
     DebugConfig.db('JournalCard id=${item.id} archived=${item.archived} showArchived=$showArchived isArchived=$isArchived');
-    final backgroundColor = ItemColorHelper.backgroundColorForType(ItemType.journal, context);
+    final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(ItemType.journal));
+    final backgroundColor = overrideColor ?? ItemColorHelper.backgroundColorForType(ItemType.journal, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
     final accentColor = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);

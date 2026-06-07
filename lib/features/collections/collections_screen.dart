@@ -26,23 +26,36 @@ import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
 import 'package:reorderable_grid/reorderable_grid.dart';
 
-// Provider για real‑time αντιστοίχηση collectionId -> πλήθος εγγραφών
-final collectionEntriesCountProvider = Provider<Map<int, int>>((ref) {
-  final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
+// ✅ StreamProvider — batch load properties με Future.wait
+// Μηδέν N+1 ref.watch ανά item, μηδέν cascade rebuilds
+final collectionEntriesCountProvider =
+StreamProvider<Map<int, int>>((ref) async* {
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  final entries = itemsAsync.valueOrNull
+      ?.where((i) => i.type == ItemType.knowledge)
+      .toList() ??
+      [];
+
+  if (entries.isEmpty) {
+    yield {};
+    return;
+  }
+
+  // Batch load όλα τα properties παράλληλα
+  final propsList = await Future.wait(
+    entries.map((e) => ref.read(itemPropertiesProvider(e.id).future)),
+  );
+
   final Map<int, int> counts = {};
-  for (final item in allItems.where((i) => i.type == ItemType.knowledge)) {
-    final asyncProps = ref.watch(itemPropertiesProvider(item.id));
-    if (!asyncProps.hasValue) continue;
-    final props = asyncProps.value!;
-    final colIdStr = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
+  for (final props in propsList) {
+    final colIdStr =
+        props.where((p) => p.key == 'collection_id').firstOrNull?.value;
     if (colIdStr != null) {
       final colId = int.tryParse(colIdStr);
-      if (colId != null) {
-        counts[colId] = (counts[colId] ?? 0) + 1;
-      }
+      if (colId != null) counts[colId] = (counts[colId] ?? 0) + 1;
     }
   }
-  return counts;
+  yield counts;
 });
 
 // ── Field types ───────────────────────────────────────────────
@@ -548,7 +561,8 @@ class _DraggableCollectionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final counts = ref.watch(collectionEntriesCountProvider);
+    // ✅ StreamProvider — valueOrNull για graceful loading
+    final counts = ref.watch(collectionEntriesCountProvider).valueOrNull ?? {};
     final customColor = _colorFromString(item.color);
     final backgroundColor = customColor ?? ItemColorHelper.backgroundColorForType(ItemType.project, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);

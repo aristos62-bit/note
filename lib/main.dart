@@ -67,7 +67,7 @@ void main() async {
       DebugConfig.notif('handleNotificationTap: item $itemId not found, skipping');
       return;
     }
-    DebugConfig.notif('handleNotificationTap: itemId=$itemId type=${item.type.name}');
+    DebugConfig.notif('handleNotificationTap: itemId=$itemId type=${item.type.name} archived=${item.archived}');
     final route = switch (item.type) {
       ItemType.note        => AppRoutes.note(item.id),
       ItemType.task        => AppRoutes.task(item.id),

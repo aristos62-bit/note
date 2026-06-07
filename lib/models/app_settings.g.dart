@@ -58,70 +58,75 @@ const AppSettingsSchema = CollectionSchema(
       name: r'hasCompletedOnboarding',
       type: IsarType.bool,
     ),
-    r'language': PropertySchema(
+    r'itemTypeColorsJson': PropertySchema(
       id: 8,
+      name: r'itemTypeColorsJson',
+      type: IsarType.string,
+    ),
+    r'language': PropertySchema(
+      id: 9,
       name: r'language',
       type: IsarType.string,
       enumMap: _AppSettingslanguageEnumValueMap,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'preferredFolderId': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'preferredFolderId',
       type: IsarType.long,
     ),
     r'showArchivedItems': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'showArchivedItems',
       type: IsarType.bool,
     ),
     r'showDeletedItems': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'showDeletedItems',
       type: IsarType.bool,
     ),
     r'soundEnabled': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'soundEnabled',
       type: IsarType.bool,
     ),
     r'syncEnabled': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'syncEnabled',
       type: IsarType.bool,
     ),
     r'syncIntervalMinutes': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'syncIntervalMinutes',
       type: IsarType.long,
     ),
     r'syncOnWifiOnly': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'syncOnWifiOnly',
       type: IsarType.bool,
     ),
     r'theme': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'theme',
       type: IsarType.string,
       enumMap: _AppSettingsthemeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'vibrationEnabled': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'vibrationEnabled',
       type: IsarType.bool,
     )
@@ -153,6 +158,12 @@ int _appSettingsEstimateSize(
     }
   }
   bytesCount += 3 + object.defaultView.name.length * 3;
+  {
+    final value = object.itemTypeColorsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.language.name.length * 3;
   bytesCount += 3 + object.theme.name.length * 3;
   return bytesCount;
@@ -172,19 +183,20 @@ void _appSettingsSerialize(
   writer.writeLong(offsets[5], object.defaultWorkspaceId);
   writer.writeDouble(offsets[6], object.fontScale);
   writer.writeBool(offsets[7], object.hasCompletedOnboarding);
-  writer.writeString(offsets[8], object.language.name);
-  writer.writeDateTime(offsets[9], object.lastSyncAt);
-  writer.writeBool(offsets[10], object.notificationsEnabled);
-  writer.writeLong(offsets[11], object.preferredFolderId);
-  writer.writeBool(offsets[12], object.showArchivedItems);
-  writer.writeBool(offsets[13], object.showDeletedItems);
-  writer.writeBool(offsets[14], object.soundEnabled);
-  writer.writeBool(offsets[15], object.syncEnabled);
-  writer.writeLong(offsets[16], object.syncIntervalMinutes);
-  writer.writeBool(offsets[17], object.syncOnWifiOnly);
-  writer.writeString(offsets[18], object.theme.name);
-  writer.writeDateTime(offsets[19], object.updatedAt);
-  writer.writeBool(offsets[20], object.vibrationEnabled);
+  writer.writeString(offsets[8], object.itemTypeColorsJson);
+  writer.writeString(offsets[9], object.language.name);
+  writer.writeDateTime(offsets[10], object.lastSyncAt);
+  writer.writeBool(offsets[11], object.notificationsEnabled);
+  writer.writeLong(offsets[12], object.preferredFolderId);
+  writer.writeBool(offsets[13], object.showArchivedItems);
+  writer.writeBool(offsets[14], object.showDeletedItems);
+  writer.writeBool(offsets[15], object.soundEnabled);
+  writer.writeBool(offsets[16], object.syncEnabled);
+  writer.writeLong(offsets[17], object.syncIntervalMinutes);
+  writer.writeBool(offsets[18], object.syncOnWifiOnly);
+  writer.writeString(offsets[19], object.theme.name);
+  writer.writeDateTime(offsets[20], object.updatedAt);
+  writer.writeBool(offsets[21], object.vibrationEnabled);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -205,23 +217,24 @@ AppSettings _appSettingsDeserialize(
   object.fontScale = reader.readDouble(offsets[6]);
   object.hasCompletedOnboarding = reader.readBool(offsets[7]);
   object.id = id;
+  object.itemTypeColorsJson = reader.readStringOrNull(offsets[8]);
   object.language =
-      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[8])] ??
+      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[9])] ??
           AppLanguage.greek;
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[9]);
-  object.notificationsEnabled = reader.readBool(offsets[10]);
-  object.preferredFolderId = reader.readLongOrNull(offsets[11]);
-  object.showArchivedItems = reader.readBool(offsets[12]);
-  object.showDeletedItems = reader.readBool(offsets[13]);
-  object.soundEnabled = reader.readBool(offsets[14]);
-  object.syncEnabled = reader.readBool(offsets[15]);
-  object.syncIntervalMinutes = reader.readLong(offsets[16]);
-  object.syncOnWifiOnly = reader.readBool(offsets[17]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[10]);
+  object.notificationsEnabled = reader.readBool(offsets[11]);
+  object.preferredFolderId = reader.readLongOrNull(offsets[12]);
+  object.showArchivedItems = reader.readBool(offsets[13]);
+  object.showDeletedItems = reader.readBool(offsets[14]);
+  object.soundEnabled = reader.readBool(offsets[15]);
+  object.syncEnabled = reader.readBool(offsets[16]);
+  object.syncIntervalMinutes = reader.readLong(offsets[17]);
+  object.syncOnWifiOnly = reader.readBool(offsets[18]);
   object.theme =
-      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[18])] ??
+      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[19])] ??
           AppTheme.system;
-  object.updatedAt = reader.readDateTime(offsets[19]);
-  object.vibrationEnabled = reader.readBool(offsets[20]);
+  object.updatedAt = reader.readDateTime(offsets[20]);
+  object.vibrationEnabled = reader.readBool(offsets[21]);
   return object;
 }
 
@@ -251,17 +264,17 @@ P _appSettingsDeserializeProp<P>(
     case 7:
       return (reader.readBool(offset)) as P;
     case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
       return (_AppSettingslanguageValueEnumMap[
               reader.readStringOrNull(offset)] ??
           AppLanguage.greek) as P;
-    case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 10:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 11:
-      return (reader.readLongOrNull(offset)) as P;
-    case 12:
       return (reader.readBool(offset)) as P;
+    case 12:
+      return (reader.readLongOrNull(offset)) as P;
     case 13:
       return (reader.readBool(offset)) as P;
     case 14:
@@ -269,15 +282,17 @@ P _appSettingsDeserializeProp<P>(
     case 15:
       return (reader.readBool(offset)) as P;
     case 16:
-      return (reader.readLong(offset)) as P;
-    case 17:
       return (reader.readBool(offset)) as P;
+    case 17:
+      return (reader.readLong(offset)) as P;
     case 18:
+      return (reader.readBool(offset)) as P;
+    case 19:
       return (_AppSettingsthemeValueEnumMap[reader.readStringOrNull(offset)] ??
           AppTheme.system) as P;
-    case 19:
-      return (reader.readDateTime(offset)) as P;
     case 20:
+      return (reader.readDateTime(offset)) as P;
+    case 21:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -975,6 +990,160 @@ extension AppSettingsQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'itemTypeColorsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'itemTypeColorsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'itemTypeColorsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'itemTypeColorsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'itemTypeColorsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'itemTypeColorsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'itemTypeColorsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'itemTypeColorsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'itemTypeColorsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'itemTypeColorsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'itemTypeColorsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      itemTypeColorsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'itemTypeColorsJson',
+        value: '',
       ));
     });
   }
@@ -1689,6 +1858,20 @@ extension AppSettingsQuerySortBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByItemTypeColorsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemTypeColorsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByItemTypeColorsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemTypeColorsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByLanguage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'language', Sort.asc);
@@ -1978,6 +2161,20 @@ extension AppSettingsQuerySortThenBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByItemTypeColorsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemTypeColorsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByItemTypeColorsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemTypeColorsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByLanguage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'language', Sort.asc);
@@ -2205,6 +2402,14 @@ extension AppSettingsQueryWhereDistinct
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByItemTypeColorsJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'itemTypeColorsJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QDistinct> distinctByLanguage(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2350,6 +2555,13 @@ extension AppSettingsQueryProperty
       hasCompletedOnboardingProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'hasCompletedOnboarding');
+    });
+  }
+
+  QueryBuilder<AppSettings, String?, QQueryOperations>
+      itemTypeColorsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'itemTypeColorsJson');
     });
   }
 

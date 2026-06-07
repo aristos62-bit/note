@@ -404,7 +404,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                      const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
                     );
                   }
                 });
@@ -581,11 +581,12 @@ class _TaskCard extends ConsumerWidget {
     final dueDate  = td.dueDate;
     final tagNames = td.tags.map((t) => t.name).toList();
 
-    final subtasksAsync = ref.watch(subtasksStreamProvider(td.task.id));
-    final subtasks      = subtasksAsync.valueOrNull ?? [];
-    final hasSubtasks   = subtasks.isNotEmpty;
+    // ✅ Subtasks από TaskWithDetails — μηδέν ref.watch, μηδέν cascade rebuilds
+    final subtasks    = td.subtasks;
+    final hasSubtasks = subtasks.isNotEmpty;
     final showArchived = ref.watch(showArchivedProvider);
     final isArchived = td.task.archived && showArchived;
+    final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(td.task.type));
 
     DebugConfig.db('TaskCard id=${td.task.id} archived=${td.task.archived} showArchived=$showArchived isArchived=$isArchived');
 
@@ -604,6 +605,7 @@ class _TaskCard extends ConsumerWidget {
                     tagNames:    tagNames,
                     compact:     context.isMobile,
                     isArchived:  true,
+                    customBackgroundColor: overrideColor,
                     onTap:       onTap,
                     onLongPress: onLongPress,
                     onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
@@ -615,6 +617,7 @@ class _TaskCard extends ConsumerWidget {
                   dueDate:     dueDate,
                   tagNames:    tagNames,
                   compact:     context.isMobile,
+                  customBackgroundColor: overrideColor,
                   onTap:       onTap,
                   onLongPress: onLongPress,
                   onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),

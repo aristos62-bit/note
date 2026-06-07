@@ -1073,11 +1073,13 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
           itemBuilder: (context, index) {
             final item = _items[index];
             final folder = widget.folders.where((f) => f.id == item.folderId).firstOrNull;
+            final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
             return Container(
               key: ValueKey(item.id),
               child: _SquareItemCard(
                 item: item,
                 folder: folder,
+                cardBackgroundColor: overrideColor,
                 onTap: () => widget.onOpenItem(item),
                 onShare: () => ShareService.shareItem(context, item.id),
               ),
@@ -1146,19 +1148,22 @@ class _LoadingSkeleton extends StatelessWidget {
 class _SquareItemCard extends StatelessWidget {
   final Item item;
   final Folder? folder;
+  final Color? cardBackgroundColor;
   final VoidCallback onTap;
   final VoidCallback? onShare;
 
   const _SquareItemCard({
     required this.item,
-    required this.folder,
+    this.folder,
+    this.cardBackgroundColor,
     required this.onTap,
     this.onShare,
   });
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = ItemColorHelper.backgroundColorForType(item.type, context);
+    final backgroundColor = cardBackgroundColor ??
+        ItemColorHelper.backgroundColorForType(item.type, context);
     final textColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final typeColor = ItemColorHelper.iconColorForType(item.type, context);
 
