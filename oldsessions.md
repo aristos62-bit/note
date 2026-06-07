@@ -1365,7 +1365,7 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 ### SnackBar hint (κοινό)
 ```dart
 'Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά'
-```
+
 Εμφανίζεται **μία φορά ανά session** (per-instance `_showArchiveHintShown` flag).
 
 ### Αρχεία που άλλαξαν
