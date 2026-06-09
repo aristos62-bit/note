@@ -518,11 +518,6 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.search_rounded, color: context.cText2),
-            tooltip: 'Αναζήτηση στον φάκελο',
-            onPressed: () => _showSearch(context),
-          ),
-          IconButton(
             icon: Icon(Icons.edit_rounded, color: context.cText2),
             tooltip: 'Επεξεργασία φακέλου',
             onPressed: () => _editFolder(context),
@@ -548,29 +543,6 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
     ref.invalidate(itemNotifierProvider);
   }
 
-  void _showSearch(BuildContext context) async {
-    // Φορτώνουμε μόνο τα items του φακέλου (μία φορά)
-    final folderItems =
-        await ref.read(itemsByFolderStreamProvider(_folder.id).future);
-    if (!context.mounted) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => _FolderSearchSheet(
-        items: folderItems,
-        onTap: (item) => _openExisting(context, item),
-        folder: _folder,
-        onShare: (item) => ShareService.shareItem(context, item.id),
-      ),
-    );
-  }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -793,143 +765,4 @@ class _ItemsGrid extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// FOLDER SEARCH SHEET — αναζήτηση μέσα στον φάκελο (unchanged)
-// ════════════════════════════════════════════════════════════════
 
-class _FolderSearchSheet extends StatefulWidget {
-  final List<Item> items;
-  final ValueChanged<Item> onTap;
-  final ValueChanged<Item>? onShare;
-  final Folder folder;
-
-  const _FolderSearchSheet({
-    required this.items,
-    required this.onTap,
-    required this.folder,
-    this.onShare,
-  });
-
-  @override
-  State<_FolderSearchSheet> createState() => _FolderSearchSheetState();
-}
-
-class _FolderSearchSheetState extends State<_FolderSearchSheet> {
-  final _ctrl = TextEditingController();
-  List<Item> _results = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _results = widget.items;
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String q) {
-    final query = q.trim().toLowerCase();
-    setState(() {
-      _results = query.isEmpty
-          ? widget.items
-          : widget.items
-              .where((i) => (i.title ?? '').toLowerCase().contains(query))
-              .toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (_, scrollCtrl) => Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: context.cBorder,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.responsiveHPadding,
-              0,
-              context.responsiveHPadding,
-              Spacing.sm,
-            ),
-            child: TextField(
-              controller: _ctrl,
-              autofocus: true,
-              onChanged: _onChanged,
-              style: context.bodyMd,
-              decoration: InputDecoration(
-                hintText: 'Αναζήτηση σε "${widget.folder.name}"...',
-                hintStyle: context.bodyMd.withColor(context.cDisabled),
-                prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-                suffixIcon: _ctrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.close_rounded, color: context.cText2),
-                        onPressed: () {
-                          _ctrl.clear();
-                          _onChanged('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: ColorsUI.getSurface(context.brightness),
-                border: OutlineInputBorder(
-                  borderRadius: AppRadius.inputBR,
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.md, vertical: Spacing.sm),
-              ),
-            ),
-          ),
-          Expanded(
-            child: _results.isEmpty
-                ? Center(
-                    child: Text('Δεν βρέθηκαν αποτελέσματα',
-                        style: context.bodyMd.withColor(context.cDisabled)),
-                  )
-                : ListView.separated(
-                    controller: scrollCtrl,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: context.responsiveHPadding,
-                        vertical: Spacing.xs),
-                    itemCount: _results.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: Spacing.sm),
-                    itemBuilder: (_, i) => Consumer(
-                      builder: (_, ref, __) {
-                        final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(_results[i].type));
-                        return ItemCard(
-                          item: _results[i],
-                          compact: true,
-                          customBackgroundColor: overrideColor,
-                          onTap: () {
-                            Navigator.pop(context);
-                            widget.onTap(_results[i]);
-                          },
-                          onShare: widget.onShare != null
-                              ? () => widget.onShare!(_results[i])
-                              : null,
-                        );
-                      },
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}

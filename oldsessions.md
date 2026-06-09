@@ -1501,3 +1501,90 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 - [ ] Δοκιμή contact detail screen (ίδιο pattern με appointments)
 - [ ] Αφαίρεση debug logs πριν το release
 
+---
+
+## Session 29 — 09-06-2026 (Αφαίρεση local search από όλες τις list screens)
+
+### Στόχος
+Αφαίρεση της τοπικής αναζήτησης από όλες τις λίστες (search bar + tag filters). Η αναζήτηση γίνεται μόνο από την Αρχική οθόνη μέσω SearchScreen.
+
+### Σύνολο αρχείων: 6
+
+| # | Αρχείο | Κατάσταση |
+|---|--------|:---------:|
+| 1 | `lib/shared/widgets/item_list_screen.dart` (Notes + Appointments) | ✅ |
+| 2 | `lib/features/habits/habit_list_screen.dart` | ✅ |
+| 3 | `lib/features/journal/journal_list_screen.dart` | ✅ |
+| 4 | `lib/features/contacts/contact_list_screen.dart` | ✅ |
+| 5 | `lib/features/collections/collections_screen.dart` | ✅ |
+| 6 | `lib/features/home/folder_browser_screen.dart` | ✅ |
+
+### Τι έγινε (6 αρχεία)
+
+**1. `item_list_screen.dart` (shared — Notes + Appointments)**
+- Backup: `backups/item_list_screen.dart.backup.20260609`
+- Αφαιρέθηκαν: `_searchCtrl`, `_searchFocus`, `_searchActive`, `_debounce`, `_searchQueryProvider`, `_activeTagFilterProvider`, `_visibleTagNames`
+- Αφαιρέθηκαν: `_onSearchChanged()`, `_toggleSearch()`, `_filterItemsWithTags()`, search icon από AppBar, `_SearchBar` class, `_TagFilterRow` class, tag computation
+- Αφαιρέθηκαν imports: `dart:async`, `flutter/foundation.dart`
+- Tags: αφαιρέθηκαν από `_ItemListBody.build` (tag loading + tagNames passed as `const []`)
+- `flutter analyze` ✅
+
+**2. `habit_list_screen.dart`**
+- Backup: `backups/habit_list_screen.dart.backup.20260609`
+- Αφαιρέθηκαν: `_searchCtrl`, `_searchFocus`, `_searchActive`, `_debounce`, `_searchQueryProvider`, `_visibleTagNames`
+- Αφαιρέθηκαν: `_onSearchChanged()`, `_toggleSearch()`, search icon από AppBar, `_SearchBar` class, tag filter chips, tag computation
+- Tags: `tagNames` passed as `const []` στο `_DraggableHabitCard`
+- Κρατήθηκε import `core.dart` (χρειάζεται για UI tokens)
+- `flutter analyze` ✅
+
+**3. `journal_list_screen.dart`**
+- Backup: `backups/journal_list_screen.dart.backup.20260609`
+- Αφαιρέθηκαν: `_searchCtrl`, `_searchFocus`, `_searchActive`, `_debounce`, `_searchQueryProvider`, `_visibleTagNames`
+- Αφαιρέθηκαν: `_onSearchChanged()`, `_toggleSearch()`, search icon από AppBar, `_SearchBar` class, tag filter chips, tag computation
+- Tags: `tagNames` passed as `const []` στο `_DraggableJournalCard`
+- `flutter analyze` ✅
+
+**4. `contact_list_screen.dart`**
+- Backup: `backups/contact_list_screen.dart.backup.20260609`
+- Αφαιρέθηκαν: `_searchCtrl`, `_searchFocus`, `_searchActive`, `_debounce`, `_searchQueryProvider`, `_visibleTagNames`
+- Αφαιρέθηκαν: `_onSearchChanged()`, `_toggleSearch()`, search icon από AppBar, `_SearchBar` class, tag filter chips, tag computation
+- Tags: `tagNames` passed as `const []` στο `_DraggableContactTile`
+- **Κρατήθηκε** `dart:convert` import (χρειάζεται για `jsonDecode` στη μέθοδο `_formatPhone`)
+- `flutter analyze` ✅
+
+**5. `collections_screen.dart`**
+- Backup: `backups/collections_screen.dart.backup.20260609`
+- Αφαιρέθηκαν: `_collectionSearchQueryProvider`, `_collectionTagFilterProvider`, `_searchCtrl`, `_searchFocus`, `_searchActive`, `_debounce`
+- Αφαιρέθηκαν: `_onSearchChanged()`, `_toggleSearch()`, search icon από AppBar, `_SearchBar` class, tag filter chips, tag computation (tagsCache, _visibleTagNames, SetEquality)
+- Αφαιρέθηκαν imports: `dart:async`, `package:collection/collection.dart`
+- **Κρατήθηκαν**: `FieldDef`/`FieldType` (public exports), `dart:convert` (χρειάζεται για FieldDef), `collectionEntriesCountProvider` (ανεξάρτητο από search), `_showArchiveHintShown` (χρησιμοποιείται για SnackBar hint)
+- `flutter analyze` ✅
+
+**6. `folder_browser_screen.dart`**
+- Backup: `backups/folder_browser_screen.dart.backup.20260609`
+- Αφαιρέθηκε: `_FolderSearchSheet` (ολόκληρο stateful widget ~135 γραμμές)
+- Αφαιρέθηκε: `_showSearch()` method
+- Αφαιρέθηκε: search `IconButton` από `_buildAppBar` actions
+- **Κρατήθηκαν**: `FolderBrowserScreen` (public class), `_TypeFilter`, `_ItemsList`, `_ItemsGrid`, `_editFolder`, `_deleteFolder`, `_deleteItem`, `_createItem`, `_openItem`, `_openExisting` — όλα intact
+- `flutter analyze` ✅
+
+### Backups
+- `backups/item_list_screen.dart.backup.20260609`
+- `backups/habit_list_screen.dart.backup.20260609`
+- `backups/journal_list_screen.dart.backup.20260609`
+- `backups/contact_list_screen.dart.backup.20260609`
+- `backups/collections_screen.dart.backup.20260609`
+- `backups/folder_browser_screen.dart.backup.20260609`
+
+### Αποτελέσματα
+- `flutter analyze` (full app) — **No issues found** ✅
+- Search & tags αφαιρέθηκαν από όλες τις list screens
+- Η αναζήτηση παραμένει μόνο στην Αρχική οθόνη (`home_screen.dart` → `SearchScreen`)
+
+### Βασικές αρχές που τηρήθηκαν
+1. Πάντα backup πριν από edit
+2. Έλεγχος επιπτώσεων πριν από κάθε αλλαγή (private classes `_` → safe to remove)
+3. `flutter analyze` μετά από κάθε αλλαγή
+4. Αφαίρεση μόνο search/tags — όχι άλλες αλλαγές
+5. Κράτηση imports που χρησιμοποιούνται αλλού (`dart:convert`, `core.dart`, κλπ.)
+

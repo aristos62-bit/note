@@ -25,8 +25,6 @@ import 'package:go_router/go_router.dart';
 
 final _statusFilterProvider   = StateProvider<ItemStatus?>((ref)   => null);
 final _priorityFilterProvider = StateProvider<ItemPriority?>((ref) => null);
-final _searchQueryProvider    = StateProvider<String>((ref)        => '');
-final _taskTagFilterProvider  = StateProvider<Set<String>>((ref)   => {});
 
 // ════════════════════════════════════════════════════════════════
 // TASK LIST SCREEN
@@ -41,13 +39,7 @@ class TaskListScreen extends ConsumerStatefulWidget {
 
 class _TaskListScreenState extends ConsumerState<TaskListScreen>
     with FolderAutoSelectMixin {
-  final _searchCtrl  = TextEditingController();
-  final _searchFocus = FocusNode();
-  bool _searchActive = false;
   bool _showArchiveHintShown = false;
-  Timer? _debounce;
-
-  Set<String> _visibleTagNames = {};
 
   @override
   void initState() {
@@ -55,36 +47,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(_statusFilterProvider.notifier).state   = null;
       ref.read(_priorityFilterProvider.notifier).state = null;
-      ref.read(_searchQueryProvider.notifier).state    = '';
-      ref.read(_taskTagFilterProvider.notifier).state  = {};
     });
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    _searchFocus.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      DebugConfig.search('TaskList search: "$value"');
-      ref.read(_searchQueryProvider.notifier).state = value.trim();
-    });
-  }
-
-  void _toggleSearch() {
-    setState(() => _searchActive = !_searchActive);
-    if (!_searchActive) {
-      _searchCtrl.clear();
-      ref.read(_searchQueryProvider.notifier).state    = '';
-      ref.read(_taskTagFilterProvider.notifier).state  = {};
-    } else {
-      Future.microtask(() => _searchFocus.requestFocus());
-    }
   }
 
   Future<void> _createTask() async {
@@ -163,11 +126,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   Widget build(BuildContext context) {
     DebugConfig.provider('TaskListScreen build');
 
-    final itemsAsync     = ref.watch(tasksWithDetailsProvider); // ✅ parallel batch load
+    final itemsAsync     = ref.watch(tasksWithDetailsProvider);
     final statusFilter   = ref.watch(_statusFilterProvider);
     final priorityFilter = ref.watch(_priorityFilterProvider);
-    final searchQuery    = ref.watch(_searchQueryProvider);
-    final activeTags     = ref.watch(_taskTagFilterProvider);
     final foldersAsync   = ref.watch(foldersStreamProvider);
     final settingsAsync  = ref.watch(settingsNotifierProvider);
     final isDragging     = ref.watch(isDraggingProvider);
@@ -193,16 +154,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
         ),
         body: Column(
           children: [
-            if (_searchActive)
-              _SearchBar(
-                controller: _searchCtrl,
-                focusNode:  _searchFocus,
-                onChanged:  (value) {
-                  setState(() {});
-                  _onSearchChanged(value);
-                },
-              ),
-
             const DraggableFolderSelector(),
 
             _FilterRow(
@@ -219,53 +170,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                 DebugConfig.provider('TaskList priorityFilter: ${p.name}');
               },
             ),
-
-            if (_visibleTagNames.isNotEmpty)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      context.responsiveHPadding, 0,
-                      context.responsiveHPadding, Spacing.xs,
-                    ),
-                    child: Text(
-                      'Επιλέξτε tag για φιλτράρισμα εργασιών',
-                      style: context.labelSm.withColor(context.cText2),
-                    ),
-                  ),
-                  SizedBox(
-                    height: 40,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(
-                          horizontal: context.responsiveHPadding),
-                      itemCount:        _visibleTagNames.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-                      itemBuilder: (_, i) {
-                        final name     = _visibleTagNames.elementAt(i);
-                        final selected = activeTags.contains(name);
-                        return TagChip(
-                          name:     name,
-                          color:    null,
-                          compact:  true,
-                          selected: selected,
-                          onTap: () {
-                            final current = ref.read(_taskTagFilterProvider);
-                            final newSet  = {...current};
-                            if (newSet.contains(name)) {
-                              newSet.remove(name);
-                            } else {
-                              newSet.add(name);
-                            }
-                            ref.read(_taskTagFilterProvider.notifier).state = newSet;
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
 
             const ViewModeToggle(),
 
@@ -304,14 +208,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                           .toList();
                     }
 
-                    if (searchQuery.isNotEmpty) {
-                      final q = searchQuery.toLowerCase();
-                      tasks = tasks
-                          .where((td) =>
-                          (td.task.title ?? '').toLowerCase().contains(q))
-                          .toList();
-                    }
-
                     if (statusFilter != null) {
                       tasks = tasks
                           .where((td) => td.task.status == statusFilter)
@@ -324,30 +220,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                           .toList();
                     }
 
-                    // ✅ Tags ήδη φορτωμένα — μηδέν ref.read(itemTagsProvider) εδώ
-                    if (activeTags.isNotEmpty) {
-                      tasks = tasks
-                          .where((td) =>
-                          td.tags.any((tag) => activeTags.contains(tag.name)))
-                          .toList();
-                    }
-
-                    final visibleTagNames = <String>{};
-                    for (final td in tasks) {
-                      for (final tag in td.tags) {
-                        visibleTagNames.add(tag.name);
-                      }
-                    }
-                    _visibleTagNames = visibleTagNames;
-
                     if (tasks.isEmpty) {
-                      final hasFilters = searchQuery.isNotEmpty ||
-                          statusFilter   != null ||
-                          priorityFilter != null ||
-                          activeTags.isNotEmpty;
+                      final hasFilters = statusFilter != null ||
+                          priorityFilter != null;
 
                       if (hasFilters) {
-                        return EmptyState.search(query: searchQuery);
+                        return EmptyState.search(query: '');
                       }
                       return EmptyState.forType(
                         ItemType.task,
@@ -384,15 +262,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     return AppBar(
       title: const Text('Εργασίες'),
       actions: [
-        IconButton(
-          icon: Icon(
-            _searchActive
-                ? Icons.search_off_rounded
-                : Icons.search_rounded,
-          ),
-          onPressed: _toggleSearch,
-          tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
-        ),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded),
           onSelected: (value) {
@@ -988,61 +857,6 @@ class _TaskActionsSheet extends StatelessWidget {
           ),
           const SizedBox(height: Spacing.sm),
         ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// SEARCH BAR
-// ════════════════════════════════════════════════════════════════
-
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode             focusNode;
-  final ValueChanged<String>  onChanged;
-
-  const _SearchBar({
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: context.cBg,
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding, Spacing.sm,
-        context.responsiveHPadding, Spacing.sm,
-      ),
-      child: TextField(
-        controller: controller,
-        focusNode:  focusNode,
-        onChanged:  onChanged,
-        style:      context.bodyMd,
-        decoration: InputDecoration(
-          hintText:   'Αναζήτηση εργασιών...',
-          hintStyle:  context.bodyMd.withColor(context.cDisabled),
-          prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-            icon: Icon(Icons.close_rounded, color: context.cText2),
-            onPressed: () {
-              controller.clear();
-              onChanged('');
-            },
-          )
-              : null,
-          filled:    true,
-          fillColor: ColorsUI.getSurface(context.brightness),
-          border: OutlineInputBorder(
-            borderRadius: AppRadius.inputBR,
-            borderSide:   BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: Spacing.md, vertical: Spacing.sm),
-        ),
       ),
     );
   }

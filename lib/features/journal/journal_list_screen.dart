@@ -8,12 +8,10 @@
 // ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
 // ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
-// ✅ Filter tags
 //
-import 'dart:async';
+//
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -21,9 +19,6 @@ import '../../shared/widgets/widgets.dart';
 import 'journal_detail_screen.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
-
-final _journalSearchQueryProvider = StateProvider<String>((ref) => '');
-final _journalTagFilterProvider  = StateProvider<Set<String>>((ref) => {});
 
 class JournalListScreen extends ConsumerStatefulWidget {
   const JournalListScreen({super.key});
@@ -34,41 +29,7 @@ class JournalListScreen extends ConsumerStatefulWidget {
 
 class _JournalListScreenState extends ConsumerState<JournalListScreen>
     with FolderAutoSelectMixin {
-  final _searchCtrl = TextEditingController();
-  final _searchFocus = FocusNode();
-  bool _searchActive = false;
   bool _showArchiveHintShown = false;
-  Timer? _debounce;
-  Set<String> _visibleTagNames = {};
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    _searchFocus.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(_journalSearchQueryProvider.notifier).state = value.trim();
-    });
-  }
-
-  void _toggleSearch() {
-    setState(() {
-      _searchActive = !_searchActive;
-      if (!_searchActive) {
-        _searchCtrl.clear();
-        ref.read(_journalSearchQueryProvider.notifier).state = '';
-        ref.read(_journalTagFilterProvider.notifier).state = {};
-      }
-    });
-    if (_searchActive) {
-      Future.microtask(() => _searchFocus.requestFocus());
-    }
-  }
 
   Future<void> _createEntry() async {
     final selectedFolderId = ref.read(selectedFolderIdProvider);
@@ -116,8 +77,6 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
   @override
   Widget build(BuildContext context) {
     final entriesAsync = ref.watch(itemsStreamProvider);
-    final searchQuery = ref.watch(_journalSearchQueryProvider);
-    final activeTags = ref.watch(_journalTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
@@ -136,29 +95,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
       floatingActionButton: selectedFolderId != null ? _buildFab() : null,
       body: Column(
         children: [
-          if (_searchActive)
-            _SearchBar(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
-            ),
-          // 🆕 Αυτόνομος folder selector
           const DraggableFolderSelector(),
-          if (_visibleTagNames.isNotEmpty)
-            _TagFilterRow(
-              tags: _visibleTagNames.toList(),
-              activeTags: activeTags,
-              onTagTap: (name) {
-                final current = ref.read(_journalTagFilterProvider);
-                final newSet = {...current};
-                if (newSet.contains(name)) {
-                  newSet.remove(name);
-                } else {
-                  newSet.add(name);
-                }
-                ref.read(_journalTagFilterProvider.notifier).state = newSet;
-              },
-            ),
           const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
@@ -184,33 +121,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
                     case ListViewMode.all:
                       break;
                   }
-                  if (searchQuery.isNotEmpty) {
-                    final q = searchQuery.toLowerCase();
-                    entries = entries.where((e) => (e.title ?? '').toLowerCase().contains(q)).toList();
-                  }
-                  if (activeTags.isNotEmpty) {
-                    entries = entries.where((e) {
-                      final tags = ref.read(itemTagsProvider(e.id)).valueOrNull ?? [];
-                      return tags.any((t) => activeTags.contains(t.name));
-                    }).toList();
-                  }
-
-                  final visibleTagNames = <String>{};
-                  for (final e in entries) {
-                    final tags = ref.read(itemTagsProvider(e.id)).valueOrNull ?? [];
-                    for (final t in tags) {visibleTagNames.add(t.name);}
-                  }
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    if (!const SetEquality<String>().equals(_visibleTagNames, visibleTagNames)) {
-                      setState(() => _visibleTagNames = visibleTagNames);
-                    }
-                  });
-
                   if (entries.isEmpty) {
-                    if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
-                      return EmptyState.search(query: searchQuery);
-                    }
                     return EmptyState.forType(ItemType.journal, onAction: _createEntry);
                   }
 
@@ -255,11 +166,6 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     scrolledUnderElevation: 1,
     title: const Text('Ημερολόγιο'),
     actions: [
-      IconButton(
-        icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
-        onPressed: _toggleSearch,
-        tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
-      ),
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert_rounded),
         onSelected: (value) {
@@ -520,63 +426,6 @@ List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
     map.putIfAbsent(key, () => []).add(ewd.entry);
   }
   return map.entries.map((e) => _MonthGroup(e.key, e.value)).toList();
-}
-
-// ──────────────────────────────────────────────
-// Shared widgets: SearchBar, TagFilterRow, LoadingList
-// ──────────────────────────────────────────────
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  const _SearchBar({required this.controller, required this.focusNode, required this.onChanged});
-  @override
-  Widget build(BuildContext context) => Container(
-    color: context.cBg,
-    padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
-    child: TextField(
-      controller: controller,
-      focusNode: focusNode,
-      onChanged: onChanged,
-      style: context.bodyMd,
-      decoration: InputDecoration(
-        hintText: 'Αναζήτηση καταχωρήσεων...',
-        hintStyle: context.bodyMd.withColor(context.cDisabled),
-        prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-        suffixIcon: controller.text.isNotEmpty
-            ? IconButton(icon: Icon(Icons.close_rounded, color: context.cText2), onPressed: () { controller.clear(); onChanged(''); })
-            : null,
-        filled: true,
-        fillColor: ColorsUI.getSurface(context.brightness),
-        border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
-      ),
-    ),
-  );
-}
-
-class _TagFilterRow extends StatelessWidget {
-  final List<String> tags;
-  final Set<String> activeTags;
-  final ValueChanged<String> onTagTap;
-  const _TagFilterRow({required this.tags, required this.activeTags, required this.onTagTap});
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 40,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-      itemCount: tags.length,
-      separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-      itemBuilder: (_, i) => TagChip(
-        name: tags[i],
-        color: null,
-        selected: activeTags.contains(tags[i]),
-        compact: true,
-        onTap: () => onTagTap(tags[i]),
-      ),
-    ),
-  );
 }
 
 class _LoadingList extends StatelessWidget {

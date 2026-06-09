@@ -8,14 +8,12 @@
 // ✅ Χρήση ItemColorHelper για background & contrast
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
 // ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
-// ✅ Search, filter tags, ViewMode toggle
+// ✅ ViewMode toggle
 // ✅ Drag & drop support (DraggableFolderSelector, draggable cards)
 //
 import 'dart:convert';
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -141,10 +139,6 @@ class FieldDef {
   };
 }
 
-// Τοπικοί providers για search & tags
-final _collectionSearchQueryProvider = StateProvider<String>((ref) => '');
-final _collectionTagFilterProvider = StateProvider<Set<String>>((ref) => {});
-
 // ════════════════════════════════════════════════════════════════
 // COLLECTIONS SCREEN
 // ════════════════════════════════════════════════════════════════
@@ -158,40 +152,7 @@ class CollectionsScreen extends ConsumerStatefulWidget {
 
 class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
     with FolderAutoSelectMixin {
-  Set<String> _visibleTagNames = {};
-
-  // Search
-  final _searchCtrl = TextEditingController();
-  final _searchFocus = FocusNode();
-  bool _searchActive = false;
   bool _showArchiveHintShown = false;
-  Timer? _debounce;
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    _searchFocus.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(_collectionSearchQueryProvider.notifier).state = value.trim();
-    });
-  }
-
-  void _toggleSearch() {
-    setState(() => _searchActive = !_searchActive);
-    if (!_searchActive) {
-      _searchCtrl.clear();
-      ref.read(_collectionSearchQueryProvider.notifier).state = '';
-      ref.read(_collectionTagFilterProvider.notifier).state = {};
-    } else {
-      Future.microtask(() => _searchFocus.requestFocus());
-    }
-  }
 
   Future<void> _createCollection() async {
     final selectedFolderId = ref.read(selectedFolderIdProvider);
@@ -232,8 +193,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
   Widget build(BuildContext context) {
     DebugConfig.provider('CollectionsScreen build');
     final allAsync = ref.watch(itemsStreamProvider);
-    final searchQuery = ref.watch(_collectionSearchQueryProvider);
-    final activeTags = ref.watch(_collectionTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
@@ -254,11 +213,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
         scrolledUnderElevation: 1,
         title: const Text('Συλλογές'),
         actions: [
-          IconButton(
-            icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
-            onPressed: _toggleSearch,
-            tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded),
             onSelected: (value) {
@@ -299,63 +253,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
           : null,
       body: Column(
         children: [
-          if (_searchActive)
-            _SearchBar(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
-            ),
-
-          // 🆕 Αυτόνομος folder selector (δεν χρειάζεται παραμέτρους)
           const DraggableFolderSelector(),
-
-          // ── Tag filter chips ──────────────────────────────────
-          if (_visibleTagNames.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    context.responsiveHPadding, 0,
-                    context.responsiveHPadding, Spacing.xs,
-                  ),
-                  child: Text(
-                    'Επιλέξτε tag για φιλτράρισμα συλλογών',
-                    style: context.labelSm.withColor(context.cText2),
-                  ),
-                ),
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-                    itemCount: _visibleTagNames.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-                    itemBuilder: (_, i) {
-                      final name = _visibleTagNames.elementAt(i);
-                      final selected = activeTags.contains(name);
-                      return TagChip(
-                        name: name,
-                        color: null,
-                        compact: true,
-                        selected: selected,
-                        onTap: () {
-                          final current = ref.read(_collectionTagFilterProvider);
-                          final newSet = {...current};
-                          if (newSet.contains(name)) {
-                            newSet.remove(name);
-                          } else {
-                            newSet.add(name);
-                          }
-                          ref.read(_collectionTagFilterProvider.notifier).state = newSet;
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-
           const ViewModeToggle(),
 
           Expanded(
@@ -391,42 +289,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                     break;
                 }
 
-                if (searchQuery.isNotEmpty) {
-                  final q = searchQuery.toLowerCase();
-                  collections = collections
-                      .where((c) => (c.title ?? '').toLowerCase().contains(q))
-                      .toList();
-                }
-
-                // Cache tags
-                final Map<int, List<Tag>> tagsCache = {};
-                for (final c in collections) {
-                  tagsCache[c.id] = ref.watch(itemTagsProvider(c.id)).valueOrNull ?? [];
-                }
-
-                if (activeTags.isNotEmpty) {
-                  collections = collections.where((c) {
-                    final tags = tagsCache[c.id] ?? [];
-                    return tags.any((t) => activeTags.contains(t.name));
-                  }).toList();
-                }
-
-                final visibleTagNames = <String>{};
-                for (final c in collections) {
-                  final tags = tagsCache[c.id] ?? [];
-                  for (final t in tags) {visibleTagNames.add(t.name);}
-                }
-                if (!const SetEquality<String>().equals(_visibleTagNames, visibleTagNames)) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    setState(() => _visibleTagNames = visibleTagNames);
-                  });
-                }
-
                 if (collections.isEmpty) {
-                  if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
-                    return EmptyState.search(query: searchQuery);
-                  }
                   return _EmptyCollections(onCreate: _createCollection);
                 }
 
@@ -755,43 +618,6 @@ class _EmptyCollections extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// SEARCH BAR
-// ════════════════════════════════════════════════════════════════
-
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  const _SearchBar({required this.controller, required this.focusNode, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: context.cBg,
-      padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        onChanged: onChanged,
-        style: context.bodyMd,
-        decoration: InputDecoration(
-          hintText: 'Αναζήτηση συλλογών...',
-          hintStyle: context.bodyMd.withColor(context.cDisabled),
-          prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(icon: Icon(Icons.close_rounded, color: context.cText2), onPressed: () { controller.clear(); onChanged(''); })
-              : null,
-          filled: true,
-          fillColor: ColorsUI.getSurface(context.brightness),
-          border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
-          contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
         ),
       ),
     );

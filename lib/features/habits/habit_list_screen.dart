@@ -7,12 +7,10 @@
 // ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
 // ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
-// ✅ Search, filter tags
 //
-import 'dart:async';
+//
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -21,9 +19,6 @@ import '../../shared/widgets/widgets.dart';
 import 'habit_detail_screen.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
-
-final _habitSearchQueryProvider = StateProvider<String>((ref) => '');
-final _habitTagFilterProvider = StateProvider<Set<String>>((ref) => {});
 
 class HabitListScreen extends ConsumerStatefulWidget {
   const HabitListScreen({super.key});
@@ -34,38 +29,7 @@ class HabitListScreen extends ConsumerStatefulWidget {
 
 class _HabitListScreenState extends ConsumerState<HabitListScreen>
     with FolderAutoSelectMixin {
-  bool _searchActive = false;
   bool _showArchiveHintShown = false;
-  final _searchCtrl = TextEditingController();
-  final _searchFocus = FocusNode();
-  Timer? _debounce;
-  Set<String> _visibleTagNames = {};
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    _searchFocus.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(_habitSearchQueryProvider.notifier).state = value.trim();
-    });
-  }
-
-  void _toggleSearch() {
-    setState(() => _searchActive = !_searchActive);
-    if (!_searchActive) {
-      _searchCtrl.clear();
-      ref.read(_habitSearchQueryProvider.notifier).state = '';
-      ref.read(_habitTagFilterProvider.notifier).state = {};
-    } else {
-      Future.microtask(() => _searchFocus.requestFocus());
-    }
-  }
 
   Future<void> _createHabit() async {
     final selectedFolderId = ref.read(selectedFolderIdProvider);
@@ -102,8 +66,6 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
   @override
   Widget build(BuildContext context) {
     final habitsAsync = ref.watch(itemsStreamProvider);
-    final searchQuery = ref.watch(_habitSearchQueryProvider);
-    final activeTags = ref.watch(_habitTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
@@ -128,29 +90,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
           : null,
       body: Column(
         children: [
-          if (_searchActive)
-            _SearchBar(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
-            ),
-          // 🆕 Αυτόνομος folder selector
           const DraggableFolderSelector(),
-          if (_visibleTagNames.isNotEmpty)
-            _TagFilterRow(
-              tags: _visibleTagNames.toList(),
-              activeTags: activeTags,
-              onTagTap: (name) {
-                final current = ref.read(_habitTagFilterProvider);
-                final newSet = {...current};
-                if (newSet.contains(name)) {
-                  newSet.remove(name);
-                } else {
-                  newSet.add(name);
-                }
-                ref.read(_habitTagFilterProvider.notifier).state = newSet;
-              },
-            ),
           const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
@@ -176,34 +116,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
                     case ListViewMode.all:
                       break;
                   }
-                  if (searchQuery.isNotEmpty) {
-                    final q = searchQuery.toLowerCase();
-                    habitsOnly = habitsOnly.where((h) => (h.title ?? '').toLowerCase().contains(q)).toList();
-                  }
-                  if (activeTags.isNotEmpty) {
-                    habitsOnly = habitsOnly.where((h) {
-                      final tags = ref.read(itemTagsProvider(h.id)).valueOrNull ?? [];
-                      return tags.any((t) => activeTags.contains(t.name));
-                    }).toList();
-                  }
-
-                  final visibleTagNames = <String>{};
-                  for (final h in habitsOnly) {
-                    final tags = ref.read(itemTagsProvider(h.id)).valueOrNull ?? [];
-                    for (final t in tags) {visibleTagNames.add(t.name);}
-                  }
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    if (!const SetEquality<String>().equals(_visibleTagNames,
-                        visibleTagNames)) {
-                      setState(() => _visibleTagNames = visibleTagNames);
-                    }
-                  });
-
                   if (habitsOnly.isEmpty) {
-                    if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
-                      return EmptyState.search(query: searchQuery);
-                    }
                     return EmptyState.forType(ItemType.habit, onAction: _createHabit);
                   }
 
@@ -241,11 +154,6 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
     scrolledUnderElevation: 1,
     title: const Text('Συνήθειες'),
     actions: [
-      IconButton(
-        icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
-        onPressed: _toggleSearch,
-        tooltip: _searchActive ? 'Κλείσιμο αναζήτησης' : 'Αναζήτηση',
-      ),
       IconButton(
         icon: const Icon(Icons.notifications_outlined),
         onPressed: () => DebugConfig.nav('HabitList: notifications (TODO)'),
@@ -550,63 +458,6 @@ class _StatBadge extends StatelessWidget {
       const SizedBox(width: 2),
       Text(label, style: context.labelSm.copyWith(color: textColor.withValues(alpha: 0.7))),
     ],
-  );
-}
-
-// ──────────────────────────────────────────────
-// Shared widgets: SearchBar, TagFilterRow, LoadingList
-// ──────────────────────────────────────────────
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  const _SearchBar({required this.controller, required this.focusNode, required this.onChanged});
-  @override
-  Widget build(BuildContext context) => Container(
-    color: context.cBg,
-    padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
-    child: TextField(
-      controller: controller,
-      focusNode: focusNode,
-      onChanged: onChanged,
-      style: context.bodyMd,
-      decoration: InputDecoration(
-        hintText: 'Αναζήτηση συνηθειών...',
-        hintStyle: context.bodyMd.withColor(context.cDisabled),
-        prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-        suffixIcon: controller.text.isNotEmpty
-            ? IconButton(icon: Icon(Icons.close_rounded, color: context.cText2), onPressed: () { controller.clear(); onChanged(''); })
-            : null,
-        filled: true,
-        fillColor: ColorsUI.getSurface(context.brightness),
-        border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
-      ),
-    ),
-  );
-}
-
-class _TagFilterRow extends StatelessWidget {
-  final List<String> tags;
-  final Set<String> activeTags;
-  final ValueChanged<String> onTagTap;
-  const _TagFilterRow({required this.tags, required this.activeTags, required this.onTagTap});
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 40,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-      itemCount: tags.length,
-      separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-      itemBuilder: (_, i) => TagChip(
-        name: tags[i],
-        color: null,
-        selected: activeTags.contains(tags[i]),
-        compact: true,
-        onTap: () => onTagTap(tags[i]),
-      ),
-    ),
   );
 }
 

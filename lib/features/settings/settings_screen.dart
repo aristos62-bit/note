@@ -144,8 +144,6 @@ class _SystemGroupState extends State<_SystemGroup> {
         children: [
           _buildCard(_ThemeTile(current: widget.settings.theme, ref: widget.ref)),
           const SizedBox(height: Spacing.sm),
-          _buildCard(_LanguageTile(current: widget.settings.language, ref: widget.ref)),
-          const SizedBox(height: Spacing.sm),
           _buildCard(_PreferredFolderTile(settings: widget.settings, ref: widget.ref)),
           const SizedBox(height: Spacing.sm),
           _buildCard(_ActionTile(
@@ -196,9 +194,17 @@ class _SystemGroupState extends State<_SystemGroup> {
             ),
           ),
           const SizedBox(height: Spacing.sm),
-          _buildCard(const _InfoTile(label: 'Έκδοση', value: '1.0.0')),
+          _buildCard(
+            Consumer(builder: (_, ref, __) {
+              final v = ref.watch(appVersionProvider);
+              return _InfoTile(
+                label: 'Έκδοση',
+                value: v.when(data: (s) => s, loading: () => '...', error: (_, __) => '?'),
+              );
+            }),
+          ),
           const SizedBox(height: Spacing.sm),
-          _buildCard(const _InfoTile(label: 'Βάση δεδομένων', value: 'Isar 3.1.0')),
+
         ],
       ),
     );
@@ -1805,67 +1811,6 @@ class _ThemeTile extends StatelessWidget {
   }
 }
 
-class _LanguageTile extends StatelessWidget {
-  final AppLanguage current;
-  final WidgetRef ref;
-  const _LanguageTile({required this.current, required this.ref});
-
-  static const _options = [
-    (AppLanguage.auto, 'Αυτόματα'),
-    (AppLanguage.greek, 'Ελληνικά'),
-    (AppLanguage.english, 'English'),
-  ];
-
-  String get _label => _options.firstWhere((o) => o.$1 == current, orElse: () => _options.first).$2;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
-      title: Text('Γλώσσα', style: context.bodyMd),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(_label, style: context.bodyMd.withColor(context.cText2)),
-          const SizedBox(width: Spacing.xs),
-          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: context.cDisabled),
-        ],
-      ),
-      onTap: () => _showPicker(context),
-    );
-  }
-
-  void _showPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: Spacing.sm),
-          Text('Γλώσσα', style: context.titleMd),
-          const SizedBox(height: Spacing.xs),
-          ..._options.map((opt) => ListTile(
-            title: Text(opt.$2, style: context.bodyMd),
-            trailing: opt.$1 == current ? Icon(Icons.check_rounded, color: context.cPrimary) : null,
-            onTap: () {
-              DebugConfig.provider('Settings: language=${opt.$1.name}');
-              Navigator.pop(context);
-              ref.read(settingsNotifierProvider.notifier).setLanguage(opt.$1);
-            },
-          )),
-          const SizedBox(height: Spacing.md),
-        ],
-      ),
-    );
-  }
-}
 
 class _PreferredFolderTile extends ConsumerWidget {
   final AppSettings settings;
