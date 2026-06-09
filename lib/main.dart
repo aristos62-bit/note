@@ -157,10 +157,16 @@ class SuperNoteApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsStreamProvider);
-    final appTheme  = settings.value?.theme     ?? AppTheme.system;
-    final fontScale = settings.value?.fontScale ?? 1.0;
-    final locale    = _localeFromLanguage(settings.value?.language ?? AppLanguage.auto);
+    final appTheme = ref.watch(
+      settingsStreamProvider.select((s) => s.value?.theme ?? AppTheme.system),
+    );
+    final fontScale = ref.watch(
+      settingsStreamProvider.select((s) => s.value?.fontScale ?? 1.0),
+    );
+    final language = ref.watch(
+      settingsStreamProvider.select((s) => s.value?.language ?? AppLanguage.auto),
+    );
+    final locale = _localeFromLanguage(language);
     final router = ref.watch(appRouterProvider);
 
     DebugConfig.provider('SuperNoteApp.build theme=${appTheme.name}');

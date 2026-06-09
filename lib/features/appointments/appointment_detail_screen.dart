@@ -35,6 +35,7 @@ class _AppointmentDetailScreenState
   TimeOfDay? _selectedTime;
   bool _isFavorite = false;
   bool _isEditingTitle = false;
+  bool _hasChanges = false;
 
   // --- Contact fields ---
   late TextEditingController _contactNameCtrl;
@@ -185,9 +186,22 @@ class _AppointmentDetailScreenState
       }
     }
 
+    _hasChanges = false;
+    _setupChangeListeners();
     setState(() {});
   }
 
+  void _setupChangeListeners() {
+    _titleCtrl.addListener(() => _hasChanges = true);
+    _locationCtrl.addListener(() => _hasChanges = true);
+    _contactNameCtrl.addListener(() => _hasChanges = true);
+    _contactPhoneCtrl.addListener(() => _hasChanges = true);
+    _contactEmailCtrl.addListener(() => _hasChanges = true);
+    _contactCompanyCtrl.addListener(() => _hasChanges = true);
+    _contactWebsiteCtrl.addListener(() => _hasChanges = true);
+    _contactAddressCtrl.addListener(() => _hasChanges = true);
+    _contactNotesCtrl.addListener(() => _hasChanges = true);
+  }
 
   /// Αποθηκεύει τα δεδομένα στη DB χωρίς validation και χωρίς navigation.
   /// Χρησιμοποιείται από _save() και _onPopInvoked() (auto-save on back).
@@ -397,6 +411,7 @@ class _AppointmentDetailScreenState
         type: RelationType.references,
       );
       _linkedContactId = selected.id;
+      _hasChanges = true;
     }
   }
 
@@ -428,10 +443,16 @@ class _AppointmentDetailScreenState
       firstDate: DateTime(1900),
       lastDate: now,
     );
-    if (picked != null) setState(() => _contactBirthday = picked);
+    if (picked != null) {
+      _hasChanges = true;
+      setState(() => _contactBirthday = picked);
+    }
   }
 
-  Future<void> _clearBirthday() async => setState(() => _contactBirthday = null);
+  Future<void> _clearBirthday() async {
+    _hasChanges = true;
+    setState(() => _contactBirthday = null);
+  }
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -441,7 +462,10 @@ class _AppointmentDetailScreenState
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) {
+      _hasChanges = true;
+      setState(() => _selectedDate = picked);
+    }
   }
 
   Future<void> _selectTime() async {
@@ -449,12 +473,16 @@ class _AppointmentDetailScreenState
       context: context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
-    if (picked != null) setState(() => _selectedTime = picked);
+    if (picked != null) {
+      _hasChanges = true;
+      setState(() => _selectedTime = picked);
+    }
   }
 
   void _onTitleChanged(String value) => _isEditingTitle = true;
 
   Future<bool> _onPopInvoked() async {
+    if (!_hasChanges) return true;
     await executeSaveOrDelete(
       saveFn: _saveData,
       deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
@@ -466,6 +494,7 @@ class _AppointmentDetailScreenState
   }
 
   Future<void> _toggleFav(Item item) async {
+    _hasChanges = true;
     await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
     setState(() => _isFavorite = !item.favorite);
   }

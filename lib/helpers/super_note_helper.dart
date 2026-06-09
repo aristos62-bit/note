@@ -578,6 +578,21 @@ class BlockRepository {
         .findAll();
   }
 
+  /// Batch: όλα τα blocks για λίστα item IDs — 1 DB call αντί για N
+  Future<Map<int, List<ItemBlock>>> getByItems(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    final allBlocks = await _isar.itemBlocks
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .sortByOrder()
+        .findAll();
+    final map = <int, List<ItemBlock>>{};
+    for (final block in allBlocks) {
+      map.putIfAbsent(block.itemId, () => []).add(block);
+    }
+    return map;
+  }
+
   Future<List<ItemBlock>> getChildren(int parentBlockId) {
     return _isar.itemBlocks
         .filter()
@@ -694,6 +709,21 @@ class PropertyRepository {
         .isVisibleEqualTo(true)
         .sortBySortOrder()
         .findAll();
+  }
+
+  /// Batch: όλα τα properties για λίστα item IDs — 1 DB call αντί για N
+  Future<Map<int, List<ItemProperty>>> getAllForItems(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    final allProps = await _isar.itemPropertys
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .isVisibleEqualTo(true)
+        .findAll();
+    final map = <int, List<ItemProperty>>{};
+    for (final prop in allProps) {
+      map.putIfAbsent(prop.itemId, () => []).add(prop);
+    }
+    return map;
   }
 
   Future<void> delete(int itemId, String key) async {

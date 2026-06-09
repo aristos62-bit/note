@@ -54,6 +54,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
 
   // ── Save state ───────────
   bool _isEditingName = false;
+  bool _hasChanges = false;
+  bool _listenersInitialized = false;
   String _lastSavedName = '';
 
   // ── Cached values ─────────────────────────────────────────
@@ -95,14 +97,19 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
 
   // 🆕 Προσθήκη νέου πεδίου τηλεφώνου
   void _addPhoneField() {
+    final ctrl = TextEditingController();
+    ctrl.addListener(() {
+      if (_listenersInitialized) _hasChanges = true;
+    });
     setState(() {
-      _phoneCtrls.add(TextEditingController());
+      _phoneCtrls.add(ctrl);
     });
   }
 
   // 🆕 Αφαίρεση πεδίου τηλεφώνου (εκτός αν είναι το τελευταίο, μπορεί να μείνει κενό)
   void _removePhoneField(int index) {
-    if (_phoneCtrls.length <= 1) return; // κρατάμε τουλάχιστον ένα κενό πεδίο
+    if (_phoneCtrls.length <= 1) return;
+    _hasChanges = true;
     setState(() {
       _phoneCtrls[index].dispose();
       _phoneCtrls.removeAt(index);
@@ -182,6 +189,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
 
   /// ??? logic ??? back arrow (auto-save ?? pop)
   Future<bool> _onPopInvoked() async {
+    if (!_hasChanges) return true;
     await executeSaveOrDelete(
       saveFn: _persistChanges,
       deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
@@ -202,6 +210,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     );
     if (picked == null || !mounted) return;
 
+    _hasChanges = true;
     DebugConfig.db('ContactDetail setBirthday $picked');
     await ref
         .read(propertyNotifierProvider(widget.itemId).notifier)
@@ -210,6 +219,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
   }
 
   Future<void> _clearBirthday() async {
+    _hasChanges = true;
     await ref
         .read(propertyNotifierProvider(widget.itemId).notifier)
         .remove('birthday');
@@ -327,6 +337,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
   }
 
   Future<void> _toggleFav(Item item) async {
+    _hasChanges = true;
     await ref
         .read(itemNotifierProvider.notifier)
         .toggleFavorite(item.id, item.favorite);
@@ -431,7 +442,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
         websiteCtrl: _websiteCtrl,
         addressCtrl: _addressCtrl,
         notesValue: _notesValue,
-        onNotesChanged: (v) => _notesValue = v,
+        onNotesChanged: (v) {
+          _notesValue = v;
+          if (_listenersInitialized) _hasChanges = true;
+        },
         birthday: birthday,
         onNameChanged: _onNameChanged,
         onPickBirthday: () => _pickBirthday(context),
@@ -480,7 +494,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
               websiteCtrl: _websiteCtrl,
               addressCtrl: _addressCtrl,
               notesValue: _notesValue,
-              onNotesChanged: (v) => _notesValue = v,
+              onNotesChanged: (v) {
+                _notesValue = v;
+                if (_listenersInitialized) _hasChanges = true;
+              },
               birthday: birthday,
               onNameChanged: _onNameChanged,
               onPickBirthday: () => _pickBirthday(context),
@@ -587,7 +604,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
 
       // Δημιουργούμε controllers και ενημερώνουμε το cached json
       for (final p in phones) {
-        _phoneCtrls.add(TextEditingController(text: p));
+        final ctrl = TextEditingController(text: p);
+        ctrl.addListener(() {
+          if (_listenersInitialized) _hasChanges = true;
+        });
+        _phoneCtrls.add(ctrl);
       }
       _lastPhonesJson = jsonEncode(phones.where((p) => p.isNotEmpty).toList());
     } else if (_lastPhonesJson.isEmpty) {
@@ -630,6 +651,19 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     _lastAddress = address;
     _lastNotes = notes;
     if (bdStr != null) _lastBirthday = DateTime.tryParse(bdStr);
+
+    if (!_listenersInitialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _listenersInitialized = true;
+        _hasChanges = false;
+        _nameCtrl.addListener(() => _hasChanges = true);
+        _emailCtrl.addListener(() => _hasChanges = true);
+        _companyCtrl.addListener(() => _hasChanges = true);
+        _websiteCtrl.addListener(() => _hasChanges = true);
+        _addressCtrl.addListener(() => _hasChanges = true);
+      });
+    }
   }
 
   Widget _buildLoading() => Scaffold(

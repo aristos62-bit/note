@@ -1,14 +1,12 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:isar/isar.dart';
 import 'package:super_note/core/core.dart';
 import 'package:super_note/models/models.dart';
 import 'package:super_note/helpers/super_note_helper.dart';
 
-// ─────────────────────────────────────────────────────────────
-// Επιλογή πεδίων για import από το κινητό
-// ─────────────────────────────────────────────────────────────
 enum ContactField {
   name,
   phones,
@@ -35,9 +33,6 @@ extension ContactFieldLabel on ContactField {
   };
 }
 
-// ─────────────────────────────────────────────────────────────
-// Πρόοδος import (για real‑time UI update)
-// ─────────────────────────────────────────────────────────────
 class ImportProgress {
   final int current;
   final int total;
@@ -54,9 +49,6 @@ class ImportProgress {
   double get fraction => total > 0 ? current / total : 0.0;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Αποτέλεσμα import (στατιστικά)
-// ─────────────────────────────────────────────────────────────
 class ImportResult {
   final int imported;
   final int skipped;
@@ -73,45 +65,43 @@ class ImportResult {
   int get totalProcessed => imported + skipped + errors;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Service — Singleton
-// ─────────────────────────────────────────────────────────────
 class ContactImportService {
   ContactImportService._internal();
   static final ContactImportService instance = ContactImportService._internal();
 
   Future<bool> requestPermission() async {
     DebugConfig.print('ContactImportService.requestPermission: called');
-    // Πρώτα έλεγχος αν ήδη έχει άδεια
-    final currentStatus = await FlutterContacts.permissions.check(PermissionType.read);
-    if (currentStatus == PermissionStatus.granted) {
-      DebugConfig.print('ContactImportService.requestPermission: already granted');
-      return true;
+    try {
+      final currentStatus = await FlutterContacts.permissions.check(PermissionType.read);
+      if (currentStatus == PermissionStatus.granted) {
+        DebugConfig.print('ContactImportService.requestPermission: already granted');
+        return true;
+      }
+      final status = await FlutterContacts.permissions.request(PermissionType.read);
+      final granted = status == PermissionStatus.granted;
+      DebugConfig.print('ContactImportService.requestPermission: granted=$granted');
+      return granted;
+    } catch (e) {
+      debugPrint('[ContactImportService] requestPermission failed: $e');
+      return false;
     }
-    // Αίτηση μόνο για read (δεν χρειάζεται write)
-    final status = await FlutterContacts.permissions.request(PermissionType.read);
-    final granted = status == PermissionStatus.granted;
-    DebugConfig.print('ContactImportService.requestPermission: granted=$granted');
-    return granted;
   }
 
   Future<List<Contact>> fetchContacts() async {
     DebugConfig.print('ContactImportService.fetchContacts: called');
-    final contacts = await FlutterContacts.getAll(
-      properties: ContactProperties.all,
-    );
-    DebugConfig.print('ContactImportService.fetchContacts: count=${contacts.length}');
-    return contacts;
+    try {
+      final contacts = await FlutterContacts.getAll(
+        properties: ContactProperties.all,
+      );
+      DebugConfig.print('ContactImportService.fetchContacts: count=${contacts.length}');
+      return contacts;
+    } catch (e) {
+      debugPrint('[ContactImportService] fetchContacts failed: $e');
+      rethrow;
+    }
   }
 
   // ── Κύρια μέθοδος import ─────────────────────────────────
-
-  /// Εισάγει επαφές από το κινητό στη βάση.
-  /// [contacts] — λίστα επαφών προς εισαγωγή (ήδη fetched + φιλτραρισμένες)
-  /// [fields] — ποια πεδία να μεταφερθούν
-  /// [workspaceId] — σε ποιο workspace
-  /// [folderId] — optional folder
-  /// [onProgress] — callback για real‑time ενημέρωση UI
   Future<ImportResult> importContacts({
     required List<Contact> contacts,
     required List<ContactField> fields,
@@ -119,9 +109,7 @@ class ContactImportService {
     int? folderId,
     void Function(ImportProgress)? onProgress,
   }) async {
-    if (contacts.isEmpty) {
-      return const ImportResult();
-    }
+    if (contacts.isEmpty) return const ImportResult();
 
     int imported = 0, skipped = 0, errors = 0;
     final errorDetails = <String>[];
@@ -145,9 +133,7 @@ class ContactImportService {
           continue;
         }
 
-        await _mapContactToItem(
-          contact, fields, workspaceId, folderId, helper,
-        );
+        await _mapContactToItem(contact, fields, workspaceId, folderId, helper);
         imported++;
       } catch (e) {
         DebugConfig.error('ContactImport: error for "$displayName"', e);
@@ -172,28 +158,36 @@ class ContactImportService {
 
   // ── Διαχείριση εισαγμένων επαφών ─────────────────────────
 
-  /// Επιστρέφει IDs όσων items έχουν marker `_imported`
   Future<List<int>> getImportedContactIds() async {
-    final props = await SuperNoteHelper.instance.isar.itemPropertys
-        .filter()
-        .keyEqualTo('_imported')
-        .valueEqualTo('true')
-        .findAll();
-    return props.map((p) => p.itemId).toList();
+    try {
+      final props = await SuperNoteHelper.instance.isar.itemPropertys
+          .filter()
+          .keyEqualTo('_imported')
+          .valueEqualTo('true')
+          .findAll();
+      return props.map((p) => p.itemId).toList();
+    } catch (e) {
+      debugPrint('[ContactImportService] getImportedContactIds failed: $e');
+      rethrow;
+    }
   }
 
-  /// Soft delete εισαγμένων επαφών (μία ή πολλές)
   Future<void> deleteImported(Set<int> itemIds) async {
+    if (itemIds.isEmpty) return;
     final helper = SuperNoteHelper.instance;
     for (final id in itemIds) {
-      await helper.items.softDelete(id);
-      // Καθαρισμός ItemProperty για να μην βγαίνουν orphaned στα queries
-      await helper.isar.writeTxn(() async {
-        await helper.isar.itemPropertys
-            .filter()
-            .itemIdEqualTo(id)
-            .deleteAll();
-      });
+      try {
+        await helper.items.softDelete(id);
+        await helper.isar.writeTxn(() async {
+          await helper.isar.itemPropertys
+              .filter()
+              .itemIdEqualTo(id)
+              .deleteAll();
+        });
+      } catch (e) {
+        debugPrint('[ContactImportService] deleteImported failed for id=$id: $e');
+        // Συνεχίζουμε με τις υπόλοιπες — μία αποτυχία δεν σταματά τις άλλες
+      }
     }
   }
 
@@ -206,53 +200,55 @@ class ContactImportService {
     return '(χωρίς όνομα)';
   }
 
-  /// Έλεγχος duplicate — ίδιο όνομα (case insensitive) Ή ίδιο τηλέφωνο
   Future<bool> _existsInDb(Contact contact, SuperNoteHelper helper) async {
-    final name = (contact.displayName ?? '').trim().toLowerCase();
-    if (name.isNotEmpty) {
-      final byName = await helper.isar.items
-          .filter()
-          .typeEqualTo(ItemType.contact)
-          .titleEqualTo(name)
-          .deletedAtIsNull()
-          .findAll();
-      if (byName.isNotEmpty) return true;
-    }
+    try {
+      final name = (contact.displayName ?? '').trim().toLowerCase();
+      if (name.isNotEmpty) {
+        final byName = await helper.isar.items
+            .filter()
+            .typeEqualTo(ItemType.contact)
+            .titleEqualTo(name)
+            .deletedAtIsNull()
+            .findAll();
+        if (byName.isNotEmpty) return true;
+      }
 
-    if (contact.phones.isNotEmpty) {
-      final existingPhoneProps = await helper.isar.itemPropertys
-          .filter()
-          .keyEqualTo('phones')
-          .findAll();
-      for (final prop in existingPhoneProps) {
-        if (prop.value == null) continue;
-        // Παράλειψη αν το parent item είναι soft-deleted
-        final parent = await helper.items.getById(prop.itemId);
-        if (parent == null || parent.deletedAt != null) continue;
-        try {
-          final phones = jsonDecode(prop.value!) as List;
-          for (final phone in contact.phones) {
-            if (phone.number.isNotEmpty && phones.contains(phone.number)) {
-              return true;
+      if (contact.phones.isNotEmpty) {
+        final existingPhoneProps = await helper.isar.itemPropertys
+            .filter()
+            .keyEqualTo('phones')
+            .findAll();
+        for (final prop in existingPhoneProps) {
+          if (prop.value == null) continue;
+          final parent = await helper.items.getById(prop.itemId);
+          if (parent == null || parent.deletedAt != null) continue;
+          try {
+            final phones = jsonDecode(prop.value!) as List;
+            for (final phone in contact.phones) {
+              if (phone.number.isNotEmpty && phones.contains(phone.number)) {
+                return true;
+              }
             }
+          } catch (_) {
+            // ignore malformed JSON
           }
-        } catch (_) {
-          // ignore malformed JSON
         }
       }
+      return false;
+    } catch (e) {
+      debugPrint('[ContactImportService] _existsInDb failed: $e');
+      // Σε DB error, θεωρούμε ότι δεν υπάρχει — καλύτερα duplicate από skip
+      return false;
     }
-
-    return false;
   }
 
-  /// Mapping Contact (flutter_contacts) → Item + ItemProperty (Isar)
   Future<Item> _mapContactToItem(
-    Contact contact,
-    List<ContactField> fields,
-    int workspaceId,
-    int? folderId,
-    SuperNoteHelper helper,
-  ) async {
+      Contact contact,
+      List<ContactField> fields,
+      int workspaceId,
+      int? folderId,
+      SuperNoteHelper helper,
+      ) async {
     final title = _displayName(contact);
 
     final item = await helper.items.create(
@@ -262,13 +258,12 @@ class ContactImportService {
       title: title,
     );
 
-    // Παράλληλη αποθήκευση properties
     final futures = <Future<void>>[];
 
     for (final field in fields) {
       switch (field) {
         case ContactField.name:
-          break; // ήδη αποθηκεύτηκε ως Item.title
+          break;
 
         case ContactField.phones:
           if (contact.phones.isNotEmpty) {
@@ -382,7 +377,6 @@ class ContactImportService {
       }
     }
 
-    // Marker για αναγνώριση εισαγμένων επαφών
     futures.add(helper.properties.set(
       itemId: item.id,
       key: '_imported',
