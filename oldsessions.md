@@ -1454,3 +1454,50 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 - `flutter analyze` — **No issues found**
 - Backups: `backups/*.backup.20260607`
 
+---
+
+## Session 28 — 07-06-2026 (DB Write Optimization — _hasChanges Fix)
+
+### Στόχος
+Διόρθωση περιττών DB writes σε Appointment + Contact detail screens όταν ο χρήστης ανοίγει και κλείνει χωρίς καμία αλλαγή.
+
+### Πρόβλημα
+- **Appointment Detail**: `_saveData()` καλούνταν πάντα από `_onPopInvoked()` → `ItemRepository.update` και `propertyNotifier.setText` για όλα τα properties → ανέβαζε `localVersion` χωρίς λόγο
+- **Contact Detail**: `_persistChanges()` είχε ήδη dirty checking (σύγκριση cached values), αλλά `executeSaveOrDelete()` καλούνταν πάντα στο back
+
+### Fix — `_hasChanges` dirty tracking
+
+**Appointment Detail Screen** (`appointment_detail_screen.dart`):
+| Αλλαγή | Γραμμές | Περιγραφή |
+|--------|---------|-----------|
+| `bool _hasChanges = false;` | 38 | Νέο field |
+| `_hasChanges = false; _setupChangeListeners();` | 189-190 | Πριν το `setState` στο `_loadData()` |
+| `_setupChangeListeners()` | 194-204 | Listener σε 9 TextEditingControllers |
+| `if (!_hasChanges) return true;` | 485 | Guard στο `_onPopInvoked()` |
+| `_hasChanges = true;` | 497, 466, 477, 447, 453, 414 | Σε `_toggleFav`, `_selectDate`, `_selectTime`, `_pickBirthday`, `_clearBirthday`, `_showContactPicker` |
+
+**Contact Detail Screen** (`contact_detail_screen.dart`):
+| Αλλαγή | Γραμμές | Περιγραφή |
+|--------|---------|-----------|
+| `bool _hasChanges = false;` | 57 | Νέο field |
+| `bool _listenersInitialized = false;` | 58 | Guard flag |
+| `WidgetsBinding.instance.addPostFrameCallback(...)` | 641-653 | Στο `_syncPropsFromDB` μετά από πρώτο sync — θέτει `_hasChanges = false` + `_listenersInitialized = true` + listeners |
+| `if (!_hasChanges) return true;` | 192 | Guard στο `_onPopInvoked()` |
+| `_hasChanges = true;` | 329, 210, 220, 330, 112 | Σε `_toggleFav`, `_pickBirthday`, `_clearBirthday`, `_removePhoneField` |
+| `ctrl.addListener(...)` | 101-103, 588-590 | Σε νέα phone controllers (δυναμικά) |
+| `if (_listenersInitialized) _hasChanges = true;` | 434, 474 | Στα `onNotesChanged` callbacks (mobile + tablet) |
+
+### Verification
+- **Appointment test**: 2 × navigation (από home + από folder) → μόνο `init`/`dispose`, **κανένα `ItemRepository.update`** ✅
+- **Contact test**: 2 × navigation (από home + από folder) → μόνο `init`/`dispose`, **κανένα `ItemRepository.update`** ✅
+- `refreshRecurringReminders` μετά το resume → φυσιολογικό (debounce 2s από AppLifecycleState.resumed, όχι από navigation)
+- `flutter analyze` — **No issues found**
+
+### Backups
+- `backups/appointment_detail_screen.dart.backup.20260607`
+- `backups/contact_detail_screen.dart.backup.20260607`
+
+### Εκκρεμότητες
+- [ ] Δοκιμή contact detail screen (ίδιο pattern με appointments)
+- [ ] Αφαίρεση debug logs πριν το release
+

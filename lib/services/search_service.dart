@@ -54,7 +54,7 @@ class SearchService {
   Future<List<SearchResult>> search({
     required String query,
     required int workspaceId,
-    ItemType? filterType,        // Optional: αναζήτηση μόνο σε συγκεκριμένο τύπο
+    ItemType? filterType,
     int maxResults = 50,
   }) async {
     DebugConfig.print('🔍 SEARCH | entered with query="$query", workspaceId=$workspaceId, filterType=$filterType');
@@ -65,20 +65,13 @@ class SearchService {
     }
 
     final q = query.trim().toLowerCase();
-    DebugConfig.print('🔍 SEARCH | normalized query="$q"');
-
     final results = <SearchResult>[];
-    final foundIds = <int>{}; // Για deduplication
+    final foundIds = <int>{};
 
-    // 1️⃣ Αναζήτηση στους τίτλους (γρηγορότερο — index)
-    DebugConfig.print('🔍 SEARCH | searching titles...');
+    // 1️⃣ Αναζήτηση στους τίτλους (index — γρήγορο)
     try {
       final titleMatches = await SuperNoteHelper.instance.items
           .search(q, workspaceId);
-      DebugConfig.print('🔍 SEARCH | titleMatches count = ${titleMatches.length}');
-      for (final item in titleMatches) {
-        DebugConfig.print('🔍 SEARCH | title match item: id=${item.id}, title="${item.title}", type=${item.type}');
-      }
       for (final item in titleMatches) {
         if (filterType != null && item.type != filterType) continue;
         if (foundIds.contains(item.id)) continue;
@@ -88,30 +81,38 @@ class SearchService {
           matchType: SearchMatchType.title,
           matchedText: item.title,
         ));
-        DebugConfig.print('🔍 SEARCH | added title match: item.id=${item.id}, title="${item.title}"');
       }
+      DebugConfig.print('🔍 SEARCH | title matches: ${results.length}');
     } catch (e, stack) {
       DebugConfig.error('🔍 SEARCH | ERROR in title search', e, stack);
     }
 
-    // 2️⃣ Αναζήτηση στο περιεχόμενο (blocks)
-    DebugConfig.print('🔍 SEARCH | loading all items for content search...');
+    // Φόρτωση όλων των items μία φορά — χρησιμοποιείται και για blocks και για properties
+    List<Item> allItems = [];
     try {
-      final allItems = await SuperNoteHelper.instance.items
+      allItems = await SuperNoteHelper.instance.items
           .getByWorkspace(workspaceId, type: filterType);
       DebugConfig.print('🔍 SEARCH | allItems count = ${allItems.length}');
-      for (int i = 0; i < allItems.length && i < 5; i++) {
-        DebugConfig.print('🔍 SEARCH | sample item $i: id=${allItems[i].id}, title="${allItems[i].title}"');
-      }
+    } catch (e, stack) {
+      DebugConfig.error('🔍 SEARCH | ERROR loading items', e, stack);
+      results.sort((a, b) => a.matchType.index.compareTo(b.matchType.index));
+      return results.take(maxResults).toList();
+    }
 
-      for (final item in allItems) {
-        if (foundIds.contains(item.id)) continue;
+    final remainingItems = allItems
+        .where((i) => !foundIds.contains(i.id))
+        .toList();
+    final remainingIds = remainingItems.map((i) => i.id).toList();
+
+    // 2️⃣ Αναζήτηση στο περιεχόμενο (blocks) — 1 batch call
+    try {
+      final blocksMap = await SuperNoteHelper.instance.blocks
+          .getByItems(remainingIds);
+      DebugConfig.print('🔍 SEARCH | blocksMap items with blocks: ${blocksMap.length}');
+
+      for (final item in remainingItems) {
         if (results.length >= maxResults) break;
-
-        final blocks = await SuperNoteHelper.instance.blocks
-            .getByItem(item.id);
-        DebugConfig.print('🔍 SEARCH | item ${item.id} blocks count = ${blocks.length}');
-
+        final blocks = blocksMap[item.id] ?? [];
         final match = _findBlockMatch(blocks, q);
         if (match != null) {
           foundIds.add(item.id);
@@ -120,34 +121,31 @@ class SearchService {
             matchType: SearchMatchType.content,
             matchedText: match,
           ));
-          DebugConfig.print('🔍 SEARCH | content match: item.id=${item.id}, title="${item.title}", snippet="$match"');
+          DebugConfig.print('🔍 SEARCH | content match: id=${item.id} title="${item.title}"');
         }
       }
     } catch (e, stack) {
       DebugConfig.error('🔍 SEARCH | ERROR in content search', e, stack);
     }
 
-    // 3️⃣ Αναζήτηση σε properties (email, phone, κλπ.)
-    DebugConfig.print('🔍 SEARCH | searching properties...');
+    // 3️⃣ Αναζήτηση σε properties — 1 batch call
     try {
-      // Ξαναπαίρνουμε τα allItems γιατί μπορεί να μην τα έχουμε αν προηγήθηκε exception
-      final allItems = await SuperNoteHelper.instance.items
-          .getByWorkspace(workspaceId, type: filterType);
-      for (final item in allItems) {
-        if (foundIds.contains(item.id)) continue;
+      final stillRemaining = remainingItems
+          .where((i) => !foundIds.contains(i.id))
+          .toList();
+      final stillRemainingIds = stillRemaining.map((i) => i.id).toList();
+
+      final propsMap = await SuperNoteHelper.instance.properties
+          .getAllForItems(stillRemainingIds);
+      DebugConfig.print('🔍 SEARCH | propsMap items with props: ${propsMap.length}');
+
+      for (final item in stillRemaining) {
         if (results.length >= maxResults) break;
-
-        final props = await SuperNoteHelper.instance.properties
-            .getAll(item.id);
-        DebugConfig.print('🔍 SEARCH | item ${item.id} props count = ${props.length}');
-
+        final props = propsMap[item.id] ?? [];
         final match = props
-            .where((p) =>
-        p.value != null &&
-            p.value!.toLowerCase().contains(q))
+            .where((p) => p.value != null && p.value!.toLowerCase().contains(q))
             .map((p) => p.value!)
             .firstOrNull;
-
         if (match != null) {
           foundIds.add(item.id);
           results.add(SearchResult(
@@ -155,21 +153,15 @@ class SearchService {
             matchType: SearchMatchType.property,
             matchedText: match,
           ));
-          DebugConfig.print('🔍 SEARCH | property match: item.id=${item.id}, title="${item.title}", value="$match"');
+          DebugConfig.print('🔍 SEARCH | property match: id=${item.id} title="${item.title}"');
         }
       }
     } catch (e, stack) {
       DebugConfig.error('🔍 SEARCH | ERROR in property search', e, stack);
     }
 
-    // Ταξινόμηση: title matches πρώτα, μετά content, μετά property
     results.sort((a, b) => a.matchType.index.compareTo(b.matchType.index));
-
-    DebugConfig.print('🔍 SEARCH | FINAL RESULTS count = ${results.length} (before maxResults limit)');
-    for (int i = 0; i < results.length && i < 5; i++) {
-      DebugConfig.print('🔍 SEARCH | result $i: item.id=${results[i].item.id}, type=${results[i].matchType}');
-    }
-
+    DebugConfig.print('🔍 SEARCH | FINAL RESULTS: ${results.length}');
     return results.take(maxResults).toList();
   }
 

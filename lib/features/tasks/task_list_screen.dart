@@ -891,6 +891,7 @@ class _StatusChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: AppDuration.fast,
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(
             horizontal: Spacing.sm + 2, vertical: Spacing.xs),
         decoration: BoxDecoration(

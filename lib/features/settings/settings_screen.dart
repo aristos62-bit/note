@@ -1401,7 +1401,18 @@ Future<void> _importContacts(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
 
   // Fetch
-  final contacts = await ContactImportService.instance.fetchContacts();
+  // Fetch
+  final List<Contact> contacts;
+  try {
+    contacts = await ContactImportService.instance.fetchContacts();
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Σφάλμα ανάγνωσης επαφών: $e')),
+      );
+    }
+    return;
+  }
   if (contacts.isEmpty || !context.mounted) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1503,7 +1514,17 @@ Future<int?> _showFolderPickerDialog(BuildContext context, WidgetRef ref) async 
 
 /// Διάλογος διαχείρισης εισαγμένων επαφών
 Future<void> _showImportedContactsDialog(BuildContext context, WidgetRef ref) async {
-  final importedIds = await ContactImportService.instance.getImportedContactIds();
+  final List<int> importedIds;
+  try {
+    importedIds = await ContactImportService.instance.getImportedContactIds();
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Σφάλμα φόρτωσης επαφών: $e')),
+      );
+    }
+    return;
+  }
   if (importedIds.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
