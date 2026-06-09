@@ -3,15 +3,13 @@
 // Γενική οθόνη λίστας για οποιονδήποτε τύπο Item.
 // ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
 // ✅ Περιμένει την τιμή των ρυθμίσεων πριν επιλέξει φάκελο
-// ✅ Search, filter tags, FAB δημιουργίας
+// ✅ FAB δημιουργίας
 // ✅ Responsive: list mobile / grid tablet+desktop
 // ✅ Dark mode + DebugConfig
 // ✅ Fix: κλείδωμα pop κατά το drag (αποφυγή ανεπιθύμητου back gesture)
 // ✅ Βελτιστοποίηση: χρήση κεντρικού selectedFolderIdProvider
 //
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
@@ -44,39 +42,11 @@ class ItemListScreen extends ConsumerStatefulWidget {
 
 class _ItemListScreenState extends ConsumerState<ItemListScreen>
     with FolderAutoSelectMixin {
-  final _searchCtrl = TextEditingController();
-  final _searchFocus = FocusNode();
-  bool _searchActive = false;
   bool _showArchiveHintShown = false;
-  Timer? _debounce;
-  final _searchQueryProvider = StateProvider<String>((ref) => '');
-  final _activeTagFilterProvider = StateProvider<Set<String>>((ref) => {});
-  Set<String> _visibleTagNames = {};
 
   @override
   void dispose() {
-    _searchCtrl.dispose();
-    _searchFocus.dispose();
-    _debounce?.cancel();
     super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(_searchQueryProvider.notifier).state = value.trim();
-    });
-  }
-
-  void _toggleSearch() {
-    setState(() => _searchActive = !_searchActive);
-    if (!_searchActive) {
-      _searchCtrl.clear();
-      ref.read(_searchQueryProvider.notifier).state = '';
-      ref.read(_activeTagFilterProvider.notifier).state = {};
-    } else {
-      Future.microtask(() => _searchFocus.requestFocus());
-    }
   }
 
   Future<void> _createItem() async {
@@ -167,8 +137,6 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   @override
   Widget build(BuildContext context) {
     final itemsAsync = ref.watch(itemsStreamProvider);
-    final searchQuery = ref.watch(_searchQueryProvider);
-    final activeTags = ref.watch(_activeTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
     final isDragging = ref.watch(isDraggingProvider);
@@ -189,11 +157,6 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
         appBar: AppBar(
           title: Text(widget.title),
           actions: [
-            IconButton(
-              icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
-              onPressed: _toggleSearch,
-              tooltip: 'Αναζήτηση',
-            ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) {
@@ -236,26 +199,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
                 : null),
         body: Column(
           children: [
-            if (_searchActive)
-              _SearchBar(
-                controller: _searchCtrl,
-                focusNode: _searchFocus,
-                onChanged: _onSearchChanged,
-                hint: 'Αναζήτηση...',
-              ),
-            // 🆕 Ο DraggableFolderSelector είναι πλέον αυτόνομος – δεν χρειάζεται parameters
             const DraggableFolderSelector(),
-            if (_visibleTagNames.isNotEmpty)
-              _TagFilterRow(
-                tags: _visibleTagNames.toList(),
-                activeTags: activeTags,
-                onTagTap: (name) {
-                  final current = ref.read(_activeTagFilterProvider);
-                  final newSet = {...current};
-                  newSet.contains(name) ? newSet.remove(name) : newSet.add(name);
-                  ref.read(_activeTagFilterProvider.notifier).state = newSet;
-                },
-              ),
             const ViewModeToggle(),
             Expanded(
               child: RefreshIndicator(
@@ -280,29 +224,11 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
                         break;
                     }
 
-                    final visibleTagNames = <String>{};
-                    for (final item in items) {
-                      final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
-                      for (final t in tags) {
-                        visibleTagNames.add(t.name);
-                      }
-                    }
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      if (!setEquals(_visibleTagNames, visibleTagNames)) {
-                        setState(() => _visibleTagNames = visibleTagNames);
-                      }
-                    });
-
-                    var filtered = _filterItemsWithTags(items, searchQuery, activeTags, ref);
-                    if (filtered.isEmpty) {
-                      if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
-                        return EmptyState.search(query: searchQuery);
-                      }
+                    if (items.isEmpty) {
                       return EmptyState.forType(widget.itemType, onAction: _createItem);
                     }
                     return _ItemListBody(
-                      items: filtered,
+                      items: items,
                       itemType: widget.itemType,
                       onTap: _openDetail,
                       onLongPress: (item) => _showItemActions(context, item),
@@ -318,86 +244,6 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
     );
   }
 
-  List<Item> _filterItemsWithTags(
-      List<Item> items, String query, Set<String> tags, WidgetRef ref) {
-    var list = items;
-    if (query.isNotEmpty) {
-      final q = query.toLowerCase();
-      list = list.where((i) => (i.title ?? '').toLowerCase().contains(q)).toList();
-    }
-    if (tags.isNotEmpty) {
-      // ✅ Χρησιμοποιεί valueOrNull — ήδη cached από το ref.watch στο build()
-      list = list.where((item) {
-        final t = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
-        return t.map((e) => e.name).any((n) => tags.contains(n));
-      }).toList();
-    }
-    return list;
-  }
-}
-
-// ── (τα υπόλοιπα widgets _SearchBar, _TagFilterRow, _ItemListBody, _ItemCardWithTags, _LoadingList, _ItemActionsSheet είναι ακριβώς ίδια όπως πριν) ──
-// Για λόγους πληρότητας, τα παραθέτω ακριβώς ίδια:
-
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  final String hint;
-  const _SearchBar({required this.controller, required this.focusNode, required this.onChanged, required this.hint});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: context.cBg,
-      padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        onChanged: onChanged,
-        style: context.bodyMd,
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: context.bodyMd.withColor(context.cDisabled),
-          prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(icon: Icon(Icons.close_rounded, color: context.cText2), onPressed: () { controller.clear(); onChanged(''); })
-              : null,
-          filled: true,
-          fillColor: ColorsUI.getSurface(context.brightness),
-          border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
-          contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
-        ),
-      ),
-    );
-  }
-}
-
-class _TagFilterRow extends StatelessWidget {
-  final List<String> tags;
-  final Set<String> activeTags;
-  final ValueChanged<String> onTagTap;
-  const _TagFilterRow({required this.tags, required this.activeTags, required this.onTagTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-        itemCount: tags.length,
-        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-        itemBuilder: (_, i) => TagChip(
-          name: tags[i],
-          color: null,
-          selected: activeTags.contains(tags[i]),
-          compact: true,
-          onTap: () => onTagTap(tags[i]),
-        ),
-      ),
-    );
-  }
 }
 
 class _ItemListBody extends ConsumerWidget {
@@ -425,15 +271,6 @@ class _ItemListBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ Batch load tags για όλα τα items μαζί — 1 watch group αντί για N
-    final tagsMap = {
-      for (final item in items)
-        item.id: ref.watch(itemTagsProvider(item.id))
-            .valueOrNull
-            ?.map((t) => t.name)
-            .toList() ?? const <String>[],
-    };
-
     return ReorderableItemList(
       items: items,
       onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
@@ -441,7 +278,7 @@ class _ItemListBody extends ConsumerWidget {
       onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
       itemBuilder: (ctx, item, index) => ItemCardBuilder(
         item: item,
-        tagNames: tagsMap[item.id] ?? const [],
+        tagNames: const [],
         onTap: onTap,
         onLongPress: onLongPress,
         onShare: onShare != null ? () => onShare!(item) : null,

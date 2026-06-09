@@ -2,10 +2,8 @@
 //
 // Λίστα επαφών με drag & drop folder selector.
 //
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -14,9 +12,6 @@ import 'contact_detail_screen.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import 'dart:convert';
-
-final _contactSearchQueryProvider = StateProvider<String>((ref) => '');
-final _contactTagFilterProvider = StateProvider<Set<String>>((ref) => {});
 
 class ContactListScreen extends ConsumerStatefulWidget {
   const ContactListScreen({super.key});
@@ -27,38 +22,7 @@ class ContactListScreen extends ConsumerStatefulWidget {
 
 class _ContactListScreenState extends ConsumerState<ContactListScreen>
     with FolderAutoSelectMixin {
-  final _searchCtrl = TextEditingController();
-  final _searchFocus = FocusNode();
-  bool _searchActive = false;
   bool _showArchiveHintShown = false;
-  Timer? _debounce;
-  Set<String> _visibleTagNames = {};
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    _searchFocus.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(_contactSearchQueryProvider.notifier).state = value.trim();
-    });
-  }
-
-  void _toggleSearch() {
-    setState(() => _searchActive = !_searchActive);
-    if (!_searchActive) {
-      _searchCtrl.clear();
-      ref.read(_contactSearchQueryProvider.notifier).state = '';
-      ref.read(_contactTagFilterProvider.notifier).state = {};
-    } else {
-      Future.microtask(() => _searchFocus.requestFocus());
-    }
-  }
 
   Future<void> _createContact() async {
     final selectedFolderId = ref.read(selectedFolderIdProvider);
@@ -92,8 +56,6 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
   @override
   Widget build(BuildContext context) {
     final allAsync = ref.watch(itemsStreamProvider);
-    final searchQuery = ref.watch(_contactSearchQueryProvider);
-    final activeTags = ref.watch(_contactTagFilterProvider);
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
@@ -118,31 +80,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
           : null,
       body: Column(
         children: [
-          if (_searchActive)
-            _SearchBar(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
-            ),
-          // 🆕 Αυτόνομος folder selector
           const DraggableFolderSelector(),
-          if (_visibleTagNames.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            _TagFilterRow(
-              tags: _visibleTagNames.toList(),
-              activeTags: activeTags,
-              onTagTap: (name) {
-                final current = ref.read(_contactTagFilterProvider);
-                final newSet = {...current};
-                if (newSet.contains(name)) {
-                  newSet.remove(name);
-                } else {
-                  newSet.add(name);
-                }
-                ref.read(_contactTagFilterProvider.notifier).state = newSet;
-              },
-            ),
-          ],
           const ViewModeToggle(),
           Expanded(
             child: RefreshIndicator(
@@ -175,32 +113,6 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
                       break;
                   }
 
-                  if (searchQuery.isNotEmpty) {
-                    final q = searchQuery.toLowerCase();
-                    contacts = contacts
-                        .where((c) => (c.title ?? '').toLowerCase().contains(q))
-                        .toList();
-                  }
-
-                  if (activeTags.isNotEmpty) {
-                    contacts = contacts.where((c) {
-                      final tags = ref.read(itemTagsProvider(c.id)).valueOrNull ?? [];
-                      return tags.any((t) => activeTags.contains(t.name));
-                    }).toList();
-                  }
-
-                  final visibleTagNames = <String>{};
-                  for (final c in contacts) {
-                    final tags = ref.read(itemTagsProvider(c.id)).valueOrNull ?? [];
-                    for (final t in tags) {visibleTagNames.add(t.name);}
-                  }
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    if (!const SetEquality<String>().equals(_visibleTagNames, visibleTagNames)) {
-                      setState(() => _visibleTagNames = visibleTagNames);
-                    }
-                  });
-
                   contacts.sort((a, b) => (a.title ?? '').compareTo(b.title ?? ''));
 
                   final contactProps = <int, _ContactProps>{};
@@ -212,9 +124,6 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
                   }
 
                   if (contacts.isEmpty) {
-                    if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
-                      return EmptyState.search(query: searchQuery);
-                    }
                     return EmptyState.forType(ItemType.contact, onAction: _createContact);
                   }
 
@@ -237,11 +146,6 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
     scrolledUnderElevation: 1,
     title: const Text('Επαφές'),
     actions: [
-      IconButton(
-        icon: Icon(_searchActive ? Icons.search_off_rounded : Icons.search_rounded),
-        onPressed: _toggleSearch,
-        tooltip: 'Αναζήτηση',
-      ),
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert_rounded),
         onSelected: (value) {
@@ -505,60 +409,6 @@ class _ContactAvatar extends StatelessWidget {
     width: 44, height: 44,
     decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
     child: Center(child: Text(letter, style: context.titleMd.copyWith(color: color))),
-  );
-}
-
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  const _SearchBar({required this.controller, required this.focusNode, required this.onChanged});
-  @override
-  Widget build(BuildContext context) => Container(
-    color: context.cBg,
-    padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, Spacing.sm),
-    child: TextField(
-      controller: controller,
-      focusNode: focusNode,
-      onChanged: onChanged,
-      style: context.bodyMd,
-      decoration: InputDecoration(
-        hintText: 'Αναζήτηση επαφών...',
-        hintStyle: context.bodyMd.withColor(context.cDisabled),
-        prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-        suffixIcon: controller.text.isNotEmpty
-            ? IconButton(icon: Icon(Icons.close_rounded, color: context.cText2), onPressed: () { controller.clear(); onChanged(''); })
-            : null,
-        filled: true,
-        fillColor: ColorsUI.getSurface(context.brightness),
-        border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
-      ),
-    ),
-  );
-}
-
-class _TagFilterRow extends StatelessWidget {
-  final List<String> tags;
-  final Set<String> activeTags;
-  final ValueChanged<String> onTagTap;
-  const _TagFilterRow({required this.tags, required this.activeTags, required this.onTagTap});
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 40,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-      itemCount: tags.length,
-      separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-      itemBuilder: (_, i) => TagChip(
-        name: tags[i],
-        color: null,
-        selected: activeTags.contains(tags[i]),
-        compact: true,
-        onTap: () => onTagTap(tags[i]),
-      ),
-    ),
   );
 }
 

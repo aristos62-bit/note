@@ -1,7 +1,7 @@
 name: super_note
 description: A powerful all-in-one note taking and productivity app.
 publish_to: 'none'
-version: 1.0.2+2
+version: 1.0.3+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -42,6 +42,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   share_plus: ^12.0.2
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:
