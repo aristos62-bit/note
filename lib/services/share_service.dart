@@ -10,41 +10,50 @@ class ShareService {
   ShareService._();
 
   static Future<void> shareItem(BuildContext context, int itemId) async {
-    final helper = SuperNoteHelper.instance;
-    final item = await helper.items.getById(itemId);
-    if (item == null) return;
+    try {
+      final helper = SuperNoteHelper.instance;
+      final item = await helper.items.getById(itemId);
+      if (item == null) return;
 
-    final results = await Future.wait([
-      helper.blocks.getByItem(itemId),
-      helper.properties.getAll(itemId),
-    ]);
-    final blocks = results[0] as List<ItemBlock>;
-    final properties = results[1] as List<ItemProperty>;
+      final results = await Future.wait([
+        helper.blocks.getByItem(itemId),
+        helper.properties.getAll(itemId),
+      ]);
+      final blocks = results[0] as List<ItemBlock>;
+      final properties = results[1] as List<ItemProperty>;
 
-    List<Item> subtasks = [];
-    if (item.type == ItemType.task) {
-      final allTasks = await helper.items.getByWorkspace(
-        item.workspaceId,
-        type: ItemType.task,
-      );
-      for (final t in allTasks) {
-        final props = await helper.properties.getAll(t.id);
-        final pid = props
-            .where((p) => p.key == 'parent_id')
-            .firstOrNull
-            ?.value;
-        if (pid != null && int.tryParse(pid) == itemId) {
-          subtasks.add(t);
+      List<Item> subtasks = [];
+      if (item.type == ItemType.task) {
+        final allTasks = await helper.items.getByWorkspace(
+          item.workspaceId,
+          type: ItemType.task,
+        );
+        for (final t in allTasks) {
+          final props = await helper.properties.getAll(t.id);
+          final pid = props
+              .where((p) => p.key == 'parent_id')
+              .firstOrNull
+              ?.value;
+          if (pid != null && int.tryParse(pid) == itemId) {
+            subtasks.add(t);
+          }
         }
+        subtasks.sort((a, b) => a.id.compareTo(b.id));
       }
-      subtasks.sort((a, b) => a.id.compareTo(b.id));
-    }
 
-    final text = _format(item, blocks, properties, subtasks);
-    await SharePlus.instance.share(ShareParams(
-      text: text,
-      subject: item.title ?? '',
-    ));
+      final text = _format(item, blocks, properties, subtasks);
+      await SharePlus.instance.share(ShareParams(
+        text: text,
+        subject: item.title ?? '',
+      ));
+    } catch (e, stack) {
+      DebugConfig.error('ShareService.shareItem', e, stack);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Αποτυχία κοινοποίησης: $e')),
+        );
+      }
+    }
   }
 
   static String _format(
