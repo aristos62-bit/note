@@ -213,11 +213,26 @@ class HabitService {
     }
   }
 
+  HabitStats _emptyStats(int habitId) => const HabitStats(
+        streak: 0,
+        bestStreak: 0,
+        completedCount: 0,
+        goalCount: 0,
+        lastCompleted: null,
+        completions: [],
+        completedToday: false,
+        progressPercent: 0.0,
+        dailyProgress: 0,
+        unit: '',
+        recurrence: Recurrence(type: RecurrenceType.daily, interval: 1),
+      );
+
   // ══════════════════════════════════════════════════════════
   // INCREMENT — γενικό (χωρίς συγκεκριμένη ώρα)
   // ══════════════════════════════════════════════════════════
 
   Future<HabitStats> incrementProgress(int habitId) async {
+    try {
     final props = SuperNoteHelper.instance.properties;
     final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
@@ -242,6 +257,10 @@ class HabitService {
     }
 
     return getStats(habitId);
+    } catch (e, stack) {
+      DebugConfig.error('incrementProgress', e, stack);
+      return _emptyStats(habitId);
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -249,6 +268,7 @@ class HabitService {
   // ══════════════════════════════════════════════════════════
 
   Future<HabitStats> incrementByTime(int habitId, String time) async {
+    try {
     final props = SuperNoteHelper.instance.properties;
     final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
@@ -275,6 +295,10 @@ class HabitService {
     }
 
     return getStats(habitId);
+    } catch (e, stack) {
+      DebugConfig.error('incrementByTime', e, stack);
+      return _emptyStats(habitId);
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -282,6 +306,7 @@ class HabitService {
   // ══════════════════════════════════════════════════════════
 
   Future<HabitStats> decrementByTime(int habitId, String time) async {
+    try {
     final props = SuperNoteHelper.instance.properties;
     final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
@@ -308,6 +333,10 @@ class HabitService {
     await props.setNumber(habitId, 'daily_progress', completedCount.toDouble());
 
     return getStats(habitId);
+    } catch (e, stack) {
+      DebugConfig.error('decrementByTime', e, stack);
+      return _emptyStats(habitId);
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -315,6 +344,7 @@ class HabitService {
   // ══════════════════════════════════════════════════════════
 
   Future<HabitStats> decrementProgress(int habitId) async {
+    try {
     final props = SuperNoteHelper.instance.properties;
     final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
@@ -339,6 +369,10 @@ class HabitService {
     }
 
     return getStats(habitId);
+    } catch (e, stack) {
+      DebugConfig.error('decrementProgress', e, stack);
+      return _emptyStats(habitId);
+    }
   }
 
   Future<HabitStats> markCompleted(int habitId) async =>
@@ -349,20 +383,29 @@ class HabitService {
   // ══════════════════════════════════════════════════════════
 
   Future<void> setGoal(int habitId, int goal) async {
-    await SuperNoteHelper.instance.properties
-        .setNumber(habitId, 'goal_per_period', goal.toDouble());
+    try {
+      await SuperNoteHelper.instance.properties
+          .setNumber(habitId, 'goal_per_period', goal.toDouble());
+    } catch (e, stack) {
+      DebugConfig.error('setGoal', e, stack);
+    }
   }
 
   Future<void> setUnit(int habitId, String unit) async {
-    await SuperNoteHelper.instance.properties.set(
-      itemId: habitId,
-      key: 'unit',
-      value: unit,
-      type: PropertyType.text,
-    );
+    try {
+      await SuperNoteHelper.instance.properties.set(
+        itemId: habitId,
+        key: 'unit',
+        value: unit,
+        type: PropertyType.text,
+      );
+    } catch (e, stack) {
+      DebugConfig.error('setUnit', e, stack);
+    }
   }
 
   Future<void> setRecurrence(int habitId, Recurrence recurrence) async {
+    try {
     final props = SuperNoteHelper.instance.properties;
 
     await props.set(
@@ -407,6 +450,9 @@ class HabitService {
       value: jsonEncode({}),
       type: PropertyType.json,
     );
+    } catch (e, stack) {
+      DebugConfig.error('setRecurrence', e, stack);
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -414,6 +460,7 @@ class HabitService {
   // ══════════════════════════════════════════════════════════
 
   Future<void> setReminderTime(int habitId, TimeOfDay? time) async {
+    try {
     final props = SuperNoteHelper.instance.properties;
     if (time == null) {
       DebugConfig.db('🕒 Disabling reminders for habit $habitId');
@@ -440,15 +487,19 @@ class HabitService {
       final recurrence = Recurrence.fromProperties(allProps);
       await _scheduleReminders(habitId, [time], recurrence);
     }
+    } catch (e, stack) {
+      DebugConfig.error('setReminderTime', e, stack);
+    }
   }
 
   Future<void> setReminderTimes(int habitId, List<TimeOfDay> times) async {
-    final props = SuperNoteHelper.instance.properties;
+    try {
+      final props = SuperNoteHelper.instance.properties;
 
-    if (times.isEmpty) {
-      await setReminderTime(habitId, null);
-      return;
-    }
+      if (times.isEmpty) {
+        await setReminderTime(habitId, null);
+        return;
+      }
 
     DebugConfig.db('🕒 Setting ${times.length} reminders for habit $habitId');
 
@@ -467,6 +518,9 @@ class HabitService {
     final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
     await _scheduleReminders(habitId, times, recurrence);
+    } catch (e, stack) {
+      DebugConfig.error('setReminderTimes', e, stack);
+    }
   }
 
   Future<void> _scheduleReminders(
@@ -548,7 +602,8 @@ class HabitService {
   // ══════════════════════════════════════════════════════════
 
   Future<HabitStats> getStats(int habitId) async {
-    final props = SuperNoteHelper.instance.properties;
+    try {
+      final props = SuperNoteHelper.instance.properties;
     final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
     final unit = allProps['unit'] ?? '';
@@ -631,6 +686,10 @@ class HabitService {
       recurrence: recurrence,
       todayTimeProgress: todayTimeProgress,
     );
+    } catch (e, stack) {
+      DebugConfig.error('getStats', e, stack);
+      return _emptyStats(habitId);
+    }
   }
 
   // ══════════════════════════════════════════════════════════

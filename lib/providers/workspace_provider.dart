@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/workspace.dart';
 import 'db_provider.dart';
+import '../core/utils/debug_config.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Λίστα όλων των workspaces
@@ -38,12 +39,16 @@ class WorkspaceNotifier extends AsyncNotifier<List<Workspace>> {
   }
 
   Future<void> create(String name, {String? icon, String? color}) async {
-    await ref.read(dbProvider).workspaces.create(
-      name: name,
-      icon: icon,
-      color: color,
-    );
-    ref.invalidateSelf(); // Refresh λίστα
+    try {
+      await ref.read(dbProvider).workspaces.create(
+        name: name,
+        icon: icon,
+        color: color,
+      );
+      ref.invalidateSelf(); // Refresh λίστα
+    } catch (e, s) {
+      DebugConfig.error('WorkspaceNotifier.create', e, s);
+    }
   }
 }
 

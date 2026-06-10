@@ -114,9 +114,24 @@ lib/
 - Multi-platform: android, ios, web, linux, macos, windows
 - Το `widget_test.dart` είναι stale (ελέγχει counter που δεν υπάρχει)
 
-## Session Log
+## Session Log (τρέχουσα κατάσταση)
 
-- Διάβασε το oldsessions.md για να θυμηθείς τι καναμε στο προηγουμενο session
-- Πριν κλείσεις το chat ενημέρωσε το  oldsessions.md με αυτά που έγιναν σε αυτό το session
+### Goal
+Διόρθωση προβλημάτων reorder (last-position + pinned/favorites + εξαφάνιση item) και συνέχεια try-catch protection σε providers
+
+### Done
+- **Bug 1 — Reorder last-position** ✅ — Αφαίρεση `newIndex > oldIndex ? newIndex - 1 : newIndex` σε **7 files**
+- **Bug 2 — Category sorting + pinned/fav protection** ✅ — `_sortByCategory()` + αγνόηση pinned/fav σε `reorder()`
+- **Bug fix home_folder_view** ✅ — Χρήστης: reorder στη full `allItems` λίστα αντί filtered subset
+- **try-catch σε providers:** `item_provider.dart`(11), `property_provider.dart`(4), `block_provider.dart`(5) ✅
+
+### Remaining (try-catch providers)
+1. `settings_provider.dart` — 3 methods + fix 2 silent catches
+2. `folder_provider.dart` — 4 methods
+3. `tag_provider.dart` — 3 methods
+4. `reminder_provider.dart` — 4 methods
+5. `attachment_provider.dart` — 2 methods
+6. `workspace_provider.dart` — 1 method
+7. `task_provider.dart` — 3 silent → DebugConfig.error
 
 

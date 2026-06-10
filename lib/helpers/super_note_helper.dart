@@ -176,6 +176,35 @@ class ItemRepository {
     return list;
   }
 
+  // Ταξινόμηση: Pinned → Favorites → Others
+  List<Item> _sortByCategory(List<Item> items) {
+    final list = List<Item>.from(items);
+    list.sort((a, b) {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      if (a.favorite && !b.favorite) return -1;
+      if (!a.favorite && b.favorite) return 1;
+      if (a.pinned && b.pinned) {
+        final ao = a.pinnedOrder;
+        final bo = b.pinnedOrder;
+        if (ao == null && bo == null) return 0;
+        if (ao == null) return 1;
+        if (bo == null) return -1;
+        return ao.compareTo(bo);
+      }
+      if (a.favorite && b.favorite) {
+        final ao = a.favoriteOrder;
+        final bo = b.favoriteOrder;
+        if (ao == null && bo == null) return 0;
+        if (ao == null) return 1;
+        if (bo == null) return -1;
+        return ao.compareTo(bo);
+      }
+      return a.sortOrder.compareTo(b.sortOrder);
+    });
+    return list;
+  }
+
   // ── CREATE ──────────────────────────────────────────────
 
   Future<Item> create({
@@ -226,7 +255,8 @@ class ItemRepository {
         .sortBySortOrder()
         .offset(offset)
         .limit(limit)
-        .findAll();
+        .findAll()
+        .then((items) => _sortByCategory(items));
   }
 
   Future<List<Item>> getByFolder(int folderId, {int limit = 1000000, int offset = 0}) {
@@ -238,7 +268,8 @@ class ItemRepository {
         .sortBySortOrder()
         .offset(offset)
         .limit(limit)
-        .findAll();
+        .findAll()
+        .then((items) => _sortByCategory(items));
   }
 
   Future<List<Item>> getPinned(int workspaceId) async {
@@ -447,7 +478,8 @@ class ItemRepository {
         .optional(!includeArchived, (q) => q.archivedEqualTo(false))
         .optional(type != null,     (q) => q.typeEqualTo(type!))
         .sortBySortOrder()
-        .watch(fireImmediately: true);
+        .watch(fireImmediately: true)
+        .map((items) => _sortByCategory(items));
   }
 
   /// Stream items ενός folder — φωτιά ΜΟΝΟ αν αλλάξει το folder
@@ -458,7 +490,8 @@ class ItemRepository {
         .deletedAtIsNull()
         .archivedEqualTo(false)
         .sortBySortOrder()
-        .watch(fireImmediately: true);
+        .watch(fireImmediately: true)
+        .map((items) => _sortByCategory(items));
   }
 
   /// Stream pinned items — φωτιά ΜΟΝΟ αν αλλάξει το pinned status
@@ -499,9 +532,12 @@ class ItemRepository {
 
   Future<void> reorder(List<Item> items) async {
     await _isar.writeTxn(() async {
+      int order = 0;
       for (int i = 0; i < items.length; i++) {
-        items[i].sortOrder = i.toDouble();
+        if (items[i].pinned || items[i].favorite) continue;
+        items[i].sortOrder = order.toDouble();
         items[i].isDirty = true;
+        order++;
       }
       await _isar.items.putAll(items);
     });

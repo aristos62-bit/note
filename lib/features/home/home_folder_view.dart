@@ -192,20 +192,19 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
         return const SizedBox.shrink();
       },
       data: (all) {
-        // Τοπικό φιλτράρισμα — η σειρά εξαρτάται από sortOrder (watchByFolder)
-        // Μετά από reorder() το stream ξανα-εκπέμπει στη ΝΕΑ σειρά sortOrder ✓
         final items = switch (_viewMode) {
           FolderViewMode.pinned    => all.where((i) => i.pinned   && i.deletedAt == null).toList(),
           FolderViewMode.favorites => all.where((i) => i.favorite && i.deletedAt == null).toList(),
           FolderViewMode.recent    => all.where((i) => i.deletedAt == null && !i.archived).take(10).toList(),
           FolderViewMode.all       => <Item>[],
         };
-        return _buildItemsList(context, items);
+        // Περνάμε και τη full λίστα για σωστό reorder
+        return _buildItemsList(context, items, allItems: all);
       },
     );
   }
 
-  Widget _buildItemsList(BuildContext context, List<Item> items) {
+  Widget _buildItemsList(BuildContext context, List<Item> items, {required List<Item> allItems}) {
     if (items.isEmpty) return _buildEmptyState(context);
 
     return ReorderableItemList(
@@ -213,15 +212,32 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       gridItemExtent: 100,
       onReorder: (oldIdx, newIdx) {
         if (oldIdx == newIdx) return;
-        final reordered = List<Item>.from(items);
-        final moved = reordered.removeAt(oldIdx);
-        reordered.insert(newIdx > oldIdx ? newIdx - 1 : newIdx, moved);
-        // Ανανεώνει sortOrder → itemsByFolderStreamProvider εκπέμπει στη νέα σειρά ✓
-        ref.read(itemNotifierProvider.notifier).reorder(reordered);
+
+        // 1. Κινούμε το item μέσα στη φιλτραρισμένη λίστα
+        final filtered = List<Item>.from(items);
+        final moved = filtered.removeAt(oldIdx);
+        filtered.insert(newIdx, moved);
+
+        // 2. Εφαρμόζουμε τη νέα σειρά στη FULL λίστα
+        //    Παίρνουμε τα IDs της νέας σειράς από τα filtered
+        final filteredIds = filtered.map((i) => i.id).toSet();
+
+        // Χτίζουμε τη full λίστα διατηρώντας τα non-filtered στη θέση τους
+        // και αντικαθιστώντας τα filtered με τη νέα σειρά τους
+        final fullReordered = <Item>[];
+        int filteredIdx = 0;
+        for (final item in allItems) {
+          if (filteredIds.contains(item.id)) {
+            fullReordered.add(filtered[filteredIdx++]);
+          } else {
+            fullReordered.add(item);
+          }
+        }
+
+        ref.read(itemNotifierProvider.notifier).reorder(fullReordered);
       },
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
       onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
-      // DraggableItemWrapper: διατηρεί folder-to-folder drag
       itemBuilder: (ctx, item, index) {
         final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
         return DraggableItemWrapper(

@@ -1,8 +1,9 @@
 // lib/providers/item_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/item.dart';
+import '../models/models.dart';
 import 'db_provider.dart';
 import 'workspace_provider.dart';
+import '../core/utils/debug_config.dart';
 import 'dart:async';
 
 // ─────────────────────────────────────────────────────────────────
@@ -86,18 +87,23 @@ FutureProvider.family<int, ItemType>((ref, type) async {
 class ItemNotifier extends AsyncNotifier<List<Item>> {
   @override
   Future<List<Item>> build() async {
-    final db = ref.watch(dbProvider);
-    final wsId = ref.watch(activeWorkspaceIdProvider);
-    final typeFilter = ref.watch(activeItemTypeFilterProvider);
-    final showArchived = ref.watch(showArchivedProvider);
+    try {
+      final db = ref.watch(dbProvider);
+      final wsId = ref.watch(activeWorkspaceIdProvider);
+      final typeFilter = ref.watch(activeItemTypeFilterProvider);
+      final showArchived = ref.watch(showArchivedProvider);
 
-    if (wsId == null) return [];
+      if (wsId == null) return [];
 
-    return db.items.getByWorkspace(
-      wsId,
-      type: typeFilter,
-      includeArchived: showArchived,
-    );
+      return db.items.getByWorkspace(
+        wsId,
+        type: typeFilter,
+        includeArchived: showArchived,
+      );
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.build', e, s);
+      return [];
+    }
   }
 
   /// Δημιουργία νέου item
@@ -107,21 +113,46 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     String? icon,
     String? color,
     int? folderId,
+    Map<String, String>? initialProperties,
   }) async {
-    final wsId = ref.read(activeWorkspaceIdProvider);
-    if (wsId == null) return null;
+    try {
+      final wsId = ref.read(activeWorkspaceIdProvider);
+      if (wsId == null) return null;
 
-    final item = await ref.read(dbProvider).items.create(
-      type: type,
-      workspaceId: wsId,
-      title: title,
-      icon: icon,
-      color: color,
-      folderId: folderId,
-    );
+      final db = ref.read(dbProvider);
+      final isar = db.isar;
 
-    ref.invalidateSelf();
-    return item;
+      Item? item;
+      await isar.writeTxn(() async {
+        item = Item()
+          ..type = type
+          ..workspaceId = wsId
+          ..title = title
+          ..icon = icon
+          ..color = color
+          ..folderId = folderId
+          ..sortOrder = 0.0
+          ..createdAt = DateTime.now()
+          ..isDirty = true;
+        await isar.items.put(item!);
+
+        if (initialProperties != null) {
+          for (final entry in initialProperties.entries) {
+            await isar.itemPropertys.put(ItemProperty()
+              ..itemId = item!.id
+              ..key = entry.key
+              ..value = entry.value
+            );
+          }
+        }
+      });
+
+      ref.invalidateSelf();
+      return item;
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.create', e, s);
+      return null;
+    }
   }
 
   /// Ενημέρωση item
@@ -138,43 +169,63 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
         bool? archived,
         bool? favorite,
       }) async {
-    await ref.read(dbProvider).items.update(
-      id,
-      title: title,
-      icon: icon,
-      color: color,
-      status: status,
-      priority: priority,
-      pinned: pinned,
-      archived: archived,
-      favorite: favorite,
-    );
-    ref.invalidateSelf();
-    ref.invalidate(itemByIdProvider(id));
+    try {
+      await ref.read(dbProvider).items.update(
+        id,
+        title: title,
+        icon: icon,
+        color: color,
+        status: status,
+        priority: priority,
+        pinned: pinned,
+        archived: archived,
+        favorite: favorite,
+      );
+      ref.invalidateSelf();
+      ref.invalidate(itemByIdProvider(id));
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.updateItem', e, s);
+    }
   }
 
   /// Soft delete
   Future<void> deleteItem(int id) async {
-    await ref.read(dbProvider).items.softDelete(id);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).items.softDelete(id);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.deleteItem', e, s);
+    }
   }
 
   /// Restore από soft delete
   Future<void> restoreItem(int id) async {
-    await ref.read(dbProvider).items.restore(id);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).items.restore(id);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.restoreItem', e, s);
+    }
   }
 
   /// Permanent delete
   Future<void> permanentDelete(int id) async {
-    await ref.read(dbProvider).items.hardDelete(id);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).items.hardDelete(id);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.permanentDelete', e, s);
+    }
   }
 
   /// Reorder items (drag & drop)
   Future<void> reorder(List<Item> reorderedItems) async {
-    await ref.read(dbProvider).items.reorder(reorderedItems);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).items.reorder(reorderedItems);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.reorder', e, s);
+    }
   }
 
   /// Toggle pin
@@ -191,31 +242,47 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
 
   /// Μετακίνηση item σε άλλο φάκελο
   Future<void> moveToFolder(int itemId, int? newFolderId) async {
-    await ref.read(dbProvider).items.update(itemId, folderId: newFolderId);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).items.update(itemId, folderId: newFolderId);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.moveToFolder', e, s);
+    }
   }
 
   // ─── ΝΕΕΣ ΜΕΘΟΔΟΙ ΓΙΑ REORDER PINNED / FAVORITES ─────────────
 
   /// Αναδιάταξη pinned items (αποθήκευση νέας σειράς)
   Future<void> reorderPinned(List<int> newOrder) async {
-    await ref.read(dbProvider).items.reorderPinned(newOrder);
-    ref.invalidateSelf();
-    ref.invalidate(pinnedItemsProvider);
-    ref.invalidate(pinnedAndFavoritesProvider);
+    try {
+      await ref.read(dbProvider).items.reorderPinned(newOrder);
+      ref.invalidateSelf();
+      ref.invalidate(pinnedItemsProvider);
+      ref.invalidate(pinnedAndFavoritesProvider);
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.reorderPinned', e, s);
+    }
   }
 
   /// Αναδιάταξη favorite items (αποθήκευση νέας σειράς)
   Future<void> reorderFavorites(List<int> newOrder) async {
-    await ref.read(dbProvider).items.reorderFavorites(newOrder);
-    ref.invalidateSelf();
-    ref.invalidate(pinnedAndFavoritesProvider);
+    try {
+      await ref.read(dbProvider).items.reorderFavorites(newOrder);
+      ref.invalidateSelf();
+      ref.invalidate(pinnedAndFavoritesProvider);
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.reorderFavorites', e, s);
+    }
   }
 
   /// Ενοποιημένη αναδιάταξη για ViewMode.both
   Future<void> reorderCombined(List<int> itemIds) async {
-    await ref.read(dbProvider).items.reorderCombined(itemIds);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).items.reorderCombined(itemIds);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.reorderCombined', e, s);
+    }
   }
 }
 

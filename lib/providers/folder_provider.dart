@@ -58,18 +58,22 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
         String? color,
         int? parentFolderId,
       }) async {
-    final wsId = ref.read(activeWorkspaceIdProvider);
-    if (wsId == null) return;
-    await ref.read(dbProvider).folders.create(
-      name:            name,
-      workspaceId:     wsId,
-      icon:            icon,
-      color:           color,
-      parentFolderId:  parentFolderId,
-    );
-    ref.invalidateSelf();
-    ref.invalidate(foldersStreamProvider);
-    ref.invalidate(foldersProvider);
+    try {
+      final wsId = ref.read(activeWorkspaceIdProvider);
+      if (wsId == null) return;
+      await ref.read(dbProvider).folders.create(
+        name:            name,
+        workspaceId:     wsId,
+        icon:            icon,
+        color:           color,
+        parentFolderId:  parentFolderId,
+      );
+      ref.invalidateSelf();
+      ref.invalidate(foldersStreamProvider);
+      ref.invalidate(foldersProvider);
+    } catch (e, s) {
+      DebugConfig.error('FolderNotifier.create', e, s);
+    }
   }
 
   Future<void> delete(int id) async {
@@ -98,18 +102,26 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
     }
 
     // Δεν έχει περιεχόμενο – προχώρα στη διαγραφή
-    await db.folders.delete(id);
-    ref.invalidateSelf();
-    ref.invalidate(foldersStreamProvider);
-    ref.invalidate(foldersProvider);
+    try {
+      await db.folders.delete(id);
+      ref.invalidateSelf();
+      ref.invalidate(foldersStreamProvider);
+      ref.invalidate(foldersProvider);
+    } catch (e, s) {
+      DebugConfig.error('FolderNotifier.delete', e, s);
+    }
   }
 
   /// Αναδιάταξη φακέλων (drag & drop)
   Future<void> reorderFolders(List<Folder> newOrder) async {
-    await ref.read(dbProvider).folders.reorder(newOrder);
-    ref.invalidateSelf();
-    ref.invalidate(foldersStreamProvider);
-    ref.invalidate(foldersProvider);
+    try {
+      await ref.read(dbProvider).folders.reorder(newOrder);
+      ref.invalidateSelf();
+      ref.invalidate(foldersStreamProvider);
+      ref.invalidate(foldersProvider);
+    } catch (e, s) {
+      DebugConfig.error('FolderNotifier.reorderFolders', e, s);
+    }
   }
 
   Future<void> rename(int id, {
@@ -117,15 +129,19 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
     String? icon,
     String? color,
   }) async {
-    await ref.read(dbProvider).folders.update(
-      id,
-      name:  name,
-      icon:  icon,
-      color: color,
-    );
-    ref.invalidateSelf();
-    ref.invalidate(foldersStreamProvider);
-    ref.invalidate(foldersProvider);
+    try {
+      await ref.read(dbProvider).folders.update(
+        id,
+        name:  name,
+        icon:  icon,
+        color: color,
+      );
+      ref.invalidateSelf();
+      ref.invalidate(foldersStreamProvider);
+      ref.invalidate(foldersProvider);
+    } catch (e, s) {
+      DebugConfig.error('FolderNotifier.rename', e, s);
+    }
   }
 }
 

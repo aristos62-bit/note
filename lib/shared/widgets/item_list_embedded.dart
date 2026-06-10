@@ -389,7 +389,7 @@ class _EmbeddedItemListBody extends ConsumerWidget {
     if (oldIndex == newIndex) return;
     final reordered = List<Item>.from(items);
     final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+    reordered.insert(newIndex, item);
     ref.read(itemNotifierProvider.notifier).reorder(reordered);
   }
 

@@ -444,7 +444,7 @@ class _FilteredEntriesList extends ConsumerWidget {
         if (oldIndex == newIndex) return;
         final reordered = List<Item>.from(entries);
         final item = reordered.removeAt(oldIndex);
-        reordered.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, item);
+        reordered.insert(newIndex, item);
         ref.read(itemNotifierProvider.notifier).reorder(reordered);
       },
       itemBuilder: (ctx, entry, index) => _EntryCard(
