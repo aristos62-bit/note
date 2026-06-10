@@ -87,55 +87,61 @@ class TagChip extends StatelessWidget {
         DebugConfig.print('TagChip.onTap name="$name" selected=${!selected}');
         onTap!();
       },
-      child: AnimatedContainer(
-        duration: AppDuration.fast,
-        padding: onDelete != null
-            ? padding.copyWith(right: 4)
-            : padding,
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(AppRadius.chip),
-          border: Border.all(color: borderColor, width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Dot χρώματος (αν έχει custom color)
-            if (color != null) ...[
-              Container(
-                width: compact ? 6 : 8,
-                height: compact ? 6 : 8,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  shape: BoxShape.circle,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240),
+        child: AnimatedContainer(
+          duration: AppDuration.fast,
+          padding: onDelete != null
+              ? padding.copyWith(right: 4)
+              : padding,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(AppRadius.chip),
+            border: Border.all(color: borderColor, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Dot χρώματος (αν έχει custom color)
+              if (color != null) ...[
+                Container(
+                  width: compact ? 6 : 8,
+                  height: compact ? 6 : 8,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+
+              // Label — Flexible ώστε να κάνει wrap αντί να μεγαλώνει το chip
+              Flexible(
+                child: Text(
+                  name,
+                  softWrap: true,
+                  style: (compact ? context.labelSm : context.labelMd)
+                      .withColor(textColor),
                 ),
               ),
-              const SizedBox(width: 4),
-            ],
 
-            // Label
-            Text(
-              name,
-              style: (compact ? context.labelSm : context.labelMd)
-                  .withColor(textColor),
-            ),
-
-            // Delete button
-            if (onDelete != null) ...[
-              const SizedBox(width: 2),
-              GestureDetector(
-                onTap: () {
-                  DebugConfig.print('TagChip.onDelete name="$name"');
-                  onDelete!();
-                },
-                child: Icon(
-                  Icons.close_rounded,
-                  size: compact ? 12 : 14,
-                  color: textColor.withValues(alpha:0.7),
+              // Delete button (πάντα ορατό, εκτός Flexible)
+              if (onDelete != null) ...[
+                const SizedBox(width: 2),
+                GestureDetector(
+                  onTap: () {
+                    DebugConfig.print('TagChip.onDelete name="$name"');
+                    onDelete!();
+                  },
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: compact ? 12 : 14,
+                    color: textColor.withValues(alpha:0.7),
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

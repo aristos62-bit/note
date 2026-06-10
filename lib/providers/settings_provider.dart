@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/notification_service.dart';
 import '../services/reminder_scheduler.dart';
 import 'db_provider.dart';
+import '../core/utils/debug_config.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Settings — Reactive Stream (ενημερώνει το UI αμέσως)
@@ -29,7 +30,8 @@ Map<String, String?> _itemTypeColorsFromJson(String? json) {
     final decoded = jsonDecode(json);
     if (decoded is! Map) return {};
     return decoded.map((k, v) => MapEntry(k.toString(), v?.toString()));
-  } catch (_) {
+  } catch (e, s) {
+    DebugConfig.error('settings._itemTypeColorsFromJson', e, s);
     return {};
   }
 }
@@ -43,7 +45,8 @@ Color? _parseHexColor(String? hex) {
   try {
     final clean = hex.replaceFirst('#', '');
     return Color(int.parse('FF$clean', radix: 16));
-  } catch (_) {
+  } catch (e, s) {
+    DebugConfig.error('settings._parseHexColor', e, s);
     return null;
   }
 }
@@ -62,8 +65,12 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   /// ΣΗΜΑΝΤΙΚΟ: Ονομάζεται updateSettings() και ΟΧΙ update()
   /// γιατί το AsyncNotifier έχει built-in update() που θα συγκρουόταν.
   Future<void> updateSettings(void Function(AppSettings) updater) async {
-    await ref.read(dbProvider).settings.update(updater);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).settings.update(updater);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('SettingsNotifier.updateSettings', e, s);
+    }
   }
 
   // ── Convenience methods ─────────────────────────────────
@@ -78,11 +85,15 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       updateSettings((s) => s.defaultView = view);
 
   Future<void> toggleNotifications(bool enabled) async {
-    await updateSettings((s) => s.notificationsEnabled = enabled);
-    if (enabled) {
-      await ReminderScheduler.instance.scheduleAll();
-    } else {
-      await NotificationService.instance.cancelAll();
+    try {
+      await updateSettings((s) => s.notificationsEnabled = enabled);
+      if (enabled) {
+        await ReminderScheduler.instance.scheduleAll();
+      } else {
+        await NotificationService.instance.cancelAll();
+      }
+    } catch (e, s) {
+      DebugConfig.error('SettingsNotifier.toggleNotifications', e, s);
     }
   }
 
@@ -102,15 +113,19 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       updateSettings((s) => s.accentColor = hex);
 
   Future<void> setItemTypeColor(ItemType type, String? hex) async {
-    await updateSettings((s) {
-      final map = _itemTypeColorsFromJson(s.itemTypeColorsJson);
-      if (hex == null) {
-        map.remove(type.name);
-      } else {
-        map[type.name] = hex;
-      }
-      s.itemTypeColorsJson = map.isEmpty ? null : _itemTypeColorsToJson(map);
-    });
+    try {
+      await updateSettings((s) {
+        final map = _itemTypeColorsFromJson(s.itemTypeColorsJson);
+        if (hex == null) {
+          map.remove(type.name);
+        } else {
+          map[type.name] = hex;
+        }
+        s.itemTypeColorsJson = map.isEmpty ? null : _itemTypeColorsToJson(map);
+      });
+    } catch (e, s) {
+      DebugConfig.error('SettingsNotifier.setItemTypeColor', e, s);
+    }
   }
 }
 

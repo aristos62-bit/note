@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/attachment.dart';
 import 'db_provider.dart';
+import '../core/utils/debug_config.dart';
 
 /// Attachments ενός item
 final attachmentsProvider =
@@ -26,23 +27,31 @@ class AttachmentNotifier
     int? width,
     int? height,
   }) async {
-    await ref.read(dbProvider).attachments.create(
-      itemId: arg,
-      fileName: fileName,
-      localPath: localPath,
-      mimeType: mimeType,
-      fileSize: fileSize,
-      blockId: blockId,
-      thumbnailPath: thumbnailPath,
-      width: width,
-      height: height,
-    );
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).attachments.create(
+        itemId: arg,
+        fileName: fileName,
+        localPath: localPath,
+        mimeType: mimeType,
+        fileSize: fileSize,
+        blockId: blockId,
+        thumbnailPath: thumbnailPath,
+        width: width,
+        height: height,
+      );
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('AttachmentNotifier.add', e, s);
+    }
   }
 
   Future<void> delete(int attachmentId) async {
-    await ref.read(dbProvider).attachments.delete(attachmentId);
-    ref.invalidateSelf();
+    try {
+      await ref.read(dbProvider).attachments.delete(attachmentId);
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('AttachmentNotifier.delete', e, s);
+    }
   }
 }
 

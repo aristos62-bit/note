@@ -62,43 +62,59 @@ class PropertyNotifier
   }
 
   Future<void> setDate(String key, DateTime? date) async {
-    if (date == null) {
-      await ref.read(dbProvider).properties.delete(arg, key);
-    } else {
-      await ref.read(dbProvider).properties.setDate(arg, key, date);
+    try {
+      if (date == null) {
+        await ref.read(dbProvider).properties.delete(arg, key);
+      } else {
+        await ref.read(dbProvider).properties.setDate(arg, key, date);
+      }
+      ref.invalidateSelf();
+      ref.invalidate(itemPropertiesProvider(arg));
+      ref.invalidate(dueDateProvider(arg));
+    } catch (e, s) {
+      DebugConfig.error('PropertyNotifier.setDate', e, s);
     }
-    ref.invalidateSelf();
-    ref.invalidate(itemPropertiesProvider(arg));
-    ref.invalidate(dueDateProvider(arg));
   }
 
   Future<void> setNumber(String key, double? value, {String? unit}) async {
-    if (value == null) {
-      await ref.read(dbProvider).properties.delete(arg, key);
-    } else {
-      await ref.read(dbProvider).properties.setNumber(arg, key, value,
-          unit: unit);
+    try {
+      if (value == null) {
+        await ref.read(dbProvider).properties.delete(arg, key);
+      } else {
+        await ref.read(dbProvider).properties.setNumber(arg, key, value,
+            unit: unit);
+      }
+      ref.invalidateSelf();
+      ref.invalidate(itemPropertiesProvider(arg));
+    } catch (e, s) {
+      DebugConfig.error('PropertyNotifier.setNumber', e, s);
     }
-    ref.invalidateSelf();
-    ref.invalidate(itemPropertiesProvider(arg));
   }
 
   Future<void> setText(String key, String? value) async {
-    if (value == null || value.isEmpty) {
-      await ref.read(dbProvider).properties.delete(arg, key);
-    } else {
-      await ref.read(dbProvider).properties
-          .set(itemId: arg, key: key, value: value);
+    try {
+      if (value == null || value.isEmpty) {
+        await ref.read(dbProvider).properties.delete(arg, key);
+      } else {
+        await ref.read(dbProvider).properties
+            .set(itemId: arg, key: key, value: value);
+      }
+      ref.invalidateSelf();
+      ref.invalidate(itemPropertiesProvider(arg));
+    } catch (e, s) {
+      DebugConfig.error('PropertyNotifier.setText', e, s);
     }
-    ref.invalidateSelf();
-    ref.invalidate(itemPropertiesProvider(arg));
   }
 
   Future<void> remove(String key) async {
-    await ref.read(dbProvider).properties.delete(arg, key);
-    ref.invalidateSelf();
-    ref.invalidate(itemPropertiesProvider(arg));
-    ref.invalidate(dueDateProvider(arg));
+    try {
+      await ref.read(dbProvider).properties.delete(arg, key);
+      ref.invalidateSelf();
+      ref.invalidate(itemPropertiesProvider(arg));
+      ref.invalidate(dueDateProvider(arg));
+    } catch (e, s) {
+      DebugConfig.error('PropertyNotifier.remove', e, s);
+    }
   }
 }
 

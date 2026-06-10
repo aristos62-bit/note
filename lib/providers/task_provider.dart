@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import 'providers.dart';
+import '../core/utils/debug_config.dart';
 
 /// Επεκτείνει ένα Item με dueDate, tags, parentId και subtasks
 class TaskWithDetails {
@@ -84,7 +85,9 @@ final tasksWithDetailsProvider = StreamProvider<List<TaskWithDetails>>((ref) asy
       yield withSubtasks;
     },
     loading: () async* {},
-    error:   (_, __) async* {},
+    error: (e, s) async* {
+      DebugConfig.error('tasksWithDetailsProvider.stream', e, s);
+    },
   );
 });
 
@@ -97,6 +100,8 @@ StreamProvider.family<List<Item>, int>((ref, parentId) async* {
       yield td?.subtasks ?? [];
     },
     loading: () async* {},
-    error:   (_, __) async* {},
+    error: (e, s) async* {
+      DebugConfig.error('tasksWithDetailsProvider.stream', e, s);
+    },
   );
 });

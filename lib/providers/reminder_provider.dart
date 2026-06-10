@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/reminder.dart';
 import 'db_provider.dart';
+import '../core/utils/debug_config.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Reminders
@@ -40,34 +41,50 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
     String? title,
     String? body,
   }) async {
-    await ref.read(dbProvider).reminders.create(
-      itemId: arg,
-      triggerAt: triggerAt,
-      rrule: rrule,
-      title: title,
-      body: body,
-    );
-    ref.invalidateSelf();
-    // Ενημέρωσε και τα pending
-    ref.invalidate(pendingRemindersProvider);
+    try {
+      await ref.read(dbProvider).reminders.create(
+        itemId: arg,
+        triggerAt: triggerAt,
+        rrule: rrule,
+        title: title,
+        body: body,
+      );
+      ref.invalidateSelf();
+      // Ενημέρωσε και τα pending
+      ref.invalidate(pendingRemindersProvider);
+    } catch (e, s) {
+      DebugConfig.error('ReminderNotifier.create', e, s);
+    }
   }
 
   Future<void> snooze(int reminderId, Duration duration) async {
-    await ref.read(dbProvider).reminders.snooze(reminderId, duration);
-    ref.invalidateSelf();
-    ref.invalidate(pendingRemindersProvider);
+    try {
+      await ref.read(dbProvider).reminders.snooze(reminderId, duration);
+      ref.invalidateSelf();
+      ref.invalidate(pendingRemindersProvider);
+    } catch (e, s) {
+      DebugConfig.error('ReminderNotifier.snooze', e, s);
+    }
   }
 
   Future<void> delete(int reminderId) async {
-    await ref.read(dbProvider).reminders.delete(reminderId);
-    ref.invalidateSelf();
-    ref.invalidate(pendingRemindersProvider);
+    try {
+      await ref.read(dbProvider).reminders.delete(reminderId);
+      ref.invalidateSelf();
+      ref.invalidate(pendingRemindersProvider);
+    } catch (e, s) {
+      DebugConfig.error('ReminderNotifier.delete', e, s);
+    }
   }
 
   Future<void> markSent(int reminderId) async {
-    await ref.read(dbProvider).reminders.markSent(reminderId);
-    ref.invalidateSelf();
-    ref.invalidate(pendingRemindersProvider);
+    try {
+      await ref.read(dbProvider).reminders.markSent(reminderId);
+      ref.invalidateSelf();
+      ref.invalidate(pendingRemindersProvider);
+    } catch (e, s) {
+      DebugConfig.error('ReminderNotifier.markSent', e, s);
+    }
   }
 }
 

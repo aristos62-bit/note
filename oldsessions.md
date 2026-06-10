@@ -1630,9 +1630,22 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 | `cancelAllForItem()` | try-catch |
 | `debouncedRefreshRecurringReminders()` | try-catch στο Timer callback |
 
-**4. `habit_service.dart`** — **ΕΚΚΡΕΜΕΙ**
-- ~13 public methods χωρίς προστασία (οι πιο κρίσιμες: incrementProgress, decrementProgress, getStats, setRecurrence)
-- Απαιτεί προσεκτικότερη αντιμετώπιση λόγω data mutation
+**4. `habit_service.dart`** ✅ (10-06-2026, συνέχεια session)
+| Μέθοδος | Return | Προστασία | Στρατηγική |
+|---------|:------:|:---------:|------------|
+| `incrementProgress` | `HabitStats` | try→catch → `_emptyStats()` | **Επιλογή 3** — fallback αντί rethrow |
+| `incrementByTime` | `HabitStats` | try→catch → `_emptyStats()` | Επιλογή 3 |
+| `decrementByTime` | `HabitStats` | try→catch → `_emptyStats()` | Επιλογή 3 |
+| `decrementProgress` | `HabitStats` | try→catch → `_emptyStats()` | Επιλογή 3 |
+| `markCompleted` | `HabitStats` | Ήδη ασφαλές (delegate σε incrementProgress) | — |
+| `getStats` | `HabitStats` | try→catch → `_emptyStats()` | Επιλογή 3 |
+| `setGoal` | `void` | try→catch (log only) | Βασικό pattern |
+| `setUnit` | `void` | try→catch (log only) | Βασικό pattern |
+| `setRecurrence` | `void` | try→catch (log only) | Βασικό pattern |
+| `setReminderTime` | `void` | try→catch (log only) | Βασικό pattern |
+| `setReminderTimes` | `void` | try→catch (log only) | Βασικό pattern |
+
+**Κρίσιμο εύρημα:** Κανένας caller δεν χρησιμοποιεί το return value των mutation μεθόδων (`incrementProgress`, `decrementProgress`, `incrementByTime`). Το UI ανανεώνεται μέσω `ref.invalidate(habitStatsProvider)` → `getStats`. Ο μόνος caller που χρησιμοποιεί return value είναι το `habit_provider.dart:21` (`getStats`). Επομένως το fallback `_emptyStats()` έχει **μηδενική λειτουργική επίπτωση** — το UI απλά δείχνει 0 προσωρινά και στην επόμενη invalidation ξαναδιαβάζει από DB.
 
 ### Αρχεία που άλλαξαν
 | Αρχείο | Αλλαγή |
@@ -1640,15 +1653,225 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 | `lib/services/share_service.dart` | try-catch σε shareItem |
 | `lib/services/notification_service.dart` | try-catch σε 7 methods |
 | `lib/services/reminder_scheduler.dart` | try-catch σε 8 methods |
+| `lib/services/habit_service.dart` | try-catch σε 10/11 public methods + `_emptyStats()` helper |
 
 ### Backups
 - `backups/share_service.dart.backup.20260610`
 - `backups/notification_service.dart.backup.20260610`
 - `backups/reminder_scheduler.dart.backup.20260610`
+- `backups/habit_service.dart.backup.20260610`
 
 ### Αποτελέσματα
-- `flutter analyze` — **No issues found** (ελέγχθηκε μετά από κάθε αλλαγή)
+- `flutter analyze` (full project) — **No issues found** ✅
+- **Layer 3 (Service Resilience) πλήρης** — 4/4 services protected
+- Ελέγχθηκε ότι όλοι οι callers είναι συμβατοί με Επιλογή 3 (fallback)
 
 ### Επόμενο βήμα
-- habit_service.dart: try-catch protection για ~13 public methods
+- Release build + device test για επαλήθευση όλων των services
+- Δοκιμή habit increment/decrement/settings μετά τα try-catch
+
+---
+
+## Session 31 — 10-06-2026 (Provider try-catch + Subtask race condition fix)
+
+### Στόχος
+1. Προσθήκη try-catch protection σε providers (Layer 2)
+2. Διόρθωση subtask race condition (εξαφάνιση/flicker subtask)
+
+### Μέρος 1: Provider try-catch (10 βήματα — χάθηκαν από restore)
+
+Προστέθηκαν try-catch σε 10 provider files (ο χρήστης τα επιβεβαίωσε όλα με `flutter analyze — No issues found`):
+
+| Βήμα | Αρχείο | Αλλαγές | Status πριν revert |
+|:----:|--------|---------|:------------------:|
+| 1 | `item_provider.dart` | try-catch σε 10 methods + import `debug_config.dart` | ✅ |
+| 2 | `property_provider.dart` | try-catch σε 4 methods (`setDate`, `setNumber`, `setText`, `remove`) | ✅ |
+| 3 | `block_provider.dart` | try-catch σε 5 methods + import | ✅ |
+| 4 | `settings_provider.dart` | try-catch σε 3 methods + fix 2 silent catches + import | ✅ |
+| 5 | `folder_provider.dart` | try-catch σε 4 methods (delete: μόνο στο db.delete()) | ✅ |
+| 6 | `tag_provider.dart` | try-catch σε 3 methods + import | ✅ |
+| 7 | `reminder_provider.dart` | try-catch σε 4 methods + import | ✅ |
+| 8 | `attachment_provider.dart` | try-catch σε 2 methods + import | ✅ |
+| 9 | `workspace_provider.dart` | try-catch σε 1 method + import | ✅ |
+| 10 | `task_provider.dart` + `item_provider.dart` | 3 silent `(_, __)` → `DebugConfig.error` | ✅ |
+
+**Κατάσταση:** Όλες οι αλλαγές χάθηκαν όταν ο χρήστης έκανε restore backup.
+**Σημείωση:** Τα stashes (`git stash`) έγιναν pop/drop — δεν υπάρχουν πλέον.
+
+### Μέρος 2: Subtask race condition investigation
+
+**Πρόβλημα:** Όταν προστίθενται subtasks σε μια εργασία, το προηγούμενο subtask εξαφανίζεται/flicker μέχρι να προστεθεί το επόμενο.
+
+**Διάγνωση (git archaeology):**
+1. Έλεγχος σε commit `fec0c30` (πριν από ΟΛΕΣ τις αλλαγές μας): **bug αναπαράγεται** ✅
+2. Provider try-catch stashed → build with original providers: **bug αναπαράγεται** ✅
+3. `habit_service.dart` reverted to original: **bug αναπαράγεται** ✅
+
+**Συμπέρασμα:** Το bug ΕΙΝΑΙ pre-existing race condition, ΔΕΝ προκλήθηκε από καμία δική μας αλλαγή.
+
+### Root cause analysis
+
+**Ροή `_addSubtask()`** (`task_detail_screen.dart:927`):
+
+```
+1. await create(ItemType.task, title)     ← writeTxn #1 (γράφει Item)
+2.   └→ Isar stream: microtask fires      ← tasksWithDetailsProvider rebuilds
+3.   └→ queries itemPropertiesProvider     ← parent_id ΔΕΝ υπάρχει ακόμα!
+4.   └→ YIELDS subtask without parent_id   ← flicker/εξαφάνιση
+5. await setText('parent_id', ...)         ← writeTxn #2 (γράφει Property)
+6. ref.invalidate(subtasksStreamProvider)  ← αλλά tasksStreamProvider ΔΕΝ re-emits
+```
+
+**Αιτία:** Δύο ξεχωριστά `writeTxn` με ενδιάμεσο Isar watcher emission που βλέπει ημιτελή δεδομένα.
+
+### Fix: Atomic writeTxn στο `ItemNotifier.create()`
+
+**Αρχεία που άλλαξαν:**
+
+**`lib/providers/item_provider.dart`:**
+- Import: `'../models/item.dart'` → `'../models/models.dart'` (για ItemProperty)
+- `create()` method: νέο param `Map<String, String>? initialProperties`
+- Αντί για `db.items.create()` + ξεχωριστό writeTxn, χρησιμοποιεί `isar.writeTxn()` για atomic write BOTH item + properties
+- `flutter analyze` ✅
+
+**`lib/features/tasks/task_detail_screen.dart`:**
+- `_addSubtask()`: αφαίρεση `newItem` capture + `setText('parent_id', ...)`
+- Αντικατάσταση με `create(..., initialProperties: {'parent_id': widget.parentId.toString()})`
+- `flutter analyze` ✅
+
+**Backups:**
+- `backups/item_provider.dart.bak`
+- `backups/task_detail_screen.dart.bak`
+
+### Αποτελέσματα
+- Subtask fix tested on device: **λειτουργεί** — subtasks "111", "222", "333", "444", "555" προστέθηκαν χωρίς flicker ✅
+- Notifications tested: reminder create/edit/delete λειτουργούν κανονικά ✅
+- `flutter analyze` — **No issues found** ✅
+
+### Τρέχουσα κατάσταση αρχείων
+| Αρχείο | Κατάσταση |
+|--------|:---------:|
+| `item_provider.dart` | Atomic create (fix) ✅ — ΧΩΡΙΣ try-catch |
+| `property_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `task_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `block_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `settings_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `folder_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `tag_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `reminder_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `attachment_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `workspace_provider.dart` | Original — ΧΩΡΙΣ try-catch |
+| `habit_service.dart` | Έχει try-catch από Session 30 ✅ |
+
+### Επόμενο βήμα (Session 32)
+- **Επαναφορά try-catch και στα 10 provider files** (με τη σειρά που έγιναν):
+  1. `item_provider.dart` — 10 methods
+  2. `property_provider.dart` — 4 methods
+  3. `block_provider.dart` — 5 methods
+  4. `settings_provider.dart` — 3 methods + fix 2 silent catches
+  5. `folder_provider.dart` — 4 methods
+  6. `tag_provider.dart` — 3 methods
+  7. `reminder_provider.dart` — 4 methods
+  8. `attachment_provider.dart` — 2 methods
+  9. `workspace_provider.dart` — 1 method
+  10. `task_provider.dart` — 3 silent → DebugConfig.error
+
+---
+
+## Session 32 — 10-06-2026 (Provider try-catch Protection — Μέρος 1)
+
+### Στόχος
+Επαναφορά try-catch protection σε provider files (από Session 31 που χάθηκαν λόγω restore).
+
+### Τι έγινε
+
+**1. `item_provider.dart`** ✅
+- Backup: `backups/item_provider.dart.backup.20260610`
+- Import: `debug_config.dart`
+- try-catch σε 11 methods: `build`, `create`, `updateItem`, `deleteItem`, `restoreItem`, `permanentDelete`, `reorder`, `moveToFolder`, `reorderPinned`, `reorderFavorites`, `reorderCombined`
+- `flutter analyze` — No issues found ✅
+- Device test: create/edit/favorite/pin/drag-drop/archive/unarchive/delete/subtasks — **όλα λειτουργούν**, 0 ❌ ERR logs
+
+**2. `property_provider.dart`** ✅
+- Backup: `backups/property_provider.dart.backup.20260610`
+- Import `debug_config.dart` ήδη υπήρχε
+- try-catch σε 4 methods: `setDate`, `setNumber`, `setText`, `remove`
+- `flutter analyze` — No issues found ✅
+- Device test: task due_date change, contact phone/email save, appointment date/time — **όλα κανονικά**, 0 ❌ ERR logs
+
+**3. `block_provider.dart`** ✅
+- Backup: `backups/block_provider.dart.backup.20260610`
+- Import: `debug_config.dart` (προστέθηκε)
+- try-catch σε 5 methods: `addBlock`, `updateText`, `toggleCheck`, `delete`, `reorder`
+- `flutter analyze` — No issues found ✅
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `lib/providers/item_provider.dart` | try-catch 11 methods + import debug_config |
+| `lib/providers/property_provider.dart` | try-catch 4 methods |
+| `lib/providers/block_provider.dart` | try-catch 5 methods + import debug_config |
+
+### Επόμενο βήμα
+- `settings_provider.dart` — 3 methods + fix 2 silent catches
+- `folder_provider.dart` — 4 methods
+- `tag_provider.dart` — 3 methods
+- `reminder_provider.dart` — 4 methods
+- `attachment_provider.dart` — 2 methods
+- `workspace_provider.dart` — 1 method
+- `task_provider.dart` — 3 silent → DebugConfig.error
+
+---
+
+## Session 33 — 10-06-2026 (Reorder bugs + HomeFolderView fix)
+
+### Στόχος
+Διόρθωση προβλημάτων reorder (last-position + pinned/favorites + εξαφάνιση item) και συνέχεια try-catch protection σε providers.
+
+### Προβλήματα που διορθώθηκαν
+
+**Bug 1 — Reorder last-position (7 files)**
+- Αφαίρεση `newIndex > oldIndex ? newIndex - 1 : newIndex` από 7 files:
+  - `item_list_screen.dart`, `item_list_embedded.dart`, `folder_browser_screen.dart`
+  - `habit_list_screen.dart`, `home_folder_view.dart`, `task_list_screen.dart`
+  - `collection_entries_screen.dart`
+- Αιτία: `reorderable_grid` v1.0.13 `onReorderItem` αναφέρει `newIndex` στη **modified** λίστα (όχι αρχική) — δεν χρειάζεται adjustment
+
+**Bug 2 — Category sorting + pinned/fav protection**
+- `super_note_helper.dart`: νέα `_sortByCategory()` (Pinned → Favorites → Others by sortOrder)
+- Εφαρμογή σε: `watchByWorkspace()`, `watchByFolder()`, `getByWorkspace()`, `getByFolder()`
+- `reorder()`: αγνοεί pinned/favorite items (δεν αλλάζει sortOrder)
+
+**Bug fix — HomeFolderView item disappearance**
+- Διάγνωση: Η `_buildItemsList` δεχόταν **filtered subset** (π.χ. `take(10)` σε Recent mode) και το `reorder()` άλλαζε sortOrder μόνο σε αυτά
+- **Fix by user**: Στο `onReorder` της `HomeFolderView`, η αναδιάταξη γίνεται στην **πλήρη `allItems` λίστα**, και στέλνεται ολόκληρη στο `reorder()`
+- Αποτέλεσμα: όλα τα items του folder έχουν συνεπή sortOrder, χωρίς εξαφανίσεις
+
+### try-catch protection (συνέχεια Session 32 — 7 providers)
+| Provider | Methods | Import |
+|----------|:-------:|:------:|
+| `settings_provider.dart` | 3 + fix 2 silent catches (`_itemTypeColorsFromJson`, `_parseHexColor`) | ✅ |
+| `folder_provider.dart` | 4 (delete: try-catch μόνο στο db.delete) | ήδη υπήρχε |
+| `tag_provider.dart` | 3 (createOrGet, addToItem, removeFromItem) | ✅ |
+| `reminder_provider.dart` | 4 (create, snooze, delete, markSent) | ✅ |
+| `attachment_provider.dart` | 2 (add, delete) | ✅ |
+| `workspace_provider.dart` | 1 (create) | ✅ |
+| `task_provider.dart` | 2 silent error handlers → `DebugConfig.error` | ✅ |
+
+### TagChip — Text wrap fix
+- **Πρόβλημα**: Όταν το όνομα tag ήταν πολύ μακρύ, το chip μεγάλωνε οριζόντια χωρίς όριο και το delete "X" έβγαινε εκτός οθόνης
+- **Αιτία**: `Row(mainAxisSize: MainAxisSize.min)` χωρίς `Flexible` στο `Text` — το κείμενο είχε unbounded width
+- **Fix** (`tag_chip.dart`):
+  - `Text` τυλίχτηκε σε `Flexible` — περιορίζεται στο διαθέσιμο πλάτος
+  - `ConstrainedBox(maxWidth: 240)` στο `AnimatedContainer` — το chip δεν ξεπερνά τα 240dp
+  - `softWrap: true` στο Text — το κείμενο κάνει wrap σε νέες γραμμές
+  - Το delete "X" παραμένει πάντα ορατό (εκτός Flexible)
+
+### Backups
+- `backups/` — 7 provider backups + `tag_chip.dart.backup.20260610`
+
+### Αποτελέσματα
+- `flutter analyze` — **No issues found**
+- `flutter build apk --debug` — **Επιτυχές**
+- Device test: settings (theme, language, notifications, fontScale), folders (create, delete), tags (add, remove), tasks (list, detail, subtask toggle) — **όλα λειτουργούν**, 0 ❌ ERR logs
 

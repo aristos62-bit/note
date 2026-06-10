@@ -466,7 +466,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
                           final reordered = List<Item>.from(filteredItems);
                           final moved = reordered.removeAt(oldIdx);
                           reordered.insert(
-                            newIdx > oldIdx ? newIdx - 1 : newIdx,
+                            newIdx,
                             moved,
                           );
                           ref.read(itemNotifierProvider.notifier).reorder(reordered);

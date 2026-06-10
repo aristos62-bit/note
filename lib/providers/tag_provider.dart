@@ -4,6 +4,7 @@ import '../models/tag.dart';
 import '../models/item.dart';
 import 'db_provider.dart';
 import 'workspace_provider.dart';
+import '../core/utils/debug_config.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Tags
@@ -45,28 +46,41 @@ class TagNotifier extends AsyncNotifier<List<Tag>> {
   }
 
   Future<Tag?> createOrGet(String name, {String? color}) async {
-    final wsId = ref.read(activeWorkspaceIdProvider);
-    if (wsId == null) return null;
-    final tag = await ref.read(dbProvider).tags.createOrGet(
-      name,
-      wsId,
-      color: color,
-    );
-    ref.invalidateSelf();
-    return tag;
+    try {
+      final wsId = ref.read(activeWorkspaceIdProvider);
+      if (wsId == null) return null;
+      final tag = await ref.read(dbProvider).tags.createOrGet(
+        name,
+        wsId,
+        color: color,
+      );
+      ref.invalidateSelf();
+      return tag;
+    } catch (e, s) {
+      DebugConfig.error('TagNotifier.createOrGet', e, s);
+      return null;
+    }
   }
 
   Future<void> addToItem(int itemId, int tagId) async {
-    await ref.read(dbProvider).tags.addToItem(itemId, tagId);
-    ref.invalidateSelf();
-    // Ενημέρωσε και τα tags του item
-    ref.invalidate(itemTagsProvider(itemId));
+    try {
+      await ref.read(dbProvider).tags.addToItem(itemId, tagId);
+      ref.invalidateSelf();
+      // Ενημέρωσε και τα tags του item
+      ref.invalidate(itemTagsProvider(itemId));
+    } catch (e, s) {
+      DebugConfig.error('TagNotifier.addToItem', e, s);
+    }
   }
 
   Future<void> removeFromItem(int itemId, int tagId) async {
-    await ref.read(dbProvider).tags.removeFromItem(itemId, tagId);
-    ref.invalidateSelf();
-    ref.invalidate(itemTagsProvider(itemId));
+    try {
+      await ref.read(dbProvider).tags.removeFromItem(itemId, tagId);
+      ref.invalidateSelf();
+      ref.invalidate(itemTagsProvider(itemId));
+    } catch (e, s) {
+      DebugConfig.error('TagNotifier.removeFromItem', e, s);
+    }
   }
 }
 

@@ -929,28 +929,26 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
     DebugConfig.db(
         'SubtasksSection add "${title.trim()}" parent=${widget.parentId}');
 
-    final newItem = await ref
+    await ref
         .read(itemNotifierProvider.notifier)
-        .create(type: ItemType.task, title: title.trim());
+        .create(
+          type: ItemType.task,
+          title: title.trim(),
+          initialProperties: {'parent_id': widget.parentId.toString()},
+        );
 
-    if (newItem != null) {
+    // ✅ Explicit refresh
+    ref.invalidate(subtasksStreamProvider(widget.parentId));
+
+    // Αν η εργασία ήταν ολοκληρωμένη → επαναφορά σε active
+    final parent =
+    await ref.read(itemByIdProvider(widget.parentId).future);
+    if (parent?.status == ItemStatus.done) {
       await ref
-          .read(propertyNotifierProvider(newItem.id).notifier)
-          .setText('parent_id', widget.parentId.toString());
-
-      // ✅ Explicit refresh — το setText δεν πυροδοτεί itemsStreamProvider
-      ref.invalidate(subtasksStreamProvider(widget.parentId));
-
-      // Αν η εργασία ήταν ολοκληρωμένη → επαναφορά σε active
-      final parent =
-      await ref.read(itemByIdProvider(widget.parentId).future);
-      if (parent?.status == ItemStatus.done) {
-        await ref
-            .read(itemNotifierProvider.notifier)
-            .updateItem(widget.parentId, status: ItemStatus.active);
-        DebugConfig.db(
-            'SubtasksSection: parent reverted to active (new subtask added)');
-      }
+          .read(itemNotifierProvider.notifier)
+          .updateItem(widget.parentId, status: ItemStatus.active);
+      DebugConfig.db(
+          'SubtasksSection: parent reverted to active (new subtask added)');
     }
 
     _ctrl.clear();
