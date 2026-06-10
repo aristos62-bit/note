@@ -1588,3 +1588,67 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 4. Αφαίρεση μόνο search/tags — όχι άλλες αλλαγές
 5. Κράτηση imports που χρησιμοποιούνται αλλού (`dart:convert`, `core.dart`, κλπ.)
 
+---
+
+## Session 30 — 10-06-2026 (try-catch Protection — Services Layer)
+
+### Στόχος
+Προσθήκη try-catch protection σε 4 κρίσιμα services: share_service, notification_service, reminder_scheduler, habit_service.
+
+### Μεθοδολογία
+- **Defense in depth**: try-catch ΜΕΣΑ στο service (προστατεύει όλους τους callers)
+- **catch + DebugConfig.error(e, stack)**: ποτέ silent swallow
+- **Χωρίς rethrow** για void methods (το app συνεχίζει κανονικά)
+- **Χωρίς αλλαγή return types** — 0 side effects σε callers
+- **Backup πριν από κάθε αλλαγή** + flutter analyze μετά
+
+### Τι έγινε
+
+**1. `share_service.dart`** ✅
+- `shareItem()`: try-catch γύρω από όλο το σώμα + SnackBar σε αποτυχία
+
+**2. `notification_service.dart`** ✅
+| Μέθοδος | Προστασία |
+|---------|:---------:|
+| `init()` | try-catch — αν αποτύχει, `_initialized=false` (early return σε όλες) |
+| `showImmediate()` | try-catch |
+| `schedule()` | try-catch |
+| `cancel()` | try-catch |
+| `cancelAll()` | try-catch |
+| `requestPermission()` | try-catch + return false |
+| `_createAndroidChannel()` | try-catch |
+
+**3. `reminder_scheduler.dart`** ✅
+| Μέθοδος | Προστασία |
+|---------|:---------:|
+| `scheduleAll()` | try-catch |
+| `refreshRecurringReminders()` | try-catch |
+| `deleteReminderThread()` | try-catch |
+| `deleteAllRemindersForItem()` | try-catch |
+| `scheduleReminder()` | try-catch |
+| `cancelReminder()` | try-catch |
+| `cancelAllForItem()` | try-catch |
+| `debouncedRefreshRecurringReminders()` | try-catch στο Timer callback |
+
+**4. `habit_service.dart`** — **ΕΚΚΡΕΜΕΙ**
+- ~13 public methods χωρίς προστασία (οι πιο κρίσιμες: incrementProgress, decrementProgress, getStats, setRecurrence)
+- Απαιτεί προσεκτικότερη αντιμετώπιση λόγω data mutation
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `lib/services/share_service.dart` | try-catch σε shareItem |
+| `lib/services/notification_service.dart` | try-catch σε 7 methods |
+| `lib/services/reminder_scheduler.dart` | try-catch σε 8 methods |
+
+### Backups
+- `backups/share_service.dart.backup.20260610`
+- `backups/notification_service.dart.backup.20260610`
+- `backups/reminder_scheduler.dart.backup.20260610`
+
+### Αποτελέσματα
+- `flutter analyze` — **No issues found** (ελέγχθηκε μετά από κάθε αλλαγή)
+
+### Επόμενο βήμα
+- habit_service.dart: try-catch protection για ~13 public methods
+

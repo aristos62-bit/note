@@ -73,35 +73,31 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
+    tz_data.initializeTimeZones();
+    final localTimezone = DateTime.now().timeZoneName;
     try {
-      tz_data.initializeTimeZones();
-      final localTimezone = DateTime.now().timeZoneName;
-      try {
-        tz.setLocalLocation(tz.getLocation(localTimezone));
-      } catch (_) {
-        tz.setLocalLocation(tz.getLocation('UTC'));
-      }
-
-      const androidSettings =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-
-      const iosSettings = DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      );
-
-      await _plugin.initialize(
-        const InitializationSettings(android: androidSettings, iOS: iosSettings),
-        onDidReceiveNotificationResponse: _onTap,
-        onDidReceiveBackgroundNotificationResponse: _onBackgroundTap,
-      );
-
-      await _createAndroidChannel();
-      _initialized = true;
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.init', e, stack);
+      tz.setLocalLocation(tz.getLocation(localTimezone));
+    } catch (_) {
+      tz.setLocalLocation(tz.getLocation('UTC'));
     }
+
+    const androidSettings =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+
+    await _plugin.initialize(
+      const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      onDidReceiveNotificationResponse: _onTap,
+      onDidReceiveBackgroundNotificationResponse: _onBackgroundTap,
+    );
+
+    await _createAndroidChannel();
+    _initialized = true;
   }
 
   // ─────────────────────────────────────────────────────────
@@ -126,43 +122,39 @@ class NotificationService {
 
   Future<bool> requestPermission() async {
     DebugConfig.notif('NotificationService.requestPermission: called');
-    try {
-      final android = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
-      final ios = _plugin.resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin>();
 
-      if (android != null) {
-        DebugConfig.notif('NotificationService.requestPermission: android impl found');
-        final result = await android.requestNotificationsPermission() ?? false;
-        DebugConfig.notif(
-          'NotificationService.requestPermission: android result=$result',
-        );
-        return result;
-      }
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final ios = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
 
-      if (ios != null) {
-        DebugConfig.notif('NotificationService.requestPermission: iOS impl found');
-        final result = await ios.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        ) ??
-            false;
-        DebugConfig.notif(
-          'NotificationService.requestPermission: iOS result=$result',
-        );
-        return result;
-      }
-
+    if (android != null) {
+      DebugConfig.notif('NotificationService.requestPermission: android impl found');
+      final result = await android.requestNotificationsPermission() ?? false;
       DebugConfig.notif(
-        'NotificationService.requestPermission: no platform-specific impl, returning false',
+        'NotificationService.requestPermission: android result=$result',
       );
-      return false;
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.requestPermission', e, stack);
-      return false;
+      return result;
     }
+
+    if (ios != null) {
+      DebugConfig.notif('NotificationService.requestPermission: iOS impl found');
+      final result = await ios.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      ) ??
+          false;
+      DebugConfig.notif(
+        'NotificationService.requestPermission: iOS result=$result',
+      );
+      return result;
+    }
+
+    DebugConfig.notif(
+      'NotificationService.requestPermission: no platform-specific impl, returning false',
+    );
+    return false;
   }
 
 
@@ -179,15 +171,11 @@ class NotificationService {
     bool vibration = true,
   }) async {
     if (!_initialized) return;
-    try {
-      await _plugin.show(
-        id, title, body,
-        _details(sound: sound, vibration: vibration),
-        payload: payload,
-      );
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.showImmediate', e, stack);
-    }
+    await _plugin.show(
+      id, title, body,
+      _details(sound: sound, vibration: vibration),
+      payload: payload,
+    );
   }
 
   Future<void> schedule({
@@ -200,60 +188,45 @@ class NotificationService {
     bool vibration = true,
   }) async {
     if (!_initialized) return;
-    try {
-      await _plugin.zonedSchedule(
-        id,
-        title,
-        body,
-        tz.TZDateTime.from(scheduledAt, tz.local),
-        _details(sound: sound, vibration: vibration),
-        payload: payload,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.schedule', e, stack);
-    }
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledAt, tz.local),
+      _details(sound: sound, vibration: vibration),
+      payload: payload,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+      UILocalNotificationDateInterpretation.absoluteTime,
+    );
   }
 
   Future<void> cancel(int id) async {
     if (!_initialized) return;
-    try {
-      await _plugin.cancel(id);
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.cancel', e, stack);
-    }
+    await _plugin.cancel(id);
   }
 
   Future<void> cancelAll() async {
     if (!_initialized) return;
-    try {
-      await _plugin.cancelAll();
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.cancelAll', e, stack);
-    }
+    await _plugin.cancelAll();
   }
+
 
   // ─────────────────────────────────────────────────────────
   // PRIVATE
   // ─────────────────────────────────────────────────────────
 
   Future<void> _createAndroidChannel() async {
-    try {
-      const channel = AndroidNotificationChannel(
-        _channelId, _channelName,
-        description: _channelDesc,
-        importance: Importance.high,
-        enableVibration: true,
-      );
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService._createAndroidChannel', e, stack);
-    }
+    const channel = AndroidNotificationChannel(
+      _channelId, _channelName,
+      description: _channelDesc,
+      importance: Importance.high,
+      enableVibration: true,
+    );
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
   NotificationDetails _details({
