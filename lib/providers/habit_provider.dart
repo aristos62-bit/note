@@ -10,14 +10,17 @@ StreamProvider.family<Item?, int>((ref, id) {
   return db.items.watchById(id);
 });
 
-// Real-time *stats* για habit
-// ✅ ΜΕΤΑ:
+/// Real-time *stats* για habit
+// ✅ select στο updatedAt — αποφεύγει rebuild loop από property writes
 final habitStatsProvider =
 FutureProvider.family<HabitStats, int>((ref, habitId) async {
-  // Αντί για watch, χρησιμοποιούμε listen μόνο για invalidation
-  ref.listen(habitStreamProvider(habitId), (_, __) {
-    ref.invalidateSelf();
-  });
+  // Ακούμε ΜΟΝΟ το updatedAt του item — όχι κάθε property write
+  ref.listen(
+    habitStreamProvider(habitId).select(
+          (value) => value.valueOrNull?.updatedAt,
+    ),
+        (_, __) => ref.invalidateSelf(),
+  );
   final stats = await HabitService.instance.getStats(habitId);
   return stats;
 });

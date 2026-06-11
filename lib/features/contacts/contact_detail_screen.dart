@@ -424,7 +424,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
 
   Widget _buildMobile(BuildContext context, Item item) {
     final props =
-        ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
+        ref.watch(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
     final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
     final birthday = bdStr != null ? DateTime.tryParse(bdStr) : null;
 
@@ -462,7 +462,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
 
   Widget _buildTablet(BuildContext context, Item item) {
     final props =
-        ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
+        ref.watch(itemPropertiesProvider(widget.itemId)).valueOrNull ?? [];
     final bdStr = props.where((p) => p.key == 'birthday').firstOrNull?.value;
     final birthday = bdStr != null ? DateTime.tryParse(bdStr) : null;
 

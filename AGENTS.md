@@ -61,6 +61,19 @@ lib/
 - **Soft delete**: `Item.deletedAt` — ποτέ hard delete
 - **Sync-ready**: `Item.isDirty`, `Item.localVersion`, `Item.serverVersion`, `Item.syncedAt`
 
+## Schema Migration (lib/services/migration_service.dart)
+
+- `MigrationService.ensureSchemaVersion(isar)` — καλείται στο `SuperNoteHelper.init()` μετά το `Isar.open()`
+- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`)
+- Safety backup (file copy) πριν από κάθε migration
+- Batch pagination (50 records) για αποφυγή OOM
+- Idempotent migrations — crash-safe
+
+### Πώς να προσθέσεις νέο migration
+1. Αύξησε `_targetVersion` στο `migration_service.dart`
+2. Πρόσθεσε case στο `_runMigration()` switch
+3. Γράψε τη μέθοδο `_vNToVNext()` με batch pagination
+
 ## DebugConfig logging (lib/core/utils/debug_config.dart)
 
 - `DebugConfig.startup('...')` — 🚀 STARTUP +ms
@@ -117,21 +130,19 @@ lib/
 ## Session Log (τρέχουσα κατάσταση)
 
 ### Goal
-Διόρθωση προβλημάτων reorder (last-position + pinned/favorites + εξαφάνιση item) και συνέχεια try-catch protection σε providers
+Υλοποίηση App Lock (PIN + Biometric) + διόρθωση migration bug.
 
 ### Done
-- **Bug 1 — Reorder last-position** ✅ — Αφαίρεση `newIndex > oldIndex ? newIndex - 1 : newIndex` σε **7 files**
-- **Bug 2 — Category sorting + pinned/fav protection** ✅ — `_sortByCategory()` + αγνόηση pinned/fav σε `reorder()`
-- **Bug fix home_folder_view** ✅ — Χρήστης: reorder στη full `allItems` λίστα αντί filtered subset
-- **try-catch σε providers:** `item_provider.dart`(11), `property_provider.dart`(4), `block_provider.dart`(5) ✅
-
-### Remaining (try-catch providers)
-1. `settings_provider.dart` — 3 methods + fix 2 silent catches
-2. `folder_provider.dart` — 4 methods
-3. `tag_provider.dart` — 3 methods
-4. `reminder_provider.dart` — 4 methods
-5. `attachment_provider.dart` — 2 methods
-6. `workspace_provider.dart` — 1 method
-7. `task_provider.dart` — 3 silent → DebugConfig.error
+- **App Lock (PIN/Biometric)** ✅ — Πλήρης υλοποίηση με `local_auth`:
+  - Dependencies: `local_auth: ^2.3.0`, `crypto: ^3.0.6`
+  - AppSettings model: 5 πεδία (appLockEnabled, appLockPinHash, biometricEnabled, appLockPinLength, appLockTimeoutSeconds)
+  - `AppLockService` singleton — SHA-256 hashing, PIN verification, biometric auth (sticky), lock/unlock state
+  - `appLockStateProvider` — Riverpod StateProvider<bool>
+  - `LockScreen` — PIN pad (4-6 digits), biometric auto-try στο init, error handling
+  - GoRouter redirect guard — locked → /lock, unlocked → home, route εκτός ShellRoute
+  - Lifecycle auto-lock — startup lock + pause → lock() / resume observer
+  - Settings UI — toggle, set/change PIN (με confirmation dialog), biometric switch, timeout dropdown
+- **Migration bug fix** ✅ — Guard στην `ensureSchemaVersion()` για invalid/αρνητικές schema version (όταν Isar property IDs αλλάζουν από model αλλαγές, η version γίνεται negative → crash). Πλέον κάνει reset στο targetVersion αντί να μπει σε loop.
+- **Προηγούμενα (Sessions 32-38):** try-catch providers ✅, reorder bugs ✅, recurring reminder gap fix ✅
 
 
