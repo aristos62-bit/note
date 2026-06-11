@@ -204,12 +204,16 @@ class ReminderScheduler {
           rootSecond,
         );
 
-        // Ξεκινάμε από σήμερα στην ώρα trigger.
-        // Το nextOccurrence επιστρέφει ΠΑΝΤΑ μετά από το from,
-        // οπότε τα παιδιά είναι πάντα μετά την ώρα του root → όχι duplicate
-        final DateTime start = todayAtTriggerTime;
+        // Αν η σημερινή ώρα trigger δεν έχει παρέλθει ΚΑΙ είναι έγκυρη ημέρα
+        // βάσει recurrence, συμπεριλαμβάνουμε το σήμερα
+        // (το nextOccurrence επιστρέφει ΠΑΝΤΑ επόμενη περίοδο, ποτέ ίδια)
+        if (todayAtTriggerTime.isAfter(now) && _isTodayValidRecurrence(recurrence, now, root)) {
+          nextOccurrences.add(todayAtTriggerTime);
+        }
 
-        DateTime current = start;
+        DateTime current = nextOccurrences.isNotEmpty
+            ? nextOccurrences.last.add(const Duration(seconds: 1))
+            : todayAtTriggerTime;
         while (nextOccurrences.length < batchSize) {
           final next = recurrence.nextOccurrence(current);
           if (next == null) break;
@@ -272,6 +276,41 @@ class ReminderScheduler {
           'ReminderScheduler.refreshRecurringReminders', e, stack);
     }
   }
+
+  /// Ελέγχει αν το σήμερα είναι έγκυρη ημέρα βάσει recurrence
+  bool _isTodayValidRecurrence(Recurrence recurrence, DateTime now, Reminder root) {
+    switch (recurrence.type) {
+      case RecurrenceType.daily:
+      case RecurrenceType.custom:
+        return true;
+      case RecurrenceType.weekly:
+        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
+          return recurrence.days!.contains(now.weekday);
+        }
+        final diff = DateTime(now.year, now.month, now.day)
+            .difference(DateTime(
+              root.triggerAt.year, root.triggerAt.month, root.triggerAt.day))
+            .inDays;
+        return diff >= 0 && diff % (7 * recurrence.interval) == 0;
+      case RecurrenceType.monthly:
+        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
+          return recurrence.days!.contains(now.day);
+        }
+        final totalMonths = now.year * 12 + now.month - 1;
+        final rootMonths = root.triggerAt.year * 12 + root.triggerAt.month - 1;
+        return now.day == root.triggerAt.day &&
+            totalMonths >= rootMonths &&
+            (totalMonths - rootMonths) % recurrence.interval == 0;
+      case RecurrenceType.yearly:
+        if (recurrence.days != null && recurrence.days!.length == 2) {
+          return recurrence.days![0] == now.month && recurrence.days![1] == now.day;
+        }
+        return now.month == root.triggerAt.month &&
+            now.day == root.triggerAt.day &&
+            (now.year - root.triggerAt.year) % recurrence.interval == 0;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────
   // Cascade διαγραφή νήματος (ρίζα + όλα τα παιδιά)
   // ─────────────────────────────────────────────────────────

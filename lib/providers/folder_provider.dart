@@ -77,38 +77,42 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
   }
 
   Future<void> delete(int id) async {
-    final db = ref.read(dbProvider);
-    final folder = await db.folders.getById(id);
-    if (folder == null) return;
-
-    // Απαγόρευση διαγραφής system folder
-    if (folder.isSystem) {
-      throw Exception('Ο φάκελος "${folder.name}" είναι σύστημα και δεν μπορεί να διαγραφεί.');
-    }
-
-    // Έλεγχος αν υπάρχουν items μέσα
-    final itemsInFolder = await db.items.getByFolder(id);
-    if (itemsInFolder.isNotEmpty) {
-      throw Exception('Ο φάκελος "${folder.name}" περιέχει ${itemsInFolder.length} στοιχεία. Μετακινήστε ή διαγράψτε τα πρώτα.');
-    }
-
-    // Έλεγχος αν υπάρχουν υποφάκελοι
-    final subFolders = await db.folders.getByWorkspace(
-      folder.workspaceId,
-      parentId: id,
-    );
-    if (subFolders.isNotEmpty) {
-      throw Exception('Ο φάκελος "${folder.name}" περιέχει ${subFolders.length} υποφακέλους. Διαγράψτε τους πρώτα.');
-    }
-
-    // Δεν έχει περιεχόμενο – προχώρα στη διαγραφή
     try {
+      final db = ref.read(dbProvider);
+      final folder = await db.folders.getById(id);
+      if (folder == null) return;
+
+      // Απαγόρευση διαγραφής system folder
+      if (folder.isSystem) {
+        throw Exception('Ο φάκελος "${folder.name}" είναι σύστημα και δεν μπορεί να διαγραφεί.');
+      }
+
+      // Έλεγχος αν υπάρχουν items μέσα
+      final itemsInFolder = await db.items.getByFolder(id);
+      if (itemsInFolder.isNotEmpty) {
+        throw Exception('Ο φάκελος "${folder.name}" περιέχει ${itemsInFolder.length} στοιχεία. Μετακινήστε ή διαγράψτε τα πρώτα.');
+      }
+
+      // Έλεγχος αν υπάρχουν υποφάκελοι
+      final subFolders = await db.folders.getByWorkspace(
+        folder.workspaceId,
+        parentId: id,
+      );
+      if (subFolders.isNotEmpty) {
+        throw Exception('Ο φάκελος "${folder.name}" περιέχει ${subFolders.length} υποφακέλους. Διαγράψτε τους πρώτα.');
+      }
+
+      // Δεν έχει περιεχόμενο – προχώρα στη διαγραφή
       await db.folders.delete(id);
       ref.invalidateSelf();
       ref.invalidate(foldersStreamProvider);
       ref.invalidate(foldersProvider);
-    } catch (e, s) {
-      DebugConfig.error('FolderNotifier.delete', e, s);
+    } on Exception {
+      // Business logic exceptions (system folder, non-empty) — rethrow για το UI
+      rethrow;
+    } catch (e) {
+      DebugConfig.db('FolderNotifier.delete error: $e');
+      rethrow;
     }
   }
 

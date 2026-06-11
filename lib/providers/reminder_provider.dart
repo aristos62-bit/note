@@ -50,7 +50,6 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
         body: body,
       );
       ref.invalidateSelf();
-      // Ενημέρωσε και τα pending
       ref.invalidate(pendingRemindersProvider);
     } catch (e, s) {
       DebugConfig.error('ReminderNotifier.create', e, s);

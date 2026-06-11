@@ -48,5 +48,18 @@ class AppSettings {
   /// Π.χ. {"habit":"#0000FF","task":"#FF0000"}
   String? itemTypeColorsJson;
 
+  /// Έκδοση schema για migrations. Αυξάνεται όταν γίνονται breaking changes.
+  int schemaVersion = 1;
+
+  // ── App Lock ───────────────────────────────────────────────────
+  bool appLockEnabled = false;
+  String? appLockPinHash;
+  bool biometricEnabled = false;
+  /// Πόσα ψηφία έχει το PIN (4-6)
+  int appLockPinLength = 6;
+
+  /// 0 = άμεσο κλείδωμα, 300 = 5 λεπτά, κλπ.
+  int appLockTimeoutSeconds = 0;
+
   DateTime updatedAt = DateTime.now();
 }

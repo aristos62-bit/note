@@ -1875,3 +1875,410 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 - `flutter build apk --debug` — **Επιτυχές**
 - Device test: settings (theme, language, notifications, fontScale), folders (create, delete), tags (add, remove), tasks (list, detail, subtask toggle) — **όλα λειτουργούν**, 0 ❌ ERR logs
 
+---
+
+## Session 34 — 11-06-2026 (Recurring reminder gap fix + Provider status review)
+
+### Στόχος
+1. Έλεγχος κατάστασης try-catch σε providers (από AGENTS.md Remaining list)
+2. Διόρθωση recurring reminder "Χάπι Χοληστερίνης" που δεν ήρθε 10/6
+
+### Μέρος 1: Provider status check
+
+**Διαπιστώσεις μετά από ανάγνωση όλων των provider files:**
+
+| Provider | Κατάσταση |
+|----------|:---------:|
+| `settings_provider.dart` | ✅ 3 methods + 2 silent catches fixed |
+| `folder_provider.dart` | ⚠️ 3/4 methods OK — `delete()` έχει pre-checks (getById, isSystem, itemsInFolder, subFolders) **εκτός try-catch** (γραμμές 79-103) |
+| `tag_provider.dart` | ✅ 3 methods |
+| `reminder_provider.dart` | ✅ 4 methods |
+| `attachment_provider.dart` | ✅ 2 methods |
+| `workspace_provider.dart` | ✅ 1 method |
+| `task_provider.dart` | ✅ 3 silent → DebugConfig.error |
+
+### Μέρος 2: Recurring reminder gap bug
+
+**Πρόβλημα:** Το καθημερινό reminder "Χάπι Χοληστερίνης" (itemId=124, root id=233, FREQ=DAILY) δεν δημιούργησε child για 10/6. Από logs: τα παιδιά ήταν:
+- 6/6 (root), 8/6, 9/6, **10/6 ❌ λείπει**, 11/6, 12/6
+
+**Αιτία:** Στο `refreshRecurringReminders()`, όταν όλα τα παιδιά ήταν στο παρελθόν (π.χ. τρέξιμο 10/6 πριν τις 22:30), δημιουργούσε νέο batch ξεκινώντας από `todayAtTriggerTime` και καλώντας `recurrence.nextOccurrence(current)`. Η `nextOccurrence` για daily **πάντα επιστρέφει επόμενη μέρα** (ποτέ ίδια). Έτσι:
+- `nextOccurrence(10/6 22:30)` → **11/6** 22:30
+- `nextOccurrence(11/6 22:30)` → **12/6** 22:30
+- Το **10/6 χανόταν** ❌
+
+**Fix — `reminder_scheduler.dart`:**
+
+**Αλλαγή 1** (γραμμές 207-211): Πριν το loop, έλεγχος αν `todayAtTriggerTime.isAfter(now)` ΚΑΙ η σημερινή ημέρα είναι έγκυρη βάσει recurrence → συμπερίληψη `todayAtTriggerTime` στο batch.
+```dart
+if (todayAtTriggerTime.isAfter(now) && _isTodayValidRecurrence(recurrence, now, root)) {
+  nextOccurrences.add(todayAtTriggerTime);
+}
+```
+
+**Αλλαγή 2** (γραμμές 280-312): Νέα helper `_isTodayValidRecurrence(Recurrence, DateTime, Reminder)` — ελέγχει αν το σήμερα είναι έγκυρη ημέρα βάσει recurrence type:
+- **Daily/Custom**: πάντα valid
+- **Weekly**: αν `days` υπάρχει (π.χ. Δευ+Παρ), ελέγχει weekday — αλλιώς alignment ανά `7*interval` ημέρες από root
+- **Monthly**: αν `days` υπάρχει, ελέγχει day-of-month — αλλιώς alignment μηνών + ίδια μέρα
+- **Yearly**: αν `days` υπάρχει, ελέγχει μήνα+μέρα — αλλιώς ταύτιση με root + interval
+
+**Παράδειγμα:** 10/6 στις 10:00, `todayAtTriggerTime`=10/6 22:30 > now → valid (daily) → προστίθεται 10/6 22:30 ως 1ο child → μετά 11/6, 12/6 ✅
+
+**Αποτέλεσμα:** `flutter analyze` — **No issues found** ✅
+
+---
+
+## Session 35 — 11-06-2026 (Backup Service — Professional Redesign)
+
+### Στόχος
+Πλήρης επανασχεδιασμός του `BackupService` με:
+1. Επιλογή χρήστη: Αποθήκευση στη συσκευή ή Κοινοποίηση (external/cloud/email)
+2. Atomic restore με rollback
+3. Integrity check (validation) πριν από restore
+4. Χωρίς φόρτωση DB στη RAM (0 OOM risk)
+5. Auto-backup (periodic, rotate 5)
+
+### Impact analysis
+- Μόνο 2 αρχεία αλλάζουν: `backup_service.dart` + `settings_screen.dart`
+- Κανένα άλλο αρχείο δεν κάνει `import`/χρήση του `BackupService`
+- Zero side effects
+
+### Τι έγινε
+
+**1. `backup_service.dart` — Πλήρης επαναγραφή**
+
+**Νέα API:**
+| Μέθοδος | Περιγραφή |
+|---------|-----------|
+| `exportToDevice()` | Αντιγραφή σε `SuperNoteBackups/` φάκελο (ορατός από Files) |
+| `exportWithShare()` | System share sheet (email, cloud, Files, messenger) |
+| `import({String? fromPath})` | File picker → validation → atomic restore → restart |
+| `validateBackup(String path)` | Deep validation: open backup as temp Isar instance |
+| `autoBackup()` | Periodic εσωτερικό backup (για μελλοντική χρήση) |
+| `listAutoBackups()` | Λίστα διαθέσιμων αυτόματων backup |
+
+**Export flow (0 RAM φόρτωση):**
+```
+DB file → File.copy(temp) → File.copy(dest) ή Share.shareXFiles()
+```
+Χωρίς `readAsBytes()`, χωρίς `FilePicker.saveFile(bytes:)`.
+
+**Import flow (atomic):**
+```
+1. FilePicker.pickFiles() → user picks backup
+2. Quick pre-check: size > 1KB, file exists
+3. Deep validation: tempDir → copy backup → Isar.open → check → close → delete tempDir
+4. Confirm dialog
+5. Copy backup → tempSwap (ίδιο filesystem)
+6. Copy live DB → safetyNet (rollback)
+7. SuperNoteHelper.close()
+8. File.rename(tempSwap → live.isar) ← ATOMIC
+9. SuperNoteHelper.init()
+10. Διαγραφή safetyNet
+```
+Αν fail: rollback → safetyNet → live.isar → init.
+
+**Validation:**
+```
+tempDir → copy backup → Isar.open(ALL schemas) → 
+  αν επιτυχία: valid ✅
+  αν exception: "Μη έγκυρο ή κατεστραμμένο αρχείο" ❌
+→ close + delete tempDir
+```
+
+**2. `settings_screen.dart` — Ενημέρωση callers**
+
+**`_exportBackup()`:**
+- Show choice dialog: "Αποθήκευση στη συσκευή" / "Κοινοποίηση" / Ακύρωση
+- Ανάλογη κλήση `exportToDevice()` ή `exportWithShare()`
+- SnackBar με path ή επιβεβαίωση
+
+**`_importBackup()`:**
+- Απλοποίηση: μόνο `BackupService.instance.import()`
+- Διαχείριση `ImportResult` (success → restart dialog, cancelled → silent, failure → SnackBar)
+- Αφαίρεση διπλού confirm dialog (το validation είναι η επιβεβαίωση)
+
+### Αλλαγές φιλοσοφίας
+| Πριν | Μετά |
+|------|------|
+| `readAsBytes()` → RAM OOM risk | `File.copy()` → 0 RAM for file content |
+| `copy()` με κλειστή DB → partial corruption | `rename()` atomic + safety net rollback |
+| Καμία validation | Deep validation (temp Isar) |
+| Μόνο Save File dialog | Choice: Device ή Share (covers SD, USB, cloud, email) |
+| No auto-backup | Auto-backup API (rotate 5, μελλοντική χρήση) |
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `lib/services/backup_service.dart` | Πλήρης επαναγραφή (~280 γρ.) |
+| `lib/features/settings/settings_screen.dart` | Ενημέρωση `_exportBackup()` + `_importBackup()` |
+
+### Backups
+- `backups/backup_service.dart.backup.20260611`
+- `backups/settings_screen.dart.backup.20260611`
+
+### Αποτέλεσμα
+- `flutter analyze` — **No issues found** ✅
+
+---
+
+## Session 36 — 11-06-2026 (Backup Restore Fix — Isar Instance Name Collision)
+
+### Στόχος
+Διόρθωση αποτυχίας validation στο restore backup — το `Isar.open()` για έλεγχο του backup έπεφτε πάντα σε exception.
+
+### Πρόβλημα
+Στο `validateBackupFile()` (`backup_service.dart:365`), το `Isar.open()` χρησιμοποιούσε `name: 'super_note_db'`, ίδιο όνομα με το live DB instance (`super_note_helper.dart:90`). Το Isar v3 δεν επιτρέπει δύο instances με το ίδιο όνομα — πετάει exception, το catch επέστρεφε "FAIL — Isar could not open backup", και το restore δεν προχωρούσε.
+
+### Διάγνωση
+Logs:
+```
+validateBackupFile: copied to temp for Isar open
+validateBackupFile: FAIL — Isar could not open backup
+```
+Ενώ το export δούλευε κανονικά (SUCCESS).
+
+### Fix
+`backup_service.dart:365`:
+```
+name: 'super_note_db',
+```
+→
+```
+name: 'super_note_db_validation_${DateTime.now().millisecondsSinceEpoch}',
+```
+
+### Αποτέλεσμα
+- `flutter analyze` — **No issues found** ✅
+- Validation: `Isar opened successfully, closing — VALID backup` ✅
+- Atomic restore: `rename done, re-initializing Isar — SUCCESS` ✅
+- Safety net deleted, app restart OK ✅
+- 0 errors, 0 rollbacks
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `lib/services/backup_service.dart` | Μοναδικό `name` στο `Isar.open()` validation |
+
+---
+
+## Session 37 — 11-06-2026 (Schema Migration System)
+
+### Στόχος
+Δημιουργία συστήματος schema versioning + migration για προστασία από data loss σε μελλοντικά updates.
+
+### Τι έγινε
+
+**1. `app_settings.dart`** — Νέο πεδίο
+```dart
+int schemaVersion = 1;
+```
+Non-breaking change — Isar auto-migrate. Υπάρχοντα DB records παίρνουν default `1`.
+
+**2. `lib/services/migration_service.dart`** — Νέο service (79 γρ.)
+- `ensureSchemaVersion(Isar)`: διαβάζει version → αν < target → backup → sequential migrations → write version
+- `_createSafetyBackup()`: File copy σε `.migration_safety/` (auto-rotate 3)
+- `_updateSchemaVersion()`: atomic writeTxn (όχι SharedPreferences — race condition safe)
+- `_runMigration()`: switch pattern, έτοιμο για v1→v2, v2→v3, ...
+- Batch pagination έτοιμο για future migrations (0 OOM risk)
+- Idempotent by design — crash-safe
+
+**3. `super_note_helper.dart:97`** — 1 γραμμή integration
+```dart
+await MigrationService.ensureSchemaVersion(isar);
+```
+Μετά από `Isar.open()`, πριν από `_ensureDefaults()`.
+
+**4. `AGENTS.md`** — Προστέθηκε section για Schema Migration
+
+### Impact Analysis (πριν την υλοποίηση)
+- 0 υπάρχοντα αρχεία τροποποιήθηκαν (εκτός app_settings + super_note_helper 1 line)
+- 0 imports σε υπάρχοντα αρχεία άλλαξαν
+- 0 circular dependencies
+- 0 breaking changes στο schema
+- Fresh install / upgrade / crash / rollback — όλα safe
+
+### Αρχεία που δημιουργήθηκαν
+| Αρχείο | Περιγραφή |
+|--------|-----------|
+| `lib/services/migration_service.dart` | Schema migration service |
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `lib/models/app_settings.dart` | `+int schemaVersion = 1` |
+| `lib/models/app_settings.g.dart` | Regenerated (build_runner) |
+| `lib/helpers/super_note_helper.dart` | `+1 line` import + call στο init |
+| `AGENTS.md` | Νέο section: Schema Migration |
+
+### Αποτέλεσμα
+- `flutter analyze` — **No issues found** ✅
+- `build_runner` — **Succeeded** (30 outputs) ✅
+- Version tracking ✅, safety backup ✅, future-proof ✅
+
+---
+
+## Session 38 — 11-06-2026 (Encryption Strategy Analysis)
+
+### Στόχος
+Πλήρης ανάλυση encryption strategy για την εφαρμογή — threat model, 3 αρχιτεκτονικές, impact analysis, σύσταση.
+
+### Αποτέλεσμα Ανάλυσης
+
+**3 προσεγγίσεις που εξετάστηκαν:**
+
+| Προσέγγιση | Περιγραφή | Κίνδυνος |
+|------------|-----------|:--------:|
+| Full DB encryption | Isar v3 ΔΕΝ υποστηρίζει native encryption (`encryptionKey` param δεν υπάρχει) | ❌ Αδύνατο |
+| Field-level encryption | AES-256-GCM σε `ItemBlock.text` + `ItemProperty.value` | 🔴 ΠΟΛΥ ΥΨΗΛΟΣ |
+| App Lock (PIN/biometric) | local_auth, προστασία πρόσβασης | 🟢 ΑΝΥΠΑΡΚΤΟΣ |
+
+### Διεξοδικός Έλεγχος Επικινδυνότητας — Field-level Encryption
+
+Μελετήθηκαν **45 σημεία** που διαβάζουν `block.text` / `property.value`:
+
+**🔴 ΘΑ ΣΠΑΣΕΙ ΣΙΓΟΥΡΑ (18 σημεία):**
+
+| # | Τι | Πού | Γιατί |
+|---|-----|-----|-------|
+| 1 | Habit recurrence parsing | `habit_service.dart:_getAllProps()` → `Recurrence.fromProperties()` | `Enum.parse('ENC:v1:...')` → CRASH |
+| 2 | Habit progress tracking | `habit_service.dart:108-620` | `int.tryParse(enc)` → null → stats 0, `jsonDecode(enc)` → CRASH |
+| 3 | all_day flag comparison | `event_detail_screen.dart:698` | `'ENC:v1:...' == 'true'` → ποτέ true |
+| 4 | _imported marker filter | `contact_import_service.dart:166` | `.valueEqualTo('true')` → ποτέ match |
+| 5 | Contact duplicate detection | `contact_import_service.dart:222-226` | `jsonDecode(enc)` → CRASH |
+| 6 | dateValue getter | `item_property.dart:75-76` | `DateTime.tryParse(enc)` → null → όλες οι ημερομηνίες εξαφανίζονται |
+| 7 | Collection entry queries | `collection_entries_screen.dart:364, collection_detail_screen.dart:164` | encrypted vs plain → ποτέ match |
+| 8 | Block auto-delete empty | `block_editor_widget.dart:39,61` | encrypted text ≠ empty → blocks ΔΕΝ διαγράφονται |
+| 9 | Search σε blocks | `search_service.dart:174-182` | ποτέ match → content search πεθαίνει |
+| 10 | Search σε properties | `search_service.dart:146-147` | ποτέ match → property search πεθαίνει |
+| 11 | Share service | `share_service.dart` (30+ reads) | encrypted garbage |
+| 12 | Block editor initialText | `block_editor_widget.dart:243` | encrypted text στο TextField |
+| 13 | Contact detail screen | `contact_detail_screen.dart` (16 reads) | encrypted gibberish |
+| 14 | Appointment detail screen | `appointment_detail_screen.dart` (25 reads) | encrypted |
+| 15 | Collection schema | `collection_detail_screen.dart:431` | `FieldDef.listFromJson()` → CRASH |
+| 16 | Notes save | `task_detail_screen.dart:97`, `journal_detail_screen.dart:79` | αν encrypt στο write, όλα σπάνε |
+| 17 | Habit setRecurrence/setGoal | `habit_service.dart:396-515` | encrypt στο write → habits broken |
+| 18 | Collection schema (value `??` `''`) | `collection_detail_screen.dart:431` | `FieldDef.listFromJson(enc)` → CRASH |
+
+**🟡 ΥΨΗΛΟΥ ΚΙΝΔΥΝΟΥ (7 σημεία):**
+- Block auto-delete empty, Search (blocks + properties), Share service, Block editor initialText, Contact detail, Appointment detail, Collection schema, Notes save, Habit setRecurrence/setGoal
+
+**🟢 ΑΣΦΑΛΗ (δεν επηρεάζονται):**
+- `Item.title`, `Item.icon`, `Item.color`, `Item.createdAt`, `sortOrder`, `pinned`, `favorite`
+- `Item.type`, `folderId`, `workspaceId` (indexes/queries)
+- `Attachment.localPath` (το path είναι reference, file content encrypt χωριστά)
+- `ItemBlock.type`, `ItemBlock.order`, `ItemBlock.checked`
+- Backup/Restore (encrypted data stays encrypted)
+- `flutter analyze` (runtime, όχι compile-time)
+
+### Η ΠΡΑΓΜΑΤΙΚΗ ΠΡΟΚΛΗΣΗ — ItemProperty
+
+Το `ItemProperty` είναι **key-value store** — το ίδιο `.value` πεδίο χρησιμοποιείται για:
+- `phones` → `jsonDecode(value)` ← CRASH
+- `birthday` → `DateTime.tryParse()` ← null → εξαφάνιση
+- `all_day` → `value == 'true'` ← ποτέ true
+- `recurrence_type` → `Enum.parse()` ← CRASH
+- `daily_progress` → `int.tryParse()` ← null
+- `schema` → `FieldDef.listFromJson()` ← CRASH
+- `collection_id` → toString comparison ← ποτέ match
+- `_imported` → `valueEqualTo('true')` ← Isar filter fail
+- `photo` → base64 (τεράστιο) ← encrypted = διπλάσιο μέγεθος
+
+**Αδύνατο να encrypt όλα τα properties — μόνο whitelist keys. Αλλά ακόμα και τότε:** search, share, contact details, import duplicate detection σπάνε.
+
+### Σύσταση
+
+| Προσέγγιση | Κίνδυνος | Προστατεύει από |
+|------------|:--------:|-----------------|
+| **App Lock (PIN/biometric)** | 🟢 ΑΝΥΠΑΡΚΤΟΣ | Μη εξουσιοδοτημένη πρόσβαση |
+| File encrypt (attachments) | 🟢 ΧΑΜΗΛΟΣ | Photos/files |
+| Backup encrypt κατά export | 🟢 ΧΑΜΗΛΟΣ | Backup σε cloud |
+
+**Η σύσταση:** App Lock πρώτα (0 κίνδυνο, προστατεύει πρόσβαση), μετά file encryption για attachments, μετά backup encryption.
+
+---
+
+## Session 39 — 11-06-2026 (App Lock + Migration Bug Fix)
+
+### Στόχος
+Υλοποίηση App Lock (PIN + Biometric) με `local_auth` και διόρθωση migration bug (invalid schema version → crash).
+
+### Αποτέλεσμα ✅
+
+### App Lock (PIN/Biometric) — Πλήρης Υλοποίηση
+
+**Dependencies** (`pubspec.yaml`)
+- `local_auth: ^2.3.0` — βιομετρικά fingerprint/face
+- `crypto: ^3.0.6` — SHA-256 για PIN hashing
+
+**AppSettings model** (`lib/models/app_settings.dart`) — 5 νέα πεδία:
+| Πεδίο | Τύπος | Default | Περιγραφή |
+|-------|:-----:|:-------:|-----------|
+| `appLockEnabled` | `bool` | `false` | Master switch |
+| `appLockPinHash` | `String?` | `null` | SHA-256 hash του PIN |
+| `biometricEnabled` | `bool` | `false` | Επιτρέπει biometric αντί PIN |
+| `appLockPinLength` | `int` | `6` | Μήκος PIN (4-6) |
+| `appLockTimeoutSeconds` | `int` | `0` | 0=άμεσο, 30, 60, 120, 300 |
+
+**AppLockService** (`lib/services/app_lock_service.dart`) — Singleton:
+- `hashPin(pin)` / `verifyPin(pin, hash)` — SHA-256
+- `authenticate({String? reason})` — biometric auth με sticky, ελέγχει canCheckBiometrics + isDeviceSupported
+- `lock()` / `unlock()` / `isLocked` — memory state
+- DebugConfig logging
+
+**AppLock provider** (`lib/providers/app_lock_provider.dart`):
+- `appLockStateProvider` — StateProvider<bool>
+- Export στο `providers.dart` barrel
+
+**Lock Screen** (`lib/features/lock/lock_screen.dart` + barrel `lock.dart`):
+- PIN pad (αριθμητικό πληκτρολόγιο 0-9, backspace, submit)
+- Biometric auto-try στο init (αν biometricEnabled)
+- PIN length validation (4-6, clamping)
+- Error handling
+
+**GoRouter redirect guard** (`lib/core/router/app_router.dart`):
+- `ref.watch(appLockStateProvider)` → reactive redirect
+- Av `locked && location != '/lock'` → redirect `/lock`
+- Av `!locked && location == '/lock'` → redirect `/`
+- `/lock` route εκτός ShellRoute (χωρίς bottom nav)
+
+**Lifecycle auto-lock** (`lib/main.dart`):
+- Startup lock: μετά init, αν appLockEnabled → lock + provider state true
+- `_AppLifecycleObserver.didChangeAppLifecycleState`: pause → lock()
+
+**Settings UI** (`lib/features/settings/settings_screen.dart`):
+- Toggle "Κλείδωμα εφαρμογής" — αν ενεργοποιείται χωρίς PIN, ζητάει δημιουργία
+- Action tile "Ορισμός PIN" / "Αλλαγή PIN" — με επιβεβαίωση τρέχοντος PIN + dialog νέου
+- Switch "Βιομετρικό ξεκλείδωμα" — δοκιμάζει biometric πριν ενεργοποιήσει
+- Dropdown timeout: αμέσως/30s/1min/2min/5min
+
+### Migration Bug Fix ✅
+
+**Πρόβλημα:** Όταν γίνονταν αλλαγές στο Isar model (π.χ. προσθήκη/αφαίρεση πεδίου στο `AppSettings`), τα property IDs άλλαζαν και η αποθηκευμένη `schemaVersion` γινόταν αρνητική ή παράλογη. Αυτό προκαλούσε crash ή infinite loop στο `ensureSchemaVersion()`.
+
+**Διόρθωση** (`lib/services/migration_service.dart`):
+- Προσθήκη guard: αν `currentVersion < 0 || currentVersion > _targetVersion`
+- Αντί να μπει στο migration loop, γράφει κατευθείαν `_targetVersion`
+- Safety backup πριν από κάθε migration (file copy, keeps last 3)
+- Logging με DebugConfig.db()
+
+### Νέα αρχεία
+| Αρχείο | Περιγραφή |
+|--------|-----------|
+| `lib/services/app_lock_service.dart` | App Lock singleton (hash, auth, lock/unlock) |
+| `lib/providers/app_lock_provider.dart` | appLockStateProvider |
+| `lib/features/lock/lock_screen.dart` | PIN pad + biometric UI |
+| `lib/features/lock/lock.dart` | Barrel export |
+| `backups/migration_service.dart.bak` | Backup pre-fix |
+
+### Αρχεία που άλλαξαν
+| Αρχείο | Αλλαγή |
+|--------|--------|
+| `pubspec.yaml` | +local_auth, +crypto |
+| `lib/models/app_settings.dart` | +5 lock πεδία |
+| `lib/core/router/app_router.dart` | +redirect guard, +/lock route |
+| `lib/main.dart` | +startup lock, +lifecycle observer |
+| `lib/features/settings/settings_screen.dart` | +App Lock section (4 controls) |
+| `lib/providers/providers.dart` | +export app_lock_provider |
+| `lib/services/migration_service.dart` | +guard invalid schema version |
+

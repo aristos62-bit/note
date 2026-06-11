@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>NSContactsUsageDescription</key>
 	<string>Η SuperNote χρειάζεται πρόσβαση στις επαφές σου για να τις εισαγάγει.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Η SuperNote χρησιμοποιεί Face ID για ξεκλείδωμα της εφαρμογής.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

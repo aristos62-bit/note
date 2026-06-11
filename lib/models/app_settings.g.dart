@@ -22,111 +22,141 @@ const AppSettingsSchema = CollectionSchema(
       name: r'accentColor',
       type: IsarType.string,
     ),
-    r'autoSave': PropertySchema(
+    r'appLockEnabled': PropertySchema(
       id: 1,
+      name: r'appLockEnabled',
+      type: IsarType.bool,
+    ),
+    r'appLockPinHash': PropertySchema(
+      id: 2,
+      name: r'appLockPinHash',
+      type: IsarType.string,
+    ),
+    r'appLockPinLength': PropertySchema(
+      id: 3,
+      name: r'appLockPinLength',
+      type: IsarType.long,
+    ),
+    r'appLockTimeoutSeconds': PropertySchema(
+      id: 4,
+      name: r'appLockTimeoutSeconds',
+      type: IsarType.long,
+    ),
+    r'autoSave': PropertySchema(
+      id: 5,
       name: r'autoSave',
       type: IsarType.bool,
     ),
     r'autoSaveIntervalSeconds': PropertySchema(
-      id: 2,
+      id: 6,
       name: r'autoSaveIntervalSeconds',
       type: IsarType.long,
     ),
+    r'biometricEnabled': PropertySchema(
+      id: 7,
+      name: r'biometricEnabled',
+      type: IsarType.bool,
+    ),
     r'confirmBeforeDelete': PropertySchema(
-      id: 3,
+      id: 8,
       name: r'confirmBeforeDelete',
       type: IsarType.bool,
     ),
     r'defaultView': PropertySchema(
-      id: 4,
+      id: 9,
       name: r'defaultView',
       type: IsarType.string,
       enumMap: _AppSettingsdefaultViewEnumValueMap,
     ),
     r'defaultWorkspaceId': PropertySchema(
-      id: 5,
+      id: 10,
       name: r'defaultWorkspaceId',
       type: IsarType.long,
     ),
     r'fontScale': PropertySchema(
-      id: 6,
+      id: 11,
       name: r'fontScale',
       type: IsarType.double,
     ),
     r'hasCompletedOnboarding': PropertySchema(
-      id: 7,
+      id: 12,
       name: r'hasCompletedOnboarding',
       type: IsarType.bool,
     ),
     r'itemTypeColorsJson': PropertySchema(
-      id: 8,
+      id: 13,
       name: r'itemTypeColorsJson',
       type: IsarType.string,
     ),
     r'language': PropertySchema(
-      id: 9,
+      id: 14,
       name: r'language',
       type: IsarType.string,
       enumMap: _AppSettingslanguageEnumValueMap,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 10,
+      id: 15,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 11,
+      id: 16,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'preferredFolderId': PropertySchema(
-      id: 12,
+      id: 17,
       name: r'preferredFolderId',
       type: IsarType.long,
     ),
+    r'schemaVersion': PropertySchema(
+      id: 18,
+      name: r'schemaVersion',
+      type: IsarType.long,
+    ),
     r'showArchivedItems': PropertySchema(
-      id: 13,
+      id: 19,
       name: r'showArchivedItems',
       type: IsarType.bool,
     ),
     r'showDeletedItems': PropertySchema(
-      id: 14,
+      id: 20,
       name: r'showDeletedItems',
       type: IsarType.bool,
     ),
     r'soundEnabled': PropertySchema(
-      id: 15,
+      id: 21,
       name: r'soundEnabled',
       type: IsarType.bool,
     ),
     r'syncEnabled': PropertySchema(
-      id: 16,
+      id: 22,
       name: r'syncEnabled',
       type: IsarType.bool,
     ),
     r'syncIntervalMinutes': PropertySchema(
-      id: 17,
+      id: 23,
       name: r'syncIntervalMinutes',
       type: IsarType.long,
     ),
     r'syncOnWifiOnly': PropertySchema(
-      id: 18,
+      id: 24,
       name: r'syncOnWifiOnly',
       type: IsarType.bool,
     ),
     r'theme': PropertySchema(
-      id: 19,
+      id: 25,
       name: r'theme',
       type: IsarType.string,
       enumMap: _AppSettingsthemeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 20,
+      id: 26,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'vibrationEnabled': PropertySchema(
-      id: 21,
+      id: 27,
       name: r'vibrationEnabled',
       type: IsarType.bool,
     )
@@ -157,6 +187,12 @@ int _appSettingsEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.appLockPinHash;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.defaultView.name.length * 3;
   {
     final value = object.itemTypeColorsJson;
@@ -176,27 +212,33 @@ void _appSettingsSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.accentColor);
-  writer.writeBool(offsets[1], object.autoSave);
-  writer.writeLong(offsets[2], object.autoSaveIntervalSeconds);
-  writer.writeBool(offsets[3], object.confirmBeforeDelete);
-  writer.writeString(offsets[4], object.defaultView.name);
-  writer.writeLong(offsets[5], object.defaultWorkspaceId);
-  writer.writeDouble(offsets[6], object.fontScale);
-  writer.writeBool(offsets[7], object.hasCompletedOnboarding);
-  writer.writeString(offsets[8], object.itemTypeColorsJson);
-  writer.writeString(offsets[9], object.language.name);
-  writer.writeDateTime(offsets[10], object.lastSyncAt);
-  writer.writeBool(offsets[11], object.notificationsEnabled);
-  writer.writeLong(offsets[12], object.preferredFolderId);
-  writer.writeBool(offsets[13], object.showArchivedItems);
-  writer.writeBool(offsets[14], object.showDeletedItems);
-  writer.writeBool(offsets[15], object.soundEnabled);
-  writer.writeBool(offsets[16], object.syncEnabled);
-  writer.writeLong(offsets[17], object.syncIntervalMinutes);
-  writer.writeBool(offsets[18], object.syncOnWifiOnly);
-  writer.writeString(offsets[19], object.theme.name);
-  writer.writeDateTime(offsets[20], object.updatedAt);
-  writer.writeBool(offsets[21], object.vibrationEnabled);
+  writer.writeBool(offsets[1], object.appLockEnabled);
+  writer.writeString(offsets[2], object.appLockPinHash);
+  writer.writeLong(offsets[3], object.appLockPinLength);
+  writer.writeLong(offsets[4], object.appLockTimeoutSeconds);
+  writer.writeBool(offsets[5], object.autoSave);
+  writer.writeLong(offsets[6], object.autoSaveIntervalSeconds);
+  writer.writeBool(offsets[7], object.biometricEnabled);
+  writer.writeBool(offsets[8], object.confirmBeforeDelete);
+  writer.writeString(offsets[9], object.defaultView.name);
+  writer.writeLong(offsets[10], object.defaultWorkspaceId);
+  writer.writeDouble(offsets[11], object.fontScale);
+  writer.writeBool(offsets[12], object.hasCompletedOnboarding);
+  writer.writeString(offsets[13], object.itemTypeColorsJson);
+  writer.writeString(offsets[14], object.language.name);
+  writer.writeDateTime(offsets[15], object.lastSyncAt);
+  writer.writeBool(offsets[16], object.notificationsEnabled);
+  writer.writeLong(offsets[17], object.preferredFolderId);
+  writer.writeLong(offsets[18], object.schemaVersion);
+  writer.writeBool(offsets[19], object.showArchivedItems);
+  writer.writeBool(offsets[20], object.showDeletedItems);
+  writer.writeBool(offsets[21], object.soundEnabled);
+  writer.writeBool(offsets[22], object.syncEnabled);
+  writer.writeLong(offsets[23], object.syncIntervalMinutes);
+  writer.writeBool(offsets[24], object.syncOnWifiOnly);
+  writer.writeString(offsets[25], object.theme.name);
+  writer.writeDateTime(offsets[26], object.updatedAt);
+  writer.writeBool(offsets[27], object.vibrationEnabled);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -207,34 +249,40 @@ AppSettings _appSettingsDeserialize(
 ) {
   final object = AppSettings();
   object.accentColor = reader.readStringOrNull(offsets[0]);
-  object.autoSave = reader.readBool(offsets[1]);
-  object.autoSaveIntervalSeconds = reader.readLong(offsets[2]);
-  object.confirmBeforeDelete = reader.readBool(offsets[3]);
+  object.appLockEnabled = reader.readBool(offsets[1]);
+  object.appLockPinHash = reader.readStringOrNull(offsets[2]);
+  object.appLockPinLength = reader.readLong(offsets[3]);
+  object.appLockTimeoutSeconds = reader.readLong(offsets[4]);
+  object.autoSave = reader.readBool(offsets[5]);
+  object.autoSaveIntervalSeconds = reader.readLong(offsets[6]);
+  object.biometricEnabled = reader.readBool(offsets[7]);
+  object.confirmBeforeDelete = reader.readBool(offsets[8]);
   object.defaultView = _AppSettingsdefaultViewValueEnumMap[
-          reader.readStringOrNull(offsets[4])] ??
+          reader.readStringOrNull(offsets[9])] ??
       DefaultView.list;
-  object.defaultWorkspaceId = reader.readLongOrNull(offsets[5]);
-  object.fontScale = reader.readDouble(offsets[6]);
-  object.hasCompletedOnboarding = reader.readBool(offsets[7]);
+  object.defaultWorkspaceId = reader.readLongOrNull(offsets[10]);
+  object.fontScale = reader.readDouble(offsets[11]);
+  object.hasCompletedOnboarding = reader.readBool(offsets[12]);
   object.id = id;
-  object.itemTypeColorsJson = reader.readStringOrNull(offsets[8]);
+  object.itemTypeColorsJson = reader.readStringOrNull(offsets[13]);
   object.language =
-      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[9])] ??
+      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[14])] ??
           AppLanguage.greek;
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[10]);
-  object.notificationsEnabled = reader.readBool(offsets[11]);
-  object.preferredFolderId = reader.readLongOrNull(offsets[12]);
-  object.showArchivedItems = reader.readBool(offsets[13]);
-  object.showDeletedItems = reader.readBool(offsets[14]);
-  object.soundEnabled = reader.readBool(offsets[15]);
-  object.syncEnabled = reader.readBool(offsets[16]);
-  object.syncIntervalMinutes = reader.readLong(offsets[17]);
-  object.syncOnWifiOnly = reader.readBool(offsets[18]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[15]);
+  object.notificationsEnabled = reader.readBool(offsets[16]);
+  object.preferredFolderId = reader.readLongOrNull(offsets[17]);
+  object.schemaVersion = reader.readLong(offsets[18]);
+  object.showArchivedItems = reader.readBool(offsets[19]);
+  object.showDeletedItems = reader.readBool(offsets[20]);
+  object.soundEnabled = reader.readBool(offsets[21]);
+  object.syncEnabled = reader.readBool(offsets[22]);
+  object.syncIntervalMinutes = reader.readLong(offsets[23]);
+  object.syncOnWifiOnly = reader.readBool(offsets[24]);
   object.theme =
-      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[19])] ??
+      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[25])] ??
           AppTheme.system;
-  object.updatedAt = reader.readDateTime(offsets[20]);
-  object.vibrationEnabled = reader.readBool(offsets[21]);
+  object.updatedAt = reader.readDateTime(offsets[26]);
+  object.vibrationEnabled = reader.readBool(offsets[27]);
   return object;
 }
 
@@ -250,49 +298,61 @@ P _appSettingsDeserializeProp<P>(
     case 1:
       return (reader.readBool(offset)) as P;
     case 2:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 4:
-      return (_AppSettingsdefaultViewValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          DefaultView.list) as P;
+      return (reader.readLong(offset)) as P;
     case 5:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 6:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 7:
       return (reader.readBool(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 9:
+      return (_AppSettingsdefaultViewValueEnumMap[
+              reader.readStringOrNull(offset)] ??
+          DefaultView.list) as P;
+    case 10:
+      return (reader.readLongOrNull(offset)) as P;
+    case 11:
+      return (reader.readDouble(offset)) as P;
+    case 12:
+      return (reader.readBool(offset)) as P;
+    case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
       return (_AppSettingslanguageValueEnumMap[
               reader.readStringOrNull(offset)] ??
           AppLanguage.greek) as P;
-    case 10:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 11:
-      return (reader.readBool(offset)) as P;
-    case 12:
-      return (reader.readLongOrNull(offset)) as P;
-    case 13:
-      return (reader.readBool(offset)) as P;
-    case 14:
-      return (reader.readBool(offset)) as P;
     case 15:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 16:
       return (reader.readBool(offset)) as P;
     case 17:
-      return (reader.readLong(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 18:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 19:
+      return (reader.readBool(offset)) as P;
+    case 20:
+      return (reader.readBool(offset)) as P;
+    case 21:
+      return (reader.readBool(offset)) as P;
+    case 22:
+      return (reader.readBool(offset)) as P;
+    case 23:
+      return (reader.readLong(offset)) as P;
+    case 24:
+      return (reader.readBool(offset)) as P;
+    case 25:
       return (_AppSettingsthemeValueEnumMap[reader.readStringOrNull(offset)] ??
           AppTheme.system) as P;
-    case 20:
+    case 26:
       return (reader.readDateTime(offset)) as P;
-    case 21:
+    case 27:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -579,6 +639,282 @@ extension AppSettingsQueryFilter
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockEnabledEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockEnabled',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'appLockPinHash',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'appLockPinHash',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockPinHash',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockPinHash',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockPinHash',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockPinHash',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'appLockPinHash',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'appLockPinHash',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'appLockPinHash',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'appLockPinHash',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockPinHash',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinHashIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'appLockPinHash',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinLengthEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockPinLength',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinLengthGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockPinLength',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinLengthLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockPinLength',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockPinLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockPinLength',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockTimeoutSecondsEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockTimeoutSeconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockTimeoutSecondsGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockTimeoutSeconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockTimeoutSecondsLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockTimeoutSeconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockTimeoutSecondsBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockTimeoutSeconds',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition> autoSaveEqualTo(
       bool value) {
     return QueryBuilder.apply(this, (query) {
@@ -641,6 +977,16 @@ extension AppSettingsQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      biometricEnabledEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'biometricEnabled',
+        value: value,
       ));
     });
   }
@@ -1442,6 +1788,62 @@ extension AppSettingsQueryFilter
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      schemaVersionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'schemaVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      schemaVersionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'schemaVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      schemaVersionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'schemaVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      schemaVersionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'schemaVersion',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
       showArchivedItemsEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -1766,6 +2168,60 @@ extension AppSettingsQuerySortBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByAppLockEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockEnabled', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByAppLockPinHash() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinHash', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockPinHashDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinHash', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockPinLength() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinLength', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockPinLengthDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinLength', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockTimeoutSeconds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockTimeoutSeconds', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockTimeoutSecondsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockTimeoutSeconds', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByAutoSave() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'autoSave', Sort.asc);
@@ -1789,6 +2245,20 @@ extension AppSettingsQuerySortBy
       sortByAutoSaveIntervalSecondsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'autoSaveIntervalSeconds', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByBiometricEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'biometricEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByBiometricEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'biometricEnabled', Sort.desc);
     });
   }
 
@@ -1921,6 +2391,19 @@ extension AppSettingsQuerySortBy
       sortByPreferredFolderIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'preferredFolderId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortBySchemaVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'schemaVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortBySchemaVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'schemaVersion', Sort.desc);
     });
   }
 
@@ -2057,6 +2540,60 @@ extension AppSettingsQuerySortThenBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByAppLockEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockEnabled', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByAppLockPinHash() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinHash', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockPinHashDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinHash', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockPinLength() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinLength', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockPinLengthDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockPinLength', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockTimeoutSeconds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockTimeoutSeconds', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockTimeoutSecondsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockTimeoutSeconds', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByAutoSave() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'autoSave', Sort.asc);
@@ -2080,6 +2617,20 @@ extension AppSettingsQuerySortThenBy
       thenByAutoSaveIntervalSecondsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'autoSaveIntervalSeconds', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByBiometricEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'biometricEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByBiometricEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'biometricEnabled', Sort.desc);
     });
   }
 
@@ -2227,6 +2778,19 @@ extension AppSettingsQuerySortThenBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenBySchemaVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'schemaVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenBySchemaVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'schemaVersion', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       thenByShowArchivedItems() {
     return QueryBuilder.apply(this, (query) {
@@ -2355,6 +2919,34 @@ extension AppSettingsQueryWhereDistinct
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QDistinct> distinctByAppLockEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockEnabled');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct> distinctByAppLockPinHash(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockPinHash',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAppLockPinLength() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockPinLength');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAppLockTimeoutSeconds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockTimeoutSeconds');
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QDistinct> distinctByAutoSave() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'autoSave');
@@ -2365,6 +2957,13 @@ extension AppSettingsQueryWhereDistinct
       distinctByAutoSaveIntervalSeconds() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'autoSaveIntervalSeconds');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByBiometricEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'biometricEnabled');
     });
   }
 
@@ -2434,6 +3033,12 @@ extension AppSettingsQueryWhereDistinct
       distinctByPreferredFolderId() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'preferredFolderId');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct> distinctBySchemaVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'schemaVersion');
     });
   }
 
@@ -2511,6 +3116,32 @@ extension AppSettingsQueryProperty
     });
   }
 
+  QueryBuilder<AppSettings, bool, QQueryOperations> appLockEnabledProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockEnabled');
+    });
+  }
+
+  QueryBuilder<AppSettings, String?, QQueryOperations>
+      appLockPinHashProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockPinHash');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations> appLockPinLengthProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockPinLength');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations>
+      appLockTimeoutSecondsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockTimeoutSeconds');
+    });
+  }
+
   QueryBuilder<AppSettings, bool, QQueryOperations> autoSaveProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'autoSave');
@@ -2521,6 +3152,12 @@ extension AppSettingsQueryProperty
       autoSaveIntervalSecondsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'autoSaveIntervalSeconds');
+    });
+  }
+
+  QueryBuilder<AppSettings, bool, QQueryOperations> biometricEnabledProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'biometricEnabled');
     });
   }
 
@@ -2588,6 +3225,12 @@ extension AppSettingsQueryProperty
       preferredFolderIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'preferredFolderId');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations> schemaVersionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'schemaVersion');
     });
   }
 

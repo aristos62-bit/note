@@ -149,6 +149,17 @@ void main() async {
     } catch (e, stack) {
       DebugConfig.error('PostFrameCallback: deferred notification navigation failed', e, stack);
     }
+
+    try {
+      final settings = await SuperNoteHelper.instance.settings.get();
+      if (settings.appLockEnabled) {
+        AppLockService.instance.lock();
+        container.read(appLockStateProvider.notifier).state = true;
+        DebugConfig.print('🔒 AppLock: initial lock on startup');
+      }
+    } catch (e, stack) {
+      DebugConfig.error('PostFrameCallback: app lock check failed', e, stack);
+    }
   });
 }
 
@@ -228,10 +239,19 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     DebugConfig.print('🔔 [LIFECYCLE] state=$state');
+
+    if (state == AppLifecycleState.paused) {
+      final settings = await SuperNoteHelper.instance.settings.get();
+      if (settings.appLockEnabled) {
+        AppLockService.instance.lock();
+        container.read(appLockStateProvider.notifier).state = true;
+        DebugConfig.print('🔒 AppLock: auto-lock on pause');
+      }
+    }
+
     if (state == AppLifecycleState.resumed) {
       DebugConfig.startup(
           'App resumed — debounced refreshing recurring reminders');
-      // Debounced version to avoid multiple rapid calls
       await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
     }
 

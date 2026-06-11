@@ -26,6 +26,7 @@ import '../models/device.dart';
 import '../models/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
+import '../services/migration_service.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // SuperNoteHelper — Singleton
@@ -92,6 +93,9 @@ class SuperNoteHelper {
     );
 
     _instance = SuperNoteHelper._internal(isar);
+
+    // Schema migration — ελέγχει version και τρέχει migrations αν χρειαστεί
+    await MigrationService.ensureSchemaVersion(isar);
 
     // Δημιουργία default workspace αν δεν υπάρχει
     await _instance!._ensureDefaults();

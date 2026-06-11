@@ -9,6 +9,7 @@
 //
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import '../../core/core.dart';
@@ -204,6 +205,81 @@ class _SystemGroupState extends State<_SystemGroup> {
             }),
           ),
           const SizedBox(height: Spacing.sm),
+          // ── App Lock ───────────────────────────────────────
+          _buildCard(
+            _SwitchTile(
+              label: 'Κλείδωμα εφαρμογής',
+              subtitle: 'PIN ή βιομετρικό ξεκλείδωμα',
+              value: widget.settings.appLockEnabled,
+              onChanged: (v) async {
+                if (v && widget.settings.appLockPinHash == null) {
+                  final pin = await _showSetPinDialog(context, widget.ref);
+                  if (pin == null) return;
+                  widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
+                    s.appLockEnabled = true;
+                    s.appLockPinHash = AppLockService.instance.hashPin(pin);
+                    s.appLockPinLength = pin.length;
+                  });
+                } else {
+                  widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
+                    s.appLockEnabled = v;
+                  });
+                }
+                if (v && mounted) {
+                  AppLockService.instance.lock();
+                  widget.ref.read(appLockStateProvider.notifier).state = true;
+                }
+              },
+            ),
+          ),
+          if (widget.settings.appLockEnabled) ...[
+            const SizedBox(height: Spacing.sm),
+            _buildCard(
+              _ActionTile(
+                label: widget.settings.appLockPinHash != null ? 'Αλλαγή PIN' : 'Ορισμός PIN',
+                subtitle: '4-6ψήφιο PIN ασφαλείας',
+                icon: Icons.pin_rounded,
+                onTap: () async {
+                  if (widget.settings.appLockPinHash != null) {
+                    final ok = await _showCurrentPinDialog(context, widget.ref);
+                    if (!ok || !context.mounted) return;
+                  }
+                  if (!context.mounted) return;
+                  final pin = await _showSetPinDialog(context, widget.ref);
+                  if (pin != null) {
+                    widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
+                      s.appLockPinHash = AppLockService.instance.hashPin(pin);
+                      s.appLockPinLength = pin.length;
+                    });
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: Spacing.sm),
+            _buildCard(
+              _SwitchTile(
+                label: 'Βιομετρικό ξεκλείδωμα',
+                subtitle: 'Αποτύπωμα / Face ID',
+                value: widget.settings.biometricEnabled,
+                onChanged: (v) async {
+                  if (v) {
+                    final ok = await AppLockService.instance.authenticate();
+                    if (!ok) return;
+                  }
+                  widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
+                    s.biometricEnabled = v;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: Spacing.sm),
+            _buildCard(
+              _LockTimeoutTile(
+                current: widget.settings.appLockTimeoutSeconds,
+                ref: widget.ref,
+              ),
+            ),
+          ],
 
         ],
       ),
@@ -567,63 +643,139 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
 Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
   DebugConfig.db('Settings: export backup');
   final messenger = ScaffoldMessenger.of(context);
-  final successBg = context.cSuccess;
-  final errorBg = context.cError;
-  try {
-    final path = await BackupService.instance.export();
+
+  final choice = await showDialog<String>(
+    context: context,
+    useRootNavigator: true,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Εξαγωγή αντιγράφου'),
+      content: const Text('Πώς θέλετε να αποθηκεύσετε το αντίγραφο ασφαλείας;'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, 'device'),
+          child: const Text('Αποθήκευση στη συσκευή'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, 'share'),
+          child: const Text('Κοινοποίηση'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, null),
+          child: const Text('Ακύρωση'),
+        ),
+      ],
+    ),
+  );
+  if (choice == null || !context.mounted) return;
+
+  final BackupExportResult result;
+  if (choice == 'device') {
+    result = await BackupService.instance.exportToDevice();
+  } else {
+    result = await BackupService.instance.exportWithShare();
+  }
+
+  if (!context.mounted) return;
+  if (result.cancelled) return;
+  if (result.success) {
+    final msg = result.path != null
+        ? 'Αντίγραφο αποθηκεύτηκε'
+        : 'Εξαγωγή επιτυχής';
     messenger.showSnackBar(SnackBar(
-      content: Text('Εξαγωγή επιτυχής:\n$path'),
-      backgroundColor: successBg,
+      content: Text(msg),
+      backgroundColor: context.cSuccess,
       duration: const Duration(seconds: 4),
     ));
-  } catch (e) {
-    DebugConfig.error('Export failed', e);
+  } else {
     messenger.showSnackBar(SnackBar(
-      content: Text('Σφάλμα εξαγωγής: $e'),
-      backgroundColor: errorBg,
+      content: Text(result.error ?? 'Σφάλμα εξαγωγής'),
+      backgroundColor: context.cError,
     ));
   }
 }
 
 Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
+  DebugConfig.db('Settings: import backup');
+  final messenger = ScaffoldMessenger.of(context);
+
+  // 1. Επιλογή αρχείου
+  final srcPath = await BackupService.instance.pickBackupFile();
+  if (srcPath == null || !context.mounted) return;
+
+  // 2. Προέλεγχος (υπάρχει / μέγεθος)
+  final srcFile = File(srcPath);
+  if (!await srcFile.exists()) {
+    messenger.showSnackBar(const SnackBar(
+      content: Text('Το αρχείο backup δεν βρέθηκε'),
+      backgroundColor: Colors.red,
+    ));
+    return;
+  }
+
+  // 3. Deep validation (προσωρινό Isar instance)
+  if (!context.mounted) return;
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: Spacing.md),
+          Text('Έλεγχος αρχείου backup...'),
+        ],
+      ),
+    ),
+  );
+
+  final validation = await BackupService.instance.validateBackupFile(srcPath);
+
+  if (context.mounted) {
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+
+  if (!validation.valid || !context.mounted) {
+    if (!context.mounted)return;
+    messenger.showSnackBar(SnackBar(
+      content: Text(validation.reason ?? 'Μη έγκυρο αρχείο backup'),
+      backgroundColor: context.cError,
+    ));
+    return;
+  }
+
+  // 4. Διάλογος επιβεβαίωσης
   final confirm = await ConfirmDialog.show(
     context,
     title: 'Εισαγωγή δεδομένων;',
-    subtitle: 'Τα υπάρχοντα δεδομένα θα αντικατασταθούν. '
+    subtitle: 'Το backup είναι έγκυρο.\n\n'
+        'Τα υπάρχοντα δεδομένα θα αντικατασταθούν.\n'
         'Η εφαρμογή θα τερματιστεί και θα χρειαστεί να την ξανανοίξετε.',
     confirmLabel: 'Εισαγωγή',
     icon: Icons.download_rounded,
   );
   if (!confirm || !context.mounted) return;
 
-  DebugConfig.db('Settings: import backup');
-  final messenger = ScaffoldMessenger.of(context);
-  final errorBg = context.cError;
+  // 5. Atomic restore
+  final result = await BackupService.instance.restoreBackup(srcPath);
+  if (!context.mounted) return;
 
-  try {
-    final success = await BackupService.instance.import();
-    if (!context.mounted) return;
-    if (success) {
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Επιτυχής εισαγωγή'),
-          content: const Text('Η εφαρμογή θα τερματιστεί τώρα.\n\n'
-              'Παρακαλώ ανοίξτε την ξανά για να συνεχίσετε.'),
-          actions: [
-            TextButton(onPressed: () => exit(0), child: const Text('OK')),
-          ],
-        ),
-      );
-    } else {
-      messenger.showSnackBar(const SnackBar(content: Text('Η εισαγωγή ακυρώθηκε ή απέτυχε')));
-    }
-  } catch (e) {
-    DebugConfig.error('Import failed', e);
+  if (result.success) {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Επιτυχής εισαγωγή'),
+        content: const Text('Η εφαρμογή θα τερματιστεί τώρα.\n\n'
+            'Παρακαλώ ανοίξτε την ξανά για να συνεχίσετε.'),
+        actions: [
+          TextButton(onPressed: () => exit(0), child: const Text('OK')),
+        ],
+      ),
+    );
+  } else {
     messenger.showSnackBar(SnackBar(
-      content: Text('Σφάλμα εισαγωγής: $e'),
-      backgroundColor: errorBg,
+      content: Text(result.error ?? 'Σφάλμα επαναφοράς'),
+      backgroundColor: context.cError,
     ));
   }
 }
@@ -1744,6 +1896,208 @@ class _SummaryRow extends StatelessWidget {
 
 void _navigateToTrash(BuildContext context) {
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TrashScreen()));
+}
+
+// ════════════════════════════════════════════════════════════════
+// APP LOCK HELPERS
+// ════════════════════════════════════════════════════════════════
+
+Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
+  final pinCtrl = TextEditingController();
+  final confirmCtrl = TextEditingController();
+  String? error;
+
+  return showDialog<String>(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: false,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setModal) {
+        final pin = pinCtrl.text;
+        final confirm = confirmCtrl.text;
+
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.lock_outline_rounded),
+              SizedBox(width: Spacing.sm),
+              Expanded(child: Text('Ορισμός PIN')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: pinCtrl,
+                obscureText: true,
+                maxLength: 6,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: 'Νέο PIN (4-6 ψηφία)',
+                  border: OutlineInputBorder(borderRadius: AppRadius.inputBR),
+                ),
+                onChanged: (_) => setModal(() => error = null),
+              ),
+              const SizedBox(height: Spacing.sm),
+              TextField(
+                controller: confirmCtrl,
+                obscureText: true,
+                maxLength: 6,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: 'Επιβεβαίωση PIN',
+                  border: OutlineInputBorder(borderRadius: AppRadius.inputBR),
+                ),
+                onChanged: (_) => setModal(() => error = null),
+              ),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: Spacing.sm),
+                  child: Text(error!, style: ctx.bodySm.withColor(ctx.cError)),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Ακύρωση'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (pin.length < 4) {
+                  setModal(() => error = 'Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία');
+                  return;
+                }
+                if (pin != confirm) {
+                  setModal(() => error = 'Τα PIN δεν ταιριάζουν');
+                  return;
+                }
+                Navigator.pop(ctx, pin);
+              },
+              child: const Text('Ορισμός'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
+  final ctrl = TextEditingController();
+
+  final result = await showDialog<bool?>(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: false,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setModal) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.lock_outline_rounded),
+              SizedBox(width: Spacing.sm),
+              Expanded(child: Text('Τρέχον PIN')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ctrl,
+                obscureText: true,
+                maxLength: 6,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: 'Εισάγετε το τρέχον PIN',
+                  border: OutlineInputBorder(borderRadius: AppRadius.inputBR),
+                ),
+              ),
+              if (ctrl.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: Spacing.sm),
+                  child: Text(
+                    'Το PIN δεν είναι σωστό',
+                    style: ctx.bodySm.withColor(ctx.cError),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Ακύρωση'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final settings = await ref.read(settingsProvider.future);
+                final hash = settings.appLockPinHash;
+                if (hash != null && AppLockService.instance.verifyPin(ctrl.text, hash)) {
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx, true);
+                } else {
+                  setModal(() {});
+                }
+              },
+              child: const Text('Επαλήθευση'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+  return result ?? false;
+}
+
+class _LockTimeoutTile extends ConsumerWidget {
+  final int current;
+  final WidgetRef ref;
+  const _LockTimeoutTile({required this.current, required this.ref});
+
+  static const _options = [
+    (0, 'Αμέσως'),
+    (30, '30 δευτερόλεπτα'),
+    (60, '1 λεπτό'),
+    (120, '2 λεπτά'),
+    (300, '5 λεπτά'),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef r) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Χρονικό όριο κλειδώματος', style: context.bodyMd),
+          const SizedBox(height: Spacing.sm),
+          DropdownButtonFormField<int>(
+            initialValue: _options.any((o) => o.$1 == current) ? current : 0,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(borderRadius: AppRadius.inputBR),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md, vertical: Spacing.sm,
+              ),
+            ),
+            items: _options.map((o) => DropdownMenuItem(
+              value: o.$1,
+              child: Text(o.$2, style: context.bodyMd),
+            )).toList(),
+            onChanged: (v) {
+              if (v != null) {
+                ref.read(settingsNotifierProvider.notifier).updateSettings(
+                  (s) => s.appLockTimeoutSeconds = v,
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════════

@@ -44,6 +44,10 @@ dependencies:
   share_plus: ^12.0.2
   package_info_plus: ^9.0.1
 
+  # ─── APP LOCK ───────────────────────────────────────────
+  local_auth: ^2.3.0
+  crypto: ^3.0.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
