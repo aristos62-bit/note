@@ -10,7 +10,9 @@
 // ✅ AppBar: Αποθήκευση, Υπενθύμιση, Αγαπημένο, Pin, Αρχειοθέτηση, Διαγραφή
 // ✅ Tags: προβολή, προσθήκη, αφαίρεση
 //
-import 'dart:convert'; // 🆕 για jsonEncode / jsonDecode
+import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -224,6 +226,66 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
         .read(propertyNotifierProvider(widget.itemId).notifier)
         .remove('birthday');
     setState(() => _lastBirthday = null);
+  }
+
+  Future<void> _pickGallery() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final bytes = result.files.single.bytes;
+      if (bytes == null || bytes.isEmpty) {
+        DebugConfig.warning('_pickGallery: empty bytes');
+        return;
+      }
+      final base64 = base64Encode(bytes);
+      DebugConfig.db('_pickGallery: saved ${bytes.length}B as base64');
+      await ref
+          .read(propertyNotifierProvider(widget.itemId).notifier)
+          .setText('photo', base64);
+      ref.read(propertyWriteVersionProvider.notifier).state++;
+      DebugConfig.db('_pickGallery: version=${ref.read(propertyWriteVersionProvider)}');
+    } catch (e, s) {
+      DebugConfig.error('_pickGallery', e, s);
+    }
+  }
+
+  Future<void> _pickCamera() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (image == null) return;
+      final bytes = await image.readAsBytes();
+      final base64 = base64Encode(bytes);
+      DebugConfig.db('_pickCamera: saved ${bytes.length}B as base64');
+      await ref
+          .read(propertyNotifierProvider(widget.itemId).notifier)
+          .setText('photo', base64);
+      ref.read(propertyWriteVersionProvider.notifier).state++;
+      DebugConfig.db('_pickCamera: version=${ref.read(propertyWriteVersionProvider)}');
+    } catch (e, s) {
+      DebugConfig.error('_pickCamera', e, s);
+    }
+  }
+
+  Future<void> _deletePhoto() async {
+    try {
+      DebugConfig.db('_deletePhoto: removing photo');
+      await ref
+          .read(propertyNotifierProvider(widget.itemId).notifier)
+          .remove('photo');
+      ref.read(propertyWriteVersionProvider.notifier).state++;
+      DebugConfig.db('_deletePhoto: version=${ref.read(propertyWriteVersionProvider)}');
+    } catch (e, s) {
+      DebugConfig.error('_deletePhoto', e, s);
+    }
   }
 
   Future<void> _createBirthdayReminder(DateTime birthday) async {
@@ -456,6 +518,9 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
         onShowTagPicker: _showTagPicker,
         onAddPhone: _addPhoneField,
         onRemovePhone: _removePhoneField,
+        onPickCamera: _pickCamera,
+        onPickGallery: _pickGallery,
+        onDeletePhoto: _deletePhoto,
       ),
     );
   }
@@ -509,6 +574,9 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
               onShowTagPicker: _showTagPicker,
               onAddPhone: _addPhoneField,
               onRemovePhone: _removePhoneField,
+              onPickCamera: _pickCamera,
+              onPickGallery: _pickGallery,
+              onDeletePhoto: _deletePhoto,
             ),
           ),
         ],
@@ -714,6 +782,9 @@ class _ContactBody extends ConsumerWidget {
   final VoidCallback onShowTagPicker;
   final VoidCallback onAddPhone;
   final ValueChanged<int> onRemovePhone;
+  final VoidCallback onPickCamera;
+  final VoidCallback onPickGallery;
+  final VoidCallback onDeletePhoto;
 
   const _ContactBody({
     required this.item,
@@ -736,6 +807,9 @@ class _ContactBody extends ConsumerWidget {
     required this.onShowTagPicker,
     required this.onAddPhone,
     required this.onRemovePhone,
+    required this.onPickCamera,
+    required this.onPickGallery,
+    required this.onDeletePhoto,
   });
 
   @override
@@ -766,16 +840,32 @@ class _ContactBody extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(letter, style: context.h2.withColor(color)),
-                  ),
+                Stack(
+                  children: [
+                    _ContactDetailAvatar(
+                      letter: letter,
+                      color: color,
+                      size: 64,
+                      photoBase64: props.where((p) => p.key == 'photo').firstOrNull?.value,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: GestureDetector(
+                        onTap: () => _showPhotoOptions(context),
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: context.cPrimary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: context.cBg, width: 2),
+                          ),
+                          child: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: Spacing.md),
                 Expanded(
@@ -932,6 +1022,50 @@ class _ContactBody extends ConsumerWidget {
 
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
+    );
+  }
+
+  void _showPhotoOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: context.cBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Λήψη φωτογραφίας'),
+              onTap: () { Navigator.pop(context); onPickCamera(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Επιλογή από gallery'),
+              onTap: () { Navigator.pop(context); onPickGallery(); },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+              title: Text('Διαγραφή φωτογραφίας', style: TextStyle(color: context.cError)),
+              onTap: () { Navigator.pop(context); onDeletePhoto(); },
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1235,16 +1369,11 @@ class _ContactSummaryPanel extends ConsumerWidget {
       child: ListView(
         children: [
           const SizedBox(height: Spacing.lg),
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(letter, style: context.h1.withColor(color)),
-            ),
+          _ContactDetailAvatar(
+            letter: letter,
+            color: color,
+            size: 88,
+            photoBase64: props.where((p) => p.key == 'photo').firstOrNull?.value,
           ),
           const SizedBox(height: Spacing.md),
           Text(name.isNotEmpty ? name : 'Νέα επαφή',
@@ -1318,6 +1447,48 @@ class _QuickAction extends StatelessWidget {
               overflow: TextOverflow.ellipsis),
         ),
       ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// Shared contact avatar — με ή χωρίς φωτογραφία
+// ════════════════════════════════════════════════════════════════
+class _ContactDetailAvatar extends StatelessWidget {
+  final String letter;
+  final Color color;
+  final double size;
+  final String? photoBase64;
+
+  const _ContactDetailAvatar({
+    required this.letter,
+    required this.color,
+    required this.size,
+    this.photoBase64,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (photoBase64 != null && photoBase64!.isNotEmpty) {
+      try {
+        return CircleAvatar(
+          radius: size / 2,
+          backgroundImage: MemoryImage(base64Decode(photoBase64!)),
+        );
+      } catch (e) {
+        DebugConfig.error('_ContactDetailAvatar: base64 decode failed', e, null);
+      }
+    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(letter, style: (size >= 88 ? context.h1 : context.h2).withColor(color)),
+      ),
     );
   }
 }

@@ -147,6 +147,8 @@ class _SystemGroupState extends State<_SystemGroup> {
           const SizedBox(height: Spacing.sm),
           _buildCard(_PreferredFolderTile(settings: widget.settings, ref: widget.ref)),
           const SizedBox(height: Spacing.sm),
+          _buildCard(_MaxAttachmentSizeTile(settings: widget.settings, ref: widget.ref)),
+          const SizedBox(height: Spacing.sm),
           _buildCard(_ActionTile(
             label: 'Εισαγωγή επαφών',
             subtitle: 'Εισαγωγή επαφών από το τηλέφωνο',
@@ -2165,6 +2167,69 @@ class _ThemeTile extends StatelessWidget {
   }
 }
 
+
+class _MaxAttachmentSizeTile extends StatelessWidget {
+  final AppSettings settings;
+  final WidgetRef ref;
+  const _MaxAttachmentSizeTile({required this.settings, required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = settings.maxAttachmentSizeMB;
+    final label = value == 0 ? 'Χωρίς όριο' : '$value MB';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
+      leading: Icon(Icons.file_upload_outlined, color: context.cText2, size: 22),
+      title: Text('Ορισμός μέγιστου μεγέθους συνημμένου', style: context.bodyMd),
+      subtitle: Text(label, style: context.bodySm.withColor(context.cText2)),
+      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: context.cDisabled),
+      onTap: () => _showSizePicker(context, ref),
+    );
+  }
+
+  void _showSizePicker(BuildContext context, WidgetRef ref) {
+    final current = settings.maxAttachmentSizeMB;
+    final options = [1, 5, 10, 20, 50, 100, 0];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: Spacing.md),
+          Text('Ορισμός μέγιστου μεγέθους συνημμένου',
+              style: context.titleMd),
+          const SizedBox(height: Spacing.sm),
+          ...options.map((mb) {
+            final isActive = current == mb;
+            return ListTile(
+              leading: Icon(
+                isActive ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                color: isActive ? context.cPrimary : context.cText2,
+              ),
+              title: Text(
+                mb == 0 ? 'Χωρίς όριο' : '$mb MB',
+                style: context.bodyMd,
+              ),
+              onTap: () {
+                DebugConfig.provider('Settings: maxAttachmentSizeMB=$mb');
+                ref.read(settingsNotifierProvider.notifier).updateSettings((s) => s.maxAttachmentSizeMB = mb);
+                Navigator.pop(ctx);
+              },
+            );
+          }),
+          const SizedBox(height: Spacing.md),
+        ],
+      ),
+    );
+  }
+}
 
 class _PreferredFolderTile extends ConsumerWidget {
   final AppSettings settings;

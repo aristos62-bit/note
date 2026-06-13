@@ -34,7 +34,6 @@ import '../../features/journal/journal.dart';
 import '../../features/contacts/contacts.dart';
 import '../../features/collections/collections.dart';
 import '../../features/appointments/appointments.dart';
-import '../../features/lock/lock.dart';
 import 'package:flutter/gestures.dart';
 import '../../providers/providers.dart';
 
@@ -58,8 +57,6 @@ class AppRoutes {
   static const collections = '/collections';
   static const journal = '/journal';
   static const contacts = '/contacts';
-  static const lock = '/lock';
-
   // Helper για dynamic routes
   static String note(int id) => '/notes/$id';
   static String task(int id) => '/tasks/$id';
@@ -75,30 +72,12 @@ class AppRoutes {
 // ── Router Provider ────────────────────────────────────────────
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final locked = ref.watch(appLockStateProvider);
-
   return GoRouter(
     initialLocation: AppRoutes.home,
     debugLogDiagnostics: false,
     observers: [_RouterObserver()],
-    redirect: (context, state) {
-      if (locked && state.uri.path != AppRoutes.lock) {
-        DebugConfig.nav('Redirect → /lock (app locked)');
-        return AppRoutes.lock;
-      }
-      if (!locked && state.uri.path == AppRoutes.lock) {
-        DebugConfig.nav('Redirect → / (unlocked)');
-        return AppRoutes.home;
-      }
-      return null;
-    },
+    redirect: (context, state) => null,
     routes: [
-      GoRoute(
-        path: AppRoutes.lock,
-        name: 'lock',
-        pageBuilder: (context, state) =>
-            AppTransitions.fade(state, const LockScreen()),
-      ),
       // ── Shell route — bottom nav / navigation rail ──────────
       ShellRoute(
         builder: (context, state, child) => _AppShell(child: child),

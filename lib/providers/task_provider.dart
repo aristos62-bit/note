@@ -38,32 +38,36 @@ final tasksStreamProvider = StreamProvider<List<Item>>((ref) {
 final tasksWithDetailsProvider = StreamProvider<List<TaskWithDetails>>((ref) async* {
   yield* ref.watch(tasksStreamProvider).when(
     data: (tasks) async* {
-      // Πρώτο pass: batch load properties + tags παράλληλα
-      final result = await Future.wait(
-        tasks.map((task) async {
-          final results = await Future.wait([
-            ref.read(itemPropertiesProvider(task.id).future),
-            ref.read(itemTagsProvider(task.id).future),
-          ]);
-          final properties = results[0] as List<ItemProperty>;
-          final tags       = results[1] as List<Tag>;
-          final dueDate    = properties
-              .where((p) => p.key == 'due_date')
-              .firstOrNull
-              ?.dateValue;
-          final parentIdStr = properties
-              .where((p) => p.key == 'parent_id')
-              .firstOrNull
-              ?.value;
-          final parentId = parentIdStr != null ? int.tryParse(parentIdStr) : null;
-          return TaskWithDetails(
-            task: task,
-            dueDate: dueDate,
-            tags: tags,
-            parentId: parentId,
-          );
-        }),
-      );
+      // ✅ Batch load: 2 DB calls συνολικά αντί για 2×N
+      final taskIds = tasks.map((t) => t.id).toList();
+      final db = ref.watch(dbProvider);
+      final batchResults = await Future.wait([
+        db.properties.getAllForItems(taskIds),
+        db.tags.getAllForItems(taskIds),
+      ]);
+      final propsMap = batchResults[0] as Map<int, List<ItemProperty>>;
+      final tagsMap  = batchResults[1] as Map<int, List<Tag>>;
+
+      // Πρώτο pass: σύνθεση από cache — μηδέν επιπλέον DB calls
+      final result = tasks.map((task) {
+        final properties = propsMap[task.id] ?? [];
+        final tags       = tagsMap[task.id] ?? [];
+        final dueDate    = properties
+            .where((p) => p.key == 'due_date')
+            .firstOrNull
+            ?.dateValue;
+        final parentIdStr = properties
+            .where((p) => p.key == 'parent_id')
+            .firstOrNull
+            ?.value;
+        final parentId = parentIdStr != null ? int.tryParse(parentIdStr) : null;
+        return TaskWithDetails(
+          task: task,
+          dueDate: dueDate,
+          tags: tags,
+          parentId: parentId,
+        );
+      }).toList();
 
       // ✅ Δεύτερο pass: subtasks από cache — μηδέν DB queries
       final withSubtasks = result.map((td) {

@@ -211,6 +211,26 @@ class AppStringUtils {
     if (count == 1) return '1 λέξη';
     return '$count λέξεις';
   }
+
+  /// Αφαίρεση χαρακτήρων που προκαλούν προβλήματα σε filesystem
+  static String sanitizeFileName(String name) {
+    if (name.trim().isEmpty) return 'unnamed_file';
+
+    var result = name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    result = result.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '');
+    result = result.replaceAll(RegExp(r'[. ]+$'), '');
+
+    final dot = result.lastIndexOf('.');
+    final stem = (dot != -1) ? result.substring(0, dot) : result;
+    final ext = (dot != -1) ? result.substring(dot) : '';
+
+    if (stem.isEmpty && ext.isNotEmpty) return 'file$ext';
+
+    final reserved = RegExp(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$', caseSensitive: false);
+    if (reserved.hasMatch(stem)) return 'reserved_$stem$ext';
+
+    return result;
+  }
 }
 
 // ────────────────────────────────────────────────────────────────

@@ -23,6 +23,11 @@ import '../core/utils/debug_config.dart';
 import '../models/item_property.dart';
 import 'db_provider.dart';
 
+/// Αυξάνεται από contact detail screen όταν αλλάζει photo.
+/// Το βλέπει ο batch provider της λίστας επαφών για real-time refresh.
+/// ΔΕΝ αυξάνεται από PropertyNotifier (δεν επηρεάζονται tasks/notes κλπ).
+final propertyWriteVersionProvider = StateProvider<int>((ref) => 0);
+
 // ── Read providers ────────────────────────────────────────────────
 
 /// Όλα τα properties ενός item

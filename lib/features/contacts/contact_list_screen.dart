@@ -115,13 +115,8 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
 
                   contacts.sort((a, b) => (a.title ?? '').compareTo(b.title ?? ''));
 
-                  final contactProps = <int, _ContactProps>{};
-                  for (final c in contacts) {
-                    final props = ref.read(itemPropertiesProvider(c.id)).valueOrNull;
-                    if (props != null) {
-                      contactProps[c.id] = _extractContactProps(props);
-                    }
-                  }
+                  final contactPropsAsync = ref.watch(_contactBatchPropsProvider);
+                  final contactProps = contactPropsAsync.valueOrNull ?? {};
 
                   if (contacts.isEmpty) {
                     return EmptyState.forType(ItemType.contact, onAction: _createContact);
@@ -181,7 +176,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
 
 // ── Contact props helper ──────────────────────────────────────
 
-typedef _ContactProps = ({String? phone, String? email});
+typedef _ContactProps = ({String? phone, String? email, String? photo});
 
 _ContactProps _extractContactProps(List<ItemProperty> props) {
   String? phone;
@@ -196,8 +191,29 @@ _ContactProps _extractContactProps(List<ItemProperty> props) {
   }
   phone ??= props.where((p) => p.key == 'phone').firstOrNull?.value;
   final email = props.where((p) => p.key == 'email').firstOrNull?.value;
-  return (phone: phone, email: email);
+  final photo = props.where((p) => p.key == 'photo').firstOrNull?.value;
+  DebugConfig.db('_extractContactProps: id=${props.firstOrNull?.itemId} photo=${photo != null ? 'yes' : 'no'}');
+  return (phone: phone, email: email, photo: photo);
 }
+
+/// Batch provider: properties για όλες τις επαφές — 1 DB call
+final _contactBatchPropsProvider =
+    FutureProvider.autoDispose<Map<int, _ContactProps>>((ref) async {
+  final pv = ref.watch(propertyWriteVersionProvider);
+  DebugConfig.db('_contactBatchPropsProvider build (pv=$pv)');
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  final contacts = itemsAsync.valueOrNull
+          ?.where((i) => i.type == ItemType.contact)
+          .toList() ??
+      [];
+  final ids = contacts.map((c) => c.id).toList();
+  if (ids.isEmpty) return {};
+  DebugConfig.db('_contactBatchPropsProvider: ids=${ids.length}');
+  final db = ref.watch(dbProvider);
+  final propsMap = await db.properties.getAllForItems(ids);
+  return propsMap
+      .map((key, value) => MapEntry(key, _extractContactProps(value)));
+});
 
 // ──────────────────────────────────────────────
 // Mobile list
@@ -240,6 +256,7 @@ class _ContactListMobile extends StatelessWidget {
                   contact: item,
                   phone: contactProps[item.id]?.phone,
                   email: contactProps[item.id]?.email,
+                  photo: contactProps[item.id]?.photo,
                   onTap: onTap,
                   onDelete: onDelete,
                   onShare: onShare != null ? () => onShare!(item) : null,
@@ -284,6 +301,7 @@ class _ContactGrid extends StatelessWidget {
             contact: contacts[i],
             phone: contactProps[contacts[i].id]?.phone,
             email: contactProps[contacts[i].id]?.email,
+            photo: contactProps[contacts[i].id]?.photo,
             onTap: onTap,
             onDelete: onDelete,
             onShare: onShare != null ? () => onShare!(contacts[i]) : null,
@@ -302,6 +320,7 @@ class _DraggableContactTile extends StatelessWidget {
   final Item contact;
   final String? phone;
   final String? email;
+  final String? photo;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
   final VoidCallback? onShare;
@@ -311,6 +330,7 @@ class _DraggableContactTile extends StatelessWidget {
     required this.contact,
     required this.phone,
     required this.email,
+    this.photo,
     required this.onTap,
     required this.onDelete,
     this.onShare,
@@ -338,7 +358,7 @@ class _DraggableContactTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _ContactAvatar(letter: letter, color: accentColor),
+          _ContactAvatar(letter: letter, color: accentColor, photoBase64: photo),
           const SizedBox(width: Spacing.md),
           Expanded(
             child: Column(
@@ -403,13 +423,27 @@ class _DraggableContactTile extends StatelessWidget {
 class _ContactAvatar extends StatelessWidget {
   final String letter;
   final Color color;
-  const _ContactAvatar({required this.letter, required this.color});
+  final String? photoBase64;
+  const _ContactAvatar({required this.letter, required this.color, this.photoBase64});
+
   @override
-  Widget build(BuildContext context) => Container(
-    width: 44, height: 44,
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-    child: Center(child: Text(letter, style: context.titleMd.copyWith(color: color))),
-  );
+  Widget build(BuildContext context) {
+    if (photoBase64 != null && photoBase64!.isNotEmpty) {
+      try {
+        return CircleAvatar(
+          radius: 22,
+          backgroundImage: MemoryImage(base64Decode(photoBase64!)),
+        );
+      } catch (e) {
+        DebugConfig.error('_ContactAvatar: base64 decode failed', e, null);
+      }
+    }
+    return Container(
+      width: 44, height: 44,
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+      child: Center(child: Text(letter, style: context.titleMd.copyWith(color: color))),
+    );
+  }
 }
 
 class _LoadingList extends StatelessWidget {

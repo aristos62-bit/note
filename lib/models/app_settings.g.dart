@@ -99,64 +99,69 @@ const AppSettingsSchema = CollectionSchema(
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
-    r'notificationsEnabled': PropertySchema(
+    r'maxAttachmentSizeMB': PropertySchema(
       id: 16,
+      name: r'maxAttachmentSizeMB',
+      type: IsarType.long,
+    ),
+    r'notificationsEnabled': PropertySchema(
+      id: 17,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'preferredFolderId': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'preferredFolderId',
       type: IsarType.long,
     ),
     r'schemaVersion': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'schemaVersion',
       type: IsarType.long,
     ),
     r'showArchivedItems': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'showArchivedItems',
       type: IsarType.bool,
     ),
     r'showDeletedItems': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'showDeletedItems',
       type: IsarType.bool,
     ),
     r'soundEnabled': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'soundEnabled',
       type: IsarType.bool,
     ),
     r'syncEnabled': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'syncEnabled',
       type: IsarType.bool,
     ),
     r'syncIntervalMinutes': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'syncIntervalMinutes',
       type: IsarType.long,
     ),
     r'syncOnWifiOnly': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'syncOnWifiOnly',
       type: IsarType.bool,
     ),
     r'theme': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'theme',
       type: IsarType.string,
       enumMap: _AppSettingsthemeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'vibrationEnabled': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'vibrationEnabled',
       type: IsarType.bool,
     )
@@ -227,18 +232,19 @@ void _appSettingsSerialize(
   writer.writeString(offsets[13], object.itemTypeColorsJson);
   writer.writeString(offsets[14], object.language.name);
   writer.writeDateTime(offsets[15], object.lastSyncAt);
-  writer.writeBool(offsets[16], object.notificationsEnabled);
-  writer.writeLong(offsets[17], object.preferredFolderId);
-  writer.writeLong(offsets[18], object.schemaVersion);
-  writer.writeBool(offsets[19], object.showArchivedItems);
-  writer.writeBool(offsets[20], object.showDeletedItems);
-  writer.writeBool(offsets[21], object.soundEnabled);
-  writer.writeBool(offsets[22], object.syncEnabled);
-  writer.writeLong(offsets[23], object.syncIntervalMinutes);
-  writer.writeBool(offsets[24], object.syncOnWifiOnly);
-  writer.writeString(offsets[25], object.theme.name);
-  writer.writeDateTime(offsets[26], object.updatedAt);
-  writer.writeBool(offsets[27], object.vibrationEnabled);
+  writer.writeLong(offsets[16], object.maxAttachmentSizeMB);
+  writer.writeBool(offsets[17], object.notificationsEnabled);
+  writer.writeLong(offsets[18], object.preferredFolderId);
+  writer.writeLong(offsets[19], object.schemaVersion);
+  writer.writeBool(offsets[20], object.showArchivedItems);
+  writer.writeBool(offsets[21], object.showDeletedItems);
+  writer.writeBool(offsets[22], object.soundEnabled);
+  writer.writeBool(offsets[23], object.syncEnabled);
+  writer.writeLong(offsets[24], object.syncIntervalMinutes);
+  writer.writeBool(offsets[25], object.syncOnWifiOnly);
+  writer.writeString(offsets[26], object.theme.name);
+  writer.writeDateTime(offsets[27], object.updatedAt);
+  writer.writeBool(offsets[28], object.vibrationEnabled);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -269,20 +275,21 @@ AppSettings _appSettingsDeserialize(
       _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[14])] ??
           AppLanguage.greek;
   object.lastSyncAt = reader.readDateTimeOrNull(offsets[15]);
-  object.notificationsEnabled = reader.readBool(offsets[16]);
-  object.preferredFolderId = reader.readLongOrNull(offsets[17]);
-  object.schemaVersion = reader.readLong(offsets[18]);
-  object.showArchivedItems = reader.readBool(offsets[19]);
-  object.showDeletedItems = reader.readBool(offsets[20]);
-  object.soundEnabled = reader.readBool(offsets[21]);
-  object.syncEnabled = reader.readBool(offsets[22]);
-  object.syncIntervalMinutes = reader.readLong(offsets[23]);
-  object.syncOnWifiOnly = reader.readBool(offsets[24]);
+  object.maxAttachmentSizeMB = reader.readLong(offsets[16]);
+  object.notificationsEnabled = reader.readBool(offsets[17]);
+  object.preferredFolderId = reader.readLongOrNull(offsets[18]);
+  object.schemaVersion = reader.readLong(offsets[19]);
+  object.showArchivedItems = reader.readBool(offsets[20]);
+  object.showDeletedItems = reader.readBool(offsets[21]);
+  object.soundEnabled = reader.readBool(offsets[22]);
+  object.syncEnabled = reader.readBool(offsets[23]);
+  object.syncIntervalMinutes = reader.readLong(offsets[24]);
+  object.syncOnWifiOnly = reader.readBool(offsets[25]);
   object.theme =
-      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[25])] ??
+      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[26])] ??
           AppTheme.system;
-  object.updatedAt = reader.readDateTime(offsets[26]);
-  object.vibrationEnabled = reader.readBool(offsets[27]);
+  object.updatedAt = reader.readDateTime(offsets[27]);
+  object.vibrationEnabled = reader.readBool(offsets[28]);
   return object;
 }
 
@@ -330,13 +337,13 @@ P _appSettingsDeserializeProp<P>(
     case 15:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 16:
-      return (reader.readBool(offset)) as P;
-    case 17:
-      return (reader.readLongOrNull(offset)) as P;
-    case 18:
       return (reader.readLong(offset)) as P;
-    case 19:
+    case 17:
       return (reader.readBool(offset)) as P;
+    case 18:
+      return (reader.readLongOrNull(offset)) as P;
+    case 19:
+      return (reader.readLong(offset)) as P;
     case 20:
       return (reader.readBool(offset)) as P;
     case 21:
@@ -344,15 +351,17 @@ P _appSettingsDeserializeProp<P>(
     case 22:
       return (reader.readBool(offset)) as P;
     case 23:
-      return (reader.readLong(offset)) as P;
-    case 24:
       return (reader.readBool(offset)) as P;
+    case 24:
+      return (reader.readLong(offset)) as P;
     case 25:
+      return (reader.readBool(offset)) as P;
+    case 26:
       return (_AppSettingsthemeValueEnumMap[reader.readStringOrNull(offset)] ??
           AppTheme.system) as P;
-    case 26:
-      return (reader.readDateTime(offset)) as P;
     case 27:
+      return (reader.readDateTime(offset)) as P;
+    case 28:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1704,6 +1713,62 @@ extension AppSettingsQueryFilter
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      maxAttachmentSizeMBEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'maxAttachmentSizeMB',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      maxAttachmentSizeMBGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'maxAttachmentSizeMB',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      maxAttachmentSizeMBLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'maxAttachmentSizeMB',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      maxAttachmentSizeMBBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'maxAttachmentSizeMB',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
       notificationsEnabledEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -2367,6 +2432,20 @@ extension AppSettingsQuerySortBy
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByMaxAttachmentSizeMB() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'maxAttachmentSizeMB', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByMaxAttachmentSizeMBDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'maxAttachmentSizeMB', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       sortByNotificationsEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notificationsEnabled', Sort.asc);
@@ -2751,6 +2830,20 @@ extension AppSettingsQuerySortThenBy
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByMaxAttachmentSizeMB() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'maxAttachmentSizeMB', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByMaxAttachmentSizeMBDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'maxAttachmentSizeMB', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       thenByNotificationsEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notificationsEnabled', Sort.asc);
@@ -3023,6 +3116,13 @@ extension AppSettingsQueryWhereDistinct
   }
 
   QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByMaxAttachmentSizeMB() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'maxAttachmentSizeMB');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
       distinctByNotificationsEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'notificationsEnabled');
@@ -3211,6 +3311,13 @@ extension AppSettingsQueryProperty
   QueryBuilder<AppSettings, DateTime?, QQueryOperations> lastSyncAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastSyncAt');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations>
+      maxAttachmentSizeMBProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'maxAttachmentSizeMB');
     });
   }
 

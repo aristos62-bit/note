@@ -15,36 +15,48 @@ class ShareService {
       final item = await helper.items.getById(itemId);
       if (item == null) return;
 
-      final results = await Future.wait([
-        helper.blocks.getByItem(itemId),
-        helper.properties.getAll(itemId),
-      ]);
-      final blocks = results[0] as List<ItemBlock>;
-      final properties = results[1] as List<ItemProperty>;
+      List<XFile> shareFiles = [];
+      String text;
 
-      List<Item> subtasks = [];
-      if (item.type == ItemType.task) {
-        final allTasks = await helper.items.getByWorkspace(
-          item.workspaceId,
-          type: ItemType.task,
-        );
-        for (final t in allTasks) {
-          final props = await helper.properties.getAll(t.id);
-          final pid = props
-              .where((p) => p.key == 'parent_id')
-              .firstOrNull
-              ?.value;
-          if (pid != null && int.tryParse(pid) == itemId) {
-            subtasks.add(t);
+      if (item.type == ItemType.knowledge) {
+        final result = await _buildKnowledgeShare(helper, item);
+        text = result.text;
+        shareFiles = result.files;
+      } else {
+        final results = await Future.wait([
+          helper.blocks.getByItem(itemId),
+          helper.properties.getAll(itemId),
+        ]);
+        final blocks = results[0] as List<ItemBlock>;
+        final properties = results[1] as List<ItemProperty>;
+
+        List<Item> subtasks = [];
+        if (item.type == ItemType.task) {
+          final allTasks = await helper.items.getByWorkspace(
+            item.workspaceId,
+            type: ItemType.task,
+          );
+          for (final t in allTasks) {
+            final props = await helper.properties.getAll(t.id);
+            final pid = props
+                .where((p) => p.key == 'parent_id')
+                .firstOrNull
+                ?.value;
+            if (pid != null && int.tryParse(pid) == itemId) {
+              subtasks.add(t);
+            }
           }
+          subtasks.sort((a, b) => a.id.compareTo(b.id));
         }
-        subtasks.sort((a, b) => a.id.compareTo(b.id));
+
+        text = _format(item, blocks, properties, subtasks);
       }
 
-      final text = _format(item, blocks, properties, subtasks);
+      DebugConfig.print('📤 Share itemId=$itemId type=${item.type.name} files=${shareFiles.length}');
       await SharePlus.instance.share(ShareParams(
         text: text,
         subject: item.title ?? '',
+        files: shareFiles.isNotEmpty ? shareFiles : null,
       ));
     } catch (e, stack) {
       DebugConfig.error('ShareService.shareItem', e, stack);
@@ -79,6 +91,8 @@ class ShareService {
         lines.addAll(_formatJournal(item, blocks));
       case ItemType.habit:
         lines.addAll(_formatHabit(item));
+      case ItemType.knowledge:
+        lines.addAll(_boldTitle(item.title ?? ''));
       default:
         lines.addAll(_boldTitle(item.title ?? ''));
     }
@@ -291,6 +305,142 @@ class ShareService {
       lines.add('$itemIcon **${item.title}**');
     }
     return lines;
+  }
+
+  /// Προετοιμασία knowledge item για share: φόρτωση schema, fields, attachments.
+  static Future<({String text, List<XFile> files})> _buildKnowledgeShare(
+    SuperNoteHelper helper,
+    Item item,
+  ) async {
+    final properties = await helper.properties.getAll(item.id);
+
+    // Βρες collection_id
+    final collectionIdProp =
+        properties.where((p) => p.key == 'collection_id').firstOrNull;
+    DebugConfig.print(
+        '📤 _buildKnowledgeShare itemId=${item.id} collectionId=${collectionIdProp?.value}');
+
+    if (collectionIdProp?.value == null) {
+      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
+    }
+
+    final collectionId = int.tryParse(collectionIdProp!.value!);
+    if (collectionId == null) {
+      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
+    }
+
+    // Φόρτωσε schema από το parent collection
+    final schemaProp = await helper.properties.get(collectionId, 'schema');
+    DebugConfig.print('📤 Schema loaded=${schemaProp?.value != null}');
+
+    if (schemaProp?.value == null || schemaProp!.value!.isEmpty) {
+      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
+    }
+
+    List<Map<String, dynamic>> fields;
+    try {
+      final raw = jsonDecode(schemaProp.value!) as List;
+      fields = raw.cast<Map<String, dynamic>>();
+    } catch (e) {
+      DebugConfig.error('📤 Schema parse failed', e);
+      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
+    }
+
+    DebugConfig.print('📤 Fields parsed count=${fields.length}');
+
+    // Συλλογή attachment files
+    final shareFiles = <XFile>[];
+    for (final f in fields) {
+      if (f['type'] != 'attachment') continue;
+      final key = f['key'] as String? ?? '';
+      if (key.isEmpty) continue;
+
+      final prop = properties.where((p) => p.key == key).firstOrNull;
+      if (prop?.value == null || prop!.value!.isEmpty) continue;
+
+      try {
+        final ids = jsonDecode(prop.value!) as List;
+        DebugConfig.print('📤 Attachment field "$key" ids=${ids.length}');
+        for (final id in ids) {
+          final attachment = await helper.attachments.getById(id as int);
+          if (attachment != null) {
+            DebugConfig.print(
+                '📤  + file id=${attachment.id} "${attachment.fileName}" path="${attachment.localPath}"');
+            shareFiles.add(XFile(
+              attachment.localPath,
+              mimeType: attachment.mimeType,
+              name: attachment.fileName,
+            ));
+          }
+        }
+      } catch (e) {
+        DebugConfig.print('📤  ⚠️ attachment parse error: $e');
+      }
+    }
+
+    final text = _formatCollectionEntry(item, properties, fields);
+    return (text: text, files: shareFiles);
+  }
+
+  /// Μορφοποίηση collection entry fields σε plain text.
+  static String _formatCollectionEntry(
+    Item item,
+    List<ItemProperty> properties,
+    List<Map<String, dynamic>> fields,
+  ) {
+    final lines = <String>[..._boldTitle(item.title ?? '(χωρίς τίτλο)')];
+
+    for (final f in fields) {
+      final key = f['key'] as String? ?? '';
+      final label = f['label'] as String? ?? '';
+      final typeName = f['type'] as String? ?? 'text';
+      if (key.isEmpty) continue;
+
+      final prop = properties.where((p) => p.key == key).firstOrNull;
+      if (prop?.value == null || prop!.value!.isEmpty) continue;
+
+      switch (typeName) {
+        case 'toggle':
+          lines.add('• $label: ${prop.value == 'true' ? '✅ Ναι' : '❌ Όχι'}');
+        case 'date':
+          final dt = DateTime.tryParse(prop.value!);
+          final dateStr =
+              dt != null ? AppDateUtils.formatShort(dt) : prop.value!;
+          lines.add('• 📅 $label: $dateStr');
+        case 'bulletList':
+          lines.add('• $label:');
+          try {
+            final list = jsonDecode(prop.value!) as List;
+            for (final item in list) {
+              lines.add('  • $item');
+            }
+          } catch (_) {
+            lines.add('  ${prop.value}');
+          }
+        case 'numberedList':
+          lines.add('• $label:');
+          try {
+            final list = jsonDecode(prop.value!) as List;
+            for (var i = 0; i < list.length; i++) {
+              lines.add('  ${i + 1}. ${list[i]}');
+            }
+          } catch (_) {
+            lines.add('  ${prop.value}');
+          }
+        case 'attachment':
+          try {
+            final ids = jsonDecode(prop.value!) as List;
+            if (ids.isNotEmpty) {
+              lines.add(
+                  '• 📎 $label: ${ids.length == 1 ? '1 συνημμένο' : '${ids.length} συνημμένα'}');
+            }
+          } catch (_) {}
+        default:
+          lines.add('• $label: ${prop.value}');
+      }
+    }
+
+    return lines.join('\n');
   }
 
   static String _priorityLabel(ItemPriority p) {
