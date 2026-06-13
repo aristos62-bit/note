@@ -14,20 +14,38 @@
 //
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
+import '../../helpers/super_note_helper.dart';
 import 'collections_screen.dart' show FieldDef, FieldType;
 
 // Τοπικοί providers για search & tags στη λίστα εγγραφών
 final _entriesSearchQueryProvider = StateProvider<String>((ref) => '');
 final _entriesTagFilterProvider = StateProvider<Set<String>>((ref) => {});
+
+/// Batch provider: collection_id για όλα τα knowledge items — 1 DB call
+final _batchColIdProvider = FutureProvider.autoDispose<Map<int, String>>((ref) async {
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  final entries = itemsAsync.valueOrNull
+      ?.where((i) => i.type == ItemType.knowledge)
+      .toList() ?? [];
+  final ids = entries.map((e) => e.id).toList();
+  if (ids.isEmpty) return {};
+  DebugConfig.db('_batchColIdProvider: ids=${ids.length}');
+  final result = await SuperNoteHelper.instance.properties.getCollectionIds(ids);
+  DebugConfig.db('_batchColIdProvider: found=${result.length}');
+  return result;
+});
 
 // ════════════════════════════════════════════════════════════════
 // COLLECTION ENTRIES SCREEN
@@ -355,14 +373,12 @@ class _FilteredEntriesList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Φιλτράρουμε όλες τις εγγραφές της συλλογής
+    // Φιλτράρουμε όλες τις εγγραφές της συλλογής — 1 batch DB call
     final allEntries = <Item>[];
+    final colIdMap = ref.watch(_batchColIdProvider).valueOrNull ?? {};
     for (final c in candidates) {
-      final props =
-          ref.watch(itemPropertiesProvider(c.id)).valueOrNull ?? [];
-      final colId =
-          props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-      if (colId == collectionId.toString()) allEntries.add(c);
+      final colIdStr = colIdMap[c.id];
+      if (colIdStr == collectionId.toString()) allEntries.add(c);
     }
 
     // View mode
@@ -557,6 +573,17 @@ class _EntryCard extends ConsumerWidget {
                       if (list.isNotEmpty) val = '${list.length} στοιχεία';
                     } catch (_) {}
                   }
+                } else if (f.type == FieldType.attachment) {
+                  final idsJson =
+                      props.where((p) => p.key == f.key).firstOrNull?.value ?? '';
+                  if (idsJson.isNotEmpty) {
+                    try {
+                      final ids = jsonDecode(idsJson) as List;
+                      if (ids.isNotEmpty) {
+                        val = ids.length == 1 ? '1 συνημμένο' : '${ids.length} συνημμένα';
+                      }
+                    } catch (_) {}
+                  }
                 } else {
                   val = props.where((p) => p.key == f.key).firstOrNull?.value ??
                       '';
@@ -635,6 +662,7 @@ class _CollectionEntryDetailScreenState
 
   final Map<String, bool> _boolValues = {};
   final Map<String, DateTime?> _dateValues = {};
+  final Map<String, List<int>> _fieldAttachmentIds = {};
 
   @override
   void initState() {
@@ -643,7 +671,7 @@ class _CollectionEntryDetailScreenState
     for (final f in widget.fields) {
       if (f.type == FieldType.bulletList || f.type == FieldType.numberedList) {
         _listValues[f.key] = [];
-      } else if (f.type != FieldType.toggle && f.type != FieldType.date) {
+      } else if (f.type != FieldType.toggle && f.type != FieldType.date && f.type != FieldType.attachment) {
         _fieldCtrls[f.key] = TextEditingController();
       }
     }
@@ -711,6 +739,10 @@ class _CollectionEntryDetailScreenState
         case FieldType.bulletList:
         case FieldType.numberedList:
           return notifier.setText(f.key, jsonEncode(_listValues[f.key] ?? []));
+        case FieldType.attachment: {
+          final ids = _fieldAttachmentIds[f.key] ?? [];
+          return notifier.setText(f.key, ids.isNotEmpty ? jsonEncode(ids) : null);
+        }
         default:
           final val = _fieldCtrls[f.key]?.text.trim() ?? '';
           return notifier.setText(f.key, val.isEmpty ? null : val);
@@ -784,6 +816,141 @@ class _CollectionEntryDetailScreenState
     if (mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _addAttachment(String fieldKey) async {
+    try {
+      final field = widget.fields.firstWhere((f) => f.key == fieldKey);
+
+      if (field.maxFiles > 0) {
+        final current = _fieldAttachmentIds[fieldKey]?.length ?? 0;
+        DebugConfig.db('_addAttachment maxFiles check: field="${field.label}" current=$current max=${field.maxFiles}');
+        if (current >= field.maxFiles) {
+          if (mounted) showSnackBar('Μέγιστο όριο ${field.maxFiles} αρχείων για το πεδίο "${field.label}"');
+          return;
+        }
+      }
+
+      final settings = await SuperNoteHelper.instance.settings.get();
+      final maxMB = settings.maxAttachmentSizeMB;
+      final maxBytes = maxMB > 0 ? maxMB * 1024 * 1024 : null;
+      final attachment = await AttachmentService.instance.pickAndSave(
+        itemId: widget.entryId,
+        allowedExtensions: field.allowedExtensions.isNotEmpty
+            ? field.allowedExtensions
+            : null,
+        maxSizeBytes: maxBytes,
+      );
+      if (attachment != null && mounted) {
+        if (_fieldAttachmentIds.values.any((ids) => ids.contains(attachment.id))) {
+          if (mounted) showSnackBar('Το αρχείο "${attachment.fileName}" υπάρχει ήδη');
+          return;
+        }
+        ref.invalidate(attachmentsProvider(widget.entryId));
+        setState(() {
+          _fieldAttachmentIds.putIfAbsent(fieldKey, () => []);
+          _fieldAttachmentIds[fieldKey]!.add(attachment.id);
+          _hasChanges = true;
+        });
+      }
+    } on FormatException catch (e) {
+      if (mounted) showSnackBar(e.message);
+    } catch (e) {
+      debugPrint('[_addAttachment] error: $e');
+    }
+  }
+
+  Future<void> _removeAttachment(String fieldKey, int attachmentId) async {
+    await AttachmentService.instance.delete(attachmentId);
+    if (mounted) {
+      ref.invalidate(attachmentsProvider(widget.entryId));
+      setState(() {
+        _fieldAttachmentIds[fieldKey]?.remove(attachmentId);
+        _hasChanges = true;
+      });
+    }
+  }
+
+  Future<void> _openAttachment(Attachment attachment) async {
+    DebugConfig.db('_openAttachment id=${attachment.id} type=${attachment.mimeType}');
+    if (attachment.isImage) {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            children: [
+              InteractiveViewer(
+                child: Center(
+                  child: Image.file(
+                    File(attachment.localPath),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.broken_image_rounded, size: 48, color: Colors.white54),
+                          SizedBox(height: 8),
+                          Text('Αδυναμία προβολής', style: TextStyle(color: Colors.white54)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+    try {
+      final result = await OpenFilex.open(attachment.localPath);
+      if (result.type != ResultType.done && mounted) {
+        DebugConfig.db('_openAttachment failed: ${result.type} ${result.message}');
+        showSnackBar('Αδυναμία ανοίγματος του αρχείου');
+      }
+    } catch (e) {
+      DebugConfig.error('_openAttachment', e);
+      if (mounted) showSnackBar('Αδυναμία ανοίγματος του αρχείου');
+    }
+  }
+
+  Future<void> _saveAttachment(Attachment attachment) async {
+    DebugConfig.db('_saveAttachment id=${attachment.id} file="${attachment.fileName}"');
+    try {
+      final file = File(attachment.localPath);
+      if (!await file.exists()) {
+        DebugConfig.db('_saveAttachment file not found');
+        if (mounted) showSnackBar('Το αρχείο δεν βρέθηκε');
+        return;
+      }
+      final bytes = await file.readAsBytes();
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Αποθήκευση αρχείου',
+        fileName: attachment.fileName,
+        bytes: bytes,
+      );
+      if (path != null && mounted) {
+        DebugConfig.db('_saveAttachment saved to "$path"');
+        showSnackBar('Αποθηκεύτηκε: ${attachment.fileName}');
+      } else {
+        DebugConfig.db('_saveAttachment cancelled');
+      }
+    } catch (e) {
+      DebugConfig.error('_saveAttachment', e);
+      if (mounted) showSnackBar('Αποτυχία αποθήκευσης');
+    }
+  }
+
   // ── Reminder bottom sheet ──────────────────────────────────
   Future<void> _showReminderDialog() async {
     final title =
@@ -840,6 +1007,19 @@ class _CollectionEntryDetailScreenState
             _listValues[f.key] = [];
           }
           break;
+        case FieldType.attachment:
+          if (val.isNotEmpty) {
+            try {
+              final list = jsonDecode(val) as List;
+              _fieldAttachmentIds[f.key] =
+                  list.map((e) => (e as num).toInt()).toList();
+            } catch (_) {
+              _fieldAttachmentIds[f.key] = [];
+            }
+          } else {
+            _fieldAttachmentIds[f.key] = [];
+          }
+          break;
         default:
           if (_fieldCtrls[f.key]?.text.isEmpty == true && val.isNotEmpty) {
             // ✅ Χρησιμοποιούμε .value αντί .text για να τοποθετήσουμε
@@ -860,6 +1040,7 @@ class _CollectionEntryDetailScreenState
   Widget build(BuildContext context) {
     final itemAsync = ref.watch(itemStreamProvider(widget.entryId));
     final propsAsync = ref.watch(itemPropertiesProvider(widget.entryId));
+    final allAttachmentsAsync = ref.watch(attachmentsProvider(widget.entryId));
 
     if (propsAsync.valueOrNull != null) {
       _loadProps(propsAsync.valueOrNull!);
@@ -1015,6 +1196,11 @@ class _CollectionEntryDetailScreenState
                     },
                     dateValue: _dateValues[f.key],
                     listItems: _listValues[f.key] ?? [],
+                    attachments: f.type == FieldType.attachment
+                        ? (allAttachmentsAsync.valueOrNull ?? [])
+                            .where((a) => _fieldAttachmentIds[f.key]?.contains(a.id) ?? false)
+                            .toList()
+                        : const [],
                     onBoolChange: (v) {
                       setState(() {
                         _boolValues[f.key] = v;
@@ -1030,6 +1216,10 @@ class _CollectionEntryDetailScreenState
                     onAddListItem: () => _addListItem(f.key),
                     onRemoveListItem: (index) => _removeListItem(f.key, index),
                     onUpdateListItem: (index, val) => _updateListItem(f.key, index, val),
+                    onAddAttachment: () => _addAttachment(f.key),
+                    onRemoveAttachment: (id) => _removeAttachment(f.key, id),
+                    onOpenAttachment: (a) => _openAttachment(a),
+                    onSaveAttachment: (a) => _saveAttachment(a),
                   ),
                 )),
                 // Tags section
@@ -1112,12 +1302,17 @@ class _FieldInput extends StatelessWidget {
   final bool boolValue;
   final DateTime? dateValue;
   final List<String> listItems;
+  final List<Attachment> attachments;
   final ValueChanged<bool> onBoolChange;
   final VoidCallback onAnyChange;
   final ValueChanged<DateTime?> onDateChange;
   final VoidCallback onAddListItem;
   final ValueChanged<int> onRemoveListItem;
   final void Function(int, String) onUpdateListItem;
+  final VoidCallback onAddAttachment;
+  final ValueChanged<int> onRemoveAttachment;
+  final ValueChanged<Attachment> onOpenAttachment;
+  final ValueChanged<Attachment> onSaveAttachment;
 
   const _FieldInput({
     required this.field,
@@ -1125,12 +1320,17 @@ class _FieldInput extends StatelessWidget {
     required this.boolValue,
     required this.dateValue,
     required this.listItems,
+    required this.attachments,
     required this.onBoolChange,
     required this.onAnyChange,
     required this.onDateChange,
     required this.onAddListItem,
     required this.onRemoveListItem,
     required this.onUpdateListItem,
+    required this.onAddAttachment,
+    required this.onRemoveAttachment,
+    required this.onOpenAttachment,
+    required this.onSaveAttachment,
   });
 
   @override
@@ -1214,6 +1414,13 @@ class _FieldInput extends StatelessWidget {
             onRemove: onRemoveListItem,
             onUpdate: onUpdateListItem,
             isNumbered: true,
+          ),
+          FieldType.attachment => _AttachmentField(
+            attachments: attachments,
+            onAdd: onAddAttachment,
+            onRemove: onRemoveAttachment,
+            onOpen: onOpenAttachment,
+            onSave: onSaveAttachment,
           ),
           _ => TextField(
             controller: ctrl,
@@ -1395,6 +1602,115 @@ class _ListField extends StatelessWidget {
           onPressed: onAdd,
           icon: const Icon(Icons.add_rounded, size: 16),
           label: Text('Προσθήκη στοιχείου',
+              style: context.labelSm.withColor(context.cPrimary)),
+        ),
+      ],
+    );
+  }
+}
+
+class _AttachmentField extends StatelessWidget {
+  final List<Attachment> attachments;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+  final ValueChanged<Attachment> onOpen;
+  final ValueChanged<Attachment> onSave;
+
+  const _AttachmentField({
+    required this.attachments,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onOpen,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = ColorsUI.getBorder(context.brightness);
+    final surface = ColorsUI.getSurface(context.brightness);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...attachments.map((a) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.xs),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => onOpen(a),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.sm, vertical: Spacing.xs),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: AppRadius.inputBR,
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          if (a.isImage)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
+                              child: Image.file(
+                                File(a.localPath),
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                    Icons.broken_image_rounded,
+                                    size: 24,
+                                    color: context.cText2),
+                              ),
+                            )
+                          else
+                            Icon(
+                              a.isVideo
+                                  ? Icons.video_file_rounded
+                                  : a.isAudio
+                                  ? Icons.audio_file_rounded
+                                  : Icons.insert_drive_file_rounded,
+                              size: 24,
+                              color: context.cText2,
+                            ),
+                          const SizedBox(width: Spacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(a.fileName,
+                                    style: context.labelSm,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                Text(a.readableSize,
+                                    style: context.labelSm.withColor(context.cText2)),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => onSave(a),
+                            child: Icon(Icons.download_rounded,
+                                size: 18, color: context.cPrimary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => onRemove(a.id),
+                  child: Icon(Icons.close_rounded,
+                      size: 18, color: context.cError),
+                ),
+              ],
+            ),
+          );
+        }),
+        TextButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(Icons.attach_file_rounded, size: 16),
+          label: Text('Προσθήκη αρχείου',
               style: context.labelSm.withColor(context.cPrimary)),
         ),
       ],

@@ -24,6 +24,7 @@ import '../models/attachment.dart';
 import '../models/user.dart';
 import '../models/device.dart';
 import '../models/app_settings.dart';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
 import '../services/migration_service.dart';
@@ -380,8 +381,17 @@ class ItemRepository {
     });
   }
 
-  /// Hard delete (permanent — διαγράφει και όλα τα related data)
+  /// Hard delete (permanent — διαγράφει και όλα τα related data + φυσικά αρχεία από δίσκο)
   Future<void> hardDelete(int id) async {
+    DebugConfig.db('hardDelete: permanent delete itemId=$id');
+
+    // 1. Φόρτωσε attachments ΠΡΙΝ το writeTxn (για disk cleanup μετά)
+    final attachments = await _isar.attachments
+        .filter()
+        .itemIdEqualTo(id)
+        .findAll();
+    DebugConfig.db('hardDelete: found ${attachments.length} attachment(s) for itemId=$id');
+
     await _isar.writeTxn(() async {
       await _isar.items.delete(id);
       // Cascade delete
@@ -393,6 +403,22 @@ class ItemRepository {
       await _isar.reminders.filter().itemIdEqualTo(id).deleteAll();
       await _isar.attachments.filter().itemIdEqualTo(id).deleteAll();
     });
+
+    // 2. Διέγραψε φυσικά αρχεία από δίσκο (μετά το τρανζαξιόν)
+    for (final att in attachments) {
+      try {
+        final file = File(att.localPath);
+        if (await file.exists()) {
+          await file.delete();
+          DebugConfig.db('hardDelete: deleted file "${att.fileName}" (${att.localPath})');
+        } else {
+          DebugConfig.db('hardDelete: file already missing "${att.fileName}" (${att.localPath})');
+        }
+      } catch (e) {
+        DebugConfig.warning('hardDelete: failed to delete file ${att.localPath}: $e');
+      }
+    }
+    DebugConfig.db('hardDelete: done itemId=$id');
   }
 
   // ── REORDER (new) ──────────────────────────────────────────
@@ -766,6 +792,19 @@ class PropertyRepository {
     return map;
   }
 
+  /// Lightweight: επιστρέφει μόνο collection_id pairs — 1 DB call αντί για N
+  Future<Map<int, String>> getCollectionIds(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    DebugConfig.db('PropertyRepository.getCollectionIds: count=${itemIds.length}');
+    final props = await _isar.itemPropertys
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .keyEqualTo('collection_id')
+        .findAll();
+    DebugConfig.db('PropertyRepository.getCollectionIds: found ${props.length} props');
+    return {for (final p in props) p.itemId: p.value!};
+  }
+
   Future<void> delete(int itemId, String key) async {
     await _isar.writeTxn(() async {
       await _isar.itemPropertys
@@ -871,6 +910,32 @@ class TagRepository {
     final tagIds = itemTags.map((it) => it.tagId).toList();
     return _isar.tags.getAll(tagIds).then(
             (tags) => tags.whereType<Tag>().toList());
+  }
+
+
+  /// Batch: tags για λίστα item IDs — 1-2 DB calls αντί για N
+  Future<Map<int, List<Tag>>> getAllForItems(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    final allItemTags = await _isar.itemTags
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .findAll();
+
+    final allTagIds = allItemTags.map((it) => it.tagId).toSet().toList();
+    final allTags = await _isar.tags.getAll(allTagIds);
+    final tagById = <int, Tag>{};
+    for (final tag in allTags) {
+      if (tag != null) tagById[tag.id] = tag;
+    }
+
+    final map = <int, List<Tag>>{};
+    for (final it in allItemTags) {
+      final tag = tagById[it.tagId];
+      if (tag != null) {
+        map.putIfAbsent(it.itemId, () => []).add(tag);
+      }
+    }
+    return map;
   }
 
   Future<List<Item>> getItemsWithTag(int tagId) async {
@@ -1293,6 +1358,19 @@ class AttachmentRepository {
   }
 
   Future<Attachment?> getById(int id) => _isar.attachments.get(id);
+
+  Future<Attachment?> findDuplicate({
+    required int itemId,
+    required String fileName,
+    required int fileSize,
+  }) async {
+    DebugConfig.db('AttachmentRepository.findDuplicate itemId=$itemId file="$fileName" size=$fileSize');
+    return await _isar.attachments
+        .filter()
+        .fileNameEqualTo(fileName)
+        .fileSizeEqualTo(fileSize)
+        .findFirst();
+  }
 
   Future<void> delete(int id) async {
     await _isar.writeTxn(() async {

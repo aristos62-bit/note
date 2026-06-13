@@ -24,8 +24,10 @@ import '../models/attachment.dart';
 import '../models/user.dart';
 import '../models/device.dart';
 import '../models/app_settings.dart';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
+import '../services/migration_service.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // SuperNoteHelper — Singleton
@@ -92,6 +94,9 @@ class SuperNoteHelper {
     );
 
     _instance = SuperNoteHelper._internal(isar);
+
+    // Schema migration — ελέγχει version και τρέχει migrations αν χρειαστεί
+    await MigrationService.ensureSchemaVersion(isar);
 
     // Δημιουργία default workspace αν δεν υπάρχει
     await _instance!._ensureDefaults();
@@ -176,6 +181,35 @@ class ItemRepository {
     return list;
   }
 
+  // Ταξινόμηση: Pinned → Favorites → Others
+  List<Item> _sortByCategory(List<Item> items) {
+    final list = List<Item>.from(items);
+    list.sort((a, b) {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      if (a.favorite && !b.favorite) return -1;
+      if (!a.favorite && b.favorite) return 1;
+      if (a.pinned && b.pinned) {
+        final ao = a.pinnedOrder;
+        final bo = b.pinnedOrder;
+        if (ao == null && bo == null) return 0;
+        if (ao == null) return 1;
+        if (bo == null) return -1;
+        return ao.compareTo(bo);
+      }
+      if (a.favorite && b.favorite) {
+        final ao = a.favoriteOrder;
+        final bo = b.favoriteOrder;
+        if (ao == null && bo == null) return 0;
+        if (ao == null) return 1;
+        if (bo == null) return -1;
+        return ao.compareTo(bo);
+      }
+      return a.sortOrder.compareTo(b.sortOrder);
+    });
+    return list;
+  }
+
   // ── CREATE ──────────────────────────────────────────────
 
   Future<Item> create({
@@ -226,7 +260,8 @@ class ItemRepository {
         .sortBySortOrder()
         .offset(offset)
         .limit(limit)
-        .findAll();
+        .findAll()
+        .then((items) => _sortByCategory(items));
   }
 
   Future<List<Item>> getByFolder(int folderId, {int limit = 1000000, int offset = 0}) {
@@ -238,7 +273,8 @@ class ItemRepository {
         .sortBySortOrder()
         .offset(offset)
         .limit(limit)
-        .findAll();
+        .findAll()
+        .then((items) => _sortByCategory(items));
   }
 
   Future<List<Item>> getPinned(int workspaceId) async {
@@ -297,7 +333,10 @@ class ItemRepository {
       item.pinned = pinned;
       if (!pinned) item.pinnedOrder = null;
     }
-    if (archived != null) item.archived = archived;
+    if (archived != null) {
+      DebugConfig.db('ItemRepository.update id=$id setting archived=$archived (was=${item.archived})');
+      item.archived = archived;
+    }
     if (favorite != null) {
       item.favorite = favorite;
       if (!favorite) item.favoriteOrder = null;
@@ -309,9 +348,11 @@ class ItemRepository {
     item.localVersion++;
     item.isDirty = true;
 
+    DebugConfig.db('ItemRepository.update id=$id BEFORE writeTxn localVersion=${item.localVersion}');
     await _isar.writeTxn(() async {
       await _isar.items.put(item);
     });
+    DebugConfig.db('ItemRepository.update id=$id AFTER writeTxn - OK');
 
     return item;
   }
@@ -340,8 +381,17 @@ class ItemRepository {
     });
   }
 
-  /// Hard delete (permanent — διαγράφει και όλα τα related data)
+  /// Hard delete (permanent — διαγράφει και όλα τα related data + φυσικά αρχεία από δίσκο)
   Future<void> hardDelete(int id) async {
+    DebugConfig.db('hardDelete: permanent delete itemId=$id');
+
+    // 1. Φόρτωσε attachments ΠΡΙΝ το writeTxn (για disk cleanup μετά)
+    final attachments = await _isar.attachments
+        .filter()
+        .itemIdEqualTo(id)
+        .findAll();
+    DebugConfig.db('hardDelete: found ${attachments.length} attachment(s) for itemId=$id');
+
     await _isar.writeTxn(() async {
       await _isar.items.delete(id);
       // Cascade delete
@@ -353,6 +403,22 @@ class ItemRepository {
       await _isar.reminders.filter().itemIdEqualTo(id).deleteAll();
       await _isar.attachments.filter().itemIdEqualTo(id).deleteAll();
     });
+
+    // 2. Διέγραψε φυσικά αρχεία από δίσκο (μετά το τρανζαξιόν)
+    for (final att in attachments) {
+      try {
+        final file = File(att.localPath);
+        if (await file.exists()) {
+          await file.delete();
+          DebugConfig.db('hardDelete: deleted file "${att.fileName}" (${att.localPath})');
+        } else {
+          DebugConfig.db('hardDelete: file already missing "${att.fileName}" (${att.localPath})');
+        }
+      } catch (e) {
+        DebugConfig.warning('hardDelete: failed to delete file ${att.localPath}: $e');
+      }
+    }
+    DebugConfig.db('hardDelete: done itemId=$id');
   }
 
   // ── REORDER (new) ──────────────────────────────────────────
@@ -442,7 +508,8 @@ class ItemRepository {
         .optional(!includeArchived, (q) => q.archivedEqualTo(false))
         .optional(type != null,     (q) => q.typeEqualTo(type!))
         .sortBySortOrder()
-        .watch(fireImmediately: true);
+        .watch(fireImmediately: true)
+        .map((items) => _sortByCategory(items));
   }
 
   /// Stream items ενός folder — φωτιά ΜΟΝΟ αν αλλάξει το folder
@@ -453,7 +520,8 @@ class ItemRepository {
         .deletedAtIsNull()
         .archivedEqualTo(false)
         .sortBySortOrder()
-        .watch(fireImmediately: true);
+        .watch(fireImmediately: true)
+        .map((items) => _sortByCategory(items));
   }
 
   /// Stream pinned items — φωτιά ΜΟΝΟ αν αλλάξει το pinned status
@@ -494,9 +562,12 @@ class ItemRepository {
 
   Future<void> reorder(List<Item> items) async {
     await _isar.writeTxn(() async {
+      int order = 0;
       for (int i = 0; i < items.length; i++) {
-        items[i].sortOrder = i.toDouble();
+        if (items[i].pinned || items[i].favorite) continue;
+        items[i].sortOrder = order.toDouble();
         items[i].isDirty = true;
+        order++;
       }
       await _isar.items.putAll(items);
     });
@@ -571,6 +642,21 @@ class BlockRepository {
         .itemIdEqualTo(itemId)
         .sortByOrder()
         .findAll();
+  }
+
+  /// Batch: όλα τα blocks για λίστα item IDs — 1 DB call αντί για N
+  Future<Map<int, List<ItemBlock>>> getByItems(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    final allBlocks = await _isar.itemBlocks
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .sortByOrder()
+        .findAll();
+    final map = <int, List<ItemBlock>>{};
+    for (final block in allBlocks) {
+      map.putIfAbsent(block.itemId, () => []).add(block);
+    }
+    return map;
   }
 
   Future<List<ItemBlock>> getChildren(int parentBlockId) {
@@ -691,6 +777,21 @@ class PropertyRepository {
         .findAll();
   }
 
+  /// Batch: όλα τα properties για λίστα item IDs — 1 DB call αντί για N
+  Future<Map<int, List<ItemProperty>>> getAllForItems(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    final allProps = await _isar.itemPropertys
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .isVisibleEqualTo(true)
+        .findAll();
+    final map = <int, List<ItemProperty>>{};
+    for (final prop in allProps) {
+      map.putIfAbsent(prop.itemId, () => []).add(prop);
+    }
+    return map;
+  }
+
   Future<void> delete(int itemId, String key) async {
     await _isar.writeTxn(() async {
       await _isar.itemPropertys
@@ -796,6 +897,32 @@ class TagRepository {
     final tagIds = itemTags.map((it) => it.tagId).toList();
     return _isar.tags.getAll(tagIds).then(
             (tags) => tags.whereType<Tag>().toList());
+  }
+
+
+  /// Batch: tags για λίστα item IDs — 1-2 DB calls αντί για N
+  Future<Map<int, List<Tag>>> getAllForItems(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    final allItemTags = await _isar.itemTags
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .findAll();
+
+    final allTagIds = allItemTags.map((it) => it.tagId).toSet().toList();
+    final allTags = await _isar.tags.getAll(allTagIds);
+    final tagById = <int, Tag>{};
+    for (final tag in allTags) {
+      if (tag != null) tagById[tag.id] = tag;
+    }
+
+    final map = <int, List<Tag>>{};
+    for (final it in allItemTags) {
+      final tag = tagById[it.tagId];
+      if (tag != null) {
+        map.putIfAbsent(it.itemId, () => []).add(tag);
+      }
+    }
+    return map;
   }
 
   Future<List<Item>> getItemsWithTag(int tagId) async {
@@ -985,6 +1112,26 @@ class ReminderRepository {
         .triggerAtLessThan(now)
         .sortByTriggerAt()
         .findAll();
+  }
+
+  /// Ενημερώνει το root reminder ενός item (το πρώτο με rrule)
+  /// Βάζει νέο rrule και triggerAt, π.χ. όταν αλλάζει η ημερομηνία γενεθλίων.
+  Future<void> updateRootReminderForItem(
+    int itemId, {
+    required String newRrule,
+    required DateTime newTriggerAt,
+  }) async {
+    final reminders = await getForItem(itemId);
+    final root = reminders.where(
+      (r) => r.rrule != null && r.parentReminderId == null,
+    ).firstOrNull;
+    if (root == null) return;
+    root.rrule = newRrule;
+    root.triggerAt = newTriggerAt;
+    root.updatedAt = DateTime.now();
+    await _isar.writeTxn(() async {
+      await _isar.reminders.put(root);
+    });
   }
 
 }
@@ -1198,6 +1345,19 @@ class AttachmentRepository {
   }
 
   Future<Attachment?> getById(int id) => _isar.attachments.get(id);
+
+  Future<Attachment?> findDuplicate({
+    required int itemId,
+    required String fileName,
+    required int fileSize,
+  }) async {
+    DebugConfig.db('AttachmentRepository.findDuplicate itemId=$itemId file="$fileName" size=$fileSize');
+    return await _isar.attachments
+        .filter()
+        .fileNameEqualTo(fileName)
+        .fileSizeEqualTo(fileSize)
+        .findFirst();
+  }
 
   Future<void> delete(int id) async {
     await _isar.writeTxn(() async {

@@ -58,6 +58,9 @@ class AppSettings {
   /// Πόσα ψηφία έχει το PIN (4-6)
   int appLockPinLength = 6;
 
+  /// Μέγιστο μέγεθος αρχείου σε MB για συνημμένα (0 = χωρίς όριο)
+  int maxAttachmentSizeMB = 20;
+
   /// 0 = άμεσο κλείδωμα, 300 = 5 λεπτά, κλπ.
   int appLockTimeoutSeconds = 0;
 

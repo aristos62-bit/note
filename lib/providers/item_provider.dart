@@ -211,8 +211,10 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
   /// Permanent delete
   Future<void> permanentDelete(int id) async {
     try {
+      DebugConfig.db('ItemNotifier.permanentDelete id=$id');
       await ref.read(dbProvider).items.hardDelete(id);
       ref.invalidateSelf();
+      DebugConfig.db('ItemNotifier.permanentDelete done id=$id');
     } catch (e, s) {
       DebugConfig.error('ItemNotifier.permanentDelete', e, s);
     }

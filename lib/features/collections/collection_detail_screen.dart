@@ -103,8 +103,10 @@ class _CollectionDetailScreenState
     // 2. Schema + icon + color παράλληλα
     final notifier = ref.read(
         propertyNotifierProvider(widget.collectionId).notifier);
+    final schemaJson = FieldDef.listToJson(_fields);
+    DebugConfig.db('CollectionDetail schema=$schemaJson');
     await Future.wait([
-      notifier.setText('schema', FieldDef.listToJson(_fields)),
+      notifier.setText('schema', schemaJson),
       notifier.setText('icon', _icon),
       notifier.setText('color', _color),
     ]);
@@ -219,6 +221,20 @@ class _CollectionDetailScreenState
     FieldType selectedType = existing?.type ?? FieldType.text;
     final optionsCtrl = TextEditingController(
         text: existing?.options.join(', ') ?? '');
+    final extensionsCtrl = TextEditingController(
+        text: existing?.allowedExtensions.join(', ') ?? '');
+    final maxFilesCtrl = TextEditingController(
+        text: (existing?.maxFiles ?? 0) > 0 ? existing!.maxFiles.toString() : '');
+    final activePresets = <String>{};
+    final extList = existing?.allowedExtensions ?? [];
+    if (extList.isNotEmpty &&
+        FieldDef.imagesExt.every((e) => extList.contains(e))) {
+      activePresets.add('Εικόνες');
+    }
+    if (extList.isNotEmpty &&
+        FieldDef.documentsExt.every((e) => extList.contains(e))) {
+      activePresets.add('Έγγραφα');
+    }
 
     showModalBottomSheet(
       context: context,
@@ -328,6 +344,70 @@ class _CollectionDetailScreenState
                 ),
               ],
 
+              // Extensions for attachment
+              if (selectedType == FieldType.attachment) ...[
+                const SizedBox(height: Spacing.md),
+                Text('Επιτρεπόμενοι τύποι αρχείων',
+                    style: context.labelMd.withColor(context.cText2)),
+                const SizedBox(height: Spacing.xs),
+                Wrap(
+                  spacing: Spacing.xs,
+                  children: [
+                    FilterChip(
+                      label: const Text('Εικόνες'),
+                      selected: activePresets.contains('Εικόνες'),
+                      onSelected: (sel) {
+                        _togglePresetExts(
+                          sel, 'Εικόνες', FieldDef.imagesExt,
+                          activePresets, extensionsCtrl);
+                        setModal(() {});
+                      },
+                    ),
+                    FilterChip(
+                      label: const Text('Έγγραφα'),
+                      selected: activePresets.contains('Έγγραφα'),
+                      onSelected: (sel) {
+                        _togglePresetExts(
+                          sel, 'Έγγραφα', FieldDef.documentsExt,
+                          activePresets, extensionsCtrl);
+                        setModal(() {});
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Spacing.sm),
+                TextField(
+                  controller: extensionsCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Επεκτάσεις (χωρισμένες με κόμμα)',
+                    hintText:  'κενό = όλοι οι τύποι',
+                    filled:    true,
+                    fillColor: ColorsUI.getSurface(context.brightness),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.inputBR,
+                      borderSide: BorderSide(
+                          color: ColorsUI.getBorder(context.brightness)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: Spacing.sm),
+                TextField(
+                  controller: maxFilesCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Μέγιστος αριθμός αρχείων',
+                    hintText: '1 έως 10',
+                    filled:    true,
+                    fillColor: ColorsUI.getSurface(context.brightness),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.inputBR,
+                      borderSide: BorderSide(
+                          color: ColorsUI.getBorder(context.brightness)),
+                    ),
+                  ),
+                ),
+              ],
+
               const SizedBox(height: Spacing.lg),
               Row(children: [
                 Expanded(
@@ -358,12 +438,27 @@ class _CollectionDetailScreenState
                           .where((s) => s.isNotEmpty)
                           .toList()
                           : <String>[];
+                      final extensions = selectedType == FieldType.attachment
+                          ? extensionsCtrl.text
+                          .split(',')
+                          .map((s) => s.trim().toLowerCase())
+                          .where((s) => s.isNotEmpty)
+                          .toList()
+                          : <String>[];
+                      final maxFiles = selectedType == FieldType.attachment
+                          ? (int.tryParse(maxFilesCtrl.text.trim()) ?? 1).clamp(1, 10)
+                          : 0;
+                      if (selectedType == FieldType.attachment) {
+                        DebugConfig.db('maxFiles: "${maxFilesCtrl.text}" clamped → $maxFiles');
+                      }
                       final field = FieldDef(
                           key:     index >= 0
                               ? _fields[index].key : key,
                           label:   label,
                           type:    selectedType,
-                          options: options);
+                          options: options,
+                          allowedExtensions: extensions,
+                          maxFiles: maxFiles);
                       setState(() {
                         if (index >= 0) {
                           _fields[index] = field;
@@ -680,6 +775,34 @@ class _CollectionDetailScreenState
           ),
       ],
     );
+  }
+
+  void _togglePresetExts(
+    bool selected,
+    String presetName,
+    List<String> extList,
+    Set<String> activePresets,
+    TextEditingController ctrl,
+  ) {
+    final current = ctrl.text
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (selected) {
+      activePresets.add(presetName);
+      for (final ext in extList) {
+        if (!ext.startsWith('.')) {
+          current.add(ext);
+        }
+      }
+    } else {
+      activePresets.remove(presetName);
+      for (final ext in extList) {
+        current.remove(ext.startsWith('.') ? ext.substring(1) : ext);
+      }
+    }
+    ctrl.text = (current.toList()..sort()).join(', ');
   }
 
   void _pickIcon(BuildContext context) {

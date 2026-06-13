@@ -20,12 +20,13 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
+import '../../helpers/super_note_helper.dart';
 import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
 import 'package:reorderable_grid/reorderable_grid.dart';
 
-// ✅ StreamProvider — batch load properties με Future.wait
-// Μηδέν N+1 ref.watch ανά item, μηδέν cascade rebuilds
+// ✅ StreamProvider — lightweight batch query για collection_id properties
+// 1 DB call αντί για N, μηδέν cascade rebuilds
 final collectionEntriesCountProvider =
 StreamProvider<Map<int, int>>((ref) async* {
   final itemsAsync = ref.watch(itemsStreamProvider);
@@ -39,19 +40,17 @@ StreamProvider<Map<int, int>>((ref) async* {
     return;
   }
 
-  // Batch load όλα τα properties παράλληλα
-  final propsList = await Future.wait(
-    entries.map((e) => ref.read(itemPropertiesProvider(e.id).future)),
-  );
+  // Ένα lightweight DB call αντί για N
+  final entryIds = entries.map((e) => e.id).toList();
+  DebugConfig.db('collectionEntriesCountProvider: entries=${entryIds.length}');
+  final collectionIdMap = await SuperNoteHelper.instance.properties
+      .getCollectionIds(entryIds);
+  DebugConfig.db('collectionEntriesCountProvider: found ${collectionIdMap.length} pairs');
 
   final Map<int, int> counts = {};
-  for (final props in propsList) {
-    final colIdStr =
-        props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-    if (colIdStr != null) {
-      final colId = int.tryParse(colIdStr);
-      if (colId != null) counts[colId] = (counts[colId] ?? 0) + 1;
-    }
+  for (final colIdStr in collectionIdMap.values) {
+    final colId = int.tryParse(colIdStr);
+    if (colId != null) counts[colId] = (counts[colId] ?? 0) + 1;
   }
   yield counts;
 });
@@ -65,7 +64,8 @@ enum FieldType {
   toggle,
   url,
   bulletList,
-  numberedList
+  numberedList,
+  attachment
 }
 
 class FieldDef {
@@ -73,12 +73,23 @@ class FieldDef {
   final String label;
   final FieldType type;
   final List<String> options;
+  final List<String> allowedExtensions;
+  final int maxFiles;
+
+  static const List<String> imagesExt = [
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
+  ];
+  static const List<String> documentsExt = [
+    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'rtf', 'odt',
+  ];
 
   const FieldDef({
     required this.key,
     required this.label,
     required this.type,
     this.options = const [],
+    this.allowedExtensions = const [],
+    this.maxFiles = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -86,6 +97,10 @@ class FieldDef {
     'label': label,
     'type': type.name,
     'options': options,
+    if (allowedExtensions.isNotEmpty)
+      'allowedExtensions': allowedExtensions,
+    if (maxFiles > 0)
+      'maxFiles': maxFiles,
   };
 
   factory FieldDef.fromJson(Map<String, dynamic> j) => FieldDef(
@@ -99,6 +114,11 @@ class FieldDef {
         ?.map((e) => e.toString())
         .toList() ??
         [],
+    allowedExtensions: (j['allowedExtensions'] as List?)
+        ?.map((e) => e.toString())
+        .toList() ??
+        [],
+    maxFiles: (j['maxFiles'] as int?) ?? 0,
   );
 
   static List<FieldDef> listFromJson(String json) {
@@ -125,6 +145,7 @@ class FieldDef {
     FieldType.url => Icons.link_rounded,
     FieldType.bulletList => Icons.format_list_bulleted_rounded,
     FieldType.numberedList => Icons.format_list_numbered_rounded,
+    FieldType.attachment => Icons.attach_file_rounded,
   };
 
   String get typeName => switch (type) {
@@ -136,6 +157,7 @@ class FieldDef {
     FieldType.url => 'URL',
     FieldType.bulletList => 'Λίστα (κουκκίδες)',
     FieldType.numberedList => 'Λίστα (αρίθμηση)',
+    FieldType.attachment => 'Συνημμένο',
   };
 }
 

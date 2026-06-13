@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'helpers/super_note_helper.dart';
+import 'features/lock/lock.dart';
 import 'models/models.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
@@ -195,7 +197,21 @@ class SuperNoteApp extends ConsumerWidget {
         data: MediaQuery.of(context).copyWith(
           textScaler: TextScaler.linear(fontScale),
         ),
-        child: child!,
+        child: Stack(
+          children: [
+            child!,
+            Consumer(
+              builder: (context, ref, _) {
+                final locked = ref.watch(appLockStateProvider);
+                if (!locked) return const SizedBox.shrink();
+                return const PopScope(
+                  canPop: false,
+                  child: LockScreen(),
+                );
+              },
+            ),
+          ],
+        ),
       ),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -233,6 +249,7 @@ Locale? _localeFromLanguage(AppLanguage lang) {
 class _AppLifecycleObserver extends WidgetsBindingObserver {
   final ProviderContainer container;
   bool _disposed = false;
+  Timer? _lockTimer;
 
   _AppLifecycleObserver(this.container);
 
@@ -243,13 +260,18 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
     if (state == AppLifecycleState.paused) {
       final settings = await SuperNoteHelper.instance.settings.get();
       if (settings.appLockEnabled) {
-        AppLockService.instance.lock();
-        container.read(appLockStateProvider.notifier).state = true;
-        DebugConfig.print('🔒 AppLock: auto-lock on pause');
+        _lockTimer?.cancel();
+        _lockTimer = Timer(Duration(seconds: settings.appLockTimeoutSeconds), () {
+          AppLockService.instance.lock();
+          container.read(appLockStateProvider.notifier).state = true;
+          DebugConfig.print('🔒 AppLock: auto-lock after ${settings.appLockTimeoutSeconds}s timeout');
+        });
       }
     }
 
     if (state == AppLifecycleState.resumed) {
+      _lockTimer?.cancel();
+      _lockTimer = null;
       DebugConfig.startup(
           'App resumed — debounced refreshing recurring reminders');
       await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
