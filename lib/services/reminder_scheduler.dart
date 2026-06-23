@@ -186,7 +186,8 @@ class ReminderScheduler {
         }
 
         // 2. Δεν υπάρχουν future children → δημιούργησε νέο batch
-        const batchSize = 2;
+// ✅ batchSize=5: αρκετό buffer αν χαθεί κάποιο (crash/reboot)
+        const batchSize = 5;
         final List<DateTime> nextOccurrences = [];
 
         // ✅ Χρησιμοποιούμε την ώρα του root trigger αντί για now
@@ -211,9 +212,11 @@ class ReminderScheduler {
           nextOccurrences.add(todayAtTriggerTime);
         }
 
+        // ✅ Αν η λίστα είναι κενή, ξεκινάμε από now (όχι todayAtTriggerTime)
+// για να αποφύγουμε διπλές εγγραφές αν το trigger είναι ακριβώς τώρα
         DateTime current = nextOccurrences.isNotEmpty
             ? nextOccurrences.last.add(const Duration(seconds: 1))
-            : todayAtTriggerTime;
+            : now;
         while (nextOccurrences.length < batchSize) {
           final next = recurrence.nextOccurrence(current);
           if (next == null) break;
@@ -282,7 +285,17 @@ class ReminderScheduler {
     switch (recurrence.type) {
       case RecurrenceType.daily:
       case RecurrenceType.custom:
-        return true;
+      // ✅ Αν interval > 1 (π.χ. κάθε 3 μέρες), ελέγχουμε αν σήμερα
+      // είναι έγκυρη μέρα βάσει της αρχικής ημερομηνίας του root
+        if (recurrence.interval == 1) return true;
+        final diffDays = DateTime(now.year, now.month, now.day)
+            .difference(DateTime(
+          root.triggerAt.year,
+          root.triggerAt.month,
+          root.triggerAt.day,
+        ))
+            .inDays;
+        return diffDays >= 0 && diffDays % recurrence.interval == 0;
       case RecurrenceType.weekly:
         if (recurrence.days != null && recurrence.days!.isNotEmpty) {
           return recurrence.days!.contains(now.weekday);

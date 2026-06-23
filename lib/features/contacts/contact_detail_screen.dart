@@ -315,25 +315,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
       );
       if (!replace || !mounted) return;
 
-      final now = DateTime.now();
-      final triggerThisYear =
-          DateTime(now.year, birthday.month, birthday.day, 9, 0);
-      final triggerAt = triggerThisYear.isAfter(now)
-          ? triggerThisYear
-          : DateTime(now.year + 1, birthday.month, birthday.day, 9, 0);
-
-      final rrule =
-          'FREQ=YEARLY;INTERVAL=1;BYMONTH=${birthday.month};BYMONTHDAY=${birthday.day}';
-
       await ReminderScheduler.instance.deleteReminderThread(existingRoot.id);
-      await SuperNoteHelper.instance.reminders.create(
-        itemId: widget.itemId,
-        triggerAt: triggerAt,
-        rrule: rrule,
-        title: 'Γενέθλια $name',
-        body: 'Γενέθλια $name',
-      );
-      await ReminderScheduler.instance.refreshRecurringReminders();
+      await _createYearlyReminder(birthday, name);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -356,24 +339,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     );
     if (!confirmed || !mounted) return;
 
-    final now = DateTime.now();
-    final triggerThisYear =
-        DateTime(now.year, birthday.month, birthday.day, 9, 0);
-    final triggerAt = triggerThisYear.isAfter(now)
-        ? triggerThisYear
-        : DateTime(now.year + 1, birthday.month, birthday.day, 9, 0);
-
-    final rrule =
-        'FREQ=YEARLY;INTERVAL=1;BYMONTH=${birthday.month};BYMONTHDAY=${birthday.day}';
-
-    await SuperNoteHelper.instance.reminders.create(
-      itemId: widget.itemId,
-      triggerAt: triggerAt,
-      rrule: rrule,
-      title: 'Γενέθλια $name',
-      body: 'Γενέθλια $name',
-    );
-    await ReminderScheduler.instance.refreshRecurringReminders();
+    await _createYearlyReminder(birthday, name);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -382,6 +348,26 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
                 Text('Δημιουργήθηκε ετήσια υπενθύμιση γενεθλίων για $name')),
       );
     }
+  }
+
+  Future<void> _createYearlyReminder(DateTime birthday, String name) async {
+    final now = DateTime.now();
+    final triggerThisYear =
+        DateTime(now.year, birthday.month, birthday.day, 9, 0);
+    final triggerAt = triggerThisYear.isAfter(now)
+        ? triggerThisYear
+        : DateTime(now.year + 1, birthday.month, birthday.day, 9, 0);
+    final rrule = recurrenceToRRULE(
+      Recurrence.yearly(month: birthday.month, day: birthday.day),
+    );
+    await SuperNoteHelper.instance.reminders.create(
+      itemId: widget.itemId,
+      triggerAt: triggerAt,
+      rrule: rrule,
+      title: 'Γενέθλια $name',
+      body: 'Γενέθλια $name',
+    );
+    await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
   Future<void> _delete(BuildContext context) async {

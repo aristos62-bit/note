@@ -1108,11 +1108,15 @@ class ReminderRepository {
   }
   Future<int> cleanupOldPending({Duration maxAge = const Duration(days: 7)}) async {
     final cutoff = DateTime.now().subtract(maxAge);
+    // ✅ Εξαιρούμε τα root recurring reminders (έχουν rrule != null)
+    // γιατί το triggerAt τους είναι παλιό αλλά χρειάζονται ως "anchor"
+    // για τη δημιουργία των child reminders.
     return _isar.writeTxn(() async {
       return await _isar.reminders
           .filter()
           .statusEqualTo(ReminderStatus.pending)
           .triggerAtLessThan(cutoff)
+          .rruleIsNull()  // ← ΜΟΝΟ non-recurring (one-shot) που έχουν περάσει
           .deleteAll();
     });
   }

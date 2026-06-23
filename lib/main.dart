@@ -129,17 +129,17 @@ void main() async {
       DebugConfig.error('requestPermission failed', e, stack);
     }
     try {
-      await ReminderScheduler.instance.scheduleAll();
-      DebugConfig.startup('Reminders scheduled');
-    } catch (e, stack) {
-      DebugConfig.error('scheduleAll failed', e, stack);
-    }
-
-    try {
       await ReminderScheduler.instance.refreshRecurringReminders();
       DebugConfig.startup('Recurring reminders refreshed');
     } catch (e, stack) {
       DebugConfig.error('refreshRecurringReminders failed', e, stack);
+    }
+
+    try {
+      await ReminderScheduler.instance.scheduleAll();
+      DebugConfig.startup('Reminders scheduled');
+    } catch (e, stack) {
+      DebugConfig.error('scheduleAll failed', e, stack);
     }
 
     try {
