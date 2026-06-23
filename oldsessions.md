@@ -123,3 +123,18 @@
 - **Phase 2 — Photo picker:** Bottom sheet (Camera / Gallery / Delete) στο avatar edit button. `image_picker` + `file_picker` για λήψη/επιλογή, base64Encode → `setText('photo', ...)`. Camera button overlay (24px, primary color)
 - **Real-time sync fix:** `propertyWriteVersionProvider` (`StateProvider<int>`) αυξάνεται ΜΟΝΟ από contact photo write (όχι από tasks/notes). `_contactBatchPropsProvider` τον βλέπει με `ref.watch()` και ξανα-τρέχει batch `getAllForItems`. Debug logs παντού
 - **Dependencies:** Προσθήκη `image_picker: ^1.1.2`
+
+## Session 46 — 23/06/2026 (Recurring reminder service overhaul)
+
+**Bug fixes:**
+- `reminder_scheduler.dart`: `_isTodayValidRecurrence` για daily/custom με interval>1 — τώρα ελέγχει `diffDays % interval == 0`
+- `reminder_scheduler.dart`: `current` fallback `now` αντί `todayAtTriggerTime` — αποφυγή duplicate child triggers
+- `super_note_helper.dart` (`cleanupOldPending`): `.rruleIsNull()` — root recurring reminders δεν διαγράφονται πλέον ως old pending
+- `reminder_section.dart` (`_loadData`): φόρτωση root (`parentReminderId == null`) αντί `reminders.first`
+
+**Βελτιώσεις:**
+- `reminder_scheduler.dart`: `batchSize` 2→5 — μεγαλύτερο buffer αν crash/reboot
+- `main.dart`: σειρά κλήσης — `refreshRecurringReminders()` πριν `scheduleAll()`
+- `reminder_section.dart`: αφαίρεση duplicate `recurrenceToRRULE`/`rruleToRecurrence` (~80 γρ.) — χρήση κεντρικών από `core/utils/recurrence_utils.dart`
+- `reminder_section.dart` (`_saveReminder` one-shot): `deleteReminderThread()` + νέο create — καθαρισμός orphan children
+- `contact_detail_screen.dart`: inline RRULE → `recurrenceToRRULE(Recurrence.yearly(...))`, DRY extraction σε `_createYearlyReminder()` (−50 γρ.)

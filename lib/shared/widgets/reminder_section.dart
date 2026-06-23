@@ -8,84 +8,6 @@ import '../../models/models.dart';
 import '../../services/reminder_scheduler.dart';
 
 // ---------------------------------------------------------------------
-// Helper: Convert Recurrence ↔ RRULE
-// ---------------------------------------------------------------------
-
-String? recurrenceToRRULE(Recurrence? recurrence) {
-  if (recurrence == null) return null;
-  switch (recurrence.type) {
-    case RecurrenceType.daily:
-      return 'FREQ=DAILY;INTERVAL=${recurrence.interval}';
-    case RecurrenceType.weekly:
-      if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-        const dayMap = {1: 'MO', 2: 'TU', 3: 'WE', 4: 'TH', 5: 'FR', 6: 'SA', 7: 'SU'};
-        final byday = recurrence.days!.map((d) => dayMap[d]).join(',');
-        return 'FREQ=WEEKLY;INTERVAL=${recurrence.interval};BYDAY=$byday';
-      } else {
-        return 'FREQ=WEEKLY;INTERVAL=${recurrence.interval}';
-      }
-    case RecurrenceType.monthly:
-      if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-        final byMonthDay = recurrence.days!.join(',');
-        return 'FREQ=MONTHLY;INTERVAL=${recurrence.interval};BYMONTHDAY=$byMonthDay';
-      } else {
-        return 'FREQ=MONTHLY;INTERVAL=${recurrence.interval}';
-      }
-    case RecurrenceType.custom:
-    // Custom will not be stored as custom; it's mapped to daily/weekly/monthly.
-    // However, keep for safety.
-      return 'FREQ=DAILY;INTERVAL=${recurrence.interval}';
-    case RecurrenceType.yearly:
-      if (recurrence.days != null && recurrence.days!.length == 2) {
-        return 'FREQ=YEARLY;INTERVAL=${recurrence.interval};BYMONTH=${recurrence.days![0]};BYMONTHDAY=${recurrence.days![1]}';
-      }
-      return 'FREQ=YEARLY;INTERVAL=${recurrence.interval}';
-  }
-}
-
-Recurrence? rruleToRecurrence(String? rrule) {
-  if (rrule == null || rrule.isEmpty) return null;
-  final parts = rrule.split(';');
-  String? freq;
-  int interval = 1;
-  List<int>? days;
-
-  for (final p in parts) {
-    if (p.startsWith('FREQ=')) freq = p.substring(5);
-    if (p.startsWith('INTERVAL=')) interval = int.tryParse(p.substring(9)) ?? 1;
-    if (p.startsWith('BYDAY=')) {
-      final byday = p.substring(6);
-      const dayMapRev = {'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6, 'SU': 7};
-      days = byday.split(',').map((d) => dayMapRev[d]).whereType<int>().toList();
-    }
-    if (p.startsWith('BYMONTHDAY=')) {
-      final raw = p.substring(11);
-      days = raw.split(',').map((s) => int.tryParse(s.trim())).whereType<int>().toList();
-    }
-    if (p.startsWith('BYMONTH=')) {
-      final byMonth = int.tryParse(p.substring(8));
-      if (byMonth != null) {
-        days = [byMonth, ...(days ?? [])];
-      }
-    }
-  }
-
-  RecurrenceType type;
-  switch (freq) {
-    case 'DAILY': type = RecurrenceType.daily; break;
-    case 'WEEKLY': type = RecurrenceType.weekly; break;
-    case 'MONTHLY': type = RecurrenceType.monthly; break;
-    case 'YEARLY': type = RecurrenceType.yearly; break;
-    default: type = RecurrenceType.daily;
-  }
-  return Recurrence(
-    type: type,
-    interval: interval,
-    days: days,
-  );
-}
-
-// ---------------------------------------------------------------------
 // Main Widget
 // ---------------------------------------------------------------------
 
@@ -125,15 +47,20 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       final reminders = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
       DebugConfig.notif('ReminderSection._loadData: found ${reminders.length} reminders for item ${widget.itemId}');
       for (final r in reminders) {
-        DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule}');
+        DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule} parentId=${r.parentReminderId}');
       }
       if (reminders.isNotEmpty) {
-        final r = reminders.first;
-        _reminderId = r.id;
-        _triggerDateTime = r.triggerAt;
+        // ✅ Φορτώνουμε πάντα το ROOT reminder (parentReminderId == null)
+        // Αν δεν υπάρχει root (π.χ. μόνο παιδιά), παίρνουμε το first ως fallback
+        final root = reminders.firstWhere(
+              (r) => r.parentReminderId == null,
+          orElse: () => reminders.first,
+        );
+        _reminderId = root.id;
+        _triggerDateTime = root.triggerAt;
         _enabled = true;
-        _recurrence = rruleToRecurrence(r.rrule);
-        DebugConfig.notif('ReminderSection._loadData: loaded existing reminder id=${r.id}, enabled=true');
+        _recurrence = rruleToRecurrence(root.rrule);
+        DebugConfig.notif('ReminderSection._loadData: loaded root reminder id=${root.id} parentId=${root.parentReminderId} enabled=true');
       } else {
         _reminderId = null;
         _triggerDateTime = null;
@@ -169,7 +96,9 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
 
       if (_reminderId != null) {
         DebugConfig.notif('ReminderSection._saveReminder: updating existing reminder id=$_reminderId');
+
         if (rrule != null) {
+          // ── Recurring update: διαγραφή παλιού thread + νέο root ──
           DebugConfig.notif('ReminderSection._saveReminder: recurring update, deleting old thread and recreating');
           await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
           final root = Reminder()
@@ -188,28 +117,30 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           // Μην προγραμματίζεις το root — τα παιδιά από refreshRecurringReminders το αντικαθιστούν
           await ReminderScheduler.instance.refreshRecurringReminders();
           DebugConfig.notif('ReminderSection._saveReminder: recurring update DONE');
+
         } else {
-          DebugConfig.notif('ReminderSection._saveReminder: one-shot update');
-          final existing = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
-          DebugConfig.notif('ReminderSection._saveReminder: found ${existing.length} existing reminders');
-          if (existing.isNotEmpty) {
-            final r = existing.first;
-            DebugConfig.notif('ReminderSection._saveReminder: before update: id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
-            r.triggerAt = _triggerDateTime!;
-            r.rrule = null;
-            r.title = title;
-            r.body = body;
-            r.updatedAt = DateTime.now();
-            await SuperNoteHelper.instance.isar.writeTxn(() async {
-              await SuperNoteHelper.instance.isar.reminders.put(r);
-            });
-            DebugConfig.notif('ReminderSection._saveReminder: updated reminder id=${r.id}, new trigger=${r.triggerAt}');
-            await ReminderScheduler.instance.scheduleReminder(r);
-          } else {
-            DebugConfig.notif('ReminderSection._saveReminder: WARNING - _reminderId=$_reminderId but no reminders found in DB!');
-          }
+          // ── One-shot update: διαγραφή παλιού thread (root + τυχόν παιδιά)
+          //    και δημιουργία νέου one-shot reminder ──
+          // ✅ Διαγράφουμε ΟΛΟΚΛΗΡΟ το thread ώστε τυχόν παλιά παιδιά
+          //    (από προηγούμενη recurring ρύθμιση) να μην πυροδοτηθούν
+          DebugConfig.notif('ReminderSection._saveReminder: one-shot update, deleting old thread id=$_reminderId');
+          await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
+
+          final newReminder = await SuperNoteHelper.instance.reminders.create(
+            itemId: widget.itemId,
+            triggerAt: _triggerDateTime!,
+            rrule: null,
+            title: title,
+            body: body,
+          );
+          _reminderId = newReminder.id;
+          DebugConfig.notif('ReminderSection._saveReminder: created one-shot id=${newReminder.id}, trigger=${newReminder.triggerAt}');
+          await ReminderScheduler.instance.scheduleReminder(newReminder);
+          DebugConfig.notif('ReminderSection._saveReminder: one-shot update DONE');
         }
+
       } else {
+        // ── Νέο reminder (δεν υπήρχε προηγουμένως) ──
         DebugConfig.notif('ReminderSection._saveReminder: creating NEW reminder for itemId=${widget.itemId}');
         final newReminder = await SuperNoteHelper.instance.reminders.create(
           itemId: widget.itemId,
