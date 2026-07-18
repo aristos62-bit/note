@@ -9,7 +9,7 @@ import 'event_detail_screen.dart';
 import '../../services/services.dart';
 
 // ── Τύποι δημιουργίας συμβάντος ─────────────────────────────
-enum _EventCreationType { event, birthday, specialDay }
+enum _EventCreationType { event, specialDay }
 
 // ── Τύπος ενδείξεων ημερολογίου (για sorting/display) ────────
 enum _DayMarkerType { birthday, specialDay, event }
@@ -334,8 +334,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
               iconBgColor: Colors.pink.shade100,
               iconColor: Colors.pink.shade600,
               title: 'Γενέθλια',
-              subtitle: 'Αυτόματη ετήσια υπενθύμιση',
-              onTap: () => Navigator.pop(context, _EventCreationType.birthday),
+              subtitle: 'Υπενθύμιση γενεθλίων',
+              onTap: () => Navigator.pop(context, _EventCreationType.event),
             ),
             _EventTypeOption(
               icon: Icons.star_rounded,
@@ -356,8 +356,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     switch (type) {
       case _EventCreationType.event:
         await _createEvent(context, ref, selectedDay);
-      case _EventCreationType.birthday:
-        await _createBirthdayEvent(context, ref, selectedDay);
       case _EventCreationType.specialDay:
         await _createEventWithIcon(context, ref, selectedDay, '⭐');
     }
@@ -393,49 +391,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     }
   }
 
-  Future<void> _createBirthdayEvent(
-      BuildContext context, WidgetRef ref, DateTime selectedDay) async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
-
-    try {
-      final item = await ref.read(itemNotifierProvider.notifier).create(
-            type: ItemType.event,
-            folderId: selectedFolderId,
-            icon: '🎂',
-          );
-      if (item == null || !context.mounted) return;
-
-      final startTime =
-          DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
-      final endTime = startTime.add(const Duration(hours: 1));
-      final propNotifier = ref.read(propertyNotifierProvider(item.id).notifier);
-      await propNotifier.setDate('start_time', startTime);
-      await propNotifier.setDate('end_time', endTime);
-
-      // ✅ Ετήσιο recurring reminder
-      final month = selectedDay.month;
-      final day = selectedDay.day;
-      final rrule = 'FREQ=YEARLY;INTERVAL=1;BYMONTH=$month;BYMONTHDAY=$day';
-
-      await ref.read(dbProvider).reminders.create(
-            itemId: item.id,
-            triggerAt: startTime,
-            rrule: rrule,
-            title: '🎂 Γενέθλια',
-            body: 'Σήμερα είναι γενέθλια!',
-          );
-
-      await ReminderScheduler.instance.refreshRecurringReminders();
-
-      if (!context.mounted) return;
-      Navigator.of(context).push(
-        AppTransitions.slideRoute(
-            EventDetailScreen(itemId: item.id, isNew: true)),
-      );
-    } catch (e) {
-      DebugConfig.error('CalendarScreen _createBirthdayEvent', e);
-    }
-  }
 
   Future<void> _createEventWithIcon(BuildContext context, WidgetRef ref,
       DateTime selectedDay, String icon) async {

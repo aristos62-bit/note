@@ -157,12 +157,13 @@ void main() async {
       if (settings.appLockEnabled) {
         AppLockService.instance.lock();
         container.read(appLockStateProvider.notifier).state = true;
-        DebugConfig.print('🔒 AppLock: initial lock on startup');
+      DebugConfig.print('🔒 AppLock: initial lock on startup');
+        }
+      } catch (e, stack) {
+        DebugConfig.error('PostFrameCallback: app lock check failed', e, stack);
       }
-    } catch (e, stack) {
-      DebugConfig.error('PostFrameCallback: app lock check failed', e, stack);
-    }
-  });
+
+    });
 }
 
 class SuperNoteApp extends ConsumerWidget {

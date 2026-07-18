@@ -277,8 +277,10 @@ class Recurrence {
     }
 
     return DateTime(
-      next.year, next.month, next.day,
-      from.hour, from.minute, from.second,
+        next.year,
+        next.month,
+        next.day,
+        from.hour, from.minute, from.second
     );
   }
 

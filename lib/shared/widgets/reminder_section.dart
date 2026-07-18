@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../helpers/super_note_helper.dart';
+import 'package:isar/isar.dart';
 import '../../models/models.dart';
 import '../../services/reminder_scheduler.dart';
 
@@ -46,6 +47,9 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     try {
       final reminders = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
       DebugConfig.notif('ReminderSection._loadData: found ${reminders.length} reminders for item ${widget.itemId}');
+      final roots = reminders.where((r) => r.rrule != null && r.parentReminderId == null).toList();
+      final children = reminders.where((r) => r.rrule == null && r.parentReminderId != null).toList();
+      DebugConfig.notif('  breakdown: ${roots.length} roots, ${children.length} children');
       for (final r in reminders) {
         DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule} parentId=${r.parentReminderId}');
       }
@@ -56,6 +60,9 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
               (r) => r.parentReminderId == null,
           orElse: () => reminders.first,
         );
+        if (roots.length > 1) {
+          DebugConfig.warning('ReminderSection._loadData: ⚠️ MULTIPLE ROOTS ($roots) for item=${widget.itemId}! Selected root id=${root.id}');
+        }
         _reminderId = root.id;
         _triggerDateTime = root.triggerAt;
         _enabled = true;
@@ -89,17 +96,38 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         return;
       }
 
+      if (_recurrence?.type == RecurrenceType.yearly && _triggerDateTime != null) {
+        _recurrence = Recurrence.yearly(
+          month: _triggerDateTime!.month,
+          day: _triggerDateTime!.day,
+        );
+      }
       final rrule = recurrenceToRRULE(_recurrence);
       const title = 'Υπενθύμιση';
       final body = widget.itemTitle;
       DebugConfig.notif('ReminderSection._saveReminder: rrule=$rrule, title=$title, body=$body');
 
+      // ★ Ελεγχος: πόσα roots υπάρχουν ΠΡΙΝ την αποθήκευση
+      final allRootsBefore = await SuperNoteHelper.instance.isar.reminders
+          .filter()
+          .itemIdEqualTo(widget.itemId)
+          .rruleIsNotNull()
+          .and()
+          .not()
+          .rruleEqualTo('')
+          .parentReminderIdIsNull()
+          .findAll();
+      DebugConfig.notif('ReminderSection._saveReminder: roots BEFORE save: ${allRootsBefore.length}');
+      for (final rr in allRootsBefore) {
+        DebugConfig.notif('  root id=${rr.id} trigger=${rr.triggerAt} rrule="${rr.rrule}"');
+      }
+
       if (_reminderId != null) {
-        DebugConfig.notif('ReminderSection._saveReminder: updating existing reminder id=$_reminderId');
+        DebugConfig.notif('ReminderSection._saveReminder: UPDATING (reminderId=$_reminderId) → rrule=${rrule ?? 'null'}');
 
         if (rrule != null) {
           // ── Recurring update: διαγραφή παλιού thread + νέο root ──
-          DebugConfig.notif('ReminderSection._saveReminder: recurring update, deleting old thread and recreating');
+          DebugConfig.notif('ReminderSection._saveReminder: recurring update, deleting old thread id=$_reminderId');
           await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
           final root = Reminder()
             ..itemId = widget.itemId
@@ -114,6 +142,19 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           });
           _reminderId = root.id;
           DebugConfig.notif('ReminderSection._saveReminder: created new root id=${root.id}, trigger=${root.triggerAt}');
+          // ★ Ελεγχος αν έμειναν άλλα roots μετά το delete+create
+          final rootsAfter = await SuperNoteHelper.instance.isar.reminders
+              .filter()
+              .itemIdEqualTo(widget.itemId)
+              .rruleIsNotNull()
+              .and()
+              .not()
+              .rruleEqualTo('')
+              .parentReminderIdIsNull()
+              .findAll();
+          if (rootsAfter.length > 1) {
+            DebugConfig.warning('⚠️ ReminderSection._saveReminder: STILL HAVE ${rootsAfter.length} roots after recurring update!');
+          }
           // Μην προγραμματίζεις το root — τα παιδιά από refreshRecurringReminders το αντικαθιστούν
           await ReminderScheduler.instance.refreshRecurringReminders();
           DebugConfig.notif('ReminderSection._saveReminder: recurring update DONE');
@@ -121,8 +162,6 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         } else {
           // ── One-shot update: διαγραφή παλιού thread (root + τυχόν παιδιά)
           //    και δημιουργία νέου one-shot reminder ──
-          // ✅ Διαγράφουμε ΟΛΟΚΛΗΡΟ το thread ώστε τυχόν παλιά παιδιά
-          //    (από προηγούμενη recurring ρύθμιση) να μην πυροδοτηθούν
           DebugConfig.notif('ReminderSection._saveReminder: one-shot update, deleting old thread id=$_reminderId');
           await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
 
@@ -141,7 +180,11 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
 
       } else {
         // ── Νέο reminder (δεν υπήρχε προηγουμένως) ──
-        DebugConfig.notif('ReminderSection._saveReminder: creating NEW reminder for itemId=${widget.itemId}');
+        DebugConfig.notif('ReminderSection._saveReminder: CREATING NEW reminder for itemId=${widget.itemId}');
+        // ★ Ελεγχος αν ήδη υπάρχει root παρόλο που _reminderId == null
+        if (allRootsBefore.isNotEmpty) {
+          DebugConfig.warning('⚠️ ReminderSection._saveReminder: _reminderId=null BUT ${allRootsBefore.length} root(s) exist in DB! Creating another may duplicate.');
+        }
         final newReminder = await SuperNoteHelper.instance.reminders.create(
           itemId: widget.itemId,
           triggerAt: _triggerDateTime!,
@@ -152,7 +195,6 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         _reminderId = newReminder.id;
         DebugConfig.notif('ReminderSection._saveReminder: created reminder id=${newReminder.id}, trigger=${newReminder.triggerAt}, status=${newReminder.status.name}');
         if (rrule != null) {
-          // Αναδρομικό: τα παιδιά από refreshRecurringReminders το αντικαθιστούν
           await ReminderScheduler.instance.refreshRecurringReminders();
         } else {
           await ReminderScheduler.instance.scheduleReminder(newReminder);
@@ -172,7 +214,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       context: context,
       locale: const Locale('el', 'GR'),
       initialDate: initial,
-      firstDate: now,
+      firstDate: DateTime(2000),
       lastDate: DateTime(now.year + 5),
       helpText: 'Ημερομηνία υπενθύμισης',
     );
@@ -198,9 +240,11 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
   }
 
   Future<void> _editRecurrence() async {
+    final initialTrigger = _triggerDateTime ?? widget.defaultStartTime ?? DateTime.now();
     final result = await showRecurrencePicker(
       context: context,
       initialRecurrence: _recurrence,
+      initialTrigger: initialTrigger,
     );
     if (!mounted) return;
     if (result != null) {
@@ -299,6 +343,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
 Future<Recurrence?> showRecurrencePicker({
   required BuildContext context,
   Recurrence? initialRecurrence,
+  DateTime? initialTrigger,
 }) {
   return showModalBottomSheet<Recurrence>(
     context: context,
@@ -310,13 +355,17 @@ Future<Recurrence?> showRecurrencePicker({
         topRight: Radius.circular(AppRadius.bottomSheet),
       ),
     ),
-    builder: (ctx) => _RecurrencePickerModal(initialRecurrence: initialRecurrence),
+    builder: (ctx) => _RecurrencePickerModal(
+      initialRecurrence: initialRecurrence,
+      initialTrigger: initialTrigger,
+    ),
   );
 }
 
 class _RecurrencePickerModal extends StatefulWidget {
   final Recurrence? initialRecurrence;
-  const _RecurrencePickerModal({this.initialRecurrence});
+  final DateTime? initialTrigger;
+  const _RecurrencePickerModal({this.initialRecurrence, this.initialTrigger});
 
   @override
   State<_RecurrencePickerModal> createState() => _RecurrencePickerModalState();
@@ -326,21 +375,49 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
   late RecurrenceType _type;
   late int _interval;
   late List<int> _weeklyDays;
-  late int? _monthlyDay;
+  int? _monthlyDay;
   late String _customUnit; // 'days', 'weeks', 'months'
 
   final _intervalController = TextEditingController();
   final _monthlyDayController = TextEditingController();
 
+  void _applyDefaultsForType(RecurrenceType type) {
+    if (widget.initialRecurrence != null) return;
+    switch (type) {
+      case RecurrenceType.weekly:
+        if (widget.initialTrigger != null) {
+          _weeklyDays = [widget.initialTrigger!.weekday];
+        }
+        _interval = 1;
+      case RecurrenceType.monthly:
+        if (widget.initialTrigger != null) {
+          _monthlyDay = widget.initialTrigger!.day;
+        }
+        _interval = 1;
+      case RecurrenceType.yearly:
+        _interval = 1;
+      default:
+        _interval = 1;
+    }
+    _intervalController.text = _interval.toString();
+    _monthlyDayController.text = _monthlyDay?.toString() ?? '';
+  }
+
   @override
   void initState() {
     super.initState();
-    final init = widget.initialRecurrence ?? const Recurrence();
-    _type = init.type;
-    _interval = init.interval;
-    _weeklyDays = init.days?.toList() ?? [];
-    _monthlyDay = init.dayOfMonth;
-    _customUnit = 'days'; // default
+    final init = widget.initialRecurrence;
+    _type = init?.type ?? RecurrenceType.daily;
+    if (init != null) {
+      if (init.days != null) _weeklyDays = init.days!.toList();
+      if (init.dayOfMonth != null) _monthlyDay = init.dayOfMonth;
+      _interval = init.interval;
+    } else {
+      _weeklyDays = [];
+      _monthlyDay = null;
+      _applyDefaultsForType(_type);
+    }
+    _customUnit = 'days';
     _intervalController.text = _interval.toString();
     _monthlyDayController.text = _monthlyDay?.toString() ?? '';
   }
@@ -378,7 +455,10 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                 final t = RecurrenceType.values[index];
                 final isActive = _type == t;
                 return GestureDetector(
-                  onTap: () => setState(() => _type = t),
+                  onTap: () => setState(() {
+                    _type = t;
+                    _applyDefaultsForType(t);
+                  }),
                   child: AnimatedContainer(
                     duration: AppDuration.fast,
                     padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
@@ -431,6 +511,7 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                 Text(
                   _type == RecurrenceType.daily ? 'ημέρες' :
                   _type == RecurrenceType.weekly ? 'εβδομάδες' :
+                  _type == RecurrenceType.yearly ? 'χρόνο' :
                   'μήνες',
                   style: context.bodyMd,
                 ),

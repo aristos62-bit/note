@@ -107,9 +107,14 @@ class ReminderScheduler {
           .findAll();
 
       // Εξαίρεση: habits έχουν δικό τους scheduling (habit_service)
+      DebugConfig.notif(
+          'refreshRecurringReminders: all ${allRecurring.length} recurring roots:');
       final filtered = <Reminder>[];
       for (final r in allRecurring) {
         final item = await SuperNoteHelper.instance.items.getById(r.itemId);
+        DebugConfig.notif(
+          '  root id=${r.id} itemId=${r.itemId} trigger=${r.triggerAt} rrule="${r.rrule}" type=${item?.type.name ?? 'null'} title="${item?.title ?? 'null'}"',
+        );
         if (item != null && item.type == ItemType.habit) {
           DebugConfig.notif(
               'refreshRecurringReminders: skipping habit root id=${r.id}');
@@ -134,6 +139,9 @@ class ReminderScheduler {
           continue;
         }
 
+        // ✅ batchSize ορίζεται ΕΔΩ ώστε να είναι ορατό και στο skip logic παρακάτω
+        const batchSize = 5;
+
         // 1. Έλεγξε αν ο root έχει ήδη παιδιά στο μέλλον (ενεργό batch)
         final futureChildren = await SuperNoteHelper.instance.isar.reminders
             .filter()
@@ -141,53 +149,61 @@ class ReminderScheduler {
             .triggerAtGreaterThan(now, include: true)
             .findAll();
 
+        DebugConfig.notif(
+          'Root ${root.id}: futureChildren count=${futureChildren.length} after filtering parentReminderId=${root.id}',
+        );
+        for (final fc in futureChildren) {
+          DebugConfig.notif(
+            '  child id=${fc.id} trigger=${fc.triggerAt} status=${fc.status.name}',
+          );
+        }
+
         if (futureChildren.isNotEmpty) {
           // ✅ Έλεγχος αν τα παιδιά έχουν σωστή ώρα (ίδια με το root trigger)
           final wrongTimeChildren = futureChildren
               .where((child) =>
-                  child.triggerAt.hour != root.triggerAt.hour ||
-                  child.triggerAt.minute != root.triggerAt.minute)
+          child.triggerAt.hour != root.triggerAt.hour ||
+              child.triggerAt.minute != root.triggerAt.minute)
               .toList();
-
-          if (wrongTimeChildren.isEmpty) {
-            DebugConfig.notif(
-              'Root ${root.id}: has ${futureChildren.length} future children with correct time, skipping',
-            );
-            continue;
-          }
 
           // Υπάρχουν παιδιά με λάθος ώρα → διέγραψε τα
-          DebugConfig.notif(
-            'Root ${root.id}: found ${wrongTimeChildren.length} children with wrong trigger time, cleaning up',
-          );
-          for (final wrongChild in wrongTimeChildren) {
+          if (wrongTimeChildren.isNotEmpty) {
             DebugConfig.notif(
-              '  Deleting wrong child id=${wrongChild.id} trigger=${wrongChild.triggerAt} (expected hour=${root.triggerAt.hour}:${root.triggerAt.minute})',
+              'Root ${root.id}: found ${wrongTimeChildren.length} children with wrong trigger time, cleaning up',
             );
-            await NotificationService.instance.cancel(wrongChild.id);
-            await SuperNoteHelper.instance.isar.writeTxn(() async {
-              await SuperNoteHelper.instance.isar.reminders
-                  .delete(wrongChild.id);
-            });
+            for (final wrongChild in wrongTimeChildren) {
+              DebugConfig.notif(
+                '  Deleting wrong child id=${wrongChild.id} trigger=${wrongChild.triggerAt} (expected hour=${root.triggerAt.hour}:${root.triggerAt.minute})',
+              );
+              await NotificationService.instance.cancel(wrongChild.id);
+              await SuperNoteHelper.instance.isar.writeTxn(() async {
+                await SuperNoteHelper.instance.isar.reminders
+                    .delete(wrongChild.id);
+              });
+            }
           }
 
-          // Αν υπάρχουν ακόμα σωστά παιδιά, skip
+          // ✅ Skip μόνο αν έχουμε ΑΡΚΕΤΑ σωστά παιδιά (>= batchSize - 1)
+          // Αν έχουμε λιγότερα → top-up batch
           final correctChildren = futureChildren
               .where((child) =>
-                  child.triggerAt.hour == root.triggerAt.hour &&
-                  child.triggerAt.minute == root.triggerAt.minute)
+          child.triggerAt.hour == root.triggerAt.hour &&
+              child.triggerAt.minute == root.triggerAt.minute)
               .toList();
-          if (correctChildren.isNotEmpty) {
+
+          if (correctChildren.length >= batchSize - 1) {
             DebugConfig.notif(
-              'Root ${root.id}: still has ${correctChildren.length} correct children, skipping batch creation',
+              'Root ${root.id}: has ${correctChildren.length} correct children (>= ${batchSize - 1}), skipping',
             );
             continue;
           }
+
+          DebugConfig.notif(
+            'Root ${root.id}: only ${correctChildren.length} correct children (< ${batchSize - 1}), topping up batch',
+          );
         }
 
-        // 2. Δεν υπάρχουν future children → δημιούργησε νέο batch
-// ✅ batchSize=5: αρκετό buffer αν χαθεί κάποιο (crash/reboot)
-        const batchSize = 5;
+        // 2. Δημιούργησε νέο batch (ή top-up αν έχουν απομείνει λίγα παιδιά)
         final List<DateTime> nextOccurrences = [];
 
         // ✅ Χρησιμοποιούμε την ώρα του root trigger αντί για now
@@ -212,16 +228,18 @@ class ReminderScheduler {
           nextOccurrences.add(todayAtTriggerTime);
         }
 
-        // ✅ Αν η λίστα είναι κενή, ξεκινάμε από now (όχι todayAtTriggerTime)
-// για να αποφύγουμε διπλές εγγραφές αν το trigger είναι ακριβώς τώρα
+        // ✅ Ξεκινάμε πάντα από todayAtTriggerTime (με τη σωστή ώρα του root)
+        // Έτσι το nextOccurrence() παράγει παιδιά με τη σωστή ώρα
+        // Αν η λίστα έχει ήδη entries, ξεκινάμε από το τελευταίο +1sec
         DateTime current = nextOccurrences.isNotEmpty
-            ? nextOccurrences.last.add(const Duration(seconds: 1))
-            : now;
+            ? nextOccurrences.last
+            : todayAtTriggerTime;
         while (nextOccurrences.length < batchSize) {
           final next = recurrence.nextOccurrence(current);
           if (next == null) break;
           nextOccurrences.add(next);
-          current = next.add(const Duration(seconds: 1));
+          // current = next.add(const Duration(seconds: 1));
+          current = next;
         }
 
         if (nextOccurrences.isEmpty) {

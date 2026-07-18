@@ -5,6 +5,7 @@ import 'db_provider.dart';
 import 'workspace_provider.dart';
 import '../core/utils/debug_config.dart';
 import 'dart:async';
+import '../services/reminder_scheduler.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Filters (για το UI — φίλτρα λίστας)
@@ -188,9 +189,15 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     }
   }
 
-  /// Soft delete
+  /// Soft delete — cascade delete reminders (root + children) + cancel OS notifications
   Future<void> deleteItem(int id) async {
     try {
+      final reminders = await ref.read(dbProvider).reminders.getForItem(id);
+      DebugConfig.db('ItemNotifier.deleteItem id=$id reminders=${reminders.length}');
+      if (reminders.isNotEmpty) {
+        DebugConfig.notif('deleteItem: calling deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
+        await ReminderScheduler.instance.deleteAllRemindersForItem(id);
+      }
       await ref.read(dbProvider).items.softDelete(id);
       ref.invalidateSelf();
     } catch (e, s) {
@@ -211,7 +218,11 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
   /// Permanent delete
   Future<void> permanentDelete(int id) async {
     try {
-      DebugConfig.db('ItemNotifier.permanentDelete id=$id');
+      final reminders = await ref.read(dbProvider).reminders.getForItem(id);
+      DebugConfig.db('ItemNotifier.permanentDelete id=$id reminders=${reminders.length} — NO NotificationService.cancel() call!');
+      for (final r in reminders) {
+        DebugConfig.notif('  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
+      }
       await ref.read(dbProvider).items.hardDelete(id);
       ref.invalidateSelf();
       DebugConfig.db('ItemNotifier.permanentDelete done id=$id');
@@ -239,8 +250,14 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       updateItem(id, favorite: !currentValue);
 
   /// Toggle archive
-  Future<void> toggleArchive(int id, bool currentValue) =>
-      updateItem(id, archived: !currentValue);
+  Future<void> toggleArchive(int id, bool currentValue) async {
+    final reminders = await ref.read(dbProvider).reminders.getForItem(id);
+    DebugConfig.db('ItemNotifier.toggleArchive id=$id new=${!currentValue} reminders=${reminders.length} — NO reminder handling!');
+    for (final r in reminders) {
+      DebugConfig.notif('  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
+    }
+    await updateItem(id, archived: !currentValue);
+  }
 
   /// Μετακίνηση item σε άλλο φάκελο
   Future<void> moveToFolder(int itemId, int? newFolderId) async {
