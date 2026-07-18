@@ -1,0 +1,67 @@
+═══════════════════════════════════════════════════════════
+  SUPERNOTE — ΠΡΟΤΕΡΑΙΟΤΗΤΕΣ ΓΙΑ ΤΗ ΣΥΝΕΧΕΙΑ (9/6/2026)
+═══════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────
+  🔴 ΚΡΙΣΙΜΑ — ΠΡΕΠΕΙ ΝΑ ΓΙΝΟΥΝ ΠΡΩΤΑ
+───────────────────────────────────────────────────────────
+
+[ ] 1. try-catch σε όλες τις κρίσιμες services
+      • share_service.dart (0 try-catch, ολόκληρο απροστάτευτο)
+      • notification_service.dart (γραμμές 73,165,181,204,219)
+      • reminder_scheduler.dart (schedule/cancel methods)
+      • habit_service.dart (~20 public methods)
+
+[ ] 2. try-catch σε όλα τα Riverpod Notifiers
+      • create/update/delete σε ~15 Notifiers
+      • Διόρθωση σιωπηλών error handlers (task_provider, item_provider)
+
+[ ] 3. Backup integrity & atomicity
+      • Integrity check στο restore
+      • Ατομική αντικατάσταση (όχι OOM)
+      • Δεν φορτώνει όλη DB στη RAM
+
+[ ] 4. Encryption (κρυπτογράφηση DB)
+      • flutter_secure_storage ή κρυπτογράφηση πεδίων
+      • Σημειώσεις, επαφές, φωτογραφίες
+
+[ ] 5. Schema migration
+      • Isar schema versioning
+      • Προστασία από data loss σε μελλοντικά updates
+
+───────────────────────────────────────────────────────────
+  🟡 ΜΕΤΡΙΑΣ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ
+───────────────────────────────────────────────────────────
+
+[ ] 6. Απενεργοποίηση debug logs στο release build
+      • DebugConfig.enabled = false σε release
+      • ~50+ σημεία με debug logs
+
+[ ] 7. Διόρθωση notifiers χωρίς έλεγχο mounted
+      • Ασυνέπεια: if (!mounted) vs if (!context.mounted)
+
+[ ] 8. Soft delete ασυνέπεια
+      • Habits: άμεσο delete (αντί archived=true όπως Tasks)
+
+[ ] 9. Save χωρίς αλλαγή (NoteDetail)
+      • _saveTitle καλείται πάντα στο back (guard υπάρχει ήδη)
+
+───────────────────────────────────────────────────────────
+  🟢 ΧΑΜΗΛΗΣ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ
+───────────────────────────────────────────────────────────
+
+[ ] 10. No /search route in GoRouter (σπάει deep linking)
+[ ] 11. 7 model files με TODO stubs
+[ ] 12. Snapshot tests (3 failing)
+[ ] 13. Διπλό build σε TaskDetailScreen, ContactDetailScreen
+
+═══════════════════════════════════════════════════════════
+  ΣΗΜΕΙΩΣΕΙΣ
+═══════════════════════════════════════════════════════════
+
+- flutter analyze → 0 issues
+- 62K γραμμές Dart | 127 αρχεία
+- Responsive UI, Dark mode, 9 detail screens
+- Release APK: 25.2MB
+- Θέμα: όλα τα δεδομένα plain text, backup μη ατομικό
+═══════════════════════════════════════════════════════════

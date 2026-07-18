@@ -96,12 +96,6 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         return;
       }
 
-      if (_recurrence?.type == RecurrenceType.yearly && _triggerDateTime != null) {
-        _recurrence = Recurrence.yearly(
-          month: _triggerDateTime!.month,
-          day: _triggerDateTime!.day,
-        );
-      }
       final rrule = recurrenceToRRULE(_recurrence);
       const title = 'Υπενθύμιση';
       final body = widget.itemTitle;

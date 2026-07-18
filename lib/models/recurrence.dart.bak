@@ -280,7 +280,7 @@ class Recurrence {
         next.year,
         next.month,
         next.day,
-        from.hour, from.minute, from.second
+        from.hour, from.minute, 0
     );
   }
 

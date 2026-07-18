@@ -163,7 +163,8 @@ class ReminderScheduler {
           final wrongTimeChildren = futureChildren
               .where((child) =>
           child.triggerAt.hour != root.triggerAt.hour ||
-              child.triggerAt.minute != root.triggerAt.minute)
+              child.triggerAt.minute != root.triggerAt.minute ||
+              child.triggerAt.second != root.triggerAt.second)
               .toList();
 
           // Υπάρχουν παιδιά με λάθος ώρα → διέγραψε τα

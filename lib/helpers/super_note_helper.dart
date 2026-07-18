@@ -385,6 +385,16 @@ class ItemRepository {
   Future<void> hardDelete(int id) async {
     DebugConfig.db('hardDelete: permanent delete itemId=$id');
 
+    // ★ Έλεγξε reminders πριν τη διαγραφή
+    final remindersBefore = await _isar.reminders
+        .filter()
+        .itemIdEqualTo(id)
+        .findAll();
+    DebugConfig.db('hardDelete: found ${remindersBefore.length} reminder(s) for itemId=$id — will cascade-delete from Isar but NOT cancel OS notifications!');
+    for (final r in remindersBefore) {
+      DebugConfig.notif('  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name} rrule=${r.rrule} parentId=${r.parentReminderId}');
+    }
+
     // 1. Φόρτωσε attachments ΠΡΙΝ το writeTxn (για disk cleanup μετά)
     final attachments = await _isar.attachments
         .filter()
@@ -1053,7 +1063,9 @@ class ReminderRepository {
 
   Future<List<Reminder>> getPending() {
     final now = DateTime.now();
-    final end = now.add(const Duration(days: 7));
+    // ✅ 30 ημέρες: καλύπτει batchSize=5 weekly (έως ~2.5 εβδομάδες)
+    // και εξασφαλίζει ότι το scheduleAll() βλέπει όλα τα παιδιά
+    final end = now.add(const Duration(days: 30));
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
@@ -1064,7 +1076,8 @@ class ReminderRepository {
 
   Stream<List<Reminder>> watchPending() {
     final now = DateTime.now();
-    final end = now.add(const Duration(days: 7));
+    // ✅ 30 ημέρες: ίδιο παράθυρο με getPending()
+    final end = now.add(const Duration(days: 30));
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
@@ -1139,16 +1152,28 @@ class ReminderRepository {
     required DateTime newTriggerAt,
   }) async {
     final reminders = await getForItem(itemId);
-    final root = reminders.where(
+    final allRoots = reminders.where(
       (r) => r.rrule != null && r.parentReminderId == null,
-    ).firstOrNull;
-    if (root == null) return;
+    ).toList();
+    DebugConfig.notif('ReminderRepo.updateRootReminderForItem: itemId=$itemId newRrule="$newRrule" newTrigger=$newTriggerAt totalRoots=${allRoots.length}');
+    for (final rr in allRoots) {
+      DebugConfig.notif('  root id=${rr.id} trigger=${rr.triggerAt} rrule="${rr.rrule}"');
+    }
+    final root = allRoots.firstOrNull;
+    if (root == null) {
+      DebugConfig.warning('⚠️ ReminderRepo.updateRootReminderForItem: NO root found for itemId=$itemId!');
+      return;
+    }
+    if (allRoots.length > 1) {
+      DebugConfig.warning('⚠️ ReminderRepo.updateRootReminderForItem: ${allRoots.length} roots found! Updating only first (id=${root.id}). Old children NOT deleted!');
+    }
     root.rrule = newRrule;
     root.triggerAt = newTriggerAt;
     root.updatedAt = DateTime.now();
     await _isar.writeTxn(() async {
       await _isar.reminders.put(root);
     });
+    DebugConfig.notif('ReminderRepo.updateRootReminderForItem: DONE');
   }
 
 }

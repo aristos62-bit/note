@@ -1,0 +1,787 @@
+--------- beginning of main
+06-10 12:50:56.223 14383 14383 I flutter : GRAF5 ▶️ load start period=Μήνας
+06-10 12:50:56.223 14383 14383 I flutter : GRAF2 ✅ categories firstLoad done loading=false err=null count=17
+06-10 12:50:56.223 14383 14383 I flutter : GRAF2 📅 dateRange=2026-06-01..2026-06-30
+06-10 12:50:56.223 14383 14383 I flutter : TP ▶️ loadPeriod userId=j5A8NbXSiYNFevKzrjgSuqNnqmu2 period=Μήνας start=2026-06-01 00:00:00.000 end=2026-06-30 00:00:00.000
+06-10 12:50:56.223 14383 14383 I flutter : TP 🎧 already has listener for period=Μήνας (same range)
+06-10 12:50:56.223 14383 14383 I flutter : GRAF1 ✅ TP.loadPeriod finished
+06-10 12:50:56.223 14383 14383 I flutter : GRAF1 💰 totals income=0.00 expense=0.00
+06-10 12:50:56.223 14383 14383 I flutter : GRAF3 ✅ TP.loadPeriod finished
+06-10 12:50:56.223 14383 14383 I flutter : GRAF3 💰 total expense=0.00
+06-10 12:50:56.223 14383 14383 I flutter : GRAF5 📅 dateRange=2026-06-01..2026-06-30
+06-10 12:50:56.223 14383 14383 I flutter : TP ▶️ loadPeriod userId=j5A8NbXSiYNFevKzrjgSuqNnqmu2 period=Μήνας start=2026-06-01 00:00:00.000 end=2026-06-30 00:00:00.000
+06-10 12:50:56.223 14383 14383 I flutter : TP 🎧 already has listener for period=Μήνας (same range)
+06-10 12:50:56.223 14383 14383 I flutter : GRAF2 ✅ TP.loadPeriod finished
+06-10 12:50:56.223 14383 14383 I flutter : GRAF2 💰 total income=0.00
+06-10 12:50:56.224 14383 14383 I flutter : GRAF5 ✅ TP.loadPeriod finished
+06-10 12:50:56.224 14383 14383 I flutter : GRAF5 💰 total expense=0.00
+06-10 12:50:56.246 14383 14383 I flutter : ✅ Subcategories loaded for 0f5e9599-2ce1-483e-bc2b-ff1730223723: 5
+06-10 12:50:56.251 14383 14383 I flutter : ✅ Subcategories loaded for 2e9c8f70-5687-4b16-8759-e2dd7528f77e: 2
+06-10 12:50:56.255 14383 14383 I flutter : ✅ Subcategories loaded for 576b076f-5786-4408-8308-a539097e70d6: 7
+06-10 12:50:56.256 14383 14383 I flutter : ✅ Subcategories loaded for 61c11915-28af-4141-ab26-f6defc17e0e6: 10
+06-10 12:50:56.256 14383 14383 I flutter : ✅ Subcategories loaded for 62abd6b0-39ac-4189-8bbc-4b7dc9d7468b: 4
+06-10 12:50:56.258 14383 14383 I flutter : ✅ Subcategories loaded for 772835a9-e149-4e84-a06a-903c5be70a37: 12
+06-10 12:50:56.258 14383 14383 I flutter : ✅ Subcategories loaded for 8b4ea1cf-5b8d-4eec-a781-cdb5f11d4e86: 5
+06-10 12:50:56.259 14383 14383 I flutter : ✅ Subcategories loaded for 972ee552-1844-4d17-a1e6-5653b06bd71f: 12
+06-10 12:50:56.260 14383 14383 I flutter : ✅ Subcategories loaded for RGg5AMCbRW4M8Kr0k0DP: 1
+06-10 12:50:56.261 14383 14383 I flutter : ✅ Subcategories loaded for afae0b78-c8cb-4817-b833-3c00b7af80bb: 5
+06-10 12:50:56.261 14383 14383 I flutter : ✅ Subcategories loaded for cf918af6-0a75-42ed-aa18-c11f1059870e: 1
+06-10 12:50:56.262 14383 14383 I flutter : ✅ Subcategories loaded for d0d172ad-bdfc-4b67-b7d3-edd59784c2b7: 7
+06-10 12:50:56.266 14383 14383 I flutter : ✅ Subcategories loaded for dfce7a7d-0b2d-43af-a543-246518adc654: 12
+06-10 12:50:56.268 14383 14383 I flutter : ✅ Subcategories loaded for e75848e2-b22f-4259-b432-d133c49a7734: 5
+06-10 12:50:56.270 14383 14383 I flutter : ✅ Subcategories loaded for h52Bs2NbbWxybYzNtW5t: 3
+06-10 12:50:56.271 14383 14383 I flutter : ✅ Subcategories loaded for zMTwENoVbCeMZ4CfUMYQ: 1
+06-10 12:50:56.272 14383 14383 I flutter : ✅ Subcategories loaded for zaSoApWLCxcLNVOeIXo4: 2
+06-10 12:50:56.293 14383 14383 I flutter : TP 🔔 snapshot received for period=Μήνας docs=51
+06-10 12:50:56.294 14383 14383 I flutter : TP ✅ snapshot mapped count=51
+06-10 12:50:56.294 14383 14383 I flutter : ✅ TransactionsProvider: Updated 51 transactions for Μήνας
+06-10 12:50:56.443 14383 14383 I flutter : 🔊 Accessibility announce: Βρέθηκαν 2 κινήσεις
+06-10 12:50:58.158 14383 14383 I flutter : 📖 Page changed to index=6 (Ρυθμίσεις)
+06-10 12:50:58.300 14383 14383 I flutter : 🔊 Accessibility announce: Σελίδα Επιλογών. Διαχείριση κατηγοριών, εργαλεία, στατιστικά και ρυθμίσεις λογαριασμού.
+06-10 12:51:02.472 14383 14383 I flutter : 🔊 Accessibility announce: Άνοιξε η καρτέλα Στατιστικά
+06-10 12:51:03.346 14383 14383 I flutter : → AccountsProvider: Ξεκινάω real-time listener για accounts...
+06-10 12:51:03.347 14383 14383 I flutter : → AccountsProvider: listener initialized for userId=j5A8NbXSiYNFevKzrjgSuqNnqmu2
+06-10 12:51:03.347 14383 14383 I flutter : → CategoriesProvider: listener initialized for userId=j5A8NbXSiYNFevKzrjgSuqNnqmu2
+06-10 12:51:03.354 14383 14383 I flutter : TP ▶️ loadPeriod userId=j5A8NbXSiYNFevKzrjgSuqNnqmu2 period=STATS_PAGE start=2026-06-01 00:00:00.000 end=2026-06-30 00:00:00.000
+06-10 12:51:03.354 14383 14383 I flutter : 📊 TransactionsProvider: Setting up listener for STATS_PAGE...
+06-10 12:51:03.354 14383 14383 I flutter : ✅ TransactionsProvider: Listener setup complete for STATS_PAGE
+06-10 12:51:03.357 14383 14383 I flutter : ✅ Accounts loaded: 6 (visible: 4)
+06-10 12:51:03.359 14383 14383 I flutter : ✅ Categories loaded: 19 (active: 17)
+06-10 12:51:03.362 14383 14383 I flutter : TP 🔔 snapshot received for period=STATS_PAGE docs=51
+06-10 12:51:03.363 14383 14383 I flutter : TP ✅ snapshot mapped count=51
+06-10 12:51:03.363 14383 14383 I flutter : ✅ TransactionsProvider: Updated 51 transactions for STATS_PAGE
+06-10 12:51:03.374 14383 14383 I flutter : ✅ Subcategories loaded for 0f5e9599-2ce1-483e-bc2b-ff1730223723: 5
+06-10 12:51:03.375 14383 14383 I flutter : ✅ Subcategories loaded for 2e9c8f70-5687-4b16-8759-e2dd7528f77e: 2
+06-10 12:51:03.375 14383 14383 I flutter : ✅ Subcategories loaded for 576b076f-5786-4408-8308-a539097e70d6: 7
+06-10 12:51:03.376 14383 14383 I flutter : ✅ Subcategories loaded for 61c11915-28af-4141-ab26-f6defc17e0e6: 10
+06-10 12:51:03.377 14383 14383 I flutter : ✅ Subcategories loaded for 62abd6b0-39ac-4189-8bbc-4b7dc9d7468b: 4
+06-10 12:51:03.378 14383 14383 I flutter : ✅ Subcategories loaded for 772835a9-e149-4e84-a06a-903c5be70a37: 12
+06-10 12:51:03.379 14383 14383 I flutter : ✅ Subcategories loaded for 8b4ea1cf-5b8d-4eec-a781-cdb5f11d4e86: 5
+06-10 12:51:03.387 14383 14383 I flutter : ✅ Subcategories loaded for 972ee552-1844-4d17-a1e6-5653b06bd71f: 12
+06-10 12:51:03.387 14383 14383 I flutter : ✅ Subcategories loaded for RGg5AMCbRW4M8Kr0k0DP: 1
+06-10 12:51:03.388 14383 14383 I flutter : ✅ Subcategories loaded for afae0b78-c8cb-4817-b833-3c00b7af80bb: 5
+06-10 12:51:03.388 14383 14383 I flutter : ✅ Subcategories loaded for cf918af6-0a75-42ed-aa18-c11f1059870e: 1
+06-10 12:51:03.389 14383 14383 I flutter : ✅ Subcategories loaded for d0d172ad-bdfc-4b67-b7d3-edd59784c2b7: 7
+06-10 12:51:03.390 14383 14383 I flutter : ✅ Subcategories loaded for dfce7a7d-0b2d-43af-a543-246518adc654: 12
+06-10 12:51:03.391 14383 14383 I flutter : ✅ Subcategories loaded for e75848e2-b22f-4259-b432-d133c49a7734: 5
+06-10 12:51:03.391 14383 14383 I flutter : ✅ Subcategories loaded for h52Bs2NbbWxybYzNtW5t: 3
+06-10 12:51:03.392 14383 14383 I flutter : ✅ Subcategories loaded for zMTwENoVbCeMZ4CfUMYQ: 1
+06-10 12:51:03.392 14383 14383 I flutter : ✅ Subcategories loaded for zaSoApWLCxcLNVOeIXo4: 2
+06-10 12:51:03.474 14383 14383 I flutter : 🔊 Accessibility announce: Ανάλυση Εσόδων Εξόδων. Επιλέξτε χρονικό διάστημα, τύπο κινήσεων και κατηγορίες.
+06-10 12:51:04.693 14383 14383 I flutter : 🏷️ TagsProvider: starting listener for j5A8NbXSiYNFevKzrjgSuqNnqmu2
+06-10 12:51:04.707 14383 14383 I flutter : 🏷️ TagsProvider: snapshot docs=28
+06-10 12:51:23.418 14383 14383 I flutter : TP ▶️ loadPeriod userId=j5A8NbXSiYNFevKzrjgSuqNnqmu2 period=STATS_PAGE start=2026-05-01 00:00:00.000 end=2026-06-30 00:00:00.000
+06-10 12:51:23.418 14383 14383 I flutter : TP 🔁 range changed for period=STATS_PAGE → restarting listener
+06-10 12:51:23.418 14383 14383 I flutter : 📊 TransactionsProvider: Setting up listener for STATS_PAGE...
+06-10 12:51:23.418 14383 14383 I flutter : ✅ TransactionsProvider: Listener setup complete for STATS_PAGE
+06-10 12:51:23.464 14383 14383 I flutter : TP 🔔 snapshot received for period=STATS_PAGE docs=160
+06-10 12:51:23.465 14383 14383 I flutter : TP ✅ snapshot mapped count=160
+06-10 12:51:23.465 14383 14383 I flutter : ✅ TransactionsProvider: Updated 160 transactions for STATS_PAGE
+06-10 12:51:37.495 14383 14383 I flutter : 🔊 Accessibility announce: Δημιουργία αναφοράς...
+06-10 12:51:48.441 14383 14383 I flutter : → AccountsProvider disposed, subscription cancelled
+06-10 12:52:03.958 14886 14886 I flutter : 🚀 STARTUP +0ms  APP START
+06-10 12:52:03.959 14886 14948 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+06-10 12:52:04.030 14886 14886 I flutter : 🚀 STARTUP +72ms  ThemeProvider initialized
+06-10 12:52:04.066 14886 14886 I flutter : ✅ Notification permissions granted
+06-10 12:52:04.067 14886 14886 I flutter : 🚀 STARTUP +108ms  NotificationsService initialized
+06-10 12:52:04.067 14886 14886 I flutter : 🚀 STARTUP +109ms  ConnectivityService created
+06-10 12:52:04.069 14886 14886 I flutter : 🔄 Connection detected - waiting 2s to confirm...
+06-10 12:52:04.069 14886 14886 I flutter : ✅ ConnectivityService initialized: isOnline=false
+06-10 12:52:04.083 14886 14886 I flutter : 🔄 Connection detected - waiting 2s to confirm...
+06-10 12:52:04.116 14886 14886 I flutter : 🚀 STARTUP +158ms  Firebase initialized
+06-10 12:52:04.117 14886 14886 I flutter : ↑ Firebase Auth state initialized
+06-10 12:52:04.117 14886 14886 I flutter : 🚀 STARTUP +159ms  Firebase Auth state ready
+06-10 12:52:04.117 14886 14886 I flutter : ↑ Firestore offline persistence ENABLED
+06-10 12:52:04.117 14886 14886 I flutter : ↑ Firestore offline writes ENABLED
+06-10 12:52:04.117 14886 14886 I flutter : 🚀 STARTUP +159ms  Firestore configured
+06-10 12:52:04.117 14886 14886 I flutter : 🚀 STARTUP +159ms  runApp starting
+06-10 12:52:05.849 14886 14886 I flutter : 🔊 Accessibility announce: Εκκίνηση εφαρμογής Οικογενειακός Προϋπολογισμός. Παρακαλώ περιμένετε.
+06-10 12:52:06.087 14886 14886 I flutter : ✅ Internet connection restored (confirmed)
+06-10 12:52:06.087 14886 14886 I flutter : ═══════════════════════════════════════════
+06-10 12:52:06.087 14886 14886 I flutter : MessageService.showSyncComplete() called
+06-10 12:52:06.087 14886 14886 I flutter :   Pending count: 0
+06-10 12:52:06.088 14886 14886 I flutter : ═══════════════════════════════════════════
+06-10 12:52:06.088 14886 14886 I flutter : ⚠️ No pending operations - NOT showing sync message
+06-10 12:52:06.306 14886 14886 I flutter : 🔑 Loaded user document for uid=j5A8NbXSiYNFevKzrjgSuqNnqmu2 with default currency=EUR
+06-10 12:52:06.379 14886 14886 I flutter : 🟢 Biometric authentication required for uid=j5A8NbXSiYNFevKzrjgSuqNnqmu2
+06-10 12:52:09.633 14886 14886 I flutter : ❌ Biometric authenticate exception: LocalAuthException(code userCanceled, null, null)
+06-10 12:52:09.633 14886 14886 I flutter : ❌ type: LocalAuthException
+06-10 12:52:09.633 14886 14886 I flutter : #0      LocalAuthAndroid.authenticate (package:local_auth_android/local_auth_android.dart:51)
+06-10 12:52:09.633 14886 14886 I flutter : <asynchronous suspension>
+06-10 12:52:09.633 14886 14886 I flutter : #1      BiometricAuthService.authenticate (package:family_economy/core/services/biometric_auth_service.dart:22)
+06-10 12:52:09.633 14886 14886 I flutter : <asynchronous suspension>
+06-10 12:52:09.633 14886 14886 I flutter : #2      _AppStartState._run (package:family_economy/presentation/auth/app_start.dart:84)
+06-10 12:52:09.633 14886 14886 I flutter : <asynchronous suspension>
+06-10 12:52:09.633 14886 14886 I flutter : 
+06-10 12:52:09.633 14886 14886 I flutter : 🔴 Biometric authentication failed for uid=j5A8NbXSiYNFevKzrjgSuqNnqmu2
+06-10 12:52:09.633 14886 14886 I flutter : ❌ AppStart error: Exception: Αποτυχία βιομετρικής ταυτοποίησης
+06-10 12:52:09.755 14886 14886 I flutter : 🔊 Accessibility announce: Σφάλμα: Απαιτείται ταυτοποίηση: Αποτυχία βιομετρικής ταυτοποίησης
+06-10 13:05:25.261 17283 17334 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+06-10 13:05:25.869 17283 17283 I flutter : 🚀 STARTUP +0ms  App started
+06-10 13:05:26.242 17283 17283 I flutter : 🚀 STARTUP +373ms  DB and Notifications initialized
+06-10 13:05:26.245 17283 17283 I flutter : 🚀 STARTUP +376ms  ProviderContainer created
+06-10 13:05:26.250 17283 17283 I flutter : 🚀 STARTUP +381ms  Active workspace set id=1
+06-10 13:05:26.250 17283 17283 I flutter : 🚀 STARTUP +381ms  runApp
+06-10 13:05:26.254 17283 17283 I flutter : ⚡ PRV | SuperNoteApp.build theme=system
+06-10 13:05:26.261 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:05:26.264 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:05:26.266 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:05:26.267 17283 17283 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:05:26.268 17283 17283 I flutter : 🗄️  DB | 📁 foldersStreamProvider: wsId=1
+06-10 13:05:26.271 17283 17283 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:05:26.408 17283 17283 I flutter : 🔔 NTF | NotificationService.requestPermission: called
+06-10 13:05:26.408 17283 17283 I flutter : 🔔 NTF | NotificationService.requestPermission: android impl found
+06-10 13:05:26.483 17283 17283 I flutter : 🔔 NTF | NotificationService.requestPermission: android result=true
+06-10 13:05:26.483 17283 17283 I flutter : 🚀 STARTUP +614ms  Notifications requestPermission -> true
+06-10 13:05:26.483 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: called, platform=TargetPlatform.android
+06-10 13:05:26.802 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:05:26.802 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.paused
+06-10 13:05:26.804 17283 17283 I flutter : ⚡ PRV | SuperNoteApp.build theme=system
+06-10 13:05:26.809 17283 17283 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:05:26.812 17283 17283 I flutter : 💬 📊 FAVORITES COUNT: 3
+06-10 13:05:26.812 17283 17283 I flutter : 💬    - Κοντά μου (folderId: 2)
+06-10 13:05:26.813 17283 17283 I flutter : 💬    - Λούτσα To Do (folderId: 2)
+06-10 13:05:26.813 17283 17283 I flutter : 💬    - Leroy Merlin (folderId: 2)
+06-10 13:05:26.814 17283 17283 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:05:26.915 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: notificationsEnabled=true
+06-10 13:05:27.037 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: cancelAll done
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: found 7 pending reminders (after filtering recurring roots)
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF |   pending: id=252 trigger=2026-06-11 13:00:00.000 status=pending itemId=278
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF |   pending: id=236 trigger=2026-06-11 22:30:01.000 status=pending itemId=124
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF |   pending: id=231 trigger=2026-06-11 23:30:01.000 status=pending itemId=209
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF |   pending: id=253 trigger=2026-06-12 13:00:01.000 status=pending itemId=278
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF |   pending: id=237 trigger=2026-06-12 22:30:02.000 status=pending itemId=124
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF |   pending: id=249 trigger=2026-06-13 09:00:00.000 status=pending itemId=279
+06-10 13:05:27.051 17283 17283 I flutter : 🔔 NTF |   pending: id=250 trigger=2026-06-15 09:00:01.000 status=pending itemId=279
+06-10 13:05:27.055 17283 17283 I flutter : 🔔 NTF |   scheduleAll: scheduling id=252 itemId=278 archived=false
+06-10 13:05:27.059 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=278 archived=false title="ηξγδ"
+06-10 13:05:27.071 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=252
+06-10 13:05:27.082 17283 17283 I flutter : 🔔 NTF |   scheduleAll: scheduling id=236 itemId=124 archived=true
+06-10 13:05:27.093 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=124 archived=true title="Χάπι Χοληστερίνης"
+06-10 13:05:27.103 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=236
+06-10 13:05:27.110 17283 17283 I flutter : 🔔 NTF |   scheduleAll: scheduling id=231 itemId=209 archived=true
+06-10 13:05:27.118 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=209 archived=true title="Β 12"
+06-10 13:05:27.135 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=231
+06-10 13:05:27.149 17283 17283 I flutter : 🔔 NTF |   scheduleAll: scheduling id=253 itemId=278 archived=false
+06-10 13:05:27.159 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=278 archived=false title="ηξγδ"
+06-10 13:05:27.173 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=253
+06-10 13:05:27.176 17283 17283 I flutter : 🔔 NTF |   scheduleAll: scheduling id=237 itemId=124 archived=true
+06-10 13:05:27.191 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=124 archived=true title="Χάπι Χοληστερίνης"
+06-10 13:05:27.204 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=237
+06-10 13:05:27.208 17283 17283 I flutter : 🔔 NTF |   scheduleAll: scheduling id=249 itemId=279 archived=false
+06-10 13:05:27.211 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=279 archived=false title="δγωψ"
+06-10 13:05:27.231 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=249
+06-10 13:05:27.239 17283 17283 I flutter : 🔔 NTF |   scheduleAll: scheduling id=250 itemId=279 archived=false
+06-10 13:05:27.246 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=279 archived=false title="δγωψ"
+06-10 13:05:27.288 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=250
+06-10 13:05:27.289 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: DONE
+06-10 13:05:27.289 17283 17283 I flutter : 🚀 STARTUP +1420ms  Reminders scheduled
+06-10 13:05:27.289 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:05:27.317 17283 17283 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:05:27.319 17283 17283 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:05:27.321 17283 17283 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:05:27.323 17283 17283 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:05:27.325 17283 17283 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:05:27.327 17283 17283 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:05:27.329 17283 17283 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:05:27.332 17283 17283 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:05:27.334 17283 17283 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:05:27.336 17283 17283 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:05:27.338 17283 17283 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:05:27.338 17283 17283 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:05:27.338 17283 17283 I flutter : 🚀 STARTUP +1469ms  Recurring reminders refreshed
+06-10 13:06:01.183 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:06:01.183 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:06:01.183 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.resumed
+06-10 13:06:01.183 17283 17283 I flutter : 🚀 STARTUP +35314ms  App resumed — debounced refreshing recurring reminders
+06-10 13:06:01.183 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: called, delay=0:00:02.000000
+06-10 13:06:03.184 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: executing actual refresh
+06-10 13:06:03.185 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:06:03.207 17283 17283 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:06:03.209 17283 17283 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:06:03.211 17283 17283 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:06:03.212 17283 17283 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:06:03.215 17283 17283 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:06:03.217 17283 17283 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:06:03.219 17283 17283 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:06:03.221 17283 17283 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:06:03.222 17283 17283 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:06:03.224 17283 17283 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:06:03.226 17283 17283 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:06:03.226 17283 17283 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:06:06.775 17283 17283 I flutter : 🧭 NAV | Shell nav → /habits
+06-10 13:06:06.784 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:06:06.785 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:06:06.792 17283 17283 I flutter : 🧭 NAV | HabitList: auto-selected folder id=2 (preferredId=null)
+06-10 13:06:06.834 17283 17283 I flutter : 🗄️  DB | HabitCard id=121 archived=false showArchived=false isArchived=false
+06-10 13:06:06.835 17283 17283 I flutter : 🗄️  DB | HabitCard id=120 archived=false showArchived=false isArchived=false
+06-10 13:06:09.621 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:06:09.628 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=true
+06-10 13:06:09.629 17283 17283 I flutter : 🗄️  DB | HabitCard id=120 archived=false showArchived=false isArchived=false
+06-10 13:06:09.631 17283 17283 I flutter : 🗄️  DB | HabitCard id=121 archived=false showArchived=false isArchived=false
+06-10 13:06:09.644 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:06:09.646 17283 17283 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:06:09.729 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:13.895 17283 17283 I flutter : 🗄️  DB | ItemRepository.update id=280 BEFORE writeTxn localVersion=1
+06-10 13:06:13.901 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:06:13.915 17283 17283 I flutter : 🗄️  DB | ItemRepository.update id=280 AFTER writeTxn - OK
+06-10 13:06:13.919 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:06:13.927 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:13.935 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:13.936 17283 17283 I flutter : 🗄️  DB | HabitCard id=120 archived=false showArchived=false isArchived=false
+06-10 13:06:13.937 17283 17283 I flutter : 🗄️  DB | HabitCard id=121 archived=false showArchived=false isArchived=false
+06-10 13:06:13.956 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:17.171 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:06:22.369 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:06:22.380 17283 17283 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:06:22.383 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:22.399 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:24.573 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:06:36.018 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:06:36.030 17283 17283 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:06:36.033 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:36.049 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:06:39.858 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:06:41.773 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:06:41.773 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:06:54.650 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:06:54.652 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:01.148 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:07:01.153 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:03.057 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:07:03.065 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:08.911 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:07:08.934 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:10.381 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:07:10.398 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:15.396 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:07:15.402 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:19.473 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:07:19.476 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:24.725 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:07:24.729 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:27.227 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:07:27.240 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:31.405 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:07:31.413 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:32.760 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:07:32.786 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:07:32.793 17283 17283 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:07:32.795 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:07:32.804 17283 17283 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:07:32.804 17283 17283 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:07:32.805 17283 17283 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:07:32.806 17283 17283 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:07:32.807 17283 17283 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:07:32.808 17283 17283 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:07:32.809 17283 17283 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:07:32.812 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:07:32.818 17283 17283 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:07:32.820 17283 17283 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:07:32.824 17283 17283 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:07:32.825 17283 17283 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:07:32.825 17283 17283 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:07:35.948 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:07:35.953 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:07:36.436 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:08:36.367 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:08:36.497 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:08:36.497 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.paused
+06-10 13:12:11.116 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:12:11.116 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:12:11.371 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.resumed
+06-10 13:12:11.373 17283 17283 I flutter : 🚀 STARTUP +405502ms  App resumed — debounced refreshing recurring reminders
+06-10 13:12:11.373 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: called, delay=0:00:02.000000
+06-10 13:12:12.821 17283 17283 I flutter : 🧭 NAV | Shell nav → /
+06-10 13:12:12.823 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:12:12.823 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:12:12.823 17283 17283 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:12:12.824 17283 17283 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:12:12.825 17283 17283 I flutter : 💬 📊 FAVORITES COUNT: 3
+06-10 13:12:12.825 17283 17283 I flutter : 💬    - Κοντά μου (folderId: 2)
+06-10 13:12:12.825 17283 17283 I flutter : 💬    - Λούτσα To Do (folderId: 2)
+06-10 13:12:12.825 17283 17283 I flutter : 💬    - Leroy Merlin (folderId: 2)
+06-10 13:12:13.374 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: executing actual refresh
+06-10 13:12:13.374 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:12:13.400 17283 17283 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:12:13.403 17283 17283 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:12:13.405 17283 17283 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:12:13.408 17283 17283 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:12:13.410 17283 17283 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:12:13.413 17283 17283 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:12:13.415 17283 17283 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:12:13.418 17283 17283 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:12:13.421 17283 17283 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:12:13.425 17283 17283 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:12:13.427 17283 17283 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:12:13.427 17283 17283 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:12:17.423 17283 17283 I flutter : 🧭 NAV | Shell nav → /habits
+06-10 13:12:17.429 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:12:17.429 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:12:17.436 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:17.438 17283 17283 I flutter : 🗄️  DB | HabitCard id=120 archived=false showArchived=false isArchived=false
+06-10 13:12:17.440 17283 17283 I flutter : 🗄️  DB | HabitCard id=121 archived=false showArchived=false isArchived=false
+06-10 13:12:25.200 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:12:25.210 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:12:25.210 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:12:30.016 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:30.033 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:30.565 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:30.581 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:31.180 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:31.197 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:31.778 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:31.795 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:36.999 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:37.018 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:37.365 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:37.381 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:37.731 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:37.747 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:38.862 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:38.878 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:39.244 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:39.260 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:39.676 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:39.693 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:40.108 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:40.125 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:41.142 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:12:41.154 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:12:41.626 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:12:42.657 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:12:42.668 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:12:42.668 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:12:44.115 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:44.132 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:44.365 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:44.381 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:44.547 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:44.564 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:12:45.320 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:12:45.328 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:12:45.799 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:12:54.831 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:12:54.839 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:12:54.839 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:13:01.895 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:13:04.916 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:13:13.993 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:13:14.010 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:13:16.587 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:13:17.070 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:13:18.481 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:13:18.498 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:13:18.498 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:13:24.981 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:13:25.454 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:13:31.412 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:13:31.416 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:13:31.416 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:13:33.867 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:13:37.818 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:13:37.835 17283 17283 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:13:37.838 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:13:37.853 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:13:44.791 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:13:45.272 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:13:52.358 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:13:52.366 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:13:52.366 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:13:54.247 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:13:55.352 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:13:55.352 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:00.190 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:00.204 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:14:00.207 17283 17283 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:14:00.207 17283 17283 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:14:00.207 17283 17283 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:14:00.208 17283 17283 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:14:00.208 17283 17283 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:14:00.209 17283 17283 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:14:00.209 17283 17283 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:14:00.209 17283 17283 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:14:00.210 17283 17283 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:14:00.210 17283 17283 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:14:00.211 17283 17283 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:14:00.211 17283 17283 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:14:00.213 17283 17283 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:14:00.215 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:00.232 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.151 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.168 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.334 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.350 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.500 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.516 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.649 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:06.666 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.348 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.364 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.497 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.514 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.663 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.680 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.763 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:07.780 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:08.791 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:08.793 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:14:09.264 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:14:10.559 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:10.572 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:14:10.572 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:14:13.485 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:18.335 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:18.338 17283 17283 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:14:18.341 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:18.357 17283 17283 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:14:20.906 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:20.913 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:14:21.385 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:14:29.665 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:29.675 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:14:29.675 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:14:32.883 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:34.579 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:34.580 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:34.706 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:37.403 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:38.608 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:38.608 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:40.937 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:42.100 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:14:42.584 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:14:48.677 17283 17283 I flutter : 🧭 NAV | HabitList: notifications (TODO)
+06-10 13:14:49.675 17283 17283 I flutter : 🧭 NAV | HabitList: notifications (TODO)
+06-10 13:14:50.559 17283 17283 I flutter : 🧭 NAV | HabitList: notifications (TODO)
+06-10 13:14:51.999 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:52.005 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:14:52.005 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:14:53.712 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:53.717 17283 17283 I flutter : 🔔 NTF | ReminderSection._loadData: itemId=280
+06-10 13:14:53.720 17283 17283 I flutter : 🔔 NTF | ReminderSection._loadData: found 0 reminders for item 280
+06-10 13:14:53.720 17283 17283 I flutter : 🔔 NTF | ReminderSection._loadData: no reminders found, enabled=false
+06-10 13:14:55.437 17283 17283 I flutter : 🔔 NTF | ReminderSection: Switch changed to true
+06-10 13:14:55.437 17283 17283 I flutter : 🔔 NTF | ReminderSection: Switch ON, no trigger yet → opening picker
+06-10 13:14:55.437 17283 17283 I flutter : 🔔 NTF | ReminderSection._pickDateTime: called
+06-10 13:14:55.438 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:14:55.447 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:15:02.540 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:15:02.540 17283 17283 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:15:13.133 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:15:13.133 17283 17283 I flutter : 🔔 NTF | ReminderSection._pickDateTime: selected dt=2026-06-10 13:16:00.000
+06-10 13:15:13.133 17283 17283 I flutter : 🔔 NTF | ReminderSection._saveReminder: enabled=true, trigger=2026-06-10 13:16:00.000, reminderId=null, itemId=280
+06-10 13:15:13.134 17283 17283 I flutter : 🔔 NTF | ReminderSection._saveReminder: rrule=null, title=Υπενθύμιση, body=νεα
+06-10 13:15:13.134 17283 17283 I flutter : 🔔 NTF | ReminderSection._saveReminder: creating NEW reminder for itemId=280
+06-10 13:15:13.137 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:15:13.142 17283 17283 I flutter : 🔔 NTF | ReminderSection._saveReminder: created reminder id=254, trigger=2026-06-10 13:16:00.000, status=pending
+06-10 13:15:13.142 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.scheduleReminder: id=254, trigger=2026-06-10 13:16:00.000, status=pending
+06-10 13:15:13.143 17283 17283 I flutter : 🔔 NTF | _scheduleOne: itemId=280 archived=false title="νεα"
+06-10 13:15:13.148 17283 17283 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=254
+06-10 13:15:13.148 17283 17283 I flutter : 🔔 NTF | ReminderSection._saveReminder: DONE
+06-10 13:15:15.862 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:15:15.862 17283 17283 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:15:15.870 17283 17283 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:15:15.871 17283 17283 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:15:15.872 17283 17283 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:15:15.873 17283 17283 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:15:15.873 17283 17283 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:15:15.874 17283 17283 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:15:15.875 17283 17283 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:15:15.876 17283 17283 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:15:15.877 17283 17283 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:15:15.878 17283 17283 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:15:15.878 17283 17283 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:15:15.879 17283 17283 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:15:17.769 17283 17283 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:15:17.776 17283 17283 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:15:18.248 17283 17283 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:15:19.274 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:15:20.536 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:15:20.536 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.paused
+06-10 13:15:21.224 17283 17283 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.detached
+06-10 13:15:21.225 17283 17283 I flutter : 🚀 STARTUP +595356ms  ProviderContainer disposed
+06-10 13:16:04.722 19372 19452 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+06-10 13:16:04.760 19372 19372 I flutter : 🚀 STARTUP +0ms  App started
+06-10 13:16:04.889 19372 19372 I flutter : 🔔 NTF | Cold start notification payload: 280
+06-10 13:16:04.923 19372 19372 I flutter : 🚀 STARTUP +162ms  DB and Notifications initialized
+06-10 13:16:04.923 19372 19372 I flutter : 🚀 STARTUP +162ms  ProviderContainer created
+06-10 13:16:04.923 19372 19372 I flutter : 🔔 NTF | Deferring notification navigation for after runApp: payload=280
+06-10 13:16:04.923 19372 19372 I flutter : 🚀 STARTUP +163ms  Active workspace set id=1
+06-10 13:16:04.923 19372 19372 I flutter : 🚀 STARTUP +163ms  runApp
+06-10 13:16:04.924 19372 19372 I flutter : ⚡ PRV | SuperNoteApp.build theme=system
+06-10 13:16:04.926 19372 19372 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:16:04.926 19372 19372 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:16:04.927 19372 19372 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:16:04.927 19372 19372 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:16:04.927 19372 19372 I flutter : 🗄️  DB | 📁 foldersStreamProvider: wsId=1
+06-10 13:16:04.927 19372 19372 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:16:04.994 19372 19372 I flutter : 🔔 NTF | NotificationService.requestPermission: called
+06-10 13:16:04.994 19372 19372 I flutter : 🔔 NTF | NotificationService.requestPermission: android impl found
+06-10 13:16:05.005 19372 19372 I flutter : 🔔 NTF | NotificationService.requestPermission: android result=true
+06-10 13:16:05.005 19372 19372 I flutter : 🚀 STARTUP +244ms  Notifications requestPermission -> true
+06-10 13:16:05.005 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: called, platform=TargetPlatform.android
+06-10 13:16:05.013 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: notificationsEnabled=true
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: cancelAll done
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: found 7 pending reminders (after filtering recurring roots)
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF |   pending: id=252 trigger=2026-06-11 13:00:00.000 status=pending itemId=278
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF |   pending: id=236 trigger=2026-06-11 22:30:01.000 status=pending itemId=124
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF |   pending: id=231 trigger=2026-06-11 23:30:01.000 status=pending itemId=209
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF |   pending: id=253 trigger=2026-06-12 13:00:01.000 status=pending itemId=278
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF |   pending: id=237 trigger=2026-06-12 22:30:02.000 status=pending itemId=124
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF |   pending: id=249 trigger=2026-06-13 09:00:00.000 status=pending itemId=279
+06-10 13:16:05.024 19372 19372 I flutter : 🔔 NTF |   pending: id=250 trigger=2026-06-15 09:00:01.000 status=pending itemId=279
+06-10 13:16:05.025 19372 19372 I flutter : 🔔 NTF |   scheduleAll: scheduling id=252 itemId=278 archived=false
+06-10 13:16:05.025 19372 19372 I flutter : 🔔 NTF | _scheduleOne: itemId=278 archived=false title="ηξγδ"
+06-10 13:16:05.033 19372 19372 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=252
+06-10 13:16:05.035 19372 19372 I flutter : 🔔 NTF |   scheduleAll: scheduling id=236 itemId=124 archived=true
+06-10 13:16:05.036 19372 19372 I flutter : 🔔 NTF | _scheduleOne: itemId=124 archived=true title="Χάπι Χοληστερίνης"
+06-10 13:16:05.039 19372 19372 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=236
+06-10 13:16:05.040 19372 19372 I flutter : 🔔 NTF |   scheduleAll: scheduling id=231 itemId=209 archived=true
+06-10 13:16:05.043 19372 19372 I flutter : 🔔 NTF | _scheduleOne: itemId=209 archived=true title="Β 12"
+06-10 13:16:05.050 19372 19372 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=231
+06-10 13:16:05.072 19372 19372 I flutter : ⚡ PRV | SuperNoteApp.build theme=system
+06-10 13:16:05.073 19372 19372 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:16:05.074 19372 19372 I flutter : 💬 📊 FAVORITES COUNT: 3
+06-10 13:16:05.074 19372 19372 I flutter : 💬    - Κοντά μου (folderId: 2)
+06-10 13:16:05.074 19372 19372 I flutter : 💬    - Λούτσα To Do (folderId: 2)
+06-10 13:16:05.074 19372 19372 I flutter : 💬    - Leroy Merlin (folderId: 2)
+06-10 13:16:05.075 19372 19372 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:16:05.110 19372 19372 I flutter : 🔔 NTF |   scheduleAll: scheduling id=253 itemId=278 archived=false
+06-10 13:16:05.137 19372 19372 I flutter : 🔔 NTF | _scheduleOne: itemId=278 archived=false title="ηξγδ"
+06-10 13:16:05.164 19372 19372 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=253
+06-10 13:16:05.168 19372 19372 I flutter : 🔔 NTF |   scheduleAll: scheduling id=237 itemId=124 archived=true
+06-10 13:16:05.175 19372 19372 I flutter : 🔔 NTF | _scheduleOne: itemId=124 archived=true title="Χάπι Χοληστερίνης"
+06-10 13:16:05.180 19372 19372 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=237
+06-10 13:16:05.189 19372 19372 I flutter : 🔔 NTF |   scheduleAll: scheduling id=249 itemId=279 archived=false
+06-10 13:16:05.189 19372 19372 I flutter : 🔔 NTF | _scheduleOne: itemId=279 archived=false title="δγωψ"
+06-10 13:16:05.194 19372 19372 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=249
+06-10 13:16:05.205 19372 19372 I flutter : 🔔 NTF |   scheduleAll: scheduling id=250 itemId=279 archived=false
+06-10 13:16:05.210 19372 19372 I flutter : 🔔 NTF | _scheduleOne: itemId=279 archived=false title="δγωψ"
+06-10 13:16:05.222 19372 19372 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=250
+06-10 13:16:05.222 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: DONE
+06-10 13:16:05.222 19372 19372 I flutter : 🚀 STARTUP +461ms  Reminders scheduled
+06-10 13:16:05.222 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:16:05.252 19372 19372 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:16:05.253 19372 19372 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:16:05.253 19372 19372 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:16:05.254 19372 19372 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:16:05.255 19372 19372 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:16:05.256 19372 19372 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:16:05.257 19372 19372 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:16:05.258 19372 19372 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:16:05.259 19372 19372 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:16:05.260 19372 19372 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:16:05.263 19372 19372 I flutter : 🚀 STARTUP +502ms  Recurring reminders refreshed
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | PostFrameCallback: processing deferred notification payload=280
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | handleNotificationTap: payload=280
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | PostFrameCallback: deferred notification navigation done
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | handleNotificationTap: itemId=280 type=habit archived=false
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | handleNotificationTap: route=/habits/280
+06-10 13:16:05.263 19372 19372 I flutter : 🔔 NTF | handleNotificationTap: navigating to /habits/280 via go()
+06-10 13:16:05.264 19372 19372 I flutter : 🔔 NTF | handleNotificationTap: go completed
+06-10 13:16:05.277 19372 19372 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:16:05.278 19372 19372 I flutter : 🧭 NAV | Router → HabitDetail id=280 isNew=false
+06-10 13:16:05.278 19372 19372 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:16:05.278 19372 19372 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:16:05.278 19372 19372 I flutter : 🧭 NAV | _HabitDetailScreenState init id=280 isNew=false
+06-10 13:16:05.312 19372 19372 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:16:05.318 19372 19372 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=280
+06-10 13:16:05.597 19372 19372 I flutter : 🧭 NAV | HabitList: auto-selected folder id=2 (preferredId=null)
+06-10 13:16:08.237 19372 19372 I flutter : 🧭 NAV | Router didPop: null
+06-10 13:16:08.253 19372 19372 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:16:08.257 19372 19372 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:16:08.259 19372 19372 I flutter : 🗄️  DB | HabitCard id=120 archived=false showArchived=false isArchived=false
+06-10 13:16:08.261 19372 19372 I flutter : 🗄️  DB | HabitCard id=121 archived=false showArchived=false isArchived=false
+06-10 13:16:08.576 19372 19372 I flutter : 🧭 NAV | _HabitDetailScreenState dispose id=280
+06-10 13:16:11.634 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:16:22.766 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.resumed
+06-10 13:16:22.766 19372 19372 I flutter : 🚀 STARTUP +18005ms  App resumed — debounced refreshing recurring reminders
+06-10 13:16:22.766 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: called, delay=0:00:02.000000
+06-10 13:16:24.768 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: executing actual refresh
+06-10 13:16:24.768 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:16:24.799 19372 19372 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:16:24.802 19372 19372 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:16:24.805 19372 19372 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:16:24.809 19372 19372 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:16:24.813 19372 19372 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:16:24.817 19372 19372 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:16:24.821 19372 19372 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:16:24.824 19372 19372 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:16:24.829 19372 19372 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:16:24.833 19372 19372 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:16:24.836 19372 19372 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:16:24.836 19372 19372 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:16:39.475 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:16:40.580 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:16:40.580 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.paused
+06-10 13:16:45.892 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:16:45.892 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:16:46.021 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.resumed
+06-10 13:16:46.021 19372 19372 I flutter : 🚀 STARTUP +41260ms  App resumed — debounced refreshing recurring reminders
+06-10 13:16:46.021 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: called, delay=0:00:02.000000
+06-10 13:16:48.022 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.debouncedRefreshRecurringReminders: executing actual refresh
+06-10 13:16:48.022 19372 19372 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:16:48.038 19372 19372 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:16:48.039 19372 19372 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:16:48.041 19372 19372 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:16:48.043 19372 19372 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:16:48.045 19372 19372 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:16:48.047 19372 19372 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:16:48.049 19372 19372 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:16:48.050 19372 19372 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:16:48.052 19372 19372 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:16:48.053 19372 19372 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:16:48.055 19372 19372 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:16:48.055 19372 19372 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:16:48.355 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.inactive
+06-10 13:16:49.544 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.hidden
+06-10 13:16:49.544 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.paused
+06-10 13:16:49.927 19372 19372 I flutter : 💬 🔔 [LIFECYCLE] state=AppLifecycleState.detached
+06-10 13:16:49.927 19372 19372 I flutter : 🚀 STARTUP +45167ms  ProviderContainer disposed
+06-10 13:16:52.552 20572 20606 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+06-10 13:16:52.586 20572 20572 I flutter : 🚀 STARTUP +0ms  App started
+06-10 13:16:52.726 20572 20572 I flutter : 🚀 STARTUP +139ms  DB and Notifications initialized
+06-10 13:16:52.726 20572 20572 I flutter : 🚀 STARTUP +139ms  ProviderContainer created
+06-10 13:16:52.726 20572 20572 I flutter : 🚀 STARTUP +140ms  Active workspace set id=1
+06-10 13:16:52.726 20572 20572 I flutter : 🚀 STARTUP +140ms  runApp
+06-10 13:16:52.727 20572 20572 I flutter : ⚡ PRV | SuperNoteApp.build theme=system
+06-10 13:16:52.729 20572 20572 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:16:52.729 20572 20572 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:16:52.730 20572 20572 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:16:52.730 20572 20572 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:16:52.730 20572 20572 I flutter : 🗄️  DB | 📁 foldersStreamProvider: wsId=1
+06-10 13:16:52.731 20572 20572 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:16:52.777 20572 20572 I flutter : 🔔 NTF | NotificationService.requestPermission: called
+06-10 13:16:52.777 20572 20572 I flutter : 🔔 NTF | NotificationService.requestPermission: android impl found
+06-10 13:16:52.790 20572 20572 I flutter : 🔔 NTF | NotificationService.requestPermission: android result=true
+06-10 13:16:52.790 20572 20572 I flutter : 🚀 STARTUP +203ms  Notifications requestPermission -> true
+06-10 13:16:52.790 20572 20572 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: called, platform=TargetPlatform.android
+06-10 13:16:52.791 20572 20572 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: notificationsEnabled=true
+06-10 13:16:52.820 20572 20572 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: cancelAll done
+06-10 13:16:52.836 20572 20572 I flutter : ⚡ PRV | SuperNoteApp.build theme=system
+06-10 13:16:52.838 20572 20572 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:16:52.839 20572 20572 I flutter : 💬 📊 FAVORITES COUNT: 3
+06-10 13:16:52.839 20572 20572 I flutter : 💬    - Κοντά μου (folderId: 2)
+06-10 13:16:52.839 20572 20572 I flutter : 💬    - Λούτσα To Do (folderId: 2)
+06-10 13:16:52.839 20572 20572 I flutter : 💬    - Leroy Merlin (folderId: 2)
+06-10 13:16:52.839 20572 20572 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: found 7 pending reminders (after filtering recurring roots)
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF |   pending: id=252 trigger=2026-06-11 13:00:00.000 status=pending itemId=278
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF |   pending: id=236 trigger=2026-06-11 22:30:01.000 status=pending itemId=124
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF |   pending: id=231 trigger=2026-06-11 23:30:01.000 status=pending itemId=209
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF |   pending: id=253 trigger=2026-06-12 13:00:01.000 status=pending itemId=278
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF |   pending: id=237 trigger=2026-06-12 22:30:02.000 status=pending itemId=124
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF |   pending: id=249 trigger=2026-06-13 09:00:00.000 status=pending itemId=279
+06-10 13:16:52.869 20572 20572 I flutter : 🔔 NTF |   pending: id=250 trigger=2026-06-15 09:00:01.000 status=pending itemId=279
+06-10 13:16:52.871 20572 20572 I flutter : 🔔 NTF |   scheduleAll: scheduling id=252 itemId=278 archived=false
+06-10 13:16:52.874 20572 20572 I flutter : 🔔 NTF | _scheduleOne: itemId=278 archived=false title="ηξγδ"
+06-10 13:16:52.879 20572 20572 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=252
+06-10 13:16:52.894 20572 20572 I flutter : 🔔 NTF |   scheduleAll: scheduling id=236 itemId=124 archived=true
+06-10 13:16:52.902 20572 20572 I flutter : 🔔 NTF | _scheduleOne: itemId=124 archived=true title="Χάπι Χοληστερίνης"
+06-10 13:16:52.906 20572 20572 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=236
+06-10 13:16:52.907 20572 20572 I flutter : 🔔 NTF |   scheduleAll: scheduling id=231 itemId=209 archived=true
+06-10 13:16:52.908 20572 20572 I flutter : 🔔 NTF | _scheduleOne: itemId=209 archived=true title="Β 12"
+06-10 13:16:52.921 20572 20572 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=231
+06-10 13:16:52.923 20572 20572 I flutter : 🔔 NTF |   scheduleAll: scheduling id=253 itemId=278 archived=false
+06-10 13:16:52.925 20572 20572 I flutter : 🔔 NTF | _scheduleOne: itemId=278 archived=false title="ηξγδ"
+06-10 13:16:52.936 20572 20572 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=253
+06-10 13:16:52.940 20572 20572 I flutter : 🔔 NTF |   scheduleAll: scheduling id=237 itemId=124 archived=true
+06-10 13:16:52.946 20572 20572 I flutter : 🔔 NTF | _scheduleOne: itemId=124 archived=true title="Χάπι Χοληστερίνης"
+06-10 13:16:52.953 20572 20572 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=237
+06-10 13:16:52.956 20572 20572 I flutter : 🔔 NTF |   scheduleAll: scheduling id=249 itemId=279 archived=false
+06-10 13:16:52.957 20572 20572 I flutter : 🔔 NTF | _scheduleOne: itemId=279 archived=false title="δγωψ"
+06-10 13:16:52.964 20572 20572 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=249
+06-10 13:16:52.965 20572 20572 I flutter : 🔔 NTF |   scheduleAll: scheduling id=250 itemId=279 archived=false
+06-10 13:16:52.968 20572 20572 I flutter : 🔔 NTF | _scheduleOne: itemId=279 archived=false title="δγωψ"
+06-10 13:16:52.973 20572 20572 I flutter : 🔔 NTF | ReminderScheduler._scheduleOne: ✅ SUCCESS id=250
+06-10 13:16:52.973 20572 20572 I flutter : 🔔 NTF | ReminderScheduler.scheduleAll: DONE
+06-10 13:16:52.973 20572 20572 I flutter : 🚀 STARTUP +387ms  Reminders scheduled
+06-10 13:16:52.974 20572 20572 I flutter : 🔔 NTF | ReminderScheduler.refreshRecurringReminders: started
+06-10 13:16:53.001 20572 20572 I flutter : 🔔 NTF | Found 10 recurring root reminders
+06-10 13:16:53.003 20572 20572 I flutter : 🔔 NTF | Root 197: has 2 future children with correct time, skipping
+06-10 13:16:53.005 20572 20572 I flutter : 🔔 NTF | Root 200: has 2 future children with correct time, skipping
+06-10 13:16:53.006 20572 20572 I flutter : 🔔 NTF | Root 203: has 2 future children with correct time, skipping
+06-10 13:16:53.008 20572 20572 I flutter : 🔔 NTF | Root 206: has 2 future children with correct time, skipping
+06-10 13:16:53.008 20572 20572 I flutter : 🔔 NTF | Root 209: has 2 future children with correct time, skipping
+06-10 13:16:53.009 20572 20572 I flutter : 🔔 NTF | Root 229: has 1 future children with correct time, skipping
+06-10 13:16:53.009 20572 20572 I flutter : 🔔 NTF | Root 233: has 2 future children with correct time, skipping
+06-10 13:16:53.009 20572 20572 I flutter : 🔔 NTF | Root 238: has 2 future children with correct time, skipping
+06-10 13:16:53.010 20572 20572 I flutter : 🔔 NTF | Root 248: has 2 future children with correct time, skipping
+06-10 13:16:53.010 20572 20572 I flutter : 🔔 NTF | Root 251: has 2 future children with correct time, skipping
+06-10 13:16:53.010 20572 20572 I flutter : 🔔 NTF | refreshRecurringReminders: created 0 new child reminders total
+06-10 13:16:53.010 20572 20572 I flutter : 🚀 STARTUP +424ms  Recurring reminders refreshed
+06-10 13:17:01.088 20572 20572 I flutter : 🧭 NAV | Shell nav → /habits
+06-10 13:17:01.094 20572 20572 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:17:01.094 20572 20572 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:17:01.101 20572 20572 I flutter : 🧭 NAV | HabitList: auto-selected folder id=2 (preferredId=null)
+06-10 13:17:01.144 20572 20572 I flutter : 🗄️  DB | HabitCard id=120 archived=false showArchived=false isArchived=false
+06-10 13:17:01.145 20572 20572 I flutter : 🗄️  DB | HabitCard id=280 archived=false showArchived=false isArchived=false
+06-10 13:17:01.145 20572 20572 I flutter : 🗄️  DB | HabitCard id=121 archived=false showArchived=false isArchived=false
+06-10 13:17:01.826 20572 20572 I flutter : 🧭 NAV | Shell nav → /tasks
+06-10 13:17:01.842 20572 20572 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:17:01.842 20572 20572 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:17:01.843 20572 20572 I flutter : ⚡ PRV | TaskListScreen build
+06-10 13:17:01.848 20572 20572 I flutter : 💬 PriorityBadge: urgent
+06-10 13:17:01.848 20572 20572 I flutter : 💬 PriorityBadge: high
+06-10 13:17:01.849 20572 20572 I flutter : 💬 PriorityBadge: medium
+06-10 13:17:01.850 20572 20572 I flutter : 💬 PriorityBadge: low
+06-10 13:17:01.860 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=158
+06-10 13:17:01.861 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=183
+06-10 13:17:01.861 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=267
+06-10 13:17:01.861 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=86
+06-10 13:17:01.861 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=116
+06-10 13:17:01.861 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=266
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=248
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=145
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=146
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=148
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=151
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=152
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=153
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=154
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=155
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=156
+06-10 13:17:01.862 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=115
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=90
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=162
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=171
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=178
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=179
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=180
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=181
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=182
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=170
+06-10 13:17:01.863 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=184
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=202
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=203
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=204
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=236
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=237
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=117
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=144
+06-10 13:17:01.864 20572 20572 I flutter : 🗄️  DB | itemPropertiesProvider load itemId=114
+06-10 13:17:01.907 20572 20572 I flutter : ⚡ PRV | TaskListScreen build
+06-10 13:17:01.908 20572 20572 I flutter : 💬 PriorityBadge: urgent
+06-10 13:17:01.908 20572 20572 I flutter : 💬 PriorityBadge: high
+06-10 13:17:01.908 20572 20572 I flutter : 💬 PriorityBadge: medium
+06-10 13:17:01.908 20572 20572 I flutter : 💬 PriorityBadge: low
+06-10 13:17:01.910 20572 20572 I flutter : 🗄️  DB | TaskCard id=117 archived=false showArchived=false isArchived=false
+06-10 13:17:01.913 20572 20572 I flutter : 🗄️  DB | TaskCard id=144 archived=false showArchived=false isArchived=false
+06-10 13:17:01.915 20572 20572 I flutter : 🗄️  DB | TaskCard id=114 archived=false showArchived=false isArchived=false
+06-10 13:17:02.217 20572 20572 I flutter : 🧭 NAV | Shell nav → /notes
+06-10 13:17:02.223 20572 20572 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:17:02.223 20572 20572 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:17:02.228 20572 20572 I flutter : 🗄️  DB | ItemCardBuilder id=40 archived=false showArchived=false isArchived=false
+06-10 13:17:02.230 20572 20572 I flutter : 🗄️  DB | ItemCardBuilder id=41 archived=false showArchived=false isArchived=false
+06-10 13:17:02.232 20572 20572 I flutter : 🗄️  DB | ItemCardBuilder id=195 archived=false showArchived=false isArchived=false
+06-10 13:17:02.233 20572 20572 I flutter : 🗄️  DB | ItemCardBuilder id=251 archived=false showArchived=false isArchived=false
+06-10 13:17:02.489 20572 20572 I flutter : 🧭 NAV | Shell nav → /
+06-10 13:17:02.490 20572 20572 I flutter : 💬 ResponsiveLayout: mobile (384px)
+06-10 13:17:02.490 20572 20572 I flutter : 🧭 NAV | Router didPush: null
+06-10 13:17:02.490 20572 20572 I flutter : ⚡ PRV | HomeScreen build
+06-10 13:17:02.491 20572 20572 I flutter : 🗄️  DB | Home wsName="Προσωπικός Βοηθός"
+06-10 13:17:02.492 20572 20572 I flutter : 💬 📊 FAVORITES COUNT: 3
+06-10 13:17:02.492 20572 20572 I flutter : �

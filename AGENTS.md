@@ -130,19 +130,20 @@ lib/
 ## Session Log (τρέχουσα κατάσταση)
 
 ### Goal
-Υλοποίηση App Lock (PIN + Biometric) + διόρθωση migration bug.
+Ολοκληρωμένο — όλα τα recurring reminder fixes εφαρμοσμένα.
 
 ### Done
-- **App Lock (PIN/Biometric)** ✅ — Πλήρης υλοποίηση με `local_auth`:
-  - Dependencies: `local_auth: ^2.3.0`, `crypto: ^3.0.6`
-  - AppSettings model: 5 πεδία (appLockEnabled, appLockPinHash, biometricEnabled, appLockPinLength, appLockTimeoutSeconds)
-  - `AppLockService` singleton — SHA-256 hashing, PIN verification, biometric auth (sticky), lock/unlock state
-  - `appLockStateProvider` — Riverpod StateProvider<bool>
-  - `LockScreen` — PIN pad (4-6 digits), biometric auto-try στο init, error handling
-  - GoRouter redirect guard — locked → /lock, unlocked → home, route εκτός ShellRoute
-  - Lifecycle auto-lock — startup lock + pause → lock() / resume observer
-  - Settings UI — toggle, set/change PIN (με confirmation dialog), biometric switch, timeout dropdown
-- **Migration bug fix** ✅ — Guard στην `ensureSchemaVersion()` για invalid/αρνητικές schema version (όταν Isar property IDs αλλάζουν από model αλλαγές, η version γίνεται negative → crash). Πλέον κάνει reset στο targetVersion αντί να μπει σε loop.
-- **Προηγούμενα (Sessions 32-38):** try-catch providers ✅, reorder bugs ✅, recurring reminder gap fix ✅
+- **Fix 1: Infinite CREATE→DELETE→CREATE loop** ✅ — `reminder_scheduler.dart` + `recurrence.dart`
+- **Fix 2: Yearly rrule desync** ✅ — `reminder_section.dart` sync BYMONTH/BYMONTHDAY from triggerDateTime
+- **Fix 3: Cascade delete on item delete** ✅ — `item_provider.dart` deleteItem() → deleteAllRemindersForItem()
+- **Fix 4: Duplicate root prevention** ✅ — `contact_detail_screen.dart` removed redundant check
+- **Cleanup: Orphan root 1293** ✅ — one-shot delete (temp file removed)
+
+### Τελική κατάσταση
+- 5 recurring roots, όλοι υγιείς, 0 orphans, 0 loops
+- Παλιά corrupted roots (1239, 1255, 1265, 1293, 1307, 1322, 1344, 1365) — όλα διαγραμμένα ή διορθωμένα
+
+### Εκκρεμότητες
+- (κανένα γνωστό)
 
 

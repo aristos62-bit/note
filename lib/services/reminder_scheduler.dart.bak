@@ -107,14 +107,9 @@ class ReminderScheduler {
           .findAll();
 
       // Εξαίρεση: habits έχουν δικό τους scheduling (habit_service)
-      DebugConfig.notif(
-          'refreshRecurringReminders: all ${allRecurring.length} recurring roots:');
       final filtered = <Reminder>[];
       for (final r in allRecurring) {
         final item = await SuperNoteHelper.instance.items.getById(r.itemId);
-        DebugConfig.notif(
-          '  root id=${r.id} itemId=${r.itemId} trigger=${r.triggerAt} rrule="${r.rrule}" type=${item?.type.name ?? 'null'} title="${item?.title ?? 'null'}"',
-        );
         if (item != null && item.type == ItemType.habit) {
           DebugConfig.notif(
               'refreshRecurringReminders: skipping habit root id=${r.id}');
@@ -148,15 +143,6 @@ class ReminderScheduler {
             .parentReminderIdEqualTo(root.id)
             .triggerAtGreaterThan(now, include: true)
             .findAll();
-
-        DebugConfig.notif(
-          'Root ${root.id}: futureChildren count=${futureChildren.length} after filtering parentReminderId=${root.id}',
-        );
-        for (final fc in futureChildren) {
-          DebugConfig.notif(
-            '  child id=${fc.id} trigger=${fc.triggerAt} status=${fc.status.name}',
-          );
-        }
 
         if (futureChildren.isNotEmpty) {
           // ✅ Έλεγχος αν τα παιδιά έχουν σωστή ώρα (ίδια με το root trigger)
@@ -232,7 +218,7 @@ class ReminderScheduler {
         // Έτσι το nextOccurrence() παράγει παιδιά με τη σωστή ώρα
         // Αν η λίστα έχει ήδη entries, ξεκινάμε από το τελευταίο +1sec
         DateTime current = nextOccurrences.isNotEmpty
-            ? nextOccurrences.last
+            ? nextOccurrences.last.add(const Duration(seconds: 1))
             : todayAtTriggerTime;
         while (nextOccurrences.length < batchSize) {
           final next = recurrence.nextOccurrence(current);

@@ -792,6 +792,19 @@ class PropertyRepository {
     return map;
   }
 
+  /// Lightweight: επιστρέφει μόνο collection_id pairs — 1 DB call αντί για N
+  Future<Map<int, String>> getCollectionIds(List<int> itemIds) async {
+    if (itemIds.isEmpty) return {};
+    DebugConfig.db('PropertyRepository.getCollectionIds: count=${itemIds.length}');
+    final props = await _isar.itemPropertys
+        .filter()
+        .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
+        .keyEqualTo('collection_id')
+        .findAll();
+    DebugConfig.db('PropertyRepository.getCollectionIds: found ${props.length} props');
+    return {for (final p in props) p.itemId: p.value!};
+  }
+
   Future<void> delete(int itemId, String key) async {
     await _isar.writeTxn(() async {
       await _isar.itemPropertys
@@ -1040,7 +1053,9 @@ class ReminderRepository {
 
   Future<List<Reminder>> getPending() {
     final now = DateTime.now();
-    final end = now.add(const Duration(days: 7));
+    // ✅ 30 ημέρες: καλύπτει batchSize=5 weekly (έως ~2.5 εβδομάδες)
+    // και εξασφαλίζει ότι το scheduleAll() βλέπει όλα τα παιδιά
+    final end = now.add(const Duration(days: 30));
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
@@ -1051,7 +1066,8 @@ class ReminderRepository {
 
   Stream<List<Reminder>> watchPending() {
     final now = DateTime.now();
-    final end = now.add(const Duration(days: 7));
+    // ✅ 30 ημέρες: ίδιο παράθυρο με getPending()
+    final end = now.add(const Duration(days: 30));
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
@@ -1095,11 +1111,15 @@ class ReminderRepository {
   }
   Future<int> cleanupOldPending({Duration maxAge = const Duration(days: 7)}) async {
     final cutoff = DateTime.now().subtract(maxAge);
+    // ✅ Εξαιρούμε τα root recurring reminders (έχουν rrule != null)
+    // γιατί το triggerAt τους είναι παλιό αλλά χρειάζονται ως "anchor"
+    // για τη δημιουργία των child reminders.
     return _isar.writeTxn(() async {
       return await _isar.reminders
           .filter()
           .statusEqualTo(ReminderStatus.pending)
           .triggerAtLessThan(cutoff)
+          .rruleIsNull()  // ← ΜΟΝΟ non-recurring (one-shot) που έχουν περάσει
           .deleteAll();
     });
   }

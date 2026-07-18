@@ -96,12 +96,6 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         return;
       }
 
-      if (_recurrence?.type == RecurrenceType.yearly && _triggerDateTime != null) {
-        _recurrence = Recurrence.yearly(
-          month: _triggerDateTime!.month,
-          day: _triggerDateTime!.day,
-        );
-      }
       final rrule = recurrenceToRRULE(_recurrence);
       const title = 'Υπενθύμιση';
       final body = widget.itemTitle;
@@ -214,7 +208,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       context: context,
       locale: const Locale('el', 'GR'),
       initialDate: initial,
-      firstDate: DateTime(2000),
+      firstDate: now,
       lastDate: DateTime(now.year + 5),
       helpText: 'Ημερομηνία υπενθύμισης',
     );
@@ -375,48 +369,35 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
   late RecurrenceType _type;
   late int _interval;
   late List<int> _weeklyDays;
-  int? _monthlyDay;
+  late int? _monthlyDay;
   late String _customUnit; // 'days', 'weeks', 'months'
 
   final _intervalController = TextEditingController();
   final _monthlyDayController = TextEditingController();
 
-  void _applyDefaultsForType(RecurrenceType type) {
-    if (widget.initialRecurrence != null) return;
-    switch (type) {
-      case RecurrenceType.weekly:
-        if (widget.initialTrigger != null) {
-          _weeklyDays = [widget.initialTrigger!.weekday];
-        }
-        _interval = 1;
-      case RecurrenceType.monthly:
-        if (widget.initialTrigger != null) {
-          _monthlyDay = widget.initialTrigger!.day;
-        }
-        _interval = 1;
-      case RecurrenceType.yearly:
-        _interval = 1;
-      default:
-        _interval = 1;
-    }
-    _intervalController.text = _interval.toString();
-    _monthlyDayController.text = _monthlyDay?.toString() ?? '';
-  }
-
   @override
   void initState() {
     super.initState();
-    final init = widget.initialRecurrence;
-    _type = init?.type ?? RecurrenceType.daily;
-    if (init != null) {
-      if (init.days != null) _weeklyDays = init.days!.toList();
-      if (init.dayOfMonth != null) _monthlyDay = init.dayOfMonth;
-      _interval = init.interval;
+    final init = widget.initialRecurrence ?? const Recurrence();
+    _type = init.type;
+    if (init.days != null) {
+      _weeklyDays = init.days!.toList();
+    } else if (widget.initialTrigger != null && init.type == RecurrenceType.weekly) {
+      _weeklyDays = [widget.initialTrigger!.weekday];
     } else {
       _weeklyDays = [];
-      _monthlyDay = null;
-      _applyDefaultsForType(_type);
     }
+    if (init.dayOfMonth != null) {
+      _monthlyDay = init.dayOfMonth;
+    } else if (widget.initialTrigger != null && init.type == RecurrenceType.monthly) {
+      _monthlyDay = widget.initialTrigger!.day;
+    } else {
+      _monthlyDay = null;
+    }
+    final isDefault = widget.initialRecurrence == null;
+    _interval = (isDefault && (_type == RecurrenceType.weekly || _type == RecurrenceType.monthly))
+        ? 1
+        : init.interval;
     _customUnit = 'days';
     _intervalController.text = _interval.toString();
     _monthlyDayController.text = _monthlyDay?.toString() ?? '';
@@ -455,10 +436,7 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                 final t = RecurrenceType.values[index];
                 final isActive = _type == t;
                 return GestureDetector(
-                  onTap: () => setState(() {
-                    _type = t;
-                    _applyDefaultsForType(t);
-                  }),
+                  onTap: () => setState(() => _type = t),
                   child: AnimatedContainer(
                     duration: AppDuration.fast,
                     padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
@@ -511,7 +489,6 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                 Text(
                   _type == RecurrenceType.daily ? 'ημέρες' :
                   _type == RecurrenceType.weekly ? 'εβδομάδες' :
-                  _type == RecurrenceType.yearly ? 'χρόνο' :
                   'μήνες',
                   style: context.bodyMd,
                 ),

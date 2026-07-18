@@ -96,12 +96,6 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         return;
       }
 
-      if (_recurrence?.type == RecurrenceType.yearly && _triggerDateTime != null) {
-        _recurrence = Recurrence.yearly(
-          month: _triggerDateTime!.month,
-          day: _triggerDateTime!.day,
-        );
-      }
       final rrule = recurrenceToRRULE(_recurrence);
       const title = 'Υπενθύμιση';
       final body = widget.itemTitle;
@@ -395,7 +389,7 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
         }
         _interval = 1;
       case RecurrenceType.yearly:
-        _interval = 1;
+        _interval = 12;
       default:
         _interval = 1;
     }
@@ -511,7 +505,6 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                 Text(
                   _type == RecurrenceType.daily ? 'ημέρες' :
                   _type == RecurrenceType.weekly ? 'εβδομάδες' :
-                  _type == RecurrenceType.yearly ? 'χρόνο' :
                   'μήνες',
                   style: context.bodyMd,
                 ),
