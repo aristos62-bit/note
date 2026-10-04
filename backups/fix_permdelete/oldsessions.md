@@ -257,13 +257,3 @@
 **Επαλήθευση:** `analyze` → `No issues found!`. Device regression: 8 roots `created 0`, 0 wrong-time deletions, `scheduleAll 23× SUCCESS`, 0 `ERR`. Λειτουργικό τεστ όταν μπει το κουμπί.
 
 **Backups:** `backups/fix_snooze/` (4 αρχεία)
-
-## Session 53 — 04/10/2026 (cascade cancel στην οριστική διαγραφή)
-
-**Πρόβλημα:** `permanentDelete` (κάδος) έσβηνε DB χωρίς OS cancel — οι ειδοποιήσεις χτυπούσαν για ανύπαρκτα items μέχρι restart. Soft ροή σωστή.
-
-**Fix (`item_provider.dart`, κατοπτρισμός `deleteItem`):** `deleteAllRemindersForItem(id)` πριν το `hardDelete` (σειρά υποχρεωτική — τα OS ids χάνονται μετά τη DB διαγραφή)· όχι cancel μέσα στο helper (κύκλος imports). Καλύπτει bulk/single/card (κοινό σημείο).
-
-**Επαλήθευση:** `analyze` → `No issues found!`· `flutter test` → μόνο το γνωστό stale counter failure (προϋπάρχον). Device τεστ: +5λ → κάδος → οριστική → σιγή.
-
-**Backups:** `backups/fix_permdelete/`

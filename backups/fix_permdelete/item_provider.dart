@@ -219,13 +219,9 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
   Future<void> permanentDelete(int id) async {
     try {
       final reminders = await ref.read(dbProvider).reminders.getForItem(id);
-      DebugConfig.db('ItemNotifier.permanentDelete id=$id reminders=${reminders.length}');
+      DebugConfig.db('ItemNotifier.permanentDelete id=$id reminders=${reminders.length} — NO NotificationService.cancel() call!');
       for (final r in reminders) {
         DebugConfig.notif('  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
-      }
-      if (reminders.isNotEmpty) {
-        DebugConfig.notif('permanentDelete: calling deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
-        await ReminderScheduler.instance.deleteAllRemindersForItem(id);
       }
       await ref.read(dbProvider).items.hardDelete(id);
       ref.invalidateSelf();

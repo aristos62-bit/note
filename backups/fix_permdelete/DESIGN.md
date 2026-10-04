@@ -37,4 +37,3 @@
 - Snooze: status μένει `pending` (`snoozeUntil`=ιστορικό, `triggerAt`=οδηγός)· OS reschedule στο provider (`cancelReminder`+`scheduleReminder`), όχι στο repository (κύκλος imports)· roots εξαιρούνται (anchor)· snoozed children εξαιρούνται από wrong-time cleanup.
 - `ReminderRepository.getById` (getter, ίδιο pattern)· `Reminder.isActive` = pending-only.
 - Follow-up (με Φ4): repair παλιών habit rows, 60-day habit top-up, ReminderSection dialog-hiding σε habits, snooze button UI, `isActive`/`dismissed` τακτοποίηση.
-- Session 53: `permanentDelete` (κάδος) κάνει `deleteAllRemindersForItem` πριν το `hardDelete` — καμία ορφανή OS ειδοποίηση· σειρά υποχρεωτική (τα ids χάνονται μετά τη DB διαγραφή).
