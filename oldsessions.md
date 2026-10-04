@@ -349,3 +349,17 @@
 **Fix (ίδια μέρα, device test):** cold share άνοιγε το app αλλά το sheet έσκαγε (`SharedIntent sheet` ERR) — ο listener ήταν sibling του Navigator (Stack του `MaterialApp`), οπότε το `showModalBottomSheet` δεν έβρισκε Navigator. Μεταφορά `SharedIntentListener` στο `_AppShell` Stack (context κάτω από Navigator). `analyze` clean, tests 8/8.
 
 **Links (ίδια μέρα):** πατήσιμα URLs σε σώμα σημείωσης/event — νέο SPoT `link_text.dart` (`extractUrls` + `LinkLauncher.openUrl` via `url_launcher` + `LinkList`), χρήση σε `BlockTileWidget` + EventDetail notes. Tests 18/18 (5 νέα), `analyze` clean. Τα αρχεία 📎 μένουν Phase B (attachment viewer).
+
+## Session 60 — 04/10/2026 (ημερήσια λίστα ημερολογίου)
+
+**Πρόβλημα:** η λίστα κάτω από το grid έδειχνε ΟΛΑ τα events του φακέλου (φίλτρο μόνο τύπος+φάκελος), ενώ το tap ημέρας άλλαζε μόνο τον κύκλο.
+
+**Fix (v3 πρόταση, 2 αρχεία, ~25γρ.):**
+- `item_list_embedded.dart`: += προαιρετικά `onlyIds` (null = όλα, άλλες οθόνες ανεπηρέαστες — το widget ζει μόνο στο ημερολόγιο) + `dayLoading` (skeleton όσο φορτώνει ο day-map, όχι στιγμιαίο empty flicker) + `DebugConfig.db` count
+- `calendar_screen.dart`: ids ημέρας από υπάρχον `_monthEventsProvider` (0 νέα queries) + `_DayHeader` επικεφαλίδα (`groupHeader`: «Σήμερα»/ημέρα) + chevrons συγχρονίζουν `selectedDay` με clamp (`_clampDay`, όχι rollover) + `nav` logs· και τα 2 call sites (mobile+tablet)
+
+**Ευρήματα εκτός scope (καταγραφή):** reorder υποσυνόλου (προϋπάρχον, όπως με search)· dots χωρίς folder/archived φίλτρο ενώ η λίστα έχει (προϋπάρχουσα ασυνέπεια)· events χωρίς `start_time` αόρατα παντού (συνεπές).
+
+**Επαλήθευση:** `flutter test` → 24/24 (υπάρχοντα, καμία regression)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/calendar_dayfilter/` (3 αρχεία)
