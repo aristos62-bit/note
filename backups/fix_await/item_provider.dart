@@ -96,7 +96,7 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
 
       if (wsId == null) return [];
 
-      return await db.items.getByWorkspace(
+      return db.items.getByWorkspace(
         wsId,
         type: typeFilter,
         includeArchived: showArchived,

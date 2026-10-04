@@ -243,7 +243,7 @@ class HabitService {
     _parseToInt(await props.getValue(habitId, 'daily_progress'));
 
     if (effectiveGoal > 0 && dailyProgress >= effectiveGoal) {
-      return await getStats(habitId);
+      return getStats(habitId);
     }
 
     dailyProgress++;
@@ -254,7 +254,7 @@ class HabitService {
       await _markDayCompleted(habitId, DateTime.now());
     }
 
-    return await getStats(habitId);
+    return getStats(habitId);
     } catch (e, stack) {
       DebugConfig.error('incrementProgress', e, stack);
       return _emptyStats(habitId);
@@ -274,11 +274,11 @@ class HabitService {
     await _resetDailyIfNeeded(habitId, recurrence);
 
     final times = recurrence.times ?? [];
-    if (!times.contains(time)) return await getStats(habitId);
+    if (!times.contains(time)) return getStats(habitId);
 
     final timeProgress = await _loadTodayTimeProgress(habitId, times);
 
-    if (timeProgress[time] == true) return await getStats(habitId);
+    if (timeProgress[time] == true) return getStats(habitId);
 
     timeProgress[time] = true;
     await _saveTodayTimeProgress(habitId, timeProgress);
@@ -292,7 +292,7 @@ class HabitService {
       await _markDayCompleted(habitId, DateTime.now());
     }
 
-    return await getStats(habitId);
+    return getStats(habitId);
     } catch (e, stack) {
       DebugConfig.error('incrementByTime', e, stack);
       return _emptyStats(habitId);
@@ -312,11 +312,11 @@ class HabitService {
     await _resetDailyIfNeeded(habitId, recurrence);
 
     final times = recurrence.times ?? [];
-    if (!times.contains(time)) return await getStats(habitId);
+    if (!times.contains(time)) return getStats(habitId);
 
     final timeProgress = await _loadTodayTimeProgress(habitId, times);
 
-    if (timeProgress[time] != true) return await getStats(habitId);
+    if (timeProgress[time] != true) return getStats(habitId);
 
     // Αν ήταν ολοκληρωμένη η μέρα → un-mark
     final wasAllDone = timeProgress.values.every((v) => v);
@@ -330,7 +330,7 @@ class HabitService {
     final completedCount = timeProgress.values.where((v) => v).length;
     await props.setNumber(habitId, 'daily_progress', completedCount.toDouble());
 
-    return await getStats(habitId);
+    return getStats(habitId);
     } catch (e, stack) {
       DebugConfig.error('decrementByTime', e, stack);
       return _emptyStats(habitId);
@@ -366,7 +366,7 @@ class HabitService {
       await props.setNumber(habitId, 'daily_progress', dailyProgress.toDouble());
     }
 
-    return await getStats(habitId);
+    return getStats(habitId);
     } catch (e, stack) {
       DebugConfig.error('decrementProgress', e, stack);
       return _emptyStats(habitId);

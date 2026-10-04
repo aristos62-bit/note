@@ -219,15 +219,3 @@
 **Backups:** `backups/phase_v3/` (17 αρχεία)
 
 **Επόμενο:** Φ4 file split <500 (settings/dialogs, helper/repositories, habit/entries/contact/widgets) + `.select/const` performance + `supernote.md` sync.
-
-## Session 50b — 04/10/2026 (await-in-try warnings fix)
-
-**Αιτία:** `flutter analyze` έδειχνε 10× `unawaited_return_in_try_block` — `return future` μέσα σε `try` χωρίς `await`, το `catch` δεν έπιανε async αποτυχίες.
-
-**Fix:**
-- `lib/providers/item_provider.dart:99` — `return` → `return await db.items.getByWorkspace(...)` (fallback `[]` τώρα δουλεύει)
-- `lib/services/habit_service.dart:246,257,277,281,295,315,319,333,369` — 9× `return` → `return await getStats(habitId)` (fallback `_emptyStats` τώρα δουλεύει)
-
-**Επαλήθευση:** `flutter analyze --no-pub` → `No issues found!`
-
-**Backups:** `backups/fix_await/` (item_provider, habit_service, oldsessions)
