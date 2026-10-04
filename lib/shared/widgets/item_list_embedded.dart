@@ -110,32 +110,46 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
           // αντί για το ενσωματωμένο _FolderDropZone
           if (widget.showFolderSelector)
             const DraggableFolderSelector(),
-          // ── Search bar ──────────────────────────────────────
-          if (_searchActive)
-            _EmbeddedSearchBar(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
-              hint: 'Αναζήτηση...',
-            ),
-          if (_visibleTagNames.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: Spacing.xs),
-              child: _EmbeddedTagFilterRow(
-                tags: _visibleTagNames.toList(),
-                activeTags: activeTags,
-                onTagTap: (name) {
-                  final newSet = {..._activeTags};  // ✅ χρησιμοποιούμε απευθείας το _activeTags
-                  if (newSet.contains(name)) {
-                    newSet.remove(name);
-                  } else {
-                    newSet.add(name);
-                  }
-                  setState(() => _activeTags = newSet);
-                },
+          // ── Chrome (search/tags/toggle): shrinkable wrapper —
+          //    με ανοιχτό πληκτρολόγιο ο χώρος μικραίνει και το
+          //    σταθερό chrome θα έκανε overflow (RenderFlex).
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Search bar ──────────────────────────────
+                  if (_searchActive)
+                    _EmbeddedSearchBar(
+                      controller: _searchCtrl,
+                      focusNode: _searchFocus,
+                      onChanged: _onSearchChanged,
+                      hint: 'Αναζήτηση...',
+                    ),
+                  if (_visibleTagNames.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Spacing.xs),
+                      child: _EmbeddedTagFilterRow(
+                        tags: _visibleTagNames.toList(),
+                        activeTags: activeTags,
+                        onTagTap: (name) {
+                          final newSet = {..._activeTags};  // ✅ χρησιμοποιούμε απευθείας το _activeTags
+                          if (newSet.contains(name)) {
+                            newSet.remove(name);
+                          } else {
+                            newSet.add(name);
+                          }
+                          setState(() => _activeTags = newSet);
+                        },
+                      ),
+                    ),
+                  const ViewModeToggle(),
+                ],
               ),
             ),
-          const ViewModeToggle(),
+          ),
           Expanded(
             child: widget.dayLoading
                 ? _EmbeddedLoadingList()
