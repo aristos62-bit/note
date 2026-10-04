@@ -701,6 +701,7 @@ class _EventBody extends ConsumerWidget {
                   onSaved: onNotesSaved,
                   debounce: const Duration(milliseconds: 800),
                 ),
+                LinkList(text: notesVal),
               ],
             ),
           ),
