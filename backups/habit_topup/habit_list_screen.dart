@@ -154,8 +154,11 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
     scrolledUnderElevation: 1,
     title: const Text('Συνήθειες'),
     actions: [
-      // Καμπάνα OFF: νεκρό κουμπί (μόνο log) — οι συνήθειες έχουν
-      // native scheduling από το detail (Ώρες εκτέλεσης).
+      IconButton(
+        icon: const Icon(Icons.notifications_outlined),
+        onPressed: () => DebugConfig.nav('HabitList: notifications (TODO)'),
+        tooltip: 'Ειδοποιήσεις',
+      ),
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert_rounded),
         onSelected: (value) {

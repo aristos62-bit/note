@@ -149,6 +149,30 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
     );
   }
 
+  Future<void> _showReminderDialog() async {
+    final title =
+        _titleCtrl.text.trim().isEmpty ? 'Συνήθεια' : _titleCtrl.text.trim();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: widget.itemId,
+          itemTitle: title,
+          defaultStartTime: null,
+        ),
+      ),
+    );
+    await ReminderScheduler.instance.refreshRecurringReminders();
+  }
+
   @override
   Widget build(BuildContext context) {
     final itemAsync = ref.watch(itemStreamProvider(widget.itemId));
@@ -284,8 +308,12 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
               }
             },
           ),
-          // Καμπάνα OFF: οι συνήθειες έχουν native scheduling
-          // (Ώρες εκτέλεσης → one-shots 60d)· generic dialog απενεργοποιημένο.
+          IconButton(
+            icon: Icon(Icons.notifications_none_rounded,
+                color: context.cText2, size: 20),
+            onPressed: _showReminderDialog,
+            tooltip: 'Υπενθύμιση',
+          ),
           IconButton(
             icon: Icon(
                 _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
@@ -1372,11 +1400,9 @@ class _HabitSettings extends ConsumerWidget {
 
     if (newRecurrence != null && context.mounted) {
       await HabitService.instance.setRecurrence(habitId, newRecurrence);
-      // Native scheduling: οι ώρες recurrence_times οδηγούν one-shots 60d.
-      await HabitService.instance.syncScheduleWithRecurrence(habitId);
-      DebugConfig.db('HabitDetail recurrence saved → schedule synced');
       ref.invalidate(itemPropertiesProvider(habitId));
       ref.invalidate(habitStatsProvider(habitId));
+      await ReminderScheduler.instance.refreshRecurringReminders();
     }
   }
 
@@ -1399,10 +1425,9 @@ class _HabitSettings extends ConsumerWidget {
     await notifier.setText('recurrence_interval', null);
     await notifier.setText('recurrence_days', null);
     await notifier.setText('recurrence_times', null);
-    // Χωρίς recurrence δεν υπάρχουν occurrences — καθάρισε habit rows.
-    await HabitService.instance.syncScheduleWithRecurrence(habitId);
     ref.invalidate(itemPropertiesProvider(habitId));
     ref.invalidate(habitStatsProvider(habitId));
+    await ReminderScheduler.instance.refreshRecurringReminders();
   }
 
   // ── Time Picker (για daily) ──────────────────────────────────
