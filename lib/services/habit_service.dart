@@ -790,8 +790,10 @@ class HabitService {
       final sortedDays = [...recurrence.days!]..sort();
       DateTime? found;
       for (final d in sortedDays) {
+        // Clamp (όχι rollover — το DateTime(2027,2,30) γίνεται 2 Μαρτίου).
+        final safe = _safeDay(candidate.year, candidate.month, d);
         final target = DateTime(
-            candidate.year, candidate.month, d, time.hour, time.minute);
+            safe.year, safe.month, safe.day, time.hour, time.minute);
         if (target.isAfter(after)) {
           found = target;
           break;
