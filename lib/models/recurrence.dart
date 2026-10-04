@@ -138,7 +138,7 @@ class Recurrence {
         final daysSinceMonday = (date.weekday - 1) % 7;
         final startOfWeek = date.subtract(Duration(days: daysSinceMonday));
         if (interval == 1) return startOfWeek;
-        final ref = DateTime(1970, 1, 5);
+        final ref = epochMonday;
         final weeksSinceRef =
         (startOfWeek.difference(ref).inDays / 7).floor();
         final alignedWeeks = weeksSinceRef - (weeksSinceRef % interval);
@@ -185,9 +185,36 @@ class Recurrence {
   }
 
   // ─────────────────────────────────────────────────────────
+  // Week-math SPoT για weekly interval>1 (_BYDAY_).
+  // ─────────────────────────────────────────────────────────
+
+  /// Monday-ref για multi-week στοίχιση χωρίς user anchor (ίδιο με getPeriodStart).
+  static final DateTime epochMonday = DateTime(1970, 1, 5);
+
+  static DateTime _mondayOf(DateTime d) {
+    final dayOnly = DateTime(d.year, d.month, d.day);
+    return dayOnly.subtract(Duration(days: (d.weekday - 1) % 7));
+  }
+
+  /// Ακέραιος αριθμός εβδομάδων από την εβδομάδα του anchor (αρνητικό → 0).
+  static int _weeksSinceAnchor(DateTime date, DateTime anchor) {
+    final w = _mondayOf(date).difference(_mondayOf(anchor)).inDays ~/ 7;
+    return w < 0 ? 0 : w;
+  }
+
+  /// Έγκυρη weekly μέρα: weekday στα days ΚΑΙ εβδομάδα στο interval από anchor.
+  /// Με interval <= 1 συμπεριφέρεται ακριβώς όπως το παλιό contains-check.
+  static bool isValidWeeklyDay(
+      DateTime date, List<int> days, int interval, DateTime anchor) {
+    if (!days.contains(date.weekday)) return false;
+    if (interval <= 1) return true;
+    return _weeksSinceAnchor(date, anchor) % interval == 0;
+  }
+
+  // ─────────────────────────────────────────────────────────
   // nextOccurrence — για reminder scheduling
   // ─────────────────────────────────────────────────────────
-  DateTime? nextOccurrence(DateTime from) {
+  DateTime? nextOccurrence(DateTime from, {DateTime? anchor}) {
     DateTime next;
 
     switch (type) {
@@ -199,13 +226,25 @@ class Recurrence {
 
       case RecurrenceType.weekly:
         if (days != null && days!.isNotEmpty) {
-          DateTime candidate = from.add(const Duration(days: 1));
-          int safety = 0;
-          while (!days!.contains(candidate.weekday) && safety < 8) {
-            candidate = candidate.add(const Duration(days: 1));
-            safety++;
+          if (interval > 1 && anchor != null) {
+            DateTime candidate = from.add(const Duration(days: 1));
+            final cap = 7 * interval + 8;
+            int safety = 0;
+            while (!isValidWeeklyDay(candidate, days!, interval, anchor) &&
+                safety < cap) {
+              candidate = candidate.add(const Duration(days: 1));
+              safety++;
+            }
+            next = candidate;
+          } else {
+            DateTime candidate = from.add(const Duration(days: 1));
+            int safety = 0;
+            while (!days!.contains(candidate.weekday) && safety < 8) {
+              candidate = candidate.add(const Duration(days: 1));
+              safety++;
+            }
+            next = candidate;
           }
-          next = candidate;
         } else {
           next = from.add(Duration(days: 7 * interval));
         }

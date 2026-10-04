@@ -38,3 +38,4 @@
 - `ReminderRepository.getById` (getter, ίδιο pattern)· `Reminder.isActive` = pending-only.
 - Follow-up (με Φ4): repair παλιών habit rows, 60-day habit top-up, ReminderSection dialog-hiding σε habits, snooze button UI, `isActive`/`dismissed` τακτοποίηση.
 - Session 53: `permanentDelete` (κάδος) κάνει `deleteAllRemindersForItem` πριν το `hardDelete` — καμία ορφανή OS ειδοποίηση· σειρά υποχρεωτική (τα ids χάνονται μετά τη DB διαγραφή).
+- Session 54: week-math SPoT (`isValidWeeklyDay`, `epochMonday`) — weekly/monthly/yearly με `interval>1` σέβονται το διάστημα (scheduler anchor=root, habit anchor=epoch)· `interval==1` identical· tests `test/recurrence_weekly_test.dart`.
