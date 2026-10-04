@@ -387,7 +387,6 @@ class ReminderScheduler {
         }
         return now.month == root.triggerAt.month &&
             now.day == root.triggerAt.day &&
-            now.year >= root.triggerAt.year &&
             (now.year - root.triggerAt.year) % recurrence.interval == 0;
     }
   }

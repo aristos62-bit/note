@@ -279,13 +279,3 @@
 **Backups:** `backups/fix_weekly_interval/` (+`test/recurrence_weekly_test.dart` νέο)
 
 **Follow-up (με Φ4):** habit monthly Feb-overflow, 60-day top-up, repair παλιών habit rows, dialog-hiding, snooze UI.
-
-## Session 55 — 04/10/2026 (yearly no-days guard)
-
-**Κενό:** ο yearly no-days κλάδος του `_isTodayValidRecurrence` ήταν ο μόνος χωρίς lower-bound guard (Dart `%` → future-year root + σημερινή μήνα/μέρα = ψευδώς true). Δεν υπήρχε hardcoded `% 1` (grep 0).
-
-**Fix (1 γραμμή, `reminder_scheduler.dart`):** +`now.year >= root.triggerAt.year &&` — συμμετρία με daily/weekly/monthly/yearly-days. Για `interval==1` + root ≤ σήμερα: byte-identical (επαληθευμένο στα device roots 197/203/206/209).
-
-**Επαλήθευση:** `analyze` → `No issues found!`· `recurrence_weekly_test` → 6/6 passed· targeted unit test μη εφικτό χωρίς refactor (private method — συνειδητά εκτός scope).
-
-**Backups:** `backups/fix_yearly_guard/`
