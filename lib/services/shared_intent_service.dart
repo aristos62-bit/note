@@ -194,14 +194,6 @@ class SharedIntentService {
     return false;
   }
 
-  static String readableSize(int bytes) {
-    if (bytes < 1024) return '${bytes}B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    }
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
-  }
-
   // ─────────────────────────────────────────────────────────
   // RESOLVE (workspace/folder/limits — χωρίς providers)
   // ─────────────────────────────────────────────────────────
@@ -299,7 +291,7 @@ class SharedIntentService {
           );
           saved++;
           attachLines.add(
-              '📎 ${att.fileName} (${readableSize(att.fileSize)})');
+              '📎 ${att.fileName} (${att.readableSize})');
         } catch (e, stack) {
           DebugConfig.error('SharedIntent saveFile ${f.path}', e, stack);
         }
@@ -411,7 +403,7 @@ class SharedIntentService {
           );
           saved++;
           attachLines.add(
-              '📎 ${att.fileName} (${readableSize(att.fileSize)})');
+              '📎 ${att.fileName} (${att.readableSize})');
           final disp = p.basename(f.path);
           if (disp != att.fileName) {
             DebugConfig.db('SharedIntent sanitize: "$disp" → "${att.fileName}"');
