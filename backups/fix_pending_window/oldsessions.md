@@ -289,23 +289,3 @@
 **Επαλήθευση:** `analyze` → `No issues found!`· `recurrence_weekly_test` → 6/6 passed· targeted unit test μη εφικτό χωρίς refactor (private method — συνειδητά εκτός scope).
 
 **Backups:** `backups/fix_yearly_guard/`
-
-## Session 56 — 04/10/2026 (παράθυρο scheduleAll 30→370 μέρες)
-
-**Πρόβλημα:** batch 5 monthly ≈ 5 μήνες (yearly ≈ 5 χρόνια), αλλά `scheduleAll` έβλεπε 30 μέρες — distant children προγραμματίζονταν από refresh και σβήνονταν αμέσως από `cancelAll`. Diagnostics ήδη κόκκινο («ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!»).
-
-**Fix (`super_note_helper.dart` + σχόλια `reminder_provider.dart`):** `getPending/watchPending` → 370 μέρες (monthly πλήρες + 1ο έτος· iOS 64-limit → όχι μεγαλύτερο· yearly>1y μένουν refresh-driven). Διόρθωση stale «7 μέρες» σχολίων.
-
-**Επαλήθευση:** `analyze` → `No issues found!`· weekly tests 6/6· device: `found N` με 2-12 μήνες, diagnostics πράσινο.
-
-**Backups:** `backups/fix_pending_window/`
-
-## Session 57 — 04/10/2026 (cleanup παλιών reminders και στο resume)
-
-**Πρόβλημα:** `markSent` 0 callers + FLN χωρίς fire-callback → fired children έμεναν pending μέχρι cold-start init + 7 μέρες· always-resume συσκευή: ποτέ cleanup.
-
-**Fix (7 γραμμές, `reminder_scheduler.dart` στην αρχή του `refreshRecurringReminders` — τρέχει σε cold start ΚΑΙ debounced resume):** `cleanupOldPending()` + log μόνο αν `cleaned>0`. Roots ασφαλή (`rruleIsNull`)· init-cleanup μένει· φθηνό indexed delete + σιωπηλό στο 0.
-
-**Επαλήθευση:** device cold start + resume — σιωπή (0 παλιές), `created 0`, `scheduleAll 34× SUCCESS`, 0 `ERR`.
-
-**Backups:** `backups/fix_resume_cleanup/`

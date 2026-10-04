@@ -109,16 +109,6 @@ class ReminderScheduler {
         return;
       }
 
-      // Καθαρισμός fired παλιών one-shots (>7 ημερών) — το FLN δεν δίνει
-      // fire-callback και το markSent δεν καλείται πουθενά, οπότε χωρίς
-      // αυτό θα συσσωρεύονταν μέχρι το επόμενο cold-start init.
-      final cleaned =
-          await SuperNoteHelper.instance.reminders.cleanupOldPending();
-      if (cleaned > 0) {
-        DebugConfig.notif(
-            'refreshRecurringReminders: cleaned $cleaned old past reminders');
-      }
-
       // ΜΟΝΟ ρίζες: έχουν rrule και parentReminderId == null
       final allRecurring = await SuperNoteHelper.instance.isar.reminders
           .filter()

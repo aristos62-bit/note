@@ -9,12 +9,12 @@ import '../core/utils/debug_config.dart';
 // Reminders
 // ─────────────────────────────────────────────────────────────────
 
-/// Pending reminders (επόμενες 370 μέρες — ίδιο παράθυρο με getPending)
+/// Pending reminders (επόμενες 7 μέρες)
 final pendingRemindersProvider = FutureProvider<List<Reminder>>((ref) {
   return ref.watch(dbProvider).reminders.getPending();
 });
 
-/// Real‑time pending reminders (επόμενες 370 μέρες) – ενημερώνεται αυτόματα
+/// Real‑time pending reminders (επόμενες 7 μέρες) – ενημερώνεται αυτόματα
 final pendingRemindersStreamProvider = StreamProvider<List<Reminder>>((ref) {
   final db = ref.watch(dbProvider);
   return db.reminders.watchPending();
