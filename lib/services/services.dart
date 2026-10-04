@@ -13,5 +13,6 @@ export 'attachment_service.dart';
 export 'backup_service.dart';
 export 'contact_import_service.dart';
 export 'share_service.dart';
+export 'shared_intent_service.dart';
 export 'app_lock_service.dart';
 export 'migration_service.dart';

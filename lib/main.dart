@@ -10,6 +10,7 @@ import 'models/models.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
 import 'core/core.dart';
+import 'shared/widgets/widgets.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -154,6 +155,13 @@ void main() async {
     }
 
     try {
+      await SharedIntentService.instance.init();
+      DebugConfig.startup('SharedIntent initialized');
+    } catch (e, stack) {
+      DebugConfig.error('SharedIntent init failed', e, stack);
+    }
+
+    try {
       if (deferredNotificationPayload != null) {
         DebugConfig.notif('PostFrameCallback: processing deferred notification payload=$deferredNotificationPayload');
         handleNotificationTap(deferredNotificationPayload);
@@ -222,6 +230,7 @@ class SuperNoteApp extends ConsumerWidget {
                 );
               },
             ),
+            const SharedIntentListener(),
           ],
         ),
       ),
@@ -315,6 +324,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         _disposed = true;
         _lockTimer?.cancel();
         WidgetsBinding.instance.removeObserver(this);
+        SharedIntentService.instance.dispose();
         container.dispose();
         DebugConfig.startup('ProviderContainer disposed');
       }
