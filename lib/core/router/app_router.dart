@@ -34,6 +34,7 @@ import '../../features/journal/journal.dart';
 import '../../features/contacts/contacts.dart';
 import '../../features/collections/collections.dart';
 import '../../features/appointments/appointments.dart';
+import '../../shared/widgets/shared_intent_sheet.dart';
 import 'package:flutter/gestures.dart';
 import '../../providers/providers.dart';
 
@@ -356,19 +357,25 @@ class _AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIdx = _selectedIndex(context);
-    return ResponsiveLayout(
-      mobile: _MobileShell(
-        selectedIndex: selectedIdx,
-        onTap: (i) => _onTap(context, ref, i),   // <-- περνάμε ref
-        navItems: _navItems,
-        child: child,
-      ),
-      tablet: _TabletShell(
-        selectedIndex: selectedIdx,
-        onTap: (i) => _onTap(context, ref, i),   // <-- περνάμε ref
-        navItems: _navItems,
-        child: child,
-      ),
+    return Stack(
+      children: [
+        ResponsiveLayout(
+          mobile: _MobileShell(
+            selectedIndex: selectedIdx,
+            onTap: (i) => _onTap(context, ref, i),   // <-- περνάμε ref
+            navItems: _navItems,
+            child: child,
+          ),
+          tablet: _TabletShell(
+            selectedIndex: selectedIdx,
+            onTap: (i) => _onTap(context, ref, i),   // <-- περνάμε ref
+            navItems: _navItems,
+            child: child,
+          ),
+        ),
+        // Listener κοινοποιήσεων: context ΚΑΤΩ από το Navigator (για sheets).
+        const SharedIntentListener(),
+      ],
     );
   }
 }

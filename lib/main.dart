@@ -10,7 +10,6 @@ import 'models/models.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
 import 'core/core.dart';
-import 'shared/widgets/widgets.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -230,7 +229,6 @@ class SuperNoteApp extends ConsumerWidget {
                 );
               },
             ),
-            const SharedIntentListener(),
           ],
         ),
       ),
