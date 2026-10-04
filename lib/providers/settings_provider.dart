@@ -7,6 +7,7 @@ import '../services/notification_service.dart';
 import '../services/reminder_scheduler.dart';
 import 'db_provider.dart';
 import '../core/utils/debug_config.dart';
+import '../helpers/item_color_helper.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Settings — Reactive Stream (ενημερώνει το UI αμέσως)
@@ -41,14 +42,7 @@ String _itemTypeColorsToJson(Map<String, String?> map) {
 }
 
 Color? _parseHexColor(String? hex) {
-  if (hex == null || hex.isEmpty) return null;
-  try {
-    final clean = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$clean', radix: 16));
-  } catch (e, s) {
-    DebugConfig.error('settings._parseHexColor', e, s);
-    return null;
-  }
+  return ItemColorHelper.parseHex(hex);
 }
 
 // ─────────────────────────────────────────────────────────────────

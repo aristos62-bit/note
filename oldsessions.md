@@ -182,3 +182,40 @@
 **Τελική κατάσταση:** 5 recurring roots όλοι υγιείς, 0 orphan, 0 loop
 
 **Backups:** `item_provider.dart.bak`, `contact_detail_screen.dart.bak`, `main.dart.bak`
+
+## Session 50 — 04/10/2026 (Proposal v3 hardening — timezone, SPoT, OOM, lifecycle)
+
+**Κανόνες 2+4 ανεστάλησαν από χρήστη — πλήρης υλοποίηση Φ0-Φ3 (split <500 μεταφέρεται σε επόμενες φάσεις).**
+
+**Φ0 Cleanup:**
+- Διαγραφή 13 `.bak/.bak3/.session44.bak` από `lib/` (μόλυναν grep + counts)
+- `analysis_options.yaml`: exclude `backups/**` (635 → 10 issues, όλα pre-existing)
+
+**Φ1 Timezone + Errors/Lifecycle:**
+- `pubspec.yaml`: + `flutter_timezone: ^1.0.8` (pub get OK)
+- `notification_service.dart`: IANA via `FlutterTimezone.getLocalTimezone()` + `DebugConfig.notif/warning/error`, `getLaunchPayload` logging, `_onTap` try-catch, `_onBackgroundTap` documented no-op
+- `main.dart`: αφαίρεση TEMP `debugDumpAllRecurringState`, try-catch σε `handleNotificationTap`, `defaultWorkspace`, `didChangeAppLifecycleState` + 5s timeout στο pause + `_lockTimer` cancel σε detached
+- `debug_config.dart`: `error/warning` πάντα ON (χωρίς `_debug` guard)
+
+**Φ2 SPoT dedup (reuse, όχι νέο):**
+- `services.dart`: export `migration_service.dart`
+- `item_color_helper.dart`: νέο public `parseHex` με warning + `textColorForBackground` → `getAccessibleTextColor`
+- `tag_chip.dart`, `item_card.dart`, `settings_provider.dart`: διαγραφή local `_parse/_resolve` → `ItemColorHelper.parseHex`
+- `share_service.dart`: `_priorityLabel` → `AppStringUtils.priorityLabel(p.name)`
+- `recurrence.dart`: public `safeDay/safeMonthDay` (SPoT), privates delegate
+- `habit_service.dart`: `_safeDay` → `Recurrence.safeMonthDay`, `toRRULE()` → `recurrenceToRRULE()`
+
+**Φ3 Resize + Backup OOM:**
+- Νέο `core/utils/image_utils.dart` (avatarProvider/ResizeImage, fileThumb/cacheWidth, checkMaxBytes) + export στο `core.dart`
+- Νέο `core/utils/contact_props.dart` (`ContactProps.fromProperties`) + export — έτοιμο για αντικατάσταση 4πλού extract
+- `contact_import_service.dart`: `debugPrint` → `DebugConfig`, photo `thumbnail ?? fullSize`
+- `attachment_service.dart`: `debugPrint` → `DebugConfig.error`, αφαίρεση unused import
+- `backup_service.dart`: `exportToDevice` χωρίς `readAsBytes` — save dialog path + `File.copy` (0 OOM)
+
+**Tests/Analyze:**
+- `flutter analyze --no-pub`: 10 warnings pre-existing (`unawaited_return_in_try_block`), 0 νέα errors
+- `flutter test`: αποτυγχάνει όπως πριν (stale counter test, γνωστό από AGENTS.md) — καμία νέα regression
+
+**Backups:** `backups/phase_v3/` (17 αρχεία)
+
+**Επόμενο:** Φ4 file split <500 (settings/dialogs, helper/repositories, habit/entries/contact/widgets) + `.select/const` performance + `supernote.md` sync.

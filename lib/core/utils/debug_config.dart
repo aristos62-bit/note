@@ -23,7 +23,7 @@ class DebugConfig {
 
   /// Κεντρικός διακόπτης — αν false, ΟΛΟΙ οι logs είναι OFF
   // static const bool _debug = kDebugMode; // Αυτόματα OFF στο release build
-  static const bool _debug = false; // ON στο release build
+  static const bool _debug = true; // ON στο release build
 
   // Μεμονωμένες κατηγορίες — χρήσιμο για να βλέπεις μόνο ό,τι θες
   static const bool _logDb       = true;  // Database operations
@@ -99,14 +99,12 @@ class DebugConfig {
   // ─────────────────────────────────────────────────────────
 
   static void error(String message, [Object? error, StackTrace? stack]) {
-    if (!_debug) return;
     debugPrint('❌ ERR | $message');
     if (error != null) debugPrint('   → $error');
     if (stack != null) debugPrint('   → $stack');
   }
 
   static void warning(String message) {
-    if (!_debug) return;
     debugPrint('⚠️  WRN | $message');
   }
 

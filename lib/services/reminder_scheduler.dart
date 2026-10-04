@@ -11,6 +11,7 @@ class ReminderScheduler {
   ReminderScheduler._internal();
   static final ReminderScheduler instance = ReminderScheduler._internal();
   Timer? _refreshTimer;
+  DateTime? _lastRefreshRun; // 🔍 DEBUG: για μέτρηση του κενού μεταξύ refresh
 
   Future<void> scheduleAll() async {
     try {
@@ -88,7 +89,19 @@ class ReminderScheduler {
 
   Future<void> refreshRecurringReminders() async {
     try {
-      DebugConfig.notif('ReminderScheduler.refreshRecurringReminders: started');
+      final now0 = DateTime.now();
+      if (_lastRefreshRun != null) {
+        final gap = now0.difference(_lastRefreshRun!);
+        DebugConfig.notif(
+          'ReminderScheduler.refreshRecurringReminders: started — '
+              'GAP από προηγούμενο run: ${gap.inHours}h ${gap.inMinutes % 60}m '
+              '(προηγούμενο: $_lastRefreshRun)',
+        );
+      } else {
+        DebugConfig.notif(
+            'ReminderScheduler.refreshRecurringReminders: started (πρώτη εκτέλεση)');
+      }
+      _lastRefreshRun = now0;
       final settings = await SuperNoteHelper.instance.settings.get();
       if (!settings.notificationsEnabled) {
         DebugConfig.notif(
@@ -284,6 +297,27 @@ class ReminderScheduler {
           createdTotal++;
           DebugConfig.notif(
               'Created child reminder ${child.id} for root ${root.id} at $occ');
+        }
+
+        // 🔍 DEBUG: runway — πότε εξαντλείται το τρέχον batch παιδιών
+        final allFutureChildrenNow = await SuperNoteHelper.instance.isar.reminders
+            .filter()
+            .parentReminderIdEqualTo(root.id)
+            .triggerAtGreaterThan(now, include: true)
+            .findAll();
+        if (allFutureChildrenNow.isNotEmpty) {
+          final maxTrigger = allFutureChildrenNow
+              .map((c) => c.triggerAt)
+              .reduce((a, b) => a.isAfter(b) ? a : b);
+          final runway = maxTrigger.difference(now);
+          DebugConfig.notif(
+            'Root ${root.id}: 🔋 RUNWAY μέχρι $maxTrigger '
+                '(${runway.inDays}d ${runway.inHours % 24}h) — '
+                'αν δεν ανοίξει το app μέχρι τότε, οι υπενθυμίσεις σταματάνε',
+          );
+        } else {
+          DebugConfig.warning(
+              'Root ${root.id}: ⚠️ ΚΑΝΕΝΑ μελλοντικό παιδί μετά το batch — runway = 0!');
         }
 
         DebugConfig.notif(
@@ -486,6 +520,86 @@ class ReminderScheduler {
           'ReminderScheduler._scheduleOne: ❌ EXCEPTION id=${reminder.id}',
           e,
           stack);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // 🔍 DEBUG-ONLY: instant snapshot ΟΛΩΝ των recurring reminders.
+  // Δείχνει ΑΜΕΣΑ αν κάποιο root έχει ήδη "στερέψει" (0 μελλοντικά
+  // παιδιά) — χρησιμοποιεί δεδομένα ΗΔΗ αποθηκευμένα στη DB, δεν
+  // χρειάζεται να περιμένουμε μέρες.
+  // ─────────────────────────────────────────────────────────
+
+  Future<void> debugDumpAllRecurringState() async {
+    try {
+      final now = DateTime.now();
+      DebugConfig.notif(
+          '══════════ debugDumpAllRecurringState: START ($now) ══════════');
+
+      final allRoots = await SuperNoteHelper.instance.isar.reminders
+          .filter()
+          .rruleIsNotNull()
+          .and()
+          .not()
+          .rruleEqualTo('')
+          .parentReminderIdIsNull()
+          .findAll();
+
+      DebugConfig.notif(
+          'debugDump: βρέθηκαν ${allRoots.length} recurring roots συνολικά');
+
+      for (final root in allRoots) {
+        final item = await SuperNoteHelper.instance.items.getById(root.itemId);
+        final allChildren = await SuperNoteHelper.instance.isar.reminders
+            .filter()
+            .parentReminderIdEqualTo(root.id)
+            .sortByTriggerAt()
+            .findAll();
+
+        final futureChildren =
+        allChildren.where((c) => c.triggerAt.isAfter(now)).toList();
+        final pastChildren =
+        allChildren.where((c) => !c.triggerAt.isAfter(now)).toList();
+
+        DebugConfig.notif(
+          '── Root ${root.id} | item="${item?.title ?? '?'}" (${item?.type.name ?? '?'}) '
+              '| rrule="${root.rrule}" | root.triggerAt=${root.triggerAt} | status=${root.status.name}',
+        );
+        DebugConfig.notif(
+          '   Σύνολο παιδιών: ${allChildren.length} '
+              '(μελλοντικά: ${futureChildren.length}, περασμένα: ${pastChildren.length})',
+        );
+
+        if (futureChildren.isEmpty) {
+          DebugConfig.warning(
+            '   🔴 STARVED — ΚΑΝΕΝΑ μελλοντικό παιδί! Οι υπενθυμίσεις για αυτό ΕΧΟΥΝ ΗΔΗ σταματήσει.',
+          );
+          if (pastChildren.isNotEmpty) {
+            final lastFired = pastChildren.last;
+            final since = now.difference(lastFired.triggerAt);
+            DebugConfig.warning(
+              '   Τελευταίο παιδί ήταν στις ${lastFired.triggerAt} '
+                  '(πριν ${since.inDays}d ${since.inHours % 24}h) — από τότε ΔΕΝ δημιουργήθηκε νέο.',
+            );
+          }
+        } else {
+          final maxTrigger = futureChildren
+              .map((c) => c.triggerAt)
+              .reduce((a, b) => a.isAfter(b) ? a : b);
+          final runway = maxTrigger.difference(now);
+          DebugConfig.notif(
+            '   🟢 OK — runway μέχρι $maxTrigger (${runway.inDays}d ${runway.inHours % 24}h)',
+          );
+        }
+
+        final createdTimestamps =
+        (allChildren.map((c) => c.createdAt).toSet().toList())..sort();
+        DebugConfig.notif('   Batch creation timestamps: $createdTimestamps');
+      }
+      DebugConfig.notif(
+          '══════════ debugDumpAllRecurringState: END ══════════');
+    } catch (e, stack) {
+      DebugConfig.error('ReminderScheduler.debugDumpAllRecurringState', e, stack);
     }
   }
 }

@@ -58,35 +58,42 @@ void main() async {
 
   // ✅ Η πραγματική υλοποίηση navigation
   Future<void> handleNotificationTap(String payload) async {
-    DebugConfig.notif('handleNotificationTap: payload=$payload');
-    final itemId = int.tryParse(payload);
-    if (itemId == null) {
-      DebugConfig.notif('handleNotificationTap: invalid payload, skipping');
-      return;
-    }
-    final item = await SuperNoteHelper.instance.items.getById(itemId);
-    if (item == null) {
-      DebugConfig.notif('handleNotificationTap: item $itemId not found, skipping');
-      return;
-    }
-    DebugConfig.notif('handleNotificationTap: itemId=$itemId type=${item.type.name} archived=${item.archived}');
-    final route = switch (item.type) {
-      ItemType.note        => AppRoutes.note(item.id),
-      ItemType.task        => AppRoutes.task(item.id),
-      ItemType.habit       => AppRoutes.habit(item.id),
-      ItemType.event       => AppRoutes.event(item.id),
-      ItemType.appointment => AppRoutes.appointment(item.id),
-      ItemType.journal     => AppRoutes.journal_(item.id),
-      ItemType.contact     => AppRoutes.contact(item.id),
-      _ => null,
-    };
-    DebugConfig.notif('handleNotificationTap: route=$route');
-    if (route != null) {
-      DebugConfig.notif('handleNotificationTap: navigating to $route via go()');
-      container.read(appRouterProvider).go(route);
-      DebugConfig.notif('handleNotificationTap: go completed');
-    } else {
-      DebugConfig.notif('handleNotificationTap: no route for type ${item.type.name}');
+    try {
+      DebugConfig.notif('handleNotificationTap: payload=$payload');
+      final itemId = int.tryParse(payload);
+      if (itemId == null) {
+        DebugConfig.notif('handleNotificationTap: invalid payload, skipping');
+        return;
+      }
+      final item = await SuperNoteHelper.instance.items.getById(itemId);
+      if (item == null) {
+        DebugConfig.notif(
+            'handleNotificationTap: item $itemId not found, skipping');
+        return;
+      }
+      DebugConfig.notif(
+          'handleNotificationTap: itemId=$itemId type=${item.type.name} archived=${item.archived}');
+      final route = switch (item.type) {
+        ItemType.note => AppRoutes.note(item.id),
+        ItemType.task => AppRoutes.task(item.id),
+        ItemType.habit => AppRoutes.habit(item.id),
+        ItemType.event => AppRoutes.event(item.id),
+        ItemType.appointment => AppRoutes.appointment(item.id),
+        ItemType.journal => AppRoutes.journal_(item.id),
+        ItemType.contact => AppRoutes.contact(item.id),
+        _ => null,
+      };
+      DebugConfig.notif('handleNotificationTap: route=$route');
+      if (route != null) {
+        DebugConfig.notif('handleNotificationTap: navigating to $route via go()');
+        container.read(appRouterProvider).go(route);
+        DebugConfig.notif('handleNotificationTap: go completed');
+      } else {
+        DebugConfig.notif(
+            'handleNotificationTap: no route for type ${item.type.name}');
+      }
+    } catch (e, stack) {
+      DebugConfig.error('handleNotificationTap', e, stack);
     }
   }
 
@@ -103,12 +110,16 @@ void main() async {
     _AppLifecycleObserver(container),
   );
 
-  final defaultWs = await container.read(defaultWorkspaceProvider.future);
-  if (defaultWs != null) {
-    container.read(activeWorkspaceIdProvider.notifier).state = defaultWs.id;
-    DebugConfig.startup('Active workspace set id=${defaultWs.id}');
-  } else {
-    DebugConfig.warning('No default workspace found');
+  try {
+    final defaultWs = await container.read(defaultWorkspaceProvider.future);
+    if (defaultWs != null) {
+      container.read(activeWorkspaceIdProvider.notifier).state = defaultWs.id;
+      DebugConfig.startup('Active workspace set id=${defaultWs.id}');
+    } else {
+      DebugConfig.warning('No default workspace found');
+    }
+  } catch (e, stack) {
+    DebugConfig.error('defaultWorkspace load', e, stack);
   }
 
   DebugConfig.startup('runApp');
@@ -251,38 +262,64 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   final ProviderContainer container;
   bool _disposed = false;
   Timer? _lockTimer;
+  DateTime? _lastLifecycleEvent; // 🔍 DEBUG: για εντοπισμό γρήγορων resumed/paused κύκλων
 
   _AppLifecycleObserver(this.container);
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    DebugConfig.print('🔔 [LIFECYCLE] state=$state');
-
-    if (state == AppLifecycleState.paused) {
-      final settings = await SuperNoteHelper.instance.settings.get();
-      if (settings.appLockEnabled) {
-        _lockTimer?.cancel();
-        _lockTimer = Timer(Duration(seconds: settings.appLockTimeoutSeconds), () {
-          AppLockService.instance.lock();
-          container.read(appLockStateProvider.notifier).state = true;
-          DebugConfig.print('🔒 AppLock: auto-lock after ${settings.appLockTimeoutSeconds}s timeout');
-        });
+    try {
+      final now = DateTime.now();
+      if (_lastLifecycleEvent != null) {
+        final gapMs = now.difference(_lastLifecycleEvent!).inMilliseconds;
+        DebugConfig.print('🔔 [LIFECYCLE] state=$state (+${gapMs}ms)');
+        if (gapMs < 2000) {
+          DebugConfig.warning(
+              '🔔 [LIFECYCLE] ⚠️ RACE RISK — event μέσα σε ${gapMs}ms, '
+                  'το debounce refresh timer πιθανόν μόλις ακυρώθηκε πριν προλάβει να τρέξει!');
+        }
+      } else {
+        DebugConfig.print('🔔 [LIFECYCLE] state=$state (πρώτο event)');
       }
-    }
+      _lastLifecycleEvent = now;
 
-    if (state == AppLifecycleState.resumed) {
-      _lockTimer?.cancel();
-      _lockTimer = null;
-      DebugConfig.startup(
-          'App resumed — debounced refreshing recurring reminders');
-      await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
-    }
+      if (state == AppLifecycleState.paused) {
+        final settings = await SuperNoteHelper.instance.settings
+            .get()
+            .timeout(const Duration(seconds: 5));
+        if (settings.appLockEnabled) {
+          _lockTimer?.cancel();
+          _lockTimer =
+              Timer(Duration(seconds: settings.appLockTimeoutSeconds), () {
+            try {
+              AppLockService.instance.lock();
+              container.read(appLockStateProvider.notifier).state = true;
+              DebugConfig.print(
+                  '🔒 AppLock: auto-lock after ${settings.appLockTimeoutSeconds}s timeout');
+            } catch (e, stack) {
+              DebugConfig.error('AppLock auto-lock', e, stack);
+            }
+          });
+        }
+      }
 
-    if (!_disposed && state == AppLifecycleState.detached) {
-      _disposed = true;
-      WidgetsBinding.instance.removeObserver(this);
-      container.dispose();
-      DebugConfig.startup('ProviderContainer disposed');
+      if (state == AppLifecycleState.resumed) {
+        _lockTimer?.cancel();
+        _lockTimer = null;
+        DebugConfig.startup(
+            'App resumed — debounced refreshing recurring reminders');
+        await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
+      }
+
+      if (!_disposed && state == AppLifecycleState.detached) {
+        _disposed = true;
+        _lockTimer?.cancel();
+        WidgetsBinding.instance.removeObserver(this);
+        container.dispose();
+        DebugConfig.startup('ProviderContainer disposed');
+      }
+    } catch (e, stack) {
+      DebugConfig.error('AppLifecycleObserver.didChangeAppLifecycleState', e, stack);
     }
   }
 }

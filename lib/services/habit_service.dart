@@ -65,10 +65,8 @@ class HabitService {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  DateTime _safeDay(int year, int month, int day) {
-    final lastDay = DateTime(year, month + 1, 0).day;
-    return DateTime(year, month, day.clamp(1, lastDay));
-  }
+  DateTime _safeDay(int year, int month, int day) =>
+      Recurrence.safeMonthDay(year, month, day);
 
   Future<Map<String, String?>> _getAllProps(int habitId) async {
     final props = await SuperNoteHelper.instance.properties.getAll(habitId);
@@ -547,7 +545,7 @@ class HabitService {
           final reminder = await SuperNoteHelper.instance.reminders.create(
             itemId: habitId,
             triggerAt: nextOcc,
-            rrule: recurrence.toRRULE(),
+            rrule: recurrenceToRRULE(recurrence),
             title: 'Υπενθύμιση συνήθειας',
             body: 'Υπενθύμιση: $title',
           );

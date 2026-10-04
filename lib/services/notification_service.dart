@@ -49,6 +49,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:super_note/core/utils/debug_config.dart';
@@ -75,10 +76,14 @@ class NotificationService {
 
     try {
       tz_data.initializeTimeZones();
-      final localTimezone = DateTime.now().timeZoneName;
       try {
-        tz.setLocalLocation(tz.getLocation(localTimezone));
-      } catch (_) {
+        final String iana = await FlutterTimezone.getLocalTimezone();
+        tz.setLocalLocation(tz.getLocation(iana));
+        DebugConfig.notif('NotificationService.init: tz.local=$iana');
+      } catch (e, stack) {
+        DebugConfig.warning(
+            'NotificationService.init: timezone fallback UTC ($e)');
+        DebugConfig.error('NotificationService.init timezone', e, stack);
         tz.setLocalLocation(tz.getLocation('UTC'));
       }
 
@@ -114,10 +119,24 @@ class NotificationService {
       if (details?.didNotificationLaunchApp == true) {
         return details?.notificationResponse?.payload;
       }
-    } catch (_) {
-      // ignore
+    } catch (e, stack) {
+      DebugConfig.error('NotificationService.getLaunchPayload', e, stack);
     }
     return null;
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // DIAGNOSTICS — λίστα notifications ΠΡΑΓΜΑΤΙΚΑ προγραμματισμένων
+  // στο OS αυτή τη στιγμή (όχι απλά καταχωρημένων στη βάση)
+  // ─────────────────────────────────────────────────────────
+
+  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
+    try {
+      return await _plugin.pendingNotificationRequests();
+    } catch (e, stack) {
+      DebugConfig.error('NotificationService.getPendingNotifications', e, stack);
+      return [];
+    }
   }
 
   // ─────────────────────────────────────────────────────────
@@ -201,6 +220,27 @@ class NotificationService {
   }) async {
     if (!_initialized) return;
     try {
+      // 🔍 DEBUG: έλεγχος exact-alarm permission πριν το scheduling.
+      // Σε Android 12+ το OS μπορεί να ανακαλέσει αυτή την άδεια σιωπηλά
+      // (π.χ. aggressive battery optimization σε Xiaomi/Samsung/Huawei),
+      // οπότε το zonedSchedule μπορεί να μην πυροδοτηθεί ποτέ χωρίς exception.
+      final android = _plugin.resolvePlatformSpecificImplementation
+      <AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) {
+        try {
+          final canExact = await android.canScheduleExactNotifications();
+          if (canExact == false) {
+            DebugConfig.warning(
+              'NotificationService.schedule: ⚠️ canScheduleExactNotifications=false '
+                  'id=$id scheduledAt=$scheduledAt — το OS ΔΕΝ επιτρέπει exact alarms αυτή τη στιγμή',
+            );
+          }
+        } catch (e) {
+          DebugConfig.notif(
+              'NotificationService.schedule: canScheduleExactNotifications check failed: $e');
+        }
+      }
+
       await _plugin.zonedSchedule(
         id,
         title,
@@ -212,6 +252,8 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
         UILocalNotificationDateInterpretation.absoluteTime,
       );
+      DebugConfig.notif(
+          'NotificationService.schedule: ✅ zonedSchedule OK id=$id at $scheduledAt');
     } catch (e, stack) {
       DebugConfig.error('NotificationService.schedule', e, stack);
     }
@@ -277,14 +319,21 @@ class NotificationService {
   );
 
   static void _onTap(NotificationResponse r) {
-    DebugConfig.notif('NotificationService._onTap: payload=${r.payload}');
-    if (r.payload != null && onNotificationTap != null) {
-      onNotificationTap!(r.payload!);
+    try {
+      DebugConfig.notif('NotificationService._onTap: payload=${r.payload}');
+      if (r.payload != null && onNotificationTap != null) {
+        onNotificationTap!(r.payload!);
+      }
+    } catch (e, stack) {
+      DebugConfig.error('NotificationService._onTap', e, stack);
     }
   }
 
   @pragma('vm:entry-point')
   static void _onBackgroundTap(NotificationResponse r) {
-    // Ίδιο με foreground
+    // Background tap: το payload θα πιαστεί από getLaunchPayload() στο cold start.
+    // Δεν καλούμε onNotificationTap εδώ (background isolate, δεν έχει UI).
+    DebugConfig.notif(
+        'NotificationService._onBackgroundTap: payload=${r.payload}');
   }
 }

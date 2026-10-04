@@ -20,6 +20,7 @@ import '../../shared/widgets/widgets.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../helpers/item_color_helper.dart';
 import '../../features/trash/trash_screen.dart';
+import 'reminder_diagnostics_screen.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
@@ -196,6 +197,13 @@ class _SystemGroupState extends State<_SystemGroup> {
                   .updateSettings((s) => s.vibrationEnabled = v),
             ),
           ),
+          const SizedBox(height: Spacing.sm),
+          _buildCard(_ActionTile(
+            label: 'Διάγνωση Υπενθυμίσεων',
+            subtitle: 'Κατάσταση επαναλαμβανόμενων και επόμενες ειδοποιήσεις',
+            icon: Icons.fact_check_outlined,
+            onTap: () => _navigateToReminderDiagnostics(context),
+          )),
           const SizedBox(height: Spacing.sm),
           _buildCard(
             Consumer(builder: (_, ref, __) {
@@ -1898,6 +1906,12 @@ class _SummaryRow extends StatelessWidget {
 
 void _navigateToTrash(BuildContext context) {
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TrashScreen()));
+}
+
+void _navigateToReminderDiagnostics(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const ReminderDiagnosticsScreen()),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════

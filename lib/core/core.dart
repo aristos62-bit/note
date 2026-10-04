@@ -12,3 +12,5 @@ export 'utils/responsive.dart';
 export 'utils/transitions.dart';
 export 'utils/recurrence_utils.dart';
 export 'utils/reminder_picker.dart';
+export 'utils/image_utils.dart';
+export 'utils/contact_props.dart';
