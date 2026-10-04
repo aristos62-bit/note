@@ -133,13 +133,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         .setText('location', location.isEmpty ? null : location);
   }
 
-  Future<void> _saveNotes(String notes) async {
-    DebugConfig.db('EventDetail saveNotes id=${widget.itemId}');
-    await ref
-        .read(propertyNotifierProvider(widget.itemId).notifier)
-        .setText('notes', notes.isEmpty ? null : notes);
-  }
-
   Future<void> _flushSaves() async {
     if (_titleDebounce?.isActive == true) {
       _titleDebounce!.cancel();
@@ -381,7 +374,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           isSaving: _isSaving,
           onTitleChange: _onTitleChanged,
           onLocationChange: _onLocationChanged,
-          onNotesSaved: _saveNotes,
           onPickStart: (cur) => _pickStartTime(context, cur),
           onToggleAllDay: _toggleAllDay,
         ),
@@ -412,7 +404,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 isSaving: _isSaving,
                 onTitleChange: _onTitleChanged,
                 onLocationChange: _onLocationChanged,
-                onNotesSaved: _saveNotes,
                 onPickStart: (cur) => _pickStartTime(context, cur),
                 onToggleAllDay: _toggleAllDay,
                 hideProperties: true,
@@ -518,7 +509,6 @@ class _EventBody extends ConsumerWidget {
   final bool isSaving;
   final ValueChanged<String> onTitleChange;
   final ValueChanged<String> onLocationChange;
-  final ValueChanged<String> onNotesSaved;
   final ValueChanged<DateTime?> onPickStart;
   final ValueChanged<bool> onToggleAllDay;
   final bool hideProperties;
@@ -530,7 +520,6 @@ class _EventBody extends ConsumerWidget {
     required this.isSaving,
     required this.onTitleChange,
     required this.onLocationChange,
-    required this.onNotesSaved,
     required this.onPickStart,
     required this.onToggleAllDay,
     this.hideProperties = false,
@@ -542,8 +531,6 @@ class _EventBody extends ConsumerWidget {
     final props = propsAsync.valueOrNull ?? [];
     final location =
         props.where((p) => p.key == 'location').firstOrNull?.value ?? '';
-    final notesVal =
-        props.where((p) => p.key == 'notes').firstOrNull?.value ?? '';
 
     if (!locationCtrl.selection.isValid && locationCtrl.text != location) {
       locationCtrl.text = location;
@@ -670,39 +657,6 @@ class _EventBody extends ConsumerWidget {
                   ),
                 ),
             ]),
-          ),
-        ),
-        // Σημειώσεις (κοινόχρηστο περιεχόμενο, pattern TaskDetail)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.responsiveHPadding,
-              Spacing.md,
-              context.responsiveHPadding,
-              Spacing.sm,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.notes_rounded,
-                        size: 16, color: context.cText2),
-                    const SizedBox(width: Spacing.sm),
-                    Text('Σημειώσεις',
-                        style:
-                            context.labelMd.withColor(context.cText2)),
-                  ],
-                ),
-                const SizedBox(height: Spacing.sm),
-                ContentFieldWidget(
-                  initialText: notesVal,
-                  hintText: 'Πρόσθεσε σημειώσεις...',
-                  onSaved: onNotesSaved,
-                  debounce: const Duration(milliseconds: 800),
-                ),
-              ],
-            ),
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 80)),

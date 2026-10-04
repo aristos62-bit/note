@@ -1,4 +1,4 @@
-# SuperNote — DESIGN.md (αρχιτεκτονική, v Session 59)
+# SuperNote — DESIGN.md (αρχιτεκτονική, v Session 52)
 
 ## Layers (αμετάβλητα)
 `lib/{main, core, models, providers, services, helpers, features, shared}` + barrels.
@@ -40,11 +40,3 @@
 - Session 53: `permanentDelete` (κάδος) κάνει `deleteAllRemindersForItem` πριν το `hardDelete` — καμία ορφανή OS ειδοποίηση· σειρά υποχρεωτική (τα ids χάνονται μετά τη DB διαγραφή).
 - Session 58: vibration toggle → `syncChannel` (delete+recreate ίδιο id, μόνο στο toggle)· ήχος via `silent`· iOS per-notification.
 - Session 54: week-math SPoT (`isValidWeeklyDay`, `epochMonday`) — weekly/monthly/yearly με `interval>1` σέβονται το διάστημα (scheduler anchor=root, habit anchor=epoch)· `interval==1` identical· tests `test/recurrence_weekly_test.dart`.
-
-## Αλλαγές Session 59 (share intent IN — λήψη κοινοποιήσεων)
-- Dep: `receive_sharing_intent ^1.9.0` (`SharedMediaType`: image/video/text/file/url· `getInitialMedia/getMediaStream/reset/setMockValues`) — το `share_plus` μένει outbound μόνο.
-- Νέα: `SharedIntentService` (singleton, stream `incoming`, dedup 2s, `saveAsNote/saveAsEvent`, `onSaved` callback αντί import providers — κύκλος imports) + `SharedIntentListener/_ShareSheet` (dialog με `ItemTypePicker[note,event]` + `showReminderPicker` reuse).
-- Android: 7 `SEND`/`SEND_MULTIPLE` filters (text/image/video/`*/*`), `singleTop` κρατιέται· καμία νέα runtime permission (temp cache paths).
-- EventDetail: +πεδίο `notes` (`ContentFieldWidget`, pattern TaskDetail) — τα events αποκτούν ορατό σώμα.
-- Κανόνας: share δημιουργεί Items (note: text block + attachments + 📎· event: `start_time/end_time/all_day/notes`) — ΠΟΤΕ Reminder rows· υπενθυμίσεις μόνο από καμπάνα.
-- Γνωστό: backup καλύπτει μόνο `.isar`, όχι `attachments/` (follow-up Φάση Β).
