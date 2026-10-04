@@ -99,8 +99,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
     // Day-scope: ids των events της επιλεγμένης μέρας (0 νέα queries).
+    // Κενό set = άδεια μέρα (ΟΧΙ null — το null σημαίνει «χωρίς φίλτρο»).
     final dayMap = monthAsync.valueOrNull ?? {};
-    final dayIds = dayMap[selectedDay]?.map((e) => e.id).toSet();
+    final Set<int>? dayIds = monthAsync.hasError
+        ? null
+        : (dayMap[selectedDay]?.map((e) => e.id).toSet() ?? <int>{});
     final dayLoading = monthAsync.isLoading;
 
     tryAutoSelectFolder(
