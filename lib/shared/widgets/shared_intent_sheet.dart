@@ -67,6 +67,8 @@ class _SharedIntentListenerState extends ConsumerState<SharedIntentListener> {
       await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+        // Αδιαφανές φόντο: να μην φαίνεται το layer από πίσω.
+        barrierColor: Colors.black.withValues(alpha: 0.75),
         backgroundColor: ColorsUI.getSurface(context.brightness),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.only(
