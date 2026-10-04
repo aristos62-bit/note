@@ -147,6 +147,15 @@ void main() async {
     }
 
     try {
+      // Habit native scheduling: one-shot repair + 60d top-up (πριν το scheduleAll).
+      await HabitService.instance.repairLegacyHabitRows();
+      await HabitService.instance.topUpHabitReminders();
+      DebugConfig.startup('Habit reminders repaired + topped up');
+    } catch (e, stack) {
+      DebugConfig.error('habit topUp failed', e, stack);
+    }
+
+    try {
       await ReminderScheduler.instance.scheduleAll();
       DebugConfig.startup('Reminders scheduled');
     } catch (e, stack) {
@@ -316,6 +325,8 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         DebugConfig.startup(
             'App resumed — debounced refreshing recurring reminders');
         await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
+        // Habit top-up (own 10min guard μέσα στη μέθοδο).
+        await HabitService.instance.topUpHabitReminders();
       }
 
       if (!_disposed && state == AppLifecycleState.detached) {

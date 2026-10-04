@@ -365,3 +365,20 @@
 **Backups:** `backups/calendar_dayfilter/` (3 αρχεία)
 
 **Device verification (logcat):** `SharedIntent initialized` ✅· `created 0`, `scheduleAll DONE` όλα SUCCESS, 0 ERR ✅· `/calendar` άδεια μέρα → `day filter shown=0` + empty state, κανένα overflow ✅· tap 09-10 → `day selected` + `shown=1` (id=408) ✅.
+
+## Session 61 — 04/10/2026 (habit reminders: native ownership + top-up + απόκρυψη καμπάνας)
+
+**Πρόβλημα:** 2 συστήματα, δούλευε μόνο το λάθος — native path νεκρό (0 callers `setReminderTime(s)`, ο time editor έσωζε μόνο `recurrence_times`), καμπάνα έφτιαχνε generic rows που το refresh σκιπάρει.
+
+**Υλοποίηση (v4 πρόταση):**
+- `habit_service.dart`: `generatedTitle`/`horizonDays` consts, pure `planTopUp` + `parseHabitTime`, `_computeOccurrences` (κοινός walker), `_clearHabitGenerated` (σβήνει ΜΟΝΟ habit τίτλο + ξαναπρογραμματίζει grandfathered bell rows), `syncScheduleWithRecurrence` (daily+ώρες→αναγέννηση, αλλιώς clear), `topUpHabitReminders` (προσθετικό, opt-in μόνο με `reminder_time(s)`, 10min guard), `repairLegacyHabitRows` (idempotent, ψευδο-roots→sync), `_scheduleReminders` refactor πάνω στον walker
+- `habit_detail_screen.dart`: `_editRecurrence`/`_clearRecurrence` → sync (αντί νεκρού refresh)· διαγραφή `_showReminderDialog` + καμπάνας
+- `habit_list_screen.dart`: διαγραφή νεκρού AppBar bell (μόνο log)
+- `main.dart`: repair+topUp postFrame μεταξύ refresh και scheduleAll (own try-catch) + topUp στο resume
+- `test/habit_topup_test.dart`: 6 tests (planTopUp ×4, parse ×2)
+
+**Αποφάσεις:** bell rows → grandfather (επιλεκτικό wipe με τίτλο)· προ-51 roots → μετατροπή· καμπάνα → αφαίρεση.
+
+**Επαλήθευση:** `flutter test` → 30/30 (6 νέα)· `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 2 `prefer_const_constructors` info).
+
+**Backups:** `backups/habit_topup/` (6 αρχεία)

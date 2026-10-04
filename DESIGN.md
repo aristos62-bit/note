@@ -48,3 +48,8 @@
 - EventDetail: +πεδίο `notes` (`ContentFieldWidget`, pattern TaskDetail) — τα events αποκτούν ορατό σώμα.
 - Κανόνας: share δημιουργεί Items (note: text block + attachments + 📎· event: `start_time/end_time/all_day/notes`) — ΠΟΤΕ Reminder rows· υπενθυμίσεις μόνο από καμπάνα.
 - Γνωστό: backup καλύπτει μόνο `.isar`, όχι `attachments/` (follow-up Φάση Β).
+
+## Αλλαγές Session 61 (habit native ownership)
+- Κανόνας: habits έχουν δικό τους scheduling (ώρες `reminder_time(s)` → one-shots 60d) — η καμπάνα (generic `ReminderSection`) απενεργοποιήθηκε σε detail+list· `refreshRecurringReminders` εξακολουθεί να σκιπάρει habits.
+- `HabitService`: `generatedTitle` (διαχωρισμός από bell τίτλο `'Υπενθύμιση'`)· `syncScheduleWithRecurrence` (UI wiring)· προσθετικό `topUpHabitReminders` (10min guard, opt-in μόνο, postFrame πριν `scheduleAll` + resume)· idempotent `repairLegacyHabitRows` (προ-51 ψευδο-roots → sync)· επιλεκτικό wipe (μόνο habit τίτλος, bell rows grandfather + reschedule).
+- Tests: `test/habit_topup_test.dart` (pure `planTopUp`/`parseHabitTime`).
