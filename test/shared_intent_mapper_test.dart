@@ -78,4 +78,42 @@ void main() {
       expect(svc.isDuplicate([text('δύο')]), false);
     });
   });
+
+  group('shareTitle', () {
+    test('link-only → host', () {
+      expect(
+          SharedIntentService.shareTitle(
+              text: 'https://en.wikipedia.org/wiki/Flutter',
+              filePaths: const []),
+          '🔗 en.wikipedia.org');
+    });
+
+    test('κείμενο → 1η γραμμή', () {
+      expect(
+          SharedIntentService.shareTitle(
+              text: 'Τίτλος\nσώμα', filePaths: const []),
+          'Τίτλος');
+    });
+
+    test('file-only single → basename', () {
+      expect(
+          SharedIntentService.shareTitle(
+              text: '', filePaths: const ['/tmp/photo.jpg']),
+          'photo.jpg');
+    });
+
+    test('file-only multi → basename + πλήθος', () {
+      expect(
+          SharedIntentService.shareTitle(
+              text: '', filePaths: const ['/a.jpg', '/b.jpg', '/c.jpg']),
+          'a.jpg +2');
+    });
+
+    test('κενό → fallback', () {
+      expect(
+          SharedIntentService.shareTitle(text: '', filePaths: const [])
+              .startsWith('Κοινοποίηση'),
+          true);
+    });
+  });
 }
