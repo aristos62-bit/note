@@ -147,19 +147,20 @@ void main() async {
     }
 
     try {
-      // Habit native scheduling: one-shot repair + 60d top-up (πριν το scheduleAll).
+      await ReminderScheduler.instance.scheduleAll();
+      DebugConfig.startup('Reminders scheduled');
+    } catch (e, stack) {
+      DebugConfig.error('scheduleAll failed', e, stack);
+    }
+
+    try {
+      // Habit native scheduling: one-shot repair + 60d top-up (μετά το
+      // scheduleAll για ταχύτερο OS προγραμματισμό — προγραμματίζουν μόνα τους).
       await HabitService.instance.repairLegacyHabitRows();
       await HabitService.instance.topUpHabitReminders();
       DebugConfig.startup('Habit reminders repaired + topped up');
     } catch (e, stack) {
       DebugConfig.error('habit topUp failed', e, stack);
-    }
-
-    try {
-      await ReminderScheduler.instance.scheduleAll();
-      DebugConfig.startup('Reminders scheduled');
-    } catch (e, stack) {
-      DebugConfig.error('scheduleAll failed', e, stack);
     }
 
     try {
