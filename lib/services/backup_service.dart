@@ -67,6 +67,10 @@ class BackupService {
 
   /// Μέγιστο μέγεθος zip προς επαναφορά (o decoder κρατά μνήμη).
   static const int maxRestoreBytes = 500 * 1024 * 1024;
+
+  /// Όριο για save-dialog με bytes (το plugin τα θέλει στη μνήμη).
+  /// Πάνω από αυτό → κοινοποίηση (share sheet, path-based, χωρίς μνήμη).
+  static const int maxDialogBytes = 100 * 1024 * 1024;
   static const String _backupDirName = 'SuperNoteBackups';
   static const int _maxAutoBackups = 5;
 
@@ -112,17 +116,22 @@ class BackupService {
       );
       DebugConfig.db('exportToDevice: zip ready');
       try {
-        // OOM fix: ζήτα path από το save dialog ΧΩΡΙΣ bytes, μετά File.copy.
+        // Android/iOS: το saveFile ΓΡΑΦΕΙ μόνο του (απαιτεί bytes) —
+        // δεν επιστρέφει path για File.copy (file_picker_io).
+        final zipSize = await File(tempZip).length();
+        if (zipSize > maxDialogBytes) {
+          return BackupExportResult.failure(
+              'Το αντίγραφο είναι πολύ μεγάλο — χρησιμοποίησε Κοινοποίηση');
+        }
         final savedPath = await FilePicker.platform.saveFile(
           dialogTitle: 'Αποθήκευση αντιγράφου ασφαλείας',
           fileName: fileName,
-          type: FileType.any,
+          bytes: await File(tempZip).readAsBytes(),
         );
         if (savedPath == null) {
           DebugConfig.db('exportToDevice: user cancelled');
           return BackupExportResult.cancelled();
         }
-        await File(tempZip).copy(savedPath);
         DebugConfig.db('exportToDevice: SUCCESS — dest=$savedPath');
         return BackupExportResult.success(savedPath);
       } finally {
