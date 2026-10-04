@@ -363,3 +363,5 @@
 **Επαλήθευση:** `flutter test` → 24/24 (υπάρχοντα, καμία regression)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/calendar_dayfilter/` (3 αρχεία)
+
+**Device verification (logcat):** `SharedIntent initialized` ✅· `created 0`, `scheduleAll DONE` όλα SUCCESS, 0 ERR ✅· `/calendar` άδεια μέρα → `day filter shown=0` + empty state, κανένα overflow ✅· tap 09-10 → `day selected` + `shown=1` (id=408) ✅.
