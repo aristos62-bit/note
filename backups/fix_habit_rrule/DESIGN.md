@@ -1,4 +1,4 @@
-# SuperNote — DESIGN.md (αρχιτεκτονική, v Session 52)
+# SuperNote — DESIGN.md (αρχιτεκτονική, v Session 50)
 
 ## Layers (αμετάβλητα)
 `lib/{main, core, models, providers, services, helpers, features, shared}` + barrels.
@@ -24,16 +24,9 @@
 - R6 Performance: `.select()`, `const`, `autoDispose` σε family
 
 ## Αλλαγές Session 50
-- Dep: `flutter_timezone ^4.1.1` (4.x: v1-embedding fix, `Future<String>` API — όχι 5.x `TimezoneInfo`)
+- Dep: `flutter_timezone ^1.0.8`
 - Νέα: `image_utils.dart`, `contact_props.dart`
 - Exports: `migration_service`, `image_utils`, `contact_props` + `backups/**` exclude
 - Timezone: IANA init, silent fallback τέλος
 - Backup: `exportToDevice` χωρίς `readAsBytes`
 - Split <500: εκκρεμεί (Φ4)
-
-## Αλλαγές Session 51-52 (reminder semantics)
-- Κανόνας: κάθε προγραμματισμένη εμφάνιση = one-shot (`rrule:null`, `parent=null` για ανεξάρτητα). Roots (`rrule!=null`, `parent==null`) μόνο ως anchors για `refreshRecurringReminders`.
-- Habits: `_scheduleReminders` δημιουργεί one-shots (recurrence ζει στα props) — επιβιώνουν `cancelAll/scheduleAll`, καθαρίζονται από `cleanupOldPending`.
-- Snooze: status μένει `pending` (`snoozeUntil`=ιστορικό, `triggerAt`=οδηγός)· OS reschedule στο provider (`cancelReminder`+`scheduleReminder`), όχι στο repository (κύκλος imports)· roots εξαιρούνται (anchor)· snoozed children εξαιρούνται από wrong-time cleanup.
-- `ReminderRepository.getById` (getter, ίδιο pattern)· `Reminder.isActive` = pending-only.
-- Follow-up (με Φ4): repair παλιών habit rows, 60-day habit top-up, ReminderSection dialog-hiding σε habits, snooze button UI, `isActive`/`dismissed` τακτοποίηση.

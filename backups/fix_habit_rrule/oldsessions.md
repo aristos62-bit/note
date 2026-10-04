@@ -231,29 +231,3 @@
 **Επαλήθευση:** `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/fix_await/` (item_provider, habit_service, oldsessions)
-
-## Session 51 — 04/10/2026 (habit reminders ως one-shots)
-
-**Πρόβλημα:** `_scheduleReminders` έφτιαχνε έως 40 occurrences με `rrule` set + `parent=null` (ψευδο-roots). Το `refreshRecurring` τα σκιπάριζε (`skipping habit root`), το `scheduleAll` μετά το `cancelAll` κρατούσε μόνο `rrule==null` — οι habit ειδοποιήσεις χάνονταν σε κάθε restart. Bonus: `cleanupOldPending` δεν καθάριζε ποτέ παλιές habit rows (DB bloat).
-
-**Fix (1 γραμμή + 1 debug, `habit_service.dart`):** `rrule: recurrenceToRRULE(recurrence)` → `rrule: null` + σχόλιο + `DebugConfig.notif` με recurrence string (κρατά το import ζωντανό). Η recurrence ζει στα props· εναλλακτικές (schedule habit roots, parentIds, migration, παράθυρο 30→60) απορρίφθηκαν τεκμηριωμένα.
-
-**Επαλήθευση:** `analyze` → `No issues found!`. Device logs: 8 roots σταθερά `created 0`, `scheduleAll 23× SUCCESS`, 0 `ERR`.
-
-**Backups:** `backups/fix_habit_rrule/` + `backups/fix_snooze/` (κοινός φάκελος oldsessions/DESIGN)
-
-**Follow-up (με Φ4):** repair παλιών habit rows, 60-day top-up, dialog-hiding σε habits.
-
-## Session 52 — 04/10/2026 (snooze με OS reschedule)
-
-**Πρόβλημα:** `snooze()` έβαζε `status=snoozed` χωρίς OS reschedule· `scheduleAll/getPending/watchPending/scheduleReminder` βλέπουν μόνο pending — η υπενθύμιση πέθαινε. `isActive` dead code (0 readers). 0 callers σε UI (latent).
-
-**Fix (4 micro-edits, 0 νέα):**
-- `super_note_helper.dart`: +`getById`, `snooze` κρατά pending + log
-- `reminder_provider.dart`: fetch→root-guard→cancel+schedule (scheduling στο provider, όχι repository — κύκλος imports)
-- `reminder.dart`: `isActive` = pending-only
-- `reminder_scheduler.dart`: snoozed εξαίρεση από wrong-time cleanup (αλλιώς το refresh θα έσβηνε snoozed children)
-
-**Επαλήθευση:** `analyze` → `No issues found!`. Device regression: 8 roots `created 0`, 0 wrong-time deletions, `scheduleAll 23× SUCCESS`, 0 `ERR`. Λειτουργικό τεστ όταν μπει το κουμπί.
-
-**Backups:** `backups/fix_snooze/` (4 αρχεία)

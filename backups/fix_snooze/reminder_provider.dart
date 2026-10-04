@@ -1,7 +1,6 @@
 // lib/providers/reminder_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/reminder.dart';
-import '../services/reminder_scheduler.dart';
 import 'db_provider.dart';
 import '../core/utils/debug_config.dart';
 
@@ -59,19 +58,7 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
 
   Future<void> snooze(int reminderId, Duration duration) async {
     try {
-      final db = ref.read(dbProvider);
-      await db.reminders.snooze(reminderId, duration);
-      final row = await db.reminders.getById(reminderId);
-      if (row == null) return;
-      if (row.rrule != null &&
-          row.rrule!.isNotEmpty &&
-          row.parentReminderId == null) {
-        DebugConfig.warning(
-            'ReminderNotifier.snooze: root id=$reminderId skipped (anchor)');
-      } else {
-        await ReminderScheduler.instance.cancelReminder(reminderId);
-        await ReminderScheduler.instance.scheduleReminder(row);
-      }
+      await ref.read(dbProvider).reminders.snooze(reminderId, duration);
       ref.invalidateSelf();
       ref.invalidate(pendingRemindersProvider);
     } catch (e, s) {

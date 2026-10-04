@@ -67,9 +67,10 @@ class Reminder {
   DateTime createdAt = DateTime.now();
   DateTime? updatedAt;
 
-  /// Ελέγχει αν η υπενθύμιση είναι ενεργή (pending = προγραμματισμένη·
-  /// το snoozeUntil είναι ιστορικό, δεν την απενεργοποιεί)
-  bool get isActive => status == ReminderStatus.pending;
+  /// Ελέγχει αν η υπενθύμιση είναι ενεργή
+  bool get isActive =>
+      status == ReminderStatus.pending &&
+          (snoozeUntil == null || DateTime.now().isAfter(snoozeUntil!));
 
   /// Ελέγχει αν είναι repeating
   bool get isRepeating => rrule != null && rrule!.isNotEmpty;

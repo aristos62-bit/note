@@ -1094,10 +1094,6 @@ class ReminderRepository {
         .findAll();
   }
 
-  Future<Reminder?> getById(int id) async {
-    return await _isar.reminders.get(id);
-  }
-
   Future<void> markSent(int id) async {
     final r = await _isar.reminders.get(id);
     if (r == null) return;
@@ -1111,14 +1107,12 @@ class ReminderRepository {
   Future<void> snooze(int id, Duration duration) async {
     final r = await _isar.reminders.get(id);
     if (r == null) return;
-    // One-shot semantics: παραμένει pending ώστε scheduleAll/getPending/
-    // scheduleReminder/cleanup να τη βλέπουν· triggerAt οδηγεί, snoozeUntil ιστορικό.
+    r.status = ReminderStatus.snoozed;
     r.snoozeUntil = DateTime.now().add(duration);
     r.triggerAt = r.snoozeUntil!;
     await _isar.writeTxn(() async {
       await _isar.reminders.put(r);
     });
-    DebugConfig.notif('ReminderRepo.snooze: id=$id until=${r.snoozeUntil}');
   }
   Future<void> delete(int id) async {
     await _isar.writeTxn(() async {
