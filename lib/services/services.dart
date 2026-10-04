@@ -11,6 +11,7 @@ export 'search_service.dart';
 export 'habit_service.dart';
 export 'attachment_service.dart';
 export 'backup_service.dart';
+export 'backup_archive.dart';
 export 'contact_import_service.dart';
 export 'share_service.dart';
 export 'shared_intent_service.dart';

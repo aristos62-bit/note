@@ -54,5 +54,8 @@
 - `HabitService`: `generatedTitle` (διαχωρισμός από bell τίτλο `'Υπενθύμιση'`)· `syncScheduleWithRecurrence` (UI wiring)· προσθετικό `topUpHabitReminders` (10min guard, opt-in μόνο, postFrame πριν `scheduleAll` + resume)· idempotent `repairLegacyHabitRows` (προ-51 ψευδο-roots → sync)· επιλεκτικό wipe (μόνο habit τίτλος, bell rows grandfather + reschedule).
 - Tests: `test/habit_topup_test.dart` (pure `planTopUp`/`parseHabitTime`).
 
+## Αλλαγές Session 63 (backup zip με attachments)
+- Dep `archive ^4.3.0`· νέο `backup_archive.dart` (streaming export, memory-bound import → 500MB guard)· exports/imports/share με `.zip`, import και παλιού `.isar`· atomic restore βάσης + φακέλου (safety/rollback αμφότερα) + rebase `localPath`· κοινές consts + `AttachmentRepository.getAll()`· tests `backup_archive_test`.
+
 ## Αλλαγές Session 62 (habit ώρες σε weekly/monthly)
 - `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· `fromProperties`/`describe` καλύπτουν weekly/monthly (yearly εκτός)· UI: time picker μετά τα days (prefill δωρεάν)· `sync` για `type != yearly`· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις).

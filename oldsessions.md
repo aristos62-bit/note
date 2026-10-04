@@ -398,3 +398,17 @@
 **Backups:** `backups/habit_weekly_times/` (6 αρχεία)
 
 **Fix monthly overflow (ίδια μέρα, 100% επαληθευμένο με εκτέλεση):** `_nextOccurrenceForTime` monthly branch έφτιαχνε raw `DateTime(y,m,d)` → 30 Φεβ γινόταν 2 Μαρ (χαμένος Φεβρουάριος + λάθος Μάρτιος). Τώρα `_safeDay` clamp (όπως παντού αλλού). Tests 16/16 εδώ, analyze clean.
+
+## Session 63 — 04/10/2026 (backup με attachments, zip)
+
+**Πρόβλημα:** backup = μόνο `.isar` — attachments δίσκου χάνονταν στο restore.
+
+**Υλοποίηση:**
+- `archive: ^4.3.0` + νέο `backup_archive.dart` (streaming `addFile`/`close`, σχετικά ονόματα, pure `rebasePath`/`isBackupZip`, traversal guard δωρεάν)
+- `backup_service.dart`: exports/imports/share με `.zip`· import δέχεται `.zip` + παλιό `.isar` (κατάληξη)· picker `['zip','isar']`· validate (suffix + 500MB guard + trial extract + trial Isar unique-name, κοινός `_checkIsarInDir`)· `_atomicRestoreZip` (safety + rollback και για `.isar` και για φάκελο, rebase ΜΟΝΟ `localPath`)· αφαίρεση νεκρού `_createTempBackup`
+- Κοινές consts (`dbFileName`, `attachmentsDirName`) + `AttachmentRepository.getAll()` (αντί N+1)
+- Έκοψα thumbnail/block rebase (μηδέν writers — αποδείχθηκε με grep)
+
+**Επαλήθευση:** `flutter test` → 40/40 (5 νέα archive)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/backup_zip/` (7 αρχεία)

@@ -8,6 +8,8 @@ import 'package:share_plus/share_plus.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
 import '../core/utils/debug_config.dart';
+import 'attachment_service.dart';
+import 'backup_archive.dart';
 
 // ── Result types ──────────────────────────────────────────────────
 
@@ -59,7 +61,12 @@ class BackupService {
   BackupService._internal();
   static final BackupService instance = BackupService._internal();
 
-  static const String _dbFileName = 'super_note_db.isar';
+  static const String dbFileName = 'super_note_db.isar';
+  static const String zipSuffix = '.zip';
+  static const String isarSuffix = '.isar';
+
+  /// Μέγιστο μέγεθος zip προς επαναφορά (o decoder κρατά μνήμη).
+  static const int maxRestoreBytes = 500 * 1024 * 1024;
   static const String _backupDirName = 'SuperNoteBackups';
   static const int _maxAutoBackups = 5;
 
@@ -69,30 +76,7 @@ class BackupService {
 
   Future<String> _dbPath() async {
     final dir = await getApplicationDocumentsDirectory();
-    return p.join(dir.path, _dbFileName);
-  }
-
-  Future<String> _createTempBackup() async {
-    DebugConfig.db('_createTempBackup: starting');
-    final srcPath = await _dbPath();
-    final srcFile = File(srcPath);
-    if (!await srcFile.exists()) {
-      DebugConfig.db('_createTempBackup: FAIL — DB file not found: $srcPath');
-      throw Exception('Δεν βρέθηκε η βάση δεδομένων');
-    }
-    final srcSize = await srcFile.length();
-    DebugConfig.db('_createTempBackup: src exists, size=$srcSize bytes');
-    final tempDir = await getTemporaryDirectory();
-    final timestamp = DateTime.now()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .split('.')
-        .first;
-    final tempPath = p.join(tempDir.path, 'super_note_backup_$timestamp.isar');
-    await srcFile.copy(tempPath);
-    final tempSize = await File(tempPath).length();
-    DebugConfig.db('_createTempBackup: done, temp=$tempPath, size=$tempSize bytes');
-    return tempPath;
+    return p.join(dir.path, dbFileName);
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -101,18 +85,34 @@ class BackupService {
 
   Future<BackupExportResult> exportToDevice() async {
     DebugConfig.db('exportToDevice: starting');
+    Directory? workDir;
     try {
-      final tempPath = await _createTempBackup();
-      DebugConfig.db('exportToDevice: temp copy ready');
+      final tempRoot = await getTemporaryDirectory();
+      workDir = await Directory(p.join(tempRoot.path,
+              '_backup_export_${DateTime.now().millisecondsSinceEpoch}'))
+          .create(recursive: true);
+      final srcPath = await _dbPath();
+      if (!await File(srcPath).exists()) {
+        DebugConfig.db('exportToDevice: FAIL — DB file not found: $srcPath');
+        throw Exception('Δεν βρέθηκε η βάση δεδομένων');
+      }
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
+      final fileName = 'super_note_backup_$timestamp.zip';
+      final tempZip = p.join(workDir.path, fileName);
+      final docs = await getApplicationDocumentsDirectory();
+      await BackupArchive.createBackupZip(
+        dbPath: srcPath,
+        attachmentsDir: Directory(
+            p.join(docs.path, AttachmentService.attachmentsDirName)),
+        destZipPath: tempZip,
+      );
+      DebugConfig.db('exportToDevice: zip ready');
       try {
-        final timestamp = DateTime.now()
-            .toIso8601String()
-            .replaceAll(':', '-')
-            .split('.')
-            .first;
-        final fileName = 'super_note_backup_$timestamp.isar';
         // OOM fix: ζήτα path από το save dialog ΧΩΡΙΣ bytes, μετά File.copy.
-        // Αποφεύγει readAsBytes() όλης της DB στη μνήμη.
         final savedPath = await FilePicker.platform.saveFile(
           dialogTitle: 'Αποθήκευση αντιγράφου ασφαλείας',
           fileName: fileName,
@@ -122,19 +122,25 @@ class BackupService {
           DebugConfig.db('exportToDevice: user cancelled');
           return BackupExportResult.cancelled();
         }
-        await File(tempPath).copy(savedPath);
+        await File(tempZip).copy(savedPath);
         DebugConfig.db('exportToDevice: SUCCESS — dest=$savedPath');
         return BackupExportResult.success(savedPath);
       } finally {
-        DebugConfig.db('exportToDevice: cleaning up temp file');
+        DebugConfig.db('exportToDevice: cleaning up temp dir');
         try {
-          await File(tempPath).delete();
-          DebugConfig.db('exportToDevice: temp file deleted');
+          await workDir.delete(recursive: true);
+          DebugConfig.db('exportToDevice: temp dir deleted');
         } catch (_) {}
       }
     } catch (e, s) {
       DebugConfig.error('BackupService.exportToDevice', e, s);
       return BackupExportResult.failure('Αποτυχία αποθήκευσης: $e');
+    } finally {
+      if (workDir != null) {
+        try {
+          if (await workDir.exists()) await workDir.delete(recursive: true);
+        } catch (_) {}
+      }
     }
   }
 
@@ -144,27 +150,44 @@ class BackupService {
 
   Future<BackupExportResult> exportWithShare() async {
     DebugConfig.db('exportWithShare: starting');
+    Directory? workDir;
     try {
-      final tempPath = await _createTempBackup();
-      DebugConfig.db('exportWithShare: temp copy ready, opening share sheet');
+      final tempRoot = await getTemporaryDirectory();
+      workDir = await Directory(p.join(tempRoot.path,
+              '_backup_share_${DateTime.now().millisecondsSinceEpoch}'))
+          .create(recursive: true);
+      final srcPath = await _dbPath();
+      if (!await File(srcPath).exists()) {
+        throw Exception('Δεν βρέθηκε η βάση δεδομένων');
+      }
+      final tempZip = p.join(workDir.path, 'super_note_backup_share.zip');
+      final docs = await getApplicationDocumentsDirectory();
+      await BackupArchive.createBackupZip(
+        dbPath: srcPath,
+        attachmentsDir: Directory(
+            p.join(docs.path, AttachmentService.attachmentsDirName)),
+        destZipPath: tempZip,
+      );
+      DebugConfig.db('exportWithShare: zip ready, opening share sheet');
       try {
         await SharePlus.instance.share(ShareParams(
-          files: [XFile(tempPath)],
+          files: [XFile(tempZip)],
           subject: 'SuperNote Backup',
           text: 'Αντίγραφο ασφαλείας SuperNote',
         ));
         DebugConfig.db('exportWithShare: share sheet closed, scheduling temp cleanup');
+        final dirToClean = workDir;
         Future.delayed(const Duration(seconds: 10), () async {
           try {
-            await File(tempPath).delete();
-            DebugConfig.db('exportWithShare: delayed temp file deleted');
+            await dirToClean.delete(recursive: true);
+            DebugConfig.db('exportWithShare: delayed temp dir deleted');
           } catch (_) {}
         });
-        return BackupExportResult.success(tempPath);
+        return BackupExportResult.success(tempZip);
       } catch (_) {
         DebugConfig.db('exportWithShare: share failed, cleaning up temp');
         try {
-          await File(tempPath).delete();
+          await workDir.delete(recursive: true);
         } catch (_) {}
         rethrow;
       }
@@ -182,7 +205,8 @@ class BackupService {
     DebugConfig.db('pickBackupFile: opening file picker');
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
+        type: FileType.custom,
+        allowedExtensions: const ['zip', 'isar'],
         withData: false,
         allowMultiple: false,
       );
@@ -209,13 +233,23 @@ class BackupService {
       }
       final size = await file.length();
       DebugConfig.db('restoreBackup: file exists, size=$size bytes');
-      if (size < 1024) {
-        DebugConfig.db('restoreBackup: FAIL — too small');
-        return BackupImportResult.failure(
-            'Το αρχείο backup είναι πολύ μικρό (πιθανά κατεστραμμένο)');
+      if (BackupArchive.isBackupZip(backupPath)) {
+        if (size > maxRestoreBytes) {
+          return BackupImportResult.failure(
+              'Το αρχείο είναι πολύ μεγάλο για επαναφορά');
+        }
+        DebugConfig.db('restoreBackup: zip → _atomicRestoreZip');
+        await _atomicRestoreZip(backupPath);
+      } else {
+        if (size < 1024) {
+          DebugConfig.db('restoreBackup: FAIL — too small');
+          return BackupImportResult.failure(
+              'Το αρχείο backup είναι πολύ μικρό (πιθανά κατεστραμμένο)');
+        }
+        DebugConfig.db(
+            'restoreBackup: legacy .isar (χωρίς attachments) → _atomicRestore');
+        await _atomicRestore(backupPath);
       }
-      DebugConfig.db('restoreBackup: pre-checks passed, calling _atomicRestore');
-      await _atomicRestore(backupPath);
       DebugConfig.db('restoreBackup: SUCCESS');
       return BackupImportResult.success();
     } catch (e, s) {
@@ -315,6 +349,39 @@ class BackupService {
     }
   }
 
+  /// Trial open Isar σε φάκελο (κοινό για .isar και .zip validation).
+  Future<bool> _checkIsarInDir(Directory dir) async {
+    Isar? isar;
+    try {
+      isar = await Isar.open(
+        [
+          ItemSchema,
+          ItemBlockSchema,
+          ItemPropertySchema,
+          TagSchema,
+          ItemTagSchema,
+          RelationSchema,
+          ReminderSchema,
+          FolderSchema,
+          WorkspaceSchema,
+          AttachmentSchema,
+          UserSchema,
+          DeviceSchema,
+          AppSettingsSchema,
+        ],
+        directory: dir.path,
+        name: 'super_note_db_validation_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      try {
+        await isar?.close();
+      } catch (_) {}
+    }
+  }
+
   Future<ValidationResult> validateBackupFile(String path) async {
     DebugConfig.db('validateBackupFile: validating path=$path');
     try {
@@ -327,6 +394,41 @@ class BackupService {
 
       final size = await file.length();
       DebugConfig.db('validateBackupFile: file size=$size bytes');
+
+      // ── ZIP: size guard (o decoder κρατά μνήμη) + trial extract ──
+      if (BackupArchive.isBackupZip(path)) {
+        if (size > maxRestoreBytes) {
+          DebugConfig.db('validateBackupFile: FAIL — too large for restore');
+          return ValidationResult(
+              valid: false,
+              reason: 'Το αρχείο είναι πολύ μεγάλο για επαναφορά');
+        }
+        final zipTemp = Directory(p.join(
+          (await getTemporaryDirectory()).path,
+          '_backup_zipval_${DateTime.now().millisecondsSinceEpoch}',
+        ));
+        await zipTemp.create(recursive: true);
+        try {
+          final entries =
+              await BackupArchive.extractBackupZip(path, zipTemp.path);
+          if (!entries.contains(BackupArchive.dbEntryName)) {
+            return ValidationResult(
+                valid: false, reason: 'Το zip δεν περιέχει βάση δεδομένων');
+          }
+          if (!await _checkIsarInDir(zipTemp)) {
+            return ValidationResult(
+                valid: false,
+                reason: 'Μη έγκυρο ή κατεστραμμένο αρχείο backup');
+          }
+          DebugConfig.db('validateBackupFile: zip VALID');
+          return ValidationResult(valid: true, sizeBytes: size);
+        } finally {
+          try {
+            await zipTemp.delete(recursive: true);
+          } catch (_) {}
+        }
+      }
+
       if (size < 1024) {
         DebugConfig.db('validateBackupFile: FAIL — too small');
         return ValidationResult(
@@ -341,38 +443,18 @@ class BackupService {
       DebugConfig.db('validateBackupFile: temp dir created at ${tempDir.path}');
 
       try {
-        final copyPath = p.join(tempDir.path, _dbFileName);
+        final copyPath = p.join(tempDir.path, dbFileName);
         await file.copy(copyPath);
         DebugConfig.db('validateBackupFile: copied to temp for Isar open');
 
-        final isar = await Isar.open(
-          [
-            ItemSchema,
-            ItemBlockSchema,
-            ItemPropertySchema,
-            TagSchema,
-            ItemTagSchema,
-            RelationSchema,
-            ReminderSchema,
-            FolderSchema,
-            WorkspaceSchema,
-            AttachmentSchema,
-            UserSchema,
-            DeviceSchema,
-            AppSettingsSchema,
-          ],
-          directory: tempDir.path,
-          name: 'super_note_db_validation_${DateTime.now().millisecondsSinceEpoch}',
-        );
-        DebugConfig.db('validateBackupFile: Isar opened successfully, closing');
-        await isar.close();
+        if (!await _checkIsarInDir(tempDir)) {
+          DebugConfig.db('validateBackupFile: FAIL — Isar could not open backup');
+          return ValidationResult(
+              valid: false,
+              reason: 'Μη έγκυρο ή κατεστραμμένο αρχείο backup');
+        }
         DebugConfig.db('validateBackupFile: Isar closed — VALID backup');
         return ValidationResult(valid: true, sizeBytes: size);
-      } catch (_) {
-        DebugConfig.db('validateBackupFile: FAIL — Isar could not open backup');
-        return ValidationResult(
-            valid: false,
-            reason: 'Μη έγκυρο ή κατεστραμμένο αρχείο backup');
       } finally {
         try {
           await tempDir.delete(recursive: true);
@@ -388,7 +470,7 @@ class BackupService {
   Future<void> _atomicRestore(String backupPath) async {
     DebugConfig.db('_atomicRestore: starting');
     final dbDir = await getApplicationDocumentsDirectory();
-    final livePath = p.join(dbDir.path, _dbFileName);
+    final livePath = p.join(dbDir.path, dbFileName);
     final tempSwapPath = p.join(dbDir.path, '_restore_swap.isar');
     final safetyPath = p.join(dbDir.path, '_pre_restore_backup.isar');
 
@@ -440,6 +522,112 @@ class BackupService {
           DebugConfig.db('_atomicRestore: tempSwap cleanup done');
         } catch (_) {}
       }
+    }
+  }
+
+  /// Atomic restore από .zip (βάση + attachments, με safety και για τα δύο).
+  Future<void> _atomicRestoreZip(String backupPath) async {
+    DebugConfig.db('_atomicRestoreZip: starting');
+    final dbDir = await getApplicationDocumentsDirectory();
+    final livePath = p.join(dbDir.path, dbFileName);
+    final safetyPath = p.join(dbDir.path, '_pre_restore_backup.isar');
+    final attLive =
+        Directory(p.join(dbDir.path, AttachmentService.attachmentsDirName));
+    final attSafety =
+        Directory(p.join(dbDir.path, '_pre_restore_attachments'));
+    final tempRoot = await getTemporaryDirectory();
+    final extractDir = await Directory(p.join(tempRoot.path,
+            '_restore_zip_${DateTime.now().millisecondsSinceEpoch}'))
+        .create(recursive: true);
+    try {
+      final entries =
+          await BackupArchive.extractBackupZip(backupPath, extractDir.path);
+      if (!entries.contains(BackupArchive.dbEntryName)) {
+        throw Exception('Το zip δεν περιέχει βάση δεδομένων');
+      }
+      final dbSrc = File(p.join(extractDir.path, BackupArchive.dbEntryName));
+
+      // Safety copies πριν αγγίξουμε live.
+      if (await File(livePath).exists()) {
+        await File(livePath).copy(safetyPath);
+      }
+      var attSafetyTaken = false;
+      if (await attLive.exists()) {
+        if (await attSafety.exists()) {
+          await attSafety.delete(recursive: true);
+        }
+        await attLive.rename(attSafety.path);
+        attSafetyTaken = true;
+      }
+
+      DebugConfig.db('_atomicRestoreZip: closing Isar');
+      await SuperNoteHelper.instance.close();
+
+      try {
+        await dbSrc.copy(livePath);
+        await attLive.create(recursive: true);
+        final srcAttDir = Directory(
+            p.join(extractDir.path, BackupArchive.attachmentsPrefix));
+        var moved = 0;
+        if (await srcAttDir.exists()) {
+          await for (final e in srcAttDir.list()) {
+            if (e is File) {
+              await e.rename(p.join(attLive.path, p.basename(e.path)));
+              moved++;
+            }
+          }
+        }
+        await SuperNoteHelper.init();
+        // Rebase absolute paths στο νέο attachments dir.
+        final atts = await SuperNoteHelper.instance.attachments.getAll();
+        var rebased = 0;
+        await SuperNoteHelper.instance.isar.writeTxn(() async {
+          for (final a in atts) {
+            final np = BackupArchive.rebasePath(a.localPath, attLive.path);
+            if (np != null && np != a.localPath) {
+              a.localPath = np;
+              rebased++;
+            }
+          }
+          await SuperNoteHelper.instance.isar.attachments.putAll(atts);
+        });
+        DebugConfig.db(
+            '_atomicRestoreZip: re-init OK moved=$moved rebased=$rebased');
+        try {
+          await File(safetyPath).delete();
+        } catch (_) {}
+        if (attSafetyTaken) {
+          try {
+            await attSafety.delete(recursive: true);
+          } catch (_) {}
+        }
+      } catch (e) {
+        DebugConfig.db('_atomicRestoreZip: FAILED, rolling back');
+        try {
+          if (await File(safetyPath).exists()) {
+            await File(safetyPath).copy(livePath);
+          }
+          if (await attLive.exists()) {
+            await attLive.delete(recursive: true);
+          }
+          if (attSafetyTaken && await attSafety.exists()) {
+            await attSafety.rename(attLive.path);
+          }
+          await SuperNoteHelper.init();
+          DebugConfig.db('_atomicRestoreZip: rollback SUCCESS');
+        } catch (rollbackError) {
+          DebugConfig.error(
+              'BackupService._atomicRestoreZip rollback FAILED',
+              rollbackError);
+        }
+        rethrow;
+      }
+    } finally {
+      try {
+        if (await extractDir.exists()) {
+          await extractDir.delete(recursive: true);
+        }
+      } catch (_) {}
     }
   }
 }
