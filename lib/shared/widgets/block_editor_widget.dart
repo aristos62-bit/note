@@ -4,6 +4,7 @@ import '../../core/core.dart';
 import '../../models/item_block.dart';
 import '../../providers/providers.dart';
 import 'content_field_widget.dart';
+import 'link_text.dart';
 
 /// Full block editor for rich content (notes).
 ///
@@ -173,9 +174,12 @@ class _BlockTileWidgetState extends State<BlockTileWidget> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs / 2),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // ── Prefix ──
           if (isChecklist)
             GestureDetector(
@@ -273,6 +277,10 @@ class _BlockTileWidgetState extends State<BlockTileWidget> {
               ),
             ),
           ),
+            ],
+          ),
+          // Πατήσιμα links του block (μόνο αν το κείμενο περιέχει URLs).
+          LinkList(text: widget.block.text ?? ''),
         ],
       ),
     );
