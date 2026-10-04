@@ -9,13 +9,20 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/core.dart';
 
 /// Βγάζει τα http(s) URLs από ελεύθερο κείμενο (χωρίς διπλότυπα).
+/// Οι παρενθέσεις επιτρέπονται μέσα στο URL (π.χ. Wikipedia) —
+/// κόβεται μόνο η μη-ισορροπημένη τελική (π.χ. "(δες https://x.gr/a)").
 List<String> extractUrls(String text) {
   final found = <String>[];
-  final re = RegExp(r'https?://[^\s<>"\]\)]+');
+  final re = RegExp(r'https?://[^\s<>"\]]+');
   for (final m in re.allMatches(text)) {
     var url = m.group(0)!;
     // Κόψε τελικά σημεία στίξης (πρόταση "...δες https://x.gr.").
-    while (url.isNotEmpty && '.,;:!?)'.contains(url[url.length - 1])) {
+    while (url.isNotEmpty && '.,;:!?'.contains(url[url.length - 1])) {
+      url = url.substring(0, url.length - 1);
+    }
+    // Κόψε τελικές ')' που δεν κλείνουν κάποια '(' του URL.
+    int count(String s, String c) => s.split(c).length - 1;
+    while (url.endsWith(')') && count(url, '(') < count(url, ')')) {
       url = url.substring(0, url.length - 1);
     }
     if (url.isNotEmpty && !found.contains(url)) found.add(url);

@@ -26,5 +26,15 @@ void main() {
     test('url σε παρένθεση', () {
       expect(extractUrls('(δες https://x.gr/a)'), ['https://x.gr/a']);
     });
+
+    test('παρενθέσεις μέσα στο URL (Wikipedia)', () {
+      expect(extractUrls('δες https://en.wikipedia.org/wiki/Flutter_(software) end'),
+          ['https://en.wikipedia.org/wiki/Flutter_(software)']);
+    });
+
+    test('κλείνει η εξωτερική παρένθεση, κρατά την εσωτερική', () {
+      expect(extractUrls('(δες https://x.gr/a_(b))'),
+          ['https://x.gr/a_(b)']);
+    });
   });
 }
