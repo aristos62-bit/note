@@ -599,13 +599,12 @@ class HabitService {
   }
 
   /// Συγχρονίζει τον προγραμματισμό με το recurrence (καλείται από UI).
-  /// Daily/weekly/monthly με ώρες → αναγέννηση 60d· οτιδήποτε άλλο
-  /// (συμπ. yearly) → καθαρισμός.
+  /// Daily με ώρες → αναγέννηση 60d· οτιδήποτε άλλο → καθαρισμός.
   Future<void> syncScheduleWithRecurrence(int habitId) async {
     try {
       final allProps = await _getAllProps(habitId);
       final recurrence = Recurrence.fromProperties(allProps);
-      if (recurrence.type != RecurrenceType.yearly &&
+      if (recurrence.type == RecurrenceType.daily &&
           recurrence.times != null &&
           recurrence.times!.isNotEmpty) {
         final times = <TimeOfDay>[];

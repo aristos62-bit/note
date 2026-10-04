@@ -3,7 +3,6 @@
 // Unit tests για τα pure helpers του habit top-up (χωρίς DB).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:super_note/models/models.dart';
 import 'package:super_note/services/habit_service.dart';
 
 void main() {
@@ -46,50 +45,6 @@ void main() {
       expect(HabitService.parseHabitTime('08:60'), isNull);
       expect(HabitService.parseHabitTime('08'), isNull);
       expect(HabitService.parseHabitTime('aa:bb'), isNull);
-    });
-  });
-
-  group('weekly/monthly times', () {
-    test('factories δέχονται times', () {
-      final w = Recurrence.weekly(days: const [1, 3], times: const ['08:00']);
-      expect(w.times, ['08:00']);
-      final m = Recurrence.monthly(days: const [5], times: const ['10:00']);
-      expect(m.times, ['10:00']);
-    });
-
-    test('fromProperties διαβάζει times για weekly/monthly', () {
-      final w = Recurrence.fromProperties({
-        'recurrence_type': 'weekly',
-        'recurrence_days': '[1,3]',
-        'recurrence_times': '["08:00"]',
-      });
-      expect(w.times, ['08:00']);
-      final m = Recurrence.fromProperties({
-        'recurrence_type': 'monthly',
-        'recurrence_days': '[5]',
-        'recurrence_times': '["10:00"]',
-      });
-      expect(m.times, ['10:00']);
-    });
-
-    test('fromProperties αγνοεί times για yearly', () {
-      final y = Recurrence.fromProperties({
-        'recurrence_type': 'yearly',
-        'recurrence_days': '[5,29]',
-        'recurrence_times': '["08:00"]',
-      });
-      expect(y.times, isNull);
-    });
-
-    test('describe δείχνει ώρες', () {
-      expect(
-          Recurrence.weekly(days: const [1, 3], times: const ['08:00'])
-              .describe(),
-          contains('08:00'));
-      expect(
-          Recurrence.monthly(days: const [5], times: const ['10:00'])
-              .describe(),
-          contains('10:00'));
     });
   });
 }

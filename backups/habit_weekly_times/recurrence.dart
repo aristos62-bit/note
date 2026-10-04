@@ -13,8 +13,7 @@ class Recurrence {
   ///   yearly:  [month (1-12), day (1-31)]  ← ΝΕΟ
   final List<int>? days;
 
-  /// Ώρες ειδοποίησης (daily/weekly/monthly): ["08:00", "11:00", "16:00"]
-  /// Η πρόοδος/στόχος παραμένουν ημέρας-περιόδου — οι ώρες χτυπούν μόνο ειδοποιήσεις.
+  /// Μόνο για daily: λίστα ωρών ["08:00", "11:00", "16:00", "20:00"]
   final List<String>? times;
 
   const Recurrence({
@@ -34,11 +33,11 @@ class Recurrence {
   factory Recurrence.daily({List<String>? times}) =>
       Recurrence(type: RecurrenceType.daily, times: times);
 
-  factory Recurrence.weekly({List<int>? days, List<String>? times}) =>
-      Recurrence(type: RecurrenceType.weekly, days: days, times: times);
+  factory Recurrence.weekly({List<int>? days}) =>
+      Recurrence(type: RecurrenceType.weekly, days: days);
 
-  factory Recurrence.monthly({List<int>? days, List<String>? times}) =>
-      Recurrence(type: RecurrenceType.monthly, days: days, times: times);
+  factory Recurrence.monthly({List<int>? days}) =>
+      Recurrence(type: RecurrenceType.monthly, days: days);
 
   /// Ετήσια επανάληψη: days = [month, day]
   factory Recurrence.yearly({required int month, required int day}) =>
@@ -110,9 +109,7 @@ class Recurrence {
       }
     }
 
-    // Ώρες: daily/custom (από παλιά) + weekly/monthly (ώρες ειδοποίησης).
-    // Yearly εξαιρείται ρητά — ώρες σε ετήσια δεν έχουν νόημα.
-    if (type != RecurrenceType.yearly) {
+    if (type == RecurrenceType.daily || type == RecurrenceType.custom) {
       final timesStr = props['recurrence_times'];
       if (timesStr != null && timesStr.isNotEmpty) {
         try {
@@ -378,25 +375,17 @@ class Recurrence {
         }
         const dayNames = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
         final daysStr = days!.map((d) => dayNames[d - 1]).join(', ');
-        final base = interval == 1
+        return interval == 1
             ? 'Κάθε εβδομάδα ($daysStr)'
             : 'Κάθε $interval εβδομάδες ($daysStr)';
-        if (times != null && times!.isNotEmpty) {
-          return '$base • ${times!.join(', ')}';
-        }
-        return base;
 
       case RecurrenceType.monthly:
         if (days != null && days!.isNotEmpty) {
           final sorted = [...days!]..sort();
           final daysStr = sorted.map((d) => '$dη').join(', ');
-          final base = interval == 1
+          return interval == 1
               ? 'Κάθε μήνα ($daysStr)'
               : 'Κάθε $interval μήνες ($daysStr)';
-          if (times != null && times!.isNotEmpty) {
-            return '$base • ${times!.join(', ')}';
-          }
-          return base;
         }
         return interval == 1 ? 'Κάθε μήνα' : 'Κάθε $interval μήνες';
 
