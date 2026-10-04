@@ -321,3 +321,29 @@
 **Backups:** `backups/fix_sound_channel/`
 
 **Επόμενο session:** λήψη shared content από άλλες εφαρμογές (Android share intent → SuperNote).
+
+## Session 59 — 04/10/2026 (λήψη shared content → Σημείωση/Συμβάν)
+
+**Υλοποίηση τελικής πρότασης v8 (αναστολή κανόνων 2+4):**
+
+**Νέα:**
+- `receive_sharing_intent: ^1.9.0` (pubspec + lock)
+- `lib/services/shared_intent_service.dart` (~330γρ.): singleton, `getInitialMedia` + `getMediaStream` + `reset()`, stream `incoming`, dedup 2s, `combineText/buildTitle/isFileType` (static testable), `saveAsNote` (text block + attachments + 📎 γραμμές, όριο `maxAttachmentSizeMB`, File.copy) + `saveAsEvent` (`start_time/end_time+1h/all_day=false/notes`, navigation `/calendar/:id`). Μηδέν Reminder rows — οι ειδοποιήσεις μόνο από καμπάνα
+- `lib/shared/widgets/shared_intent_sheet.dart` (~230γρ.): `SharedIntentListener` (mount στο App Stack, ουρά μέχρι unlock, drain στο `appLockStateProvider`) + sheet (`ItemTypePicker[note,event]` reuse, απόσπασμα 200, `showReminderPicker` reuse για ημερομηνία, save + `go(AppRoutes.note/event)`)
+- `test/shared_intent_mapper_test.dart`: 8 tests (combine/title/truncate/fallback/file-type/dedup)
+
+**Edits:**
+- `AndroidManifest.xml`: 7 intent-filters `SEND`/`SEND_MULTIPLE` (text/image/video/`*/*`), `singleTop` κρατιέται
+- `main.dart`: import widgets barrel, `SharedIntentService.init()` postFrame, `SharedIntentListener` στο Stack, `dispose()` σε detached
+- `event_detail_screen.dart`: +πεδίο «Σημειώσεις» (`ContentFieldWidget` 800ms, pattern TaskDetail) — αλλιώς το shared κείμενο θα ήταν αόρατο
+- `services.dart`/`widgets.dart`: barrel exports
+
+**Reuse (τίποτα νέο χωρίς λόγο):** `ItemTypePicker`, `showReminderPicker`, `ContentFieldWidget`, `ItemNotifier.create`, `BlockRepository.create`, `PropertyNotifier.setDate/setText`, `AttachmentService.saveFile`, `AppStringUtils`, `AppDateUtils`, `ConfirmDialog`-λογική, `preferredFolderId`→`Γενικά`. Απορρίφθηκαν τεκμηριωμένα: auto-tag (tag-search λείπει από SearchService), `AttachmentNotifier.add` (μόνο DB), avatar-όριο 2MB.
+
+**Γνωστό follow-up:** backup αντιγράφει μόνο `.isar`, όχι `attachments/` — οι κοινόχρηστες εικόνες χάνονται σε restore (προϋπάρχον, Φάση Β).
+
+**Επαλήθευση:** `flutter test` → 14/14 (8 νέα + 6 weekly)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/share_intent/` (8 αρχεία)
+
+**Fix (ίδια μέρα, device test):** cold share άνοιγε το app αλλά το sheet έσκαγε (`SharedIntent sheet` ERR) — ο listener ήταν sibling του Navigator (Stack του `MaterialApp`), οπότε το `showModalBottomSheet` δεν έβρισκε Navigator. Μεταφορά `SharedIntentListener` στο `_AppShell` Stack (context κάτω από Navigator). `analyze` clean, tests 8/8.

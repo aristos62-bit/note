@@ -345,3 +345,5 @@
 **Επαλήθευση:** `flutter test` → 14/14 (8 νέα + 6 weekly)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/share_intent/` (8 αρχεία)
+
+**Fix (ίδια μέρα, device test):** cold share άνοιγε το app αλλά το sheet έσκαγε (`SharedIntent sheet` ERR) — ο listener ήταν sibling του Navigator (Stack του `MaterialApp`), οπότε το `showModalBottomSheet` δεν έβρισκε Navigator. Μεταφορά `SharedIntentListener` στο `_AppShell` Stack (context κάτω από Navigator). `analyze` clean, tests 8/8.
