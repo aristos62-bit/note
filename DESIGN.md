@@ -53,3 +53,6 @@
 - Κανόνας: habits έχουν δικό τους scheduling (ώρες `reminder_time(s)` → one-shots 60d) — η καμπάνα (generic `ReminderSection`) απενεργοποιήθηκε σε detail+list· `refreshRecurringReminders` εξακολουθεί να σκιπάρει habits.
 - `HabitService`: `generatedTitle` (διαχωρισμός από bell τίτλο `'Υπενθύμιση'`)· `syncScheduleWithRecurrence` (UI wiring)· προσθετικό `topUpHabitReminders` (10min guard, opt-in μόνο, postFrame πριν `scheduleAll` + resume)· idempotent `repairLegacyHabitRows` (προ-51 ψευδο-roots → sync)· επιλεκτικό wipe (μόνο habit τίτλος, bell rows grandfather + reschedule).
 - Tests: `test/habit_topup_test.dart` (pure `planTopUp`/`parseHabitTime`).
+
+## Αλλαγές Session 62 (habit ώρες σε weekly/monthly)
+- `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· `fromProperties`/`describe` καλύπτουν weekly/monthly (yearly εκτός)· UI: time picker μετά τα days (prefill δωρεάν)· `sync` για `type != yearly`· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις).

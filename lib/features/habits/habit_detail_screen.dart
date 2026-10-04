@@ -1356,13 +1356,30 @@ class _HabitSettings extends ConsumerWidget {
       case 'Εβδομαδιαία':
         final days = await _showWeekdayPicker(context, currentRecurrence);
         if (days == null || days.isEmpty) return;
-        newRecurrence = Recurrence.weekly(days: days);
+        if (!context.mounted) return;
+        // Ώρες ειδοποίησης (κοινές για όλες τις μέρες, null = χωρίς ώρες).
+        final weekTimes = await _showTimePicker(
+          context,
+          currentRecurrence,
+          subtitle: 'Οι ειδοποιήσεις θα χτυπούν αυτές τις ώρες.',
+        );
+        if (!context.mounted) return;
+        newRecurrence = Recurrence.weekly(days: days, times: weekTimes);
         break;
 
       case 'Μηνιαία':
-        final days = await _showMonthDayPicker(context, currentRecurrence);
-        if (days == null || days.isEmpty) return;
-        newRecurrence = Recurrence.monthly(days: days);
+        final monthDays =
+            await _showMonthDayPicker(context, currentRecurrence);
+        if (monthDays == null || monthDays.isEmpty) return;
+        if (!context.mounted) return;
+        final monthTimes = await _showTimePicker(
+          context,
+          currentRecurrence,
+          subtitle: 'Οι ειδοποιήσεις θα χτυπούν αυτές τις ώρες.',
+        );
+        if (!context.mounted) return;
+        newRecurrence =
+            Recurrence.monthly(days: monthDays, times: monthTimes);
         break;
 
       case 'Καμία':
@@ -1405,10 +1422,13 @@ class _HabitSettings extends ConsumerWidget {
     ref.invalidate(habitStatsProvider(habitId));
   }
 
-  // ── Time Picker (για daily) ──────────────────────────────────
+  // ── Time Picker (για daily/weekly/monthly) ───────────────────
 
   Future<List<String>?> _showTimePicker(
-      BuildContext context, Recurrence current) async {
+    BuildContext context,
+    Recurrence current, {
+    String? subtitle,
+  }) async {
     final savedTimes = List<String>.from(current.times ?? []);
 
     return showModalBottomSheet<List<String>>(
@@ -1421,7 +1441,8 @@ class _HabitSettings extends ConsumerWidget {
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
-      builder: (ctx) => _TimePickerSheet(initialTimes: savedTimes),
+      builder: (ctx) =>
+          _TimePickerSheet(initialTimes: savedTimes, subtitle: subtitle),
     );
   }
 
@@ -1598,7 +1619,12 @@ class _HabitSettings extends ConsumerWidget {
 
 class _TimePickerSheet extends StatefulWidget {
   final List<String> initialTimes;
-  const _TimePickerSheet({required this.initialTimes});
+
+  /// null = default κείμενο στόχου (daily) — για weekly/monthly περνάμε
+  /// κείμενο ειδοποιήσεων (οι ώρες δεν οδηγούν στόχο εκεί).
+  final String? subtitle;
+
+  const _TimePickerSheet({required this.initialTimes, this.subtitle});
 
   @override
   State<_TimePickerSheet> createState() => _TimePickerSheetState();
@@ -1657,7 +1683,8 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
           ),
           const SizedBox(height: Spacing.xs),
           Text(
-            'Ο στόχος επιτυγχάνεται όταν ολοκληρωθούν ΟΛΕΣ οι ώρες.',
+            widget.subtitle ??
+                'Ο στόχος επιτυγχάνεται όταν ολοκληρωθούν ΟΛΕΣ οι ώρες.',
             style: context.bodySm.withColor(context.cText2),
           ),
           const SizedBox(height: Spacing.md),

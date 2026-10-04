@@ -382,3 +382,17 @@
 **Επαλήθευση:** `flutter test` → 30/30 (6 νέα)· `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 2 `prefer_const_constructors` info).
 
 **Backups:** `backups/habit_topup/` (6 αρχεία)
+
+## Session 62 — 04/10/2026 (ώρες ειδοποίησης σε weekly/monthly)
+
+**Πρόβλημα:** βδομαδιαία = μόνο μέρες, μηνιαία = μόνο ημερομηνίες — ώρα πουθενά → ποτέ ειδοποίηση.
+
+**Fix (~20γρ.):**
+- `recurrence.dart`: factories `weekly`/`monthly` += `times?`· `fromProperties` διαβάζει `recurrence_times` για weekly/monthly (όχι yearly)· `describe()` δείχνει ώρες· σχόλια ενημερωμένα
+- `habit_detail_screen.dart`: μετά days picker → υπάρχον `_showTimePicker` (prefill δωρεάν από `current.times`) → `weekly/monthly(days:, times:)` (null = days-only)· `_TimePickerSheet` += προαιρετικό `subtitle` (weekly/monthly: «οι ειδοποιήσεις θα χτυπούν…», daily κρατά στόχου)· mounted guards μετά τα pickers (2 `use_build_context_synchronously` info διορθώθηκαν)
+- `habit_service.dart`: `syncScheduleWithRecurrence` → `times μη-κενά ΚΑΙ type != yearly`
+- Πρόοδος/στόχοι/streak σκόπιμα ανέγγιχτα (ώρες = μόνο ειδοποιήσεις)
+
+**Επαλήθευση:** `flutter test` → 34/34 (4 νέα)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/habit_weekly_times/` (6 αρχεία)
