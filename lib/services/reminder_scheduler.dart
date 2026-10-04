@@ -172,11 +172,14 @@ class ReminderScheduler {
         }
 
         if (futureChildren.isNotEmpty) {
-          // ✅ Έλεγχος αν τα παιδιά έχουν σωστή ώρα (ίδια με το root trigger)
+          // ✅ Έλεγχος αν τα παιδιά έχουν σωστή ώρα (ίδια με το root trigger).
+          // Εξαιρούνται τα snoozed (snoozeUntil != null) — η μετατοπισμένη
+          // ώρα τους είναι σκόπιμη και δεν πρέπει να διαγράφονται.
           final wrongTimeChildren = futureChildren
               .where((child) =>
-          child.triggerAt.hour != root.triggerAt.hour ||
-              child.triggerAt.minute != root.triggerAt.minute)
+                  child.snoozeUntil == null &&
+                  (child.triggerAt.hour != root.triggerAt.hour ||
+                      child.triggerAt.minute != root.triggerAt.minute))
               .toList();
 
           // Υπάρχουν παιδιά με λάθος ώρα → διέγραψε τα

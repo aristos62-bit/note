@@ -533,6 +533,7 @@ class HabitService {
     final end = now.add(const Duration(days: 60));
     final item = await SuperNoteHelper.instance.items.getById(habitId);
     final title = item?.title ?? 'Συνήθεια';
+    DebugConfig.notif('HabitService._scheduleReminders: habitId=$habitId times=${times.length} recurrence=${recurrenceToRRULE(recurrence)} → one-shot occurrences');
 
     for (final time in times) {
       DateTime current = now;
@@ -545,7 +546,9 @@ class HabitService {
           final reminder = await SuperNoteHelper.instance.reminders.create(
             itemId: habitId,
             triggerAt: nextOcc,
-            rrule: recurrenceToRRULE(recurrence),
+            // One-shot: η recurrence ζει στα props· με rrule το scheduleAll()
+            // θα το έκοβε μετά από restart και το cleanup δεν θα το μάζευε.
+            rrule: null,
             title: 'Υπενθύμιση συνήθειας',
             body: 'Υπενθύμιση: $title',
           );
