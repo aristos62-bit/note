@@ -45,38 +45,6 @@ final _focusedMonthProvider = StateProvider<DateTime>((ref) {
   return DateTime(now.year, now.month);
 });
 
-/// Κρατάει την επιλεγμένη μέρα μέσα στον ορατό μήνα.
-/// Clamp (όχι rollover — η Dart κυλάει 31 Φεβ → 3 Μαρ).
-DateTime _clampDay(DateTime day, DateTime month) {
-  final max = DateUtils.getDaysInMonth(month.year, month.month);
-  return DateTime(month.year, month.month, day.day > max ? max : day.day);
-}
-
-// ── Επικεφαλίδα ημέρας πάνω από τη λίστα ────────────────────────
-
-class _DayHeader extends StatelessWidget {
-  final DateTime day;
-  const _DayHeader({required this.day});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(Spacing.sm, Spacing.xs, Spacing.sm, 0),
-      child: Row(
-        children: [
-          Icon(Icons.event_rounded, size: 16, color: context.cText2),
-          const SizedBox(width: Spacing.xs),
-          Text(
-            AppDateUtils.groupHeader(day),
-            style: context.labelMd.withColor(context.cText2),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
 
@@ -97,11 +65,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
-
-    // Day-scope: ids των events της επιλεγμένης μέρας (0 νέα queries).
-    final dayMap = monthAsync.valueOrNull ?? {};
-    final dayIds = dayMap[selectedDay]?.map((e) => e.id).toSet();
-    final dayLoading = monthAsync.isLoading;
 
     tryAutoSelectFolder(
       foldersAsync: foldersAsync,
@@ -125,11 +88,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           Expanded(
             child: ResponsiveLayout(
               mobile: _buildMobile(
-                  context, ref, focusedMonth, selectedDay, monthAsync,
-                  dayIds: dayIds, dayLoading: dayLoading),
+                  context, ref, focusedMonth, selectedDay, monthAsync),
               tablet: _buildTablet(
-                  context, ref, focusedMonth, selectedDay, monthAsync,
-                  dayIds: dayIds, dayLoading: dayLoading),
+                  context, ref, focusedMonth, selectedDay, monthAsync),
             ),
           ),
         ],
@@ -172,12 +133,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           icon: const Icon(Icons.chevron_left_rounded),
           onPressed: () {
             final cur = ref.read(_focusedMonthProvider);
-            final next = DateTime(cur.year, cur.month - 1);
-            ref.read(_focusedMonthProvider.notifier).state = next;
-            final synced =
-                _clampDay(ref.read(_selectedDayProvider), next);
-            ref.read(_selectedDayProvider.notifier).state = synced;
-            DebugConfig.nav('Calendar month ${next.month}/${next.year} day synced $synced');
+            ref.read(_focusedMonthProvider.notifier).state =
+                DateTime(cur.year, cur.month - 1);
           },
         ),
         TextButton(
@@ -194,12 +151,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           icon: const Icon(Icons.chevron_right_rounded),
           onPressed: () {
             final cur = ref.read(_focusedMonthProvider);
-            final next = DateTime(cur.year, cur.month + 1);
-            ref.read(_focusedMonthProvider.notifier).state = next;
-            final synced =
-                _clampDay(ref.read(_selectedDayProvider), next);
-            ref.read(_selectedDayProvider.notifier).state = synced;
-            DebugConfig.nav('Calendar month ${next.month}/${next.year} day synced $synced');
+            ref.read(_focusedMonthProvider.notifier).state =
+                DateTime(cur.year, cur.month + 1);
           },
         ),
       ],
@@ -248,10 +201,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     WidgetRef ref,
     DateTime focusedMonth,
     DateTime selectedDay,
-    AsyncValue<Map<DateTime, List<Item>>> monthAsync, {
-    Set<int>? dayIds,
-    bool dayLoading = false,
-  }) {
+    AsyncValue<Map<DateTime, List<Item>>> monthAsync,
+  ) {
     return Column(
       children: [
         _MonthGrid(
@@ -259,13 +210,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           selectedDay: selectedDay,
           // ✅ Περνάμε ολόκληρο το map (items με icon info)
           dayEvents: monthAsync.valueOrNull ?? {},
-          onDayTap: (day) {
-            DebugConfig.nav('Calendar day selected $day');
-            ref.read(_selectedDayProvider.notifier).state = day;
-          },
+          onDayTap: (day) =>
+              ref.read(_selectedDayProvider.notifier).state = day,
         ),
         const Divider(height: 1),
-        _DayHeader(day: selectedDay),
         _buildArchivedToggle(ref),
         Flexible(
           fit: FlexFit.tight,
@@ -274,8 +222,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
             itemType: ItemType.event,
             folderId: ref.watch(selectedFolderIdProvider),
             showFolderSelector: false,
-            onlyIds: dayIds,
-            dayLoading: dayLoading,
             onItemTap: (item) => Navigator.of(context).push(
               AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
             ),
@@ -291,10 +237,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     WidgetRef ref,
     DateTime focusedMonth,
     DateTime selectedDay,
-    AsyncValue<Map<DateTime, List<Item>>> monthAsync, {
-    Set<int>? dayIds,
-    bool dayLoading = false,
-  }) {
+    AsyncValue<Map<DateTime, List<Item>>> monthAsync,
+  ) {
     return Row(
       children: [
         SizedBox(
@@ -305,10 +249,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                 focusedMonth: focusedMonth,
                 selectedDay: selectedDay,
                 dayEvents: monthAsync.valueOrNull ?? {},
-                onDayTap: (day) {
-                  DebugConfig.nav('Calendar day selected $day');
-                  ref.read(_selectedDayProvider.notifier).state = day;
-                },
+                onDayTap: (day) =>
+                    ref.read(_selectedDayProvider.notifier).state = day,
               ),
               const Divider(height: 1),
             ],
@@ -319,7 +261,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           fit: FlexFit.tight,
           child: Column(
             children: [
-              _DayHeader(day: selectedDay),
               _buildArchivedToggle(ref),
               Flexible(
                 fit: FlexFit.tight,
@@ -328,8 +269,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                   itemType: ItemType.event,
                   folderId: ref.watch(selectedFolderIdProvider),
                   showFolderSelector: false,
-                  onlyIds: dayIds,
-                  dayLoading: dayLoading,
                   onItemTap: (item) => Navigator.of(context).push(
                     AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
                   ),
