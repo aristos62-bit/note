@@ -1063,9 +1063,10 @@ class ReminderRepository {
 
   Future<List<Reminder>> getPending() {
     final now = DateTime.now();
-    // ✅ 30 ημέρες: καλύπτει batchSize=5 weekly (έως ~2.5 εβδομάδες)
-    // και εξασφαλίζει ότι το scheduleAll() βλέπει όλα τα παιδιά
-    final end = now.add(const Duration(days: 30));
+    // ✅ 370 ημέρες: καλύπτει batchSize=5 monthly (~5-6 μήνες) + 1ο έτος
+    // yearly· το scheduleAll() ξαναβάζει και τα distant children που το
+    // cancelAll θα έσβηνε (iOS limit 64 → όχι μεγαλύτερο παράθυρο).
+    final end = now.add(const Duration(days: 370));
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
@@ -1076,8 +1077,8 @@ class ReminderRepository {
 
   Stream<List<Reminder>> watchPending() {
     final now = DateTime.now();
-    // ✅ 30 ημέρες: ίδιο παράθυρο με getPending()
-    final end = now.add(const Duration(days: 30));
+    // ✅ 370 ημέρες: ίδιο παράθυρο με getPending()
+    final end = now.add(const Duration(days: 370));
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
