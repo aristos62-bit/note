@@ -642,6 +642,7 @@ class HabitService {
       final end = now.add(const Duration(days: horizonDays));
       var created = 0;
       var habits = 0;
+      var scanned = 0;
 
       final workspaces = await helper.workspaces.getAll();
       for (final ws in workspaces) {
@@ -680,6 +681,7 @@ class HabitService {
           }
           final missing = planTopUp(futureTriggers,
               _computeOccurrences(recurrence, times, now, end));
+          scanned++;
           if (missing.isEmpty) continue;
           habits++;
           final title = habit.title ?? 'Συνήθεια';
@@ -697,7 +699,7 @@ class HabitService {
         }
       }
       DebugConfig.notif(
-          'HabitService.topUp: done habits=$habits created=$created');
+          'HabitService.topUp: done scanned=$scanned needTopUp=$habits created=$created');
     } catch (e, stack) {
       DebugConfig.error('topUpHabitReminders', e, stack);
     }
