@@ -347,3 +347,5 @@
 **Backups:** `backups/share_intent/` (8 αρχεία)
 
 **Fix (ίδια μέρα, device test):** cold share άνοιγε το app αλλά το sheet έσκαγε (`SharedIntent sheet` ERR) — ο listener ήταν sibling του Navigator (Stack του `MaterialApp`), οπότε το `showModalBottomSheet` δεν έβρισκε Navigator. Μεταφορά `SharedIntentListener` στο `_AppShell` Stack (context κάτω από Navigator). `analyze` clean, tests 8/8.
+
+**Links (ίδια μέρα):** πατήσιμα URLs σε σώμα σημείωσης/event — νέο SPoT `link_text.dart` (`extractUrls` + `LinkLauncher.openUrl` via `url_launcher` + `LinkList`), χρήση σε `BlockTileWidget` + EventDetail notes. Tests 18/18 (5 νέα), `analyze` clean. Τα αρχεία 📎 μένουν Phase B (attachment viewer).
