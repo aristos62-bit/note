@@ -151,6 +151,35 @@ class SharedIntentService {
     return AppStringUtils.truncate(first, 80);
   }
 
+  /// Έξυπνος τίτλος κοινοποίησης:
+  /// - link-only → `🔗 host` (π.χ. `🔗 en.wikipedia.org`)
+  /// - file-only → όνομα 1ου αρχείου (+πλήθος)
+  /// - αλλιώς → 1η γραμμή κειμένου. Πάντα μη-κενός, offline.
+  static String shareTitle(
+      {required String text, required List<String> filePaths}) {
+    final t = text.trim();
+    if (t.isNotEmpty) {
+      final lines = t
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
+      if (lines.length == 1 && AppStringUtils.isUrl(lines.first)) {
+        final host = Uri.tryParse(lines.first)?.host ?? '';
+        if (host.isNotEmpty) {
+          return AppStringUtils.truncate('🔗 $host', 80);
+        }
+      }
+      return buildTitle(t);
+    }
+    if (filePaths.isNotEmpty) {
+      final first = AppStringUtils.truncate(
+          AppStringUtils.sanitizeFileName(p.basename(filePaths.first)), 60);
+      if (filePaths.length > 1) return '$first +${filePaths.length - 1}';
+      return first;
+    }
+    return buildTitle('');
+  }
   /// Dedup: ίδιο περιεχόμενο μέσα σε 2s (διπλό tap / διπλό intent).
   bool isDuplicate(List<SharedMediaFile> files) {
     final key = files.map((f) => '${f.type.value}:${f.path}').join('|');
@@ -234,9 +263,8 @@ class SharedIntentService {
             target: SharedTarget.note, error: 'Δεν βρέθηκε workspace');
       }
       final folderId = await _resolveFolder(helper, wsId);
-      final title = media.isNotEmpty && text.isEmpty
-          ? 'Κοινοποίηση ${media.length == 1 ? 'αρχείου' : '${media.length} αρχείων'} ${AppDateUtils.formatShort(DateTime.now())}'
-          : buildTitle(text);
+      final title =
+          shareTitle(text: text, filePaths: media.map((f) => f.path).toList());
 
       final settings = await helper.settings.get();
       final maxBytes = settings.maxAttachmentSizeMB <= 0
@@ -340,9 +368,8 @@ class SharedIntentService {
             target: SharedTarget.event, error: 'Δεν βρέθηκε workspace');
       }
       final folderId = await _resolveFolder(helper, wsId);
-      final title = media.isNotEmpty && text.isEmpty
-          ? 'Κοινοποίηση ${AppDateUtils.formatShort(DateTime.now())}'
-          : buildTitle(text);
+      final title =
+          shareTitle(text: text, filePaths: media.map((f) => f.path).toList());
 
       final settings = await helper.settings.get();
       final maxBytes = settings.maxAttachmentSizeMB <= 0
