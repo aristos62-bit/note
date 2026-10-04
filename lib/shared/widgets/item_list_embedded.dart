@@ -204,9 +204,15 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                   }
 
                   if (filtered.isEmpty) {
-                    return EmptyState.forType(
-                      widget.itemType,
-                      onAction: null,
+                    // Compact + scrollable: το panel κάτω από το grid
+                    // έχει λίγο ύψος (overflow σε μικρές οθόνες).
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: EmptyState.forType(
+                        widget.itemType,
+                        onAction: null,
+                        compact: true,
+                      ),
                     );
                   }
 

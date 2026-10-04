@@ -23,6 +23,13 @@ class ItemListEmbedded extends ConsumerStatefulWidget {
   final bool showFolderSelector;
   final void Function(Item)? onShare;
 
+  /// Προαιρετικό day-scope (ημερολόγιο): μόνο αυτά τα ids.
+  /// null = όλα (όπως πριν — οι άλλες οθόνες ανεπηρέαστες).
+  final Set<int>? onlyIds;
+
+  /// True όσο φορτώνει το day-map (δείχνει skeleton αντί για empty state).
+  final bool dayLoading;
+
   const ItemListEmbedded({
     super.key,
     required this.itemType,
@@ -30,6 +37,8 @@ class ItemListEmbedded extends ConsumerStatefulWidget {
     required this.onItemTap,
     this.showFolderSelector = true,
     this.onShare,
+    this.onlyIds,
+    this.dayLoading = false,
   });
 
   @override
@@ -128,7 +137,9 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
             ),
           const ViewModeToggle(),
           Expanded(
-            child: RefreshIndicator(
+            child: widget.dayLoading
+                ? _EmbeddedLoadingList()
+                : RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemsStreamProvider),
               child: itemsAsync.when(
                 loading: () => _EmbeddedLoadingList(),
@@ -144,6 +155,15 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                     items = items
                         .where((i) => i.folderId == widget.folderId)
                         .toList();
+                  }
+
+                  // Day-scope (ημερολόγιο): μόνο τα events της ημέρας.
+                  if (widget.onlyIds != null) {
+                    items = items
+                        .where((i) => widget.onlyIds!.contains(i.id))
+                        .toList();
+                    DebugConfig.db(
+                        'ItemListEmbedded day filter shown=${items.length}');
                   }
 
                   switch (viewMode) {
@@ -184,9 +204,15 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                   }
 
                   if (filtered.isEmpty) {
-                    return EmptyState.forType(
-                      widget.itemType,
-                      onAction: null,
+                    // Compact + scrollable: το panel κάτω από το grid
+                    // έχει λίγο ύψος (overflow σε μικρές οθόνες).
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: EmptyState.forType(
+                        widget.itemType,
+                        onAction: null,
+                        compact: true,
+                      ),
                     );
                   }
 
