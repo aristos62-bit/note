@@ -14,9 +14,6 @@ class AttachmentService {
   AttachmentService._internal();
   static final AttachmentService instance = AttachmentService._internal();
 
-  /// Υποφάκελος attachments μέσα στο app documents (κοινό const για backup).
-  static const String attachmentsDirName = 'attachments';
-
   Future<Attachment?> pickAndSave({
     required int itemId,
     int? blockId,
@@ -155,7 +152,7 @@ class AttachmentService {
   Future<Directory> _getAttachmentsDir() async {
     try {
       final docs = await getApplicationDocumentsDirectory();
-      final dir = Directory(p.join(docs.path, attachmentsDirName));
+      final dir = Directory(p.join(docs.path, 'attachments'));
       if (!await dir.exists()) await dir.create(recursive: true);
       return dir;
     } catch (e, stack) {

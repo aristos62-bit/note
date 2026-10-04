@@ -1393,11 +1393,6 @@ class AttachmentRepository {
         .findAll();
   }
 
-  /// Όλα τα attachments (για backup rebase — 1 call αντί για N).
-  Future<List<Attachment>> getAll() {
-    return _isar.attachments.where().sortByCreatedAt().findAll();
-  }
-
   Future<Attachment?> getById(int id) => _isar.attachments.get(id);
 
   Future<Attachment?> findDuplicate({
