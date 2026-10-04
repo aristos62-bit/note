@@ -251,7 +251,7 @@ class ReminderScheduler {
             ? nextOccurrences.last
             : todayAtTriggerTime;
         while (nextOccurrences.length < batchSize) {
-          final next = recurrence.nextOccurrence(current, anchor: root.triggerAt);
+          final next = recurrence.nextOccurrence(current);
           if (next == null) break;
           nextOccurrences.add(next);
           // current = next.add(const Duration(seconds: 1));
@@ -353,8 +353,7 @@ class ReminderScheduler {
         return diffDays >= 0 && diffDays % recurrence.interval == 0;
       case RecurrenceType.weekly:
         if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-          return Recurrence.isValidWeeklyDay(
-              now, recurrence.days!, recurrence.interval, root.triggerAt);
+          return recurrence.days!.contains(now.weekday);
         }
         final diff = DateTime(now.year, now.month, now.day)
             .difference(DateTime(
@@ -363,12 +362,7 @@ class ReminderScheduler {
         return diff >= 0 && diff % (7 * recurrence.interval) == 0;
       case RecurrenceType.monthly:
         if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-          if (!recurrence.days!.contains(now.day)) return false;
-          if (recurrence.interval <= 1) return true;
-          final totalMonths = now.year * 12 + now.month - 1;
-          final rootMonths = root.triggerAt.year * 12 + root.triggerAt.month - 1;
-          return totalMonths >= rootMonths &&
-              (totalMonths - rootMonths) % recurrence.interval == 0;
+          return recurrence.days!.contains(now.day);
         }
         final totalMonths = now.year * 12 + now.month - 1;
         final rootMonths = root.triggerAt.year * 12 + root.triggerAt.month - 1;
@@ -377,13 +371,7 @@ class ReminderScheduler {
             (totalMonths - rootMonths) % recurrence.interval == 0;
       case RecurrenceType.yearly:
         if (recurrence.days != null && recurrence.days!.length == 2) {
-          if (recurrence.days![0] != now.month ||
-              recurrence.days![1] != now.day) {
-            return false;
-          }
-          if (recurrence.interval <= 1) return true;
-          return now.year >= root.triggerAt.year &&
-              (now.year - root.triggerAt.year) % recurrence.interval == 0;
+          return recurrence.days![0] == now.month && recurrence.days![1] == now.day;
         }
         return now.month == root.triggerAt.month &&
             now.day == root.triggerAt.day &&

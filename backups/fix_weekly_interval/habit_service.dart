@@ -574,11 +574,8 @@ class HabitService {
     if (recurrence.type == RecurrenceType.weekly &&
         recurrence.days != null &&
         recurrence.days!.isNotEmpty) {
-      final cap = recurrence.interval > 1 ? 7 * recurrence.interval + 8 : 8;
       int safety = 0;
-      while (!Recurrence.isValidWeeklyDay(candidate, recurrence.days!,
-              recurrence.interval, Recurrence.epochMonday) &&
-          safety < cap) {
+      while (!recurrence.days!.contains(candidate.weekday) && safety < 8) {
         candidate = candidate.add(const Duration(days: 1));
         safety++;
       }

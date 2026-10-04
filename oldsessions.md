@@ -267,3 +267,15 @@
 **Επαλήθευση:** `analyze` → `No issues found!`· `flutter test` → μόνο το γνωστό stale counter failure (προϋπάρχον). Device τεστ: +5λ → κάδος → οριστική → σιγή.
 
 **Backups:** `backups/fix_permdelete/`
+
+## Session 54 — 04/10/2026 (weekly interval>1 + BYDAY)
+
+**Πρόβλημα:** `nextOccurrence` weekly σάρωνε μέρα-μέρα αγνοώντας `interval` (live από picker: «κάθε 2 εβδομάδες Δευτέρα» έβγαζε children κάθε εβδομάδα)· `_isTodayValidRecurrence` weekly/monthly/yearly με days-list αγνοούσε `interval` (ενώ χωρίς days το σεβόταν).
+
+**Fix (SPoT `Recurrence`, 0 νέα):** +`epochMonday/_mondayOf/_weeksSinceAnchor/isValidWeeklyDay`· `getPeriodStart:141` → `epochMonday`· `nextOccurrence(from,{anchor})` week-scan (`cap=7*interval+8`)· scheduler anchor `root.triggerAt` (όπως Session 46)· habit anchor `epochMonday` (όπως `getPeriodStart`)· `_isToday` weekly/monthly/yearly interval-checks + yearly guard. `interval==1` byte-identical παντού.
+
+**Επαλήθευση:** `flutter test test/recurrence_weekly_test.dart` → 6/6 passed· `analyze` → `No issues found!`. Device: weekly-2 Δευτέρα → children ανά 14 μέρες.
+
+**Backups:** `backups/fix_weekly_interval/` (+`test/recurrence_weekly_test.dart` νέο)
+
+**Follow-up (με Φ4):** habit monthly Feb-overflow, 60-day top-up, repair παλιών habit rows, dialog-hiding, snooze UI.
