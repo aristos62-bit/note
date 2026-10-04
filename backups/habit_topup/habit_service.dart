@@ -464,12 +464,7 @@ class HabitService {
       DebugConfig.db('🕒 Disabling reminders for habit $habitId');
       await props.delete(habitId, 'reminder_time');
       await props.delete(habitId, 'reminder_times');
-      await ReminderScheduler.instance.cancelAllForItem(habitId);
-      final reminders =
-      await SuperNoteHelper.instance.reminders.getForItem(habitId);
-      for (final r in reminders) {
-        await SuperNoteHelper.instance.reminders.delete(r.id);
-      }
+      await _clearHabitGenerated(habitId);
     } else {
       DebugConfig.db(
           '🕒 Setting reminder for habit $habitId at ${time.hour}:${time.minute}');
@@ -521,44 +516,250 @@ class HabitService {
     }
   }
 
-  Future<void> _scheduleReminders(
-      int habitId, List<TimeOfDay> times, Recurrence recurrence) async {
-    await ReminderScheduler.instance.cancelAllForItem(habitId);
-    final old = await SuperNoteHelper.instance.reminders.getForItem(habitId);
-    for (final r in old) {
-      await SuperNoteHelper.instance.reminders.delete(r.id);
+  // ──────────────────────────────────────────────────────────
+  // HABIT SCHEDULING — native ownership (βλ. DESIGN.md Session 61)
+  // Αγγίζονται ΜΟΝΟ habit-generated rows (title == generatedTitle)·
+  // τα generic bell rows (title 'Υπενθύμιση') δεν διαγράφονται ποτέ.
+  // ──────────────────────────────────────────────────────────
+
+  /// Τίτλος όλων των habit-generated one-shots (διαχωρισμός από bell rows).
+  static const String generatedTitle = 'Υπενθύμιση συνήθειας';
+
+  /// Ορίζοντας προ-δημιουργίας occurrences.
+  static const int horizonDays = 60;
+
+  static const int _maxPerTime = 40;
+
+  /// Pure: ποιες needed λείπουν από existing (για unit test).
+  static List<DateTime> planTopUp(
+      Set<DateTime> existing, List<DateTime> needed) {
+    return needed.where((d) => !existing.contains(d)).toList();
+  }
+
+  /// Pure: "HH:MM" → TimeOfDay (null αν άκυρο).
+  static TimeOfDay? parseHabitTime(String s) {
+    final parts = s.split(':');
+    if (parts.length != 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null || h < 0 || h > 23 || m < 0 || m > 59) {
+      return null;
     }
+    return TimeOfDay(hour: h, minute: m);
+  }
 
-    final now = DateTime.now();
-    final end = now.add(const Duration(days: 60));
-    final item = await SuperNoteHelper.instance.items.getById(habitId);
-    final title = item?.title ?? 'Συνήθεια';
-    DebugConfig.notif('HabitService._scheduleReminders: habitId=$habitId times=${times.length} recurrence=${recurrenceToRRULE(recurrence)} → one-shot occurrences');
-
+  /// Κοινός occurrence walker (ίδια σημασιολογία για schedule + top-up).
+  List<DateTime> _computeOccurrences(
+    Recurrence recurrence,
+    List<TimeOfDay> times,
+    DateTime from,
+    DateTime end,
+  ) {
+    final out = <DateTime>[];
     for (final time in times) {
-      DateTime current = now;
+      DateTime current = from;
       int count = 0;
-      const maxPerTime = 40;
-
-      while (current.isBefore(end) && count < maxPerTime) {
+      while (current.isBefore(end) && count < _maxPerTime) {
         final nextOcc = _nextOccurrenceForTime(recurrence, time, current);
-        if (nextOcc.isAfter(now) && nextOcc.isBefore(end)) {
-          final reminder = await SuperNoteHelper.instance.reminders.create(
-            itemId: habitId,
-            triggerAt: nextOcc,
-            // One-shot: η recurrence ζει στα props· με rrule το scheduleAll()
-            // θα το έκοβε μετά από restart και το cleanup δεν θα το μάζευε.
-            rrule: null,
-            title: 'Υπενθύμιση συνήθειας',
-            body: 'Υπενθύμιση: $title',
-          );
-          await ReminderScheduler.instance.scheduleReminder(reminder);
+        if (nextOcc.isAfter(from) && nextOcc.isBefore(end)) {
+          out.add(nextOcc);
           current = nextOcc.add(const Duration(days: 1));
           count++;
         } else {
           break;
         }
       }
+    }
+    return out;
+  }
+
+  /// Σβήνει ΜΟΝΟ habit-generated rows (OS cancel + DB) και
+  /// ξαναπρογραμματίζει τυχόν grandfathered bell rows (έμειναν χωρίς OS).
+  Future<void> _clearHabitGenerated(int habitId) async {
+    try {
+      await ReminderScheduler.instance.cancelAllForItem(habitId);
+      final old =
+          await SuperNoteHelper.instance.reminders.getForItem(habitId);
+      for (final r in old) {
+        if (r.title == generatedTitle) {
+          await SuperNoteHelper.instance.reminders.delete(r.id);
+        }
+      }
+      final rest =
+          await SuperNoteHelper.instance.reminders.getForItem(habitId);
+      final now = DateTime.now();
+      for (final r in rest) {
+        if (r.status == ReminderStatus.pending && r.triggerAt.isAfter(now)) {
+          await ReminderScheduler.instance.scheduleReminder(r);
+        }
+      }
+    } catch (e, stack) {
+      DebugConfig.error('_clearHabitGenerated', e, stack);
+    }
+  }
+
+  /// Συγχρονίζει τον προγραμματισμό με το recurrence (καλείται από UI).
+  /// Daily/weekly/monthly με ώρες → αναγέννηση 60d· οτιδήποτε άλλο
+  /// (συμπ. yearly) → καθαρισμός.
+  Future<void> syncScheduleWithRecurrence(int habitId) async {
+    try {
+      final allProps = await _getAllProps(habitId);
+      final recurrence = Recurrence.fromProperties(allProps);
+      if (recurrence.type != RecurrenceType.yearly &&
+          recurrence.times != null &&
+          recurrence.times!.isNotEmpty) {
+        final times = <TimeOfDay>[];
+        for (final t in recurrence.times!) {
+          final parsed = parseHabitTime(t);
+          if (parsed != null) times.add(parsed);
+        }
+        if (times.isNotEmpty) {
+          await setReminderTimes(habitId, times);
+          return;
+        }
+      }
+      await setReminderTimes(habitId, []);
+    } catch (e, stack) {
+      DebugConfig.error('syncScheduleWithRecurrence', e, stack);
+    }
+  }
+
+  /// Top-up ορίζοντα: δημιουργεί ΜΟΝΟ τα λείποντα occurrences (προσθετικό).
+  /// Τρέχει ΜΟΝΟ όπου υπάρχουν reminder_time(s) (ρητό opt-in).
+  static DateTime? _lastTopUp;
+
+  Future<void> topUpHabitReminders({bool force = false}) async {
+    try {
+      final now = DateTime.now();
+      if (!force &&
+          _lastTopUp != null &&
+          now.difference(_lastTopUp!).inMinutes < 10) {
+        return;
+      }
+      _lastTopUp = now;
+
+      final helper = SuperNoteHelper.instance;
+      final end = now.add(const Duration(days: horizonDays));
+      var created = 0;
+      var habits = 0;
+      var scanned = 0;
+
+      final workspaces = await helper.workspaces.getAll();
+      for (final ws in workspaces) {
+        // Χωρίς archived/deleted (default φίλτρα) — δεν τα αγγίζουμε.
+        final items = await helper.items
+            .getByWorkspace(ws.id, type: ItemType.habit);
+        for (final habit in items) {
+          final allProps = await _getAllProps(habit.id);
+          if ((allProps['reminder_time'] ?? '').isEmpty &&
+              (allProps['reminder_times'] ?? '').isEmpty) {
+            continue; // ποτέ opt-in — δεν ενεργοποιούμε μόνα μας
+          }
+          final times = <TimeOfDay>[];
+          final single = parseHabitTime(allProps['reminder_time'] ?? '');
+          if (single != null) times.add(single);
+          try {
+            final list = jsonDecode(allProps['reminder_times'] ?? '') as List;
+            for (final e in list) {
+              final parsed = parseHabitTime(e.toString());
+              if (parsed != null && !times.any((t) =>
+                  t.hour == parsed.hour && t.minute == parsed.minute)) {
+                times.add(parsed);
+              }
+            }
+          } catch (_) {}
+          if (times.isEmpty) continue;
+
+          final recurrence = Recurrence.fromProperties(allProps);
+          final existing = await helper.reminders.getForItem(habit.id);
+          final futureTriggers = <DateTime>{};
+          for (final r in existing) {
+            if (r.status == ReminderStatus.pending &&
+                r.triggerAt.isAfter(now)) {
+              futureTriggers.add(r.triggerAt);
+            }
+          }
+          final missing = planTopUp(futureTriggers,
+              _computeOccurrences(recurrence, times, now, end));
+          scanned++;
+          if (missing.isEmpty) continue;
+          habits++;
+          final title = habit.title ?? 'Συνήθεια';
+          for (final occ in missing) {
+            final reminder = await helper.reminders.create(
+              itemId: habit.id,
+              triggerAt: occ,
+              rrule: null,
+              title: generatedTitle,
+              body: 'Υπενθύμιση: $title',
+            );
+            await ReminderScheduler.instance.scheduleReminder(reminder);
+            created++;
+          }
+        }
+      }
+      DebugConfig.notif(
+          'HabitService.topUp: done scanned=$scanned needTopUp=$habits created=$created');
+    } catch (e, stack) {
+      DebugConfig.error('topUpHabitReminders', e, stack);
+    }
+  }
+
+  /// One-shot repair προ-51 ψευδο-roots (rrule + parent null σε habits).
+  /// Idempotent: χωρίς ψευδο-roots κάνει τίποτα.
+  Future<void> repairLegacyHabitRows() async {
+    try {
+      final helper = SuperNoteHelper.instance;
+      var repaired = 0;
+      final workspaces = await helper.workspaces.getAll();
+      for (final ws in workspaces) {
+        final items = await helper.items
+            .getByWorkspace(ws.id, type: ItemType.habit);
+        for (final habit in items) {
+          final rows = await helper.reminders.getForItem(habit.id);
+          final pseudoRoots = rows.where((r) =>
+              r.rrule != null &&
+              r.rrule!.isNotEmpty &&
+              r.parentReminderId == null);
+          if (pseudoRoots.isEmpty) continue;
+          DebugConfig.warning(
+              'HabitService.repair: habitId=${habit.id} pseudo-roots=${pseudoRoots.length}');
+          for (final root in pseudoRoots) {
+            await ReminderScheduler.instance.deleteReminderThread(root.id);
+          }
+          await syncScheduleWithRecurrence(habit.id);
+          repaired++;
+        }
+      }
+      if (repaired > 0) {
+        DebugConfig.notif('HabitService.repair: done habits=$repaired');
+      }
+    } catch (e, stack) {
+      DebugConfig.error('repairLegacyHabitRows', e, stack);
+    }
+  }
+
+  Future<void> _scheduleReminders(
+      int habitId, List<TimeOfDay> times, Recurrence recurrence) async {
+    await _clearHabitGenerated(habitId);
+
+    final now = DateTime.now();
+    final end = now.add(const Duration(days: horizonDays));
+    final item = await SuperNoteHelper.instance.items.getById(habitId);
+    final title = item?.title ?? 'Συνήθεια';
+    DebugConfig.notif('HabitService._scheduleReminders: habitId=$habitId times=${times.length} recurrence=${recurrenceToRRULE(recurrence)} → one-shot occurrences');
+
+    for (final occ in _computeOccurrences(recurrence, times, now, end)) {
+      final reminder = await SuperNoteHelper.instance.reminders.create(
+        itemId: habitId,
+        triggerAt: occ,
+        // One-shot: η recurrence ζει στα props· με rrule το scheduleAll()
+        // θα το έκοβε μετά από restart και το cleanup δεν θα το μάζευε.
+        rrule: null,
+        title: generatedTitle,
+        body: 'Υπενθύμιση: $title',
+      );
+      await ReminderScheduler.instance.scheduleReminder(reminder);
     }
   }
 
