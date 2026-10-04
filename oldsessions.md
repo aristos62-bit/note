@@ -396,3 +396,5 @@
 **Επαλήθευση:** `flutter test` → 34/34 (4 νέα)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/habit_weekly_times/` (6 αρχεία)
+
+**Fix monthly overflow (ίδια μέρα, 100% επαληθευμένο με εκτέλεση):** `_nextOccurrenceForTime` monthly branch έφτιαχνε raw `DateTime(y,m,d)` → 30 Φεβ γινόταν 2 Μαρ (χαμένος Φεβρουάριος + λάθος Μάρτιος). Τώρα `_safeDay` clamp (όπως παντού αλλού). Tests 16/16 εδώ, analyze clean.

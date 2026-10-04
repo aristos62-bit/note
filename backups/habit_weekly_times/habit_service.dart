@@ -599,12 +599,13 @@ class HabitService {
   }
 
   /// Συγχρονίζει τον προγραμματισμό με το recurrence (καλείται από UI).
-  /// Daily με ώρες → αναγέννηση 60d· οτιδήποτε άλλο → καθαρισμός.
+  /// Daily/weekly/monthly με ώρες → αναγέννηση 60d· οτιδήποτε άλλο
+  /// (συμπ. yearly) → καθαρισμός.
   Future<void> syncScheduleWithRecurrence(int habitId) async {
     try {
       final allProps = await _getAllProps(habitId);
       final recurrence = Recurrence.fromProperties(allProps);
-      if (recurrence.type == RecurrenceType.daily &&
+      if (recurrence.type != RecurrenceType.yearly &&
           recurrence.times != null &&
           recurrence.times!.isNotEmpty) {
         final times = <TimeOfDay>[];
@@ -641,6 +642,7 @@ class HabitService {
       final end = now.add(const Duration(days: horizonDays));
       var created = 0;
       var habits = 0;
+      var scanned = 0;
 
       final workspaces = await helper.workspaces.getAll();
       for (final ws in workspaces) {
@@ -679,6 +681,7 @@ class HabitService {
           }
           final missing = planTopUp(futureTriggers,
               _computeOccurrences(recurrence, times, now, end));
+          scanned++;
           if (missing.isEmpty) continue;
           habits++;
           final title = habit.title ?? 'Συνήθεια';
@@ -696,7 +699,7 @@ class HabitService {
         }
       }
       DebugConfig.notif(
-          'HabitService.topUp: done habits=$habits created=$created');
+          'HabitService.topUp: done scanned=$scanned needTopUp=$habits created=$created');
     } catch (e, stack) {
       DebugConfig.error('topUpHabitReminders', e, stack);
     }
@@ -787,8 +790,10 @@ class HabitService {
       final sortedDays = [...recurrence.days!]..sort();
       DateTime? found;
       for (final d in sortedDays) {
+        // Clamp (όχι rollover — το DateTime(2027,2,30) γίνεται 2 Μαρτίου).
+        final safe = _safeDay(candidate.year, candidate.month, d);
         final target = DateTime(
-            candidate.year, candidate.month, d, time.hour, time.minute);
+            safe.year, safe.month, safe.day, time.hour, time.minute);
         if (target.isAfter(after)) {
           found = target;
           break;
