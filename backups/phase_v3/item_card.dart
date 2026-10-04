@@ -134,7 +134,12 @@ class ItemCard extends StatelessWidget {
   }
 
   Color? _parseColor(String hex) {
-    return ItemColorHelper.parseHex(hex);
+    try {
+      final clean = hex.replaceFirst('#', '');
+      return Color(int.parse('FF$clean', radix: 16));
+    } catch (_) {
+      return null;
+    }
   }
 }
 

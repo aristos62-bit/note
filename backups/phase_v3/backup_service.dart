@@ -111,18 +111,18 @@ class BackupService {
             .split('.')
             .first;
         final fileName = 'super_note_backup_$timestamp.isar';
-        // OOM fix: ζήτα path από το save dialog ΧΩΡΙΣ bytes, μετά File.copy.
-        // Αποφεύγει readAsBytes() όλης της DB στη μνήμη.
+        final bytes = await File(tempPath).readAsBytes();
+        DebugConfig.db('exportToDevice: read ${bytes.length} bytes, opening save dialog');
         final savedPath = await FilePicker.platform.saveFile(
           dialogTitle: 'Αποθήκευση αντιγράφου ασφαλείας',
           fileName: fileName,
+          bytes: bytes,
           type: FileType.any,
         );
         if (savedPath == null) {
           DebugConfig.db('exportToDevice: user cancelled');
           return BackupExportResult.cancelled();
         }
-        await File(tempPath).copy(savedPath);
         DebugConfig.db('exportToDevice: SUCCESS — dest=$savedPath');
         return BackupExportResult.success(savedPath);
       } finally {

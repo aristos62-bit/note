@@ -99,12 +99,14 @@ class DebugConfig {
   // ─────────────────────────────────────────────────────────
 
   static void error(String message, [Object? error, StackTrace? stack]) {
+    if (!_debug) return;
     debugPrint('❌ ERR | $message');
     if (error != null) debugPrint('   → $error');
     if (stack != null) debugPrint('   → $stack');
   }
 
   static void warning(String message) {
+    if (!_debug) return;
     debugPrint('⚠️  WRN | $message');
   }
 

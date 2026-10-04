@@ -49,7 +49,6 @@
 // ═══════════════════════════════════════════════════════════════
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:super_note/core/utils/debug_config.dart';
@@ -76,14 +75,10 @@ class NotificationService {
 
     try {
       tz_data.initializeTimeZones();
+      final localTimezone = DateTime.now().timeZoneName;
       try {
-        final String iana = await FlutterTimezone.getLocalTimezone();
-        tz.setLocalLocation(tz.getLocation(iana));
-        DebugConfig.notif('NotificationService.init: tz.local=$iana');
-      } catch (e, stack) {
-        DebugConfig.warning(
-            'NotificationService.init: timezone fallback UTC ($e)');
-        DebugConfig.error('NotificationService.init timezone', e, stack);
+        tz.setLocalLocation(tz.getLocation(localTimezone));
+      } catch (_) {
         tz.setLocalLocation(tz.getLocation('UTC'));
       }
 
@@ -119,8 +114,8 @@ class NotificationService {
       if (details?.didNotificationLaunchApp == true) {
         return details?.notificationResponse?.payload;
       }
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.getLaunchPayload', e, stack);
+    } catch (_) {
+      // ignore
     }
     return null;
   }
@@ -319,21 +314,14 @@ class NotificationService {
   );
 
   static void _onTap(NotificationResponse r) {
-    try {
-      DebugConfig.notif('NotificationService._onTap: payload=${r.payload}');
-      if (r.payload != null && onNotificationTap != null) {
-        onNotificationTap!(r.payload!);
-      }
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService._onTap', e, stack);
+    DebugConfig.notif('NotificationService._onTap: payload=${r.payload}');
+    if (r.payload != null && onNotificationTap != null) {
+      onNotificationTap!(r.payload!);
     }
   }
 
   @pragma('vm:entry-point')
   static void _onBackgroundTap(NotificationResponse r) {
-    // Background tap: το payload θα πιαστεί από getLaunchPayload() στο cold start.
-    // Δεν καλούμε onNotificationTap εδώ (background isolate, δεν έχει UI).
-    DebugConfig.notif(
-        'NotificationService._onBackgroundTap: payload=${r.payload}');
+    // Ίδιο με foreground
   }
 }

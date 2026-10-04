@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:isar/isar.dart';
 import 'package:super_note/core/core.dart';
@@ -80,8 +81,8 @@ class ContactImportService {
       final granted = status == PermissionStatus.granted;
       DebugConfig.print('ContactImportService.requestPermission: granted=$granted');
       return granted;
-    } catch (e, stack) {
-      DebugConfig.error('[ContactImportService] requestPermission failed', e, stack);
+    } catch (e) {
+      debugPrint('[ContactImportService] requestPermission failed: $e');
       return false;
     }
   }
@@ -94,8 +95,8 @@ class ContactImportService {
       );
       DebugConfig.print('ContactImportService.fetchContacts: count=${contacts.length}');
       return contacts;
-    } catch (e, stack) {
-      DebugConfig.error('[ContactImportService] fetchContacts failed', e, stack);
+    } catch (e) {
+      debugPrint('[ContactImportService] fetchContacts failed: $e');
       rethrow;
     }
   }
@@ -165,9 +166,8 @@ class ContactImportService {
           .valueEqualTo('true')
           .findAll();
       return props.map((p) => p.itemId).toList();
-    } catch (e, stack) {
-      DebugConfig.error(
-          '[ContactImportService] getImportedContactIds failed', e, stack);
+    } catch (e) {
+      debugPrint('[ContactImportService] getImportedContactIds failed: $e');
       rethrow;
     }
   }
@@ -184,9 +184,8 @@ class ContactImportService {
               .itemIdEqualTo(id)
               .deleteAll();
         });
-      } catch (e, stack) {
-        DebugConfig.error(
-            '[ContactImportService] deleteImported failed for id=$id', e, stack);
+      } catch (e) {
+        debugPrint('[ContactImportService] deleteImported failed for id=$id: $e');
         // Συνεχίζουμε με τις υπόλοιπες — μία αποτυχία δεν σταματά τις άλλες
       }
     }
@@ -236,8 +235,8 @@ class ContactImportService {
         }
       }
       return false;
-    } catch (e, stack) {
-      DebugConfig.error('[ContactImportService] _existsInDb failed', e, stack);
+    } catch (e) {
+      debugPrint('[ContactImportService] _existsInDb failed: $e');
       // Σε DB error, θεωρούμε ότι δεν υπάρχει — καλύτερα duplicate από skip
       return false;
     }
@@ -365,8 +364,7 @@ class ContactImportService {
         case ContactField.photo:
           final photo = contact.photo;
           if (photo != null) {
-            // SPoT resize: προτίμησε thumbnail (μικρό) αντί fullSize για αποφυγή OOM.
-            final bytes = photo.thumbnail ?? photo.fullSize;
+            final bytes = photo.fullSize ?? photo.thumbnail;
             if (bytes != null && bytes.isNotEmpty) {
               futures.add(helper.properties.set(
                 itemId: item.id,

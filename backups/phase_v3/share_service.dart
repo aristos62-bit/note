@@ -444,7 +444,17 @@ class ShareService {
   }
 
   static String _priorityLabel(ItemPriority p) {
-    if (p == ItemPriority.none) return '';
-    return AppStringUtils.priorityLabel(p.name);
+    switch (p) {
+      case ItemPriority.urgent:
+        return 'Επείγον';
+      case ItemPriority.high:
+        return 'Υψηλή';
+      case ItemPriority.medium:
+        return 'Μεσαία';
+      case ItemPriority.low:
+        return 'Χαμηλή';
+      default:
+        return '';
+    }
   }
 }

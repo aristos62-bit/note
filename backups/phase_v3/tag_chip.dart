@@ -33,7 +33,6 @@
 //
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
-import '../../helpers/item_color_helper.dart';
 
 // ════════════════════════════════════════════════════════════════
 // TAG CHIP
@@ -149,7 +148,13 @@ class TagChip extends StatelessWidget {
   }
 
   Color _resolveColor(BuildContext context) {
-    return ItemColorHelper.parseHex(color) ?? context.cPrimary;
+    if (color == null) return context.cPrimary;
+    try {
+      final clean = color!.replaceFirst('#', '');
+      return Color(int.parse('FF$clean', radix: 16));
+    } catch (_) {
+      return context.cPrimary;
+    }
   }
 }
 

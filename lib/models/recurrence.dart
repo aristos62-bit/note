@@ -373,15 +373,23 @@ class Recurrence {
   // ─────────────────────────────────────────────────────────
 
   /// Ασφαλής ημερομηνία — clamp στην τελευταία μέρα του μήνα
-  static DateTime _safeMonthDay(int year, int month, int day) {
+  /// SPoT: χρησιμοποιείται και από HabitService αντί για local _safeDay.
+  static DateTime safeMonthDay(int year, int month, int day) {
     final lastDayOfMonth = DateTime(year, month + 1, 0).day;
     final safeDayOfMonth = day.clamp(1, lastDayOfMonth);
     return DateTime(year, month, safeDayOfMonth);
   }
 
   /// Ασφαλής ημέρα για έτος/μήνα — επιστρέφει int
-  static int _safeDay(int year, int month, int day) {
+  static int safeDay(int year, int month, int day) {
     final lastDay = DateTime(year, month + 1, 0).day;
     return day.clamp(1, lastDay);
   }
+
+  static DateTime _safeMonthDay(int year, int month, int day) =>
+      safeMonthDay(year, month, day);
+
+  /// Ασφαλής ημέρα για έτος/μήνα — επιστρέφει int
+  static int _safeDay(int year, int month, int day) =>
+      safeDay(year, month, day);
 }

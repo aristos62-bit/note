@@ -30,7 +30,6 @@ dependencies:
 
   # ─── NOTIFICATIONS ────────────────────────────────────────
   flutter_local_notifications: ^17.2.2
-  flutter_timezone: ^1.0.8
   timezone: ^0.9.4
 
   # ─── FILE HANDLING ────────────────────────────────────────

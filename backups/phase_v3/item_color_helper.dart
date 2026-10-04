@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../core/theme/ui_tokens.dart';
-import '../core/utils/debug_config.dart';
 
 class ItemColorHelper {
   static Color backgroundColorForType(ItemType type, BuildContext context,
       {String? overrideHex}) {
     if (overrideHex != null) {
-      final parsed = parseHex(overrideHex);
+      final parsed = _parseHex(overrideHex);
       if (parsed != null) return parsed;
     }
     final isDark = context.brightness == Brightness.dark;
@@ -36,21 +35,21 @@ class ItemColorHelper {
   }
 
   static Color textColorForBackground(Color backgroundColor, BuildContext context) {
-    return ColorsUI.getAccessibleTextColor(backgroundColor);
+    final luminance = 0.299 * backgroundColor.r +
+        0.587 * backgroundColor.g +
+        0.114 * backgroundColor.b;
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
   static Color iconColorForType(ItemType type, BuildContext context) {
     return ColorsUI.itemTypeColor(type, context.brightness);
   }
 
-  /// SPoT για hex → Color. Επιστρέφει null αν άκυρο, logάρει warning.
-  static Color? parseHex(String? hex) {
-    if (hex == null || hex.isEmpty) return null;
+  static Color? _parseHex(String hex) {
     try {
       final clean = hex.replaceFirst('#', '');
       return Color(int.parse('FF$clean', radix: 16));
-    } catch (e) {
-      DebugConfig.warning('ItemColorHelper.parseHex: invalid hex "$hex" ($e)');
+    } catch (_) {
       return null;
     }
   }

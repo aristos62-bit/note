@@ -2,6 +2,7 @@
 // ═══════════════════════════════════════════════════════════════
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -70,8 +71,8 @@ class AttachmentService {
         sourcePath: file.path!,
         blockId: blockId,
       );
-    } catch (e, stack) {
-      DebugConfig.error('[AttachmentService] pickAndSave failed', e, stack);
+    } catch (e) {
+      debugPrint('[AttachmentService] pickAndSave failed: $e');
       rethrow;
     }
   }
@@ -113,8 +114,8 @@ class AttachmentService {
         mimeType: mimeType,
         fileSize: fileSize,
       );
-    } catch (e, stack) {
-      DebugConfig.error('[AttachmentService] saveFile failed', e, stack);
+    } catch (e) {
+      debugPrint('[AttachmentService] saveFile failed: $e');
       // Αν το αντίγραφο έγινε αλλά η DB απέτυχε, καθάρισε το orphan αρχείο
       if (destPath != null) {
         try {
@@ -136,15 +137,14 @@ class AttachmentService {
       try {
         final file = File(attachment.localPath);
         if (await file.exists()) await file.delete();
-      } catch (e, stack) {
-        DebugConfig.error(
-            '[AttachmentService] disk delete failed (continuing)', e, stack);
+      } catch (e) {
+        debugPrint('[AttachmentService] disk delete failed (continuing): $e');
       }
 
       // Διέγραψε από DB — αυτό πρέπει να πετύχει
       await SuperNoteHelper.instance.attachments.delete(attachmentId);
-    } catch (e, stack) {
-      DebugConfig.error('[AttachmentService] delete failed', e, stack);
+    } catch (e) {
+      debugPrint('[AttachmentService] delete failed: $e');
       rethrow;
     }
   }
@@ -155,8 +155,8 @@ class AttachmentService {
       final dir = Directory(p.join(docs.path, 'attachments'));
       if (!await dir.exists()) await dir.create(recursive: true);
       return dir;
-    } catch (e, stack) {
-      DebugConfig.error('[AttachmentService] _getAttachmentsDir failed', e, stack);
+    } catch (e) {
+      debugPrint('[AttachmentService] _getAttachmentsDir failed: $e');
       rethrow;
     }
   }
