@@ -183,7 +183,7 @@ class _SystemGroupState extends State<_SystemGroup> {
               enabled: widget.settings.notificationsEnabled,
               onChanged: (v) => widget.ref
                   .read(settingsNotifierProvider.notifier)
-                  .updateSettings((s) => s.soundEnabled = v),
+                  .setSound(v),
             ),
           ),
           const SizedBox(height: Spacing.sm),
@@ -194,7 +194,7 @@ class _SystemGroupState extends State<_SystemGroup> {
               enabled: widget.settings.notificationsEnabled,
               onChanged: (v) => widget.ref
                   .read(settingsNotifierProvider.notifier)
-                  .updateSettings((s) => s.vibrationEnabled = v),
+                  .setVibration(v),
             ),
           ),
           const SizedBox(height: Spacing.sm),
