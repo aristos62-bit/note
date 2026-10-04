@@ -298,30 +298,6 @@ class NotificationService {
     }
   }
 
-  /// Ξαναφτιάχνει το κανάλι με το τρέχον vibration pref — ΜΟΝΟ στο toggle,
-  /// ποτέ στο init (το delete θα έσβηνε manual OS ρυθμίσεις του χρήστη).
-  /// Το Android κλειδώνει vibration στο κανάλι μετά τη δημιουργία, οπότε τα
-  /// per-notification flags αγνοούνται. Ίδιο id → χωρίς reschedule.
-  Future<void> syncChannel({required bool vibration}) async {
-    try {
-      final android = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
-      if (android == null) return;
-      await android.deleteNotificationChannel(_channelId);
-      final channel = AndroidNotificationChannel(
-        _channelId,
-        _channelName,
-        description: _channelDesc,
-        importance: Importance.high,
-        enableVibration: vibration,
-      );
-      await android.createNotificationChannel(channel);
-      DebugConfig.notif('NotificationService.syncChannel: vibration=$vibration');
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.syncChannel', e, stack);
-    }
-  }
-
   NotificationDetails _details({
     bool sound     = true,
     bool vibration = true,

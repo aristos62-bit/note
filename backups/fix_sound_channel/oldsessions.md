@@ -309,15 +309,3 @@
 **Επαλήθευση:** device cold start + resume — σιωπή (0 παλιές), `created 0`, `scheduleAll 34× SUCCESS`, 0 `ERR`.
 
 **Backups:** `backups/fix_resume_cleanup/`
-
-## Session 58 — 04/10/2026 (vibration toggle με channel re-sync)
-
-**Πρόβλημα:** Δόνηση OFF έσωζε μόνο το setting — το Android κανάλι (φτιαγμένο μία φορά με `enableVibration:true`) αγνοεί per-notification flags. Ήχος OFF δούλευε (`silent`), iOS πλήρες — φτιάχτηκε μόνο η δόνηση.
-
-**Fix:** `NotificationService.syncChannel(vibration)` (delete+recreate ίδιο id, χωρίς reschedule· ΜΟΝΟ στο toggle, ποτέ στο init για να μην σβήνει manual OS ρυθμίσεις) + `SettingsNotifier.setSound/setVibration` + hooks στα switches.
-
-**Επαλήθευση:** `analyze` → `No issues found!`. Device: OFF → ακίνητη, ON → δονείται, persist μετά kill.
-
-**Backups:** `backups/fix_sound_channel/`
-
-**Επόμενο session:** λήψη shared content από άλλες εφαρμογές (Android share intent → SuperNote).

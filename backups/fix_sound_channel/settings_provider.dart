@@ -106,23 +106,6 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> setAccentColor(String hex) =>
       updateSettings((s) => s.accentColor = hex);
 
-  Future<void> setSound(bool enabled) async {
-    try {
-      await updateSettings((s) => s.soundEnabled = enabled);
-    } catch (e, s) {
-      DebugConfig.error('SettingsNotifier.setSound', e, s);
-    }
-  }
-
-  Future<void> setVibration(bool enabled) async {
-    try {
-      await updateSettings((s) => s.vibrationEnabled = enabled);
-      await NotificationService.instance.syncChannel(vibration: enabled);
-    } catch (e, s) {
-      DebugConfig.error('SettingsNotifier.setVibration', e, s);
-    }
-  }
-
   Future<void> setItemTypeColor(ItemType type, String? hex) async {
     try {
       await updateSettings((s) {
