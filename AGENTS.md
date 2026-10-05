@@ -8,7 +8,7 @@
 5.	Πριν προτείνεις βελτίωση/διόρθωση, έλεγξε διεξοδικά για side effects.
 6.	Διάβασε το oldsessions.md για να θυμηθείς τι κάναμε στο προηγούμενο session σε νεο project δημιούργησέ το
 7.	ΟΛΑ τα back up γίνονται save στον φάκελο backups του project
-8.	Μόνο όταν γίνεται αλλαγή στην αρχιτεκτονική θα ενημερώνεται το DESIGN.md
+8.	Μόνο όταν γίνεται αλλαγή στην αρχιτεκτονική θα ενημερώνεται το supernote.md
 9.	Για την πρόοδο του project και fixes θα ενημερώνεται το oldsessions.md
 10.	Στο oldsessions.md θα ενημερώνεται 1 κεφάλαιο ανά φάση, νέο αρχείο για το ίδιο κεφάλαιο μόνο άνω των 500 γραμμών
 11.	Αν δεν είσαι σίγουρος τι πρέπει να κάνεις ή δε θυμάσαι αυτούς τους κανόνες, διάβασε AGENTS.md
@@ -30,7 +30,7 @@
 ## Βασικές εντολές
 
 - `flutter pub run build_runner build --delete-conflicting-outputs` — μετά από αλλαγή σε Isar models
-- `flutter test` — τρέχει widget_test.dart (το υπάρχον test είναι outdated, βασισμένο σε counter που δεν υπάρχει πια)
+- `flutter test` — πλήρες suite (70/70 🟢 από Session 70)
 - `flutter analyze` — linting με flutter_lints
 
 ## Αρχιτεκτονική
@@ -133,7 +133,7 @@ lib/
 - IDE: Android Studio Panda 4 | 2025.3.4 Patch 1
 - Στόχοι: real-time (streams, reactive), responsive (mobile/tablet/desktop), dark mode
 - Multi-platform: android, ios, web, linux, macos, windows
-- Το `widget_test.dart` είναι stale (ελέγχει counter που δεν υπάρχει)
+- Suite 70/70 🟢 (το παλιό stale counter test αντικαταστάθηκε στο Session 70 με ερμητικό SPoT smoke test)
 
 ## Session Log (τρέχουσα κατάσταση)
 
