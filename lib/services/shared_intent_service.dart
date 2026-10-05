@@ -236,6 +236,44 @@ class SharedIntentService {
   // SAVE — Σημείωση
   // ─────────────────────────────────────────────────────────
 
+  /// Κοινός attachment-loop (Φ4a βήμα 16 — SPoT για saveAsNote/saveAsEvent).
+  Future<({List<String> lines, int saved, int skipped})> _saveAttachments({
+    required int itemId,
+    required List<SharedMediaFile> media,
+    required int? maxBytes,
+  }) async {
+    final attachLines = <String>[];
+    var saved = 0;
+    var skipped = 0;
+    for (final f in media) {
+      try {
+        final src = File(f.path);
+        if (!await src.exists()) continue;
+        final size = await src.length();
+        if (maxBytes != null && size > maxBytes) {
+          skipped++;
+          DebugConfig.warning(
+              'SharedIntent oversize ${f.path} ($size > $maxBytes bytes)');
+          continue;
+        }
+        final att = await AttachmentService.instance.saveFile(
+          itemId: itemId,
+          sourcePath: f.path,
+        );
+        saved++;
+        attachLines.add(
+            '📎 ${att.fileName} (${att.readableSize})');
+        final disp = p.basename(f.path);
+        if (disp != att.fileName) {
+          DebugConfig.db('SharedIntent sanitize: "$disp" → "${att.fileName}"');
+        }
+      } catch (e, stack) {
+        DebugConfig.error('SharedIntent saveFile ${f.path}', e, stack);
+      }
+    }
+    return (lines: attachLines, saved: saved, skipped: skipped);
+  }
+
   Future<SharedSaveResult> saveAsNote({
     required List<SharedMediaFile> files,
     void Function()? onSaved,
@@ -271,31 +309,14 @@ class SharedIntentService {
       );
 
       // Αρχεία → attachments/ (copy, sanitize, dedup — από το service).
-      final attachLines = <String>[];
-      var saved = 0;
-      var skipped = 0;
-      for (final f in media) {
-        try {
-          final src = File(f.path);
-          if (!await src.exists()) continue;
-          final size = await src.length();
-          if (maxBytes != null && size > maxBytes) {
-            skipped++;
-            DebugConfig.warning(
-                'SharedIntent oversize ${f.path} ($size > $maxBytes bytes)');
-            continue;
-          }
-          final att = await AttachmentService.instance.saveFile(
-            itemId: item.id,
-            sourcePath: f.path,
-          );
-          saved++;
-          attachLines.add(
-              '📎 ${att.fileName} (${att.readableSize})');
-        } catch (e, stack) {
-          DebugConfig.error('SharedIntent saveFile ${f.path}', e, stack);
-        }
-      }
+      final res = await _saveAttachments(
+        itemId: item.id,
+        media: media,
+        maxBytes: maxBytes,
+      );
+      final attachLines = res.lines;
+      final saved = res.saved;
+      final skipped = res.skipped;
 
       final bodyParts = <String>[];
       if (text.isNotEmpty) bodyParts.add(text);
@@ -383,35 +404,14 @@ class SharedIntentService {
       await helper.properties.set(
           itemId: item.id, key: 'all_day', value: 'false');
 
-      final attachLines = <String>[];
-      var saved = 0;
-      var skipped = 0;
-      for (final f in media) {
-        try {
-          final src = File(f.path);
-          if (!await src.exists()) continue;
-          final size = await src.length();
-          if (maxBytes != null && size > maxBytes) {
-            skipped++;
-            DebugConfig.warning(
-                'SharedIntent oversize ${f.path} ($size > $maxBytes bytes)');
-            continue;
-          }
-          final att = await AttachmentService.instance.saveFile(
-            itemId: item.id,
-            sourcePath: f.path,
-          );
-          saved++;
-          attachLines.add(
-              '📎 ${att.fileName} (${att.readableSize})');
-          final disp = p.basename(f.path);
-          if (disp != att.fileName) {
-            DebugConfig.db('SharedIntent sanitize: "$disp" → "${att.fileName}"');
-          }
-        } catch (e, stack) {
-          DebugConfig.error('SharedIntent saveFile ${f.path}', e, stack);
-        }
-      }
+      final res = await _saveAttachments(
+        itemId: item.id,
+        media: media,
+        maxBytes: maxBytes,
+      );
+      final attachLines = res.lines;
+      final saved = res.saved;
+      final skipped = res.skipped;
 
       final notesParts = <String>[];
       if (text.isNotEmpty) notesParts.add(text);
