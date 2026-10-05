@@ -24,22 +24,6 @@ import 'reminder_diagnostics_screen.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
-// ── Provider για αρχειοθετημένα items ──────────────────────────
-final archivedItemsProvider = FutureProvider<List<Item>>((ref) async {
-  final wsId = ref.read(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  final all = await SuperNoteHelper.instance.items.getByWorkspace(
-    wsId,
-    includeArchived: true,
-  );
-  return all.where((i) => i.archived && i.deletedAt == null).toList();
-});
-
-// ── Provider για παρελθούσες pending υπενθυμίσεις ──────────────
-final pastPendingRemindersProvider = FutureProvider<List<Reminder>>((ref) async {
-  return SuperNoteHelper.instance.reminders.getPastPending();
-});
-
 // ════════════════════════════════════════════════════════════════
 // SETTINGS SCREEN
 // ════════════════════════════════════════════════════════════════

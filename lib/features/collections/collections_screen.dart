@@ -20,40 +20,9 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
-import '../../helpers/super_note_helper.dart';
 import 'collection_detail_screen.dart';
 import 'collection_entries_screen.dart';
 import 'package:reorderable_grid/reorderable_grid.dart';
-
-// ✅ StreamProvider — lightweight batch query για collection_id properties
-// 1 DB call αντί για N, μηδέν cascade rebuilds
-final collectionEntriesCountProvider =
-StreamProvider<Map<int, int>>((ref) async* {
-  final itemsAsync = ref.watch(itemsStreamProvider);
-  final entries = itemsAsync.valueOrNull
-      ?.where((i) => i.type == ItemType.knowledge)
-      .toList() ??
-      [];
-
-  if (entries.isEmpty) {
-    yield {};
-    return;
-  }
-
-  // Ένα lightweight DB call αντί για N
-  final entryIds = entries.map((e) => e.id).toList();
-  DebugConfig.db('collectionEntriesCountProvider: entries=${entryIds.length}');
-  final collectionIdMap = await SuperNoteHelper.instance.properties
-      .getCollectionIds(entryIds);
-  DebugConfig.db('collectionEntriesCountProvider: found ${collectionIdMap.length} pairs');
-
-  final Map<int, int> counts = {};
-  for (final colIdStr in collectionIdMap.values) {
-    final colId = int.tryParse(colIdStr);
-    if (colId != null) counts[colId] = (counts[colId] ?? 0) + 1;
-  }
-  yield counts;
-});
 
 // ── Field types ───────────────────────────────────────────────
 enum FieldType {

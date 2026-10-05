@@ -663,3 +663,17 @@
 **Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!` · grep `homeSelectedFolder` lib/ = 0
 
 **Backups:** `backups/phi4a_folderstate/` (5 αρχεία)
+
+## Session 81 — 05/10/2026 (Φ4a βήμα 18: providers στη θέση τους)
+
+**Πρόβλημα:** UI-layer DB-providers ×2 (με `SuperNoteHelper.instance` ❌) · single-yield Stream · no-op `select((v)=>v)`.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `archivedItems` → `item_provider` + `pastPending` → `reminder_provider` (dbProvider-rewrite)· counts Stream→Future → `item_provider`
+- Event no-op select διαγραφή· settings/collections ορισμοί σβησμένοι (callers via barrel)
+- Μάθημα: analyze έπιασε άχρηστο import (`SuperNoteHelper` collections) — αφαιρέθηκε
+- `supernote.md` sync 3 γραμμών (νέα providers)
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_providers/` (6 αρχεία)
