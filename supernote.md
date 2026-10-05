@@ -377,9 +377,10 @@ final db = SuperNoteHelper.instance;
 - Internal: copies to `attachments/` subdirectory in app documents
 
 ### BackupService (`lib/services/backup_service.dart`)
-- `export()` — reads Isar DB file, saves via SAF FilePicker
-- `import({fromPath})` — closes DB, copies file, re-initializes
-- Backup file name: `super_note_backup_<timestamp>.isar`
+- `exportToDevice()` / `exportWithShare()` — zip (DB + attachments) via `BackupArchive`
+- `import({fromPath})` — validate + atomic restore (zip ή legacy `.isar`)
+- `autoBackup()` — zip στο background (pause, 1/24ωρο, rotation 5) + `listAutoBackups()`
+- `AppSettings.autoBackupEnabled/lastAutoBackupAt` · schema v3 (additive, no-op migration)
 
 ### SearchService (`lib/services/search_service.dart`)
 - Full-text search on Item title: `search(query, workspaceId)` → `List<Item>`

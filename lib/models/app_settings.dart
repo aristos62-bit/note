@@ -61,6 +61,13 @@ class AppSettings {
   /// Μέγιστο μέγεθος αρχείου σε MB για συνημμένα (0 = χωρίς όριο)
   int maxAttachmentSizeMB = 20;
 
+  // ── Auto-backup ──────────────────────────────────────────────
+  /// Αυτόματο zip-αντίγραφο (DB + attachments) στο background.
+  bool autoBackupEnabled = false;
+
+  /// Τελευταίο επιτυχημένο αυτόματο αντίγραφο (null = ποτέ).
+  DateTime? lastAutoBackupAt;
+
   /// 0 = άμεσο κλείδωμα, 300 = 5 λεπτά, κλπ.
   int appLockTimeoutSeconds = 0;
 

@@ -295,6 +295,8 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         final settings = await SuperNoteHelper.instance.settings
             .get()
             .timeout(const Duration(seconds: 5));
+        // Auto-backup (fire-and-forget — δεν μπλοκάρει το pause).
+        unawaited(BackupService.instance.autoBackup());
         if (settings.appLockEnabled) {
           _lockTimer?.cancel();
           _lockTimer =

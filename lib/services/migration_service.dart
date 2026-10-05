@@ -8,7 +8,7 @@ import '../core/utils/debug_config.dart';
 class MigrationService {
   MigrationService._();
 
-  static const int _targetVersion = 2;
+  static const int _targetVersion = 3;
 
   static Future<void> ensureSchemaVersion(Isar isar) async {
     final settings = await isar.appSettings.get(1);
@@ -79,6 +79,9 @@ class MigrationService {
       case 1:
         await _v1ToV2(isar);
         break;
+      case 2:
+        await _v2ToV3(isar);
+        break;
     }
   }
 
@@ -94,5 +97,11 @@ class MigrationService {
         DebugConfig.db('Migration v1→v2: maxAttachmentSizeMB already valid (${s.maxAttachmentSizeMB})');
       }
     });
+  }
+
+  /// v2→v3: additive πεδία auto-backup (defaults false/null) — κανένας
+  /// μετασχηματισμός δεδομένων, μόνο καταγραφή (safety-backup ήδη έγινε).
+  static Future<void> _v2ToV3(Isar isar) async {
+    DebugConfig.db('Migration v2→v3: autoBackup fields use safe defaults — no data transform');
   }
 }
