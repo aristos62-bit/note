@@ -629,24 +629,12 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
   void _syncPropsFromDB(List<ItemProperty> props) {
     // 🆕 Αν δεν έχουμε ακόμα τηλέφωνα, τα φορτώνουμε από τα props
     if (_phoneCtrls.isEmpty) {
-      // Προσπαθούμε να διαβάσουμε 'phones' (JSON λίστα)
-      final phonesJson =
-          props.where((p) => p.key == 'phones').firstOrNull?.value;
-      List<String> phones = [];
-      if (phonesJson != null && phonesJson.isNotEmpty) {
-        try {
-          final decoded = jsonDecode(phonesJson);
-          if (decoded is List) {
-            phones = decoded.map((e) => e.toString()).toList();
-          }
-        } catch (_) {
-          // Αγνοούμε – θα δοκιμάσουμε το παλιό 'phone'
-        }
-      }
+      // SPoT: ContactProps (phones JSON + legacy 'phone' fallback)
+      final cp = ContactProps.fromProperties(props);
+      List<String> phones = List<String>.from(cp.phones);
       // Fallback στο παλιό κλειδί 'phone'
       if (phones.isEmpty) {
-        final oldPhone =
-            props.where((p) => p.key == 'phone').firstOrNull?.value;
+        final oldPhone = cp.phoneFallback;
         if (oldPhone != null && oldPhone.isNotEmpty) {
           phones = [oldPhone];
         }
@@ -1318,19 +1306,11 @@ class _ContactSummaryPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final props = properties;
 
-    // 🆕 Διαβάζουμε τα τηλέφωνα από 'phones' ή 'phone'
-    List<String> phones = [];
-    final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
-    if (phonesJson != null && phonesJson.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(phonesJson);
-        if (decoded is List) {
-          phones = decoded.map((e) => e.toString()).toList();
-        }
-      } catch (_) {}
-    }
+    // SPoT: ContactProps (phones JSON + legacy 'phone' fallback)
+    final cp = ContactProps.fromProperties(props);
+    List<String> phones = List<String>.from(cp.phones);
     if (phones.isEmpty) {
-      final oldPhone = props.where((p) => p.key == 'phone').firstOrNull?.value;
+      final oldPhone = cp.phoneFallback;
       if (oldPhone != null && oldPhone.isNotEmpty) {
         phones = [oldPhone];
       }

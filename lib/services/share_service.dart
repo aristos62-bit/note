@@ -209,17 +209,12 @@ class ShareService {
   ) {
     final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς όνομα')];
 
-    final phones =
-        properties.where((p) => p.key == 'phones').firstOrNull?.value;
-    if (phones != null) {
-      try {
-        final list = jsonDecode(phones) as List;
-        for (final p in list) {
-          lines.add('• 📞 ${p['number'] ?? p}');
-        }
-      } catch (_) {
-        lines.add('• 📞 $phones');
-      }
+    final contactProps = ContactProps.fromProperties(properties);
+    for (final phone in contactProps.phones) {
+      lines.add('• 📞 $phone');
+    }
+    if (contactProps.phones.isEmpty && contactProps.phoneFallback != null && contactProps.phoneFallback!.isNotEmpty) {
+      lines.add('• 📞 ${contactProps.phoneFallback}');
     }
 
     final email =

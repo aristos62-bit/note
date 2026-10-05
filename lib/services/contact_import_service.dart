@@ -223,15 +223,11 @@ class ContactImportService {
           if (prop.value == null) continue;
           final parent = await helper.items.getById(prop.itemId);
           if (parent == null || parent.deletedAt != null) continue;
-          try {
-            final phones = jsonDecode(prop.value!) as List;
-            for (final phone in contact.phones) {
-              if (phone.number.isNotEmpty && phones.contains(phone.number)) {
-                return true;
-              }
+          final phones = ContactProps.parsePhonesValue(prop.value);
+          for (final phone in contact.phones) {
+            if (phone.number.isNotEmpty && phones.contains(phone.number)) {
+              return true;
             }
-          } catch (_) {
-            // ignore malformed JSON
           }
         }
       }
