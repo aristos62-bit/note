@@ -142,20 +142,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
 
   AppBar _buildAppBar(
       BuildContext context, WidgetRef ref, DateTime focusedMonth) {
-    const months = [
-      'Ιανουάριος',
-      'Φεβρουάριος',
-      'Μάρτιος',
-      'Απρίλιος',
-      'Μάιος',
-      'Ιούνιος',
-      'Ιούλιος',
-      'Αύγουστος',
-      'Σεπτέμβριος',
-      'Οκτώβριος',
-      'Νοέμβριος',
-      'Δεκέμβριος',
-    ];
+    const months = AppDateUtils.monthFullNames;
 
     return AppBar(
       backgroundColor: context.cBg,
@@ -531,7 +518,7 @@ class _MonthGrid extends ConsumerWidget {
   final Map<DateTime, List<Item>> dayEvents;
   final ValueChanged<DateTime> onDayTap;
 
-  static const _weekDays = ['Δ', 'Τ', 'Τ', 'Π', 'Π', 'Σ', 'Κ'];
+  static const _weekDays = AppDateUtils.weekdayInitials;
 
   // ── Χρώματα δεικτών ────────────────────────────────────────
   static const _birthdayColor = Color(0xFFEC4899); // pink-500

@@ -74,3 +74,6 @@
 
 ## Αλλαγές Session 68 (Φ4a βήμα 5: AppErrors SPoT)
 - Νέο `core/utils/app_errors.dart` (~35 strings: σταθερές + 8 παραμετρικές)· ~15 αρχεία (mixin, archive, hint ×8, save, share/intent/backup/contacts/calendar/birthday/move/attachments)· fixes: browser raw→saveFailed, `:$e`→plain, debugPrint→error, +4 error logs, +const· tests `test/app_errors_test.dart` (3/3)· analyze clean.
+
+## Αλλαγές Session 69 (Φ4a βήμα 6: weekdays/months SPoT)
+- Extension `AppDateUtils` (5 λίστες 0-based, χωρίς dummies)· 10 αντικαταστάσεις (chips/dots/headers/τίτλοι/κάρτες/describe, `[m-1]` fix)· `dayInitial` refactor· recurrence άμεσο import· tests `test/weekday_labels_test.dart` (4/4)· analyze clean.

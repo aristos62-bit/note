@@ -667,7 +667,7 @@ class _WeekdayChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const names = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
+    const names = AppDateUtils.weekdayNames;
     return GestureDetector(
       onTap: () => onToggle(!selected),
       child: AnimatedContainer(

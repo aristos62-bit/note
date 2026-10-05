@@ -1,5 +1,6 @@
 // lib/models/recurrence.dart
 import 'dart:convert';
+import '../core/utils/date_utils.dart';
 
 enum RecurrenceType { daily, weekly, monthly, yearly, custom }
 
@@ -376,7 +377,7 @@ class Recurrence {
               ? 'Κάθε εβδομάδα'
               : 'Κάθε $interval εβδομάδες';
         }
-        const dayNames = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
+        const dayNames = AppDateUtils.weekdayNames;
         final daysStr = days!.map((d) => dayNames[d - 1]).join(', ');
         final base = interval == 1
             ? 'Κάθε εβδομάδα ($daysStr)'
@@ -402,14 +403,11 @@ class Recurrence {
 
       case RecurrenceType.yearly:
         if (days != null && days!.length == 2) {
-          const monthNames = [
-            '', 'Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαΐ', 'Ιουν',
-            'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ',
-          ];
+          const monthNames = AppDateUtils.monthNames;
           final m = days![0].clamp(1, 12);
           return interval == 1
-              ? 'Κάθε χρόνο (${days![1]} ${monthNames[m]})'
-              : 'Κάθε $interval χρόνια (${days![1]} ${monthNames[m]})';
+              ? 'Κάθε χρόνο (${days![1]} ${monthNames[m - 1]})'
+              : 'Κάθε $interval χρόνια (${days![1]} ${monthNames[m - 1]})';
         }
         return interval == 1 ? 'Κάθε χρόνο' : 'Κάθε $interval χρόνια';
 
