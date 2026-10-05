@@ -127,15 +127,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     DebugConfig.nav('SearchScreen init query="${widget.initialQuery}"');
 
     // ✅ Reset πάντα κατά το άνοιγμα — ο provider είναι global
-    // και κρατά παλιά αποτελέσματα μεταξύ navigations
-    ref.read(_searchNotifierProvider.notifier).clear();
-
-    if (widget.initialQuery?.isNotEmpty == true) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _doSearch());
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _focusNode.requestFocus());
-    }
+    // και κρατά παλιά αποτελέσματα μεταξύ navigations.
+    // PostFrame (όχι σύγχρονα): η Riverpod απαγορεύει modify σε initState (crash).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(_searchNotifierProvider.notifier).clear();
+      if (widget.initialQuery?.isNotEmpty == true) {
+        _doSearch();
+      } else {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override

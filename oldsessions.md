@@ -690,3 +690,13 @@
 **Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_debounce/` (17 αρχεία)
+
+## Session 83 — 05/10/2026 (Fix: search initState provider-crash)
+
+**Πρόβλημα (device):** Άνοιγμα αναζήτησης → crash σε debug (`Tried to modify a provider while building`: `clear()` σύγχρονα στο `initState:131`). Προϋπάρχον (όχι β15 — το β15 άλλαξε μόνο imports + `_openResult`).
+
+**Fix:** `clear()` → postFrame (μαζί με search/focus branch, +mounted guard)· σειρά kept.
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!` · device-retest αναζήτησης εκκρεμεί.
+
+**Backups:** `backups/fix_search_init/` (1 αρχείο)
