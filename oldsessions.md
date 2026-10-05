@@ -485,3 +485,5 @@
 **Επαλήθευση:** νέο 3/3· `flutter test` → 60/61 (μόνο γνωστό stale counter)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_errors/` (22 αρχεία)
+
+**Follow-up (επανέλεγχος):** +2 missed strings (`backup_service` share-prefix, browser inline load-text) + barrel import (`debug_config` → `core.dart`) — commit `29db09f`.
