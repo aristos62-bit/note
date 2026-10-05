@@ -677,3 +677,16 @@
 **Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_providers/` (6 αρχεία)
+
+## Session 82 — 05/10/2026 (Φ4a βήμα 19: debounce + birthday consts)
+
+**Πρόβλημα:** 13 magic durations/3 οικογένειες + birthday/+5 διάσπαρτα · reminder-TextFields REJECTED (λάθος SPoT-match: number/border/controller/autoDelete).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- +5 consts (`AppDuration` ×3, `AppDateUtils` ×2)· 300×4, 500×4, 800×3, 600→800×2, 1900×3, +5×5 (συμπ. reminder_picker default)
+- Εκτός: note/scheduler-2s, transitions/drag/skeleton, entries+20y, appointment-2100, journal-now, ContentField-replace
+- 0 imports (59/59 core) · ±0 behavior (πλην +200ms ×2)
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_debounce/` (17 αρχεία)

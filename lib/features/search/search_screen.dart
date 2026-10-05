@@ -150,7 +150,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onQueryChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), _doSearch);
+    _debounce = Timer(AppDuration.debounceSearch, _doSearch);
   }
 
   // Στο _SearchScreenState, μέσα στη μέθοδο _doSearch:

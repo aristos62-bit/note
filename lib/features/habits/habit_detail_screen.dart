@@ -58,7 +58,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
   void _onTitleChanged(String value) {
     _isEditingTitle = true;
     _titleDebounce?.cancel();
-    _titleDebounce = Timer(const Duration(milliseconds: 600), () {
+    _titleDebounce = Timer(AppDuration.debounceTitle, () {
       _saveTitle(value.trim());
     });
   }

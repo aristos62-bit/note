@@ -251,7 +251,7 @@ class _BlockTileWidgetState extends State<BlockTileWidget> {
                 widget.onTextChanged(text);
               },
               onDeleteEmpty: widget.onDelete,
-              debounce: const Duration(milliseconds: 500),
+              debounce: AppDuration.debounceContent,
               cursorAtStart: true,
               autoFocus: widget.autoFocus,
             ),

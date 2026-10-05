@@ -135,7 +135,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
       locale:      const Locale('el', 'GR'),
       initialDate: init.isBefore(now) ? now : init,
       firstDate:   DateTime(now.year - 1),
-      lastDate:    DateTime(now.year + 5),
+      lastDate:    DateTime(now.year + AppDateUtils.pickerLastYears),
     );
     if (picked == null || !mounted) return;
     await _setDueDate(picked);
@@ -566,7 +566,7 @@ class _TaskBody extends ConsumerWidget {
                   initialText: notesVal,
                   hintText: 'Πρόσθεσε σημειώσεις...',
                   onSaved: onNotesSaved,
-                  debounce: const Duration(milliseconds: 800),
+                  debounce: AppDuration.debounceTitle,
                 ),
               ],
             ),

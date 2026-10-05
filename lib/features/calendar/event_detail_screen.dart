@@ -77,7 +77,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     _pendingTitleValue = trimmed;
 
     _titleDebounce?.cancel();
-    _titleDebounce = Timer(const Duration(milliseconds: 600), () async {
+    _titleDebounce = Timer(AppDuration.debounceTitle, () async {
       final title = _pendingTitleValue ?? '';
 
       await _saveTitle(title);
@@ -91,7 +91,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     _locationDebounce?.cancel();
 
     _locationDebounce = Timer(
-      const Duration(milliseconds: 800),
+      AppDuration.debounceTitle,
       () async {
         await _saveLocation(v.trim());
       },
@@ -199,15 +199,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     // Για γενέθλια και ειδική μέρα επιτρέπουμε παλιές ημερομηνίες
     final item = ref.read(itemStreamProvider(widget.itemId)).valueOrNull;
     final isBirthdayOrSpecial = item?.icon == '🎂' || item?.icon == '⭐';
-    final firstDate =
-        isBirthdayOrSpecial ? DateTime(1900) : DateTime(now.year - 1);
+    final firstDate = isBirthdayOrSpecial
+        ? DateTime(AppDateUtils.birthdayFirstYear)
+        : DateTime(now.year - 1);
 
     final date = await showDatePicker(
       context: context,
       locale: const Locale('el', 'GR'),
       initialDate: init,
       firstDate: firstDate,
-      lastDate: DateTime(now.year + 5),
+      lastDate: DateTime(now.year + AppDateUtils.pickerLastYears),
     );
     if (date == null || !mounted) return;
     if (!context.mounted) return;
@@ -697,7 +698,7 @@ class _EventBody extends ConsumerWidget {
                   initialText: notesVal,
                   hintText: 'Πρόσθεσε σημειώσεις...',
                   onSaved: onNotesSaved,
-                  debounce: const Duration(milliseconds: 800),
+                  debounce: AppDuration.debounceTitle,
                 ),
                 LinkList(text: notesVal),
               ],

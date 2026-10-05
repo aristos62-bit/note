@@ -31,7 +31,7 @@ class ContentFieldWidget extends StatefulWidget {
     this.onChanged,
     this.onSaved,
     this.onDeleteEmpty,
-    this.debounce = const Duration(milliseconds: 500),
+    this.debounce = AppDuration.debounceContent,
     this.autoDeleteEmpty = true,
     this.cursorAtStart = false,
     this.autoFocus = false,

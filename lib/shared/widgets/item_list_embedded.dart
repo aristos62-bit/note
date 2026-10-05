@@ -64,7 +64,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce = Timer(AppDuration.debounceSearch, () {
       setState(() => _searchQuery = value.trim());
     });
   }

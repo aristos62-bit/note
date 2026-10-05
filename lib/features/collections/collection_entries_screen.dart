@@ -80,7 +80,7 @@ class _CollectionEntriesScreenState
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce = Timer(AppDuration.debounceSearch, () {
       ref.read(_entriesSearchQueryProvider.notifier).state = value.trim();
     });
   }

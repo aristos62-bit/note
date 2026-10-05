@@ -1,5 +1,6 @@
 // lib/utils/reminder_picker.dart
 import 'package:flutter/material.dart';
+import 'date_utils.dart';
 
 /// Εμφανίζει dialog για επιλογή ημερομηνίας και ώρας υπενθύμισης.
 /// Επιστρέφει DateTime ή null αν ακυρωθεί.
@@ -11,7 +12,7 @@ Future<DateTime?> showReminderPicker({
 }) async {
   final now = DateTime.now();
   final first = firstDate ?? now;
-  final last = lastDate ?? DateTime(now.year + 5);
+  final last = lastDate ?? DateTime(now.year + AppDateUtils.pickerLastYears);
 
   final date = await showDatePicker(
     context: context,

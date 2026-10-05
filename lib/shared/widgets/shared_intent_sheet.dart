@@ -141,7 +141,7 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
       context: context,
       initialDateTime: _eventStart,
       firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
+      lastDate: DateTime(now.year + AppDateUtils.pickerLastYears),
     );
     if (picked != null && mounted) {
       setState(() => _eventStart = picked);

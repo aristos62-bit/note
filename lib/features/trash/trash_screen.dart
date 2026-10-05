@@ -34,7 +34,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce = Timer(AppDuration.debounceSearch, () {
       setState(() {
         _searchQuery = value.trim();
         _clearSelection(); // φιλτράρισμα αλλάζει λίστα → άκυρη επιλογή
