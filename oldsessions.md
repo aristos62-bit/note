@@ -573,3 +573,17 @@
 **Επαλήθευση:** `flutter test` → **77/77** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_parse/` (6 αρχεία)
+
+## Session 75 — 05/10/2026 (Φ4a βήμα 12: ContactProps SPoT + phones-compat)
+
+**Πρόβλημα:** SPoT νεκρό (0 callers) + 4 extracts (detail ×2, list, share `p['number']`→raw-JSON UX) + import-dedup shape-blind — legacy `[{number}]` vs `List<String>` σύγκρουση.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `contact_props.dart`: +`parsePhonesValue` (strings+maps+scalar, `isPhone`-gate μόνο scalar) + `string_utils` import· `fromProperties` το καλεί
+- Detail ×2 + list (record-shape, `db` log) + share (τέλος `p['number']`) + import normalize (ΧΩΡΙΣ νέο query — legacy-key → βήμα 14 batch)
+- Μάθημα: `dart:convert` ΔΕΝ αφαιρείται από list (`base64Decode` avatar) — το έπιασε το full suite· lint `props_phones`→`cp`
+- Νέο `test/contact_props_test.dart` (5 pure tests)
+
+**Επαλήθευση:** `flutter test` → **82/82** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_contactprops/` (6 αρχεία)

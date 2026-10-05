@@ -6,6 +6,7 @@
 import 'dart:convert';
 import '../../models/item_property.dart';
 import 'debug_config.dart';
+import 'string_utils.dart';
 
 class ContactProps {
   final List<String> phones;
@@ -33,6 +34,49 @@ class ContactProps {
   String? get primaryPhone =>
       phones.isNotEmpty ? phones.first : phoneFallback;
 
+  /// SPoT: "phones" JSON → List<String>. Δέχεται List<String> ΚΑΙ
+  /// [{number/phone/value}] ΚΑΙ scalar. isPhone-gate ΜΟΝΟ στο raw-scalar
+  /// fallback (τα στοιχεία λίστας κρατούν isNotEmpty, όχι gate — κοντά νούμερα).
+  static List<String> parsePhonesValue(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      return AppStringUtils.isPhone(raw) ? [raw.trim()] : const [];
+    }
+    if (decoded is String) {
+      return AppStringUtils.isPhone(decoded) ? [decoded.trim()] : const [];
+    }
+    if (decoded is num) return [decoded.toString()];
+    if (decoded is! List) return const [];
+    final out = <String>[];
+    for (final e in decoded) {
+      if (e == null) continue;
+      if (e is String) {
+        if (e.isNotEmpty) out.add(e);
+        continue;
+      }
+      if (e is num) {
+        out.add(e.toString());
+        continue;
+      }
+      if (e is Map) {
+        for (final k in ['number', 'phone', 'value']) {
+          final v = e[k];
+          if (v != null && v.toString().isNotEmpty) {
+            out.add(v.toString());
+            break;
+          }
+        }
+        continue;
+      }
+      final s = e.toString();
+      if (s.isNotEmpty && s != 'null') out.add(s);
+    }
+    return out.where((s) => s.isNotEmpty).toList();
+  }
+
   factory ContactProps.fromProperties(List<ItemProperty> props) {
     try {
       String? get(String key) {
@@ -42,21 +86,8 @@ class ContactProps {
         return null;
       }
 
-      List<String> phones = [];
-      final phonesJson = get('phones');
-      if (phonesJson != null && phonesJson.isNotEmpty) {
-        try {
-          phones = (jsonDecode(phonesJson) as List)
-              .map((e) => e.toString())
-              .where((s) => s.isNotEmpty)
-              .toList();
-        } catch (_) {
-          // ignore malformed JSON, fallback παρακάτω
-        }
-      }
-
       return ContactProps(
-        phones: phones,
+        phones: parsePhonesValue(get('phones')),
         phoneFallback: get('phone'),
         email: get('email'),
         company: get('company'),

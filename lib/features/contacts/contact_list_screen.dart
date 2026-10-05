@@ -179,21 +179,9 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
 typedef _ContactProps = ({String? phone, String? email, String? photo});
 
 _ContactProps _extractContactProps(List<ItemProperty> props) {
-  String? phone;
-  final phonesJson = props.where((p) => p.key == 'phones').firstOrNull?.value;
-  if (phonesJson != null && phonesJson.isNotEmpty) {
-    try {
-      final decoded = jsonDecode(phonesJson);
-      if (decoded is List && decoded.isNotEmpty) {
-        phone = decoded.first.toString();
-      }
-    } catch (_) {}
-  }
-  phone ??= props.where((p) => p.key == 'phone').firstOrNull?.value;
-  final email = props.where((p) => p.key == 'email').firstOrNull?.value;
-  final photo = props.where((p) => p.key == 'photo').firstOrNull?.value;
-  DebugConfig.db('_extractContactProps: id=${props.firstOrNull?.itemId} photo=${photo != null ? 'yes' : 'no'}');
-  return (phone: phone, email: email, photo: photo);
+  final cp = ContactProps.fromProperties(props);
+  DebugConfig.db('_extractContactProps: id=${props.firstOrNull?.itemId} photo=${cp.photo != null ? 'yes' : 'no'}');
+  return (phone: cp.primaryPhone, email: cp.email, photo: cp.photo);
 }
 
 /// Batch provider: properties για όλες τις επαφές — 1 DB call
