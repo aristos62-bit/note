@@ -373,18 +373,14 @@ class _AppointmentDetailScreenState
   }
 
   Future<bool> _askCreateContact() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Δημιουργία επαφής'),
-        content: const Text('Θέλετε να δημιουργήσετε νέα επαφή με τα στοιχεία που συμπληρώσατε;'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Όχι')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Ναι')),
-        ],
-      ),
+    return ConfirmDialog.show(
+      context,
+      title: 'Δημιουργία επαφής',
+      subtitle: 'Θέλετε να δημιουργήσετε νέα επαφή με τα στοιχεία που συμπληρώσατε;',
+      confirmLabel: 'Ναι',
+      cancelLabel: 'Όχι',
+      icon: Icons.person_rounded,
     );
-    return result ?? false;
   }
 
   Future<void> _showContactPicker() async {

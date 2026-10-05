@@ -190,22 +190,6 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
     );
   }
 
-  // ── Tag picker (αντιγραφή από NoteDetailScreen για αυτονομία) ─
-  void _showTagPicker(BuildContext context, WidgetRef ref, int itemId) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => _TagPickerSheet(itemId: itemId),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('JournalDetailScreen build id=${widget.itemId}');
@@ -260,7 +244,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
       entryDate: _entryDate,
       onSetEntryDate: _setEntryDate,
       onShowReminder: _showReminderDialog,
-      onShowTagPicker: () => _showTagPicker(context, ref, widget.itemId),
+      onShowTagPicker: () => showTagPickerSheet(context, widget.itemId),
     ),
   );
 
@@ -274,7 +258,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
           child: _JournalMetaPanel(
             item: item,
             entryDate: _entryDate,
-            onShowTagPicker: () => _showTagPicker(context, ref, widget.itemId),
+            onShowTagPicker: () => showTagPickerSheet(context, widget.itemId),
           ),
         ),
         VerticalDivider(
@@ -289,7 +273,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
             entryDate: _entryDate,
             onSetEntryDate: _setEntryDate,
             onShowReminder: _showReminderDialog,
-            onShowTagPicker: () => _showTagPicker(context, ref, widget.itemId),
+            onShowTagPicker: () => showTagPickerSheet(context, widget.itemId),
           ),
         ),
       ],
@@ -806,103 +790,6 @@ class _MetaRow extends StatelessWidget {
               ],
             )),
       ]),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// TAG PICKER SHEET (αντιγραφή για αυτονομία)
-// ════════════════════════════════════════════════════════════════
-
-class _TagPickerSheet extends ConsumerStatefulWidget {
-  final int itemId;
-  const _TagPickerSheet({required this.itemId});
-
-  @override
-  ConsumerState<_TagPickerSheet> createState() => _TagPickerSheetState();
-}
-
-class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
-  final _ctrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _addTag(String name) async {
-    if (name.trim().isEmpty) return;
-    final tag = await ref.read(tagNotifierProvider.notifier).createOrGet(name.trim());
-    if (tag == null || !mounted) return;
-    await ref.read(tagNotifierProvider.notifier).addToItem(widget.itemId, tag.id);
-    _ctrl.clear();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tagsAsync = ref.watch(tagsProvider);
-    final itemTagsAsync = ref.watch(itemTagsProvider(widget.itemId));
-    final itemTagIds = itemTagsAsync.valueOrNull?.map((t) => t.id).toSet() ?? {};
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Center(
-              child: SheetHandle(),
-            ),
-            const SizedBox(height: Spacing.md),
-            Text('Προσθήκη Tag', style: context.titleMd),
-            const SizedBox(height: Spacing.md),
-            TextField(
-              controller: _ctrl,
-              autofocus: true,
-              onSubmitted: _addTag,
-              decoration: InputDecoration(
-                hintText: 'Νέο tag...',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.add_rounded),
-                  onPressed: () => _addTag(_ctrl.text),
-                ),
-              ),
-            ),
-            const SizedBox(height: Spacing.md),
-            tagsAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (tags) {
-                final available = tags.where((t) => !itemTagIds.contains(t.id)).toList();
-                if (available.isEmpty) return const SizedBox.shrink();
-                return Wrap(
-                  spacing: Spacing.xs,
-                  runSpacing: Spacing.xs,
-                  children: available
-                      .map((t) => TagChip(
-                    name: t.name,
-                    color: t.color,
-                    onTap: () async {
-                      final nav = Navigator.of(context);
-                      await ref
-                          .read(tagNotifierProvider.notifier)
-                          .addToItem(widget.itemId, t.id);
-                      nav.pop();
-                    },
-                  ))
-                      .toList(),
-                );
-              },
-            ),
-            SizedBox(
-                height:
-                MediaQuery.of(context).padding.bottom + Spacing.sm),
-          ],
-        ),
-      ),
     );
   }
 }
