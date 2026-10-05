@@ -80,3 +80,6 @@
 
 ## Αλλαγές Session 70 (Φ4a βήμα 7: label SPoT)
 - Νέο `models/item_type_label.dart` (`ItemTypeX.labelGr`)· `labelFor`+`AppStringUtils` delegates (0 κύκλοι)· διαγραφή settings map → `labelFor` ×3 (Ραντεβού fix, project/knowledge→Συλλογή + supernote)· tests `test/item_type_labels_test.dart` (5/5)· analyze clean.
+
+## Αλλαγές Session 71 (Φ4a βήμα 8: ItemCard icon SPoT)
+- `_PriorityChip` → `iconFor`· `_ItemTypeIcon` → shared widget (knowledge-fix)· empty-state τόνοι· tests `test/item_card_icons_test.dart` (4/4)· suite 74/74· analyze clean.

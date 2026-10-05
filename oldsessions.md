@@ -516,6 +516,20 @@
 
 **Backups:** `backups/phi4b_labels/` (7 αρχεία)
 
+## Session 71 — 05/10/2026 (Φ4a βήμα 8: ItemCard icon SPoT)
+
+**Πρόβλημα:** 2 private icon-maps (`_PriorityChip._icon` byte-identical, `_ItemTypeIcon` 12/13 — knowledge 💡 αντί article).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `_PriorityChip` → `PriorityBadge.iconFor` (delete getter)· `_TitleRow` → shared `ItemTypeIcon` (delete 45γρ. κλάση, knowledge-fix)
+- Drive-by: empty-state τόνοι/γραμματική (4 λέξεις)
+- Παρκαρισμένα: settings 4ος χάρτης (δικό του βήμα), EmptyState outline-design, `_untitledLabel`, `_parseColor` (ήδη ΟΚ)
+- Νέο `test/item_card_icons_test.dart` (4 tests)
+
+**Επαλήθευση:** νέο 4/4· `flutter test` → **74/74** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4b_itemcard/` (4 αρχεία)
+
 **Follow-up:** stale `widget_test` (counter) → αντικατάσταση με ερμητικό SPoT smoke test — suite 70/70, analyze clean (`backups/fix_widget_test/`).
 
 **Follow-up (επανέλεγχος):** +2 missed strings (`backup_service` share-prefix, browser inline load-text) + barrel import (`debug_config` → `core.dart`) — commit `29db09f`.

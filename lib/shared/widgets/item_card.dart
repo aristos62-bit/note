@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../helpers/item_color_helper.dart';
+import 'priority_badge.dart';
+import 'item_type_icon.dart';
 
 // ════════════════════════════════════════════════════════════════
 // ITEM CARD
@@ -235,8 +237,8 @@ class _TitleRow extends StatelessWidget {
           const SizedBox(width: Spacing.sm),
         ],
         if (!_showCheckbox) ...[
-          _ItemTypeIcon(
-              type: item.type, color: typeColor, size: compact ? 16 : 18),
+          ItemTypeIcon(
+              item.type, color: typeColor, size: compact ? 16 : 18),
           const SizedBox(width: Spacing.xs + 2),
         ],
         Expanded(
@@ -416,21 +418,6 @@ class _PriorityChip extends StatelessWidget {
   final ItemPriority priority;
   const _PriorityChip({required this.priority});
 
-  IconData get _icon {
-    switch (priority) {
-      case ItemPriority.urgent:
-        return Icons.priority_high_rounded;
-      case ItemPriority.high:
-        return Icons.keyboard_arrow_up_rounded;
-      case ItemPriority.medium:
-        return Icons.remove_rounded;
-      case ItemPriority.low:
-        return Icons.keyboard_arrow_down_rounded;
-      default:
-        return Icons.remove_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final color = context.priorityColor(priority);
@@ -445,7 +432,7 @@ class _PriorityChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_icon, size: 10, color: color),
+          Icon(PriorityBadge.iconFor(priority), size: 10, color: color),
           const SizedBox(width: 3),
           Text(AppStringUtils.priorityLabel(priority.name),
               style: context.labelSm.copyWith(color: color)),
@@ -539,55 +526,8 @@ class _TagChipSmall extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// ITEM TYPE ICON
-// ════════════════════════════════════════════════════════════════
-
-class _ItemTypeIcon extends StatelessWidget {
-  final ItemType type;
-  final Color color;
-  final double size;
-
-  const _ItemTypeIcon({
-    required this.type,
-    required this.color,
-    required this.size,
-  });
-
-  IconData get _icon {
-    switch (type) {
-      case ItemType.note:
-        return Icons.note_rounded;
-      case ItemType.task:
-        return Icons.check_circle_outline_rounded;
-      case ItemType.event:
-        return Icons.event_rounded;
-      case ItemType.contact:
-        return Icons.person_rounded;
-      case ItemType.habit:
-        return Icons.loop_rounded;
-      case ItemType.project:
-        return Icons.folder_rounded;
-      case ItemType.goal:
-        return Icons.flag_rounded;
-      case ItemType.finance:
-        return Icons.account_balance_wallet_rounded;
-      case ItemType.bookmark:
-        return Icons.bookmark_rounded;
-      case ItemType.journal:
-        return Icons.auto_stories_rounded;
-      case ItemType.appointment:
-        return Icons.cases_rounded;
-      case ItemType.checklist:
-        return Icons.checklist_rounded;
-      case ItemType.knowledge:
-        return Icons.lightbulb_outline_rounded;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Icon(_icon, size: size, color: color);
-}
+// ── ITEM TYPE ICON: SPoT shared ItemTypeIcon (η private κλάση διαγράφηκε,
+// Φ4a βήμα 8 — knowledge ενοποιήθηκε σε article_rounded) ─────────────
 
 // ════════════════════════════════════════════════════════════════
 // ITEM CARD SKELETON — loading placeholder
