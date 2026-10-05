@@ -448,7 +448,7 @@ class _DraggableCollectionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // ✅ StreamProvider — valueOrNull για graceful loading
     final counts = ref.watch(collectionEntriesCountProvider).valueOrNull ?? {};
-    final customColor = _colorFromString(item.color);
+    final customColor = ItemColorHelper.parseHex(item.color);
     final backgroundColor = customColor ?? ItemColorHelper.backgroundColorForType(ItemType.project, context);
     final foregroundColor = ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
@@ -521,15 +521,6 @@ class _DraggableCollectionCard extends ConsumerWidget {
         );
       },
     );
-  }
-
-  Color? _colorFromString(String? hex) {
-    if (hex == null || hex.isEmpty) return null;
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return null;
-    }
   }
 
   void _showActions(BuildContext context, WidgetRef ref) {

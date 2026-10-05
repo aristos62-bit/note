@@ -11,6 +11,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+import '../../helpers/item_color_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
@@ -582,8 +583,7 @@ class _CollectionDetailScreenState
   );
 
   Widget _buildBody(BuildContext context) {
-    final accentColor = Color(
-        int.parse('FF${_color.replaceAll('#', '')}', radix: 16));
+    final accentColor = ItemColorHelper.parseHex(_color) ?? const Color(0xFF6366F1);
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
@@ -656,8 +656,8 @@ class _CollectionDetailScreenState
           spacing: Spacing.sm,
           runSpacing: Spacing.sm,
           children: _kColors.map((hex) {
-            final c       = Color(int.parse(
-                'FF${hex.replaceAll('#', '')}', radix: 16));
+            final c       = ItemColorHelper.parseHex(hex) ??
+                const Color(0xFF6366F1);
             final isActive = _color == hex;
             return GestureDetector(
               onTap: () {

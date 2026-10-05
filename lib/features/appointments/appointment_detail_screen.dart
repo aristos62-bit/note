@@ -6,6 +6,7 @@ import '../../core/core.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
 
 class AppointmentDetailScreen extends ConsumerStatefulWidget {
@@ -96,13 +97,13 @@ class _AppointmentDetailScreenState
           _selectedDate = p.dateValue;
           break;
         case 'time':
-          if (p.value != null && p.value!.isNotEmpty) {
-            final parts = p.value!.split(':');
-            if (parts.length == 2) {
-              _selectedTime = TimeOfDay(
-                hour: int.parse(parts[0]),
-                minute: int.parse(parts[1]),
-              );
+          final v = p.value;
+          if (v != null && v.isNotEmpty) {
+            final t = HabitService.parseHabitTime(v);
+            if (t != null) {
+              _selectedTime = t;
+            } else {
+              DebugConfig.warning('AppointmentDetail: invalid time "$v" id=${widget.itemId}');
             }
           }
           break;
