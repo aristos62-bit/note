@@ -133,25 +133,23 @@ lib/
 - IDE: Android Studio Panda 4 | 2025.3.4 Patch 1
 - Στόχοι: real-time (streams, reactive), responsive (mobile/tablet/desktop), dark mode
 - Multi-platform: android, ios, web, linux, macos, windows
-- Suite 70/70 🟢 (το παλιό stale counter test αντικαταστάθηκε στο Session 70 με ερμητικό SPoT smoke test)
+- Suite 77/77 🟢 (Sessions 64-72, Φ4a βήματα 1-9)
 
-## Session Log (τρέχουσα κατάσταση)
+## Session Log (τρέχουσα κατάσταση — Session 72)
 
 ### Goal
-Ολοκληρωμένο — όλα τα recurring reminder fixes εφαρμοσμένα.
+Φ4a SPoT-refactor σε εξέλιξη (code_refactor.md): βήματα 1-9 ολοκληρωμένα και pushed.
 
-### Done
-- **Fix 1: Infinite CREATE→DELETE→CREATE loop** ✅ — `reminder_scheduler.dart` + `recurrence.dart`
-- **Fix 2: Yearly rrule desync** ✅ — `reminder_section.dart` sync BYMONTH/BYMONTHDAY from triggerDateTime
-- **Fix 3: Cascade delete on item delete** ✅ — `item_provider.dart` deleteItem() → deleteAllRemindersForItem()
-- **Fix 4: Duplicate root prevention** ✅ — `contact_detail_screen.dart` removed redundant check
-- **Cleanup: Orphan root 1293** ✅ — one-shot delete (temp file removed)
+### Done (Sessions 64-72)
+- **Β1 SheetHandle** ✅ · **Β2 ItemActionsSheet** ✅ · **Β3 FolderFormDialog** ✅ (device-verified) · **Β4 SearchClearButton** ✅ · **Β5 AppErrors** ✅ · **Β6 weekdays/months** ✅ · **Β7 labels** ✅ · **Β8 ItemCard icons** ✅ · **Β9 CircleToggleButton** ✅
+- Widget_test fix ✅ (ερμητικό smoke, όχι πια stale)
 
 ### Τελική κατάσταση
-- 5 recurring roots, όλοι υγιείς, 0 orphans, 0 loops
-- Παλιά corrupted roots (1239, 1255, 1265, 1293, 1307, 1322, 1344, 1365) — όλα διαγραμμένα ή διορθωμένα
+- Suite **77/77** 🟢 · `analyze` clean · όλα pushed (main: `012d9ba`)
+- Device: `created 0`, όλα `SUCCESS`, 0 `ERR` · cold start debug ~4.4s (φυσιολογικό, όχι από refactor)
 
 ### Εκκρεμότητες
-- (κανένα γνωστό)
+- Φ4a βήμα 10 (επόμενο, code_refactor §4)
+- Parked: settings 4ος icon-χάρτης, journal duplicate TagPicker, debounce-consts, PII-sanitize, 48px touch (Φ4c)
 
 
