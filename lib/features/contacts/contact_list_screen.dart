@@ -11,7 +11,6 @@ import '../../shared/widgets/widgets.dart';
 import 'contact_detail_screen.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
-import 'dart:convert';
 
 class ContactListScreen extends ConsumerStatefulWidget {
   const ContactListScreen({super.key});
@@ -406,13 +405,12 @@ class _ContactAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (photoBase64 != null && photoBase64!.isNotEmpty) {
-      try {
+      final provider = ImageUtils.avatarProvider(photoBase64, size: 44);
+      if (provider != null) {
         return CircleAvatar(
           radius: 22,
-          backgroundImage: MemoryImage(base64Decode(photoBase64!)),
+          backgroundImage: provider,
         );
-      } catch (e) {
-        DebugConfig.error('_ContactAvatar: base64 decode failed', e, null);
       }
     }
     return Container(

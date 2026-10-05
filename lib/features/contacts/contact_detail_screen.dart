@@ -228,7 +228,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     setState(() => _lastBirthday = null);
   }
 
-  Future<void> _pickGallery() async {
+  Future<void> _pickGallery(BuildContext context) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
@@ -238,6 +238,14 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
       final bytes = result.files.single.bytes;
       if (bytes == null || bytes.isEmpty) {
         DebugConfig.warning('_pickGallery: empty bytes');
+        return;
+      }
+      if (!ImageUtils.checkMaxBytes(bytes)) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppErrors.oversizeSkipped(1))),
+          );
+        }
         return;
       }
       final base64 = base64Encode(bytes);
@@ -505,7 +513,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
         onAddPhone: _addPhoneField,
         onRemovePhone: _removePhoneField,
         onPickCamera: _pickCamera,
-        onPickGallery: _pickGallery,
+        onPickGallery: () => _pickGallery(context),
         onDeletePhoto: _deletePhoto,
       ),
     );
@@ -561,7 +569,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
               onAddPhone: _addPhoneField,
               onRemovePhone: _removePhoneField,
               onPickCamera: _pickCamera,
-              onPickGallery: _pickGallery,
+              onPickGallery: () => _pickGallery(context),
               onDeletePhoto: _deletePhoto,
             ),
           ),
@@ -1431,13 +1439,12 @@ class _ContactDetailAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (photoBase64 != null && photoBase64!.isNotEmpty) {
-      try {
+      final provider = ImageUtils.avatarProvider(photoBase64, size: size.toInt());
+      if (provider != null) {
         return CircleAvatar(
           radius: size / 2,
-          backgroundImage: MemoryImage(base64Decode(photoBase64!)),
+          backgroundImage: provider,
         );
-      } catch (e) {
-        DebugConfig.error('_ContactDetailAvatar: base64 decode failed', e, null);
       }
     }
     return Container(
