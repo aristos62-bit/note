@@ -937,21 +937,7 @@ IconData _itemTypeIcon(ItemType type) => switch (type) {
   ItemType.knowledge   => Icons.lightbulb_rounded,
 };
 
-String _itemTypeLabel(ItemType type) => switch (type) {
-  ItemType.note        => 'Σημείωση',
-  ItemType.task        => 'Εργασία',
-  ItemType.event       => 'Εκδήλωση',
-  ItemType.contact     => 'Επαφή',
-  ItemType.habit       => 'Συνήθεια',
-  ItemType.project     => 'Project',
-  ItemType.goal        => 'Στόχος',
-  ItemType.finance     => 'Οικονομικά',
-  ItemType.bookmark    => 'Bookmark',
-  ItemType.journal     => 'Ημερολόγιο',
-  ItemType.appointment => 'Ραντεβού',
-  ItemType.checklist   => 'Λίστα',
-  ItemType.knowledge   => 'Γνώση',
-};
+// _itemTypeLabel διαγράφηκε (Φ4a βήμα 7) — SPoT: ItemTypeIcon.labelFor.
 
 Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async {
   final List<Item> items;
@@ -1134,7 +1120,7 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
-                                _itemTypeLabel(item.type),
+                                ItemTypeIcon.labelFor(item.type),
                                 style: ctx.bodySm.withColor(ctx.cText2),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -2435,7 +2421,7 @@ class _ItemTypeColorsTile extends ConsumerWidget {
                   const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
-                      _itemTypeLabel(type),
+                      ItemTypeIcon.labelFor(type),
                       style: context.bodyMd,
                     ),
                   ),
@@ -2599,7 +2585,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
                 const SizedBox(width: Spacing.md),
                 Icon(_itemTypeIcon(widget.type), size: 18, color: context.cText),
                 const SizedBox(width: Spacing.sm),
-                Text('Χρώμα — ${_itemTypeLabel(widget.type)}', style: context.titleSm),
+                Text('Χρώμα — ${ItemTypeIcon.labelFor(widget.type)}', style: context.titleSm),
               ],
             ),
             const SizedBox(height: Spacing.sm),

@@ -77,3 +77,6 @@
 
 ## Αλλαγές Session 69 (Φ4a βήμα 6: weekdays/months SPoT)
 - Extension `AppDateUtils` (5 λίστες 0-based, χωρίς dummies)· 10 αντικαταστάσεις (chips/dots/headers/τίτλοι/κάρτες/describe, `[m-1]` fix)· `dayInitial` refactor· recurrence άμεσο import· tests `test/weekday_labels_test.dart` (4/4)· analyze clean.
+
+## Αλλαγές Session 70 (Φ4a βήμα 7: label SPoT)
+- Νέο `models/item_type_label.dart` (`ItemTypeX.labelGr`)· `labelFor`+`AppStringUtils` delegates (0 κύκλοι)· διαγραφή settings map → `labelFor` ×3 (Ραντεβού fix, project/knowledge→Συλλογή + supernote)· tests `test/item_type_labels_test.dart` (5/5)· analyze clean.
