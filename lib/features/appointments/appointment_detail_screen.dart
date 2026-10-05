@@ -877,6 +877,10 @@ class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
                 decoration: InputDecoration(
                   hintText: 'Αναζήτηση επαφής...',
                   prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: SearchClearButton(
+                    controller: _searchCtrl,
+                    onCleared: () => setState(() => _query = ''),
+                  ),
                   border: OutlineInputBorder(borderRadius: AppRadius.inputBR, borderSide: BorderSide.none),
                   filled: true,
                   fillColor: ColorsUI.getSurface(context.brightness),

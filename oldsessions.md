@@ -456,3 +456,17 @@
 **Επαλήθευση:** `flutter test test/folder_form_dialog_test.dart` → 4/4· `flutter test` → 52/53 (μόνο γνωστό stale counter)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_folder/` (9 αρχεία)
+
+## Session 67 — 05/10/2026 (Φ4a βήμα 4: SearchClearButton SPoT)
+
+**Πρόβλημα:** 4 stale `controller.text.isNotEmpty` suffixIcons (trash, embedded, entries, search) — το X δεν ενημερωνόταν ζωντανά (build χωρίς listener, ορατό μόνο μετά debounce/provider-rebuild) + 1 search χωρίς καθόλου X (appointment contact sheet).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `lib/shared/widgets/search_clear_button.dart` (~70γρ.): `SearchClearButton(controller/onCleared/iconSize=24)` με `ValueListenableBuilder` (ζωντανό X χωρίς parent setState, auto remove-listener = no-leak by design), tooltip `'Καθαρισμός αναζήτησης'`
+- 5 callers byte-identical ροή: trash/embedded/entries (`onChanged('')`), search (`iconSize:20`, notifier.clear+focus, διαγραφή νεκρού `_clearSearch`), appointment (νέο X, `setState query=''`)
+- Εκτός (αποδεδειγμένα): task files (subtask=send, task_list=καθόλου search), tagpicker (add button), settings PIN quirk, FolderFormDialog input, debounce-consts (βήμα 19), journal duplicate (βήμα 14)
+- Νέο `test/search_clear_button_test.dart` (5 tests, με regression test «X χωρίς parent setState»)
+
+**Επαλήθευση:** νέο 5/5· `flutter test` → 57/58 (μόνο γνωστό stale counter)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_searchbtn/` (8 αρχεία)

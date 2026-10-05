@@ -11,7 +11,7 @@
 - Contacts: `ContactProps.fromProperties` (`core/utils/contact_props.dart`)
 - Images: `ImageUtils` (`core/utils/image_utils.dart`) — avatarProvider/ResizeImage, fileThumb/cacheWidth
 - DB: `SuperNoteHelper` facade + repositories, `dbProvider`
-- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive` (+`ItemLabelX.fromType`), `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`), `ItemActionsSheet` (long-press sheets, προαιρετικά actions, pop με sheet-ctx), `FolderFormDialog` (create/edit φακέλου, `kFolderIcons/kFolderColors`, `FolderFormResult`, pop με dialog-ctx, validation `AppStringUtils.clean`)
+- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive` (+`ItemLabelX.fromType`), `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`), `ItemActionsSheet` (long-press sheets, προαιρετικά actions, pop με sheet-ctx), `FolderFormDialog` (create/edit φακέλου, `kFolderIcons/kFolderColors`, `FolderFormResult`, pop με dialog-ctx, validation `AppStringUtils.clean`), `SearchClearButton` (`controller/onCleared/iconSize`, `ValueListenableBuilder` — ζωντανό X χωρίς parent setState)
 - Notifications: `NotificationService` (IANA via `flutter_timezone`) + `ReminderScheduler`
 - Backup/Migration: `BackupService` (File.copy, atomic restore), `MigrationService` (schemaVersion, safety backup, batch 50)
 
@@ -68,3 +68,6 @@
 
 ## Αλλαγές Session 66 (Φ4a βήμα 3: FolderFormDialog SPoT)
 - Νέο `shared/widgets/folder_form_dialog.dart` (ενοποίηση 3 dialogs home/browser, `FolderFormResult`, validation `clean` + inline error + disabled OK, dispose-fix)· 5× hex → `parseHex ?? fallback`· micro-fix `FolderRepository.update` (+`updatedAt/localVersion/isDirty`)· tests `test/folder_form_dialog_test.dart` (4/4)· analyze clean.
+
+## Αλλαγές Session 67 (Φ4a βήμα 4: SearchClearButton SPoT)
+- Νέο `shared/widgets/search_clear_button.dart` (`ValueListenableBuilder`, ζωντανό X χωρίς parent setState, `iconSize` 24/20, tooltip)· 4 αντικαταστάσεις (trash/embedded/entries/search, byte-identical ροή, διαγραφή νεκρού `_clearSearch`) + 1 νέο X (appointment contact sheet)· task/tagpicker/PIN εκτός (αποδεδειγμένα)· tests `test/search_clear_button_test.dart` (5/5)· analyze clean.
