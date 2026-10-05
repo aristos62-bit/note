@@ -131,6 +131,11 @@ class AppDuration {
   static const Duration normal  = Duration(milliseconds: 250);
   static const Duration slow    = Duration(milliseconds: 400);
   static const Duration page    = Duration(milliseconds: 300);
+
+  // Debounce οικογένειες (Φ4a βήμα 19 — SPoT για όλα τα debounce timers/fields)
+  static const Duration debounceSearch  = Duration(milliseconds: 300);
+  static const Duration debounceContent = Duration(milliseconds: 500);
+  static const Duration debounceTitle   = Duration(milliseconds: 800);
 }
 
 // ════════════════════════════════════════════════════════════════

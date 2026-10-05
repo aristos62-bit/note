@@ -215,7 +215,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       locale: const Locale('el', 'GR'),
       initialDate: initial,
       firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + 5),
+      lastDate: DateTime(now.year + AppDateUtils.pickerLastYears),
       helpText: 'Ημερομηνία υπενθύμισης',
     );
     if (!mounted) return;

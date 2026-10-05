@@ -113,6 +113,10 @@ class AppDateUtils {
     'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ',
   ];
 
+  /// Όρια date pickers (Φ4a βήμα 19 — SPoT: birthday-first + picker-last).
+  static const int birthdayFirstYear = 1900;
+  static const int pickerLastYears = 5;
+
   /// Μονογράμματα ημερών (headers calendars).
   static const weekdayInitials = ['Δ', 'Τ', 'Τ', 'Π', 'Π', 'Σ', 'Κ'];
 

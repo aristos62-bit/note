@@ -207,7 +207,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
       context: context,
       locale: const Locale('el', 'GR'),
       initialDate: init,
-      firstDate: DateTime(1900),
+      firstDate: DateTime(AppDateUtils.birthdayFirstYear),
       lastDate: now,
     );
     if (picked == null || !mounted) return;
