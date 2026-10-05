@@ -331,6 +331,18 @@ final trashedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
   return db.items.watchDeletedByWorkspace(wsId);
 });
 
+// ── Provider για αρχειοθετημένα items ──────────────────────────
+// (Φ4a βήμα 18: μεταφέρθηκε από settings_screen — DB via dbProvider)
+final archivedItemsProvider = FutureProvider<List<Item>>((ref) async {
+  final wsId = ref.watch(activeWorkspaceIdProvider);
+  if (wsId == null) return [];
+  final all = await ref.watch(dbProvider).items.getByWorkspace(
+    wsId,
+    includeArchived: true,
+  );
+  return all.where((i) => i.archived && i.deletedAt == null).toList();
+});
+
 // ─────────────────────────────────────────────────────────────────
 // Combined data για HomeFolderView (αντικαθιστά 4 ξεχωριστά providers)
 // ─────────────────────────────────────────────────────────────────
@@ -372,6 +384,34 @@ final folderViewDataProvider =
     loading: () async* {},
     error: (_, __) async* {},
   );
+});
+
+// ── Collection entry counts (Φ4a βήμα 18: από collections_screen,
+//    Stream-single-yield → Future — recompute-on-watch ident)
+final collectionEntriesCountProvider = FutureProvider<Map<int, int>>((ref) async {
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  final entries = itemsAsync.valueOrNull
+      ?.where((i) => i.type == ItemType.knowledge)
+      .toList() ??
+      [];
+
+  if (entries.isEmpty) {
+    return {};
+  }
+
+  // Ένα lightweight DB call αντί για N
+  final entryIds = entries.map((e) => e.id).toList();
+  DebugConfig.db('collectionEntriesCountProvider: entries=${entryIds.length}');
+  final collectionIdMap = await ref.watch(dbProvider).properties
+      .getCollectionIds(entryIds);
+  DebugConfig.db('collectionEntriesCountProvider: found ${collectionIdMap.length} pairs');
+
+  final Map<int, int> counts = {};
+  for (final colIdStr in collectionIdMap.values) {
+    final colId = int.tryParse(colIdStr);
+    if (colId != null) counts[colId] = (counts[colId] ?? 0) + 1;
+  }
+  return counts;
 });
 
 // ─────────────────────────────────────────────────────────────────

@@ -436,6 +436,8 @@ pinnedAndFavoritesProvider → StreamProvider<({List<Item> pinned, List<Item> fa
 
 // Composite:
 folderViewDataProvider → StreamProvider.family<FolderViewData, int>
+archivedItemsProvider → FutureProvider<List<Item>>               // Φ4a β18 (από settings)
+collectionEntriesCountProvider → FutureProvider<Map<int, int>>  // Φ4a β18 (από collections)
 ```
 
 ### Block Providers
@@ -480,6 +482,7 @@ subtasksStreamProvider → StreamProvider.family<List<Item>, int>   // from cach
 pendingRemindersProvider → FutureProvider<List<Reminder>>
 pendingRemindersStreamProvider → StreamProvider<List<Reminder>>
 itemRemindersProvider → FutureProvider.family<List<Reminder>, int>
+pastPendingRemindersProvider → FutureProvider<List<Reminder>>   // Φ4a β18 (από settings)
 reminderNotifierProvider → AsyncNotifierProviderFamily<ReminderNotifier, List<Reminder>, int>
 ```
 

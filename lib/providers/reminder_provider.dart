@@ -26,6 +26,11 @@ FutureProvider.family<List<Reminder>, int>((ref, itemId) {
   return ref.watch(dbProvider).reminders.getForItem(itemId);
 });
 
+/// Παρελθούσες pending υπενθυμίσεις (Φ4a βήμα 18: από settings_screen)
+final pastPendingRemindersProvider = FutureProvider<List<Reminder>>((ref) {
+  return ref.watch(dbProvider).reminders.getPastPending();
+});
+
 // ─────────────────────────────────────────────────────────────────
 // ReminderNotifier
 // ─────────────────────────────────────────────────────────────────

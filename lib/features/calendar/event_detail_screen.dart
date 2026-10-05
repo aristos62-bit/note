@@ -307,9 +307,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   @override
   Widget build(BuildContext context) {
     DebugConfig.provider('EventDetailScreen build id=${widget.itemId}');
-    final itemAsync = ref.watch(
-      itemStreamProvider(widget.itemId).select((value) => value),
-    );
+    final itemAsync = ref.watch(itemStreamProvider(widget.itemId));
 
     return itemAsync.when(
       loading: () => _buildLoading(),
