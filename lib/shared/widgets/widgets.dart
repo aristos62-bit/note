@@ -28,3 +28,4 @@ export 'content_field_widget.dart';
 export 'block_editor_widget.dart';
 export 'link_text.dart';
 export 'shared_intent_sheet.dart';
+export 'sheet_handle.dart';

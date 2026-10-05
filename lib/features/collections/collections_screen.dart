@@ -546,14 +546,8 @@ class _DraggableCollectionCard extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.cBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),

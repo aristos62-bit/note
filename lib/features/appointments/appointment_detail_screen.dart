@@ -863,12 +863,9 @@ class _ContactSearchSheetState extends ConsumerState<_ContactSearchSheet> {
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
         child: Column(
           children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
+            const Center(
+              child: SheetHandle(
+                margin: EdgeInsets.symmetric(vertical: Spacing.sm),
               ),
             ),
             Padding(

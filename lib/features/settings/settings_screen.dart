@@ -2306,11 +2306,8 @@ class _PreferredFolderTile extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2)),
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
@@ -2591,7 +2588,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: Spacing.sm),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2))),
+            const SheetHandle(),
             const SizedBox(height: Spacing.sm),
             Row(
               children: [

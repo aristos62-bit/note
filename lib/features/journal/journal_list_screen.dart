@@ -395,7 +395,9 @@ class _DraggableJournalCard extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(margin: const EdgeInsets.symmetric(vertical: Spacing.sm), width: 40, height: 4, decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2))),
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+            ),
             ListTile(leading: const Icon(Icons.edit_rounded), title: const Text('Επεξεργασία'), onTap: () { Navigator.pop(context); onTap(item.id); }),
             if (onShare != null)
               ListTile(leading: const Icon(Icons.share_rounded), title: const Text('Κοινοποίηση'), onTap: () { Navigator.pop(context); onShare!(); }),

@@ -406,7 +406,9 @@ class _DraggableContactTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(margin: const EdgeInsets.symmetric(vertical: Spacing.sm), width: 40, height: 4, decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(2))),
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+            ),
             ListTile(leading: const Icon(Icons.edit_rounded), title: const Text('Επεξεργασία'), onTap: () { Navigator.pop(context); onTap(contact.id); }),
             ListTile(leading: Icon(Icons.delete_outline_rounded, color: context.cError), title: Text('Διαγραφή', style: TextStyle(color: context.cError)), onTap: () { Navigator.pop(context); onDelete(contact); }),
             const SizedBox(height: Spacing.sm),

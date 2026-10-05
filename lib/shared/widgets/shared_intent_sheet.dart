@@ -14,6 +14,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/shared_intent_service.dart';
 import 'item_type_icon.dart';
+import 'sheet_handle.dart';
 
 // ─────────────────────────────────────────────────────────────
 // LISTENER — mount στο SuperNoteApp Stack (χωρίς UI)
@@ -212,15 +213,8 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: context.cBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+            const Center(
+              child: SheetHandle(),
             ),
             const SizedBox(height: Spacing.md),
             Text('Κοινοποίηση από άλλη εφαρμογή',
