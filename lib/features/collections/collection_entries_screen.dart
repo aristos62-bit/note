@@ -295,13 +295,7 @@ class _CollectionEntriesScreenState
   }
 
   static Color _colorFromItem(Item item) {
-    final hex = item.color;
-    if (hex == null || hex.isEmpty) return const Color(0xFF6366F1);
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return const Color(0xFF6366F1);
-    }
+    return ItemColorHelper.parseHex(item.color) ?? const Color(0xFF6366F1);
   }
 }
 

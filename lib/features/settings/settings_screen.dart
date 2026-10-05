@@ -2412,7 +2412,7 @@ class _ItemTypeColorsTile extends ConsumerWidget {
           const SizedBox(height: Spacing.sm),
           ...types.map((type) {
             final hex = map[type.name];
-            final color = _parseHexColor(hex);
+            final color = ItemColorHelper.parseHex(hex);
             return Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
@@ -2719,16 +2719,6 @@ Map<String, String?> _itemTypeColorsMap(String? json) {
     return decoded.map((k, v) => MapEntry(k.toString(), v?.toString()));
   } catch (_) {
     return {};
-  }
-}
-
-Color? _parseHexColor(String? hex) {
-  if (hex == null || hex.isEmpty) return null;
-  try {
-    final clean = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$clean', radix: 16));
-  } catch (_) {
-    return null;
   }
 }
 

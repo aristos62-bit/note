@@ -560,3 +560,16 @@
 **Επαλήθευση:** `toggle_button_test` 3/3· `flutter test` → **77/77** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_viewmode/` (5 αρχεία)
+
+## Session 74 — 05/10/2026 (Φ4a βήμα 11: parseHex + tryParse SPoT)
+
+**Πρόβλημα:** 5 raw hex (`settings _parseHexColor`, `collections _colorFromString`, `entries _colorFromItem`, `detail accentColor CRASH + presets`) + 2 raw `int.parse` time (`appointment _loadData CRASH`) — §4.11 υπομετρούσε (3+2).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Hex → `ItemColorHelper.parseHex` (3 διαγραφές helpers + 2 raw → delegates, fallbacks byte-identical: settings `_defaultBg`, collections type-color, entries/detail indigo)
+- Time → `HabitService.parseHabitTime` (tryParse+range, tested) + `warning` σε corrupt· SPoTs παγωμένα
+- Imports: detail +helper, appointment +services barrel (settings/collections/entries ήδη ΟΚ)· εκτός: βήμα 18 (`_itemTypeColorsMap`), Φ4b/c
+
+**Επαλήθευση:** `flutter test` → **77/77** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_parse/` (6 αρχεία)
