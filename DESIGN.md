@@ -83,3 +83,6 @@
 
 ## Αλλαγές Session 71 (Φ4a βήμα 8: ItemCard icon SPoT)
 - `_PriorityChip` → `iconFor`· `_ItemTypeIcon` → shared widget (knowledge-fix)· empty-state τόνοι· tests `test/item_card_icons_test.dart` (4/4)· suite 74/74· analyze clean.
+
+## Αλλαγές Session 72 (Φ4a βήμα 9: toggle-button SPoT)
+- Νέο `CircleToggleButton` (3 privates → 1, tokens cError/cWarning/cSuccess/cInfo)· `ViewModeToggle` API άθικτο· enums άθικτα· tests `test/toggle_button_test.dart` (3/3)· suite 77/77· analyze clean.

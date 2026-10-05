@@ -530,6 +530,20 @@
 
 **Backups:** `backups/phi4b_itemcard/` (4 αρχεία)
 
+## Session 72 — 05/10/2026 (Φ4a βήμα 9: toggle-button SPoT)
+
+**Πρόβλημα:** 3 byte-identical private `_ToggleButton` + hardcoded `Colors.red/amber/green/blue` αντί tokens.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Public `CircleToggleButton` στο `view_mode_toggle.dart`· εσωτερικό `ViewModeToggle` πάνω του (API `const` + tokens, provider-συμπεριφορά άθικτη)
+- Home ×3 + folder ×4 swaps (red→cError, amber→cWarning, green→cSuccess, blue→cInfo)· διαγραφή 2 κλάσεων
+- Εκτός: enum-ενοποίηση (διαφορετικά semantics), 48px (Φ4c)
+- Νέο `test/toggle_button_test.dart` (3 tests)
+
+**Επαλήθευση:** νέο 3/3· `flutter test` → **77/77** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4b_toggle/` (5 αρχεία)
+
 **Follow-up:** stale `widget_test` (counter) → αντικατάσταση με ερμητικό SPoT smoke test — suite 70/70, analyze clean (`backups/fix_widget_test/`).
 
 **Follow-up (επανέλεγχος):** +2 missed strings (`backup_service` share-prefix, browser inline load-text) + barrel import (`debug_config` → `core.dart`) — commit `29db09f`.

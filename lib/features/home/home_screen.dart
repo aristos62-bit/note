@@ -417,27 +417,27 @@ class _ViewModeToggle extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _ToggleButton(
+          CircleToggleButton(
             icon: Icons.push_pin_rounded,
             tooltip: 'Καρφιτσωμένα',
             isSelected: current == ViewMode.pinned,
-            activeColor: Colors.red,
+            activeColor: context.cError,
             onTap: () => onChanged(ViewMode.pinned),
           ),
           const SizedBox(width: Spacing.md),
-          _ToggleButton(
+          CircleToggleButton(
             icon: Icons.star_rounded,
             tooltip: 'Αγαπημένα',
             isSelected: current == ViewMode.favorites,
-            activeColor: Colors.amber,
+            activeColor: context.cWarning,
             onTap: () => onChanged(ViewMode.favorites),
           ),
           const SizedBox(width: Spacing.md),
-          _ToggleButton(
+          CircleToggleButton(
             icon: Icons.merge_type_rounded,
             tooltip: 'Όλα',
             isSelected: current == ViewMode.both,
-            activeColor: Colors.green,
+            activeColor: context.cSuccess,
             onTap: () => onChanged(ViewMode.both),
           ),
         ],
@@ -446,52 +446,7 @@ class _ViewModeToggle extends StatelessWidget {
   }
 }
 
-class _ToggleButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final bool isSelected;
-  final Color activeColor;
-  final VoidCallback onTap;
-
-  const _ToggleButton({
-    required this.icon,
-    required this.tooltip,
-    required this.isSelected,
-    required this.activeColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isSelected ? activeColor : context.cText2;
-    final bgColor = isSelected
-        ? activeColor.withValues(alpha: 0.12)
-        : ColorsUI.getSurface(context.brightness);
-    final borderColor =
-    isSelected ? activeColor : ColorsUI.getBorder(context.brightness);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Tooltip(
-        message: tooltip,
-        child: AnimatedContainer(
-          duration: AppDuration.fast,
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: bgColor,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: borderColor,
-              width: 1.5,
-            ),
-          ),
-          child: Icon(icon, size: 18, color: color),
-        ),
-      ),
-    );
-  }
-}
+// _ToggleButton διαγράφηκε (Φ4a βήμα 9) — SPoT: CircleToggleButton.
 
 // ════════════════════════════════════════════════════════════════
 // HOME APP BAR

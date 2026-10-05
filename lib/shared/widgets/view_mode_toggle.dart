@@ -15,27 +15,27 @@ class ViewModeToggle extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _ToggleButton(
+          CircleToggleButton(
             icon: Icons.push_pin_rounded,
             tooltip: 'Καρφιτσωμένα',
             isSelected: current == ListViewMode.pinned,
-            activeColor: Colors.red,
+            activeColor: context.cError,
             onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.pinned,
           ),
           const SizedBox(width: Spacing.md),
-          _ToggleButton(
+          CircleToggleButton(
             icon: Icons.star_rounded,
             tooltip: 'Αγαπημένα',
             isSelected: current == ListViewMode.favorites,
-            activeColor: Colors.amber,
+            activeColor: context.cWarning,
             onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.favorites,
           ),
           const SizedBox(width: Spacing.md),
-          _ToggleButton(
+          CircleToggleButton(
             icon: Icons.merge_type_rounded,
             tooltip: 'Όλα',
             isSelected: current == ListViewMode.all,
-            activeColor: Colors.green,
+            activeColor: context.cSuccess,
             onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.all,
           ),
         ],
@@ -44,14 +44,17 @@ class ViewModeToggle extends ConsumerWidget {
   }
 }
 
-class _ToggleButton extends StatelessWidget {
+// ── Κοινό κυκλικό toggle (SPoT Φ4a βήμα 9 — ενοποιεί 3 private _ToggleButton) ──
+
+class CircleToggleButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final bool isSelected;
   final Color activeColor;
   final VoidCallback onTap;
 
-  const _ToggleButton({
+  const CircleToggleButton({
+    super.key,
     required this.icon,
     required this.tooltip,
     required this.isSelected,
