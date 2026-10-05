@@ -634,6 +634,18 @@
 
 **Parked (post-refactor):** `folder_browser:180,208` widget-push duplicates (λείπει appointment) → ίδιο `forType` + `extra`.
 
+## Session 86 — 05/10/2026 (Βήμα 15b: folder_browser forType — parked closed)
+
+**Πρόβλημα (parked):** 2 widget-switches + appointment→note ❌ + raw-push.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `_openItem` → `forType ?? note` + `extra: true`· `_openExisting` → `forType ?? note`
+- −7 screen-imports +1 go_router· knowledge→note kept (όχι entry-branch)· nav-logs kept
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!` · device-retest (new/existing/back) εκκρεμεί.
+
+**Backups:** `backups/phi4b_browser15b/` (2 αρχεία)
+
 ## Session 79 — 05/10/2026 (Φ4a βήμα 16: SharedIntent extract + Import batch + autoBackup)
 
 **Πρόβλημα:** 2 attachment-loops ≡ · dedup N+1 (2N queries + N getById) · autoBackup .isar-latent 0 callers.
