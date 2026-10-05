@@ -602,3 +602,18 @@
 **Επαλήθευση:** `flutter test` → **87/87** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_images/` (5 αρχεία)
+
+## Session 77 — 05/10/2026 (Φ4a βήμα 14: TagPicker/Confirm/Skeleton)
+
+**Πρόβλημα:** Journal ~110γρ. byte-identical SPoT-αντίγραφο («για αυτονομία»)· appointment raw centered-`AlertDialog`· collections στατικό κουτί αντί shimmer.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Journal: −`_showTagPicker` −`_TagPickerSheet` (3 closures → `showTagPickerSheet`, 0 imports — ούτε convert)
+- Appointment `_askCreateContact` → `ConfirmDialog.show` (Ναι/Όχι, person, non-destructive· precedent `:513` ίδιο αρχείο)
+- Collections `_LoadingGrid` inner → `const ItemCardSkeleton()` (extent/grid άθικτα)
+- Μάθημα: Scaffold AnimatedBuilder → `findsWidgets` (όχι findsOneWidget)
+- Νέο `test/item_card_skeleton_test.dart` (2 tests)· sheets/dialog device-verify (Isar harness)
+
+**Επαλήθευση:** `flutter test` → **89/89** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_misc14/` (4 αρχεία)

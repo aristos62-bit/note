@@ -594,12 +594,7 @@ class _LoadingGrid extends StatelessWidget {
           mainAxisSpacing: Spacing.md,
           crossAxisSpacing: Spacing.md),
       itemCount: 4,
-      itemBuilder: (_, __) => Container(
-        decoration: BoxDecoration(
-          color: ColorsUI.getBorder(context.brightness).withValues(alpha: 0.4),
-          borderRadius: AppRadius.cardBR,
-        ),
-      ),
+      itemBuilder: (_, __) => const ItemCardSkeleton(),
     );
   }
 }
