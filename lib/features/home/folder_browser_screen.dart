@@ -280,7 +280,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(
                             horizontal: context.responsiveHPadding),
-                        child: Text('Σφάλμα φόρτωσης: $e',
+                        child: Text(AppErrors.loadFailed,
                             style: context.bodySm.withColor(context.cError)),
                       ),
                     );
