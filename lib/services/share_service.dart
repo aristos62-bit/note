@@ -62,7 +62,7 @@ class ShareService {
       DebugConfig.error('ShareService.shareItem', e, stack);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Αποτυχία κοινοποίησης: $e')),
+          const SnackBar(content: Text(AppErrors.shareFailed)),
         );
       }
     }

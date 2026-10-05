@@ -364,7 +364,7 @@ class _AppointmentDetailScreenState
 
   Future<void> _save() async {
     if (_selectedDate == null) {
-      showSnackBar('Επιλέξτε ημερομηνία');
+      showSnackBar(AppErrors.dateRequired);
       return;
     }
     final ok = await executeSave(() => _saveData());

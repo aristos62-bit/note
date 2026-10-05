@@ -173,7 +173,7 @@ class _CollectionEntriesScreenState
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                        const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
                       );
                     }
                   });
@@ -824,7 +824,7 @@ class _CollectionEntryDetailScreenState
         final current = _fieldAttachmentIds[fieldKey]?.length ?? 0;
         DebugConfig.db('_addAttachment maxFiles check: field="${field.label}" current=$current max=${field.maxFiles}');
         if (current >= field.maxFiles) {
-          if (mounted) showSnackBar('Μέγιστο όριο ${field.maxFiles} αρχείων για το πεδίο "${field.label}"');
+          if (mounted) showSnackBar(AppErrors.attachMaxFiles(field.maxFiles, field.label));
           return;
         }
       }
@@ -841,7 +841,7 @@ class _CollectionEntryDetailScreenState
       );
       if (attachment != null && mounted) {
         if (_fieldAttachmentIds.values.any((ids) => ids.contains(attachment.id))) {
-          if (mounted) showSnackBar('Το αρχείο "${attachment.fileName}" υπάρχει ήδη');
+          if (mounted) showSnackBar(AppErrors.attachExists(attachment.fileName));
           return;
         }
         ref.invalidate(attachmentsProvider(widget.entryId));
@@ -852,9 +852,10 @@ class _CollectionEntryDetailScreenState
         });
       }
     } on FormatException catch (e) {
+      DebugConfig.warning('_addAttachment validation: ${e.message}');
       if (mounted) showSnackBar(e.message);
     } catch (e) {
-      debugPrint('[_addAttachment] error: $e');
+      DebugConfig.error('_addAttachment', e);
     }
   }
 
@@ -916,11 +917,11 @@ class _CollectionEntryDetailScreenState
       final result = await OpenFilex.open(attachment.localPath);
       if (result.type != ResultType.done && mounted) {
         DebugConfig.db('_openAttachment failed: ${result.type} ${result.message}');
-        showSnackBar('Αδυναμία ανοίγματος του αρχείου');
+        showSnackBar(AppErrors.attachOpenFailed);
       }
     } catch (e) {
       DebugConfig.error('_openAttachment', e);
-      if (mounted) showSnackBar('Αδυναμία ανοίγματος του αρχείου');
+      if (mounted) showSnackBar(AppErrors.attachOpenFailed);
     }
   }
 
@@ -930,7 +931,7 @@ class _CollectionEntryDetailScreenState
       final file = File(attachment.localPath);
       if (!await file.exists()) {
         DebugConfig.db('_saveAttachment file not found');
-        if (mounted) showSnackBar('Το αρχείο δεν βρέθηκε');
+        if (mounted) showSnackBar(AppErrors.attachNotFound);
         return;
       }
       final bytes = await file.readAsBytes();
@@ -941,13 +942,13 @@ class _CollectionEntryDetailScreenState
       );
       if (path != null && mounted) {
         DebugConfig.db('_saveAttachment saved to "$path"');
-        showSnackBar('Αποθηκεύτηκε: ${attachment.fileName}');
+        showSnackBar(AppErrors.attachSaved(attachment.fileName));
       } else {
         DebugConfig.db('_saveAttachment cancelled');
       }
     } catch (e) {
       DebugConfig.error('_saveAttachment', e);
-      if (mounted) showSnackBar('Αποτυχία αποθήκευσης');
+      if (mounted) showSnackBar(AppErrors.attachSaveFailed);
     }
   }
 

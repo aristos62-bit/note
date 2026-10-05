@@ -238,7 +238,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       DebugConfig.error('Home createFolder failed', e, s);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Σφάλμα κατά την αποθήκευση')),
+          const SnackBar(content: Text(AppErrors.saveFailed)),
         );
       }
     }
@@ -270,7 +270,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       DebugConfig.error('Home renameFolder failed', e, s);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Σφάλμα κατά την αποθήκευση')),
+          const SnackBar(content: Text(AppErrors.saveFailed)),
         );
       }
     }

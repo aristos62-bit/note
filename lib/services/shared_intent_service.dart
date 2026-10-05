@@ -332,7 +332,7 @@ class SharedIntentService {
     } catch (e, stack) {
       DebugConfig.error('SharedIntent saveAsNote', e, stack);
       return SharedSaveResult(
-          target: SharedTarget.note, error: 'Αποτυχία αποθήκευσης: $e');
+          target: SharedTarget.note, error: '${AppErrors.attachSaveFailed}: $e');
     }
   }
 
@@ -436,7 +436,7 @@ class SharedIntentService {
     } catch (e, stack) {
       DebugConfig.error('SharedIntent saveAsEvent', e, stack);
       return SharedSaveResult(
-          target: SharedTarget.event, error: 'Αποτυχία αποθήκευσης: $e');
+          target: SharedTarget.event, error: '${AppErrors.attachSaveFailed}: $e');
     }
   }
 }

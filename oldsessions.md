@@ -470,3 +470,18 @@
 **Επαλήθευση:** νέο 5/5· `flutter test` → 57/58 (μόνο γνωστό stale counter)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_searchbtn/` (8 αρχεία)
+
+## Session 68 — 05/10/2026 (Φ4a βήμα 5: AppErrors SPoT)
+
+**Πρόβλημα:** ~35 διάσπαρτα user strings (31 SnackBars) — διπλότυπα (hint ×8, saveFailed ×4, needTitle ×2, loadFailed ×2), ασυνέπειες (habit `Σφάλμα αποθήκευσης` vs `Σφάλμα κατά την αποθήκευση`), raw exception στον χρήστη (browser `e.toString()`, `:$e` suffixes), 1 raw `debugPrint` σε catch, 4 catches χωρίς `DebugConfig.error`.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `core/utils/app_errors.dart` + export (`core.dart`): σταθερές + 8 παραμετρικές (`archived/restored(ItemLabel)`, `movedToFolder`, `attachMaxFiles/Exists/Saved`, `birthdayReplaced/Created`, `oversizeSkipped`, `importMore`)
+- ~15 αρχεία: mixin (9 screens δωρεάν), archive pair (μεταφορά `_label`), hint ×8, save ×4, share/intent/backup/contacts/calendar/birthday/move/attachments
+- Fixes: browser raw → `saveFailed`· `:$e` suffixes → plain (details στα logs)· entries `debugPrint` → `DebugConfig.error`· +4 `DebugConfig.error` (settings ×2, contacts ×2)· FormatException → `warning`· +`const` (17 infos → 0)
+- Εκτός: import-summary dialog, ConfirmDialog/EmptyState defaults, AppLock, ALL-CAPS, PII-sanitize (Φ4c), debounce (19), journal duplicate (14)
+- Νέο `test/app_errors_test.dart` (3 pure tests)
+
+**Επαλήθευση:** νέο 3/3· `flutter test` → 60/61 (μόνο γνωστό stale counter)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_errors/` (22 αρχεία)

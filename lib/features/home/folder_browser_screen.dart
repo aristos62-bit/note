@@ -68,7 +68,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
       DebugConfig.error('FolderBrowser rename failed', e, s);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Σφάλμα κατά την αποθήκευση')),
+          const SnackBar(content: Text(AppErrors.saveFailed)),
         );
       }
     }
@@ -93,7 +93,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
       if (mounted) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          const SnackBar(content: Text(AppErrors.saveFailed)),
         );
       }
     }

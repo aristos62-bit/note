@@ -322,7 +322,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
-                  Text('Αντικαταστάθηκε η υπενθύμιση γενεθλίων για $name')),
+                  Text(AppErrors.birthdayReplaced(name))),
         );
       }
       return;
@@ -345,7 +345,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content:
-                Text('Δημιουργήθηκε ετήσια υπενθύμιση γενεθλίων για $name')),
+                Text(AppErrors.birthdayCreated(name))),
       );
     }
   }

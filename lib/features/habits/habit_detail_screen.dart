@@ -262,7 +262,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
                 : () async {
               if (_titleCtrl.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Παρακαλώ προσθέστε τίτλο')),
+                  const SnackBar(content: Text(AppErrors.needTitle)),
                 );
                 return;
               }
@@ -278,7 +278,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
                   setState(() => _isSaving = false);
                   if (!context.mounted)return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Σφάλμα αποθήκευσης: ${e.toString()}')),
+                    const SnackBar(content: Text(AppErrors.saveFailed)),
                   );
                 }
               }

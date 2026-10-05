@@ -11,7 +11,7 @@
 - Contacts: `ContactProps.fromProperties` (`core/utils/contact_props.dart`)
 - Images: `ImageUtils` (`core/utils/image_utils.dart`) — avatarProvider/ResizeImage, fileThumb/cacheWidth
 - DB: `SuperNoteHelper` facade + repositories, `dbProvider`
-- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive` (+`ItemLabelX.fromType`), `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`), `ItemActionsSheet` (long-press sheets, προαιρετικά actions, pop με sheet-ctx), `FolderFormDialog` (create/edit φακέλου, `kFolderIcons/kFolderColors`, `FolderFormResult`, pop με dialog-ctx, validation `AppStringUtils.clean`), `SearchClearButton` (`controller/onCleared/iconSize`, `ValueListenableBuilder` — ζωντανό X χωρίς parent setState)
+- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive` (+`ItemLabelX.fromType`), `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`), `ItemActionsSheet` (long-press sheets, προαιρετικά actions, pop με sheet-ctx), `FolderFormDialog` (create/edit φακέλου, `kFolderIcons/kFolderColors`, `FolderFormResult`, pop με dialog-ctx, validation `AppStringUtils.clean`), `SearchClearButton` (`controller/onCleared/iconSize`, `ValueListenableBuilder` — ζωντανό X χωρίς parent setState), `AppErrors` (όλα τα user-facing error strings, σταθερές + παραμετρικές)
 - Notifications: `NotificationService` (IANA via `flutter_timezone`) + `ReminderScheduler`
 - Backup/Migration: `BackupService` (File.copy, atomic restore), `MigrationService` (schemaVersion, safety backup, batch 50)
 
@@ -71,3 +71,6 @@
 
 ## Αλλαγές Session 67 (Φ4a βήμα 4: SearchClearButton SPoT)
 - Νέο `shared/widgets/search_clear_button.dart` (`ValueListenableBuilder`, ζωντανό X χωρίς parent setState, `iconSize` 24/20, tooltip)· 4 αντικαταστάσεις (trash/embedded/entries/search, byte-identical ροή, διαγραφή νεκρού `_clearSearch`) + 1 νέο X (appointment contact sheet)· task/tagpicker/PIN εκτός (αποδεδειγμένα)· tests `test/search_clear_button_test.dart` (5/5)· analyze clean.
+
+## Αλλαγές Session 68 (Φ4a βήμα 5: AppErrors SPoT)
+- Νέο `core/utils/app_errors.dart` (~35 strings: σταθερές + 8 παραμετρικές)· ~15 αρχεία (mixin, archive, hint ×8, save, share/intent/backup/contacts/calendar/birthday/move/attachments)· fixes: browser raw→saveFailed, `:$e`→plain, debugPrint→error, +4 error logs, +const· tests `test/app_errors_test.dart` (3/3)· analyze clean.

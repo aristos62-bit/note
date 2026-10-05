@@ -246,7 +246,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                        const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
                       );
                     }
                   });
