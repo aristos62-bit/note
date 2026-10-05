@@ -10,19 +10,13 @@
 //
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import '../../shared/widgets/widgets.dart';
-import '../notes/note_detail_screen.dart';
-import '../tasks/task_detail_screen.dart';
-import '../contacts/contact_detail_screen.dart';
-import '../journal/journal_detail_screen.dart';
-import '../habits/habit_detail_screen.dart';
-import '../calendar/event_detail_screen.dart';
-import '../collections/collection_detail_screen.dart';
 
 // ════════════════════════════════════════════════════════════════
 // FOLDER BROWSER SCREEN
@@ -177,57 +171,17 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
   // ── Open item (new & existing) ───────────────────────────────
   void _openItem(BuildContext context, Item item) {
     DebugConfig.nav('FolderBrowser → ${item.type.name} id=${item.id}');
-    switch (item.type) {
-      case ItemType.task:
-        Navigator.of(context)
-            .push(AppTransitions.slideRoute(TaskDetailScreen(itemId: item.id)));
-      case ItemType.contact:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            ContactDetailScreen(itemId: item.id, isNew: true)));
-      case ItemType.journal:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            JournalDetailScreen(itemId: item.id, isNew: true)));
-      case ItemType.habit:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            HabitDetailScreen(itemId: item.id, isNew: true)));
-      case ItemType.event:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            EventDetailScreen(itemId: item.id, isNew: true)));
-      case ItemType.project:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            CollectionDetailScreen(collectionId: item.id, isNew: true)));
-      default:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            NoteDetailScreen(itemId: item.id, isNew: true)));
-    }
+    final route =
+        AppRoutes.forType(item.type, item.id) ?? AppRoutes.note(item.id);
+    context.push(route, extra: true);
   }
 
   void _openExisting(BuildContext context, Item item) {
     DebugConfig.nav(
         'FolderBrowser open existing ${item.type.name} id=${item.id}');
-    switch (item.type) {
-      case ItemType.task:
-        Navigator.of(context)
-            .push(AppTransitions.slideRoute(TaskDetailScreen(itemId: item.id)));
-      case ItemType.contact:
-        Navigator.of(context).push(
-            AppTransitions.slideRoute(ContactDetailScreen(itemId: item.id)));
-      case ItemType.journal:
-        Navigator.of(context).push(
-            AppTransitions.slideRoute(JournalDetailScreen(itemId: item.id)));
-      case ItemType.habit:
-        Navigator.of(context).push(
-            AppTransitions.slideRoute(HabitDetailScreen(itemId: item.id)));
-      case ItemType.event:
-        Navigator.of(context).push(
-            AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)));
-      case ItemType.project:
-        Navigator.of(context).push(AppTransitions.slideRoute(
-            CollectionDetailScreen(collectionId: item.id)));
-      default:
-        Navigator.of(context)
-            .push(AppTransitions.slideRoute(NoteDetailScreen(itemId: item.id)));
-    }
+    final route =
+        AppRoutes.forType(item.type, item.id) ?? AppRoutes.note(item.id);
+    context.push(route);
   }
 
   // ── Build ─────────────────────────────────────────────────────
