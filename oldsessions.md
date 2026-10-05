@@ -650,3 +650,16 @@
 **Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_batch16/` (4 αρχεία)
+
+## Session 80 — 05/10/2026 (Φ4a βήμα 17: folder-state ενοποίηση)
+
+**Πρόβλημα:** Δίδυμοι `StateProvider<int?>` null-«Όλοι» — κοινός (mixin+7 λίστες) vs home-only (home×5 + shell-reset).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Home ×5 + shell-reset → `selectedFolderIdProvider`· διαγραφή `homeSelectedFolderProvider` (`ui_provider:3-6`)
+- Χωρίς mixin-home (startup «Όλοι» kept — mixin null-guard `:26` σεβασμός)· cross-ορατότητα σκόπιμη
+- `supernote.md` sync 3 γραμμών (διαγραφή provider + reset + `forType`-παράλειψη β15)
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!` · grep `homeSelectedFolder` lib/ = 0
+
+**Backups:** `backups/phi4a_folderstate/` (5 αρχεία)
