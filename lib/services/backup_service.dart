@@ -294,6 +294,10 @@ class BackupService {
   // 4. AUTO-BACKUP
   // ─────────────────────────────────────────────────────────────────
 
+  /// AUTO-BACKUP — ΤΕΚΜΗΡΙΩΜΕΝΗ ΕΞΑΙΡΕΣΗ (Φ4a βήμα 16):
+  /// Latent (0 callers) — γράφει μόνο `.isar`, ΧΩΡΙΣ attachments.
+  /// Όταν ενεργοποιηθεί (UI toggle + restore-path), ΠΡΕΠΕΙ να γίνει zip
+  /// (DB + attachments) via `BackupArchive.createBackupZip`, όπως το export.
   Future<String?> autoBackup() async {
     DebugConfig.db('autoBackup: starting');
     try {

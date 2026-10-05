@@ -114,6 +114,36 @@ class ContactImportService {
     final errorDetails = <String>[];
     final helper = SuperNoteHelper.instance;
 
+    // Batch dedup (Φ4a βήμα 16): 2 queries/run αντί N+1 — τίτλοι + phones
+    // (phones + legacy phone keys, non-deleted, workspace-scoped).
+    // Σε DB error: κενά sets (προχωράμε — καλύτερα duplicate από ολικό fail).
+    final titleSet = <String>{};
+    final phoneSet = <String>{};
+    try {
+      final existing = await helper.items.getByWorkspace(
+        workspaceId,
+        type: ItemType.contact,
+        includeArchived: true,
+      );
+      for (final c in existing) {
+        final t = (c.title ?? '').trim().toLowerCase();
+        if (t.isNotEmpty) titleSet.add(t);
+      }
+      final propsMap = await helper.properties.getAllForItems(
+        [for (final c in existing) c.id],
+      );
+      propsMap.forEach((_, props) {
+        final cp = ContactProps.fromProperties(props);
+        phoneSet.addAll(cp.phones);
+        final fb = cp.phoneFallback;
+        if (fb != null && fb.isNotEmpty) phoneSet.add(fb);
+      });
+      DebugConfig.db(
+          'ContactImport dedup sets: titles=${titleSet.length} phones=${phoneSet.length}');
+    } catch (e, stack) {
+      DebugConfig.error('[ContactImportService] dedup prefetch failed', e, stack);
+    }
+
     for (int i = 0; i < contacts.length; i++) {
       final contact = contacts[i];
       final displayName = _displayName(contact);
@@ -126,7 +156,7 @@ class ContactImportService {
       ));
 
       try {
-        if (await _existsInDb(contact, helper)) {
+        if (ContactImportService.isDuplicate(contact, titleSet, phoneSet)) {
           DebugConfig.print('ContactImport: skipped duplicate "$displayName"');
           skipped++;
           continue;
@@ -201,42 +231,22 @@ class ContactImportService {
     return '(χωρίς όνομα)';
   }
 
-  Future<bool> _existsInDb(Contact contact, SuperNoteHelper helper) async {
-    try {
-      final name = (contact.displayName ?? '').trim().toLowerCase();
-      if (name.isNotEmpty) {
-        final byName = await helper.isar.items
-            .filter()
-            .typeEqualTo(ItemType.contact)
-            .titleEqualTo(name)
-            .deletedAtIsNull()
-            .findAll();
-        if (byName.isNotEmpty) return true;
+  /// Pure duplicate-check πάνω σε pre-fetched sets (Φ4a βήμα 16 — testable,
+  /// 0 DB calls· αντικαθιστά το per-contact `_existsInDb` N+1).
+  /// Σκόπιμα workspace-scoped + archived-inclusive (parity με παλιό query).
+  static bool isDuplicate(
+    Contact contact,
+    Set<String> titleSet,
+    Set<String> phoneSet,
+  ) {
+    final name = (contact.displayName ?? '').trim().toLowerCase();
+    if (name.isNotEmpty && titleSet.contains(name)) return true;
+    for (final phone in contact.phones) {
+      if (phone.number.isNotEmpty && phoneSet.contains(phone.number)) {
+        return true;
       }
-
-      if (contact.phones.isNotEmpty) {
-        final existingPhoneProps = await helper.isar.itemPropertys
-            .filter()
-            .keyEqualTo('phones')
-            .findAll();
-        for (final prop in existingPhoneProps) {
-          if (prop.value == null) continue;
-          final parent = await helper.items.getById(prop.itemId);
-          if (parent == null || parent.deletedAt != null) continue;
-          final phones = ContactProps.parsePhonesValue(prop.value);
-          for (final phone in contact.phones) {
-            if (phone.number.isNotEmpty && phones.contains(phone.number)) {
-              return true;
-            }
-          }
-        }
-      }
-      return false;
-    } catch (e, stack) {
-      DebugConfig.error('[ContactImportService] _existsInDb failed', e, stack);
-      // Σε DB error, θεωρούμε ότι δεν υπάρχει — καλύτερα duplicate από skip
-      return false;
     }
+    return false;
   }
 
   Future<Item> _mapContactToItem(

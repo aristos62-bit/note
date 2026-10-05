@@ -631,3 +631,22 @@
 **Επαλήθευση:** `flutter test` → **91/91** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_routes/` (6 αρχεία)
+
+**Parked (post-refactor):** `folder_browser:180,208` widget-push duplicates (λείπει appointment) → ίδιο `forType` + `extra`.
+
+## Session 79 — 05/10/2026 (Φ4a βήμα 16: SharedIntent extract + Import batch + autoBackup)
+
+**Πρόβλημα:** 2 attachment-loops ≡ · dedup N+1 (2N queries + N getById) · autoBackup .isar-latent 0 callers.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `SharedIntent._saveAttachments` record `({lines, saved, skipped})` (sanitize-log μέσα· `_resolveFolder` μένει)· 2 loops → κλήσεις
+- Import: pre-fetch `getByWorkspace(type: contact, includeArchived: true)` + `getAllForItems` (2/run)· pure `isDuplicate` (public static)· try/catch→empty-sets
+- Σκόπιμα: title-lowercase fix· legacy-key κάλυψη· workspace-scope· archived-inclusive (parity)
+- autoBackup: τεκμηριωμένη εξαίρεση (doc-comment — latent, ενεργοποίηση → zip)
+- Νέο `test/import_dedup_test.dart` (3 tests, Contact/Phone consts)
+
+**Erratum:** Session 75 «legacy → βήμα 14» → **βήμα 16** (εδώ).
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_batch16/` (4 αρχεία)
