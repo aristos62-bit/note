@@ -1387,6 +1387,7 @@ class _HabitSettings extends ConsumerWidget {
       // Native scheduling: οι ώρες recurrence_times οδηγούν one-shots 60d.
       await HabitService.instance.syncScheduleWithRecurrence(habitId);
       DebugConfig.db('HabitDetail recurrence saved → schedule synced');
+      if (!context.mounted) return;
       ref.invalidate(itemPropertiesProvider(habitId));
       ref.invalidate(habitStatsProvider(habitId));
     }

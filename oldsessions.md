@@ -710,3 +710,15 @@
 **Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!` · device-retest εκκρεμεί.
 
 **Backups:** `backups/fix_search_card/` (1 αρχείο)
+
+## Session 85 — 05/10/2026 (Fix: habit ref-after-dispose)
+
+**Πρόβλημα (device):** `_editRecurrence:1390` — `ref.invalidate` μετά από awaits χωρίς guard → crash αν φύγεις από την οθόνη ενώ σώζει (`Bad state: ref after dispose`).
+
+**Fix:** `if (!context.mounted) return;` πριν τα invalidates (ConsumerWidget → `context.mounted`· λίστα καλύπτεται από streams).
+
+**Parked (Φ4c):** ίδιο pattern `:1278-1292,1416-1417` · ListTile ink-splashes.
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/fix_habit_mounted/` (1 αρχείο)
