@@ -19,3 +19,4 @@ export 'user.dart';
 export 'device.dart';
 export 'app_settings.dart';
 export 'recurrence.dart';
+export 'item_type_label.dart';

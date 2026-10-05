@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../models/item.dart';
+import '../../models/item_type_label.dart';
 
 enum ItemTypeIconStyle { plain, filled, outlined }
 
@@ -68,24 +69,9 @@ class ItemTypeIcon extends StatelessWidget {
   }
 
   // ── Label per type (Ελληνικά) ─────────────────────────────────
+  // SPoT: models/item_type_label.dart (ItemTypeX.labelGr)
 
-  static String labelFor(ItemType type) {
-    switch (type) {
-      case ItemType.note:      return 'Σημείωση';
-      case ItemType.task:      return 'Εργασία';
-      case ItemType.event:     return 'Συμβάν';
-      case ItemType.contact:   return 'Επαφή';
-      case ItemType.habit:     return 'Συνήθεια';
-      case ItemType.project:   return 'Συλλογή';
-      case ItemType.goal:      return 'Στόχος';
-      case ItemType.finance:   return 'Οικονομικά';
-      case ItemType.bookmark:  return 'Σελιδοδείκτης';
-      case ItemType.journal:   return 'Ημερολόγιο';
-      case ItemType.appointment:return 'Ραντεβου';
-      case ItemType.checklist: return 'Λίστα';
-      case ItemType.knowledge: return 'Συλλογή';
-    }
-  }
+  static String labelFor(ItemType type) => type.labelGr;
 
   @override
   Widget build(BuildContext context) {

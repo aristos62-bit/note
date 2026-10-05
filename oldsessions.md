@@ -501,4 +501,19 @@
 
 **Backups:** `backups/phi4a_weekdays/` (9 αρχεία)
 
+## Session 70 — 05/10/2026 (Φ4a βήμα 7: label SPoT)
+
+**Πρόβλημα:** 3 πηγές labels ΔΙΑΦΩΝΟΥΣΑΝ (labelFor: Συμβάν/Συλλογή/Ραντεβου-typo · settings: Εκδήλωση/Project/Γνώση/Bookmark · AppStringUtils νεκρό: Έργο, χωρίς appointment).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `models/item_type_label.dart` (`ItemTypeX.labelGr`, 13 literals) + export — 0 κύκλοι (models ← isar)
+- `labelFor` → delegate (API σταθερό)· `AppStringUtils` → name-lookup delegate (0 callers)· διαγραφή settings map → `labelFor` ×3
+- Αποφάσεις: Ραντεβού, project/knowledge→Συλλογή (+supernote σημείωση)· `describe()`/picker άθικτα
+- Εκτός: EmptyState-records, πληθυντικοί, const-menu tuples, share headings, AppLock, intl
+- Νέο `test/item_type_labels_test.dart` (5 tests: 13 non-empty, τόνος, διπλή Συλλογή, τριπλή συμφωνία, fallback)
+
+**Επαλήθευση:** νέο 5/5· `flutter test` → 69/70 (μόνο γνωστό stale counter)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4b_labels/` (7 αρχεία)
+
 **Follow-up (επανέλεγχος):** +2 missed strings (`backup_service` share-prefix, browser inline load-text) + barrel import (`debug_config` → `core.dart`) — commit `29db09f`.

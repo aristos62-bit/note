@@ -208,6 +208,8 @@ lib/
 note, task, event, contact, habit, project, goal, finance, bookmark, journal, appointment, checklist, knowledge
 ```
 
+**UI labels (SPoT `ItemTypeX.labelGr`, Φ4a βήμα 7):** μοναδική πηγή — `ItemTypeIcon.labelFor` + `AppStringUtils.itemTypeLabel` κάνουν delegate. Αποφάσεις: `Ραντεβού` (τόνος), `project`/`knowledge` → `Συλλογή` (ο color picker δείχνει 2×«Συλλογή» με διαφορετικά icons).
+
 ### ItemStatus enum
 ```
 active, done, cancelled, archived, draft, inProgress

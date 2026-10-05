@@ -9,6 +9,8 @@
 //   AppStringUtils.formatCurrency(1250.5)       // "1.250,50 €"
 //
 import 'package:flutter/material.dart';
+import '../../models/item.dart';
+import '../../models/item_type_label.dart';
 
 class AppStringUtils {
 
@@ -132,22 +134,13 @@ class AppStringUtils {
   // ITEM TYPE LABEL — για labels/badges
   // ─────────────────────────────────────────────────────────────
 
+  /// SPoT: delegate στο ItemTypeX.labelGr (models/item_type_label.dart).
+  /// Άγνωστο όνομα → επιστρέφει το input (όπως πριν).
   static String itemTypeLabel(String type) {
-    switch (type) {
-      case 'note':      return 'Σημείωση';
-      case 'task':      return 'Εργασία';
-      case 'event':     return 'Συμβάν';
-      case 'contact':   return 'Επαφή';
-      case 'habit':     return 'Συνήθεια';
-      case 'project':   return 'Έργο';
-      case 'goal':      return 'Στόχος';
-      case 'finance':   return 'Οικονομικά';
-      case 'bookmark':  return 'Σελιδοδείκτης';
-      case 'journal':   return 'Ημερολόγιο';
-      case 'checklist': return 'Λίστα';
-      case 'knowledge': return 'Γνώση';
-      default:          return type;
+    for (final t in ItemType.values) {
+      if (t.name == type) return t.labelGr;
     }
+    return type;
   }
 
   static String priorityLabel(String priority) {
