@@ -213,9 +213,7 @@ class _ReminderDiagnosticsScreenState
     final diff = day.difference(today).inDays;
     if (diff == 0) return 'Σήμερα';
     if (diff == 1) return 'Αύριο';
-    const weekdays = [
-      'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'
-    ];
+    const weekdays = AppDateUtils.weekdayFullNames;
     final wd = weekdays[day.weekday - 1];
     String two(int n) => n.toString().padLeft(2, '0');
     return '$wd ${two(day.day)}/${two(day.month)}';

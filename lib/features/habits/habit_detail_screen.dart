@@ -743,7 +743,7 @@ class _PeriodStatus extends StatelessWidget {
         recurrence.days!.isNotEmpty) {
       final daysSinceMonday = (now.weekday - 1) % 7;
       final weekStart = today.subtract(Duration(days: daysSinceMonday));
-      const dayNames = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
+      const dayNames = AppDateUtils.weekdayNames;
       final scheduledDays = [...recurrence.days!]..sort();
 
       return _periodStatusCard(
@@ -1059,7 +1059,7 @@ class _HeatmapCalendar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: ['Δ', 'Τ', 'Τ', 'Π', 'Π', 'Σ', 'Κ']
+          children: AppDateUtils.weekdayInitials
               .map((d) => SizedBox(
                     width: cellSize + 3,
                     child: Text(d,
@@ -1460,7 +1460,7 @@ class _HabitSettings extends ConsumerWidget {
         final selected = List<int>.from(savedDays);
         return StatefulBuilder(
           builder: (ctx, setModal) {
-            const allDays = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
+            const allDays = AppDateUtils.weekdayNames;
             return SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(Spacing.lg),

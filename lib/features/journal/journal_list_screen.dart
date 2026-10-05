@@ -327,8 +327,8 @@ class _DraggableJournalCard extends ConsumerWidget {
       bool isArchived,
       ) {
     final date = displayDate ?? (item.updatedAt ?? item.createdAt);
-    const weekDays = ['', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
-    final dayLabel = '${weekDays[date.weekday]}, ${date.day}';
+    const weekDays = AppDateUtils.weekdayNames;
+    final dayLabel = '${weekDays[date.weekday - 1]}, ${date.day}';
     final card = Container(
       padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
@@ -406,11 +406,11 @@ class _MonthGroup {
 }
 
 List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
-  const months = ['', 'Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'];
+  const months = AppDateUtils.monthFullNames;
   final map = <String, List<Item>>{};
   for (final ewd in entriesWithDate) {
     final date = ewd.displayDate;
-    final key = '${months[date.month]} ${date.year}';
+    final key = '${months[date.month - 1]} ${date.year}';
     map.putIfAbsent(key, () => []).add(ewd.entry);
   }
   return map.entries.map((e) => _MonthGroup(e.key, e.value)).toList();
