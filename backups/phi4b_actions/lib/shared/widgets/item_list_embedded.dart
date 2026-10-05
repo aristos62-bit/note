@@ -253,37 +253,64 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   }
 
   void _showItemActions(BuildContext context, Item item) {
-    ItemActionsSheet.show(
-      context,
-      item: item,
-      onPin: () => _togglePin(item),
-      onFav: () => _toggleFav(item),
-      onArchive: () => _archive(item),
-      onDelete: () => _delete(item),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => _ItemActionsSheet(
+        item: item,
+        onPin: () => _togglePin(item),
+        onFav: () => _toggleFav(item),
+        onArchive: () => _archive(item),
+        onDelete: () => _delete(item),
+      ),
     );
   }
 
   Future<void> _togglePin(Item item) async {
+    Navigator.pop(context);
     await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
   }
 
   Future<void> _toggleFav(Item item) async {
+    Navigator.pop(context);
     await ref.read(itemNotifierProvider.notifier).toggleFavorite(item.id, item.favorite);
   }
 
   Future<void> _archive(Item item) async {
+    Navigator.pop(context);
     await handleArchive(
       context: context,
       ref: ref,
       itemId: item.id,
       isArchived: item.archived,
-      label: ItemLabelX.fromType(widget.itemType),
+      label: _labelForType(widget.itemType),
       showPopOnArchive: false,
       showPopOnUnarchive: false,
     );
   }
 
+  ItemLabel _labelForType(ItemType type) {
+    switch (type) {
+      case ItemType.note:        return ItemLabel.note;
+      case ItemType.task:        return ItemLabel.task;
+      case ItemType.event:       return ItemLabel.event;
+      case ItemType.contact:     return ItemLabel.contact;
+      case ItemType.habit:       return ItemLabel.habit;
+      case ItemType.journal:     return ItemLabel.journal;
+      case ItemType.appointment: return ItemLabel.appointment;
+      case ItemType.knowledge:   return ItemLabel.entry;
+      default:                   return ItemLabel.note;
+    }
+  }
+
   Future<void> _delete(Item item) async {
+    Navigator.pop(context);
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή στοιχείου;');
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
@@ -435,6 +462,78 @@ class _EmbeddedLoadingList extends StatelessWidget {
       itemCount: 6,
       separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
       itemBuilder: (_, __) => const ItemCardSkeleton(),
+    );
+  }
+}
+
+class _ItemActionsSheet extends StatelessWidget {
+  final Item item;
+  final VoidCallback onPin;
+  final VoidCallback onFav;
+  final VoidCallback onArchive;
+  final VoidCallback onDelete;
+
+  const _ItemActionsSheet({
+    required this.item,
+    required this.onPin,
+    required this.onFav,
+    required this.onArchive,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SheetHandle(
+            margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.lg,
+              vertical: Spacing.xs,
+            ),
+            child: Text(
+              item.title ?? 'Χωρίς τίτλο',
+              style: context.titleMd,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(
+              item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+              color: item.pinned ? context.cPrimary : context.cText2,
+            ),
+            title: Text(item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα'),
+            onTap: onPin,
+          ),
+          ListTile(
+            leading: Icon(
+              item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+              color: item.favorite
+                  ? ColorsUI.getWarning(context.brightness)
+                  : context.cText2,
+            ),
+            title: Text(item.favorite ? 'Αφαίρεση από αγαπημένα' : 'Αγαπημένο'),
+            onTap: onFav,
+          ),
+          ListTile(
+            leading: Icon(Icons.archive_rounded, color: context.cText2),
+            title: Text(item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση'),
+            onTap: onArchive,
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+            title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
+            onTap: onDelete,
+          ),
+          const SizedBox(height: Spacing.sm),
+        ],
+      ),
     );
   }
 }

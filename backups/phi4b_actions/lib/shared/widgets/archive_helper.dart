@@ -7,7 +7,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_note/core/core.dart';
-import '../../models/models.dart';
 import '../../providers/providers.dart';
 import 'confirm_dialog.dart';
 import '../../helpers/super_note_helper.dart';
@@ -24,24 +23,6 @@ String _label(ItemLabel type) {
     case ItemLabel.appointment: return 'ραντεβού';
     case ItemLabel.contact:     return 'επαφή';
     case ItemLabel.entry:       return 'εγγραφή';
-  }
-}
-
-/// SPoT mapping ItemType → ItemLabel (ενοποιεί τα διπλά `_labelForType`
-/// σε item_list_screen/item_list_embedded).
-extension ItemLabelX on ItemLabel {
-  static ItemLabel fromType(ItemType type) {
-    switch (type) {
-      case ItemType.note:        return ItemLabel.note;
-      case ItemType.task:        return ItemLabel.task;
-      case ItemType.event:       return ItemLabel.event;
-      case ItemType.contact:     return ItemLabel.contact;
-      case ItemType.habit:       return ItemLabel.habit;
-      case ItemType.journal:     return ItemLabel.journal;
-      case ItemType.appointment: return ItemLabel.appointment;
-      case ItemType.knowledge:   return ItemLabel.entry;
-      default:                   return ItemLabel.note;
-    }
   }
 }
 

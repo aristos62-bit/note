@@ -533,16 +533,69 @@ class _DraggableCollectionCard extends ConsumerWidget {
   }
 
   void _showActions(BuildContext context, WidgetRef ref) {
-    ItemActionsSheet.show(
-      context,
-      item: item,
-      titleStyle: context.titleSm,
-      editIcon: Icons.tune_rounded,
-      editLabel: 'Επεξεργασία συλλογής',
-      onEdit: () => onEdit(),
-      onOpen: () => onTap(),
-      onShare: onShare == null ? null : () => onShare!(),
-      onDelete: () => onDelete(),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+              child: Text(
+                item.title ?? 'Χωρίς τίτλο',
+                style: context.titleSm,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.tune_rounded),
+              title: const Text('Επεξεργασία συλλογής'),
+              onTap: () {
+                Navigator.pop(context);
+                onEdit();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.open_in_new_rounded),
+              title: const Text('Άνοιγμα'),
+              onTap: () {
+                Navigator.pop(context);
+                onTap();
+              },
+            ),
+            if (onShare != null)
+              ListTile(
+                leading: const Icon(Icons.share_rounded),
+                title: const Text('Κοινοποίηση'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onShare!();
+                },
+              ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+              title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
+              onTap: () {
+                Navigator.pop(context);
+                onDelete();
+              },
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }

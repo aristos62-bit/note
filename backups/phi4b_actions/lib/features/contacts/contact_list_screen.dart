@@ -396,12 +396,25 @@ class _DraggableContactTile extends StatelessWidget {
   }
 
   void _showActions(BuildContext context) {
-    ItemActionsSheet.show(
-      context,
-      item: contact,
-      showTitle: false,
-      onEdit: () => onTap(contact.id),
-      onDelete: () => onDelete(contact),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+            ),
+            ListTile(leading: const Icon(Icons.edit_rounded), title: const Text('Επεξεργασία'), onTap: () { Navigator.pop(context); onTap(contact.id); }),
+            ListTile(leading: Icon(Icons.delete_outline_rounded, color: context.cError), title: Text('Διαγραφή', style: TextStyle(color: context.cError)), onTap: () { Navigator.pop(context); onDelete(contact); }),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }

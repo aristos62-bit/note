@@ -656,12 +656,51 @@ class _ItemsList extends StatelessWidget {
   }
 
   void _showActions(BuildContext context, Item item) {
-    ItemActionsSheet.show(
-      context,
-      item: item,
-      titleStyle: context.titleSm,
-      onEdit: () => onTap(item),
-      onDelete: () => onDelete(item),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.lg, vertical: Spacing.xs),
+              child: Text(item.title ?? 'Χωρίς τίτλο',
+                  style: context.titleSm,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('Επεξεργασία'),
+              onTap: () {
+                Navigator.pop(context);
+                onTap(item);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+              title: Text('Διαγραφή', style: TextStyle(color: context.cError)),
+              onTap: () {
+                Navigator.pop(context);
+                onDelete(item);
+              },
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }

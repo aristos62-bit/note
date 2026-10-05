@@ -417,12 +417,25 @@ class _DraggableHabitCard extends ConsumerWidget {
   }
 
   void _showActions(BuildContext context) {
-    ItemActionsSheet.show(
-      context,
-      item: habit,
-      showTitle: false,
-      onEdit: onTap,
-      onDelete: () => onDelete(),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+            ),
+            ListTile(leading: const Icon(Icons.edit_rounded), title: const Text('Επεξεργασία'), onTap: () { Navigator.pop(context); onTap(); }),
+            ListTile(leading: Icon(Icons.delete_outline_rounded, color: context.cError), title: Text('Διαγραφή', style: TextStyle(color: context.cError)), onTap: () { Navigator.pop(context); onDelete(); }),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }

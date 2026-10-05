@@ -426,17 +426,3 @@
 **Επαλήθευση:** `flutter test` → 43/44 (μόνο το γνωστό stale counter test)· `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 2 `prefer_const_constructors`)
 
 **Backups:** `backups/phi4a_sheet/` (22 αρχεία)
-
-## Session 65 — 05/10/2026 (Φ4a βήμα 2: ItemActionsSheet SPoT)
-
-**Πρόβλημα:** 8 action sheets (long-press) με ίδιο chrome, διαφορετικά actions — 2 byte-identical private classes + 6 inline + 2 διπλά `_labelForType` + ~20 blind `Navigator.pop` (έτρωγαν τη λίστα αν το sheet είχε κλείσει).
-
-**Υλοποίηση:**
-- Νέο `lib/shared/widgets/item_actions_sheet.dart` (~160γρ.): `ItemActionsSheet(item/showTitle/titleStyle/showPriority/editIcon/editLabel/onEdit/onOpen/onPin/onFav/onShare/onArchive/onDelete)` + static `show()` (pop με sheet-ctx → callback, fix blind-pop) + reuse `SheetHandle`/`PriorityBadge.iconFor`
-- `archive_helper.dart`: `ItemLabelX.fromType` (διαγραφή 2 `_labelForType`, `knowledge→entry`)
-- 8 callers → 1-γραμμο `show()` (task: showPriority· folder/collections: titleSm· collections: tune+`Επεξεργασία συλλογής`· habit/journal/contact: showTitle=false)· σβησμένα 2 classes + 6 inline + ~20 pops + task log
-- Νέο `test/item_actions_sheet_test.dart` (5 tests: tiles+callbacks, showTitle, archived/pin/fav labels, null hiding, fromType)
-
-**Επαλήθευση:** `flutter test` → 48/49 (μόνο το γνωστό stale counter test)· `flutter analyze --no-pub` → `No issues found!`
-
-**Backups:** `backups/phi4b_actions/` (12 αρχεία)

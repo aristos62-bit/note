@@ -11,7 +11,7 @@
 - Contacts: `ContactProps.fromProperties` (`core/utils/contact_props.dart`)
 - Images: `ImageUtils` (`core/utils/image_utils.dart`) — avatarProvider/ResizeImage, fileThumb/cacheWidth
 - DB: `SuperNoteHelper` facade + repositories, `dbProvider`
-- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive` (+`ItemLabelX.fromType`), `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`), `ItemActionsSheet` (long-press sheets, προαιρετικά actions, pop με sheet-ctx)
+- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive`, `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`)
 - Notifications: `NotificationService` (IANA via `flutter_timezone`) + `ReminderScheduler`
 - Backup/Migration: `BackupService` (File.copy, atomic restore), `MigrationService` (schemaVersion, safety backup, batch 50)
 
@@ -62,6 +62,3 @@
 
 ## Αλλαγές Session 64 (Φ4a βήμα 1: SheetHandle SPoT)
 - Νέο `shared/widgets/sheet_handle.dart` + barrel export· 21 αντικαταστάσεις (pixel-identical, `margin`/`Center` στον caller)· εξαιρέσεις: progress/quote-bar/40×40 pickers/drag icons· tests `test/sheet_handle_test.dart` (3/3)· analyze clean.
-
-## Αλλαγές Session 65 (Φ4a βήμα 2: ItemActionsSheet SPoT)
-- Νέο `shared/widgets/item_actions_sheet.dart` (προαγωγή 2 private + 6 inline, προαιρετικά actions, `editIcon/editLabel`, `showTitle/titleStyle/showPriority`, pop με sheet-ctx = fix blind-pop)· `ItemLabelX.fromType` (διαγραφή 2 maps)· tests `test/item_actions_sheet_test.dart` (5/5)· analyze clean.

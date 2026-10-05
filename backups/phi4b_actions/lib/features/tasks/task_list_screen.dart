@@ -76,22 +76,33 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   }
 
   void _showItemActions(BuildContext context, Item item) {
-    ItemActionsSheet.show(
-      context,
-      item: item,
-      showPriority: true,
-      onEdit: () => _openDetail(item.id),
-      onPin: () => _togglePin(item),
-      onArchive: () => _archive(item),
-      onDelete: () => _delete(item),
+    DebugConfig.nav('TaskList: showActions id=${item.id}');
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft:  Radius.circular(AppRadius.bottomSheet),
+          topRight: Radius.circular(AppRadius.bottomSheet),
+        ),
+      ),
+      builder: (ctx) => _TaskActionsSheet(
+        item:      item,
+        onEdit:    () { Navigator.pop(context); _openDetail(item.id); },
+        onPin:     () => _togglePin(item),
+        onArchive: () => _archive(item),
+        onDelete:  () => _delete(item),
+      ),
     );
   }
 
   Future<void> _togglePin(Item item) async {
+    Navigator.pop(context);
     await ref.read(itemNotifierProvider.notifier).togglePin(item.id, item.pinned);
   }
 
   Future<void> _archive(Item item) async {
+    Navigator.pop(context);
     await handleArchive(
       context: context,
       ref: ref,
@@ -104,6 +115,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   }
 
   Future<void> _delete(Item item) async {
+    Navigator.pop(context);
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή εργασίας;');
     if (!ok || !mounted) return;
     DebugConfig.db('TaskList delete id=${item.id}');
@@ -774,6 +786,78 @@ class _StatusChip extends StatelessWidget {
 
 // ════════════════════════════════════════════════════════════════
 // TASK ACTIONS SHEET
+// ════════════════════════════════════════════════════════════════
+
+class _TaskActionsSheet extends StatelessWidget {
+  final Item         item;
+  final VoidCallback onEdit;
+  final VoidCallback onPin;
+  final VoidCallback onArchive;
+  final VoidCallback onDelete;
+
+  const _TaskActionsSheet({
+    required this.item,
+    required this.onEdit,
+    required this.onPin,
+    required this.onArchive,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SheetHandle(
+            margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg, vertical: Spacing.xs),
+            child: Row(children: [
+              Expanded(
+                child: Text(item.title ?? 'Χωρίς τίτλο',
+                    style:    context.titleMd,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ),
+              if (item.priority != ItemPriority.none)
+                PriorityBadge(priority: item.priority),
+            ]),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.edit_rounded),
+            title:   const Text('Επεξεργασία'),
+            onTap:   onEdit,
+          ),
+          ListTile(
+            leading: Icon(item.pinned
+                ? Icons.push_pin_rounded
+                : Icons.push_pin_outlined),
+            title: Text(item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα'),
+            onTap: onPin,
+          ),
+          ListTile(
+            leading: const Icon(Icons.archive_rounded),
+            title:   Text(item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση'),
+            onTap:   onArchive,
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_outline_rounded, color: context.cError),
+            title:   Text('Διαγραφή', style: TextStyle(color: context.cError)),
+            onTap:   onDelete,
+          ),
+          const SizedBox(height: Spacing.sm),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// LOADING LIST
 // ════════════════════════════════════════════════════════════════
 
 class _LoadingList extends StatelessWidget {

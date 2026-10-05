@@ -385,13 +385,27 @@ class _DraggableJournalCard extends ConsumerWidget {
   }
 
   void _showActions(BuildContext context) {
-    ItemActionsSheet.show(
-      context,
-      item: item,
-      showTitle: false,
-      onEdit: () => onTap(item.id),
-      onShare: onShare == null ? null : () => onShare!(),
-      onDelete: () => onDelete(item),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsUI.getSurface(context.brightness),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(
+              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+            ),
+            ListTile(leading: const Icon(Icons.edit_rounded), title: const Text('Επεξεργασία'), onTap: () { Navigator.pop(context); onTap(item.id); }),
+            if (onShare != null)
+              ListTile(leading: const Icon(Icons.share_rounded), title: const Text('Κοινοποίηση'), onTap: () { Navigator.pop(context); onShare!(); }),
+            ListTile(leading: Icon(Icons.delete_outline_rounded, color: context.cError), title: Text('Διαγραφή', style: TextStyle(color: context.cError)), onTap: () { Navigator.pop(context); onDelete(item); }),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
     );
   }
 }
