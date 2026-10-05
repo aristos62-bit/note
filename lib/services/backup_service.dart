@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
-import '../core/utils/debug_config.dart';
+import '../core/core.dart';
 import 'attachment_service.dart';
 import 'backup_archive.dart';
 
@@ -202,7 +202,7 @@ class BackupService {
       }
     } catch (e, s) {
       DebugConfig.error('BackupService.exportWithShare', e, s);
-      return BackupExportResult.failure('Αποτυχία κοινοποίησης: $e');
+      return BackupExportResult.failure('${AppErrors.shareFailed}: $e');
     }
   }
 
