@@ -114,6 +114,14 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     }
   }
 
+  Future<void> setAutoBackupEnabled(bool enabled) async {
+    try {
+      await updateSettings((s) => s.autoBackupEnabled = enabled);
+    } catch (e, s) {
+      DebugConfig.error('SettingsNotifier.setAutoBackupEnabled', e, s);
+    }
+  }
+
   Future<void> setVibration(bool enabled) async {
     try {
       await updateSettings((s) => s.vibrationEnabled = enabled);

@@ -746,3 +746,18 @@
 **Επαλήθευση:** `flutter test` → **96/96** · `flutter analyze --no-pub` → `No issues found!` · device-eyeball 3 σημείων εκκρεμεί.
 
 **Backups:** `backups/phi4a_settings_icons/` (2 αρχεία)
+
+## Session 88 — 05/10/2026 (autoBackup activation — parked β16 closed)
+
+**Πρόβλημα (parked):** `autoBackup()` latent (0 callers, .isar χωρίς attachments) + 0 UI/hook/fields.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `AppSettings` +`autoBackupEnabled/lastAutoBackupAt` → regen → schema v2→v3 + `_v2ToV3` (log-only)
+- `autoBackup()` → zip + rotation/list-`.zip` + 24h due-check· `setAutoBackupEnabled`· paused-hook unawaited
+- Settings: toggle-tile + auto-list (`_importBackup(fromPath:)` + Confirm) + `.isar`→`.zip` subtitle-fix
+- Μαθήματα: analyze έπιασε `ref:`-param + άχρηστο import· mid-run failures = cascade από compile-error (όχι code)
+- `supernote.md` sync (BackupService block)
+
+**Επαλήθευση:** `flutter test` → **96/96** · `flutter analyze --no-pub` → `No issues found!` · device (toggle→background→zip→restore) εκκρεμεί.
+
+**Backups:** `backups/autobackup_on/` (8 αρχεία)

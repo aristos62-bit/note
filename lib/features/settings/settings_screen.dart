@@ -364,7 +364,7 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
           _buildCard(
             _ActionTile(
               label: 'Εξαγωγή δεδομένων',
-              subtitle: 'Δημιουργία αντιγράφου .isar',
+              subtitle: 'Δημιουργία αντιγράφου .zip',
               icon: Icons.upload_rounded,
               onTap: () => _exportBackup(context, widget.ref),
             ),
@@ -377,6 +377,10 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
               icon: Icons.download_rounded,
               onTap: () => _importBackup(context, widget.ref),
             ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          _buildCard(
+            _AutoBackupTile(settings: widget.settings),
           ),
           const SizedBox(height: Spacing.sm),
           _buildCard(
@@ -689,12 +693,13 @@ Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
   }
 }
 
-Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
+Future<void> _importBackup(BuildContext context, WidgetRef ref,
+    {String? fromPath}) async {
   DebugConfig.db('Settings: import backup');
   final messenger = ScaffoldMessenger.of(context);
 
-  // 1. Επιλογή αρχείου
-  final srcPath = await BackupService.instance.pickBackupFile();
+  // 1. Επιλογή αρχείου (ή έτοιμο path από αυτόματα αντίγραφα)
+  final srcPath = fromPath ?? await BackupService.instance.pickBackupFile();
   if (srcPath == null || !context.mounted) return;
 
   // 2. Προέλεγχος (υπάρχει / μέγεθος)
@@ -2688,6 +2693,84 @@ Map<String, String?> _itemTypeColorsMap(String? json) {
     return decoded.map((k, v) => MapEntry(k.toString(), v?.toString()));
   } catch (_) {
     return {};
+  }
+}
+
+class _AutoBackupTile extends ConsumerStatefulWidget {
+  final AppSettings settings;
+  const _AutoBackupTile({required this.settings});
+
+  @override
+  ConsumerState<_AutoBackupTile> createState() => _AutoBackupTileState();
+}
+
+class _AutoBackupTileState extends ConsumerState<_AutoBackupTile> {
+  late Future<List<String>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = BackupService.instance.listAutoBackups();
+  }
+
+  void _reload() {
+    if (!mounted) return;
+    setState(() => _future = BackupService.instance.listAutoBackups());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = widget.settings;
+    final lastRun = settings.lastAutoBackupAt == null
+        ? 'Ποτέ'
+        : AppDateUtils.formatDateTime(settings.lastAutoBackupAt!);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SwitchTile(
+          label: 'Αυτόματο αντίγραφο',
+          subtitle: 'Zip κατά την έξοδο (1/24ωρο) · Τελευταίο: $lastRun',
+          value: settings.autoBackupEnabled,
+          onChanged: (v) {
+            ref
+                .read(settingsNotifierProvider.notifier)
+                .setAutoBackupEnabled(v);
+            _reload();
+          },
+        ),
+        if (settings.autoBackupEnabled)
+          FutureBuilder<List<String>>(
+            future: _future,
+            builder: (context, snap) {
+              final paths = snap.data ?? const <String>[];
+              if (paths.isEmpty) return const SizedBox.shrink();
+              return Column(
+                children: [
+                  for (final pth in paths.take(5))
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        pth.split('/').last,
+                        style: context.bodySm,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          await _importBackup(context, ref,
+                              fromPath: pth);
+                          _reload();
+                        },
+                        child: const Text('Επαναφορά'),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+      ],
+    );
   }
 }
 

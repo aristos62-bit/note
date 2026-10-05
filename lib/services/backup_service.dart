@@ -74,6 +74,9 @@ class BackupService {
   static const String _backupDirName = 'SuperNoteBackups';
   static const int _maxAutoBackups = 5;
 
+  /// Διάστημα αυτόματων αντιγράφων (σταθερό — χωρίς UI επιλογής).
+  static const int autoBackupIntervalHours = 24;
+
   // ─────────────────────────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────────────────────────
@@ -294,22 +297,45 @@ class BackupService {
   // 4. AUTO-BACKUP
   // ─────────────────────────────────────────────────────────────────
 
-  /// AUTO-BACKUP — ΤΕΚΜΗΡΙΩΜΕΝΗ ΕΞΑΙΡΕΣΗ (Φ4a βήμα 16):
-  /// Latent (0 callers) — γράφει μόνο `.isar`, ΧΩΡΙΣ attachments.
-  /// Όταν ενεργοποιηθεί (UI toggle + restore-path), ΠΡΕΠΕΙ να γίνει zip
-  /// (DB + attachments) via `BackupArchive.createBackupZip`, όπως το export.
+  /// AUTO-BACKUP — zip (DB + attachments), όπως το export.
+  /// Trigger: app-pause με `autoBackupEnabled` + διάστημα 24h (βλ. main).
+  /// Σιωπηλό (background, χωρίς context) — μόνο DebugConfig logs.
   Future<String?> autoBackup() async {
     DebugConfig.db('autoBackup: starting');
     try {
+      final settings = await SuperNoteHelper.instance.settings.get();
+      if (!settings.autoBackupEnabled) {
+        DebugConfig.db('autoBackup: disabled, skipping');
+        return null;
+      }
+      final last = settings.lastAutoBackupAt;
+      if (last != null &&
+          DateTime.now().difference(last).inHours < autoBackupIntervalHours) {
+        DebugConfig.db('autoBackup: interval not due, skipping');
+        return null;
+      }
       final backupDir = await _getAutoBackupDir();
       final timestamp = DateTime.now()
           .toIso8601String()
           .replaceAll(':', '-')
           .split('.')
           .first;
-      final destPath = p.join(backupDir.path, 'auto_$timestamp.isar');
+      final destPath = p.join(backupDir.path, 'auto_$timestamp.zip');
       final srcPath = await _dbPath();
-      await File(srcPath).copy(destPath);
+      if (!await File(srcPath).exists()) {
+        DebugConfig.db('autoBackup: FAIL — DB file not found: $srcPath');
+        return null;
+      }
+      final docs = await getApplicationDocumentsDirectory();
+      await BackupArchive.createBackupZip(
+        dbPath: srcPath,
+        attachmentsDir: Directory(
+            p.join(docs.path, AttachmentService.attachmentsDirName)),
+        destZipPath: destPath,
+      );
+      await SuperNoteHelper.instance.settings.update((s) {
+        s.lastAutoBackupAt = DateTime.now();
+      });
       DebugConfig.db('autoBackup: saved to $destPath');
       await _rotateAutoBackups(backupDir);
       DebugConfig.db('autoBackup: rotation done');
@@ -327,7 +353,7 @@ class BackupService {
       return files
           .whereType<File>()
           .map((f) => f.path)
-          .where((p) => p.endsWith('.isar'))
+          .where((p) => BackupArchive.isBackupZip(p))
           .toList()
         ..sort((a, b) => b.compareTo(a));
     } catch (_) {
@@ -350,14 +376,14 @@ class BackupService {
 
   Future<void> _rotateAutoBackups(Directory dir) async {
     final files = await dir.list().toList();
-    final isarFiles = files
+    final zipFiles = files
         .whereType<File>()
-        .where((f) => f.path.endsWith('.isar'))
+        .where((f) => BackupArchive.isBackupZip(f.path))
         .toList()
       ..sort((a, b) => b.path.compareTo(a.path));
-    while (isarFiles.length > _maxAutoBackups) {
+    while (zipFiles.length > _maxAutoBackups) {
       try {
-        await isarFiles.removeLast().delete();
+        await zipFiles.removeLast().delete();
       } catch (_) {}
     }
   }
