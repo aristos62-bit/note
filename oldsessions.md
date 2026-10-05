@@ -617,3 +617,17 @@
 **Επαλήθευση:** `flutter test` → **89/89** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_misc14/` (4 αρχεία)
+
+## Session 78 — 05/10/2026 (Φ4a βήμα 15: AppRoutes.forType)
+
+**Πρόβλημα:** 4 switches (main + search + home ×2) με αποκλίσεις — search έστελνε 6 τύπους σε NOTE ❌ + raw-push· main χωρίς project/checklist· home raw strings.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `AppRoutes.forType` (string, pure· knowledge/goal/finance/bookmark→null — entry-route ανύπαρκτο)
+- Main → `forType` (logs/skip)· search → `forType ?? note` + `context.push` (knowledge-branch· −2 screen-imports)· home ×2 (extra/knowledge/`?? note`· folder knowledge→note kept)
+- Σκόπιμα: search-misroute fix· checklist→task· project/checklist στο main
+- Νέο `test/router_for_type_test.dart` (2 tests, 13 types)
+
+**Επαλήθευση:** `flutter test` → **91/91** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_routes/` (6 αρχεία)

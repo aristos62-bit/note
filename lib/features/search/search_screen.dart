@@ -8,13 +8,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/search_service.dart';
 import '../../shared/widgets/widgets.dart';
-import '../notes/note_detail_screen.dart';
-import '../tasks/task_detail_screen.dart';
 import '../../features/collections/collection_entries_screen.dart';
 import '../../features/collections/collections_screen.dart' show FieldDef;
 
@@ -169,19 +168,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _openResult(BuildContext context, SearchResult result) {
     DebugConfig.nav('Search → ${result.item.type.name} id=${result.item.id}');
-    switch (result.item.type) {
-      case ItemType.task:
-      case ItemType.checklist:
-        Navigator.push(
-            context,
-            AppTransitions.slideRoute(TaskDetailScreen(itemId: result.item.id)));
-      case ItemType.knowledge:
-        _openKnowledgeEntry(context, result.item);
-      default:
-        Navigator.push(
-            context,
-            AppTransitions.slideRoute(NoteDetailScreen(itemId: result.item.id)));
+    if (result.item.type == ItemType.knowledge) {
+      _openKnowledgeEntry(context, result.item);
+      return;
     }
+    final route =
+        AppRoutes.forType(result.item.type, result.item.id) ??
+            AppRoutes.note(result.item.id);
+    context.push(route);
   }
 
   Future<void> _openKnowledgeEntry(BuildContext context, Item entry) async {

@@ -153,34 +153,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _openItem(BuildContext context, Item item) {
     DebugConfig.nav('HomeScreen → ${item.type.name} id=${item.id}');
-    switch (item.type) {
-      case ItemType.task:
-        context.push(AppRoutes.task(item.id));
-        break;
-      case ItemType.contact:
-        context.push(AppRoutes.contact(item.id));
-        break;
-      case ItemType.journal:
-        context.push(AppRoutes.journal_(item.id));
-        break;
-      case ItemType.habit:
-        context.push(AppRoutes.habit(item.id));
-        break;
-      case ItemType.event:
-        context.push('/calendar/${item.id}');
-        break;
-      case ItemType.project:
-        context.push('/collections/${item.id}');
-        break;
-      case ItemType.appointment:
-        context.push('/appointments/${item.id}');
-        break;
-      case ItemType.knowledge:
-        _openKnowledgeEntry(item);
-        break;
-      default:
-        context.push(AppRoutes.note(item.id));
+    if (item.type == ItemType.knowledge) {
+      _openKnowledgeEntry(item);
+      return;
     }
+    final route =
+        AppRoutes.forType(item.type, item.id) ?? AppRoutes.note(item.id);
+    context.push(route);
   }
 
   Future<void> _openKnowledgeEntry(Item entry) async {
