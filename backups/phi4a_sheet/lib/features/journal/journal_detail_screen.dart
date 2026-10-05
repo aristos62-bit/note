@@ -853,8 +853,14 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: SheetHandle(),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: context.cBorder,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
             ),
             const SizedBox(height: Spacing.md),
             Text('Προσθήκη Tag', style: context.titleMd),

@@ -25,7 +25,6 @@
 //
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
-import 'sheet_handle.dart';
 
 class ConfirmDialog {
 
@@ -227,7 +226,13 @@ class _ConfirmContent extends StatelessWidget {
         children: [
           // Handle bar (μόνο σε sheet)
           if (isSheet) ...[
-            const SheetHandle(),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: context.cBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const SizedBox(height: Spacing.lg),
           ],
 

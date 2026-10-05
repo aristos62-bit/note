@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../providers/providers.dart';
-import 'sheet_handle.dart';
 import 'tag_chip.dart';
 
 class TagPickerSheet extends ConsumerStatefulWidget {
@@ -52,8 +51,15 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: SheetHandle(),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.cBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
             const SizedBox(height: Spacing.md),
             Text('Προσθήκη Tag', style: context.titleMd),

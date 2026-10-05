@@ -365,9 +365,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Center(
-              child: SheetHandle(
-                margin: EdgeInsets.only(top: Spacing.md, bottom: Spacing.sm),
+            Center(
+              child: Container(
+                margin:
+                    const EdgeInsets.only(top: Spacing.md, bottom: Spacing.sm),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.cBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             Padding(

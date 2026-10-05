@@ -412,17 +412,3 @@
 **Επαλήθευση:** `flutter test` → 40/40 (5 νέα archive)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/backup_zip/` (7 αρχεία)
-
-## Session 64 — 05/10/2026 (Φ4a βήμα 1: SheetHandle SPoT)
-
-**Πρόβλημα:** 21 πανομοιότυπες grabber μπάρες (40×4, cBorder, radius 2) σε όλο το app — αλλαγή ήθελε 21 edits.
-
-**Υλοποίηση (κανόνες 2+4 ανεστάλησαν — πλήρης πρόταση → υλοποίηση):**
-- Νέο `lib/shared/widgets/sheet_handle.dart` (~32γρ.): `SheetHandle(margin?, color?)`, 40×4, `color ?? cBorder`, `BorderRadius.circular(Spacing.xxs)` (=2, token αντί magic) + export στο `widgets.dart`
-- Αντικατάσταση 21/21 (confirm, tag_picker, item_list, embedded, shared_intent, journal_list/detail, collections, home, home_folder, folder_browser ×2, calendar, habit_list/detail, contact_list/detail, settings ×2, appointment, task_list) — `margin`/`Center` τα κρατά ο caller, pixel-identical
-- Ρητές εξαιρέσεις: `task_list:573` progress, `block_editor:240` quote bar, 40×40 pickers/thumbnails, drag icons, `ReorderHandle`
-- Νέο `test/sheet_handle_test.dart` (3 tests: 40×4 + cBorder light, custom color dark, default margin null)
-
-**Επαλήθευση:** `flutter test` → 43/44 (μόνο το γνωστό stale counter test)· `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 2 `prefer_const_constructors`)
-
-**Backups:** `backups/phi4a_sheet/` (22 αρχεία)

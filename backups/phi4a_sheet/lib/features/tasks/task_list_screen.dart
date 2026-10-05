@@ -809,8 +809,14 @@ class _TaskActionsSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SheetHandle(
-            margin: EdgeInsets.symmetric(vertical: Spacing.sm),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            width:  40,
+            height: 4,
+            decoration: BoxDecoration(
+              color:        context.cBorder,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(

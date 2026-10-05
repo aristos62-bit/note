@@ -11,7 +11,7 @@
 - Contacts: `ContactProps.fromProperties` (`core/utils/contact_props.dart`)
 - Images: `ImageUtils` (`core/utils/image_utils.dart`) — avatarProvider/ResizeImage, fileThumb/cacheWidth
 - DB: `SuperNoteHelper` facade + repositories, `dbProvider`
-- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive`, `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`)
+- UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive`, `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`
 - Notifications: `NotificationService` (IANA via `flutter_timezone`) + `ReminderScheduler`
 - Backup/Migration: `BackupService` (File.copy, atomic restore), `MigrationService` (schemaVersion, safety backup, batch 50)
 
@@ -59,6 +59,3 @@
 
 ## Αλλαγές Session 62 (habit ώρες σε weekly/monthly)
 - `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· `fromProperties`/`describe` καλύπτουν weekly/monthly (yearly εκτός)· UI: time picker μετά τα days (prefill δωρεάν)· `sync` για `type != yearly`· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις).
-
-## Αλλαγές Session 64 (Φ4a βήμα 1: SheetHandle SPoT)
-- Νέο `shared/widgets/sheet_handle.dart` + barrel export· 21 αντικαταστάσεις (pixel-identical, `margin`/`Center` στον caller)· εξαιρέσεις: progress/quote-bar/40×40 pickers/drag icons· tests `test/sheet_handle_test.dart` (3/3)· analyze clean.
