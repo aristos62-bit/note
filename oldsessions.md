@@ -516,4 +516,6 @@
 
 **Backups:** `backups/phi4b_labels/` (7 αρχεία)
 
+**Follow-up:** stale `widget_test` (counter) → αντικατάσταση με ερμητικό SPoT smoke test — suite 70/70, analyze clean (`backups/fix_widget_test/`).
+
 **Follow-up (επανέλεγχος):** +2 missed strings (`backup_service` share-prefix, browser inline load-text) + barrel import (`debug_config` → `core.dart`) — commit `29db09f`.
