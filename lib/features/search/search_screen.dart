@@ -576,7 +576,7 @@ class _SearchResultCard extends StatelessWidget {
               ),
             ],
 
-            const Spacer(),
+            const SizedBox(height: Spacing.xs),
 
             // ── Updated at ──────────────────────────────────────
             if (item.updatedAt != null)
