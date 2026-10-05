@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+import '../../helpers/item_color_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 
@@ -56,7 +57,8 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
           ...folders.asMap().entries.map((entry) {
             final idx = entry.key;
             final folder = entry.value;
-            final folderColor = _colorFromHex(folder.color, context.cPrimary);
+            final folderColor =
+                ItemColorHelper.parseHex(folder.color) ?? context.cPrimary;
             final isDragOver = _dragOverIndex == idx;
             final isSystem = folder.isSystem == true;
 
@@ -141,14 +143,7 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
     );
   }
 
-  Color _colorFromHex(String? hex, Color fallback) {
-    if (hex == null || hex.isEmpty) return fallback;
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return fallback;
-    }
-  }
+  // _colorFromHex διαγράφηκε (Φ4a βήμα 3) — χρήση ItemColorHelper.parseHex.
 }
 
 // ════════════════════════════════════════════════════════════════

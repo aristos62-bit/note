@@ -30,3 +30,4 @@ export 'link_text.dart';
 export 'shared_intent_sheet.dart';
 export 'sheet_handle.dart';
 export 'item_actions_sheet.dart';
+export 'folder_form_dialog.dart';

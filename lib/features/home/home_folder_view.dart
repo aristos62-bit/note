@@ -115,7 +115,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
     // ΝΕΟ: itemsByFolderStreamProvider → ταξινόμηση από sortOrder (κρατά τη σειρά μετά reorder)
     final allItems    = ref.watch(itemsByFolderStreamProvider(folder.id));
     final isDragging  = ref.watch(isDraggingProvider);
-    final folderColor = _colorFromHex(folder.color, context.cPrimary);
+    final folderColor = ItemColorHelper.parseHex(folder.color) ?? context.cPrimary;
 
     return PopScope(
       canPop: !isDragging,
@@ -274,15 +274,6 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
         ),
       ),
     );
-  }
-
-  static Color _colorFromHex(String? hex, Color fallback) {
-    if (hex == null || hex.isEmpty) return fallback;
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return fallback;
-    }
   }
 
   void _openItem(BuildContext context, Item item, {bool isNew = false}) {

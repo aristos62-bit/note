@@ -440,3 +440,19 @@
 **Επαλήθευση:** `flutter test` → 48/49 (μόνο το γνωστό stale counter test)· `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4b_actions/` (12 αρχεία)
+
+## Session 66 — 05/10/2026 (Φ4a βήμα 3: FolderFormDialog SPoT)
+
+**Πρόβλημα:** 3 byte-σχεδόν-identical `AlertDialog+StatefulBuilder` (~125γρ. έκαστο) για create/edit φακέλου (home ×2, browser ×1) + 5× raw `int.parse` hex + 3× controller χωρίς dispose + σιωπηλό return σε κενό όνομα.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `lib/shared/widgets/folder_form_dialog.dart` (~230γρ.): `kFolderIcons/kFolderColors/kDefaultFolderIcon/kDefaultFolderColor` (byte-identical μεταφορά), `FolderFormResult(name/icon/color)`, `FolderFormDialog.show() → Future<FolderFormResult?>` (pop με dialog-ctx, όχι blind pop). Validation με `AppStringUtils.clean` + inline error + disabled κουμπί· controller dispose (leak fix)· `parseHex` για preview· tokens + `DebugConfig.nav/warning`
+- 3 callers → ~10γρ. (home create/edit, browser edit) + try-catch/`DebugConfig.error` + SnackBar έτοιμα για rethrow (notifier contract → Φ4c)
+- 5× hex → `parseHex ?? fallback` (home inline ×2, browser `_folderColor`, home_folder_view, folder_selector, draggable)
+- Micro-fix `FolderRepository.update`: +`updatedAt/localVersion/isDirty` (ευθυγράμμιση με `Item.update`, χωρίς migration)
+- Εκτός scope (ρητά): settings picker (picker, όχι φόρμα), collections/settings/appointment hex (βήμα 11), folder-state ενοποίηση (17), responsive-sheet/48px/dedup (Φ4c)
+- Νέο `test/folder_form_dialog_test.dart` (4 tests: presets, clean/parseHex edge, create flow, edit prefill+icon)
+
+**Επαλήθευση:** `flutter test test/folder_form_dialog_test.dart` → 4/4· `flutter test` → 52/53 (μόνο γνωστό stale counter)· `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_folder/` (9 αρχεία)

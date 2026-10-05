@@ -28,32 +28,8 @@ import 'package:reorderable_grid/reorderable_grid.dart';
 // ── View Mode for Home Screen ─────────────────────────────────
 enum ViewMode { pinned, favorites, both }
 
-// ── Εικονίδια για νέο φάκελο (24) ─────────────────────────────
-const _kFolderIcons = [
-  '📁',  '💼',  '🏠',  '📚',  '🎵',  '🎮',  '⚽',  '🌍',  '🔬',
-  '✈️',  '🍕',  '🏆',  '🖼️',  '📝',  '⭐',  '🎬',  '💡',  '🛒',
-  '🏋️',  '🌱',  '📊',  '🔐',  '🎯','😊', '👤', '👥', '🧠', '🗣️',
-  '🛠️', '⚙️', '🔧', '🧰', '📐',  '💻', '📱', '📋', '🏷️', '🔔',
-  '⏰', '💬', '🚀', '🔑', '🎉','🎨','👦', '👧', '👴', '👵', '👨',
-  '👩', '👶', '🧑', '👪', '🧠','🛠️', '⚙️', '🔧', '🧰', '📐',
-  '💻', '📱', '🔑', '🚀', '🎉',
-];
-
-const _kFolderColors = [
-  // Σκούρο → Ανοιχτό
-  '#6366F1', '#A1A3F7',   // Indigo
-  '#8B5CF6', '#B99DFA',   // Purple
-  '#EC4899', '#F491C2',   // Pink
-  '#EF4444', '#F58F8F',   // Red
-  '#F97316', '#FBAB73',   // Orange
-  '#EAB308', '#F2D16B',   // Yellow
-  '#22C55E', '#7ADC9E',   // Green
-  '#14B8A6', '#72D4CA',   // Teal
-  '#06B6D4', '#6AD3E5',   // Cyan
-  '#3B82F6', '#89B4FA',   // Blue
-  '#64748B', '#A2ACB9',   // Slate
-  '#E11D48', '#ED7791',   // Rose
-];
+// ── Folder icons/colors: SPoT στο shared/widgets/folder_form_dialog.dart ──
+// (kFolderIcons/kFolderColors — οι τοπικές λίστες διαγράφηκαν στο Φ4a βήμα 3)
 
 // ════════════════════════════════════════════════════════════════
 // HOME SCREEN
@@ -240,263 +216,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // ── Create folder dialog ─────────────────────────────────────
+  // ── Create folder dialog (SPoT: FolderFormDialog) ──────────────
 
   Future<void> _showCreateFolderDialog(
       BuildContext context, WidgetRef ref) async {
-    final ctrl = TextEditingController();
-    String selectedIcon = '📁';
-    String selectedColor = '#6366F1';
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialog) => AlertDialog(
-          backgroundColor: ColorsUI.getSurface(ctx.brightness),
-          title: const Text('Νέος Φάκελος'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    hintText: 'Όνομα φακέλου...',
-                    filled: true,
-                    fillColor: ColorsUI.getBackground(ctx.brightness),
-                    border: OutlineInputBorder(
-                      borderRadius: AppRadius.inputBR,
-                      borderSide:
-                      BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: Spacing.md),
-                Text('Εικονίδιο', style: ctx.labelMd.withColor(ctx.cText2)),
-                const SizedBox(height: Spacing.xs),
-                Wrap(
-                  spacing: Spacing.xs,
-                  runSpacing: Spacing.xs,
-                  children: _kFolderIcons
-                      .map((e) => GestureDetector(
-                    onTap: () => setDialog(() => selectedIcon = e),
-                    child: AnimatedContainer(
-                      duration: AppDuration.fast,
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: selectedIcon == e
-                            ? ctx.cPrimary.withValues(alpha: 0.12)
-                            : ColorsUI.getSurface(ctx.brightness),
-                        borderRadius:
-                        BorderRadius.circular(AppRadius.sm),
-                        border: Border.all(
-                          color: selectedIcon == e
-                              ? ctx.cPrimary
-                              : ColorsUI.getBorder(ctx.brightness),
-                        ),
-                      ),
-                      child: Center(
-                          child: Text(e,
-                              style: const TextStyle(fontSize: 20))),
-                    ),
-                  ))
-                      .toList(),
-                ),
-                const SizedBox(height: Spacing.md),
-                Text('Χρώμα', style: ctx.labelMd.withColor(ctx.cText2)),
-                const SizedBox(height: Spacing.xs),
-                Wrap(
-                  spacing: Spacing.sm,
-                  runSpacing: Spacing.sm,
-                  children: _kFolderColors.map((hex) {
-                    Color c;
-                    try {
-                      c = Color(
-                          int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-                    } catch (_) {
-                      c = const Color(0xFF6366F1);
-                    }
-                    final isActive = selectedColor == hex;
-                    return GestureDetector(
-                      onTap: () => setDialog(() => selectedColor = hex),
-                      child: AnimatedContainer(
-                        duration: AppDuration.fast,
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: c,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isActive ? ctx.cText : Colors.transparent,
-                            width: 2.5,
-                          ),
-                        ),
-                        child: isActive
-                            ? const Icon(Icons.check_rounded,
-                            size: 16, color: Colors.white)
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Άκυρο'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final name = ctrl.text.trim();
-                if (name.isEmpty) return;
-                DebugConfig.db('Home createFolder "$name"');
-                await ref
-                    .read(folderNotifierProvider.notifier)
-                    .create(name, icon: selectedIcon, color: selectedColor);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Δημιουργία'),
-            ),
-          ],
-        ),
-      ),
+    DebugConfig.nav('HomeScreen open create folder');
+    final result = await FolderFormDialog.show(
+      context,
+      title: 'Νέος Φάκελος',
+      confirmLabel: 'Δημιουργία',
     );
+    if (result == null || !context.mounted) return;
+    DebugConfig.db('Home createFolder "${result.name}"');
+    try {
+      await ref.read(folderNotifierProvider.notifier).create(
+            result.name,
+            icon: result.icon,
+            color: result.color,
+          );
+    } catch (e, s) {
+      DebugConfig.error('Home createFolder failed', e, s);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Σφάλμα κατά την αποθήκευση')),
+        );
+      }
+    }
   }
 
-  // ── Edit folder (only if empty) ─────────────────────────────
+  // ── Edit folder (SPoT: FolderFormDialog) ───────────────────────
 
   Future<void> _editFolder(
       BuildContext context, WidgetRef ref, Folder folder) async {
-    final ctrl = TextEditingController(text: folder.name);
-    String selectedIcon = folder.icon ?? '📁';
-    String selectedColor = folder.color ?? '#6366F1';
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialog) => AlertDialog(
-          backgroundColor: ColorsUI.getSurface(ctx.brightness),
-          title: const Text('Επεξεργασία Φακέλου'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    hintText: 'Όνομα φακέλου...',
-                    filled: true,
-                    fillColor: ColorsUI.getBackground(ctx.brightness),
-                    border: OutlineInputBorder(
-                      borderRadius: AppRadius.inputBR,
-                      borderSide:
-                      BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: Spacing.md),
-                Text('Εικονίδιο', style: ctx.labelMd.withColor(ctx.cText2)),
-                const SizedBox(height: Spacing.xs),
-                Wrap(
-                  spacing: Spacing.xs,
-                  runSpacing: Spacing.xs,
-                  children: _kFolderIcons
-                      .map((e) => GestureDetector(
-                    onTap: () => setDialog(() => selectedIcon = e),
-                    child: AnimatedContainer(
-                      duration: AppDuration.fast,
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: selectedIcon == e
-                            ? ctx.cPrimary.withValues(alpha: 0.12)
-                            : ColorsUI.getSurface(ctx.brightness),
-                        borderRadius:
-                        BorderRadius.circular(AppRadius.sm),
-                        border: Border.all(
-                          color: selectedIcon == e
-                              ? ctx.cPrimary
-                              : ColorsUI.getBorder(ctx.brightness),
-                        ),
-                      ),
-                      child: Center(
-                          child: Text(e,
-                              style: const TextStyle(fontSize: 20))),
-                    ),
-                  ))
-                      .toList(),
-                ),
-                const SizedBox(height: Spacing.md),
-                Text('Χρώμα', style: ctx.labelMd.withColor(ctx.cText2)),
-                const SizedBox(height: Spacing.xs),
-                Wrap(
-                  spacing: Spacing.sm,
-                  runSpacing: Spacing.sm,
-                  children: _kFolderColors.map((hex) {
-                    Color c;
-                    try {
-                      c = Color(int.parse(
-                          'FF${hex.replaceAll('#', '')}', radix: 16));
-                    } catch (_) {
-                      c = const Color(0xFF6366F1);
-                    }
-                    final isActive = selectedColor == hex;
-                    return GestureDetector(
-                      onTap: () => setDialog(() => selectedColor = hex),
-                      child: AnimatedContainer(
-                        duration: AppDuration.fast,
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: c,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isActive ? ctx.cText : Colors.transparent,
-                            width: 2.5,
-                          ),
-                        ),
-                        child: isActive
-                            ? const Icon(Icons.check_rounded,
-                            size: 16, color: Colors.white)
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Άκυρο'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final name = ctrl.text.trim();
-                if (name.isEmpty) return;
-                await ref.read(folderNotifierProvider.notifier).rename(
-                    folder.id,
-                    name: name,
-                    icon: selectedIcon,
-                    color: selectedColor);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Αποθήκευση'),
-            ),
-          ],
-        ),
-      ),
+    DebugConfig.nav('HomeScreen open edit folder id=${folder.id}');
+    final result = await FolderFormDialog.show(
+      context,
+      title: 'Επεξεργασία Φακέλου',
+      confirmLabel: 'Αποθήκευση',
+      initialName: folder.name,
+      initialIcon: folder.icon ?? kDefaultFolderIcon,
+      initialColor: folder.color ?? kDefaultFolderColor,
     );
+    if (result == null || !context.mounted) return;
+    DebugConfig.db('Home renameFolder id=${folder.id} "${result.name}"');
+    try {
+      await ref.read(folderNotifierProvider.notifier).rename(
+            folder.id,
+            name: result.name,
+            icon: result.icon,
+            color: result.color,
+          );
+    } catch (e, s) {
+      DebugConfig.error('Home renameFolder failed', e, s);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Σφάλμα κατά την αποθήκευση')),
+        );
+      }
+    }
   }
 
   Future<void> _deleteFolder(
