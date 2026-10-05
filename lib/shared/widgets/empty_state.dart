@@ -254,7 +254,7 @@ const Map<ItemType, _EmptyData> _emptyStateData = {
   ItemType.note: _EmptyData(
     icon:        Icons.note_rounded,
     title:       'Δεν υπάρχουν σημειώσεις',
-    subtitle:    'Δημιούργησε τη πρώτη σου σημείωση',
+    subtitle:    'Δημιούργησε την πρώτη σου σημείωση',
     actionLabel: 'Νέα σημείωση',
   ),
   ItemType.task: _EmptyData(
@@ -319,8 +319,8 @@ const Map<ItemType, _EmptyData> _emptyStateData = {
   ),
   ItemType.appointment: _EmptyData(
     icon:        Icons.event_available_rounded,
-    title:       'Δεν υπάρχουν ραντεβου',
-    subtitle:    'Δημιούργησε τα ραντεβου σου για να εισαι πάντα έτοιμος',
+    title:       'Δεν υπάρχουν ραντεβού',
+    subtitle:    'Δημιούργησε τα ραντεβού σου για να είσαι πάντα έτοιμος',
     actionLabel: 'Νέο Ραντεβού',
   ),
   ItemType.knowledge: _EmptyData(
