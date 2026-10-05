@@ -73,16 +73,7 @@ void main() async {
       }
       DebugConfig.notif(
           'handleNotificationTap: itemId=$itemId type=${item.type.name} archived=${item.archived}');
-      final route = switch (item.type) {
-        ItemType.note => AppRoutes.note(item.id),
-        ItemType.task => AppRoutes.task(item.id),
-        ItemType.habit => AppRoutes.habit(item.id),
-        ItemType.event => AppRoutes.event(item.id),
-        ItemType.appointment => AppRoutes.appointment(item.id),
-        ItemType.journal => AppRoutes.journal_(item.id),
-        ItemType.contact => AppRoutes.contact(item.id),
-        _ => null,
-      };
+      final route = AppRoutes.forType(item.type, item.id);
       DebugConfig.notif('handleNotificationTap: route=$route');
       if (route != null) {
         DebugConfig.notif('handleNotificationTap: navigating to $route via go()');

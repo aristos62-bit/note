@@ -35,6 +35,7 @@ import '../../features/contacts/contacts.dart';
 import '../../features/collections/collections.dart';
 import '../../features/appointments/appointments.dart';
 import '../../shared/widgets/shared_intent_sheet.dart';
+import '../../models/models.dart';
 import 'package:flutter/gestures.dart';
 import '../../providers/providers.dart';
 
@@ -68,6 +69,21 @@ class AppRoutes {
   static String collection(int id) => '/collections/$id';
   static String event(int id) => '/calendar/$id';
   static String appointment(int id) => '/appointments/$id';
+
+  /// Κοινός type→route mapper (Φ4a βήμα 15 — SPoT για main + search + home).
+  /// Null για goal/finance/bookmark/knowledge (knowledge: `_openKnowledgeEntry`,
+  /// οι υπόλοιποι δεν έχουν route).
+  static String? forType(ItemType type, int id) => switch (type) {
+        ItemType.note => note(id),
+        ItemType.task || ItemType.checklist => task(id),
+        ItemType.habit => habit(id),
+        ItemType.event => event(id),
+        ItemType.appointment => appointment(id),
+        ItemType.journal => journal_(id),
+        ItemType.contact => contact(id),
+        ItemType.project => collection(id),
+        _ => null,
+      };
 }
 
 // ── Router Provider ────────────────────────────────────────────
