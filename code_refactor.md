@@ -88,3 +88,9 @@ Tests: υπάρχοντα 40/40 + `safe_parse/contact_props/image_utils/app_erro
 ## 6. Αποφάσεις (προτάσεις)
 
 Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με error/warning on· counts→Future· phones-compat πριν reuse· autoBackup→zip· folder state→`selectedFolderId`· labels→`labelFor` (`Ραντεβού`, `Συλλογή` για project/knowledge στο UI).
+
+## 7. Εκκρεμότητες — διορθώνονται αμέσως μετά το refactor (από device testing)
+
+1. `note_detail_screen.dart:227` — AppBar `Row` overflow 21px σε στενά κινητά (6 actions). Fix Φ4c: ενοποιημένο DetailAppBar + overflow menu.
+2. `habit_detail_screen` — `ListTile ... ink splashes may be invisible` assertion (ListTiles μέσα σε DecoratedBox με bg + radius 16). Fix Φ4c: Material wrapper ή αφαίρεση bg.
+3. (συμπληρώνεται με κάθε νέο εύρημα από device logs)
