@@ -66,7 +66,7 @@ mixin DetailScreenMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   Future<bool> executeSave(Future<void> Function() saveFn) async {
     if (_isSaving) return false;
     if (titleCtrl.text.trim().isEmpty) {
-      showSnackBar('Παρακαλώ προσθέστε τίτλο');
+      showSnackBar(AppErrors.needTitle);
       return false;
     }
     _isSaving = true;
@@ -78,7 +78,7 @@ mixin DetailScreenMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     } catch (e, stack) {
       DebugConfig.error('$runtimeType save failed', e, stack);
       if (mounted) {
-        showSnackBar('Σφάλμα κατά την αποθήκευση');
+        showSnackBar(AppErrors.saveFailed);
       }
       return false;
     } finally {

@@ -432,9 +432,10 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
   try {
     reminders = await ref.read(pastPendingRemindersProvider.future);
   } catch (e) {
+    DebugConfig.error('Settings past reminders load', e);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Σφάλμα φόρτωσης: $e')),
+        const SnackBar(content: Text(AppErrors.loadFailed)),
       );
     }
     return;
@@ -444,7 +445,7 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
 
   if (reminders.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Δεν υπάρχουν παρελθούσες υπενθυμίσεις.')),
+      const SnackBar(content: Text(AppErrors.noPastReminders)),
     );
     return;
   }
@@ -689,8 +690,8 @@ Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
   if (result.cancelled) return;
   if (result.success) {
     final msg = result.path != null
-        ? 'Αντίγραφο αποθηκεύτηκε'
-        : 'Εξαγωγή επιτυχής';
+        ? AppErrors.exportSaved
+        : AppErrors.exportOk;
     messenger.showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: context.cSuccess,
@@ -698,7 +699,7 @@ Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
     ));
   } else {
     messenger.showSnackBar(SnackBar(
-      content: Text(result.error ?? 'Σφάλμα εξαγωγής'),
+      content: Text(result.error ?? AppErrors.exportFailed),
       backgroundColor: context.cError,
     ));
   }
@@ -716,7 +717,7 @@ Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
   final srcFile = File(srcPath);
   if (!await srcFile.exists()) {
     messenger.showSnackBar(const SnackBar(
-      content: Text('Το αρχείο backup δεν βρέθηκε'),
+      content: Text(AppErrors.backupNotFound),
       backgroundColor: Colors.red,
     ));
     return;
@@ -747,7 +748,7 @@ Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
   if (!validation.valid || !context.mounted) {
     if (!context.mounted)return;
     messenger.showSnackBar(SnackBar(
-      content: Text(validation.reason ?? 'Μη έγκυρο αρχείο backup'),
+      content: Text(validation.reason ?? AppErrors.backupInvalid),
       backgroundColor: context.cError,
     ));
     return;
@@ -784,7 +785,7 @@ Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
     );
   } else {
     messenger.showSnackBar(SnackBar(
-      content: Text(result.error ?? 'Σφάλμα επαναφοράς'),
+      content: Text(result.error ?? AppErrors.restoreFailed),
       backgroundColor: context.cError,
     ));
   }
@@ -863,7 +864,7 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
   if (confirmationText == null || confirmationText.trim().toUpperCase() != 'ΔΙΑΓΡΑΦΗ ΟΛΩΝ') {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Η φράση επιβεβαίωσης δεν είναι σωστή. Η διαγραφή ακυρώθηκε.')),
+        const SnackBar(content: Text(AppErrors.wipeConfirmMismatch)),
       );
     }
     return;
@@ -909,7 +910,7 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Σφάλμα κατά τη διαγραφή: $e'),
+          content: const Text(AppErrors.wipeFailed),
           backgroundColor: context.cError,
         ),
       );
@@ -957,9 +958,10 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
   try {
     items = await ref.read(archivedItemsProvider.future);
   } catch (e) {
+    DebugConfig.error('Settings past reminders load', e);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Σφάλμα φόρτωσης: $e')),
+        const SnackBar(content: Text(AppErrors.loadFailed)),
       );
     }
     return;
@@ -969,7 +971,7 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
 
   if (items.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Δεν υπάρχουν αρχειοθετημένα στοιχεία.')),
+      const SnackBar(content: Text(AppErrors.noArchivedItems)),
     );
     return;
   }
@@ -1560,7 +1562,7 @@ Future<void> _importContacts(BuildContext context, WidgetRef ref) async {
   if (!granted) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Χρειάζεται άδεια πρόσβασης στις επαφές')),
+        const SnackBar(content: Text(AppErrors.contactsPermission)),
       );
     }
     return;
@@ -1574,9 +1576,10 @@ Future<void> _importContacts(BuildContext context, WidgetRef ref) async {
   try {
     contacts = await ContactImportService.instance.fetchContacts();
   } catch (e) {
+    DebugConfig.error('Settings fetch contacts', e);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Σφάλμα ανάγνωσης επαφών: $e')),
+        const SnackBar(content: Text(AppErrors.contactsReadFailed)),
       );
     }
     return;
@@ -1584,7 +1587,7 @@ Future<void> _importContacts(BuildContext context, WidgetRef ref) async {
   if (contacts.isEmpty || !context.mounted) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Δεν βρέθηκαν επαφές στο κινητό')),
+        const SnackBar(content: Text(AppErrors.contactsNoneFound)),
       );
     }
     return;
@@ -1686,9 +1689,10 @@ Future<void> _showImportedContactsDialog(BuildContext context, WidgetRef ref) as
   try {
     importedIds = await ContactImportService.instance.getImportedContactIds();
   } catch (e) {
+    DebugConfig.error('Settings imported contacts load', e);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Σφάλμα φόρτωσης επαφών: $e')),
+        const SnackBar(content: Text(AppErrors.contactsLoadFailed)),
       );
     }
     return;
@@ -1696,7 +1700,7 @@ Future<void> _showImportedContactsDialog(BuildContext context, WidgetRef ref) as
   if (importedIds.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Δεν υπάρχουν εισαγμένες επαφές')),
+        const SnackBar(content: Text(AppErrors.contactsNoneImported)),
       );
     }
     return;

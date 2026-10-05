@@ -169,7 +169,7 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
       if (!mounted) return;
       if (!res.ok || res.item == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res.error ?? 'Αποτυχία αποθήκευσης')),
+          SnackBar(content: Text(res.error ?? AppErrors.attachSaveFailed)),
         );
         return;
       }
@@ -183,14 +183,14 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  '${res.skippedOversize} αρχείο(α) παραλείφθηκαν (όριο μεγέθους)')),
+                  AppErrors.oversizeSkipped(res.skippedOversize))),
         );
       }
     } catch (e, stack) {
       DebugConfig.error('SharedIntent _save', e, stack);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Αποτυχία αποθήκευσης: $e')),
+          const SnackBar(content: Text(AppErrors.attachSaveFailed)),
         );
       }
     } finally {

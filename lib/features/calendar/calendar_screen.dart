@@ -234,7 +234,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                      const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
                     );
                   }
                 });
@@ -442,7 +442,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
       DebugConfig.error('CalendarScreen _createEvent', e);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Σφάλμα δημιουργίας συμβάντος')),
+          const SnackBar(content: Text(AppErrors.eventCreateFailed)),
         );
       }
     }

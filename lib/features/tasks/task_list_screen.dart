@@ -261,7 +261,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά')),
+                      const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
                     );
                   }
                 });

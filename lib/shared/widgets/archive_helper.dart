@@ -68,7 +68,7 @@ Future<void> handleArchive({
     }
     if (!context.mounted)return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Η ${_label(label)} επαναφέρθηκε')),
+      SnackBar(content: Text(AppErrors.restored(_label(label)))),
     );
     if (showPopOnUnarchive) Navigator.of(context).pop();
   } else {
@@ -83,7 +83,7 @@ Future<void> handleArchive({
     if (!context.mounted) return;
     DebugConfig.db('ArchiveHelper archive id=$itemId');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Η ${_label(label)} αρχειοθετήθηκε')),
+      SnackBar(content: Text(AppErrors.archived(_label(label)))),
     );
     if (showPopOnArchive) Navigator.of(context).pop();
   }

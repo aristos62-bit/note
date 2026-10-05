@@ -97,7 +97,7 @@ class _DraggableFolderSelectorState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Μετακινήθηκε στον φάκελο "$label"'),
+              content: Text(AppErrors.movedToFolder(label)),
               duration: const Duration(seconds: 1),
             ),
           );
