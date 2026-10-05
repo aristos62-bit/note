@@ -1647,16 +1647,7 @@ class _AttachmentField extends StatelessWidget {
                           if (a.isImage)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(AppRadius.xs),
-                              child: Image.file(
-                                File(a.localPath),
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(
-                                    Icons.broken_image_rounded,
-                                    size: 24,
-                                    color: context.cText2),
-                              ),
+                              child: ImageUtils.fileThumb(a.localPath),
                             )
                           else
                             Icon(

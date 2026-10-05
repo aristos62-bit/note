@@ -587,3 +587,18 @@
 **Επαλήθευση:** `flutter test` → **82/82** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/phi4a_contactprops/` (6 αρχεία)
+
+## Session 76 — 05/10/2026 (Φ4a βήμα 13: ImageUtils ×3)
+
+**Πρόβλημα:** SPoT 0 callers — gallery χωρίς guard (8MB→base64 10MB DB bloat, camera με 1024/85 ✅), avatars ×2 raw full-decode για 44/88px, thumb inline-duplicate του `fileThumb`.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Gallery: `checkMaxBytes` + SnackBar `oversizeSkipped(1)` + `BuildContext` closures (child API άθικτο, σύμβαση `_pickBirthday`)
+- Avatars ×2 → `avatarProvider` (44/`size.toInt()`) + null-check· thumb → `fileThumb` (ClipRRect έξω)
+- Εκτός: viewer `:880`, attach/intent (file-copy), import-photo (thumbnail-first ✅), avatar-merge (Φ4b)
+- Μαθήματα: widget-test async-image flaky → unit-style· `Image` χωρίς `cacheWidth` getter
+- Νέο `test/image_utils_test.dart` (5 tests)
+
+**Επαλήθευση:** `flutter test` → **87/87** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_images/` (5 αρχεία)
