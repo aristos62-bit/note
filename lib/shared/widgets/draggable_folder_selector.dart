@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+import '../../helpers/item_color_helper.dart';
 import '../../providers/providers.dart';
 
 /// Reusable widget που εμφανίζει φακέλους και δέχεται drag & drop.
@@ -54,7 +55,8 @@ class _DraggableFolderSelectorState
             ),
             const SizedBox(width: Spacing.xs),
             ...folders.map((f) {
-              final color = _colorFromHex(f.color, context.cPrimary);
+              final color =
+                  ItemColorHelper.parseHex(f.color) ?? context.cPrimary;
               return _buildChip(
                 folderId: f.id,
                 label: f.name,
@@ -155,12 +157,5 @@ class _DraggableFolderSelectorState
     );
   }
 
-  Color _colorFromHex(String? hex, Color fallback) {
-    if (hex == null || hex.isEmpty) return fallback;
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return fallback;
-    }
-  }
+  // _colorFromHex διαγράφηκε (Φ4a βήμα 3) — χρήση ItemColorHelper.parseHex.
 }

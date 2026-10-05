@@ -1255,6 +1255,9 @@ class FolderRepository {
     if (name  != null) folder.name  = name;
     if (icon  != null) folder.icon  = icon;
     if (color != null) folder.color = color;
+    folder.updatedAt = DateTime.now();
+    folder.localVersion++;
+    folder.isDirty = true;
     await _isar.writeTxn(() async {
       await _isar.folders.put(folder);
     });

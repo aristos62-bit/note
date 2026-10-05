@@ -14,6 +14,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
+import '../../helpers/item_color_helper.dart';
 import '../../shared/widgets/widgets.dart';
 import '../notes/note_detail_screen.dart';
 import '../tasks/task_detail_screen.dart';
@@ -40,169 +41,37 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
   late Folder _folder;
   ItemType? _typeFilter;
 
-  Color get _folderColor {
-    final hex = _folder.color;
-    if (hex == null || hex.isEmpty) return const Color(0xFF6366F1);
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return const Color(0xFF6366F1);
-    }
-  }
+  Color get _folderColor =>
+      ItemColorHelper.parseHex(_folder.color) ?? const Color(0xFF6366F1);
 
-  // ── Edit folder ──────────────────────────────────────────────
+  // ── Edit folder (SPoT: FolderFormDialog) ─────────────────────────
   Future<void> _editFolder(BuildContext context) async {
-    final ctrl = TextEditingController(text: _folder.name);
-    String selectedIcon = _folder.icon ?? '📁';
-    String selectedColor = _folder.color ?? '#6366F1';
-
-    const icons = [
-      '📁',  '💼',  '🏠',  '📚',  '🎵',  '🎮',  '⚽',  '🌍',  '🔬',
-      '✈️',  '🍕',  '🏆',  '🖼️',  '📝',  '⭐',  '🎬',  '💡',  '🛒',
-      '🏋️',  '🌱',  '📊',  '🔐',  '🎯','😊', '👤', '👥', '🧠', '🗣️',
-      '🛠️', '⚙️', '🔧', '🧰', '📐',  '💻', '📱', '📋', '🏷️', '🔔',
-      '⏰', '💬', '🚀', '🔑', '🎉','🎨','👦', '👧', '👴', '👵', '👨',
-      '👩', '👶', '🧑', '👪', '🧠','🛠️', '⚙️', '🔧', '🧰', '📐',
-      '💻', '📱', '🔑', '🚀', '🎉',
-    ];
-    const colors = [
-      '#6366F1', '#A1A3F7',   // Indigo
-      '#8B5CF6', '#B99DFA',   // Purple
-      '#EC4899', '#F491C2',   // Pink
-      '#EF4444', '#F58F8F',   // Red
-      '#F97316', '#FBAB73',   // Orange
-      '#EAB308', '#F2D16B',   // Yellow
-      '#22C55E', '#7ADC9E',   // Green
-      '#14B8A6', '#72D4CA',   // Teal
-      '#06B6D4', '#6AD3E5',   // Cyan
-      '#3B82F6', '#89B4FA',   // Blue
-      '#64748B', '#A2ACB9',   // Slate
-      '#E11D48', '#ED7791',   // Rose
-    ];
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialog) => AlertDialog(
-          backgroundColor: ColorsUI.getSurface(ctx.brightness),
-          title: const Text('Επεξεργασία Φακέλου'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    hintText: 'Όνομα φακέλου...',
-                    filled: true,
-                    fillColor: ColorsUI.getBackground(ctx.brightness),
-                    border: OutlineInputBorder(
-                      borderRadius: AppRadius.inputBR,
-                      borderSide:
-                          BorderSide(color: ColorsUI.getBorder(ctx.brightness)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: Spacing.md),
-                Text('Εικονίδιο', style: ctx.labelMd.withColor(ctx.cText2)),
-                const SizedBox(height: Spacing.xs),
-                Wrap(
-                  spacing: Spacing.xs,
-                  runSpacing: Spacing.xs,
-                  children: icons
-                      .map((e) => GestureDetector(
-                            onTap: () => setDialog(() => selectedIcon = e),
-                            child: AnimatedContainer(
-                              duration: AppDuration.fast,
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: selectedIcon == e
-                                    ? ctx.cPrimary.withValues(alpha: 0.12)
-                                    : ColorsUI.getSurface(ctx.brightness),
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.sm),
-                                border: Border.all(
-                                  color: selectedIcon == e
-                                      ? ctx.cPrimary
-                                      : ColorsUI.getBorder(ctx.brightness),
-                                ),
-                              ),
-                              child: Center(
-                                  child: Text(e,
-                                      style: const TextStyle(fontSize: 20))),
-                            ),
-                          ))
-                      .toList(),
-                ),
-                const SizedBox(height: Spacing.md),
-                Text('Χρώμα', style: ctx.labelMd.withColor(ctx.cText2)),
-                const SizedBox(height: Spacing.xs),
-                Wrap(
-                  spacing: Spacing.sm,
-                  runSpacing: Spacing.sm,
-                  children: colors.map((hex) {
-                    Color c;
-                    try {
-                      c = Color(int.parse(
-                          'FF${hex.replaceAll('#', '')}', radix: 16));
-                    } catch (_) {
-                      c = const Color(0xFF6366F1);
-                    }
-                    final isActive = selectedColor == hex;
-                    return GestureDetector(
-                      onTap: () => setDialog(() => selectedColor = hex),
-                      child: AnimatedContainer(
-                        duration: AppDuration.fast,
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: c,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isActive ? ctx.cText : Colors.transparent,
-                            width: 2.5,
-                          ),
-                        ),
-                        child: isActive
-                            ? const Icon(Icons.check_rounded,
-                                size: 16, color: Colors.white)
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Άκυρο'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final name = ctrl.text.trim();
-                if (name.isEmpty) return;
-                DebugConfig.db(
-                    'FolderBrowser update id=${_folder.id} name="$name"');
-                await ref.read(folderNotifierProvider.notifier).rename(
-                      _folder.id,
-                      name: name,
-                      icon: selectedIcon,
-                      color: selectedColor,
-                    );
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Αποθήκευση'),
-            ),
-          ],
-        ),
-      ),
+    DebugConfig.nav('FolderBrowser open edit folder id=${_folder.id}');
+    final result = await FolderFormDialog.show(
+      context,
+      title: 'Επεξεργασία Φακέλου',
+      confirmLabel: 'Αποθήκευση',
+      initialName: _folder.name,
+      initialIcon: _folder.icon ?? kDefaultFolderIcon,
+      initialColor: _folder.color ?? kDefaultFolderColor,
     );
+    if (result == null || !context.mounted) return;
+    DebugConfig.db('FolderBrowser update id=${_folder.id} name="${result.name}"');
+    try {
+      await ref.read(folderNotifierProvider.notifier).rename(
+            _folder.id,
+            name: result.name,
+            icon: result.icon,
+            color: result.color,
+          );
+    } catch (e, s) {
+      DebugConfig.error('FolderBrowser rename failed', e, s);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Σφάλμα κατά την αποθήκευση')),
+        );
+      }
+    }
   }
 
   // ── Delete folder (με try‑catch) ─────────────────────────────
