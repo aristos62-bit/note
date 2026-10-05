@@ -204,15 +204,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
               decoration: InputDecoration(
                 hintText: 'Αναζήτηση διαγραμμένων...',
                 prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                  icon: Icon(Icons.close_rounded, color: context.cText2),
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    _onSearchChanged('');
-                  },
-                )
-                    : null,
+                suffixIcon: SearchClearButton(
+                  controller: _searchCtrl,
+                  onCleared: () => _onSearchChanged(''),
+                ),
                 filled: true,
                 fillColor: ColorsUI.getSurface(context.brightness),
                 border: OutlineInputBorder(

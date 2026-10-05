@@ -167,12 +167,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ref.read(_searchNotifierProvider.notifier).search(_ctrl.text, wsId);
   }
 
-  void _clearSearch() {
-    _ctrl.clear();
-    ref.read(_searchNotifierProvider.notifier).clear();
-    _focusNode.requestFocus();
-  }
-
   void _openResult(BuildContext context, SearchResult result) {
     DebugConfig.nav('Search → ${result.item.type.name} id=${result.item.id}');
     switch (result.item.type) {
@@ -282,13 +276,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             prefixIcon: Icon(Icons.search_rounded,
                 color: context.cText2, size: 20),
-            suffixIcon: _ctrl.text.isNotEmpty
-                ? IconButton(
-              icon: Icon(Icons.close_rounded,
-                  color: context.cText2, size: 20),
-              onPressed: _clearSearch,
-            )
-                : null,
+            suffixIcon: SearchClearButton(
+              controller: _ctrl,
+              iconSize: 20,
+              onCleared: () {
+                ref.read(_searchNotifierProvider.notifier).clear();
+                _focusNode.requestFocus();
+              },
+            ),
           ),
         ),
       ),

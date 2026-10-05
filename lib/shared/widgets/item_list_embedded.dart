@@ -326,15 +326,10 @@ class _EmbeddedSearchBar extends StatelessWidget {
           hintText: hint,
           hintStyle: context.bodyMd.withColor(context.cDisabled),
           prefixIcon: Icon(Icons.search_rounded, color: context.cText2),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-            icon: Icon(Icons.close_rounded, color: context.cText2),
-            onPressed: () {
-              controller.clear();
-              onChanged('');
-            },
-          )
-              : null,
+          suffixIcon: SearchClearButton(
+            controller: controller,
+            onCleared: () => onChanged(''),
+          ),
           filled: true,
           fillColor: ColorsUI.getSurface(context.brightness),
           border: OutlineInputBorder(
