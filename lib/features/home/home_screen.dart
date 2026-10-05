@@ -414,8 +414,7 @@ class _ViewModeToggle extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: Spacing.sm),
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: CircleToggleButton.row(
         children: [
           CircleToggleButton(
             icon: Icons.push_pin_rounded,
@@ -424,7 +423,6 @@ class _ViewModeToggle extends StatelessWidget {
             activeColor: context.cError,
             onTap: () => onChanged(ViewMode.pinned),
           ),
-          const SizedBox(width: Spacing.md),
           CircleToggleButton(
             icon: Icons.star_rounded,
             tooltip: 'Αγαπημένα',
@@ -432,7 +430,6 @@ class _ViewModeToggle extends StatelessWidget {
             activeColor: context.cWarning,
             onTap: () => onChanged(ViewMode.favorites),
           ),
-          const SizedBox(width: Spacing.md),
           CircleToggleButton(
             icon: Icons.merge_type_rounded,
             tooltip: 'Όλα',
@@ -447,6 +444,7 @@ class _ViewModeToggle extends StatelessWidget {
 }
 
 // _ToggleButton διαγράφηκε (Φ4a βήμα 9) — SPoT: CircleToggleButton.
+// _ViewModeToggle/_FolderViewModeToggle μοιράζονται layout via CircleToggleButton.row (Φ4a βήμα 10).
 
 // ════════════════════════════════════════════════════════════════
 // HOME APP BAR

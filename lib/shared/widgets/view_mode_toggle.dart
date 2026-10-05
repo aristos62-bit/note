@@ -12,8 +12,7 @@ class ViewModeToggle extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: CircleToggleButton.row(
         children: [
           CircleToggleButton(
             icon: Icons.push_pin_rounded,
@@ -22,7 +21,6 @@ class ViewModeToggle extends ConsumerWidget {
             activeColor: context.cError,
             onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.pinned,
           ),
-          const SizedBox(width: Spacing.md),
           CircleToggleButton(
             icon: Icons.star_rounded,
             tooltip: 'Αγαπημένα',
@@ -30,7 +28,6 @@ class ViewModeToggle extends ConsumerWidget {
             activeColor: context.cWarning,
             onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.favorites,
           ),
-          const SizedBox(width: Spacing.md),
           CircleToggleButton(
             icon: Icons.merge_type_rounded,
             tooltip: 'Όλα',
@@ -61,6 +58,22 @@ class CircleToggleButton extends StatelessWidget {
     required this.activeColor,
     required this.onTap,
   });
+
+  /// Κοινή οριζόντια σειρά toggles (Φ4a βήμα 10 — μόνο layout, όχι semantics).
+  /// Τα margins/paddings μένουν στους callers (διαφέρουν: central symmetric xs
+  /// vs home/folder only-top sm).
+  static Widget row({required List<Widget> children}) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (int i = 0; i < children.length; i++) ...[
+          children[i],
+          if (i != children.length - 1) const SizedBox(width: Spacing.md),
+        ],
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

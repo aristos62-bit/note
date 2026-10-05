@@ -547,3 +547,16 @@
 **Follow-up:** stale `widget_test` (counter) → αντικατάσταση με ερμητικό SPoT smoke test — suite 70/70, analyze clean (`backups/fix_widget_test/`).
 
 **Follow-up (επανέλεγχος):** +2 missed strings (`backup_service` share-prefix, browser inline load-text) + barrel import (`debug_config` → `core.dart`) — commit `29db09f`.
+
+## Session 73 — 05/10/2026 (Φ4a βήμα 10: ViewModeToggle row SPoT)
+
+**Πρόβλημα:** 3× ίδιο `Row` chrome (central `ViewModeToggle` + `_ViewModeToggle` home + `_FolderViewModeToggle` folder) με διαφορετικά semantics — Κρίσιμο: private `_ToggleRow` δεν θα έκανε compile cross-library, margins διέφεραν (central symmetric xs vs home/folder only-top sm).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Static `CircleToggleButton.row(children)` στο `view_mode_toggle.dart` (0 νέες κλάσεις, 0 barrels, `Spacing.md` separators, empty→shrink)
+- `ViewModeToggle` + home ×3 + folder ×4 πάνω στο `row`· `Container(margin/padding)` μένει στους callers· enums/callbacks/navigation/`36/18/1.5/0.12` άθικτα
+- Εκτός: enum-merge, folder-state (17), 48px/Semantics, `take(10)`, `types 📅` (Φ4b/Φ4c)
+
+**Επαλήθευση:** `toggle_button_test` 3/3· `flutter test` → **77/77** · `flutter analyze --no-pub` → `No issues found!`
+
+**Backups:** `backups/phi4a_viewmode/` (5 αρχεία)

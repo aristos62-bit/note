@@ -322,8 +322,7 @@ class _FolderViewModeToggle extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: Spacing.sm),
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: CircleToggleButton.row(
         children: [
           CircleToggleButton(
             icon: Icons.push_pin_rounded,
@@ -332,7 +331,6 @@ class _FolderViewModeToggle extends StatelessWidget {
             activeColor: context.cError,
             onTap: () => onChanged(FolderViewMode.pinned),
           ),
-          const SizedBox(width: Spacing.md),
           CircleToggleButton(
             icon: Icons.star_rounded,
             tooltip: 'Αγαπημένα',
@@ -340,7 +338,6 @@ class _FolderViewModeToggle extends StatelessWidget {
             activeColor: context.cWarning,
             onTap: () => onChanged(FolderViewMode.favorites),
           ),
-          const SizedBox(width: Spacing.md),
           CircleToggleButton(
             icon: Icons.history_rounded,
             tooltip: 'Πρόσφατα',
@@ -348,7 +345,6 @@ class _FolderViewModeToggle extends StatelessWidget {
             activeColor: context.cInfo,
             onTap: () => onChanged(FolderViewMode.recent),
           ),
-          const SizedBox(width: Spacing.md),
           CircleToggleButton(
             icon: Icons.list_rounded,
             tooltip: 'Όλα',
@@ -363,6 +359,7 @@ class _FolderViewModeToggle extends StatelessWidget {
 }
 
 // _ToggleButton διαγράφηκε (Φ4a βήμα 9) — SPoT: CircleToggleButton.
+// _ViewModeToggle/_FolderViewModeToggle μοιράζονται layout via CircleToggleButton.row (Φ4a βήμα 10).
 
 // ════════════════════════════════════════════════════════════════
 // FOLDER STATS ROW (unchanged)
