@@ -905,22 +905,7 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
 
 // ── Βοηθητικές για τύπους items ────────────────────────────────
 
-IconData _itemTypeIcon(ItemType type) => switch (type) {
-  ItemType.note        => Icons.note_rounded,
-  ItemType.task        => Icons.check_box_rounded,
-  ItemType.event       => Icons.event_rounded,
-  ItemType.contact     => Icons.person_rounded,
-  ItemType.habit       => Icons.repeat_rounded,
-  ItemType.project     => Icons.folder_special_rounded,
-  ItemType.goal        => Icons.flag_rounded,
-  ItemType.finance     => Icons.attach_money_rounded,
-  ItemType.bookmark    => Icons.bookmark_rounded,
-  ItemType.journal     => Icons.menu_book_rounded,
-  ItemType.appointment => Icons.calendar_today_rounded,
-  ItemType.checklist   => Icons.checklist_rounded,
-  ItemType.knowledge   => Icons.lightbulb_rounded,
-};
-
+// _itemTypeIcon διαγράφηκε (Φ4a settings-icons) — SPoT: ItemTypeIcon.iconDataFor.
 // _itemTypeLabel διαγράφηκε (Φ4a βήμα 7) — SPoT: ItemTypeIcon.labelFor.
 
 Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async {
@@ -1097,7 +1082,7 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
                         subtitle: Row(
                           children: [
                             Icon(
-                              _itemTypeIcon(item.type),
+                              ItemTypeIcon.iconDataFor(item.type),
                               size: 12,
                               color: ctx.cText2,
                             ),
@@ -2401,7 +2386,7 @@ class _ItemTypeColorsTile extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 children: [
-                  Icon(_itemTypeIcon(type), size: 18, color: context.cText2),
+                  Icon(ItemTypeIcon.iconDataFor(type), size: 18, color: context.cText2),
                   const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
@@ -2567,7 +2552,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
             Row(
               children: [
                 const SizedBox(width: Spacing.md),
-                Icon(_itemTypeIcon(widget.type), size: 18, color: context.cText),
+                Icon(ItemTypeIcon.iconDataFor(widget.type), size: 18, color: context.cText),
                 const SizedBox(width: Spacing.sm),
                 Text('Χρώμα — ${ItemTypeIcon.labelFor(widget.type)}', style: context.titleSm),
               ],
