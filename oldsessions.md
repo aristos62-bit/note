@@ -700,3 +700,13 @@
 **Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!` · device-retest αναζήτησης εκκρεμεί.
 
 **Backups:** `backups/fix_search_init/` (1 αρχείο)
+
+## Session 84 — 05/10/2026 (Fix: search result card Spacer-crash)
+
+**Πρόβλημα (device):** Αναζήτηση έβρισκε αποτελέσματα αλλά η `_SearchResultCard` έσπαγε στο layout (`Spacer` σε `ListView` unbounded → exception/κόκκινη οθόνη).
+
+**Fix:** `const Spacer()` → `const SizedBox(height: Spacing.xs)` (ίδια απόσταση, grid unaffected).
+
+**Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!` · device-retest εκκρεμεί.
+
+**Backups:** `backups/fix_search_card/` (1 αρχείο)
