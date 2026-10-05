@@ -734,3 +734,15 @@
 **Επαλήθευση:** `flutter test` → **94/94** · `flutter analyze --no-pub` → `No issues found!`
 
 **Backups:** `backups/fix_habit_mounted/` (1 αρχείο)
+
+## Session 87 — 05/10/2026 (Settings 4ος icon-χάρτης — parked β8 closed)
+
+**Πρόβλημα (parked):** `_itemTypeIcon` settings, 7/13 διαφορά από SPoT (`lightbulb` vs σκόπιμο `article` κλπ).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Διαγραφή χάρτη (`:906-922`)· 3 callers → `ItemTypeIcon.iconDataFor` (sizes άθικτα)
+- Νέο `test/settings_icons_test.dart` (2 tests)
+
+**Επαλήθευση:** `flutter test` → **96/96** · `flutter analyze --no-pub` → `No issues found!` · device-eyeball 3 σημείων εκκρεμεί.
+
+**Backups:** `backups/phi4a_settings_icons/` (2 αρχεία)
