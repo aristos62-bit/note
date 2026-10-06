@@ -814,3 +814,17 @@
 **Επαλήθευση:** `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · home_folder_view 444→447 (<500) · device-verify 3 chips εκκρεμεί
 
 **Backups:** `backups/stats_row_parity/` (2 αρχεία)
+
+## Session 93 — 06/10/2026 (Φ4b-21: note_detail split)
+
+**Στόχος:** `note_detail_screen` 562γρ. → <500 (extract widgets, μηδέν συμπεριφορά).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `features/notes/note_detail_widgets.dart` (~236γρ.): `NoteDetailBody` + `NoteDetailMetadata` + `_MetaRow` (byte-identical)· inline `showTagPickerSheet` (διαγραφή νεκρού wrapper)· public ctors με `super.key` (2 analyze infos διορθωμένα)
+- Screen 562→335: renames (3 sites) + 1 import + drive-by διπλά `// Save`/`// Archive`
+- Μάθημα: edit-tool unicode headers (`═══`) δεν αναπαράγονται → κοπή με αριθμούς γραμμών (UTF8 ρητό· πρώτη απόπειρα χωρίς encoding διέφθειρε ελληνικά → restore από backup)
+- Εκτός: journal-ομοιότητα + τριπλή `_MetaRow` (parked), save-catch/AppBar-overflow (Φ4c)
+
+**Επαλήθευση:** `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · device-verify note flows εκκρεμεί
+
+**Backups:** `backups/note_split/` (2 αρχεία + νέο widgets)
