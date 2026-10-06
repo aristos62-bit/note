@@ -451,6 +451,32 @@ class ReminderScheduler {
     }
   }
 
+  /// One-shot purge υπενθυμίσεων εγγραφών συλλογών (feature νεκρό —
+  /// η καμπάνα αφαιρέθηκε από το entry detail). Σαρώνει ΟΛΑ τα rows
+  /// (χωρίς παράθυρο/status) και σβήνει όσα δείχνουν σε knowledge
+  /// item ή σε ανύπαρκτο item (orphans). Idempotent.
+  Future<void> purgeKnowledgeReminders() async {
+    try {
+      final all = await SuperNoteHelper.instance.isar.reminders
+          .where()
+          .findAll();
+      final doneRoots = <int>{};
+      var purged = 0;
+      for (final r in all) {
+        final item = await SuperNoteHelper.instance.isar.items.get(r.itemId);
+        if (item != null && item.type != ItemType.knowledge) continue;
+        final rootId = r.parentReminderId ?? r.id;
+        if (!doneRoots.add(rootId)) continue;
+        await deleteReminderThread(rootId);
+        purged++;
+      }
+      DebugConfig.notif(
+          'purgeKnowledgeReminders: scanned=${all.length} purged=$purged');
+    } catch (e, stack) {
+      DebugConfig.error('ReminderScheduler.purgeKnowledgeReminders', e, stack);
+    }
+  }
+
   // ─────────────────────────────────────────────────────────
   // Υπάρχουσες μέθοδοι (όπως τις είχες)
   // ─────────────────────────────────────────────────────────

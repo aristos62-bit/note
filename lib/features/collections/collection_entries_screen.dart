@@ -946,30 +946,6 @@ class _CollectionEntryDetailScreenState
     }
   }
 
-  // ── Reminder bottom sheet ──────────────────────────────────
-  Future<void> _showReminderDialog() async {
-    final title =
-    _titleCtrl.text.trim().isEmpty ? 'Εγγραφή' : _titleCtrl.text.trim();
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: ReminderSection(
-          itemId: widget.entryId,
-          itemTitle: title,
-          defaultStartTime: null,
-        ),
-      ),
-    );
-  }
-
   // ── Tag picker sheet ───────────────────────────────────────
   void _showTagPicker() {
     showTagPickerSheet(context, widget.entryId);
@@ -1101,13 +1077,6 @@ class _CollectionEntryDetailScreenState
                   icon: Icon(Icons.save_rounded, color: context.cPrimary),
                   tooltip: 'Αποθήκευση',
                   onPressed: _save,
-                ),
-                // Reminder
-                IconButton(
-                  icon: Icon(Icons.notifications_none_rounded,
-                      color: context.cText2),
-                  onPressed: _showReminderDialog,
-                  tooltip: 'Υπενθύμιση',
                 ),
                 // Favorite
                 IconButton(
