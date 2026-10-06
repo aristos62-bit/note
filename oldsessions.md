@@ -801,6 +801,6 @@
 - Εκτός: SnackBar-orphan, notification GoRoute (parked follow-up), stats/search-project
 - Νέο `test/knowledge_entry_nav_test.dart` (4 pure tests `collectionIdOf`)
 
-**Επαλήθευση:** νέο 4/4· `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · browser 490→495 (<500), folder_view 439→444, search 686→650 · device-verify entry/orphan taps εκκρεμεί
+**Επαλήθευση:** νέο 4/4· `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · browser 490→495 (<500), folder_view 439→444, search 686→650 · device-verify ΟΚ (search→knowledge id=36→collection 29, init/dispose clean, 0 ERR ×2)
 
 **Backups:** `backups/knowledge_entry_nav/` (6 αρχεία + νέο helper/test)
