@@ -842,3 +842,17 @@
 **Επαλήθευση:** νέο 3/3· `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify collections flows ΟΚ (7 συλλογές, entries 396/186, 0 ERR)
 
 **Backups:** `backups/collections_split/` (6 αρχεία + νέο fields/test)
+
+## Session 95 — 06/10/2026 (entry bell removal + purge)
+
+**Απόφαση:** entries χωρίς notifications (χρήστης) — ξήλωμα αντί GoRoute.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- UI: −bell + −`_showReminderDialog` (αλλιώς `unused_element`)· AppBar 6→5 actions
+- Scheduler +`purgeKnowledgeReminders()` (~25γρ.): σάρωση ΟΛΩΝ των rows (όχι 370d παράθυρο)· knowledge-or-missing → thread-delete· `Set<rootId>`· summary-log
+- Main postFrame πριν `scheduleAll`, own try-catch
+- Μάθημα: γυμνό Isar `.filter()` δεν έχει `findAll` → `.where().findAll()` (pattern `AttachmentRepository.getAll`)
+
+**Επαλήθευση:** `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify (χωρίς καμπάνα + purge-log) εκκρεμεί
+
+**Backups:** `backups/entry_bell_purge/` (4 αρχεία)

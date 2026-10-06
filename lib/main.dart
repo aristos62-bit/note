@@ -138,6 +138,15 @@ void main() async {
     }
 
     try {
+      // Entry-reminder purge (one-shot, idempotent): η καμπάνα αφαιρέθηκε
+      // από τα entries — σβήνουμε τυχόν παλιές rows πριν το scheduleAll.
+      await ReminderScheduler.instance.purgeKnowledgeReminders();
+      DebugConfig.startup('Entry reminders purged');
+    } catch (e, stack) {
+      DebugConfig.error('purgeKnowledgeReminders failed', e, stack);
+    }
+
+    try {
       await ReminderScheduler.instance.scheduleAll();
       DebugConfig.startup('Reminders scheduled');
     } catch (e, stack) {
