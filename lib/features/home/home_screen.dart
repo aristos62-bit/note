@@ -154,45 +154,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _openItem(BuildContext context, Item item) {
     DebugConfig.nav('HomeScreen → ${item.type.name} id=${item.id}');
     if (item.type == ItemType.knowledge) {
-      _openKnowledgeEntry(item);
+      openKnowledgeEntry(context, ref, item);
       return;
     }
     final route =
         AppRoutes.forType(item.type, item.id) ?? AppRoutes.note(item.id);
     context.push(route);
-  }
-
-  Future<void> _openKnowledgeEntry(Item entry) async {
-    // Βρίσκουμε τη συλλογή στην οποία ανήκει η εγγραφή μέσω property 'collection_id'
-    final props = await ref.read(itemPropertiesProvider(entry.id).future);
-    final collectionIdStr =
-        props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-    if (collectionIdStr == null) {
-      DebugConfig.error('Knowledge entry without collection_id', null);
-      return;
-    }
-    final collectionId = int.tryParse(collectionIdStr);
-    if (collectionId == null) return;
-    final collection = await ref.read(itemByIdProvider(collectionId).future);
-    if (collection == null) return;
-
-    // Φόρτωση schema της συλλογής
-    final collectionProps =
-    await ref.read(itemPropertiesProvider(collectionId).future);
-    final schemaJson =
-        collectionProps.where((p) => p.key == 'schema').firstOrNull?.value ??
-            '';
-    final fields = FieldDef.listFromJson(schemaJson);
-
-    if (mounted) {
-      Navigator.of(context)
-          .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
-        entryId: entry.id,
-        collectionId: collectionId,
-        fields: fields,
-        isNew: false,
-      )));
-    }
   }
 
   // ── Create folder dialog (SPoT: FolderFormDialog) ──────────────

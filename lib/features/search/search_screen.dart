@@ -14,8 +14,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/search_service.dart';
 import '../../shared/widgets/widgets.dart';
-import '../../features/collections/collection_entries_screen.dart';
-import '../../features/collections/collections_screen.dart' show FieldDef;
+import '../../features/collections/knowledge_entry_nav.dart';
 
 // ── Local state ───────────────────────────────────────────────────
 
@@ -171,48 +170,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _openResult(BuildContext context, SearchResult result) {
     DebugConfig.nav('Search → ${result.item.type.name} id=${result.item.id}');
     if (result.item.type == ItemType.knowledge) {
-      _openKnowledgeEntry(context, result.item);
+      openKnowledgeEntry(context, ref, result.item);
       return;
     }
     final route =
         AppRoutes.forType(result.item.type, result.item.id) ??
             AppRoutes.note(result.item.id);
     context.push(route);
-  }
-
-  Future<void> _openKnowledgeEntry(BuildContext context, Item entry) async {
-    // 1) Βρίσκουμε τη συλλογή στην οποία ανήκει η εγγραφή μέσω property 'collection_id'
-    final props = await ref.read(itemPropertiesProvider(entry.id).future);
-    final collectionIdStr = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-    if (collectionIdStr == null) {
-      DebugConfig.error('Knowledge entry without collection_id', null);
-      return;
-    }
-    final collectionId = int.tryParse(collectionIdStr);
-    if (collectionId == null) return;
-
-    // 2) Βρίσκουμε το item της συλλογής
-    final collection = await ref.read(itemStreamProvider(collectionId).future);
-    if (collection == null) return;
-
-    // 3) Φόρτωση schema της συλλογής από τα properties της
-    final collectionProps = await ref.read(itemPropertiesProvider(collectionId).future);
-    final schemaJson = collectionProps.where((p) => p.key == 'schema').firstOrNull?.value ?? '';
-    final fields = FieldDef.listFromJson(schemaJson);
-
-    if (mounted) {
-      if (!context.mounted)return;
-      Navigator.of(context).push(
-        AppTransitions.slideRoute(
-          CollectionEntryDetailScreen(
-            entryId: entry.id,
-            collectionId: collectionId,
-            fields: fields,
-            isNew: false,
-          ),
-        ),
-      );
-    }
   }
 
   @override

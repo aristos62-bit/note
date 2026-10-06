@@ -15,6 +15,7 @@ import 'folder_browser_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
+import '../collections/knowledge_entry_nav.dart';
 
 // ── View Mode για το φάκελο ───────────────────────────────────
 enum FolderViewMode { pinned, favorites, recent, all }
@@ -228,6 +229,10 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
 
   void _openItem(BuildContext context, Item item, {bool isNew = false}) {
     DebugConfig.nav('HomeFolderView → ${item.type.name} id=${item.id} isNew=$isNew');
+    if (item.type == ItemType.knowledge) {
+      openKnowledgeEntry(context, ref, item);
+      return;
+    }
     final route =
         AppRoutes.forType(item.type, item.id) ?? AppRoutes.note(item.id);
     context.push(route, extra: isNew);

@@ -790,3 +790,17 @@
 **Σημείωση:** προγενέστερα device-retests (S83/S84/S86/S87/S88/S89) επιβεβαιωμένα ΟΚ από χρήστη 06/10/2026 — 0 εκκρεμότητες device.
 
 **Backups:** `backups/folder_create_parity/` (4 αρχεία + νέο sheet/test)
+
+## Session 91 — 06/10/2026 (knowledge entry-branch SPoT 4-way)
+
+**Πρόβλημα:** knowledge tap σε browser/folder_view → `forType ?? note` (λάθος editor)· 2 privates `_openKnowledgeEntry` (search + home, diverged: stream vs byId provider, mounted vs context-mounted).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `features/collections/knowledge_entry_nav.dart` (~64γρ.): pure `collectionIdOf` (testable) + `openKnowledgeEntry` (reconcile: `itemByIdProvider` + `context.mounted`· listFromJson exception-safe → no try-catch)· +export στο `collections.dart` barrel (όχι widgets — αποφυγή κύκλου)
+- Διαγραφές: search (~34γρ.) + home (~32γρ.) → κλήσεις helper· branches: browser `_openExisting` + folder_view `_openItem` (+1 import έκαστο)· browser `_openItem` άθικτο (unreachable)· router-σχόλιο sync
+- Εκτός: SnackBar-orphan, notification GoRoute (parked follow-up), stats/search-project
+- Νέο `test/knowledge_entry_nav_test.dart` (4 pure tests `collectionIdOf`)
+
+**Επαλήθευση:** νέο 4/4· `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · browser 490→495 (<500), folder_view 439→444, search 686→650 · device-verify entry/orphan taps εκκρεμεί
+
+**Backups:** `backups/knowledge_entry_nav/` (6 αρχεία + νέο helper/test)

@@ -17,6 +17,7 @@ import '../../providers/providers.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import '../../shared/widgets/widgets.dart';
+import '../collections/knowledge_entry_nav.dart';
 
 // ════════════════════════════════════════════════════════════════
 // FOLDER BROWSER SCREEN
@@ -125,6 +126,10 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
   void _openExisting(BuildContext context, Item item) {
     DebugConfig.nav(
         'FolderBrowser open existing ${item.type.name} id=${item.id}');
+    if (item.type == ItemType.knowledge) {
+      openKnowledgeEntry(context, ref, item);
+      return;
+    }
     final route =
         AppRoutes.forType(item.type, item.id) ?? AppRoutes.note(item.id);
     context.push(route);
