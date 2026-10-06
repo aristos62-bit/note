@@ -27,7 +27,7 @@ import '../../shared/widgets/widgets.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import '../../helpers/super_note_helper.dart';
-import 'collections_screen.dart' show FieldDef, FieldType;
+import 'collection_fields.dart' show FieldDef, FieldType;
 
 // Τοπικοί providers για search & tags στη λίστα εγγραφών
 final _entriesSearchQueryProvider = StateProvider<String>((ref) => '');

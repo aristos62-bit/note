@@ -15,7 +15,7 @@ import '../../helpers/item_color_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
-import 'collections_screen.dart' show FieldDef, FieldType;
+import 'collection_fields.dart' show FieldDef, FieldType;
 
 // Διαθέσιμα χρώματα
 const _kColors = [
