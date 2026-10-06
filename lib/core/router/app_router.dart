@@ -71,7 +71,7 @@ class AppRoutes {
   static String appointment(int id) => '/appointments/$id';
 
   /// Κοινός type→route mapper (Φ4a βήμα 15 — SPoT για main + search + home).
-  /// Null για goal/finance/bookmark/knowledge (knowledge: `_openKnowledgeEntry`,
+  /// Null για goal/finance/bookmark/knowledge (knowledge: `openKnowledgeEntry`,
   /// οι υπόλοιποι δεν έχουν route).
   static String? forType(ItemType type, int id) => switch (type) {
         ItemType.note => note(id),
