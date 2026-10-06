@@ -1,4 +1,4 @@
-﻿// lib/features/notes/note_detail_screen.dart
+// lib/features/notes/note_detail_screen.dart
 //
 // Detail screen σημείωσης: editable title + block editor.
 // ✅ Responsive: single col mobile / two-panel tablet+desktop
