@@ -804,3 +804,13 @@
 **Επαλήθευση:** νέο 4/4· `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · browser 490→495 (<500), folder_view 439→444, search 686→650 · device-verify ΟΚ (search→knowledge id=36→collection 29, init/dispose clean, 0 ERR ×2)
 
 **Backups:** `backups/knowledge_entry_nav/` (6 αρχεία + νέο helper/test)
+
+## Session 92 — 06/10/2026 (stats-row parity — συνέχεια S90)
+
+**Πρόβλημα:** `_FolderStatsRow._shown` 5 τύποι — appointment/journal/project αόρατα παρότι provider μετράει 13/13 (φάκελος μόνο με ραντεβού → κενό header).
+
+**Υλοποίηση:** `_shown` 5→8 σε filter-order (1 λίστα, +3 γραμμές)· build/icons/colors/padding άθικτα· create(8)==filter(8)==stats(8)· knowledge σωστά εκτός (χωρίς folderId)· archived-counts προϋπάρχον provider-semantics (parked).
+
+**Επαλήθευση:** `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · home_folder_view 444→447 (<500) · device-verify 3 chips εκκρεμεί
+
+**Backups:** `backups/stats_row_parity/` (2 αρχεία)

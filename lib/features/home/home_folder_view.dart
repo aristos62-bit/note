@@ -302,7 +302,10 @@ class _FolderStatsRow extends StatelessWidget {
   final Map<ItemType, int> stats;
   const _FolderStatsRow({required this.stats});
 
-  static const _shown = [ItemType.note, ItemType.task, ItemType.event, ItemType.habit, ItemType.contact];
+  static const _shown = [
+    ItemType.note, ItemType.task, ItemType.event, ItemType.habit,
+    ItemType.journal, ItemType.contact, ItemType.project, ItemType.appointment,
+  ];
 
   @override
   Widget build(BuildContext context) {
