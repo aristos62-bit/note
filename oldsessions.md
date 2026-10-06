@@ -825,6 +825,6 @@
 - Μάθημα: edit-tool unicode headers (`═══`) δεν αναπαράγονται → κοπή με αριθμούς γραμμών (UTF8 ρητό· πρώτη απόπειρα χωρίς encoding διέφθειρε ελληνικά → restore από backup)
 - Εκτός: journal-ομοιότητα + τριπλή `_MetaRow` (parked), save-catch/AppBar-overflow (Φ4c)
 
-**Επαλήθευση:** `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · device-verify note flows εκκρεμεί
+**Επαλήθευση:** `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · device-verify note flows ΟΚ
 
 **Backups:** `backups/note_split/` (2 αρχεία + νέο widgets)
