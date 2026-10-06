@@ -853,6 +853,6 @@
 - Main postFrame πριν `scheduleAll`, own try-catch
 - Μάθημα: γυμνό Isar `.filter()` δεν έχει `findAll` → `.where().findAll()` (pattern `AttachmentRepository.getAll`)
 
-**Επαλήθευση:** `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify (χωρίς καμπάνα + purge-log) εκκρεμεί
+**Επαλήθευση:** `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify ΟΚ (χωρίς καμπάνα, purge-log, 0 ERR)
 
 **Backups:** `backups/entry_bell_purge/` (4 αρχεία)
