@@ -839,6 +839,6 @@
 - Μάθημα: Powershell UTF8 γράφει BOM → strip με UTF8NoBOM (όπως Φ4b-21)
 - Εκτός: share_service JSON-parse (S43), journal-ομοιότητα (parked)
 
-**Επαλήθευση:** νέο 3/3· `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify collections flows εκκρεμεί
+**Επαλήθευση:** νέο 3/3· `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify collections flows ΟΚ (7 συλλογές, entries 396/186, 0 ERR)
 
 **Backups:** `backups/collections_split/` (6 αρχεία + νέο fields/test)
