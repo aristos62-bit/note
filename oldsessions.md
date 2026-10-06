@@ -828,3 +828,17 @@
 **Επαλήθευση:** `flutter test` → **105/105** · `flutter analyze --no-pub` → `No issues found!` · device-verify note flows ΟΚ
 
 **Backups:** `backups/note_split/` (2 αρχεία + νέο widgets)
+
+## Session 94 — 06/10/2026 (Φ4b-22: collections FieldDef extract)
+
+**Στόχος:** `collections_screen` 569γρ. → <500 (model εκτός οθόνης, μηδέν συμπεριφορά).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `features/collections/collection_fields.dart` (~113γρ.): FieldType+FieldDef byte-identical
+- Screen 569→462 (−105γρ. −νεκρό `dart:convert`)· 3 `show`-imports → νέο αρχείο· barrel-export πρώτο
+- Μάθημα: Powershell UTF8 γράφει BOM → strip με UTF8NoBOM (όπως Φ4b-21)
+- Εκτός: share_service JSON-parse (S43), journal-ομοιότητα (parked)
+
+**Επαλήθευση:** νέο 3/3· `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify collections flows εκκρεμεί
+
+**Backups:** `backups/collections_split/` (6 αρχεία + νέο fields/test)

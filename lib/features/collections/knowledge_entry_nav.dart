@@ -19,7 +19,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import 'collection_entries_screen.dart';
-import 'collections_screen.dart' show FieldDef;
+import 'collection_fields.dart' show FieldDef;
 
 /// Pure: collection_id από properties (null αν λείπει/άκυρο) — unit-testable.
 int? collectionIdOf(List<ItemProperty> props) {
