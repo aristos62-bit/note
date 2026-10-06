@@ -32,3 +32,4 @@ export 'sheet_handle.dart';
 export 'item_actions_sheet.dart';
 export 'folder_form_dialog.dart';
 export 'search_clear_button.dart';
+export 'folder_create_sheet.dart';
