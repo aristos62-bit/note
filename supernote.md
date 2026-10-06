@@ -506,6 +506,7 @@ itemTypeCardColorOverrideProvider → Provider.family<Color?, ItemType>
 
 ### UI State Providers
 ```
+homeSelectedFolderProvider → StateProvider<int?>
 listViewModeProvider → StateProvider<ListViewMode>           // pinned / favorites / all
 isDraggingProvider → StateProvider<bool>                     // blocks back gesture during drag
 ```
@@ -553,7 +554,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Mobile: scrollable bottom nav with 10 items (Αρχική, Σημειώσεις, Εργασίες, Συνήθειες, Συμβάντα, Ημερολόγιο, Επαφές, Συλλογές, Ραντεβού, Ρυθμίσεις)
 - Tablet: `NavigationRail` (scrollable if needed)
 - Route path matching for active tab
-- Home tap resets `selectedFolderIdProvider`
+- Home tap resets `homeSelectedFolderProvider`
 
 ### Page Transitions
 - `AppTransitions.fade(state, child)` — standard navigation

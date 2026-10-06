@@ -366,7 +366,7 @@ class _AppShell extends ConsumerWidget {
     DebugConfig.nav('Shell nav → $path');
     context.go(path);
     if (path == AppRoutes.home) {
-      ref.read(selectedFolderIdProvider.notifier).state = null;
+      ref.read(homeSelectedFolderProvider.notifier).state = null;
     }
   }
 

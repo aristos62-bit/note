@@ -747,6 +747,18 @@
 
 **Backups:** `backups/phi4a_settings_icons/` (2 αρχεία)
 
+## Session 89 — 05/10/2026 (REVERT βήματος 17: folder-state)
+
+**Αιτία (device):** Race reset→rebuild→mixin-refire + stickiness — Home κολλούσε σε folder-view (βήματα 1-6 ροής). Προ-β17 σταθερό (κοινός δεν μηδενιζόταν ποτέ).
+
+**Επαναφορά (mirror β17):** ui-ορισμός + home×5 + shell-reset + supernote 2γρ. (`forType` kept)· grep home/`selectedFolderIdProvider` = 0.
+
+**Πρόβλημα 2:** προϋπάρχον null→X flicker (mixin-design) — parked Φ4c.
+
+**Επαλήθευση:** `flutter test` → **96/96** · `flutter analyze --no-pub` → `No issues found!` · device-retest ροής εκκρεμεί.
+
+**Backups:** `backups/revert_folderstate/` (5 αρχεία)
+
 ## Session 88 — 05/10/2026 (autoBackup activation — parked β16 closed)
 
 **Πρόβλημα (parked):** `autoBackup()` latent (0 callers, .isar χωρίς attachments) + 0 UI/hook/fields.
