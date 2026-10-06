@@ -3,7 +3,7 @@
 // Browser για τα items ενός φακέλου.
 // ✅ Real-time stream με itemsByFolderStreamProvider
 // ✅ Edit/Delete φακέλου από AppBar
-// ✅ Δημιουργία item (note/task/event/contact/journal) στον φάκελο
+// ✅ Δημιουργία item (SPoT: FolderCreateSheet) στον φάκελο
 // ✅ Filter ανά τύπο
 // ✅ Responsive: list mobile / grid tablet
 // ✅ Dark mode + DebugConfig
@@ -93,66 +93,12 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
     }
   }
 
-  // ── Create item in folder ────────────────────────────────────
-  void _showCreateMenu(BuildContext context) {
-    const types = [
-      (ItemType.note, '📝', 'Σημείωση'),
-      (ItemType.task, '✅', 'Εργασία'),
-      (ItemType.event, '📅', 'Συμβάν'),
-      (ItemType.habit, '🔄', 'Συνήθεια'),
-      (ItemType.journal, '📖', 'Ημερολόγιο'),
-      (ItemType.contact, '👤', 'Επαφή'),
-      (ItemType.project, '📦', 'Συλλογή'),
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SheetHandle(
-              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.lg, vertical: Spacing.xs),
-              child: Text('Νέο στοιχείο σε "${_folder.name}"',
-                  style: context.titleSm),
-            ),
-            const Divider(),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ...types.map((t) => ListTile(
-                          leading:
-                              Text(t.$2, style: const TextStyle(fontSize: 22)),
-                          title: Text(t.$3, style: context.bodyMd),
-                          trailing: Icon(Icons.chevron_right_rounded,
-                              size: 18, color: context.cDisabled),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _createItem(context, t.$1);
-                          },
-                        )),
-                    const SizedBox(height: Spacing.sm),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  // ── Create item in folder (SPoT: FolderCreateSheet) ─────────
+  void _showCreateMenu(BuildContext context) async {
+    final type = await FolderCreateSheet.show(context, folderName: _folder.name);
+    if (type == null || !mounted) return;
+    if (!context.mounted) return;
+    await _createItem(context, type);
   }
 
   Future<void> _createItem(BuildContext context, ItemType type) async {
@@ -211,7 +157,10 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
             // Type filter
             _TypeFilter(
               selected: _typeFilter,
-              onChanged: (t) => setState(() => _typeFilter = t),
+              onChanged: (t) {
+                DebugConfig.nav('FolderBrowser filter=${t?.name}');
+                setState(() => _typeFilter = t);
+              },
             ),
             // Items list
             Expanded(
@@ -381,6 +330,7 @@ class _TypeFilter extends StatelessWidget {
     (ItemType.journal, 'Ημερολόγιο'),
     (ItemType.contact, 'Επαφές'),
     (ItemType.project, 'Συλλογές'),
+    (ItemType.appointment, 'Ραντεβού'),
   ];
 
   @override

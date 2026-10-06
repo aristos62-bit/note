@@ -773,3 +773,20 @@
 **Επαλήθευση:** `flutter test` → **96/96** · `flutter analyze --no-pub` → `No issues found!` · device (toggle→background→zip→restore) εκκρεμεί.
 
 **Backups:** `backups/autobackup_on/` (8 αρχεία)
+
+## Session 90 — 06/10/2026 (FolderCreateSheet SPoT + appointment parity)
+
+**Πρόβλημα:** `_TypeFilter` browser χωρίς appointment chip (ραντεβού ορατά μόνο στο `Όλα`) + browser create-menu χωρίς appointment (7 εγγραφές) ενώ home με 8 — 2 sheets ~60γρ. diverged κατά 1 γραμμή. Browser 540γρ. (>500).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- Νέο `lib/shared/widgets/folder_create_sheet.dart` (~103γρ.): `kFolderCreateTypes` (8, byte-identical home-λίστα) + `FolderCreateSheet.show → Future<ItemType?>` (pure UI, mirror `FolderFormDialog.show`· pop με sheet-ctx)· +export στο `widgets.dart`
+- Browser: −`_showCreateMenu` → delegate (6γρ.), +chip `(appointment,'Ραντεβού')`, +`DebugConfig.nav` φίλτρου· home: −`_showCreateMenu` → delegate· `_createItem/_openItem` άθικτα (διαφορά `isNew` kept)
+- Εκτός: stats-row, search-φίλτρο, emoji `📅`, providers/router — σκόπιμα
+- Μάθημα: widget-test χρειάστηκε `ensureVisible` (Ραντεβού εκτός οθόνης στα 600px)
+- Νέο `test/folder_create_parity_test.dart` (5 tests: const 8, note+appointment, label, forType, sheet-tap)
+
+**Επαλήθευση:** νέο 5/5· `flutter test` → **101/101** · `flutter analyze --no-pub` → `No issues found!` · browser 540→490, home 489→439 (αμφότερα <500)
+
+**Σημείωση:** προγενέστερα device-retests (S83/S84/S86/S87/S88/S89) επιβεβαιωμένα ΟΚ από χρήστη 06/10/2026 — 0 εκκρεμότητες device.
+
+**Backups:** `backups/folder_create_parity/` (4 αρχεία + νέο sheet/test)
