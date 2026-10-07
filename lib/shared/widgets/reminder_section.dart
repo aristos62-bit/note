@@ -7,6 +7,7 @@ import '../../helpers/super_note_helper.dart';
 import 'package:isar/isar.dart';
 import '../../models/models.dart';
 import '../../services/reminder_scheduler.dart';
+import 'safe_sheet.dart';
 
 // ---------------------------------------------------------------------
 // Main Widget
@@ -345,17 +346,10 @@ Future<Recurrence?> showRecurrencePicker({
   Recurrence? initialRecurrence,
   DateTime? initialTrigger,
 }) {
-  return showModalBottomSheet<Recurrence>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: ColorsUI.getSurface(Theme.of(context).brightness),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(AppRadius.bottomSheet),
-        topRight: Radius.circular(AppRadius.bottomSheet),
-      ),
-    ),
-    builder: (ctx) => _RecurrencePickerModal(
+  return showSafeSheet<Recurrence>(
+    context,
+    scrollControlled: true,
+    child: _RecurrencePickerModal(
       initialRecurrence: initialRecurrence,
       initialTrigger: initialTrigger,
     ),
@@ -431,14 +425,10 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + Spacing.md,
-        left: Spacing.lg,
-        right: Spacing.lg,
-        top: Spacing.md,
-      ),
-      child: Column(
+    return SafeSheet(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -646,9 +636,10 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                   child: const Text('Εφαρμογή'),
                 ),
               ),
-            ],
-          ),
-        ],
+            ]),
+            const SizedBox(height: Spacing.md),
+          ],
+        ),
       ),
     );
   }

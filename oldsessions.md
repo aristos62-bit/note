@@ -1083,3 +1083,15 @@
 **Επαλήθευση:** `flutter test` → **118/118** · `flutter analyze --no-pub` → `No issues found!` · device retest ×5 (portrait identical · landscape scroll · save/cancel/disabled · rotation · keyboard editor · nested time-picker · weekly/monthly subtitles) εκκρεμεί.
 
 **Backups:** `backups/phi3_habitsheets/`
+
+## Session 113 — 07/10/2026 (Φ3.4 RecurrencePicker → SafeSheet + showSafeSheet)
+
+**Στόχος Φ3.4:** recurrence modal (~226-290px + πληκτρολόγιο) σε landscape ~230px.
+
+**Υλοποίηση (1 αρχείο + test):** `reminder_section.dart` — content → `SafeSheet` (+trailing md) ΚΑΙ `showModalBottomSheet` → `showSafeSheet<Recurrence>(scrollControlled: true)` (ασφαλές: τα pops χρησιμοποιούν element-context, όχι pre-wrapped ctx όπως Φ3.1· ίδιο return type· δωρεάν nav-log). Μοναδικός caller, signature ίδια.
+
+**Μάθημα (σοβαρό):** η ουρά γράφτηκε λάθος 2 φορές (έλειπε `)` + αντεστραμμένα `],`/`),`) και το κυνήγι έβγαλε λάθος θεωρίες (stale cache, αόρατοι χαρακτήρες). Η λύση ήταν πάντα disk-dump + μέτρηση. Δίδαγμα: disk beats memory — ποτέ ξανά εικασίες, πάντα dump.
+
+**Επαλήθευση:** νέο 3/3 (weekly-flow, cancel-null, 200px no-overflow — hermetic, plain StatefulWidget) · `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest (portrait identical · landscape + keyboard · weekly/monthly/custom · rotation · save→scheduler) εκκρεμεί.
+
+**Backups:** `backups/phi3_recurrence/`
