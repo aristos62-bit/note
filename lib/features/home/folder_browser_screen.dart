@@ -18,6 +18,8 @@ import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/knowledge_entry_nav.dart';
+import 'folder_browser_filter.dart';
+import 'folder_browser_items.dart';
 
 // ════════════════════════════════════════════════════════════════
 // FOLDER BROWSER SCREEN
@@ -160,7 +162,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
         body: Column(
           children: [
             // Type filter
-            _TypeFilter(
+            FolderTypeFilter(
               selected: _typeFilter,
               onChanged: (t) {
                 DebugConfig.nav('FolderBrowser filter=${t?.name}');
@@ -226,7 +228,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
                     }
 
                     return ResponsiveLayout(
-                      mobile: _ItemsList(
+                      mobile: FolderItemsList(
                         items: filteredItems,
                         onTap: (i) => _openExisting(context, i),
                         onDelete: (i) => _deleteItem(i),
@@ -247,7 +249,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
                         onReorderEnd: () =>
                         ref.read(isDraggingProvider.notifier).state = false,
                       ),
-                      tablet: _ItemsGrid(
+                      tablet: FolderItemsGrid(
                         items: filteredItems,
                         onTap: (i) => _openExisting(context, i),
                         onDelete: (i) => _deleteItem(i),
@@ -314,182 +316,6 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
     ref.invalidate(itemNotifierProvider);
   }
 
-}
-
-// ════════════════════════════════════════════════════════════════
-// TYPE FILTER BAR (unchanged)
-// ════════════════════════════════════════════════════════════════
-
-class _TypeFilter extends StatelessWidget {
-  final ItemType? selected;
-  final ValueChanged<ItemType?> onChanged;
-
-  const _TypeFilter({required this.selected, required this.onChanged});
-
-  static const _types = [
-    (null, 'Όλα'),
-    (ItemType.note, 'Σημειώσεις'),
-    (ItemType.task, 'Εργασίες'),
-    (ItemType.event, 'Συμβάντα'),
-    (ItemType.habit, 'Συνήθειες'),
-    (ItemType.journal, 'Ημερολόγιο'),
-    (ItemType.contact, 'Επαφές'),
-    (ItemType.project, 'Συλλογές'),
-    (ItemType.appointment, 'Ραντεβού'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(
-          horizontal: context.responsiveHPadding,
-          vertical: Spacing.xs,
-        ),
-        itemCount: _types.length,
-        separatorBuilder: (_, __) => const SizedBox(width: Spacing.xs),
-        itemBuilder: (_, i) {
-          final type = _types[i].$1;
-          final label = _types[i].$2;
-          final isActive = selected == type;
-          final color = type != null
-              ? ColorsUI.itemTypeColor(type, context.brightness)
-              : context.cPrimary;
-
-          return GestureDetector(
-            onTap: () => onChanged(type),
-            child: AnimatedContainer(
-              duration: AppDuration.fast,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.sm + 2, vertical: 2),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? color.withValues(alpha: 0.12)
-                    : ColorsUI.getSurface(context.brightness),
-                borderRadius: BorderRadius.circular(AppRadius.badge),
-                border: Border.all(
-                  color:
-                      isActive ? color : ColorsUI.getBorder(context.brightness),
-                ),
-              ),
-              child: Text(label,
-                  style: context.labelSm
-                      .withColor(isActive ? color : context.cText2)),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// ITEMS LIST — mobile (unchanged)
-// ════════════════════════════════════════════════════════════════
-
-class _ItemsList extends StatelessWidget {
-  final List<Item> items;
-  final ValueChanged<Item> onTap;
-  final ValueChanged<Item> onDelete;
-  final ValueChanged<Item>? onShare;
-  // ── ΝΕΟ ──────────────────────────────────────────────────────
-  final void Function(int oldIndex, int newIndex) onReorder;
-  final VoidCallback? onReorderStart;
-  final VoidCallback? onReorderEnd;
-
-  const _ItemsList({
-    required this.items,
-    required this.onTap,
-    required this.onDelete,
-    this.onShare,
-    required this.onReorder,      // ← ΝΕΟ
-    this.onReorderStart,          // ← ΝΕΟ
-    this.onReorderEnd,            // ← ΝΕΟ
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // ── Αντικαθιστά το ListView.separated ────────────────────
-    return ReorderableItemList(
-      items: items,
-      onReorder: onReorder,
-      onReorderStart: onReorderStart,
-      onReorderEnd: onReorderEnd,
-      itemBuilder: (ctx, item, index) => Consumer(
-        builder: (_, ref, __) {
-          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
-          return ItemCard(
-            item: item,
-            compact: true,
-            customBackgroundColor: overrideColor,
-            onTap: () => onTap(item),
-            onLongPress: () => _showActions(ctx, item),
-            onShare: onShare != null ? () => onShare!(item) : null,
-          );
-        },
-      ),
-    );
-  }
-
-  void _showActions(BuildContext context, Item item) {
-    ItemActionsSheet.show(
-      context,
-      item: item,
-      titleStyle: context.titleSm,
-      onEdit: () => onTap(item),
-      onDelete: () => onDelete(item),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// ITEMS GRID — tablet (unchanged)
-// ════════════════════════════════════════════════════════════════
-
-class _ItemsGrid extends StatelessWidget {
-  final List<Item> items;
-  final ValueChanged<Item> onTap;
-  final ValueChanged<Item> onDelete;
-  final ValueChanged<Item>? onShare;
-
-  const _ItemsGrid({
-    required this.items,
-    required this.onTap,
-    required this.onDelete,
-    this.onShare,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        80,
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: context.gridColumns,
-        mainAxisSpacing: Spacing.sm,
-        crossAxisSpacing: Spacing.sm,
-        mainAxisExtent: 100,
-      ),
-      itemCount: items.length,
-      itemBuilder: (_, i) => Consumer(
-        builder: (_, ref, __) {
-          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(items[i].type));
-          return ItemCard(
-            item: items[i],
-            customBackgroundColor: overrideColor,
-            onTap: () => onTap(items[i]),
-            onShare: onShare != null ? () => onShare!(items[i]) : null,
-          );
-        },
-      ),
-    );
-  }
 }
 
 
