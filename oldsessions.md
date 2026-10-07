@@ -1107,3 +1107,15 @@
 **Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest (νέα κενή + ορισμένη ημερομηνία με ώρα + status Ολοκληρώθηκε, portrait/landscape) εκκρεμεί.
 
 **Backups:** `backups/fix_task_rows/`
+
+## Session 115 — 07/10/2026 (task properties panel: σταθερό overflow 2.3px — scroll)
+
+**Σύμπτωμα (device, task detail tablet):** `A RenderFlex overflowed by 2.3 pixels on the bottom` στο `_PropertiesPanel` Column (`task_detail_screen.dart:664`, constraints `h<=109.7`).
+
+**Αιτία (ακριβής):** σταθερό περιεχόμενο 8 + 3×32 + 8 = 112px σε σταθερό panel 109.7 → 2.3px. Trim απορρίφθηκε με νούμερα (fontScale 1.1 → 118, ξανασκάει).
+
+**Υλοποίηση (1 αρχείο):** Column → `SingleChildScrollView > Column` (εσωτερικό byte-identical, decoration στατικό έξω). Portrait no-op· nested scroll standard.
+
+**Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest (portrait identical + tablet landscape) εκκρεμεί.
+
+**Backups:** `backups/fix_task_panel/`

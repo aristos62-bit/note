@@ -661,11 +661,11 @@ class _PropertiesPanel extends ConsumerWidget {
         .firstOrNull
         ?.dateValue;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: Spacing.sm),
-
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: Spacing.sm),
         _PropRow(
           icon:  Icons.flag_outlined,
           label: 'Κατάσταση',
@@ -695,7 +695,8 @@ class _PropertiesPanel extends ConsumerWidget {
         ),
 
         const SizedBox(height: Spacing.sm),
-      ],
+        ],
+      ),
     );
   }
 }
