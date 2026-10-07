@@ -86,6 +86,8 @@ class ReorderableItemList extends StatelessWidget {
 
   Widget _buildGrid(BuildContext context, int cols) {
     return CustomScrollView(
+      shrinkWrap: shrinkWrap,
+      physics: physics,
       slivers: [
         SliverPadding(
           padding: EdgeInsets.symmetric(

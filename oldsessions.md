@@ -948,3 +948,17 @@
 **Backups:** `backups/fix_compact_grid/` (2 αρχεία + oldsessions)
 
 **Επόμενα (ένα-ένα):** search grid 110 (`_SearchResultCard`) → entries `_EntryCard` (default 100, έως 3 preview fields) → fontScale matrix → Wrap-migration Φ4c.
+
+## Session 102 — 07/10/2026 (tasks landscape: unbounded height — grid shrinkWrap pass-through)
+
+**Σύμπτωμα (device, tablet 853px landscape, `/tasks`):** `Vertical viewport was given unbounded height` + καταρράκτης `RenderBox was not laid out` + δευτερεύον hero assertion (`box.hasSize && box.size.isFinite`).
+
+**Αιτία (δομική, όχι το compact):** `_TaskListBody` (`task_list:339`) τυλίγει τα sections σε `SingleChildScrollView` (unbounded) και κάθε section περνάει ήδη `shrinkWrap: true` + `NeverScrollableScrollPhysics` (`:383-384`) — αλλά ο `_buildGrid` (`reorderable_item_list:87-88`) τα αγνοούσε (γυμνό `CustomScrollView`). Σε mobile (`cols==1` → `_buildList:49-50`) τα params περνάνε κανονικά → δουλεύει· σε tablet (`cols==2` → grid) → crash. Μοναδικός nested caller σε όλο το `lib/` (grep).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν, 2 γραμμές, 0 νέο API):** `reorderable_item_list.dart:87-89` += `shrinkWrap: shrinkWrap` + `physics: physics` (reuse υπαρχόντων params `:12-13,25-26` — η παράλειψη ήταν bug, όχι επιλογή). Σκόπιμα γυμνό `physics` χωρίς `?? AlwaysScrollable` (το `null` κρατά byte-identical συμπεριφορά για habit/entries/home/item-lists κάτω από `Expanded`). Pattern αποδεδειγμένο in-repo (home ×2, calendar, collection_detail, settings ×6).
+
+**Παρκαρισμένο (εκτός scope, behavior change):** trailing `SliverToBoxAdapter(height: 80)` ανά section → έως ~400px κενό σε 5 sections.
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest tasks landscape (sections + reorder + rotation) εκκρεμεί.
+
+**Backups:** `backups/fix_tasks_grid_shrink/`
