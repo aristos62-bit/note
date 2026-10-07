@@ -289,19 +289,21 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
       children: [
         SizedBox(
           width: context.isDesktop ? 400 : 340,
-          child: Column(
-            children: [
-              _MonthGrid(
-                focusedMonth: focusedMonth,
-                selectedDay: selectedDay,
-                dayEvents: monthAsync.valueOrNull ?? {},
-                onDayTap: (day) {
-                  DebugConfig.nav('Calendar day selected $day');
-                  ref.read(_selectedDayProvider.notifier).state = day;
-                },
-              ),
-              const Divider(height: 1),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _MonthGrid(
+                  focusedMonth: focusedMonth,
+                  selectedDay: selectedDay,
+                  dayEvents: monthAsync.valueOrNull ?? {},
+                  onDayTap: (day) {
+                    DebugConfig.nav('Calendar day selected $day');
+                    ref.read(_selectedDayProvider.notifier).state = day;
+                  },
+                ),
+                const Divider(height: 1),
+              ],
+            ),
           ),
         ),
         const VerticalDivider(width: 1),
