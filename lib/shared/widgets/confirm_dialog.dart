@@ -222,7 +222,8 @@ class _ConfirmContent extends StatelessWidget {
 
     return Padding(
       padding: contentPadding,
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Handle bar (μόνο σε sheet)
@@ -292,6 +293,7 @@ class _ConfirmContent extends StatelessWidget {
           if (isSheet)
             SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
+      ),
       ),
     );
   }
