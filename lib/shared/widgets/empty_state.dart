@@ -109,61 +109,78 @@ class EmptyState extends StatelessWidget {
     );
     final spacing = compact ? Spacing.sm : Spacing.lg;
 
-    return Center(
-      child: Padding(
-        padding: context.responsivePadding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Icon ───────────────────────────────────────────
-            _AnimatedIcon(icon: icon, size: iconSize),
+    // Scroll-safe (pattern app_router:743 — «όταν δεν χωράει σε ύψος»):
+    // σε στενό ύψος (tablet landscape) κυλάει αντί για overflow.
+    // isFinite-guard: σε unbounded γονιό (slivers, nested scroll) κρατά
+    // τη σημερινή συμπεριφορά χωρίς crash. AlwaysScrollable (όπως
+    // item_list_embedded:224) → παίζει και το pull-to-refresh σε άδειες οθόνες.
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final viewportHeight =
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 0.0;
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: viewportHeight),
+            child: Center(
+              child: Padding(
+                padding: context.responsivePadding,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ── Icon ───────────────────────────────────────────
+                    _AnimatedIcon(icon: icon, size: iconSize),
 
-            SizedBox(height: spacing),
+                    SizedBox(height: spacing),
 
-            // ── Title ──────────────────────────────────────────
-            Text(
-              title,
-              style: (compact ? context.titleMd : context.h3)
-                  .withColor(context.cText),
-              textAlign: TextAlign.center,
-            ),
+                    // ── Title ──────────────────────────────────────────
+                    Text(
+                      title,
+                      style: (compact ? context.titleMd : context.h3)
+                          .withColor(context.cText),
+                      textAlign: TextAlign.center,
+                    ),
 
-            // ── Subtitle ───────────────────────────────────────
-            if (subtitle != null) ...[
-              SizedBox(height: compact ? Spacing.xs : Spacing.sm),
-              Text(
-                subtitle!,
-                style: context.bodyMd.withColor(context.cText2),
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                    // ── Subtitle ───────────────────────────────────────
+                    if (subtitle != null) ...[
+                      SizedBox(height: compact ? Spacing.xs : Spacing.sm),
+                      Text(
+                        subtitle!,
+                        style: context.bodyMd.withColor(context.cText2),
+                        textAlign: TextAlign.center,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
 
-            // ── Action button ──────────────────────────────────
-            if (actionLabel != null && onAction != null) ...[
-              SizedBox(height: compact ? Spacing.md : Spacing.xl),
-              FilledButton.icon(
-                onPressed: () {
-                  DebugConfig.print('EmptyState action: "$actionLabel"');
-                  onAction!();
-                },
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: Text(actionLabel!),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.lg,
-                    vertical: Spacing.sm,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.buttonBR,
-                  ),
+                    // ── Action button ──────────────────────────────────
+                    if (actionLabel != null && onAction != null) ...[
+                      SizedBox(height: compact ? Spacing.md : Spacing.xl),
+                      FilledButton.icon(
+                        onPressed: () {
+                          DebugConfig.print('EmptyState action: "$actionLabel"');
+                          onAction!();
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text(actionLabel!),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.lg,
+                            vertical: Spacing.sm,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.buttonBR,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ],
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
