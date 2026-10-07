@@ -986,3 +986,17 @@
 **Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest (journal + 1-2 ακόμα άδειες landscape) εκκρεμεί.
 
 **Backups:** `backups/fix_empty_scroll/`
+
+## Session 105 — 07/10/2026 (entries grid: _EntryCard overflow 12px — extent 140)
+
+**Σύμπτωμα (device, collection id=109):** `A RenderFlex overflowed by 12 pixels on the bottom` στο `collection_entries_screen.dart:529` Column (constraints `h<=66.0`, περιεχόμενο ~78px). Προβλεπόταν στο Session 101 (parked).
+
+**Αιτία:** η `_EntryCard` είναι ο μοναδικός outlier σε όλο το app — η μόνη κάρτα μεταβλητού ύψους (conditional header-Row + έως 3 preview σειρές, `take(3):513`, κενές → `shrink`) σε κελί default 100. Ντετερμινιστικό max (τίτλοι/values `maxLines: 1` παντού): 14+4+20+4+54+32 = ~128. Γυμνή κάρτα ~56. Audit όλων των sibling grids: tasks 94, habits 140, home_folder 100, item-lists 100, browser 100, journal 160, trash 130 — όλα με ντετερμινιστικό max κάτω από το extent τους.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν, 1 γραμμή, reuse υπάρχοντος param):** `collection_entries_screen.dart:463-464` += `gridItemExtent: 140` (parity με habits — ίδιο προφίλ πλούσιας κάρτας). Το list branch αγνοεί το extent → mobile pixel-identical. Απορρίφθηκαν: `take(3)→take(2)` (χάνει info), δικό της GridView (duplicate, χάνει reorder), `compact` flag (ΝΕΟ API), αλλαγή default 100 (θα φούσκωνε όλα τα σωστά grids).
+
+**Τίμημα:** whitespace σε αραιές κάρτες (ομοιόμορφο grid, όπως habits). Max fontScale + 3 γεμάτα fields (~153) μένει οριακό — ίδια κλάση εγγύησης με όλα τα grids· πλήρης ανοσία μόνο με auto-height (parked Φ4c, για όλα μαζί).
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest entries (0/1/2/3 fields × pin/share × rotation) εκκρεμεί.
+
+**Backups:** `backups/fix_entries_extent/`
