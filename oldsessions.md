@@ -1012,3 +1012,15 @@
 **Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest (κενή συλλογή landscape + portrait restyle) εκκρεμεί.
 
 **Backups:** `backups/fix_entries_empty/`
+
+## Session 107 — 07/10/2026 (past-reminders dialog landscape: overflow 57px — Flexible list)
+
+**Σύμπτωμα (device, tablet landscape, settings → παρελθούσες):** `A RenderFlex overflowed by 57 pixels on the bottom` στο `settings_screen.dart:501` Column (constraints `h<=136.9`).
+
+**Αιτία:** dialog content `Column(min): header CheckboxListTile (~57) + Divider + ConstrainedBox(maxHeight 50% οθόνης) > ListView(shrinkWrap)`. Σε landscape: ~57 + ~200 = ~257 > 137 → overflow. Σε portrait χωράει. Η λίστα κυλούσε ήδη μόνη της — η OUTER στήλη δεν συμπιεζόταν. (Ερώτημα χρήστη: το S106 δεν χρειάζεται revert — άλλο αρχείο/widget, μηδέν κοινός κώδικας, το dialog δεν χρησιμοποιεί `EmptyState`.)
+
+**Υλοποίηση (2 micro-edits, 1 αρχείο, υπάρχοντα widgets):** `ConstrainedBox` → `Flexible > ConstrainedBox` (`:526-527` + κλείσιμο `:587-588`). Το `Flexible` σε `min`-Column με bounded είσοδο (αποδεδειγμένο `h<=136.9`) είναι νόμιμο· η λίστα παίρνει τον απομένοντα χώρο και κυλάει εσωτερικά, header πάντα ορατό. Portrait byte-identical (57 + min(περιεχόμενο, 50%)). Απορρίφθηκαν: ολικό scroll (θα έφευγε το header), μικρότερο 50% (magic).
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest dialog landscape (πολλές + λίγες υπενθυμίσεις) εκκρεμεί.
+
+**Backups:** `backups/fix_past_dialog/`
