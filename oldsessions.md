@@ -962,3 +962,15 @@
 **Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest tasks landscape (sections + reorder + rotation) εκκρεμεί.
 
 **Backups:** `backups/fix_tasks_grid_shrink/`
+
+## Session 103 — 07/10/2026 (calendar landscape: month-grid overflow 62px — scroll panel)
+
+**Σύμπτωμα (device, tablet 853px landscape, `/calendar`, άδεια μέρα):** `A RenderFlex overflowed by 62 pixels on the bottom` στο `calendar_screen.dart:292` Column (constraints `w=340, h<=222.9`).
+
+**Αιτία (αριθμητικά αποδεδειγμένη):** το αριστερό panel (`SizedBox 340 > Column > _MonthGrid + Divider`) δεν κυλάει. Φυσικό ύψος πλέγματος: padding 16 + header ~16 + 4 + σειρές×44 + 4 + legend ~24. Μήνας 5 σειρών: ~284 − 222.9 = 61 ≈ 62px (το log)· μήνας 6 σειρών: ~328 → ~105px. Σε portrait χωράει → μόνο landscape. Απορρίφθηκαν ποσοτικά: απόκρυψη legend (−28px, ανεπαρκές), κελιά 44→38 (−36px, ανεπαρκές για 6 σειρές + σπάει με fontScale), `mainAxisSize.min` (μεταφέρει το overflow στο `Row`).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν, 1 αρχείο, wrap — εσωτερικό byte-identical):** `calendar_screen.dart:290-306` — `Column` → `SingleChildScrollView > Column` (reuse της codebase-σύμβασης, 10+ σημεία). Το εσωτερικό `GridView` ήταν ήδη `shrinkWrap + NeverScrollable` → κουμπώνει χωρίς διπλό-scroll. Mobile/portrait/desktop identical όταν χωράει.
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest landscape (5-σειρών + 6-σειρών μήνας + rotation + day-tap) εκκρεμεί.
+
+**Backups:** `backups/fix_calendar_scroll/`
