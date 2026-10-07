@@ -974,3 +974,15 @@
 **Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest landscape (5-σειρών + 6-σειρών μήνας + rotation + day-tap) εκκρεμεί.
 
 **Backups:** `backups/fix_calendar_scroll/`
+
+## Session 104 — 07/10/2026 (empty states landscape: overflow 148px — scroll-safe shell)
+
+**Σύμπτωμα (device, tablet 853px landscape, `/journal` άδειο):** `A RenderFlex overflowed by 148 pixels on the bottom` στο `empty_state.dart:115` Column (constraints `h<=138.9`, περιεχόμενο ~287px). Ούτε το `compact` (~220px) θα έφτανε — μόνο scroll.
+
+**Εύρημα επανελέγχου (36 χρήσεις):** το bare `EmptyState` επιστρέφεται σε ~15 list screens — όλες οι άδειες οθόνες θα έσκαγαν σε landscape. Fix 1× στο shared widget (SPoT) αντί 15 call-site wraps.
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν, 1 αρχείο, εσωτερικό byte-identical):** `empty_state.dart:112-167` — reuse του in-house pattern `app_router:743` (`LayoutBuilder > SingleChildScrollView > ConstrainedBox(minHeight)`, «όταν δεν χωράει σε ύψος») + `isFinite`-guard για τα 2 unbounded σημεία (`home_screen:553` sliver, `item_list_embedded:225` nested scroll — το `SliverFillRemaining` απορρίφθηκε γιατί θα τα έσπαγε) + `AlwaysScrollableScrollPhysics` (όπως `item_list_embedded:224` → bonus: δουλεύει το pull-to-refresh σε άδειες οθόνες). 0 tests αγγίζουν το widget· κανένα import.
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest (journal + 1-2 ακόμα άδειες landscape) εκκρεμεί.
+
+**Backups:** `backups/fix_empty_scroll/`
