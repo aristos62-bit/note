@@ -1071,3 +1071,15 @@
 **Επαλήθευση:** `flutter test` → **118/118** · `flutter analyze --no-pub` → `No issues found!` · device retest (portrait eyeball · landscape scroll + πλήρες PIN · rotation mid-entry · error · biometric on/off) εκκρεμεί.
 
 **Backups:** `backups/phi3_lockscroll/`
+
+## Session 112 — 07/10/2026 (Φ3.3 habit sheets ×5 → SafeSheet)
+
+**Στόχος Φ3.3:** 5 bare-Column sheets σε 1 αρχείο (MonthDay ~430px · Time 265→500 · Weekday ~280 · Editor+keyboard · RecurrenceOptions ~280).
+
+**Υλοποίηση (1 αρχείο, show-calls ΑΘΙΚΤΑ):** `habit_detail_screen.dart` — content → `SafeSheet` (Recurrence με `title:` slot· άλλα με τίτλους στο content + trailing md/md/md/lg/lg-sm). Κουμπιά στο content (pixel-identical)· `setModal`/pops/validation/DB άθικτα· μηδέν imports (barrel).
+
+**Μάθημα (σοβαρό):** το Editor tail έγραψα `);` αντί `),` — σε arrow-context (`=>`) το κλείσιμο θέλει κόμμα, σε `return` ερωτηματικό (Recurrence γλίτωσε: same-count swap). Ακολούθησε πολύωρο κυνήγι (stale-cache υποψίες, μετρήσεις, probe-reverts) ενώ η απάντηση ήταν 1 χαρακτήρας. Δίδαγμα: (1) analyze-gate ανά sheet (έπιασε τα 4/5 αμέσως), (2) ολικό revert + ξαναχτίσιμο όταν μπλέξει το αρχείο, (3) `=>` vs `{return}` — διαφορετικά closers.
+
+**Επαλήθευση:** `flutter test` → **118/118** · `flutter analyze --no-pub` → `No issues found!` · device retest ×5 (portrait identical · landscape scroll · save/cancel/disabled · rotation · keyboard editor · nested time-picker · weekly/monthly subtitles) εκκρεμεί.
+
+**Backups:** `backups/phi3_habitsheets/`

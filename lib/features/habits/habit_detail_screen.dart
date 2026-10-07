@@ -1324,18 +1324,11 @@ class _HabitSettings extends ConsumerWidget {
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => SafeSheet(
+        title: 'Επιλογή επανάληψης',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SheetHandle(
-              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.lg, vertical: Spacing.xs),
-              child: Text('Επιλογή επανάληψης', style: context.titleSm),
-            ),
             ...options.map((o) => ListTile(
                   title: Text(o),
                   trailing: _recurrenceMatchesOption(currentRecurrence, o)
@@ -1475,9 +1468,9 @@ class _HabitSettings extends ConsumerWidget {
         return StatefulBuilder(
           builder: (ctx, setModal) {
             const allDays = AppDateUtils.weekdayNames;
-            return SafeArea(
+            return SafeSheet(
               child: Padding(
-                padding: const EdgeInsets.all(Spacing.lg),
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1521,6 +1514,7 @@ class _HabitSettings extends ConsumerWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: Spacing.lg),
                   ],
                 ),
               ),
@@ -1569,14 +1563,10 @@ class _HabitSettings extends ConsumerWidget {
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + Spacing.md,
-          left: Spacing.lg,
-          right: Spacing.lg,
-          top: Spacing.md,
-        ),
-        child: Column(
+      builder: (ctx) => SafeSheet(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1615,7 +1605,9 @@ class _HabitSettings extends ConsumerWidget {
                 ),
               ),
             ]),
+            const SizedBox(height: Spacing.md),
           ],
+        ),
         ),
       ),
     );
@@ -1668,14 +1660,10 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + Spacing.md,
-        left: Spacing.lg,
-        right: Spacing.lg,
-        top: Spacing.md,
-      ),
-      child: Column(
+    return SafeSheet(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1734,7 +1722,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
               ),
             ),
           ]),
+          const SizedBox(height: Spacing.md),
         ],
+      ),
       ),
     );
   }
@@ -1763,14 +1753,10 @@ class _MonthDayPickerSheetState extends State<_MonthDayPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + Spacing.md,
-        left: Spacing.lg,
-        right: Spacing.lg,
-        top: Spacing.md,
-      ),
-      child: Column(
+    return SafeSheet(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1845,7 +1831,9 @@ class _MonthDayPickerSheetState extends State<_MonthDayPickerSheet> {
               ),
             ),
           ]),
+          const SizedBox(height: Spacing.md),
         ],
+      ),
       ),
     );
   }
