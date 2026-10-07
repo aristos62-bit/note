@@ -523,7 +523,8 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
                 ),
                 const Divider(height: 1),
                 // ── Λίστα υπενθυμίσεων ─────────────────────────
-                ConstrainedBox(
+                Flexible(
+                  child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxHeight: MediaQuery.of(ctx).size.height * 0.5,
                   ),
@@ -583,6 +584,7 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
                         },
                       );
                     },
+                  ),
                   ),
                 ),
               ],
