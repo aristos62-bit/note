@@ -771,7 +771,8 @@ class _StatusSelector extends StatelessWidget {
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
-      builder: (_) => Column(
+      builder: (_) => SafeSheet(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: Spacing.sm),
@@ -794,6 +795,7 @@ class _StatusSelector extends StatelessWidget {
           )),
           const SizedBox(height: Spacing.md),
         ],
+      ),
       ),
     );
   }
@@ -838,7 +840,8 @@ class _PrioritySelector extends StatelessWidget {
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
-      builder: (_) => Column(
+      builder: (_) => SafeSheet(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: Spacing.sm),
@@ -862,6 +865,7 @@ class _PrioritySelector extends StatelessWidget {
           )),
           const SizedBox(height: Spacing.md),
         ],
+      ),
       ),
     );
   }

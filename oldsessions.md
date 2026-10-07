@@ -1119,3 +1119,13 @@
 **Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest (portrait identical + tablet landscape) εκκρεμεί.
 
 **Backups:** `backups/fix_task_panel/`
+
+## Session 116 — 07/10/2026 (task status/priority sheets → SafeSheet)
+
+**Σύμπτωμα (device):** `A RenderFlex overflowed by 124 pixels` στο priority sheet (`task_detail_screen.dart:841`, budget 216, περιεχόμενο ~340). Το status sheet (~284) θα ακολουθούσε.
+
+**Υλοποίηση (1 αρχείο, 4 micro-edits, μηδέν imports — barrel):** `builder: (_) => Column` → `builder: (_) => SafeSheet(child: Column` ×2 + 1 closer έκαστο. Show-calls byte-identical (pops tap-time = ασφαλή)· τίτλοι/tiles/trailing άθικτα.
+
+**Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` (με την πρώτη — μάθημα S112/113 εμπεδώθηκε: μέτρηση closers πριν το edit) · device retest (status + priority, portrait + landscape + scroll + select) εκκρεμεί.
+
+**Backups:** `backups/fix_task_sheets/`
