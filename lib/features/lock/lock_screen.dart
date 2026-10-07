@@ -83,9 +83,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final hash = settings.appLockPinHash;
     if (hash == null) return;
     if (AppLockService.instance.verifyPin(_pinCtrl.text, hash)) {
+      DebugConfig.print('🔓 AppLock: PIN unlock ok');
       AppLockService.instance.unlock();
       ref.read(appLockStateProvider.notifier).state = false;
     } else {
+      DebugConfig.print('🔓 AppLock: wrong PIN');
       setState(() {
         _error = 'Λάθος PIN';
         _pinCtrl.clear();
@@ -104,10 +106,20 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     return Scaffold(
       backgroundColor: context.cBg,
       body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(flex: 2),
+        // S104-pattern: κεντράρει όταν χωράει, κυλάει σε landscape.
+        child: LayoutBuilder(
+          builder: (_, constraints) {
+            final viewportHeight = constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : 0.0;
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: viewportHeight),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
             Icon(Icons.lock_outline_rounded, size: 48, color: context.cPrimary),
             const SizedBox(height: Spacing.md),
             Text('SuperNote', style: context.titleLg),
@@ -147,11 +159,15 @@ class _LockScreenState extends ConsumerState<LockScreen> {
               showBiometric: _biometricFailed,
               onBiometric: _tryBiometric,
             ),
-            const Spacer(flex: 3),
           ],
         ),
-      ),
-    );
+        ),
+        ),
+        );
+        },
+        ),
+        ),
+        );
   }
 }
 

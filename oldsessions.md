@@ -1059,3 +1059,15 @@
 **Επαλήθευση:** 5 υπάρχοντα tests αμετάβλητα ✅ + 1 νέο (7 actions σε 200px → no overflow + scroll) · `flutter test` → **118/118** · `flutter analyze --no-pub` → `No issues found!` · device retest (max-actions long-press, portrait + tablet landscape + scroll) εκκρεμεί.
 
 **Backups:** `backups/phi3_actionsheet/`
+
+## Session 111 — 07/10/2026 (Φ3.2 LockScreen landscape — scroll shell)
+
+**Στόχος Φ3.2:** lock screen ~542px σε landscape ~360px (overflow ~160-180, κουμπιά απρόσιτα = αδιέξοδο ξεκλειδώματος).
+
+**Υλοποίηση (1 αρχείο, S104-pattern inline):** `lock_screen.dart` body — `Column(center+Spacers)` → `LayoutBuilder > SingleChildScrollView > ConstrainedBox(minHeight) > Center > Column(min)`. Spacers αφαιρέθηκαν υποχρεωτικά (crash σε unbounded)· εσωτερικό (icon/dots/pad) byte-identical· +2 `DebugConfig.print` στη `_verifyPin` (ok/wrong, χωρίς τιμές). SafeSheet/SafeDialog απορρίφθηκαν τεκμηριωμένα (λάθος semantics για full-screen Center). Μοναδικός caller `main.dart:255` (bounded → finite εγγυημένο + guard).
+
+**Μάθημα:** ημιτελές tail (έλειπε το `;` του return) το έπιασε το `analyze` (3 errors) — τα tests δεν το έπιασαν (δεν κάνουν import το αρχείο). Επιβεβαιώνει: πάντα ΚΑΙ τα δύο.
+
+**Επαλήθευση:** `flutter test` → **118/118** · `flutter analyze --no-pub` → `No issues found!` · device retest (portrait eyeball · landscape scroll + πλήρες PIN · rotation mid-entry · error · biometric on/off) εκκρεμεί.
+
+**Backups:** `backups/phi3_lockscroll/`
