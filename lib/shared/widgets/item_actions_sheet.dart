@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import 'priority_badge.dart';
-import 'sheet_handle.dart';
+import 'safe_sheet.dart';
 
 class ItemActionsSheet extends StatelessWidget {
   final Item item;
@@ -106,13 +106,12 @@ class ItemActionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    // SafeSheet (S109): SafeArea + SheetHandle + scroll. Title-block stays
+    // here (PriorityBadge + Divider + custom style).
+    return SafeSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SheetHandle(
-            margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-          ),
           if (showTitle) ...[
             Padding(
               padding: const EdgeInsets.symmetric(
