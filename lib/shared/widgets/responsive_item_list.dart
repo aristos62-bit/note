@@ -108,7 +108,7 @@ class ItemCardBuilder extends ConsumerWidget {
         child: ItemCard(
           item: item,
           tagNames: tagNames,
-          compact: context.isMobile,
+          compact: true,
           isArchived: true,
           customBackgroundColor: overrideColor,
           onTap: () => onTap(item),
@@ -119,7 +119,7 @@ class ItemCardBuilder extends ConsumerWidget {
           : ItemCard(
         item: item,
         tagNames: tagNames,
-        compact: context.isMobile,
+        compact: true,
         customBackgroundColor: overrideColor,
         onTap: () => onTap(item),
         onLongPress: () => onLongPress(item),
