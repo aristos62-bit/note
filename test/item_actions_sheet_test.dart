@@ -87,4 +87,25 @@ void main() {
     expect(ItemLabelX.fromType(ItemType.knowledge), ItemLabel.entry);
     expect(ItemLabelX.fromType(ItemType.appointment), ItemLabel.appointment);
   });
+
+  testWidgets('κοντό landscape: 7 actions κάνουν scroll χωρίς overflow',
+      (tester) async {
+    await tester.pumpWidget(_wrap(SizedBox(
+      height: 200,
+      child: ItemActionsSheet(
+        item: _testItem(),
+        onEdit: () {},
+        onOpen: () {},
+        onPin: () {},
+        onFav: () {},
+        onShare: () {},
+        onArchive: () {},
+        onDelete: () {},
+      ),
+    )));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(SingleChildScrollView), findsWidgets);
+    expect(find.text('Διαγραφή'), findsOneWidget);
+  });
 }

@@ -1049,3 +1049,13 @@
 **Επαλήθευση:** νέο 4/4 · `flutter test` → **117/117** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 4 const-infos στο test).
 
 **Backups:** `backups/phase2_spot/`
+
+## Session 110 — 07/10/2026 (Φ3.1 ItemActionsSheet → SafeSheet)
+
+**Στόχος Φ3.1:** το long-press sheet (έως 7 tiles ≈ 480px) σε landscape ~230px.
+
+**Υλοποίηση (1 αρχείο + test, show() ΑΘΙΚΤΟ):** `item_actions_sheet.dart` — `SafeArea>Column` → `SafeSheet(child: Column)` με εσωτερικό byte-identical (title-block + 7 tiles). Αφαιρέθηκαν τα διπλά `SafeArea/SheetHandle` (τα φέρνει το shell) και το direct `sheet_handle` import (+=`safe_sheet.dart`). Κρίσιμο: το `show()` ΔΕΝ πέρασε στο `showSafeSheet` — το helper χτίζει child με caller-context και θα έσπαγε το S65 pop-safety (`_popAnd` θέλει sheet-ctx). 8 callers + `show()` signature αμετάβλητα.
+
+**Επαλήθευση:** 5 υπάρχοντα tests αμετάβλητα ✅ + 1 νέο (7 actions σε 200px → no overflow + scroll) · `flutter test` → **118/118** · `flutter analyze --no-pub` → `No issues found!` · device retest (max-actions long-press, portrait + tablet landscape + scroll) εκκρεμεί.
+
+**Backups:** `backups/phi3_actionsheet/`
