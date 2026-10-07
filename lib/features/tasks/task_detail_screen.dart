@@ -748,7 +748,12 @@ class _StatusSelector extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(opt.$3, size: 16, color: context.cPrimary),
         const SizedBox(width: Spacing.xs),
-        Text(opt.$2, style: context.bodyMd),
+        Flexible(
+          child: Text(opt.$2,
+              style: context.bodyMd,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ),
         const SizedBox(width: 2),
         Icon(Icons.arrow_drop_down_rounded, size: 18, color: context.cText2),
       ]),
@@ -881,10 +886,14 @@ class _DueDateSelector extends StatelessWidget {
     return GestureDetector(
       onTap: onPick,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(
-          date != null ? date!.due : 'Χωρίς προθεσμία',
-          style: context.bodyMd.withColor(
-              date != null ? labelColor : context.cText2),
+        Flexible(
+          child: Text(
+            date != null ? date!.due : 'Χωρίς προθεσμία',
+            style: context.bodyMd.withColor(
+                date != null ? labelColor : context.cText2),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         const SizedBox(width: Spacing.xs),
         if (date != null && onClear != null)
