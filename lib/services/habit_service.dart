@@ -767,9 +767,20 @@ class HabitService {
       Recurrence recurrence, TimeOfDay time, DateTime after) {
     DateTime candidate = DateTime(
         after.year, after.month, after.day, time.hour, time.minute);
-    if (candidate.isBefore(after)) {
+    // Με μέρες το scan/search παρακάτω βρίσκει την επόμενη έγκυρη·
+    // jump μόνο για καθαρά περιοδικά (daily — weekly/monthly χωρίς
+    // μέρες αδύνατα από UI). Αλλιώς χάνουμε μέρες της τρέχουσας περιόδου.
+    final hasDays = (recurrence.days != null &&
+            recurrence.days!.isNotEmpty) &&
+        (recurrence.type == RecurrenceType.weekly ||
+            recurrence.type == RecurrenceType.monthly);
+    if (candidate.isBefore(after) && !hasDays) {
+      // nextPeriodStart κρατά ώρα σε daily/custom, μηδενίζει σε
+      // monthly/yearly — ομαλοποίηση σε μεσάνυχτα + μία προσθήκη.
+      final midnight =
+          DateTime(candidate.year, candidate.month, candidate.day);
       candidate = recurrence
-          .nextPeriodStart(candidate)
+          .nextPeriodStart(midnight)
           .add(Duration(hours: time.hour, minutes: time.minute));
     }
     if (recurrence.type == RecurrenceType.weekly &&
@@ -799,7 +810,18 @@ class HabitService {
           break;
         }
       }
-      if (found != null) candidate = found;
+      if (found != null) {
+        candidate = found;
+      } else {
+        // Όλες οι μέρες πέρασαν — επόμενος μήνας (με interval) + clamp.
+        int nextMonth = candidate.month + recurrence.interval;
+        int nextYear = candidate.year;
+        nextYear += (nextMonth - 1) ~/ 12;
+        nextMonth = (nextMonth - 1) % 12 + 1;
+        final safe = _safeDay(nextYear, nextMonth, sortedDays.first);
+        candidate = DateTime(
+            safe.year, safe.month, safe.day, time.hour, time.minute);
+      }
     }
     return candidate;
   }

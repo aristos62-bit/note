@@ -856,3 +856,19 @@
 **Επαλήθευση:** `flutter test` → **108/108** · `flutter analyze --no-pub` → `No issues found!` · device-verify ΟΚ (χωρίς καμπάνα, purge-log, 0 ERR)
 
 **Backups:** `backups/entry_bell_purge/` (4 αρχεία)
+
+## Session 96 — 07/10/2026 (habit walker fix — 05:00 double-add)
+
+**Πρόβλημα (device):** Συνήθεια «Ζάχαρο Χάπι» daily `14:30` χτύπησε σωστά το μεσημέρι και ξαναχτύπησε `05:00` — 1× orphan `id=1883 trigger=2026-10-08 05:00` ανάμεσα σε 39× `14:30` (`itemId=435`).
+
+**Αιτία (`habit_service.dart:770-773` `_nextOccurrenceForTime`):** το `candidate` είχε ήδη ώρα, το `nextPeriodStart` σε daily την κρατά, το έξτρα `.add(ώρα)` τη διπλομετρούσε (`14:30+14:30=05:00` επομένης — αποδείχθηκε με εκτέλεση). Δεύτερο εύρημα: monthly χωρίς `else`-advance (έμενε στην περασμένη μέρα) + unconditional jump που έχανε μέρες τρέχουσας περιόδου σε weekly/monthly με μέρες.
+
+**Υλοποίηση (1 αρχείο, 0 νέα imports/συναρτήσεις):**
+- Conditional jump μόνο χωρίς μέρες (daily — weekly/monthly-no-days αδύνατα από UI) + midnight-ομαλοποίηση πριν το `nextPeriodStart` (καλύπτει daily/monthly/yearly).
+- Monthly `else`: επόμενος μήνας με `interval` + `_safeDay` clamp (pattern `recurrence.dart:271-277`).
+- Reuse: `nextPeriodStart`, `_safeDay→safeMonthDay`, `parseHabitTime`, `planTopUp`, `isValidWeeklyDay+epochMonday`· απορρίφθηκε ολόκληρο `Recurrence.nextOccurrence` (χωρίς today-inclusion).
+- Orphan καθαρίστηκε με re-save ώρας (`14:30→14:32`, `_scheduleReminders` wipe+αναγέννηση — το `topUp` είναι προσθετικό, δεν σβήνει).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **108/108** · device: νέα σειρά 40 ημερών `07/10→15/11` όλες `14:32`, 0×`05:00`, `topUp created=0`, `scheduleAll SUCCESS`, 0 `ERR`.
+
+**Backups:** `backups/fix_habit_walker/` (habit_service.dart + oldsessions.md)
