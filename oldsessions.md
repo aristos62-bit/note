@@ -1095,3 +1095,15 @@
 **Επαλήθευση:** νέο 3/3 (weekly-flow, cancel-null, 200px no-overflow — hermetic, plain StatefulWidget) · `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest (portrait identical · landscape + keyboard · weekly/monthly/custom · rotation · save→scheduler) εκκρεμεί.
 
 **Backups:** `backups/phi3_recurrence/`
+
+## Session 114 — 07/10/2026 (task detail rows: οριζόντιο overflow — Flexible+ellipsis)
+
+**Σύμπτωμα (device, νέα εργασία):** `A RenderFlex overflowed by 9.5 pixels on the right` στο `task_detail_screen.dart:883` Row (constraints `w=126`, περιεχόμενο ~135.5). Πρώτο ΟΡΙΖΟΝΤΙΟ overflow της σειράς.
+
+**Αιτία:** `_DueDateSelector` Row(min) με γυμνό Text (ούτε το κενό «Χωρίς προθεσμία» ≈125px δεν χωράει στα 126 με fontScale). Δίδυμο `_StatusSelector` (`'Ολοκληρώθηκε'` ≈130 > 126) — θα έσκαγε αμέσως μετά, ίδιο budget.
+
+**Υλοποίηση (2× ίδιο fix, reuse `Flexible+ellipsis`):** τυλίχτηκαν τα 2 Texts (maxLines 1 + ellipsis)· icons εκτός Flexible (πάντα ορατά). Τα bare-Column `_pick` sheets (:759/:826) έμειναν για χωριστή Φ3-πρόταση.
+
+**Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest (νέα κενή + ορισμένη ημερομηνία με ώρα + status Ολοκληρώθηκε, portrait/landscape) εκκρεμεί.
+
+**Backups:** `backups/fix_task_rows/`
