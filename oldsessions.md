@@ -1034,3 +1034,18 @@
 **Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest (short + μακρύς τίτλος, landscape) εκκρεμεί.
 
 **Backups:** `backups/fix_confirm_scroll/`
+
+## Session 109 — 07/10/2026 (Φάση 1 retests 6/6 + Φάση 2 SPoT θεμέλιο)
+
+**Φάση 1 closed (device retests, όλα ✅):** S102 tasks grid · S103 calendar panel · S104 empties · S106 entries empty · S107 past dialog · S108 confirm (επιβεβαιωμένα S101 + S105 νωρίτερα). Suite 113/113.
+
+**Οδικός χάρτης (κλειδωμένος):** Φ1 retests ✅ → Φ2 SPoT θεμέλιο (εδώ) → Φ3 P0 migration ένα-ένα (1.ItemActionsSheet 2.LockScreen 3.MonthDayPicker 4.RecurrencePicker 5.Task selectors 6.ShareSheet 7-8.Settings dialogs 9.bespoke empties ×4 10.SearchResultCard) → Φ4 P1+parked → Φ5 Φ4b splits.
+
+**Υλοποίηση Φ2 (2 νέα αρχεία + barrel + 4 tests, 0 callers):**
+- `safe_sheet.dart`: `SafeSheet(title?, child, actions?)` (SafeArea + viewInsets + SheetHandle + Flexible>SCSV, mirror FolderCreateSheet-chrome) + `showSafeSheet<T>()` helper (surface+shape dedup, sheet-ctx pop). Χωρίς static show (διαφορετικά return types/callers το κρατάνε) και χωρίς titleSuffix (YAGNI).
+- `safe_dialog.dart`: `SafeDialogBody` (απόσταγμα S108· κανόνας: λίστα μέσα → Flexible S107).
+- `widgets.dart` += 2 exports · `test/safe_shells_test.dart` (4 tests: render slots, scroll, sheet open+pop value).
+
+**Επαλήθευση:** νέο 4/4 · `flutter test` → **117/117** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 4 const-infos στο test).
+
+**Backups:** `backups/phase2_spot/`
