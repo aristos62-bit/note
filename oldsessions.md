@@ -892,3 +892,29 @@
 **Επαλήθευση:** `analyze` clean (διορθώθηκαν backup-path `backupsphi4c/` + 3 paren-λάθη month-wrap) · `flutter test` → **113/113** · device-verify (TalkBack/48px/no-PII/flicker) εκκρεμεί.
 
 **Backups:** `backups/phi4c/` (22 αρχεία)
+
+## Session 98 — 07/10/2026 (Contact notes απώλεια — write ΟΚ, read bug)
+
+**Σύμπτωμα (device):** σημειώσεις επαφής χάνονταν (back/tab-switch), ενώ τα logs έδειχναν επιτυχείς αποθηκεύσεις.
+
+**Διάγνωση (3 στάδια):**
+1. `onSaved: (text) {}` κενό (`contact:947`) — μοναδικό noop σε όλο το `lib/` — μόνο pop/save-button έσωζε. Fix: `_saveNotesDirect` + `onNotesSaved` threading (event-parity).
+2. TEMP-DIAG απέδειξε `rows=1 [len=N,visible=true]` — η DB το είχε! Άρα read-bug, όχι write.
+3. Αιτία: `_ContactBody` χτιζόταν με `notesValue: ''` και το `_syncPropsFromDB` γέμιζε το state χωρίς `setState` → το πεδίο έμενε κενό για πάντα. Fix: 1× `setState` στο postFrame-block (μία φορά, χωρίς loop).
+- Απορρίφθηκαν με στοιχεία: `isVisible:false` (μόνο `_imported`), διπλότυπα, λάθος item/key, stale κώδικα. Έλεγχος 5/5 ContentField-χρήσεων: μόνο επαφές παθούσες.
+
+**Υλοποίηση (1 αρχείο):** `_saveNotesDirect` + `onNotesSaved` (mobile/tablet/body) + `setState` + TEMP-DIAG που αφαιρέθηκε μετά. `analyze` clean, suite **113/113**.
+
+**Backups:** `backups/fix_contact_notes/` (contact_detail_screen.dart + oldsessions.md)
+
+## Session 99 — 07/10/2026 (ListTile-ink, card-overflow, onDeleteEmpty κενό)
+
+**ListTile assertion (device-debug, 30 hits):** `_SettingsRow` ListTiles σε surface-Container r16 (habit) — dump ταυτίζεται. Fix: `Container` → `Material` (ίδια χρώματα/radius/border). Άλλα ListTiles (sheets/scaffolds) αθώα σε 13.7k γραμμές.
+
+**Card overflow 0.333px ×7:** το IconButton-48 (Φ4c) μεγάλωσε το menu-row σε κάρτες σταθερού σχήματος (ολόκληρη η κάρτα ήδη tappable). Revert σε `GestureDetector` + `Tooltip` (semantics χωρίς layout-αλλαγή).
+
+**Κενό → διαγραφή σημειώσεων (4 οθόνες):** `ContentFieldWidget` στέλνει το άδειο κείμενο στο `onDeleteEmpty` (ασύνδετο σε task/event/appointment/journal) → το τελευταίο char έμενε για πάντα. Fix: `onDeleteEmpty` → υπάρχοντες savers (`''→null`) + try-catch parity στο appointment `_saveNotes`.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` **113/113** · device εκκρεμεί (overflow-recheck, άδειασμα ×4).
+
+**Backups:** `backups/fix_listtile_ink/`, `backups/fix_card_menu/`, `backups/fix_event_trycatch/`, `backups/fix_empty_clear/`

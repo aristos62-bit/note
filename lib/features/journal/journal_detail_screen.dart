@@ -474,6 +474,7 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
               style: context.bodyLg,
               onChanged: widget.onContentChanged,
               onSaved: widget.onContentSaved,
+              onDeleteEmpty: () => widget.onContentSaved(''),
               debounce: AppDuration.debounceContent,
             ),
           ),
