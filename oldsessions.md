@@ -918,3 +918,15 @@
 **Επαλήθευση:** `analyze` clean · `flutter test` **113/113** · device εκκρεμεί (overflow-recheck, άδειασμα ×4).
 
 **Backups:** `backups/fix_listtile_ink/`, `backups/fix_card_menu/`, `backups/fix_event_trycatch/`, `backups/fix_empty_clear/`
+
+## Session 100 — 07/10/2026 (Φ4b: folder_browser split + grid-compact)
+
+**Split (495→300γρ., 3 βήματα, πρωτόκολλο ασφαλείας):** `_TypeFilter` → `FolderTypeFilter` (`folder_browser_filter.dart`) · `_ItemsList` → `FolderItemsList` · `_ItemsGrid` → `FolderItemsGrid` (`folder_browser_items.dart`) + barrel exports. Μετονομασία private→public υποχρεωτική (Dart). Αυτο-διόρθωση: `ItemCard` θέλει named `item:` (πιάστηκε πριν τον έλεγχο).
+
+**Grid overflow 3px (tablet-landscape, device):** η grid-`ItemCard` (πλήρης) ξεπερνούσε το extent-100. Fix: `compact: true` (reuse, όπως η mobile λίστα του ίδιου αρχείου) — όχι extent-bump, όχι πείραγμα του shared `ItemCard`.
+
+**Device-verified:** φίλτρα ×8, scroll/rebuilds, reorder, rotation, fontScale — 0 errors/overflows.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` **113/113**.
+
+**Backups:** `backups/split_folder_browser*/`, `backups/fix_grid_compact/`
