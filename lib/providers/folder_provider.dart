@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/utils/string_utils.dart';
 import '../models/folder.dart';
 import 'db_provider.dart';
 import 'workspace_provider.dart';
@@ -111,7 +112,7 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
       // Business logic exceptions (system folder, non-empty) — rethrow για το UI
       rethrow;
     } catch (e) {
-      DebugConfig.db('FolderNotifier.delete error: $e');
+      DebugConfig.db('FolderNotifier.delete error id=$id detail=${AppStringUtils.redact('$e', label: 'error')}');
       rethrow;
     }
   }

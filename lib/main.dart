@@ -164,6 +164,23 @@ void main() async {
     }
 
     try {
+      // Folder seed (Φ4c-6): προεπιλογή ΜΙΑ φορά στο startup για αποφυγή
+      // του null→«Όλοι» flicker — το FolderAutoSelectMixin μένει ως fallback.
+      final folders = await container.read(foldersProvider.future);
+      if (container.read(selectedFolderIdProvider) == null && folders.isNotEmpty) {
+        final preferred =
+            container.read(settingsNotifierProvider).valueOrNull?.preferredFolderId;
+        final target = (preferred != null && folders.any((f) => f.id == preferred))
+            ? preferred
+            : folders.firstWhere((f) => f.isSystem, orElse: () => folders.first).id;
+        container.read(selectedFolderIdProvider.notifier).state = target;
+        DebugConfig.nav('Startup seed folder id=$target (preferredId=$preferred)');
+      }
+    } catch (e, stack) {
+      DebugConfig.error('folder seed failed', e, stack);
+    }
+
+    try {
       await SharedIntentService.instance.init();
       DebugConfig.startup('SharedIntent initialized');
     } catch (e, stack) {

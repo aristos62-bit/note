@@ -989,6 +989,7 @@ class _ContactBody extends ConsumerWidget {
                   tagNames: tags.map((t) => t.name).toList(),
                   tagColors: tags.map((t) => t.color).toList(),
                   onTagDelete: (name) async {
+                    if (tags.isEmpty) return;
                     final tag = tags.firstWhere((t) => t.name == name,
                         orElse: () => tags.first);
                     await ref

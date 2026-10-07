@@ -85,7 +85,7 @@ class TagChip extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap == null ? null : () {
-        DebugConfig.print('TagChip.onTap name="$name" selected=${!selected}');
+        DebugConfig.print('TagChip.onTap name=${AppStringUtils.redact(name, label: 'tag')} selected=${!selected}');
         onTap!();
       },
       child: ConstrainedBox(

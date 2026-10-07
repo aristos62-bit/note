@@ -594,8 +594,10 @@ class _CollectionDetailScreenState
         // ── Icon + Title ────────────────────────────────────
         Row(
           children: [
-            // Icon picker
-            GestureDetector(
+            // Icon picker (64px + tooltip/semantics, οπτικά αμετάβλητο)
+            Tooltip(
+              message: 'Αλλαγή εικονιδίου',
+              child: GestureDetector(
               onTap: () => _pickIcon(context),
               child: Container(
                 width: 64, height: 64,
@@ -617,12 +619,14 @@ class _CollectionDetailScreenState
                           color:  accentColor,
                           shape:  BoxShape.circle,
                         ),
-                        child: const Icon(Icons.edit_rounded,
-                            size: 11, color: Colors.white),
+                        child: const ExcludeSemantics(
+                          child: Icon(Icons.edit_rounded,
+                              size: 11, color: Colors.white)),
                       ),
                     ),
                   ],
                 ),
+              ),
               ),
             ),
             const SizedBox(width: Spacing.md),

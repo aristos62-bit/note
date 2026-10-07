@@ -886,6 +886,7 @@ class _EventDetailAppBar extends StatelessWidget
             isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
             color: isPinned ? primaryColor : text2Color,
           ),
+          tooltip: isPinned ? 'Ξεκαρφίτσωμα' : 'Καρφίτσωμα',
           onPressed: onPin,
         ),
         IconButton(
@@ -893,10 +894,12 @@ class _EventDetailAppBar extends StatelessWidget
             isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
             color: isFavorite ? ColorsUI.getWarning(brightness) : text2Color,
           ),
+          tooltip: isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
           onPressed: onFavorite,
         ),
         IconButton(
           icon: Icon(Icons.delete_outline_rounded, color: errorColor),
+          tooltip: 'Διαγραφή',
           onPressed: onDelete,
         ),
         IconButton(

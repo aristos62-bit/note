@@ -554,7 +554,7 @@ class ReminderScheduler {
     }
     final item = await SuperNoteHelper.instance.items.getById(reminder.itemId);
     DebugConfig.notif(
-        '_scheduleOne: itemId=${reminder.itemId} archived=${item?.archived} title="${item?.title}"');
+        '_scheduleOne: itemId=${reminder.itemId} archived=${item?.archived} title=${AppStringUtils.redact(item?.title)}');
     try {
       await NotificationService.instance.schedule(
         id: reminder.id,
