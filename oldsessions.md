@@ -1024,3 +1024,13 @@
 **Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest dialog landscape (πολλές + λίγες υπενθυμίσεις) εκκρεμεί.
 
 **Backups:** `backups/fix_past_dialog/`
+
+## Session 108 — 07/10/2026 (ConfirmDialog landscape: overflow 11px — scroll content)
+
+**Σύμπτωμα (device, tablet landscape, «Διαγραφή όλων;»):** `A RenderFlex overflowed by 11 pixels on the bottom` στο `confirm_dialog.dart:225` Column (constraints LOOSE `h<=232.9`, περιεχόμενο ~244px). Με μακριούς τίτλους (διαγραφή συλλογής) θα έφτανε ~344px — το fix με σταθερές τιμές απορρίφθηκε (μεταθέτει το όριο).
+
+**Υλοποίηση (2 γραμμές, 1 αρχείο, shared sheet+dialog):** `_ConfirmContent` Column → `SingleChildScrollView > Column` (εσωτερικό byte-identical). Με LOOSE constraints το scroll μετράει `min(περιεχόμενο, max)`: τυλίγει όταν χωράει (portrait/mobile pixel-identical), κυλάει όταν δεν χωράει — precedent `item_list_embedded:116`.
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest (short + μακρύς τίτλος, landscape) εκκρεμεί.
+
+**Backups:** `backups/fix_confirm_scroll/`
