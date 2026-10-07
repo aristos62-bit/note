@@ -930,3 +930,21 @@
 **Επαλήθευση:** `analyze` clean · `flutter test` **113/113**.
 
 **Backups:** `backups/split_folder_browser*/`, `backups/fix_grid_compact/`
+
+## Session 101 — 07/10/2026 (ItemCard grid overflow landscape — compact παντού)
+
+**Σύμπτωμα (device, tablet 853px landscape):** `A RenderFlex overflowed by 3.0 pixels on the bottom` στο `item_card.dart:96` Column (constraints `w=263.2 h=65.0`) — non-compact κάρτα (~100-110px) σε κελί 100px. Global `TextScaler.linear(fontScale)` (`main.dart:244`) κάνει κάθε fixed extent εύθραυστο.
+
+**Τελικός έλεγχος (πλήρη αρχεία, όχι αποσπάσματα):** grep 42 hits — ακριβώς 4 γραμμές σε όλο το `lib/` περνούσαν `compact: context.isMobile` (`responsive_item_list:111,122` + `task_list:463,476`)· όλα τα άλλα fixed κελιά ήδη `compact: true` (browser ×2, entries, embedded search/tag). Το `_TaskCard` (extent 94 + progress 8px) ήταν ο χειρότερος παραβάτης — η v1 πρόταση (μόνο builder) θα τον άφηνε ζωντανό. `ResponsiveItemList` widget νεκρό (0 callers) — δεν πειράχτηκε. Απορρίφθηκαν τεκμηριωμένα: extent-bump (εύθραυστο + −20% κάρτες), clip (maskάρει bug), Wrap auto-height (σωστό μακροπρόθεσμα → parked Φ4c).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν, 4 τιμές, 0 νέος κώδικας):**
+- `responsive_item_list.dart:111,122` (`ItemCardBuilder` ×2 branches): `compact: context.isMobile` → `compact: true` — καλύπτει notes/appointments/events/calendar-embedded. Mobile ήδη `true` → pixel-identical, αλλάζει μόνο tablet/desktop.
+- `task_list_screen.dart:463,476` (`_TaskCard` ×2 branches): `compact:     context.isMobile` → `compact:     true` — progress bar άθικτη.
+
+**Τίμημα (αποδεκτό από χρήστη):** tablet grid τίτλος 1 γραμμή (bodyMd 14 αντί titleMd 16×2) + κρύβεται `updatedAt` (dueDate/priority/tags μένουν)· πλήρης info 1 tap μακριά στο detail. Compact ~62-84px σε κελί 100 → slack 16-38px, αντέχει fontScale έως ~1.3 (οριακό μόνο σε max-font + 2 σειρές chips).
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest landscape + max fontScale εκκρεμεί.
+
+**Backups:** `backups/fix_compact_grid/` (2 αρχεία + oldsessions)
+
+**Επόμενα (ένα-ένα):** search grid 110 (`_SearchResultCard`) → entries `_EntryCard` (default 100, έως 3 preview fields) → fontScale matrix → Wrap-migration Φ4c.
