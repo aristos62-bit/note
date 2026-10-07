@@ -128,16 +128,24 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
   Future<void> _saveLocation(String location) async {
     DebugConfig.db('EventDetail saveLocation id=${widget.itemId}');
-    await ref
-        .read(propertyNotifierProvider(widget.itemId).notifier)
-        .setText('location', location.isEmpty ? null : location);
+    try {
+      await ref
+          .read(propertyNotifierProvider(widget.itemId).notifier)
+          .setText('location', location.isEmpty ? null : location);
+    } catch (e) {
+      DebugConfig.error('EventDetail _saveLocation', e);
+    }
   }
 
   Future<void> _saveNotes(String notes) async {
     DebugConfig.db('EventDetail saveNotes id=${widget.itemId}');
-    await ref
-        .read(propertyNotifierProvider(widget.itemId).notifier)
-        .setText('notes', notes.isEmpty ? null : notes);
+    try {
+      await ref
+          .read(propertyNotifierProvider(widget.itemId).notifier)
+          .setText('notes', notes.isEmpty ? null : notes);
+    } catch (e) {
+      DebugConfig.error('EventDetail _saveNotes', e);
+    }
   }
 
   Future<void> _flushSaves() async {
@@ -698,6 +706,7 @@ class _EventBody extends ConsumerWidget {
                   initialText: notesVal,
                   hintText: 'Πρόσθεσε σημειώσεις...',
                   onSaved: onNotesSaved,
+                  onDeleteEmpty: () => onNotesSaved(''),
                   debounce: AppDuration.debounceTitle,
                 ),
                 LinkList(text: notesVal),

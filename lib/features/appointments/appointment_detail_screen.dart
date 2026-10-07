@@ -356,11 +356,15 @@ class _AppointmentDetailScreenState
     }
   }
   Future<void> _saveNotes(String text) async {
-    final propertyNotifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
-    await propertyNotifier.setText(
-      'notes',
-      text.trim().isEmpty ? null : text.trim(),
-    );
+    try {
+      final propertyNotifier = ref.read(propertyNotifierProvider(widget.itemId).notifier);
+      await propertyNotifier.setText(
+        'notes',
+        text.trim().isEmpty ? null : text.trim(),
+      );
+    } catch (e) {
+      DebugConfig.error('AppointmentDetail _saveNotes', e);
+    }
   }
 
   Future<void> _save() async {
@@ -733,6 +737,7 @@ class _AppointmentDetailScreenState
             initialText: _notesText,
             hintText: 'Σημειώσεις ραντεβού...',
             onSaved: _saveNotes,
+            onDeleteEmpty: () => _saveNotes(''),
             debounce: AppDuration.debounceContent,
           ),
         ],

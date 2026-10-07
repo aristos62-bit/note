@@ -183,6 +183,22 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     DebugConfig.db('ContactDetail changes persisted id=${widget.itemId}');
   }
 
+  /// Άμεση αποθήκευση σημειώσεων (debounce πεδίου + dispose-flush).
+  /// Ίδιο pattern με TaskDetail._saveNotes / EventDetail._saveNotes.
+  Future<void> _saveNotesDirect(String text) async {
+    final v = text.trim();
+    if (v == _lastNotes) return;
+    try {
+      await ref
+          .read(propertyNotifierProvider(widget.itemId).notifier)
+          .setText('notes', v.isEmpty ? null : v);
+      _lastNotes = v;
+      DebugConfig.db('ContactDetail saveNotesDirect id=${widget.itemId}');
+    } catch (e) {
+      DebugConfig.error('ContactDetail _saveNotesDirect', e);
+    }
+  }
+
   /// ??? wrapper ??? executeSave + pop
   Future<void> _save() async {
     final ok = await executeSave(() => _persistChanges());
@@ -502,6 +518,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
           _notesValue = v;
           if (_listenersInitialized) _hasChanges = true;
         },
+        onNotesSaved: _saveNotesDirect,
         birthday: birthday,
         onNameChanged: _onNameChanged,
         onPickBirthday: () => _pickBirthday(context),
@@ -557,6 +574,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
                 _notesValue = v;
                 if (_listenersInitialized) _hasChanges = true;
               },
+              onNotesSaved: _saveNotesDirect,
               birthday: birthday,
               onNameChanged: _onNameChanged,
               onPickBirthday: () => _pickBirthday(context),
@@ -712,6 +730,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
         _companyCtrl.addListener(() => _hasChanges = true);
         _websiteCtrl.addListener(() => _hasChanges = true);
         _addressCtrl.addListener(() => _hasChanges = true);
+        // Rebuild με τις τιμές που μόλις συγχρονίστηκαν από τη DB —
+        // αλλιώς το notesValue μένει κενό στο ήδη χτισμένο body.
+        // Τρέχει μία φορά (flag), χωρίς loop.
+        setState(() {});
       });
     }
   }
@@ -755,6 +777,7 @@ class _ContactBody extends ConsumerWidget {
   final TextEditingController addressCtrl;
   final String notesValue;
   final ValueChanged<String> onNotesChanged;
+  final ValueChanged<String> onNotesSaved;
   final DateTime? birthday;
   final ValueChanged<String> onNameChanged;
   final VoidCallback onPickBirthday;
@@ -780,6 +803,7 @@ class _ContactBody extends ConsumerWidget {
     required this.addressCtrl,
     required this.notesValue,
     required this.onNotesChanged,
+    required this.onNotesSaved,
     required this.birthday,
     required this.onNameChanged,
     required this.onPickBirthday,
@@ -944,7 +968,7 @@ class _ContactBody extends ConsumerWidget {
                               initialText: notesValue,
                               hintText: 'Πρόσθεσε σημειώσεις...',
                               onChanged: onNotesChanged,
-                              onSaved: (text) {},
+                              onSaved: onNotesSaved,
                               autoDeleteEmpty: false,
                             ),
                           ],

@@ -566,6 +566,7 @@ class _TaskBody extends ConsumerWidget {
                   initialText: notesVal,
                   hintText: 'Πρόσθεσε σημειώσεις...',
                   onSaved: onNotesSaved,
+                  onDeleteEmpty: () => onNotesSaved(''),
                   debounce: AppDuration.debounceTitle,
                 ),
               ],

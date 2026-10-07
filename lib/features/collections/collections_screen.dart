@@ -342,12 +342,14 @@ class _DraggableCollectionCard extends ConsumerWidget {
                   child: Center(child: Text(icon, style: const TextStyle(fontSize: 18))),
                 ),
                 const Spacer(),
-                // 48px hit-target (framework default) + tooltip/semantics.
-                IconButton(
-                  icon: Icon(Icons.more_vert_rounded,
-                      size: 18, color: secondaryForeground),
-                  tooltip: 'Επιλογές',
-                  onPressed: () => _showActions(context, ref),
+                // Tooltip για semantics — το hit-target είναι ολόκληρη
+                // η κάρτα (onTap), οπότε δεν μεγαλώνουμε το Row (overflow).
+                Tooltip(
+                  message: 'Επιλογές',
+                  child: GestureDetector(
+                    onTap: () => _showActions(context, ref),
+                    child: Icon(Icons.more_vert_rounded, size: 18, color: secondaryForeground),
+                  ),
                 ),
               ],
             ),

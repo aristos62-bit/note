@@ -1235,11 +1235,13 @@ class _HabitSettings extends ConsumerWidget {
           Text('Ρυθμίσεις', style: context.titleSm),
         ]),
         const SizedBox(height: Spacing.sm),
-        Container(
-          decoration: BoxDecoration(
-            color: ColorsUI.getSurface(context.brightness),
+        // Material (όχι Container): καμβάς για ListTile ink-splash
+        // (ίδια χρώματα/radius/border — οπτικά αμετάβλητο).
+        Material(
+          color: ColorsUI.getSurface(context.brightness),
+          shape: RoundedRectangleBorder(
             borderRadius: AppRadius.cardBR,
-            border: Border.all(color: ColorsUI.getBorder(context.brightness)),
+            side: BorderSide(color: ColorsUI.getBorder(context.brightness)),
           ),
           child: Column(
             children: [
