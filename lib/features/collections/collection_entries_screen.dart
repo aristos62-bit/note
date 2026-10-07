@@ -33,6 +33,22 @@ import 'collection_fields.dart' show FieldDef, FieldType;
 final _entriesSearchQueryProvider = StateProvider<String>((ref) => '');
 final _entriesTagFilterProvider = StateProvider<Set<String>>((ref) => {});
 
+/// Batch provider: tag names για όλα τα knowledge items — 1 DB call.
+/// Ανανέωση σε item-list αλλαγές ΚΑΙ tag mutations (tagNotifier signal).
+final _batchTagsProvider = FutureProvider.autoDispose<Map<int, List<String>>>((ref) async {
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  // Signal: ξανατρέξε σε add/remove tag (το notifier κάνει invalidateSelf).
+  ref.watch(tagNotifierProvider);
+  final ids = itemsAsync.valueOrNull
+      ?.where((i) => i.type == ItemType.knowledge)
+      .map((e) => e.id)
+      .toList() ?? [];
+  if (ids.isEmpty) return {};
+  DebugConfig.db('_batchTagsProvider: ids=${ids.length}');
+  final result = await SuperNoteHelper.instance.tags.getAllForItems(ids);
+  return result.map((k, v) => MapEntry(k, v.map((t) => t.name).toList()));
+});
+
 /// Batch provider: collection_id για όλα τα knowledge items — 1 DB call
 final _batchColIdProvider = FutureProvider.autoDispose<Map<int, String>>((ref) async {
   final itemsAsync = ref.watch(itemsStreamProvider);
@@ -397,23 +413,19 @@ class _FilteredEntriesList extends ConsumerWidget {
           .toList();
     }
 
-    // Tag filter
+    // Tag filter (batch map — όχι per-row watch, βλ. _batchTagsProvider)
+    final tagsMap = ref.watch(_batchTagsProvider).valueOrNull ?? {};
     if (activeTags.isNotEmpty) {
       entries = entries.where((e) {
-        final tags =
-            ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
-        return tags.any((t) => activeTags.contains(t.name));
+        final names = tagsMap[e.id] ?? const <String>[];
+        return names.any(activeTags.contains);
       }).toList();
     }
 
-    // Συγκέντρωση visible tag names
+    // Συγκέντρωση visible tag names (από το ίδιο batch map)
     final visibleTagNames = <String>{};
     for (final e in entries) {
-      final tags =
-          ref.watch(itemTagsProvider(e.id)).valueOrNull ?? [];
-      for (final t in tags) {
-        visibleTagNames.add(t.name);
-      }
+      visibleTagNames.addAll(tagsMap[e.id] ?? const <String>[]);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       onVisibleTagsChanged(visibleTagNames);
@@ -715,7 +727,7 @@ class _CollectionEntryDetailScreenState
 
   Future<void> _saveData() async {
     final title = _titleCtrl.text.trim();
-    DebugConfig.db('EntryDetail save id=${widget.entryId} title="$title"');
+    DebugConfig.db('EntryDetail save id=${widget.entryId} title=${AppStringUtils.redact(title)}');
 
     // 1. ??lo?
     await ref
@@ -816,7 +828,7 @@ class _CollectionEntryDetailScreenState
 
       if (field.maxFiles > 0) {
         final current = _fieldAttachmentIds[fieldKey]?.length ?? 0;
-        DebugConfig.db('_addAttachment maxFiles check: field="${field.label}" current=$current max=${field.maxFiles}');
+        DebugConfig.db('_addAttachment maxFiles check: field=${AppStringUtils.redact(field.label, label: 'field')} current=$current max=${field.maxFiles}');
         if (current >= field.maxFiles) {
           if (mounted) showSnackBar(AppErrors.attachMaxFiles(field.maxFiles, field.label));
           return;
@@ -920,7 +932,7 @@ class _CollectionEntryDetailScreenState
   }
 
   Future<void> _saveAttachment(Attachment attachment) async {
-    DebugConfig.db('_saveAttachment id=${attachment.id} file="${attachment.fileName}"');
+    DebugConfig.db('_saveAttachment id=${attachment.id} file=${AppStringUtils.redact(attachment.fileName, label: 'file')}');
     try {
       final file = File(attachment.localPath);
       if (!await file.exists()) {

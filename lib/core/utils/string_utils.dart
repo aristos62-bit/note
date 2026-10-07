@@ -224,6 +224,13 @@ class AppStringUtils {
 
     return result;
   }
+
+  /// PII redaction για logs: κρατά μόνο το μήκος, ποτέ το περιεχόμενο.
+  /// Χρήση: DebugConfig.db('save id=$id title=${AppStringUtils.redact(title)}')
+  static String redact(String? text, {String label = 'text'}) {
+    final len = text?.length ?? 0;
+    return '[$label ${len}ch]';
+  }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -240,6 +247,7 @@ extension StringX on String? {
   String truncate(int max) => AppStringUtils.truncate(this, max);
   String get capitalize => AppStringUtils.capitalize(this);
   String get initials => AppStringUtils.initials(this);
+  String get redacted => AppStringUtils.redact(this);
   int get wordCount => AppStringUtils.wordCount(this);
 
   bool get isUrl => this != null && AppStringUtils.isUrl(this!);

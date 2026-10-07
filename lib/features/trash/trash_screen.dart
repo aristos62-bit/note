@@ -242,7 +242,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
               },
               child: trashedAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => EmptyState.error(),
+                error: (e, _) => EmptyState.error(
+                      onRetry: () {
+                        ref.invalidate(trashedItemsStreamProvider);
+                        _clearSelection();
+                      },
+                    ),
                 data: (trashed) {
                   final filtered = _filterItems(trashed);
                   if (filtered.isEmpty) {
@@ -315,7 +320,9 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       final q = _searchQuery.toLowerCase();
       filtered = filtered.where((i) => (i.title ?? '').toLowerCase().contains(q)).toList();
     }
-    filtered.sort((a, b) => b.deletedAt!.compareTo(a.deletedAt!));
+    // Null-safe: θεωρητικά όλα έχουν deletedAt, guard για ασφάλεια ταξινόμησης.
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    filtered.sort((a, b) => (b.deletedAt ?? epoch).compareTo(a.deletedAt ?? epoch));
     return filtered;
   }
 }

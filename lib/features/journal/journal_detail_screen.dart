@@ -100,6 +100,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
     if (_pendingContent.isNotEmpty) {
       if (!mounted) return;
       await _onContentSaved(_pendingContent);
+      _pendingContent = '';
     }
 
     _lastSavedTitle = title;
@@ -510,6 +511,7 @@ class _JournalBodyState extends ConsumerState<_JournalBody> {
                     tagNames: tags.map((t) => t.name).toList(),
                     tagColors: tags.map((t) => t.color).toList(),
                     onTagDelete: (name) async {
+                      if (tags.isEmpty) return;
                       final tag = tags.firstWhere((t) => t.name == name, orElse: () => tags.first);
                       await ref.read(tagNotifierProvider.notifier).removeFromItem(widget.item.id, tag.id);
                     },

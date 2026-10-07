@@ -36,12 +36,17 @@ class _BlockEditorWidgetState extends ConsumerState<BlockEditorWidget> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      for (final block in widget.blocks) {
-        if (block.type == BlockType.text && (block.text ?? '').trim().isEmpty) {
-          await ref
-              .read(blockNotifierProvider(widget.itemId).notifier)
-              .delete(block.id);
+      try {
+        for (final block in widget.blocks) {
+          if (!mounted) return;
+          if (block.type == BlockType.text && (block.text ?? '').trim().isEmpty) {
+            await ref
+                .read(blockNotifierProvider(widget.itemId).notifier)
+                .delete(block.id);
+          }
         }
+      } catch (e, stack) {
+        DebugConfig.error('BlockEditorWidget init cleanup', e, stack);
       }
     });
   }

@@ -872,3 +872,23 @@
 **Επαλήθευση:** `analyze` clean · `flutter test` → **108/108** · device: νέα σειρά 40 ημερών `07/10→15/11` όλες `14:32`, 0×`05:00`, `topUp created=0`, `scheduleAll SUCCESS`, 0 `ERR`.
 
 **Backups:** `backups/fix_habit_walker/` (habit_service.dart + oldsessions.md)
+
+## Session 97 — 07/10/2026 (Φ4c συμπεριφορά/a11y — v7 + binding items)
+
+**Scope:** v7 πρόταση + επαληθευμένα items `code_refactor.md` §3-4/§7 (backup `backups/phi4c/`, 22 αρχεία). Κανόνες 2+4 ανεστάλησαν.
+
+**Υλοποιήθηκε:**
+- **Tooltips:** habit AppBar ×4 (pin/fav/archive/delete) + `_EventDetailAppBar` ×3 (private, ίδιο αρχείο) — συμβάσεις ίδιου αρχείου.
+- **Semantics:** InkWell ωρών (`button+checked+label`), month-cells (`button+selected+label`), heatmap summary + `ExcludeSemantics`, collection icon-picker `Tooltip` + badge `ExcludeSemantics`, folder-badge 48px-hit + `Tooltip`, collections-card `GestureDetector→IconButton`.
+- **PII (`redact()` → `[label Nch]`, νέο σε `string_utils` + `StringX.redacted`):** scheduler title, search ×2, folder-delete error, tag-chip name, entries title/field-label/fileName.
+- **Crash guards:** `orElse tags.first` ×3 (journal/contact/note_widgets) + trash `deletedAt!` null-safe + trash retry.
+- **Flush:** κεντρικό `ContentFieldWidget.dispose` flush (καλύπτει task/event/appointment notes) + journal `_pendingContent=''` + habit `_isEditingTitle=false` + block_editor mounted/try.
+- **Lists:** entries per-row `itemTagsProvider` → `_batchTagsProvider` (existing `getAllForItems`, tagNotifier-signal).
+- **Seed:** main postFrame folder-seed once (mixin fallback).
+- **Tests:** νέο `phi4c_redact_test.dart` (5 pure).
+
+**Ρητά εκτός (με τεκμήριο):** overflow-menu (6×48+back χωρά 360, §7.1 pre-split, device-matrix)· ink §7.2 (δεν αναπαράγεται — sheets/scaffold έχουν Material)· int.parse×2/Sliver (ήδη fixed)· contact:678/event-flush/contacts-watch/showArchived/calendar-birthday (stale)· month-Ink (δομικό ρίσκο, μόνο Semantics)· menus (framework default)· `_debug`-flip (σκοτώνει field diagnostics)· snooze/reorder/dots/counts (θέλουν spec).
+
+**Επαλήθευση:** `analyze` clean (διορθώθηκαν backup-path `backupsphi4c/` + 3 paren-λάθη month-wrap) · `flutter test` → **113/113** · device-verify (TalkBack/48px/no-PII/flicker) εκκρεμεί.
+
+**Backups:** `backups/phi4c/` (22 αρχεία)

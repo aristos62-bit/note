@@ -121,7 +121,7 @@ class SearchService {
             matchType: SearchMatchType.content,
             matchedText: match,
           ));
-          DebugConfig.print('🔍 SEARCH | content match: id=${item.id} title="${item.title}"');
+          DebugConfig.print('🔍 SEARCH | content match: id=${item.id} title=${AppStringUtils.redact(item.title)}');
         }
       }
     } catch (e, stack) {
@@ -153,7 +153,7 @@ class SearchService {
             matchType: SearchMatchType.property,
             matchedText: match,
           ));
-          DebugConfig.print('🔍 SEARCH | property match: id=${item.id} title="${item.title}"');
+          DebugConfig.print('🔍 SEARCH | property match: id=${item.id} title=${AppStringUtils.redact(item.title)}');
         }
       }
     } catch (e, stack) {

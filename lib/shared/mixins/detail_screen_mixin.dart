@@ -110,7 +110,12 @@ mixin DetailScreenMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
       }
       return;
     }
-    await saveFn();
+    try {
+      if (!mounted) return;
+      await saveFn();
+    } catch (e, stack) {
+      DebugConfig.error('$runtimeType executeSaveOrDelete save', e, stack);
+    }
   }
 
   /// Navigator.pop με mounted check

@@ -235,19 +235,29 @@ class _FolderChip extends StatelessWidget {
                 child: GestureDetector(
                   onTap: onMoreTap,
                   behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.white.withValues(alpha: 0.25)
-                          : color.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.more_vert_rounded,
-                      size: 13,
-                      color: isSelected ? Colors.white : color,
+                  // 48px hit-target, οπτικά αμετάβλητο (κύκλος 20px πάνω-δεξιά).
+                  child: Tooltip(
+                    message: 'Επιλογές φακέλου',
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      color: Colors.transparent,
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withValues(alpha: 0.25)
+                              : color.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.more_vert_rounded,
+                          size: 13,
+                          color: isSelected ? Colors.white : color,
+                        ),
+                      ),
                     ),
                   ),
                 ),

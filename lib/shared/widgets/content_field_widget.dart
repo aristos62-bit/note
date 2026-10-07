@@ -76,7 +76,19 @@ class _ContentFieldWidgetState extends State<ContentFieldWidget> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    // Flush τυχόν εκκρεμούς input — αλλιώς χάνεται αν το back πατηθεί
+    // μέσα στο παράθυρο του debounce (ίδια σημασιολογία με _onChange).
+    if (_debounce?.isActive == true) {
+      _debounce!.cancel();
+      final trimmed = _ctrl.text.trim();
+      if (trimmed.isEmpty && widget.autoDeleteEmpty) {
+        widget.onDeleteEmpty?.call();
+      } else {
+        widget.onSaved?.call(trimmed);
+      }
+    } else {
+      _debounce?.cancel();
+    }
     _focusNode.removeListener(_onFocusChange);
     _ctrl.dispose();
     _focusNode.dispose();

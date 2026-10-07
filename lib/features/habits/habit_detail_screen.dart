@@ -72,6 +72,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
           .read(itemNotifierProvider.notifier)
           .updateItem(widget.itemId, title: title.isEmpty ? null : title);
       _lastSavedTitle = title;
+      _isEditingTitle = false;
     } catch (e) {
       DebugConfig.error('HabitDetail _saveTitle', e);
     } finally {
@@ -291,6 +292,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
                 _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
                 color: _isPinned ? context.cPrimary : context.cText2,
                 size: 20),
+            tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
             onPressed: () => _togglePin(item),
           ),
           IconButton(
@@ -300,6 +302,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
                     ? ColorsUI.getWarning(context.brightness)
                     : context.cText2,
                 size: 20),
+            tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
             onPressed: () => _toggleFav(item),
           ),
           IconButton(
@@ -307,11 +310,13 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
                 item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
                 color: context.cText2,
                 size: 20),
+            tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
             onPressed: () => _toggleArchive(item),
           ),
           IconButton(
             icon: Icon(Icons.delete_outline_rounded,
                 color: context.cError, size: 20),
+            tooltip: 'Διαγραφή',
             onPressed: () => _delete(context),
           ),
         ],
@@ -701,6 +706,8 @@ class _TimeProgressSection extends StatelessWidget {
                     const SizedBox(width: Spacing.md),
                     Text(
                       time,
+                      semanticsLabel:
+                          isDone ? '$time, ολοκληρώθηκε' : time,
                       style: context.titleMd
                           .withColor(isDone ? context.cSuccess : context.cText),
                     ),
@@ -1055,7 +1062,10 @@ class _HeatmapCalendar extends StatelessWidget {
       return ColorsUI.getBorder(context.brightness).withValues(alpha: 0.5);
     }
 
-    return Column(
+    return Semantics(
+      label: 'Ιστορικό ${completions.length} ημερών',
+      excludeSemantics: true,
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -1109,6 +1119,7 @@ class _HeatmapCalendar extends StatelessWidget {
           ],
         ),
       ],
+    ),
     );
   }
 }
@@ -1775,7 +1786,11 @@ class _MonthDayPickerSheetState extends State<_MonthDayPickerSheet> {
             children: List.generate(31, (i) {
               final day = i + 1;
               final isSelected = _selectedDays.contains(day);
-              return GestureDetector(
+              return Semantics(
+                button: true,
+                selected: isSelected,
+                label: 'Ημέρα $day${isSelected ? ', επιλεγμένη' : ''}',
+                child: GestureDetector(
                 onTap: () => setState(() {
                   if (isSelected) {
                     _selectedDays.remove(day);
@@ -1807,6 +1822,7 @@ class _MonthDayPickerSheetState extends State<_MonthDayPickerSheet> {
                     ),
                   ),
                 ),
+              ),
               );
             }),
           ),
