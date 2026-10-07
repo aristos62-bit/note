@@ -435,28 +435,14 @@ class _FilteredEntriesList extends ConsumerWidget {
       if (searchQuery.isNotEmpty || activeTags.isNotEmpty) {
         return EmptyState.search(query: searchQuery);
       }
-      return Center(
-        child: Padding(
-          padding: context.responsivePadding,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.inbox_rounded, size: 64, color: context.cDisabled),
-              const SizedBox(height: Spacing.md),
-              Text('Δεν υπάρχουν εγγραφές', style: context.titleMd),
-              const SizedBox(height: Spacing.sm),
-              Text('Πάτησε + για να προσθέσεις\nτην πρώτη εγγραφή',
-                  style: context.bodyMd.withColor(context.cText2),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: Spacing.xl),
-              FilledButton.icon(
-                onPressed: onCreateEntry,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Νέα εγγραφή'),
-              ),
-            ],
-          ),
-        ),
+      // SPoT: shared EmptyState (scroll-safe S104) αντί bespoke — ίδιο
+      // icon/κείμενα/κουμπί. ΟΧΙ forType(finance): λάθος icon/subtitle.
+      return EmptyState(
+        icon: Icons.inbox_rounded,
+        title: 'Δεν υπάρχουν εγγραφές',
+        subtitle: 'Πάτα + για να προσθέσεις\nτην πρώτη εγγραφή',
+        actionLabel: 'Νέα εγγραφή',
+        onAction: onCreateEntry,
       );
     }
 

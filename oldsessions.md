@@ -1000,3 +1000,15 @@
 **Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest entries (0/1/2/3 fields × pin/share × rotation) εκκρεμεί.
 
 **Backups:** `backups/fix_entries_extent/`
+
+## Session 106 — 07/10/2026 (entries empty: bespoke overflow 27px — SPoT EmptyState)
+
+**Σύμπτωμα (device, κενή συλλογή):** `A RenderFlex overflowed by 27 pixels on the bottom` στο `collection_entries_screen.dart:441` (constraints `h<=204.9`, bespoke περιεχόμενο ~232px).
+
+**Αιτία:** το empty κενής συλλογής ήταν το μοναδικό bespoke `Center+Column` — όλες οι άλλες άδειες οθόνες χρησιμοποιούν το shared `EmptyState` (scroll-safe S104).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν, −23/+9 γραμμές, 1 αρχείο):** bespoke block → `EmptyState(icon/title/subtitle/actionLabel/onAction)` με ίδια icon/κείμενα/κουμπί (ΟΧΙ `forType(finance)`: λάθος icon/subtitle· ΟΧΙ νέο factory). Τεχνικό μάθημα: το edit-tool απέτυχε 2× σε block με literal `\n` + ελληνικά — λύθηκε με PowerShell line-range replace (UTF8-noBOM, CRLF preserved) + ASCII placeholders + μονογραμμικά swaps· το `\n` επαληθεύτηκε U+005C.
+
+**Επαλήθευση:** `flutter test` → **113/113** · `flutter analyze --no-pub` → `No issues found!` · device retest (κενή συλλογή landscape + portrait restyle) εκκρεμεί.
+
+**Backups:** `backups/fix_entries_empty/`
