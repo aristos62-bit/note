@@ -1234,3 +1234,11 @@
 **Επαλήθευση:** `analyze` clean · **125/125** · device: open/scroll/select/pop 124 επαφές, 0 ERR/overflows.
 
 **Backups:** `backups/fix_contact_unscrollable/`, `backups/fix_contact_expanded/`
+
+## Session 123 — 08/10/2026 (Known edge: contact-dialog chrome, debug-only)
+
+**Εύρημα:** contact-selection `Column:1295` overflow 7.3px, budget h≤97.7, tablet-landscape 384dp, ΧΩΡΙΣ πληκτρολόγιο. Σταθερό chrome ~105 (search 48 + sm 8 + Wrap 48 + Divider 1) > budget. Προϋπάρχον (αρχικό layout ίδιο chrome)· ενίοτε δεν αναπαράγεται (γεωμετρία-εξαρτώμενο).
+
+**Απόφαση (user):** μένει ως έχει — σε release δεν υπάρχει θέμα (debug assertion μόνο· clip 7px σε scrollable περιοχή λίστας, όλα πατήσιμα). Καταγράφεται εδώ για μελλοντική αναφορά.
+
+**Αν χρειαστεί ποτέ:** J+ (`insetPadding` vertical 24→8 + σφιχτό `contentPadding`, +~60px budget, αόρατο σε portrait) · fallback Β (`scrollable` + eager Column, με perf/UX τιμήματα). Απορρίφθηκε οριστικά: `scrollable` + εσωτερικό ListView (intrinsics crash, αποδεδειγμένο).
