@@ -71,30 +71,25 @@ class ItemActionsSheet extends StatelessWidget {
     VoidCallback? onArchive,
     VoidCallback? onDelete,
   }) {
-    DebugConfig.print('ItemActionsSheet.show id=${item.id}');
-    return showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => ItemActionsSheet(
+    DebugConfig.nav('ItemActionsSheet.show id=${item.id}');
+    return showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => ItemActionsSheet(
         item: item,
         showTitle: showTitle,
         titleStyle: titleStyle,
         showPriority: showPriority,
         editIcon: editIcon,
         editLabel: editLabel,
-        onEdit: onEdit == null ? null : () => _popAnd(ctx, onEdit),
-        onOpen: onOpen == null ? null : () => _popAnd(ctx, onOpen),
-        onPin: onPin == null ? null : () => _popAnd(ctx, onPin),
-        onFav: onFav == null ? null : () => _popAnd(ctx, onFav),
-        onShare: onShare == null ? null : () => _popAnd(ctx, onShare),
-        onArchive: onArchive == null ? null : () => _popAnd(ctx, onArchive),
-        onDelete: onDelete == null ? null : () => _popAnd(ctx, onDelete),
+        onEdit: onEdit == null ? null : () => _popAnd(sheetCtx, onEdit),
+        onOpen: onOpen == null ? null : () => _popAnd(sheetCtx, onOpen),
+        onPin: onPin == null ? null : () => _popAnd(sheetCtx, onPin),
+        onFav: onFav == null ? null : () => _popAnd(sheetCtx, onFav),
+        onShare: onShare == null ? null : () => _popAnd(sheetCtx, onShare),
+        onArchive:
+            onArchive == null ? null : () => _popAnd(sheetCtx, onArchive),
+        onDelete:
+            onDelete == null ? null : () => _popAnd(sheetCtx, onDelete),
       ),
     );
   }

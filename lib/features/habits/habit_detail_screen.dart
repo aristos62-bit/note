@@ -1315,16 +1315,10 @@ class _HabitSettings extends ConsumerWidget {
   ) async {
     final options = ['Καθημερινά', 'Εβδομαδιαία', 'Μηνιαία', 'Καμία'];
 
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => SafeSheet(
+    final selected = await showSafeSheet<String>(
+      context,
+      scrollControlled: true,
+      builder: (sheetCtx) => SafeSheet(
         title: 'Επιλογή επανάληψης',
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1334,7 +1328,7 @@ class _HabitSettings extends ConsumerWidget {
                   trailing: _recurrenceMatchesOption(currentRecurrence, o)
                       ? Icon(Icons.check_rounded, color: context.cPrimary)
                       : null,
-                  onTap: () => Navigator.pop(ctx, o),
+                  onTap: () => Navigator.pop(sheetCtx, o),
                 )),
             const SizedBox(height: Spacing.sm),
           ],
@@ -1433,18 +1427,10 @@ class _HabitSettings extends ConsumerWidget {
   }) async {
     final savedTimes = List<String>.from(current.times ?? []);
 
-    return showModalBottomSheet<List<String>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) =>
-          _TimePickerSheet(initialTimes: savedTimes, subtitle: subtitle),
+    return showSafeSheet<List<String>>(
+      context,
+      scrollControlled: true,
+      child: _TimePickerSheet(initialTimes: savedTimes, subtitle: subtitle),
     );
   }
 
@@ -1454,19 +1440,13 @@ class _HabitSettings extends ConsumerWidget {
       BuildContext context, Recurrence current) async {
     final savedDays = List<int>.from(current.days ?? []);
 
-    return showModalBottomSheet<List<int>>(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) {
+    return showSafeSheet<List<int>>(
+      context,
+      scrollControlled: true,
+      builder: (sheetCtx) {
         final selected = List<int>.from(savedDays);
         return StatefulBuilder(
-          builder: (ctx, setModal) {
+          builder: (_, setModal) {
             const allDays = AppDateUtils.weekdayNames;
             return SafeSheet(
               child: Padding(
@@ -1503,13 +1483,13 @@ class _HabitSettings extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         TextButton(
-                            onPressed: () => Navigator.pop(ctx, null),
+                            onPressed: () => Navigator.pop(sheetCtx, null),
                             child: const Text('Άκυρο')),
                         FilledButton(
                           onPressed: selected.isEmpty
                               ? null
-                              : () =>
-                                  Navigator.pop(ctx, List<int>.from(selected)),
+                              : () => Navigator.pop(
+                                  sheetCtx, List<int>.from(selected)),
                           child: const Text('Αποθήκευση'),
                         ),
                       ],
@@ -1531,17 +1511,10 @@ class _HabitSettings extends ConsumerWidget {
       BuildContext context, Recurrence current) async {
     final savedDays = List<int>.from(current.days ?? []);
 
-    return showModalBottomSheet<List<int>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => _MonthDayPickerSheet(initialDays: savedDays),
+    return showSafeSheet<List<int>>(
+      context,
+      scrollControlled: true,
+      child: _MonthDayPickerSheet(initialDays: savedDays),
     );
   }
 
@@ -1553,17 +1526,10 @@ class _HabitSettings extends ConsumerWidget {
     TextInputType keyboardType = TextInputType.text,
   }) {
     final ctrl = TextEditingController(text: initial);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => SafeSheet(
+    showSafeSheet<void>(
+      context,
+      scrollControlled: true,
+      builder: (sheetCtx) => SafeSheet(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
           child: Column(
@@ -1591,13 +1557,13 @@ class _HabitSettings extends ConsumerWidget {
             Row(children: [
               Expanded(
                   child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () => Navigator.pop(sheetCtx),
                       child: const Text('Άκυρο'))),
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: FilledButton(
                   onPressed: () async {
-                    final nav = Navigator.of(ctx);
+                    final nav = Navigator.of(sheetCtx);
                     await onSave(ctrl.text.trim());
                     nav.pop();
                   },

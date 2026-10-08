@@ -3,8 +3,9 @@
 // SPoT sheet shell — γενίκευση του canonical pattern:
 //   SafeArea > Column(min) > SheetHandle + title + Flexible > SingleChildScrollView
 // (βλ. FolderCreateSheet, color-picker sheet).
-// O caller κρατά το δικό του showModalBottomSheet (κατά προτίμηση showSafeSheet)
-// και δίνει ΜΟΝΟ στατικό content (Column — ΟΧΙ scrollable, αλλιώς φωλιάζει).
+// Type A (inner-pop) → `child:`. Type B (wrapped-callback) → `builder:`
+// (δίνει sheetCtx — ποτέ blind pop με caller-ctx).
+// `useSafeArea` ΔΕΝ εκτίθεται σκόπιμα (διπλό SafeArea — το φέρνει το SafeSheet).
 //
 // ΧΡΗΣΗ:
 //   await showSafeSheet<ItemType?>(context, child: SafeSheet(
@@ -12,6 +13,11 @@
 //     child: Column(mainAxisSize: MainAxisSize.min, children: [...]),
 //     actions: [FilledButton(...), OutlinedButton(...)],
 //   ));
+//   await showSafeSheet<String>(context, scrollControlled: true,
+//     builder: (sheetCtx) => SafeSheet(
+//       child: Column(children: [
+//         ListTile(onTap: () => Navigator.pop(sheetCtx, 'a')),
+//       ])));
 //
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
@@ -19,15 +25,32 @@ import 'sheet_handle.dart';
 
 /// Κοινό chrome για sheets (surface + bottomSheet shape).
 /// Το pop γίνεται με sheet-context στον caller (όχι blind pop).
+/// Type A (inner-pop: το pop γίνεται ΜΕΣΑ στο subtree) → `child:`.
+/// Type B (wrapped-callback: _popAnd/closures έξω από το sheet) → `builder:`
+/// (δίνει sheetCtx — ποτέ blind pop με caller-ctx).
+/// `useSafeArea` ΔΕΝ εκτίθεται σκόπιμα (διπλό SafeArea — το φέρνει το SafeSheet).
+typedef SheetChildBuilder = Widget Function(BuildContext sheetCtx);
+
 Future<T?> showSafeSheet<T>(
   BuildContext context, {
-  required Widget child,
+  Widget? child,
+  SheetChildBuilder? builder,
   bool scrollControlled = false,
+  Color? barrierColor,
 }) {
-  DebugConfig.nav('showSafeSheet scrollControlled=$scrollControlled');
+  if (child == null && builder == null) {
+    throw ArgumentError(
+        'showSafeSheet: δώσε child ή builder (ένα από τα δύο)');
+  }
+  if (child != null && builder != null) {
+    throw ArgumentError('showSafeSheet: μόνο ένα από child/builder');
+  }
+  DebugConfig.nav(
+      'showSafeSheet scrollControlled=$scrollControlled barrier=${barrierColor != null}');
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: scrollControlled,
+    barrierColor: barrierColor,
     backgroundColor: ColorsUI.getSurface(context.brightness),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.only(
@@ -35,7 +58,7 @@ Future<T?> showSafeSheet<T>(
         topRight: Radius.circular(AppRadius.bottomSheet),
       ),
     ),
-    builder: (_) => child,
+    builder: (sheetCtx) => builder != null ? builder(sheetCtx) : child!,
   );
 }
 
@@ -67,7 +90,10 @@ class SafeSheet extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(
                     horizontal: Spacing.lg, vertical: Spacing.xs),
-                child: Text(title!, style: context.titleSm),
+                child: Text(title!,
+                    style: context.titleSm,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ),
             Flexible(
               child: SingleChildScrollView(
