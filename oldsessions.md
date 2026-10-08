@@ -1218,3 +1218,19 @@
 **Backups:** `backups/phi3_parked/` (2 αρχεία)
 
 **DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs).
+
+## Session 122 — 08/10/2026 (Φ3.7 contact-dialog: scrollable-revert + Expanded-revert)
+
+**Ιστορικό (3 device ευρήματα, όλα user-verified):**
+1. `scrollable:true` + εσωτερικό ListView → intrinsics crash (`RenderShrinkWrappingViewport`, stack-απόδειξη). Κανόνας: ποτέ τα δύο μαζί.
+2. `ConstrainedBox(50%)` → overflow 29px (άκαμπτο ταβάνι + Wrap 2 σειρές). Δίδαγμα: ένα-ένα τα edits.
+3. Overflow 7.3px (landscape+keyboard, budget 97.7): προϋπάρχουσα φυσική (chrome ~105), **δεν αναπαράχθηκε** σε επανάληψη ίδιου σεναρίου → transient edge, Επιλογή Α (αποδοχή + καταγραφή).
+
+**Υλοποίηση:**
+- `32bc964` — αφαίρεση `scrollable` από contact-dialog (μένουν X/nav/ConstrainedBox)
+- `599924c` — λίστα πίσω σε `Expanded` (τελικό κέρδος: X + nav μόνο)
+- Μαθήματα: flex-children εξαιρούνται από intrinsics· release δεν κρασάρει από overflows (debug-stripe μόνο)
+
+**Επαλήθευση:** `analyze` clean · **125/125** · device: open/scroll/select/pop 124 επαφές, 0 ERR/overflows.
+
+**Backups:** `backups/fix_contact_unscrollable/`, `backups/fix_contact_expanded/`
