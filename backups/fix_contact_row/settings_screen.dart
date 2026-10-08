@@ -1314,9 +1314,7 @@ Future<List<Contact>?> _showContactSelectionDialog(
                   ),
                 ),
                 const SizedBox(height: Spacing.sm),
-                Wrap(
-                  spacing: Spacing.xs,
-                  runSpacing: Spacing.xs,
+                Row(
                   children: [
                     TextButton.icon(
                       icon: const Icon(Icons.select_all_rounded, size: 18),
@@ -1325,6 +1323,7 @@ Future<List<Contact>?> _showContactSelectionDialog(
                         () => selected.addAll(allContacts),
                       ),
                     ),
+                    const SizedBox(width: Spacing.xs),
                     TextButton.icon(
                       icon: const Icon(Icons.deselect_rounded, size: 18),
                       label: const Text('Αποεπιλογή'),
