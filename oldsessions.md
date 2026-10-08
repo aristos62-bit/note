@@ -1251,6 +1251,20 @@
 
 **DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs).
 
+## Session 125 — 08/10/2026 (Search suggestions landscape overflow)
+
+**Εύρημα (device):** `_SearchSuggestions` bespoke overflow 13px (tablet-landscape, budget 155). Η εκτίμηση "χωράει" διαψεύστηκε.
+
+**Απόφαση (user):** Β minimal scroll-wrap (όψη 100% ίδια) αντί `EmptyState`-reuse (θα άλλαζε icon/title/animation).
+
+**Υλοποίηση:** `SingleChildScrollView` Padding→Column (2 γραμμές, S104/S108 pattern).
+
+**Επαλήθευση:** `analyze` clean · **131/131** · device retest ΟΚ (user verdict: όλα ΟΚ ως τώρα).
+
+**Backups:** `backups/fix_search_suggestions/` (1 αρχείο)
+
+**DESIGN.md:** καμία αλλαγή.
+
 ## Session 123 — 08/10/2026 (Known edge: contact-dialog chrome, debug-only)
 
 **Εύρημα:** contact-selection `Column:1295` overflow 7.3px, budget h≤97.7, tablet-landscape 384dp, ΧΩΡΙΣ πληκτρολόγιο. Σταθερό chrome ~105 (search 48 + sm 8 + Wrap 48 + Divider 1) > budget. Προϋπάρχον (αρχικό layout ίδιο chrome)· ενίοτε δεν αναπαράγεται (γεωμετρία-εξαρτώμενο).
