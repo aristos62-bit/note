@@ -1446,7 +1446,7 @@ class _HabitSettings extends ConsumerWidget {
       builder: (sheetCtx) {
         final selected = List<int>.from(savedDays);
         return StatefulBuilder(
-          builder: (_, setModal) {
+          builder: (innerCtx, setModal) {
             const allDays = AppDateUtils.weekdayNames;
             return SafeSheet(
               child: Padding(
@@ -1454,7 +1454,7 @@ class _HabitSettings extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Επιλογή ημερών εβδομάδας', style: context.titleSm),
+                    Text('Επιλογή ημερών εβδομάδας', style: innerCtx.titleSm),
                     const SizedBox(height: Spacing.md),
                     Wrap(
                       spacing: Spacing.xs,
@@ -1473,8 +1473,8 @@ class _HabitSettings extends ConsumerWidget {
                             }
                           }),
                           selectedColor:
-                              context.cPrimary.withValues(alpha: 0.2),
-                          checkmarkColor: context.cPrimary,
+                              innerCtx.cPrimary.withValues(alpha: 0.2),
+                          checkmarkColor: innerCtx.cPrimary,
                         );
                       }),
                     ),
