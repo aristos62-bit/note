@@ -1315,3 +1315,15 @@
 **Backups:** `backups/showsheet_ctx/` (7 αρχεία)
 
 **DESIGN.md:** καμία αλλαγή (0 νέα widgets — `typedef`+params σε υπάρχον helper, όχι αρχιτεκτονική).
+
+## Session 129 — 08/10/2026 (Fix: weekday sheet deactivated-ancestor crash)
+
+**Σύμπτωμα (device debug):** άνοιγμα «Ημέρες εβδομάδας» (habit) → `Looking up a deactivated widget's ancestor is unsafe` στο `StatefulBuilder` (`habit_detail:1448`), via `context.titleSm` (`:1457`).
+
+**Αιτία (προϋπάρχουσα, όχι regression S128):** το sheet-περιεχόμενο διάβαζε Theme μέσα από το context της detail-οθόνης (`context.titleSm` ×1, `context.cPrimary` ×2) αντί για δικό του — με sheet ανοιχτό + reassemble/route-deactivation το outer element είναι νεκρό. Οι 3 γραμμές byte-identical πριν/μετά την 128· το wrapper-closure δεν προσθέτει element. Debug-only assertion (σε release δεν υπάρχει).
+
+**Fix (1 μέθοδος, 3 γραμμές, pixel-identical — ίδιο Theme):** inner `builder: (_, setModal)` → `(innerCtx, setModal)` + 3 lookups → `innerCtx.*` (sheet-subtree, πάντα ενεργό όσο χτίζεται το sheet). Pops ήδη `sheetCtx`. Επανέλεγχος: 1 caller (`:1352` weekly)· 0 outer-lookups στο block· αδέρφια (recurrence/task static) σκόπιμα εκτός — λανθάνον ίδιο pattern, α παρατήρητο.
+
+**Επαλήθευση:** `flutter test` → **134/134** · `analyze` clean · device retest (weekday open/select/save + reassemble με ανοιχτό sheet) εκκρεμεί.
+
+**Backups:** `backups/fix_weekday_ctx/` (habit + oldsessions)
