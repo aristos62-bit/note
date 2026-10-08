@@ -460,7 +460,7 @@ class _ResultsGrid extends StatelessWidget {
         crossAxisCount:   cols,
         mainAxisSpacing:  Spacing.sm,
         crossAxisSpacing: Spacing.sm,
-        mainAxisExtent:   140,
+        mainAxisExtent:   110,
       ),
       itemCount: results.length,
       itemBuilder: (_, i) => _SearchResultCard(
@@ -602,21 +602,49 @@ class _HighlightedText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spans = AppStringUtils.highlight(
-      text,
-      query,
-      normalStyle: style,
-      highlightStyle: style.copyWith(
-        fontWeight: FontWeight.w700,
-        color: context.cPrimary,
-        backgroundColor: context.cPrimary.withValues(alpha: 0.12),
-      ),
-    );
+    if (query.isEmpty) {
+      return Text(text, style: style,
+          maxLines: maxLines, overflow: TextOverflow.ellipsis);
+    }
+
+    final spans = _buildSpans(context);
 
     return Text.rich(
       TextSpan(children: spans),
-      maxLines: maxLines,
-      overflow: TextOverflow.ellipsis,
+      maxLines:  maxLines,
+      overflow:  TextOverflow.ellipsis,
     );
+  }
+
+  List<TextSpan> _buildSpans(BuildContext context) {
+    final lowerText  = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+    final spans      = <TextSpan>[];
+    int   start      = 0;
+
+    while (true) {
+      final idx = lowerText.indexOf(lowerQuery, start);
+      if (idx == -1) {
+        spans.add(TextSpan(text: text.substring(start), style: style));
+        break;
+      }
+      // Text before match
+      if (idx > start) {
+        spans.add(TextSpan(
+            text: text.substring(start, idx), style: style));
+      }
+      // Highlighted match
+      spans.add(TextSpan(
+        text:  text.substring(idx, idx + query.length),
+        style: style.copyWith(
+          fontWeight:      FontWeight.w700,
+          color:           context.cPrimary,
+          backgroundColor: context.cPrimary.withValues(alpha: 0.12),
+        ),
+      ));
+      start = idx + query.length;
+    }
+
+    return spans;
   }
 }

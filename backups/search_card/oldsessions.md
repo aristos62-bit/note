@@ -1235,22 +1235,6 @@
 
 **Backups:** `backups/fix_contact_unscrollable/`, `backups/fix_contact_expanded/`
 
-## Session 124 — 08/10/2026 (Search card: grid extent + highlight SPoT adoption)
-
-**Πρόβλημα:** `_SearchResultCard` grid-κελί 110 vs max περιεχόμενο ~116 (snippet) → overflow ~6px (S101-parked, μετρημένο).
-
-**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
-- `_ResultsGrid`: `mainAxisExtent: 110` → `140` (S105 parity, mobile list ανεπηρέαστη)
-- `_HighlightedText`: διαγραφή private `_buildSpans` (~30γρ.) → adoption νεκρού SPoT `AppStringUtils.highlight` (0 callers → 2, ίδια οπτικά, 0 νέα imports)
-- Νέο `test/search_highlight_test.dart` (6 pure)
-- Μαθήματα: v1 πρόταση για ΝΕΟ splitter θα διπλασίαζε το SPoT (πιάστηκε στον επανέλεγχο)· `matchType==title` κρύβει snippet (όχι διπλή προβολή)· fontScale-residual ομολογημένο (Φ4c auto-height)
-
-**Επαλήθευση:** νέο 6/6 · `flutter test` → **131/131** · `flutter analyze --no-pub` → `No issues found!` · device matrix εκκρεμεί (grid snippet-cards portrait/landscape/max-font + list identical + tap-routing).
-
-**Backups:** `backups/search_card/` (2 αρχεία)
-
-**DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs).
-
 ## Session 123 — 08/10/2026 (Known edge: contact-dialog chrome, debug-only)
 
 **Εύρημα:** contact-selection `Column:1295` overflow 7.3px, budget h≤97.7, tablet-landscape 384dp, ΧΩΡΙΣ πληκτρολόγιο. Σταθερό chrome ~105 (search 48 + sm 8 + Wrap 48 + Divider 1) > budget. Προϋπάρχον (αρχικό layout ίδιο chrome)· ενίοτε δεν αναπαράγεται (γεωμετρία-εξαρτώμενο).
