@@ -1379,3 +1379,15 @@
 **Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest (recurrence open/select + reassemble με ανοιχτό sheet) εκκρεμεί.
 
 **Backups:** `backups/fix_rec_ctx/` (habit + oldsessions)
+
+## Session 134 — 08/10/2026 (Fix: tag-picker landscape+keyboard overflow 18px)
+
+**Σύμπτωμα (device):** TagPicker sheet → `RenderFlex overflowed by 18px` (`tag_picker_sheet:51` Column, budget h≤135.8, landscape + autofocus keyboard).
+
+**Αιτία (προϋπάρχουσα):** γυμνό `Column(min)` χωρίς scroll — `isScrollControlled` + `viewInsets` υπήρχαν ήδη. Ίδια κλάση με S108. Το S132 το είχε βελτιώσει οριακά (−4px τίτλου· πριν ~22px).
+
+**Fix (2 γραμμές, S108-pattern):** `Column` → `SingleChildScrollView > Column` (εσωτερικό byte-identical, indent kept όπως S108).
+
+**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest (tag-picker landscape + keyboard + πολλά tags, portrait identical) εκκρεμεί.
+
+**Backups:** `backups/fix_tag_scroll/` (tag_picker + oldsessions)
