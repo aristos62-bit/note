@@ -1367,3 +1367,15 @@
 **Backups:** `backups/title_unify/` (6 αρχεία)
 
 **DESIGN.md:** καμία αλλαγή (styling only).
+
+## Session 133 — 08/10/2026 (Fix: recurrence-options sheet deactivated-ancestor crash)
+
+**Σύμπτωμα (device debug):** άνοιγμα «Επιλογή επανάληψης» (habit) → `Looking up a deactivated widget's ancestor` στο `BottomSheet`-rebuild, via `context.cPrimary` (`habit_detail:1329`).
+
+**Αιτία (προϋπάρχουσα, όχι regression):** outer-context Theme-lookup μέσα σε sheet-builder — γενίκευση του S129 (εκεί `StatefulBuilder`/weekday, εδώ `BottomSheet`-rebuild/recurrence). Η γραμμή byte-identical πριν/μετά S128· trigger reassemble/router-rebuild με ανοιχτό sheet. Debug-only assertion (release-safe).
+
+**Fix (1 γραμμή, `:1329`):** `context.cPrimary` → `sheetCtx.cPrimary` (modal-route subtree, πάντα ενεργό· τα pops δίπλα ήδη `sheetCtx`). Audit: ίδιο λανθάνον pattern σε habit-editor/task-status+priority/settings-size+folder pickers — parked ξεχωριστό hardening-pass.
+
+**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest (recurrence open/select + reassemble με ανοιχτό sheet) εκκρεμεί.
+
+**Backups:** `backups/fix_rec_ctx/` (habit + oldsessions)

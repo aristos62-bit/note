@@ -1326,7 +1326,7 @@ class _HabitSettings extends ConsumerWidget {
             ...options.map((o) => ListTile(
                   title: Text(o),
                   trailing: _recurrenceMatchesOption(currentRecurrence, o)
-                      ? Icon(Icons.check_rounded, color: context.cPrimary)
+                      ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary)
                       : null,
                   onTap: () => Navigator.pop(sheetCtx, o),
                 )),
