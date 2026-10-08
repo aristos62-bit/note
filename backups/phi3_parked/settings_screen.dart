@@ -945,7 +945,6 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
 
   List<Item> mutableItems = List.from(items);
   final selectedIds = <int>{};
-  DebugConfig.nav('Settings: open archived');
 
   await showDialog(
     context: context,
@@ -1059,8 +1058,7 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
                 ),
                 const Divider(height: 1),
                 // ── Λίστα αρχειοθετημένων ──────────────────────
-                Flexible(
-                  child: ConstrainedBox(
+                ConstrainedBox(
                   constraints: BoxConstraints(
                     maxHeight: MediaQuery.of(ctx).size.height * 0.5,
                   ),
@@ -1146,7 +1144,6 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
                       );
                     },
                   ),
-                ),
                 ),
               ],
             ),
@@ -1271,9 +1268,7 @@ Future<List<Contact>?> _showContactSelectionDialog(
   List<Contact> allContacts,
 ) async {
   final selected = <Contact>{...allContacts};
-  final searchCtrl = TextEditingController();
   String query = '';
-  DebugConfig.nav('Settings: open contact selection');
 
   return showDialog<List<Contact>?>(
     context: context,
@@ -1289,7 +1284,6 @@ Future<List<Contact>?> _showContactSelectionDialog(
                 .toList();
 
         return AlertDialog(
-          scrollable: true,
           title: const Text('Επιλογή επαφών'),
           content: SizedBox(
             width: double.maxFinite,
@@ -1297,16 +1291,10 @@ Future<List<Contact>?> _showContactSelectionDialog(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
-                  controller: searchCtrl,
                   onChanged: (v) => setModal(() => query = v),
                   decoration: InputDecoration(
                     hintText: 'Αναζήτηση...',
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    suffixIcon: SearchClearButton(
-                      controller: searchCtrl,
-                      iconSize: 20,
-                      onCleared: () => setModal(() => query = ''),
-                    ),
                     isDense: true,
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.inputBR,
@@ -1339,10 +1327,7 @@ Future<List<Contact>?> _showContactSelectionDialog(
                   ],
                 ),
                 const Divider(height: 1),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(ctx).size.height * 0.5,
-                  ),
+                Expanded(
                   child: ListView.builder(
                     shrinkWrap: true,
                     itemCount: filtered.length,
@@ -1485,8 +1470,7 @@ void _showImportSummary(BuildContext context, ImportResult result) {
     useRootNavigator: true,
     builder: (ctx) => AlertDialog(
       title: const Text('Αποτέλεσμα εισαγωγής'),
-      content: SafeDialogBody(
-        child: Column(
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1532,7 +1516,6 @@ void _showImportSummary(BuildContext context, ImportResult result) {
               ),
           ],
         ],
-        ),
       ),
       actions: [
         FilledButton(

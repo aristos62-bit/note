@@ -1202,19 +1202,3 @@
 **Επαλήθευση:** `analyze` clean · **125/125** · device matrix ΟΚ (portrait/landscape/keyboard/rotation/cancel, 0 ERR/overflows).
 
 **Backups:** `backups/fix_imported_flexible/`, `backups/fix_contact_row/`, `backups/fix_dialog_scrollable/`, `backups/revert_dialog_dispose/`
-
-## Session 121 — 08/10/2026 (Φ3.7 parked settings-dialogs)
-
-**Scope (πρόταση v1→v3):** Α archived + Β contact-selection + Γ import-summary. Εκτός: folder/color (ήδη ασφαλή με μηχανισμό) · export/loading/success (tiny ~100px) · G-track (tokens/copy/limits, ξεχωριστά).
-
-**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
-- Α archived: `ConstrainedBox` → `Flexible(child: ConstrainedBox` (S107-mirror 3η φορά) + `nav`
-- Β contact: hoist `searchCtrl` (function-scope, χωρίς dispose — revert-δόγμα) + `SearchClearButton(iconSize:20, onCleared→setModal)` + `AlertDialog(scrollable:true)` + `Expanded` → `ConstrainedBox(50%)` (υποχρεωτικό υπό scroll· τίμημα ~50px portrait) + `nav`
-- Γ summary: content → `SafeDialogBody` (στατικό, όρια)
-- Μαθήματα: `onCleared` χωρίς setModal = μπαγιάτικο φίλτρο· suffix-IconButton σε dense-field → device watch-item· OverflowBar καλύπτει actions-rows (όχι Wrap)
-
-**Επαλήθευση:** `flutter test` → **125/125** (0 νέα — privates/Isar) · `flutter analyze --no-pub` → `No issues found!` · device matrix ×3 εκκρεμεί.
-
-**Backups:** `backups/phi3_parked/` (2 αρχεία)
-
-**DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs).
