@@ -1408,7 +1408,7 @@
 
 **Υλοποίηση:** νέο `shared/widgets/attachments_strip.dart` (~200γρ., επιστρέφει sliver) + export · note `:131` + event `:716` (1 γραμμή έκαστο). Reuse: `attachmentsProvider`, `AttachmentService.delete` (ΟΧΙ notifier — orphans), `isX`-getters, `fileThumb`, entries-dialog/OpenFilex/errors, `redact`, tokens. Εκτός: blocks, add-button (follow-up), card-badge (parked).
 
-**Επαλήθευση:** `flutter test` → **135/135** (0 νέα — Isar, S77) · `analyze` clean · device (share φωτογραφία/PDF/βίντεο → note+event, thumbs/open/delete/missing/rotation/keyboard/dark, 0 ERR) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest ✅ (user verdict 08/10/2026 + `run_log.txt` 66k lines: 0 ERR/FATAL/overflow/ANR, kill→reopen με attachments άθικτα).
 
 **Backups:** `backups/attach_strip/` (4 αρχεία + νέο widget)
 
