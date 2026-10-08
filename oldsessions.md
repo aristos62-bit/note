@@ -1339,3 +1339,19 @@
 **Επαλήθευση:** `flutter test` → **134/134** · `analyze` clean · device retest ✅ (user verdict 08/10/2026): set→section/chip άμεσα, clear→«Χωρίς ημερομηνία» χωρίς refresh, 0 ERR.
 
 **Backups:** `backups/fix_duedate_list/` (task_detail + oldsessions)
+
+## Session 131 — 08/10/2026 (PIN SPoT: controller-docs + pinWrong)
+
+**Scope (β3 FINAL, κανόνες 2+4 ανεστάλησαν):** 4 controller-docs (τεκμηριωμένη αποδοχή — `.then` απορρίφθηκε, ίδιο race με S120-`finally`) + 1 const.
+
+**Υλοποίηση:**
+- settings (`:799,:1274,:1919,:2001`): +σχόλιο no-dispose/GC/S120 (0 λογική)
+- `app_errors.dart`: +`pinWrong` («Το PIN δεν είναι σωστό»)
+- settings `:2039` + lock `:92` («Λάθος PIN» → const — σκόπιμη micro-ενοποίηση, slot wrap-safe)
+- test: +exact-value (settings + lock share it)
+
+**Επαλήθευση:** νέο 1/1 · `flutter test` → **135/135** · `analyze` clean · device (λάθος PIN lock+settings, 4 dialogs, 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/pin_spot/` (5 αρχεία)
+
+**DESIGN.md:** καμία αλλαγή (σχόλια + const, όχι αρχιτεκτονική).

@@ -796,6 +796,9 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
   if (!confirm || !context.mounted) return;
 
   // Δεύτερο βήμα: εισαγωγή επιβεβαιωτικής φράσης
+  // Σκόπιμα χωρίς dispose: ο controller πεθαίνει μαζί με το subtree (GC).
+  // Πρόωρο dispose (finally/.then) έσκασε σε S120 — use-after-dispose
+  // στο pop-animation + keyboard rebuilds.
   final controller = TextEditingController();
   DebugConfig.nav('Settings: open wipe confirm');
   final confirmationText = await showDialog<String>(
@@ -1271,6 +1274,9 @@ Future<List<Contact>?> _showContactSelectionDialog(
   List<Contact> allContacts,
 ) async {
   final selected = <Contact>{...allContacts};
+  // Σκόπιμα χωρίς dispose: ο controller πεθαίνει μαζί με το subtree (GC).
+  // Πρόωρο dispose (finally/.then) έσκασε σε S120 — use-after-dispose
+  // στο pop-animation + keyboard rebuilds.
   final searchCtrl = TextEditingController();
   String query = '';
   DebugConfig.nav('Settings: open contact selection');
@@ -1916,6 +1922,9 @@ String? _validatePinPair(String pin, String confirm) {
 }
 
 Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
+  // Σκόπιμα χωρίς dispose: οι controllers πεθαίνουν μαζί με το subtree (GC).
+  // Πρόωρο dispose (finally/.then) έσκασε σε S120 — use-after-dispose
+  // στο pop-animation + keyboard rebuilds.
   final pinCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
   String? error;
@@ -1998,6 +2007,9 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
 }
 
 Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
+  // Σκόπιμα χωρίς dispose: ο controller πεθαίνει μαζί με το subtree (GC).
+  // Πρόωρο dispose (finally/.then) έσκασε σε S120 — use-after-dispose
+  // στο pop-animation + keyboard rebuilds.
   final ctrl = TextEditingController();
   bool failed = false;
   DebugConfig.nav('Settings: open current-PIN dialog');
@@ -2036,7 +2048,7 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
                 Padding(
                   padding: const EdgeInsets.only(top: Spacing.sm),
                   child: Text(
-                    'Το PIN δεν είναι σωστό',
+                    AppErrors.pinWrong,
                     style: ctx.bodySm.withColor(ctx.cError),
                   ),
                 ),
