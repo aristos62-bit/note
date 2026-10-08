@@ -1767,7 +1767,8 @@ Future<void> _showImportedContactsDialog(BuildContext context, WidgetRef ref) as
                       const EdgeInsets.symmetric(horizontal: Spacing.xs),
                 ),
                 const Divider(height: 1),
-                ConstrainedBox(
+                Flexible(
+                  child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxHeight: MediaQuery.of(ctx).size.height * 0.5,
                   ),
@@ -1808,6 +1809,7 @@ Future<void> _showImportedContactsDialog(BuildContext context, WidgetRef ref) as
                       );
                     },
                   ),
+                ),
                 ),
               ],
             ),
