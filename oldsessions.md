@@ -1094,6 +1094,18 @@
 
 **Backups:** `backups/session_close/`
 
+## Session 118 — 08/10/2026 (share multi-instance: singleTop → singleTask)
+
+**Σύμπτωμα (device):** κάθε share = νέο app instance (3 recents) + πάντα cold-start (`getInitialMedia`), ποτέ warm-stream (sheet).
+
+**Αιτία (README plugin, ρητό):** *"Set activity launchMode to singleTask, if you want to prevent creating new activity instance everytime."* Δικό μας: `singleTop` (επαναχρησιμοποιεί μόνο αν on-top) + άγνωστο κενό `taskAffinity` (από initial commit, ατεκμηρίωτο). Code review: service (cold+reset+stream+dedup) έτοιμο και για τα 2 paths· listener/guards επωφελούνται από 1 instance· notification-taps/icon/back/iOS ανεπηρέαστα· μηδέν code-refs σε launchMode (μόνο manifest+docs).
+
+**Υλοποίηση:** `AndroidManifest.xml:37-38` → `singleTask` + διαγραφή κενού affinity· `DESIGN.md:47` sync. Rollback τετριμμένο.
+
+**Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · **device reinstall + retest ΕΚΚΡΕΜΕΙ (χρήστης):** backup export → kill recents → φρέσκο `flutter run` → share → 1 instance + warm-sheet + notification tap + icon tap.
+
+**Backups:** `backups/fix_singletask/`
+
 ## Session 112 — 07/10/2026 (Φ3.3 habit sheets ×5 → SafeSheet)
 
 **Στόχος Φ3.3:** 5 bare-Column sheets σε 1 αρχείο (MonthDay ~430px · Time 265→500 · Weekday ~280 · Editor+keyboard · RecurrenceOptions ~280).
