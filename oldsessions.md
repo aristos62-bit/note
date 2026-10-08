@@ -1279,6 +1279,16 @@
 
 **DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs).
 
+## Session 127 — 08/10/2026 (Φ3 CLOSED — device-verified)
+
+**User verdict:** όλα δουλεύουν άψογα (bespoke ×4: portrait/landscape/CTA/transitions, 0 ERR).
+
+**Φ3 απολογισμός (S109→S127):** SafeSheet/SafeDialog θεμέλιο + ItemActionsSheet + LockScreen + habit×5 + RecurrencePicker + task rows/panel/sheets + ShareSheet + settings field/size/PIN/wipe (Φ3.6) + archived/imported/contact/summary (Φ3.7) + search card/extent/highlight + search suggestions + bespoke ×4 + 7 device-fixes + 2 known-edges σημειωμένα (contact-chrome, transient 7.3px).
+
+**Τελικά:** suite **131/131** · `analyze` clean · όλα pushed.
+
+**Επόμενο (νέο session):** Φ4b splits. Ανοιχτά αλλού: G-track (tokens/copy/limits), attachments-όρια S117b, Φ4c parked.
+
 ## Session 123 — 08/10/2026 (Known edge: contact-dialog chrome, debug-only)
 
 **Εύρημα:** contact-selection `Column:1295` overflow 7.3px, budget h≤97.7, tablet-landscape 384dp, ΧΩΡΙΣ πληκτρολόγιο. Σταθερό chrome ~105 (search 48 + sm 8 + Wrap 48 + Divider 1) > budget. Προϋπάρχον (αρχικό layout ίδιο chrome)· ενίοτε δεν αναπαράγεται (γεωμετρία-εξαρτώμενο).
