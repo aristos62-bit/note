@@ -1072,6 +1072,18 @@
 
 **Backups:** `backups/phi3_lockscroll/`
 
+## Session 117 — 07-08/10/2026 (Φ3.5 ShareSheet → SafeSheet)
+
+**Στόχος Φ3.5:** share sheet (~310-370px) σε landscape ~230px.
+
+**Υλοποίηση (1 αρχείο):** `shared_intent_sheet.dart` — content → `SafeSheet` (+trailing lg· τίτλος/κουμπιά στο content· show-call με custom barrierColor ΑΘΙΚΤΟ· `sheet_handle` import έξω). Εσωτερικό byte-identical.
+
+**Μάθημα:** το αρχείο ΔΕΝ εισάγει το barrel (μόνο direct imports) — το πρώτο test-run έσπασε (`SafeSheet isn't defined`). Προστέθηκε `import 'safe_sheet.dart'` (direct-file σύμβαση, όπως Φ3.1). Κανόνας: κάθε migration ελέγχει πώς εισάγει το αρχείο πριν βγάλει imports.
+
+**Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest (share text/link/εικόνα/αρχείο → note+event · portrait identical · landscape scroll · Άκυρο/Αποθήκευση · oversize · rotation · date-row) εκκρεμεί.
+
+**Backups:** `backups/phi3_sharesheet/`
+
 ## Session 112 — 07/10/2026 (Φ3.3 habit sheets ×5 → SafeSheet)
 
 **Στόχος Φ3.3:** 5 bare-Column sheets σε 1 αρχείο (MonthDay ~430px · Time 265→500 · Weekday ~280 · Editor+keyboard · RecurrenceOptions ~280).
