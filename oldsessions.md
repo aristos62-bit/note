@@ -1336,6 +1336,6 @@
 
 **Fix (1 γραμμή, `task_detail:124-133`):** `if (mounted) ref.invalidate(tasksWithDetailsProvider)` μετά το `setDate` — καλύπτει set + clear. Απορρίφθηκαν: signal-provider (νέο API), Item-bump (ξυπνά όλες τις λίστες σε κάθε keystroke), per-card watch (N+1).
 
-**Επαλήθευση:** `flutter test` → **134/134** · `analyze` clean · device retest (set→section/chip άμεσα, clear→«Χωρίς ημερομηνία» χωρίς refresh, 0 ERR) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **134/134** · `analyze` clean · device retest ✅ (user verdict 08/10/2026): set→section/chip άμεσα, clear→«Χωρίς ημερομηνία» χωρίς refresh, 0 ERR.
 
 **Backups:** `backups/fix_duedate_list/` (task_detail + oldsessions)
