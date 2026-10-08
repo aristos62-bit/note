@@ -206,24 +206,10 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       FolderViewMode.all       => (Icons.inbox_rounded,        'Ο φάκελος είναι άδειος',              'Πάτα + για να δημιουργήσεις το πρώτο στοιχείο.'),
     };
     // Center αντί SliverToBoxAdapter — συμβατό με Column+Expanded
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            context.responsiveHPadding, Spacing.xl,
-            context.responsiveHPadding, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: context.cDisabled),
-            const SizedBox(height: Spacing.md),
-            Text(title, style: context.titleMd),
-            const SizedBox(height: Spacing.sm),
-            Text(subtitle,
-                style: context.bodyMd.withColor(context.cText2),
-                textAlign: TextAlign.center),
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
     );
   }
 
