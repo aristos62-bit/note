@@ -1327,3 +1327,15 @@
 **Επαλήθευση:** `flutter test` → **134/134** · `analyze` clean · device retest (weekday open/select/save + reassemble με ανοιχτό sheet) εκκρεμεί.
 
 **Backups:** `backups/fix_weekday_ctx/` (habit + oldsessions)
+
+## Session 130 — 08/10/2026 (Fix: task list stale after due-date delete)
+
+**Σύμπτωμα (device):** διαγραφή προθεσμίας σε εργασία → back στη λίστα → η εργασία «χάνεται» (θέλει pull-to-refresh για να εμφανιστεί στο «Χωρίς ημερομηνία»).
+
+**Αιτία:** sections από `td.dueDate` (`task_list:319-337`) via `tasksWithDetailsProvider` (μόνο Item watcher, `task_provider:38-39`)· το property-write αγγίζει μόνο `itemPropertys` (`helper:818-826`, ποτέ το Item) και το `setDate` κάνει invalidate μόνο per-item providers (`property_provider:76-78`) — η λίστα μένει μπαγιάτικη. Το set «δούλευε» από piggyback (priority/status γράφουν Item-row → re-emit + φρέσκο batch). Μοναδικός writer task `due_date` = `_setDueDate` (grep 12 hits, όλοι οι άλλοι readers).
+
+**Fix (1 γραμμή, `task_detail:124-133`):** `if (mounted) ref.invalidate(tasksWithDetailsProvider)` μετά το `setDate` — καλύπτει set + clear. Απορρίφθηκαν: signal-provider (νέο API), Item-bump (ξυπνά όλες τις λίστες σε κάθε keystroke), per-card watch (N+1).
+
+**Επαλήθευση:** `flutter test` → **134/134** · `analyze` clean · device retest (set→section/chip άμεσα, clear→«Χωρίς ημερομηνία» χωρίς refresh, 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_duedate_list/` (task_detail + oldsessions)
