@@ -251,9 +251,15 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                 data: (trashed) {
                   final filtered = _filterItems(trashed);
                   if (filtered.isEmpty) {
-                    return const EmptyState(
-                      icon: Icons.delete_outline,
-                      title: 'Ο κάδος είναι άδειος',
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete_outline, size: 64, color: context.cDisabled),
+                          const SizedBox(height: Spacing.md),
+                          Text('Ο κάδος είναι άδειος', style: context.titleMd),
+                        ],
+                      ),
                     );
                   }
 

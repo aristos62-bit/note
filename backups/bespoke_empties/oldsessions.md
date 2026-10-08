@@ -1265,20 +1265,6 @@
 
 **DESIGN.md:** καμία αλλαγή.
 
-## Session 126 — 08/10/2026 (Bespoke empties → EmptyState ×4)
-
-**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
-- Trash: bespoke → `const EmptyState(delete_outline, 'Ο κάδος είναι άδειος')` (+pull-to-refresh δώρο, +const fix από analyze)
-- Collections: `_EmptyCollections` (−35γρ. κλάση) → `EmptyState(inventory_2, κείμενα αυτούσια, CTA)` 
-- Home + folder_view: switches μένουν → return `EmptyState(icon/title/subtitle)`
-- Γονείς επαληθευμένοι box-contexts (όχι sliver)· 0 νέα imports· κείμενα byte-identical
-
-**Επαλήθευση:** `flutter test` → **131/131** (0 νέα) · `flutter analyze --no-pub` → `No issues found!` · device matrix ×4 εκκρεμεί.
-
-**Backups:** `backups/bespoke_empties/` (5 αρχεία)
-
-**DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs).
-
 ## Session 123 — 08/10/2026 (Known edge: contact-dialog chrome, debug-only)
 
 **Εύρημα:** contact-selection `Column:1295` overflow 7.3px, budget h≤97.7, tablet-landscape 384dp, ΧΩΡΙΣ πληκτρολόγιο. Σταθερό chrome ~105 (search 48 + sm 8 + Wrap 48 + Divider 1) > budget. Προϋπάρχον (αρχικό layout ίδιο chrome)· ενίοτε δεν αναπαράγεται (γεωμετρία-εξαρτώμενο).

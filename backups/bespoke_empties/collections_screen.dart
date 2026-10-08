@@ -174,14 +174,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
                 }
 
                 if (collections.isEmpty) {
-                  return EmptyState(
-                    icon: Icons.inventory_2_rounded,
-                    title: 'Δεν έχεις συλλογές',
-                    subtitle:
-                        'Δημιούργησε τη δική σου βάση δεδομένων.\nΔίσκοι, βιβλία, ταινίες — ό,τι θέλεις!',
-                    actionLabel: 'Νέα Συλλογή',
-                    onAction: _createCollection,
-                  );
+                  return _EmptyCollections(onCreate: _createCollection);
                 }
 
                 return _CollectionsReorderableGrid(
@@ -408,6 +401,46 @@ class _DraggableCollectionCard extends ConsumerWidget {
       onOpen: () => onTap(),
       onShare: onShare == null ? null : () => onShare!(),
       onDelete: () => onDelete(),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// EMPTY STATE
+// ════════════════════════════════════════════════════════════════
+
+class _EmptyCollections extends StatelessWidget {
+  final VoidCallback? onCreate;
+  const _EmptyCollections({required this.onCreate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: context.responsivePadding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('📦', style: TextStyle(fontSize: context.responsive(mobile: 72.0, tablet: 96.0))),
+            const SizedBox(height: Spacing.md),
+            Text('Δεν έχεις συλλογές', style: context.titleMd),
+            const SizedBox(height: Spacing.sm),
+            Text(
+              'Δημιούργησε τη δική σου βάση δεδομένων.\nΔίσκοι, βιβλία, ταινίες — ό,τι θέλεις!',
+              style: context.bodyMd.withColor(context.cText2),
+              textAlign: TextAlign.center,
+            ),
+            if (onCreate != null) ...[
+              const SizedBox(height: Spacing.xl),
+              FilledButton.icon(
+                onPressed: onCreate,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Νέα Συλλογή'),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
