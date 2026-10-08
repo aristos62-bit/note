@@ -1391,3 +1391,13 @@
 **Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest ✅ (user verdict 08/10/2026): tag-picker landscape + keyboard + πολλά tags, portrait identical, 0 ERR.
 
 **Backups:** `backups/fix_tag_scroll/` (tag_picker + oldsessions)
+
+## Session 135 — 08/10/2026 (Test: recurrence landscape με physicalSize)
+
+**Πρόβλημα:** το landscape-test (`recurrence_picker_test:57`) τύλιγε το κουμπί σε `SizedBox(height:200)` — το modal ανοίγει σε overlay (800×600), οπότε δεν περιόριζε τίποτα (ψευδές κοντό).
+
+**Fix (test-only):** `tester.view.physicalSize = 800×200 + devicePixelRatio + resetPhysicalSize` (πραγματικό κοντό viewport). Lock-landscape test σκόπιμα εκτός (θέλει provider-harness — device-matrix το καλύπτει).
+
+**Επαλήθευση:** `recurrence_picker_test` 3/3 · `analyze` clean · full suite αμετάβλητο (**135/135**).
+
+**Backups:** `backups/fix_rec_test/` (test + oldsessions)
