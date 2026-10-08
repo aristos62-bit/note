@@ -804,9 +804,9 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
-      scrollable: true,
       title: const Text('ΤΕΛΙΚΗ ΕΠΙΒΕΒΑΙΩΣΗ'),
-      content: Column(
+      content: SafeDialogBody(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -846,6 +846,7 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
           ),
         ],
         ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, null),
@@ -1924,7 +1925,6 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
         final confirm = confirmCtrl.text;
 
         return AlertDialog(
-          scrollable: true,
           title: const Row(
             children: [
               Icon(Icons.lock_outline_rounded),
@@ -1932,7 +1932,8 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
               Expanded(child: Text('Ορισμός PIN')),
             ],
           ),
-          content: Column(
+          content: SafeDialogBody(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
@@ -1967,6 +1968,7 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
                 ),
             ],
             ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, null),
@@ -2008,7 +2010,6 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModal) {
         return AlertDialog(
-          scrollable: true,
           title: const Row(
             children: [
               Icon(Icons.lock_outline_rounded),
@@ -2016,7 +2017,8 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
               Expanded(child: Text('Τρέχον PIN')),
             ],
           ),
-          content: Column(
+          content: SafeDialogBody(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
@@ -2041,6 +2043,7 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
                 ),
             ],
             ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
