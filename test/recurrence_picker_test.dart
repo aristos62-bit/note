@@ -55,17 +55,17 @@ void main() {
   });
 
   testWidgets('κοντό landscape: κυλάει χωρίς overflow', (tester) async {
+    // Πραγματικό κοντό viewport (το modal ανοίγει σε overlay — wrapper
+    // SizedBox δεν θα περιόριζε τίποτα).
+    tester.view.physicalSize = const Size(800, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        body: SizedBox(
-          height: 200,
-          child: Builder(
-            builder: (ctx) => Scaffold(
-              body: TextButton(
-                onPressed: () => showRecurrencePicker(context: ctx),
-                child: const Text('Άνοιγμα'),
-              ),
-            ),
+        body: Builder(
+          builder: (ctx) => TextButton(
+            onPressed: () => showRecurrencePicker(context: ctx),
+            child: const Text('Άνοιγμα'),
           ),
         ),
       ),
