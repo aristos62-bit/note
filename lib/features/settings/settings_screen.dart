@@ -782,6 +782,9 @@ Future<void> _importBackup(BuildContext context, WidgetRef ref,
   }
 }
 
+/// Φράση επιβεβαίωσης wipe (display + έλεγχος — μία πηγή).
+const _kWipePhrase = 'ΔΙΑΓΡΑΦΗ ΟΛΩΝ';
+
 Future<void> _clearData(BuildContext context, WidgetRef ref) async {
   // Πρώτο βήμα: επιβεβαίωση διαγραφής
   final confirm = await ConfirmDialog.delete(
@@ -794,12 +797,16 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
 
   // Δεύτερο βήμα: εισαγωγή επιβεβαιωτικής φράσης
   final controller = TextEditingController();
-  final confirmationText = await showDialog<String>(
+  DebugConfig.nav('Settings: open wipe confirm');
+  String? confirmationText;
+  try {
+    confirmationText = await showDialog<String>(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
       title: const Text('ΤΕΛΙΚΗ ΕΠΙΒΕΒΑΙΩΣΗ'),
-      content: Column(
+      content: SafeDialogBody(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -816,7 +823,7 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
               border: Border.all(color: ctx.cError),
             ),
             child: Text(
-              'ΔΙΑΓΡΑΦΗ ΟΛΩΝ',
+              _kWipePhrase,
               style: ctx.titleSm.copyWith(
                 color: ctx.cError,
                 fontWeight: FontWeight.bold,
@@ -838,6 +845,7 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
             onSubmitted: (_) => Navigator.pop(ctx, controller.text),
           ),
         ],
+        ),
       ),
       actions: [
         TextButton(
@@ -850,9 +858,12 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
         ),
       ],
     ),
-  );
+    );
+  } finally {
+    controller.dispose();
+  }
 
-  if (confirmationText == null || confirmationText.trim().toUpperCase() != 'ΔΙΑΓΡΑΦΗ ΟΛΩΝ') {
+  if (confirmationText == null || confirmationText.trim().toUpperCase() != _kWipePhrase) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppErrors.wipeConfirmMismatch)),
@@ -1200,6 +1211,7 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
 Future<List<ContactField>?> _showFieldSelectionDialog(BuildContext context) async {
   const allFields = ContactField.values;
   final selected = <ContactField>{...allFields};
+  DebugConfig.nav('Settings: open field selection');
 
   return showDialog<List<ContactField>>(
     context: context,
@@ -1207,9 +1219,10 @@ Future<List<ContactField>?> _showFieldSelectionDialog(BuildContext context) asyn
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModal) => AlertDialog(
         title: const Text('Επιλογή πεδίων'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
+        content: SafeDialogBody(
+          child: SizedBox(
+            width: double.maxFinite,
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1236,6 +1249,7 @@ Future<List<ContactField>?> _showFieldSelectionDialog(BuildContext context) asyn
               )),
             ],
           ),
+        ),
         ),
         actions: [
           TextButton(
@@ -1884,12 +1898,21 @@ void _navigateToReminderDiagnostics(BuildContext context) {
 // APP LOCK HELPERS
 // ════════════════════════════════════════════════════════════════
 
+/// Pure PIN validation (testable): null = έγκυρο ζεύγος.
+String? _validatePinPair(String pin, String confirm) {
+  if (pin.length < 4) return AppErrors.pinTooShort;
+  if (pin != confirm) return AppErrors.pinMismatch;
+  return null;
+}
+
 Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
   final pinCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
   String? error;
+  DebugConfig.nav('Settings: open set-PIN dialog');
 
-  return showDialog<String>(
+  try {
+    return await showDialog<String>(
     context: context,
     useRootNavigator: true,
     barrierDismissible: false,
@@ -1906,7 +1929,8 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
               Expanded(child: Text('Ορισμός PIN')),
             ],
           ),
-          content: Column(
+          content: SafeDialogBody(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
@@ -1940,6 +1964,7 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
                   child: Text(error!, style: ctx.bodySm.withColor(ctx.cError)),
                 ),
             ],
+            ),
           ),
           actions: [
             TextButton(
@@ -1948,12 +1973,9 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
             ),
             FilledButton(
               onPressed: () {
-                if (pin.length < 4) {
-                  setModal(() => error = 'Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία');
-                  return;
-                }
-                if (pin != confirm) {
-                  setModal(() => error = 'Τα PIN δεν ταιριάζουν');
+                final validationError = _validatePinPair(pin, confirm);
+                if (validationError != null) {
+                  setModal(() => error = validationError);
                   return;
                 }
                 Navigator.pop(ctx, pin);
@@ -1964,13 +1986,21 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
         );
       },
     ),
-  );
+    );
+  } finally {
+    pinCtrl.dispose();
+    confirmCtrl.dispose();
+  }
 }
 
 Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
   final ctrl = TextEditingController();
+  bool failed = false;
+  DebugConfig.nav('Settings: open current-PIN dialog');
 
-  final result = await showDialog<bool?>(
+  bool? result;
+  try {
+    result = await showDialog<bool?>(
     context: context,
     useRootNavigator: true,
     barrierDismissible: false,
@@ -1984,7 +2014,8 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
               Expanded(child: Text('Τρέχον PIN')),
             ],
           ),
-          content: Column(
+          content: SafeDialogBody(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
@@ -1997,8 +2028,9 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
                   labelText: 'Εισάγετε το τρέχον PIN',
                   border: OutlineInputBorder(borderRadius: AppRadius.inputBR),
                 ),
+                onChanged: (_) => setModal(() => failed = false),
               ),
-              if (ctrl.text.isNotEmpty)
+              if (failed)
                 Padding(
                   padding: const EdgeInsets.only(top: Spacing.sm),
                   child: Text(
@@ -2007,6 +2039,7 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
                   ),
                 ),
             ],
+            ),
           ),
           actions: [
             TextButton(
@@ -2021,7 +2054,7 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
                   if (!ctx.mounted) return;
                   Navigator.pop(ctx, true);
                 } else {
-                  setModal(() {});
+                  setModal(() => failed = true);
                 }
               },
               child: const Text('Επαλήθευση'),
@@ -2030,7 +2063,10 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
         );
       },
     ),
-  );
+    );
+  } finally {
+    ctrl.dispose();
+  }
   return result ?? false;
 }
 
@@ -2170,6 +2206,7 @@ class _MaxAttachmentSizeTile extends StatelessWidget {
   void _showSizePicker(BuildContext context, WidgetRef ref) {
     final current = settings.maxAttachmentSizeMB;
     final options = [1, 5, 10, 20, 50, 100, 0];
+    DebugConfig.nav('Settings: open size picker');
     showModalBottomSheet(
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
@@ -2179,14 +2216,12 @@ class _MaxAttachmentSizeTile extends StatelessWidget {
           topRight: Radius.circular(AppRadius.bottomSheet),
         ),
       ),
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: Spacing.md),
-          Text('Ορισμός μέγιστου μεγέθους συνημμένου',
-              style: context.titleMd),
-          const SizedBox(height: Spacing.sm),
-          ...options.map((mb) {
+      builder: (ctx) => SafeSheet(
+        title: 'Ορισμός μέγιστου μεγέθους συνημμένου',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...options.map((mb) {
             final isActive = current == mb;
             return ListTile(
               leading: Icon(
@@ -2206,7 +2241,8 @@ class _MaxAttachmentSizeTile extends StatelessWidget {
           }),
           const SizedBox(height: Spacing.md),
         ],
-      ),
+        ),
+        ),
     );
   }
 }
