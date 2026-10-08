@@ -14,7 +14,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/shared_intent_service.dart';
 import 'item_type_icon.dart';
-import 'sheet_handle.dart';
+import 'safe_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────
 // LISTENER — mount στο SuperNoteApp Stack (χωρίς UI)
@@ -200,23 +200,13 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return SafeSheet(
       child: Padding(
-        padding: EdgeInsets.only(
-          left: Spacing.lg,
-          right: Spacing.lg,
-          top: Spacing.md,
-          bottom:
-              MediaQuery.of(context).viewInsets.bottom + Spacing.lg,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: SheetHandle(),
-            ),
-            const SizedBox(height: Spacing.md),
             Text('Κοινοποίηση από άλλη εφαρμογή',
                 style: context.titleMd),
             if (_excerpt.isNotEmpty) ...[
@@ -275,9 +265,10 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: Spacing.lg),
           ],
         ),
-      ),
-    );
+        ),
+      );
   }
 }
