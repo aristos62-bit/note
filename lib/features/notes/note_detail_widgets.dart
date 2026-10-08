@@ -131,6 +131,9 @@ class NoteDetailBody extends ConsumerWidget {
           data: (blocks) => BlockEditorWidget(itemId: item.id, blocks: blocks),
         ),
 
+        // Συνημμένα (share intent + entries — SPoT AttachmentsStrip)
+        AttachmentsStrip(itemId: item.id),
+
         const SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );

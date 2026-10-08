@@ -714,6 +714,8 @@ class _EventBody extends ConsumerWidget {
             ),
           ),
         ),
+        // Συνημμένα (share intent — SPoT AttachmentsStrip)
+        AttachmentsStrip(itemId: item.id),
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
