@@ -1190,3 +1190,15 @@
 **Backups:** `backups/phi3_settings/` (4 αρχεία)
 
 **DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs — private helpers + consts, όχι αρχιτεκτονική).
+
+## Session 120 — 08/10/2026 (Device-verified fixes Φ3.6 — 4 commits)
+
+**Batch διορθώσεων από device testing (όλα user-verified ✅):**
+1. `8bb5ebf` — imported-contacts dialog landscape overflow 112px → `Flexible` (S107 mirror).
+2. `134630d` — contact-selection buttons Row overflow 34px (mobile 384px) → `Wrap`.
+3. `87b986b` — keyboard-dialog chrome overflow 1.2px (wipe+PIN, landscape+keyboard): `SafeDialogBody` ανεπαρκές by-design (σταθερό chrome) → `AlertDialog(scrollable: true)` + αφαίρεση wrapper. Δίδαγμα + SDK-απόδειξη (`dialog.dart:902-920`).
+4. `8c22286` — REGRESSION δική μου: dispose-in-`finally` → use-after-dispose crash στο ΑΚΥΡΟ (subtree ζωντανό στο pop-animation + keyboard rebuilds). Αναίρεση και στα 3 dialogs → προ-Φ3.6 κατάσταση. Δίδαγμα: controller ανήκει στο δέντρο μέχρι unmount.
+
+**Επαλήθευση:** `analyze` clean · **125/125** · device matrix ΟΚ (portrait/landscape/keyboard/rotation/cancel, 0 ERR/overflows).
+
+**Backups:** `backups/fix_imported_flexible/`, `backups/fix_contact_row/`, `backups/fix_dialog_scrollable/`, `backups/revert_dialog_dispose/`
