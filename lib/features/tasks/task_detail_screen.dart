@@ -125,6 +125,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     DebugConfig.db('TaskDetail setDueDate id=${widget.itemId} $date');
     await ref.read(propertyNotifierProvider(widget.itemId).notifier)
         .setDate('due_date', date);
+    // Η λίστα χτίζεται από tasksWithDetailsProvider (Item watcher) —
+    // το property-write δεν το ξυπνά, οπότε το ξυπνάμε ρητά.
+    // Μοναδικός writer του task due_date (grep) → καλύπτει set + clear.
+    if (mounted) ref.invalidate(tasksWithDetailsProvider);
   }
 
   Future<void> _pickDueDate(BuildContext context, DateTime? current) async {
