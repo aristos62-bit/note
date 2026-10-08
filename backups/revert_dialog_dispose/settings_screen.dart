@@ -798,7 +798,9 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
   // Δεύτερο βήμα: εισαγωγή επιβεβαιωτικής φράσης
   final controller = TextEditingController();
   DebugConfig.nav('Settings: open wipe confirm');
-  final confirmationText = await showDialog<String>(
+  String? confirmationText;
+  try {
+    confirmationText = await showDialog<String>(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
@@ -855,7 +857,10 @@ Future<void> _clearData(BuildContext context, WidgetRef ref) async {
         ),
       ],
     ),
-  );
+    );
+  } finally {
+    controller.dispose();
+  }
 
   if (confirmationText == null || confirmationText.trim().toUpperCase() != _kWipePhrase) {
     if (context.mounted) {
@@ -1908,7 +1913,8 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
   String? error;
   DebugConfig.nav('Settings: open set-PIN dialog');
 
-  return showDialog<String>(
+  try {
+    return await showDialog<String>(
     context: context,
     useRootNavigator: true,
     barrierDismissible: false,
@@ -1981,7 +1987,11 @@ Future<String?> _showSetPinDialog(BuildContext context, WidgetRef ref) async {
         );
       },
     ),
-  );
+    );
+  } finally {
+    pinCtrl.dispose();
+    confirmCtrl.dispose();
+  }
 }
 
 Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
@@ -1989,7 +1999,9 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
   bool failed = false;
   DebugConfig.nav('Settings: open current-PIN dialog');
 
-  final result = await showDialog<bool?>(
+  bool? result;
+  try {
+    result = await showDialog<bool?>(
     context: context,
     useRootNavigator: true,
     barrierDismissible: false,
@@ -2051,7 +2063,10 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
         );
       },
     ),
-  );
+    );
+  } finally {
+    ctrl.dispose();
+  }
   return result ?? false;
 }
 
