@@ -1338,7 +1338,10 @@ Future<List<Contact>?> _showContactSelectionDialog(
                   ],
                 ),
                 const Divider(height: 1),
-                Expanded(
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                  ),
                   child: ListView.builder(
                     shrinkWrap: true,
                     itemCount: filtered.length,
