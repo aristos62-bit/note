@@ -378,8 +378,7 @@ class _SearchSuggestions extends StatelessWidget {
     return Center(
       child: Padding(
         padding: context.responsivePadding,
-        child: SingleChildScrollView(
-          child: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.search_rounded,
@@ -394,7 +393,6 @@ class _SearchSuggestions extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
-          ),
         ),
       ),
     );
