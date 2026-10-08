@@ -1401,3 +1401,15 @@
 **Επαλήθευση:** `recurrence_picker_test` 3/3 · `analyze` clean · full suite αμετάβλητο (**135/135**).
 
 **Backups:** `backups/fix_rec_test/` (test + oldsessions)
+
+## Session 136 — 08/10/2026 (AttachmentsStrip SPoT — προβολή shared σε note+event)
+
+**Scope (v3 FINAL, κανόνες 2+4 ανεστάλησαν):** κοινό strip (thumbs + preview + open + delete) — κλείνει S117b-(1).
+
+**Υλοποίηση:** νέο `shared/widgets/attachments_strip.dart` (~200γρ., επιστρέφει sliver) + export · note `:131` + event `:716` (1 γραμμή έκαστο). Reuse: `attachmentsProvider`, `AttachmentService.delete` (ΟΧΙ notifier — orphans), `isX`-getters, `fileThumb`, entries-dialog/OpenFilex/errors, `redact`, tokens. Εκτός: blocks, add-button (follow-up), card-badge (parked).
+
+**Επαλήθευση:** `flutter test` → **135/135** (0 νέα — Isar, S77) · `analyze` clean · device (share φωτογραφία/PDF/βίντεο → note+event, thumbs/open/delete/missing/rotation/keyboard/dark, 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/attach_strip/` (4 αρχεία + νέο widget)
+
+**DESIGN.md:** καμία αλλαγή (shared widget όπως SafeSheet — όχι αρχιτεκτονική).
