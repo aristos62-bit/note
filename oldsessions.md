@@ -1102,9 +1102,15 @@
 
 **Υλοποίηση:** `AndroidManifest.xml:37-38` → `singleTask` + διαγραφή κενού affinity· `DESIGN.md:47` sync. Rollback τετριμμένο.
 
-**Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · **device reinstall + retest ΕΚΚΡΕΜΕΙ (χρήστης):** backup export → kill recents → φρέσκο `flutter run` → share → 1 instance + warm-sheet + notification tap + icon tap.
+**Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` · device retest ✅ (S118b): πρώτο warm share ever (`warm n=1`, ίδιο pid, save id=465, μηδέν rendering errors) — τέλος multi-instance/cold-start.
 
 **Backups:** `backups/fix_singletask/`
+
+## Session 118b — 08/10/2026 (Retest singleTask + κλείσιμο συνεδρίας)
+
+**S118 retest OK (log):** `SharedIntent init` → `warm n=1` → `saved note id=465` → `/notes/465`, ίδιο pid throughout, 0 rendering errors. Το sheet-UI άνοιξε και αποθήκευσε χωρίς crash.
+
+**Backups:** — (καλύπτεται από `backups/fix_singletask/`)
 
 ## Session 112 — 07/10/2026 (Φ3.3 habit sheets ×5 → SafeSheet)
 
