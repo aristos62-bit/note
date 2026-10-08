@@ -15,6 +15,10 @@ void main() {
     expect(AppErrors.pinMismatch, 'Τα PIN δεν ταιριάζουν');
   });
 
+  test('pinWrong exact value (settings + lock share it)', () {
+    expect(AppErrors.pinWrong, 'Το PIN δεν είναι σωστό');
+  });
+
   test('pin consts distinct and non-empty', () {
     expect(AppErrors.pinTooShort.isNotEmpty, isTrue);
     expect(AppErrors.pinMismatch.isNotEmpty, isTrue);

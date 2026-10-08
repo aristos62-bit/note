@@ -22,6 +22,7 @@ class AppErrors {
   // ── PIN ────────────────────────────────────────────────────
   static const pinTooShort = 'Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία';
   static const pinMismatch = 'Τα PIN δεν ταιριάζουν';
+  static const pinWrong = 'Το PIN δεν είναι σωστό';
 
   // ── Save ─────────────────────────────────────────────────────
   static const saveFailed = 'Σφάλμα κατά την αποθήκευση';

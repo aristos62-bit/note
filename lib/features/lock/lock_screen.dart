@@ -89,7 +89,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     } else {
       DebugConfig.print('🔓 AppLock: wrong PIN');
       setState(() {
-        _error = 'Λάθος PIN';
+        _error = AppErrors.pinWrong;
         _pinCtrl.clear();
       });
     }
