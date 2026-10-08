@@ -1289,6 +1289,7 @@ Future<List<Contact>?> _showContactSelectionDialog(
                 .toList();
 
         return AlertDialog(
+          scrollable: true,
           title: const Text('Επιλογή επαφών'),
           content: SizedBox(
             width: double.maxFinite,
