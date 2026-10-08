@@ -1388,6 +1388,6 @@
 
 **Fix (2 γραμμές, S108-pattern):** `Column` → `SingleChildScrollView > Column` (εσωτερικό byte-identical, indent kept όπως S108).
 
-**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest (tag-picker landscape + keyboard + πολλά tags, portrait identical) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest ✅ (user verdict 08/10/2026): tag-picker landscape + keyboard + πολλά tags, portrait identical, 0 ERR.
 
 **Backups:** `backups/fix_tag_scroll/` (tag_picker + oldsessions)
