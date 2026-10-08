@@ -19,10 +19,6 @@ class AppErrors {
   static const needTitle = 'Παρακαλώ προσθέστε τίτλο';
   static const dateRequired = 'Επιλέξτε ημερομηνία';
 
-  // ── PIN ────────────────────────────────────────────────────
-  static const pinTooShort = 'Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία';
-  static const pinMismatch = 'Τα PIN δεν ταιριάζουν';
-
   // ── Save ─────────────────────────────────────────────────────
   static const saveFailed = 'Σφάλμα κατά την αποθήκευση';
   static const attachSaveFailed = 'Αποτυχία αποθήκευσης';

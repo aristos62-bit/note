@@ -66,7 +66,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   void _onSubmit() {
     final pin = _pinCtrl.text;
     if (pin.length < 4) {
-      setState(() => _error = AppErrors.pinTooShort);
+      setState(() => _error = 'Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία');
       return;
     }
     _verifyPin();

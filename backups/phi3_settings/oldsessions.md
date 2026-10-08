@@ -1169,24 +1169,3 @@
 **Επαλήθευση:** `flutter test` → **121/121** · `flutter analyze --no-pub` → `No issues found!` (με την πρώτη — μάθημα S112/113 εμπεδώθηκε: μέτρηση closers πριν το edit) · device retest (status + priority, portrait + landscape + scroll + select) εκκρεμεί.
 
 **Backups:** `backups/fix_task_sheets/`
-
-## Session 119 — 08/10/2026 (Φ3.6 Settings dialogs field/size/PIN/wipe → SafeShells)
-
-**Στόχος Φ3.6:** 5 bare dialogs σε settings (field ~560px · size ~480px · PIN+keyboard · wipe+keyboard) σε landscape ~230px.
-
-**Υλοποίηση (1 πρόταση v1→v9, κανόνες 2+4 ανεστάλησαν):**
-- field `_showFieldSelectionDialog` → content `SafeDialogBody` (SizedBox μέσα) + `nav`
-- size `_showSizePicker` → content `SafeSheet(title:)` (γυμνός τίτλος έξω, titleMd→titleSm)· show-call/pops/writes άθικτα (S110-παγίδα: ΟΧΙ showSafeSheet)
-- PIN set → `SafeDialogBody` + pure `_validatePinPair` (ίδια σειρά/μηνύματα) + `try/finally` dispose ×2 + `nav`
-- PIN current → `SafeDialogBody` + `bool _failed`/`onChanged` (το wrong-PIN UI ήταν νεκρό: χωρίς onChanged + `setModal((){})`) + `try/finally` dispose + `nav`
-- wipe-confirm → `const _kWipePhrase` (display+check, `_k`-σύμβαση) + `SafeDialogBody` + `try/finally` dispose + `nav`
-- `app_errors.dart` += ομάδα `PIN` (pinTooShort/pinMismatch)· `lock_screen:69` → const (byte-identical, 0 imports)
-- Ρητά εκτός: archived/past/imported/export/import/folder/color pickers, `_SummaryRow` Colors, `lock:92`, PIN min/max (καμία canonical πηγή — `app_lock_service` 59γρ.), ref-removal (ομοιομορφία 10+ helpers)
-
-**Μαθήματα:** boundary-edits σε dialogs θέλουν καταμέτρηση closers (3 compile-αποτυχίες πιάστηκαν από analyze/test, διορθώθηκαν)· `touUpperCase` κρατά τόνους (ή→Ή — το test το απέδειξε, κλειδώθηκε η πραγματική σύμβαση)· privates δεν δοκιμάζονται σε flutter test (μόνο pure + device).
-
-**Επαλήθευση:** νέο `test/settings_dialogs_test.dart` (4 pure) · `flutter test` → **125/125** · `flutter analyze --no-pub` → `No issues found!` · device retest ×5 (portrait identical · landscape · keyboard · rotation mid-entry · cancel-paths) εκκρεμεί.
-
-**Backups:** `backups/phi3_settings/` (4 αρχεία)
-
-**DESIGN.md:** καμία αλλαγή (0 νέα widgets/APIs — private helpers + consts, όχι αρχιτεκτονική).
