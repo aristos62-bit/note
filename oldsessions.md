@@ -1350,7 +1350,7 @@
 - settings `:2039` + lock `:92` («Λάθος PIN» → const — σκόπιμη micro-ενοποίηση, slot wrap-safe)
 - test: +exact-value (settings + lock share it)
 
-**Επαλήθευση:** νέο 1/1 · `flutter test` → **135/135** · `analyze` clean · device (λάθος PIN lock+settings, 4 dialogs, 0 ERR) εκκρεμεί.
+**Επαλήθευση:** νέο 1/1 · `flutter test` → **135/135** · `analyze` clean · device retest ✅ (user verdict 08/10/2026): ίδια φράση lock+settings, 4 dialogs open/close, 0 ERR.
 
 **Backups:** `backups/pin_spot/` (5 αρχεία)
 
