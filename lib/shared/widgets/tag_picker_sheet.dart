@@ -48,7 +48,8 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
           bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.all(Spacing.lg),
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -101,6 +102,7 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
               height: MediaQuery.of(context).padding.bottom + Spacing.sm,
             ),
           ],
+          ),
         ),
       ),
     );
