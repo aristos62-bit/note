@@ -773,7 +773,7 @@ class _StatusSelector extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: Spacing.sm),
-          Text('Κατάσταση', style: context.titleMd),
+          Text('Κατάσταση', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: Spacing.xs),
           ..._opts.map((o) => ListTile(
             leading: Icon(o.$3,
@@ -835,7 +835,7 @@ class _PrioritySelector extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: Spacing.sm),
-          Text('Προτεραιότητα', style: context.titleMd),
+          Text('Προτεραιότητα', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: Spacing.xs),
           ..._opts.map((p) => ListTile(
             leading: p == ItemPriority.none

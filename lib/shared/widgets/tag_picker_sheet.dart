@@ -56,7 +56,7 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
               child: SheetHandle(),
             ),
             const SizedBox(height: Spacing.md),
-            Text('Προσθήκη Tag', style: context.titleMd),
+            Text('Προσθήκη Tag', style: context.titleSm),
             const SizedBox(height: Spacing.md),
             TextField(
               controller: _ctrl,
