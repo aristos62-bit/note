@@ -762,16 +762,9 @@ class _StatusSelector extends StatelessWidget {
   }
 
   void _pick(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeSheet(
+    showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SafeSheet(
         child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -789,7 +782,7 @@ class _StatusSelector extends StatelessWidget {
                 ? Icon(Icons.check_rounded, color: context.cPrimary)
                 : null,
             onTap: () {
-              Navigator.pop(context);
+              Navigator.pop(sheetCtx);
               onSelect(o.$1);
             },
           )),
@@ -831,16 +824,9 @@ class _PrioritySelector extends StatelessWidget {
   }
 
   void _pick(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeSheet(
+    showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SafeSheet(
         child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -859,7 +845,7 @@ class _PrioritySelector extends StatelessWidget {
                 ? Icon(Icons.check_rounded, color: context.cPrimary)
                 : null,
             onTap: () {
-              Navigator.pop(context);
+              Navigator.pop(sheetCtx);
               onSelect(p);
             },
           )),

@@ -65,19 +65,12 @@ class _SharedIntentListenerState extends ConsumerState<SharedIntentListener> {
     if (!mounted || _sheetOpen) return;
     _sheetOpen = true;
     try {
-      await showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
+      await showSafeSheet<void>(
+        context,
+        scrollControlled: true,
         // Αδιαφανές φόντο: να μην φαίνεται το layer από πίσω.
         barrierColor: Colors.black.withValues(alpha: 0.75),
-        backgroundColor: ColorsUI.getSurface(context.brightness),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(AppRadius.bottomSheet),
-            topRight: Radius.circular(AppRadius.bottomSheet),
-          ),
-        ),
-        builder: (_) => _ShareSheet(files: files),
+        child: _ShareSheet(files: files),
       );
     } catch (e, stack) {
       DebugConfig.error('SharedIntent sheet', e, stack);

@@ -1296,3 +1296,22 @@
 **Απόφαση (user):** μένει ως έχει — σε release δεν υπάρχει θέμα (debug assertion μόνο· clip 7px σε scrollable περιοχή λίστας, όλα πατήσιμα). Καταγράφεται εδώ για μελλοντική αναφορά.
 
 **Αν χρειαστεί ποτέ:** J+ (`insetPadding` vertical 24→8 + σφιχτό `contentPadding`, +~60px budget, αόρατο σε portrait) · fallback Β (`scrollable` + eager Column, με perf/UX τιμήματα). Απορρίφθηκε οριστικά: `scrollable` + εσωτερικό ListView (intrinsics crash, αποδεδειγμένο).
+
+## Session 128 — 08/10/2026 (showSafeSheet sheet-ctx builder + barrierColor → S110/S112/S116/S117)
+
+**Πρόβλημα:** `showSafeSheet` (`safe_sheet.dart:38`) πετούσε το sheet-ctx (`builder: (_)`) → blind-pop risk σε wrapped callbacks· δεν εξέθετε `barrierColor` (S117 0.75 χανόταν)· S112 recurrence/weekday χωρίς `scrollControlled` (cap 50% σε landscape).
+
+**Υλοποίηση (κανόνες 2+4 ανεστάλησαν):**
+- `safe_sheet.dart`: +`typedef SheetChildBuilder` + `builder`/`barrierColor` params (runtime `ArgumentError`, όχι assert — ισχύει και σε release)· `child` κρατιέται για S113/tests· log +`barrier=`· title +`maxLines:1/ellipsis`· ΟΧΙ dismiss/drag/safeArea/dragHandle (YAGNI/διπλά)· μηδέν import-diff (barrel+direct ήδη παρόντα)
+- S110 `item_actions_sheet:75-100`: `show()` → `showSafeSheet<void>(builder:(sheetCtx)..._popAnd(sheetCtx)×7)` + `print→nav`
+- S112 `habit_detail`: rec `:1318` + weekday `:1457` → builder+`scrollControlled:true` (μοναδική συμπεριφορική αλλαγή)· time/month/editor → `child:` swap (inner State-pops άθικτα)· weekday σκίαση `ctx→_`
+- S116 `task_detail:767,829`: 2× builder + `pop(context→sheetCtx)` (`:785,:848`)· reminder-dialog (`:167`) σκόπιμα εκτός
+- S117 `shared_intent:68`: `child:` + barrier 0.75 (build άθικτο — `title:/actions:` → v2)
+- Tests: 3 νέα στο `safe_shells_test.dart` (builder-value · barrier · sync ArgumentError)
+- Ταξινομία A/B (Type A=inner-pop→`child:`, Type B=wrapped→`builder:`) αποδείχθηκε σε tag_picker/folder_form/S113
+
+**Επαλήθευση:** νέο 3/3 · `flutter test` → **134/134** · `flutter analyze --no-pub` → `No issues found!` · device retest (9 sheets × portrait/landscape/rotation/dismiss/select/keyboard/nested/cold+warm share) εκκρεμεί.
+
+**Backups:** `backups/showsheet_ctx/` (7 αρχεία)
+
+**DESIGN.md:** καμία αλλαγή (0 νέα widgets — `typedef`+params σε υπάρχον helper, όχι αρχιτεκτονική).

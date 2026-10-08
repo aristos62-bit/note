@@ -78,4 +78,74 @@ void main() {
     expect(find.text('Επέλεξε'), findsNothing);
     expect(got, 'τιμή');
   });
+
+  testWidgets('showSafeSheet builder δίνει sheet-ctx (pop value)',
+      (tester) async {
+    String? got;
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              got = await showSafeSheet<String>(
+                ctx,
+                builder: (sheetCtx) => SafeSheet(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(sheetCtx, 'builder-τιμή'),
+                    child: const Text('Διάλεξε'),
+                  ),
+                ),
+              );
+            },
+            child: const Text('Άνοιγμα'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Άνοιγμα'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Διάλεξε'));
+    await tester.pumpAndSettle();
+    expect(got, 'builder-τιμή');
+  });
+
+  testWidgets('showSafeSheet barrierColor passthrough (no-crash)',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => Scaffold(
+          body: TextButton(
+            onPressed: () => showSafeSheet<void>(
+              ctx,
+              scrollControlled: true,
+              barrierColor: Colors.black.withValues(alpha: 0.75),
+              child: const SafeSheet(child: Text('Περιεχόμενο')),
+            ),
+            child: const Text('Άνοιγμα'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Άνοιγμα'));
+    await tester.pumpAndSettle();
+    expect(find.text('Περιεχόμενο'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('showSafeSheet χωρίς child/builder ή με και τα δύο → ArgumentError',
+      (tester) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(builder: (c) {
+        ctx = c;
+        return const Scaffold(body: Text('x'));
+      }),
+    ));
+    expect(() => showSafeSheet<String>(ctx), throwsArgumentError);
+    expect(
+      () => showSafeSheet<String>(ctx,
+          child: const Text('a'), builder: (_) => const Text('b')),
+      throwsArgumentError,
+    );
+  });
 }
