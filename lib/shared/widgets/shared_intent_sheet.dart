@@ -201,7 +201,7 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Κοινοποίηση από άλλη εφαρμογή',
-                style: context.titleMd),
+                style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
             if (_excerpt.isNotEmpty) ...[
               const SizedBox(height: Spacing.xs),
               Text(_excerpt,

@@ -1355,3 +1355,15 @@
 **Backups:** `backups/pin_spot/` (5 αρχεία)
 
 **DESIGN.md:** καμία αλλαγή (σχόλια + const, όχι αρχιτεκτονική).
+
+## Session 132 — 08/10/2026 (Sheet titles → titleSm + ellipsis)
+
+**Scope (v3 FINAL, κανόνες 2+4 ανεστάλησαν):** ενοποίηση μεγέθους τίτλων sheets σε `titleSm` (14px — υφιστάμενη γλώσσα 6 τίτλων).
+
+**Υλοποίηση (6× in-place, μηδέν layout-shift):** S113 recurrence · task status/priority · share · habit editor · tag_picker → `titleMd→titleSm` (+`maxLines:1/ellipsis` στους 5 SafeSheet-titles). Slot-migration απορρίφθηκε δομικά (κουμπί time, excerpt share, full-bleed tiles, Dividers). 13 non-sheet `titleMd` + own-chrome ρητά εκτός.
+
+**Επαλήθευση:** `flutter test` → **135/135** (0 νέα — κανένα style-lock) · `analyze` clean · device (6 sheets × portrait/landscape/max-font, 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/title_unify/` (6 αρχεία)
+
+**DESIGN.md:** καμία αλλαγή (styling only).

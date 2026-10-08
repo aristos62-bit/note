@@ -432,7 +432,7 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Επανάληψη υπενθύμισης', style: context.titleMd),
+          Text('Επανάληψη υπενθύμισης', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: Spacing.md),
           // Type selector
           SizedBox(

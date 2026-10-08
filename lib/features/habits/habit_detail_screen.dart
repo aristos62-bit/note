@@ -1536,7 +1536,7 @@ class _HabitSettings extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: context.titleMd),
+            Text(title, style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: Spacing.md),
             TextField(
               controller: ctrl,
