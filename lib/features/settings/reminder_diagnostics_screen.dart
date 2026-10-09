@@ -25,6 +25,7 @@ class ReminderDiagnosticsScreen extends StatefulWidget {
 class _RootStatus {
   final Reminder root;
   final String itemLabel;
+  final bool archived;
   final int futureCount;
   final DateTime? nextTrigger;
   final DateTime? maxTrigger;
@@ -32,6 +33,7 @@ class _RootStatus {
   _RootStatus({
     required this.root,
     required this.itemLabel,
+    required this.archived,
     required this.futureCount,
     required this.nextTrigger,
     required this.maxTrigger,
@@ -42,11 +44,13 @@ class _PendingRow {
   final Reminder reminder;
   final bool isRecurringChild;
   final bool inOs;
+  final bool archived;
 
   _PendingRow({
     required this.reminder,
     required this.isRecurringChild,
     required this.inOs,
+    required this.archived,
   });
 }
 
@@ -90,6 +94,7 @@ class _ReminderDiagnosticsScreenState
         rootStatuses.add(_RootStatus(
           root: root,
           itemLabel: item?.title ?? root.body ?? root.title ?? 'Άγνωστο',
+          archived: item?.archived ?? false,
           futureCount: future.length,
           nextTrigger: future.isNotEmpty ? future.first.triggerAt : null,
           maxTrigger: future.isNotEmpty ? future.last.triggerAt : null,
@@ -114,6 +119,16 @@ class _ReminderDiagnosticsScreenState
       final filtered =
       allPending.where((r) => r.rrule == null || r.rrule!.isEmpty).toList();
 
+      // #2: Τα αρχειοθετημένα items ΔΕΝ προγραμματίζονται στο OS — να μη
+      // βγαίνουν ψευδώς ως "λείπουν από το OS".
+      final archivedByItem = <int, bool>{};
+      for (final r in filtered) {
+        if (!archivedByItem.containsKey(r.itemId)) {
+          final it = await SuperNoteHelper.instance.items.getById(r.itemId);
+          archivedByItem[r.itemId] = it?.archived ?? false;
+        }
+      }
+
       // ── OS-level πραγματικά προγραμματισμένα ──
       final osPending =
       await NotificationService.instance.getPendingNotifications();
@@ -124,6 +139,7 @@ class _ReminderDiagnosticsScreenState
           reminder: r,
           isRecurringChild: r.parentReminderId != null,
           inOs: osIds.contains(r.id),
+          archived: archivedByItem[r.itemId] ?? false,
         );
       }).toList();
 
@@ -220,6 +236,32 @@ class _ReminderDiagnosticsScreenState
   }
 
   Widget _buildRootCard(_RootStatus s) {
+    if (s.archived) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: Spacing.sm),
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.md),
+          child: Row(
+            children: [
+              const Icon(Icons.archive_rounded, color: Colors.grey),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(s.itemLabel, style: context.bodyMd),
+                    Text(
+                      'Αρχειοθετημένο — σε σίγαση (δεν προγραμματίζεται)',
+                      style: context.bodySm.withColor(context.cText2),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final starved = s.futureCount == 0;
     return Card(
       margin: const EdgeInsets.only(bottom: Spacing.sm),
@@ -257,6 +299,21 @@ class _ReminderDiagnosticsScreenState
     final t = r.triggerAt;
     String two(int n) => n.toString().padLeft(2, '0');
     final time = '${two(t.hour)}:${two(t.minute)}';
+    if (row.archived) {
+      // #2: σκόπιμα σε σίγαση — όχι προειδοποίηση "λείπει από το OS".
+      return ListTile(
+        dense: true,
+        leading: const Icon(Icons.archive_rounded,
+            color: Colors.grey, size: 20),
+        title: Text(r.body ?? r.title ?? 'Υπενθύμιση', style: context.bodyMd),
+        subtitle: Text(
+          '$time'
+              '${row.isRecurringChild ? '  •  επαναλαμβανόμενο' : '  •  εφάπαξ'}'
+              '  •  αρχειοθετημένο (σε σίγαση)',
+          style: context.bodySm.withColor(context.cText2),
+        ),
+      );
+    }
     return ListTile(
       dense: true,
       leading: Icon(

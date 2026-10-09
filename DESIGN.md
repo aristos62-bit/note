@@ -40,6 +40,7 @@
 - Session 53: `permanentDelete` (κάδος) κάνει `deleteAllRemindersForItem` πριν το `hardDelete` — καμία ορφανή OS ειδοποίηση· σειρά υποχρεωτική (τα ids χάνονται μετά τη DB διαγραφή).
 - Session 58: vibration toggle → `syncChannel` (delete+recreate ίδιο id, μόνο στο toggle)· ήχος via `silent`· iOS per-notification.
 - Session 54: week-math SPoT (`isValidWeeklyDay`, `epochMonday`) — weekly/monthly/yearly με `interval>1` σέβονται το διάστημα (scheduler anchor=root, habit anchor=epoch)· `interval==1` identical· tests `test/recurrence_weekly_test.dart`.
+- Session 143 (#2): αρχειοθετημένα items = **σίγαση** — `ItemNotifier.toggleArchive` cancel (archive) / reschedule (unarchive) OS alarms· τα Reminder rows **μένουν** (non-destructive)· guard στο `ReminderScheduler._scheduleOne` (μοναδικό choke-point `NotificationService.schedule`)· skip archived roots στο `refreshRecurringReminders`· Settings restore/delete μέσω SPoT `ItemNotifier`· split `pinned_provider.dart`.
 
 ## Αλλαγές Session 59 (share intent IN — λήψη κοινοποιήσεων)
 - Dep: `receive_sharing_intent ^1.9.0` (`SharedMediaType`: image/video/text/file/url· `getInitialMedia/getMediaStream/reset/setMockValues`) — το `share_plus` μένει outbound μόνο.

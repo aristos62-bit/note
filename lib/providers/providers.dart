@@ -9,6 +9,7 @@ export 'db_provider.dart';
 export 'workspace_provider.dart';
 export 'folder_provider.dart';
 export 'item_provider.dart';
+export 'pinned_provider.dart';
 export 'block_provider.dart';
 export 'tag_provider.dart';
 export 'reminder_provider.dart';

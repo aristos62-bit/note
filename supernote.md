@@ -117,7 +117,8 @@ lib/
 │   ├── db_provider.dart          — SuperNoteHelper instance
 │   ├── workspace_provider.dart   — Workspaces, activeWorkspaceId
 │   ├── folder_provider.dart      — Folders stream, selectedFolderId
-│   ├── item_provider.dart        — Items CRUD, streams, pinned/favorites
+│   ├── item_provider.dart        — Items CRUD, streams, filters
+│   ├── pinned_provider.dart      — Pinned/Favorites streams (split από item_provider)
 │   ├── block_provider.dart       — ItemBlocks CRUD, streams
 │   ├── property_provider.dart    — ItemProperties CRUD
 │   ├── tag_provider.dart         — Tags CRUD
