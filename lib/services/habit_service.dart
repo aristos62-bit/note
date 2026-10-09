@@ -983,7 +983,8 @@ class HabitService {
         }
       case RecurrenceType.yearly:
         if (recurrence.days != null && recurrence.days!.length == 2) {
-          final targetDate = DateTime(
+          // Clamp (όπως monthly) — 29 Φεβ σε μη-δίσεκτο → 28 Φεβ, όχι 1 Μαρ.
+          final targetDate = _safeDay(
             periodStart.year,
             recurrence.days![0],
             recurrence.days![1],
