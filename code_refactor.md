@@ -69,6 +69,7 @@
 - 🟡 **N+1**: `calendar:25`· `collection_entries:497`· `journal_list:128`· `item_list_embedded:197,214`.
 - 🔴 `collection_entries:454` — reorder σε **φιλτραρισμένο** υποσύνολο (indices → filtered, όχι full list).
 - ✅ (S141) `collections:69-72` — cascade κεντρικοποιήθηκε: `ItemNotifier.deleteItem` (type-aware· `project` → soft-delete εγγραφών πρώτα, μετά το root)· device ✅ 09/10/2026 (`run_log_d1d2.txt`, grid + Folder Browser).
+- ✅ (S142) `item_provider` — συμμετρικό lifecycle κάδου (F1): `_cascadeCollectionEntries` έγινε action-based και καλείται **και** από `restoreItem`/`permanentDelete` (`includeDeleted:true`) → restore συλλογής επαναφέρει τις εγγραφές της· permanent τις διαγράφει + καθαρίζει attachments. 1 αρχείο (497→498), 0 νέα public API· `analyze` clean + `test` 138/138. Device εκκρεμεί.
 - 🟠 `journal_list:106` — retry σε λάθος provider· `:129` Future ανά build.
 - 🟡 `collection_entries:166,169` — stale AppBar (widget αντί watched).
 - 🟡 `ValueKey` compound: `collection_detail:746`· `collection_entries:290`.

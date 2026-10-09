@@ -1469,3 +1469,24 @@
 **Backups:** `backups/d1d2_cascade/` (item_provider + collection_detail + code_refactor + oldsessions)
 
 **DESIGN.md:** καμία αλλαγή (behavior fix σε provider method — όχι layer/SPoT/dependency· το `ItemNotifier.deleteItem` παραμένει SPoT).
+
+## Session 142 — 09/10/2026 (Collections: συμμετρικό lifecycle κάδου — restore/permanent cascade (F1))
+
+**Scope (κανόνες 2+4 ανεστάλησαν):** update της υπάρχουσας `_cascadeCollectionEntries` σε action-based (1 αρχείο· καμία νέα public API· reuse `getByWorkspace`+`getCollectionIds`+`restore`/`hardDelete`).
+
+**Πρόβλημα (ασυμμετρία D1):** το soft-delete συλλογής cascade-άρει τις εγγραφές (D1), αλλά `restore`/`permanent` άγγιζαν **μόνο** το root → (α) restore συλλογής την επανέφερε με **0 εγγραφές** (οι εγγραφές έμεναν στον κάδο)· (β) permanent συλλογής άφηνε soft-deleted εγγραφές με dangling `collection_id` + **ορφανά attachments στον δίσκο** (δεν έτρεχε το disk-cleanup του `hardDelete`). Το UI (`collections:69`) υπόσχεται ήδη «Θα διαγραφούν και όλες οι εγγραφές».
+
+**Fix (`item_provider.dart`, 1 αρχείο):** `_cascadeCollectionEntries(int id, Future<void> Function(int) action, {bool includeDeleted = false, String logTag = 'deleteItem'})` — action-based (mirror pattern)· `getById`+`project` gate, `getByWorkspace(item.workspaceId, type:knowledge, includeArchived:true, includeDeleted)`, `getCollectionIds`, string-match `e.value == id.toString()`, log `'$logTag cascade collection=$id entries=${ids.length}'`, εγγραφές πρώτα (interrupt-safe). Καλείται από:
+- `deleteItem` → `_cascadeCollectionEntries(id, deleteItem)` (defaults· log **αυτούσιο D1**),
+- `restoreItem` → `_cascadeCollectionEntries(id, (eid) => items.restore(eid), includeDeleted:true, logTag:'restoreItem')` πριν το restore του root,
+- `permanentDelete` → `_cascadeCollectionEntries(id, permanentDelete, includeDeleted:true, logTag:'permanentDelete')` (recursion τερματίζει: εγγραφή = `knowledge` ≠ `project`).
+
+**Αποφάσεις:** Q1 — restore συλλογής επαναφέρει **όλες** τις soft-deleted εγγραφές (container semantics, χωρίς χρονικό heuristic)· μηδενικός sync consumer του `isDirty` → το περιττό write του `restore()` σε ήδη-ενεργές εγγραφές είναι ακίνδυνο. Bypass `settings:978,1011` / `detail_screen_mixin:60,105` **μη-reachable για συλλογές** (καμία UI ενέργεια αρχειοθετεί collection) → εκτός scope. Δεν χρειάστηκε νέο test (device verification, όπως D1).
+
+**Αριθμοί:** `item_provider` 497→**498** (<500 ✅)· 1 αρχείο· 0 νέα API· `supernote.md`.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.2s) · `flutter test` → **138/138** · device εκκρεμεί (matrix: delete/restore/permanent + «Άδειασμα κάδου» + multi-select + non-collection).
+
+**Backups:** `backups/f1_collection_lifecycle/` (item_provider)
+
+**DESIGN.md:** καμία αλλαγή (behavior fix σε provider method — όχι layer/SPoT/dependency· το `_cascadeCollectionEntries` παραμένει private/SPoT).
