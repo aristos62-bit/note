@@ -1535,3 +1535,15 @@
 **Backups:** `backups/f3_entries_reorder/` (collection_entries_screen + oldsessions)
 
 **DESIGN.md:** καμία αλλαγή (behavior fix σε UI callback — όχι layer/SPoT/dependency· τα `itemsStreamProvider`/`itemNotifier.reorder` παραμένουν SPoT).
+
+## Session 145 — 09/10/2026 (REVERT deferred #3 — κατόπιν αιτήματος χρήστη)
+
+**Γεγονός:** το fix του S144 (reorder εγγραφών συλλογής σε φιλτραρισμένο υποσύνολο) **αναιρέθηκε πλήρως**. Αιτία: (1) το device-testing δεν εξάσκησε ποτέ το μονοπάτι του fix — το `run_log_f3_reorder.txt` (7 γρ.) είχε **0 × `ENTRIES reorder`** (τα drags έγιναν στο Home both-view, `reorderCombined`), και (2) ο χρήστης ανέφερε ανεξάρτητο θέμα σειράς pinned/favorites στο **Home grid** — διαφορετικό subsystem (`pinnedOrder`/`favoriteOrder`), προϋπάρχον, όχι από το S144.
+
+**Ενέργεια:** επαναφορά του πρωτοτύπου pre-fix από `backups/f3_entries_reorder/collection_entries_screen.dart` → **byte-identical** (SHA256 `E3B965…3BF40` ταυτόσημα, **1725 γρ.**) → `onReorder` (449-458) = αρχικό filtered-subset, χωρίς PopScope/merge/allWorkspaceItems.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (3.7s) · `git diff --stat HEAD` → `21 insertions, 52 deletions` (αντίστροφο του fix).
+
+**Backups:** `backups/f3_revert_entries_reorder/` (fixed state 1756 γρ. + oldsessions — κρατείται για ενδεχόμενη re-εφαρμογή).
+
+**Ανοικτό θέμα (μελλοντικό session, χρειάζεται repro + έγκριση):** σειρά pinned/favorites στο Home grid. Root-cause map: toggle OFF μηδενίζει το order (`super_note_helper:334,342`) → σε both-view sort (`home_screen:575-584`) το item με `pinnedOrder=null` πάει **στο τέλος** · toggle ON **δεν ορίζει ποτέ** order → νέα pinned/fav πάντα στο τέλος · both-view sort αγνοεί το `favoriteOrder` (cross-view desync όταν το drag γίνεται στο Favorites view). Το deferred #3 παραμένει ανοιχτό (`code_refactor §3.4:70`).
