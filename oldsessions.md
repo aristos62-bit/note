@@ -1445,3 +1445,11 @@
 **Επαλήθευση:** `flutter test` → **138/138** · `analyze` clean · device N/A (legacy-only, χωρίς UI path· hermetic αδύνατο χωρίς Isar-harness).
 
 **Backups:** `backups/fix_yearly_clamp/` (habit_service + oldsessions)
+
+## Session 140 — 09/10/2026 (Scheduling health — device-verified cold start)
+
+**Log:** cold start pid 7527 (fresh APK install, 9/10) — πλήρης ακολουθία startup.
+
+**Ευρήματα:** 4 recurring roots υγιή (`created 0`, 5/5 children, 0 drift/loop, seconds sharp) · habit one-shots συνεχή (435 daily 14:30, 441/442 multi-day, 209/290 — 0×`05:00`, 0 duplicates) · **S137 live-proof** (`topUp scanned=3 needTopUp=1 created=20`, 435 → 60/60) · `scheduleAll` 117 + topUp 20 = 137 OS alarms, 0 failures · purge 149/0 · repair σιωπηλό · tz Europe/Athens · 0 ERR. Θόρυβος: skipped-frames/SELinux/TurboSched (αθώα).
+
+**Parked (παρατήρηση, όχι action):** archived items (230/232) προγραμματίζονται — product-απόφαση για ξεχωριστό βήμα.
