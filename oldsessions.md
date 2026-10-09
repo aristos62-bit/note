@@ -1413,3 +1413,15 @@
 **Backups:** `backups/attach_strip/` (4 αρχεία + νέο widget)
 
 **DESIGN.md:** καμία αλλαγή (shared widget όπως SafeSheet — όχι αρχιτεκτονική).
+
+## Session 137 — 09/10/2026 (Fix: weekly walker same-day-past + 60d cap)
+
+**Scope (v3 FINAL, κανόνες 2+4 ανεστάλησαν):** 2 μονόγραμμες (`habit_service.dart`).
+
+**Υλοποίηση:** weekly branch +same-day-advance (`candidate.isBefore(after)` → +1 μέρα, ώρα κρατιέται — το date-only scan επέστρεφε παρελθόν και το loop έσπαγε με άδειο ορίζοντα) · `_maxPerTime` 40→60 (πραγματικός 60d, δένει με `horizonDays`).
+
+**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device (Δευτέρα-απόγευμα save περασμένου slot → Τετάρτη ✅ · μονή ώρα → 60/60 · 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_walker_weekly/` (habit_service + oldsessions)
+
+**DESIGN.md:** καμία αλλαγή (ίδιος walker/entry-points, όχι αρχιτεκτονική).
