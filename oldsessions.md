@@ -1485,7 +1485,7 @@
 
 **Αριθμοί:** `item_provider` 497→**498** (<500 ✅)· 1 αρχείο· 0 νέα API· `supernote.md`.
 
-**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.2s) · `flutter test` → **138/138** · device εκκρεμεί (matrix: delete/restore/permanent + «Άδειασμα κάδου» + multi-select + non-collection).
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.2s) · `flutter test` → **138/138** · **device ✅ (09/10/2026, `run_log_f1.txt`, pid 21414):** `deleteItem cascade collection=453 entries=1` → εγγραφή 454 πρώτα, root 453 τελευταίο· `restoreItem cascade collection=453 entries=1` (×2) → counts 38→37→38 (grid επανέφερε την εγγραφή)· `permanentDelete cascade collection=453 entries=1` → `hardDelete itemId=454` + **`deleted file "IMG_20260308_110509.jpg"`** (attachment disk-cleanup) → root 453· «Άδειασμα κάδου»/multi-select idempotent (454 ×2 → `found 0 attachment(s)`, no-op)· **0 ERR/WRN**.
 
 **Backups:** `backups/f1_collection_lifecycle/` (item_provider)
 
