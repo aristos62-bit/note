@@ -1453,3 +1453,19 @@
 **Ευρήματα:** 4 recurring roots υγιή (`created 0`, 5/5 children, 0 drift/loop, seconds sharp) · habit one-shots συνεχή (435 daily 14:30, 441/442 multi-day, 209/290 — 0×`05:00`, 0 duplicates) · **S137 live-proof** (`topUp scanned=3 needTopUp=1 created=20`, 435 → 60/60) · `scheduleAll` 117 + topUp 20 = 137 OS alarms, 0 failures · purge 149/0 · repair σιωπηλό · tz Europe/Athens · 0 ERR. Θόρυβος: skipped-frames/SELinux/TurboSched (αθώα).
 
 **Parked (παρατήρηση, όχι action):** archived items (230/232) προγραμματίζονται — product-απόφαση για ξεχωριστό βήμα.
+
+## Session 141 — 09/10/2026 (Collections: σωστό cascade διαγραφής (D1) + κενός τίτλος (D2))
+
+**Scope (v3 FINAL, κανόνες 2+4 ανεστάλησαν):** κεντρικοποίηση cascade στο υπάρχον `ItemNotifier.deleteItem` (2 αρχεία· καμία νέα public API).
+
+**D1 — ψευδής cascade:** UI «θα διαγραφούν και οι εγγραφές» (`collections:69`) αλλά soft-delete μόνο του root → orphan entries. Fix (`item_provider:192-224`): `deleteItem` type-aware — `getById` → αν `project` → `_cascadeCollectionEntries` (reuse `getByWorkspace(wsId, type:knowledge, includeArchived:true)` + `getCollectionIds`), εγγραφές πρώτα μέσω αναδρομικού `deleteItem` (reminders + invalidate ανά εγγραφή), root τελευταίο (interrupt-safe). Καλύπτει grid + Folder Browser + detail (μοναδικό soft-delete κανάλι συλλογής). Χρησιμοποιείται `item.workspaceId` (όχι `activeWorkspaceIdProvider`) για ορθότητα χωρίς ενεργό workspace.
+
+**D2 — κενός τίτλος υπάρχουσας:** `collection_detail` back, empty+!isNew → SnackBar(`AppErrors.needTitle`) + κρατάει τον προηγούμενο τίτλο, **καμία διαγραφή** (πριν: ConfirmDialog + `_deleteCollectionEntries` → απώλεια). Διαγράφηκαν `_hasCollectionEntries`/`_deleteCollectionEntries` (N+1, `:163-182`).
+
+**Αριθμοί:** `item_provider` 479→**497** · `collection_detail` 864→**833** (<500 ✅).
+
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.2s) · `flutter test` → **138/138** · device retest εκκρεμεί (grid/Folder Browser cascade, κενός τίτλος, νέα κενή, archived εγγραφή).
+
+**Backups:** `backups/d1d2_cascade/` (item_provider + collection_detail + code_refactor + oldsessions)
+
+**DESIGN.md:** καμία αλλαγή (behavior fix σε provider method — όχι layer/SPoT/dependency· το `ItemNotifier.deleteItem` παραμένει SPoT).

@@ -124,29 +124,17 @@ class _CollectionDetailScreenState
     if (ok && mounted) safePop();
   }
 
-  /// ??? logic ??? back arrow (auto-save ?? pop)
+  /// Logic του back arrow (D2: κενός τίτλος υπάρχουσας → δεν διαγράφεται τίποτα)
   Future<bool> _onPopInvoked() async {
     final title = titleCtrl.text.trim();
+
+    // D2: υπάρχουσα συλλογή χωρίς τίτλο → κρατάμε τον προηγούμενο τίτλο
+    // (μένει στη DB, δεν αποθηκεύεται κενό). ΚΑΜΙΑ διαγραφή.
     if (title.isEmpty && !widget.isNew) {
-      final hasEntries = await _hasCollectionEntries();
-      if (!mounted) return true;
-      final subtitle = hasEntries
-          ? 'Παρακαλώ δώστε τίτλο στη Συλλογή γιατί έχει περιεχόμενο το οποίο θα χαθεί αν συνεχίσετε.'
-          : 'Η Συλλογή δεν έχει τίτλο. Αν συνεχίσετε θα διαγραφεί.';
-      final confirmed = await ConfirmDialog.show(
-        context,
-        title: 'Η Συλλογή δεν έχει τίτλο',
-        subtitle: subtitle,
-        confirmLabel: 'Συνέχεια',
-        cancelLabel: 'Ακυρο',
-        icon: Icons.warning_rounded,
-        isDestructive: true,
-      );
-      if (!confirmed || !mounted) return true;
-      if (hasEntries) await _deleteCollectionEntries();
-      await ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId);
+      showSnackBar(AppErrors.needTitle);
       return true;
     }
+
     await executeSaveOrDelete(
       saveFn: () async {
         if (_hasChanges) {
@@ -155,30 +143,11 @@ class _CollectionDetailScreenState
           DebugConfig.db('CollectionDetail no changes, skip save');
         }
       },
-      deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.collectionId),
+      deleteFn: () => ref
+          .read(itemNotifierProvider.notifier)
+          .deleteItem(widget.collectionId),
     );
     return true;
-  }
-
-  Future<bool> _hasCollectionEntries() async {
-    final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
-    for (final entry in allItems.where((i) => i.type == ItemType.knowledge)) {
-      final props = await ref.read(itemPropertiesProvider(entry.id).future);
-      final colId = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-      if (colId == widget.collectionId.toString()) return true;
-    }
-    return false;
-  }
-
-  Future<void> _deleteCollectionEntries() async {
-    final allItems = ref.read(itemsStreamProvider).valueOrNull ?? [];
-    for (final entry in allItems.where((i) => i.type == ItemType.knowledge)) {
-      final props = await ref.read(itemPropertiesProvider(entry.id).future);
-      final colId = props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-      if (colId == widget.collectionId.toString()) {
-        await ref.read(itemNotifierProvider.notifier).deleteItem(entry.id);
-      }
-    }
   }
 
   // ── Favorite toggle ─────────────────────────────────────────

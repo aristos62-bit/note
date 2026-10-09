@@ -189,20 +189,38 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     }
   }
 
-  /// Soft delete — cascade delete reminders (root + children) + cancel OS notifications
+  /// Soft delete — cascade delete reminders (root + children) + cancel OS notifications.
+  /// D1: Αν είναι συλλογή (project) → soft-delete cascade και των εγγραφών της (→ κάδος).
   Future<void> deleteItem(int id) async {
     try {
-      final reminders = await ref.read(dbProvider).reminders.getForItem(id);
+      final db = ref.read(dbProvider);
+      final item = await db.items.getById(id);
+      if (item != null && item.type == ItemType.project) {
+        await _cascadeCollectionEntries(id, item.workspaceId);
+      }
+      final reminders = await db.reminders.getForItem(id);
       DebugConfig.db('ItemNotifier.deleteItem id=$id reminders=${reminders.length}');
       if (reminders.isNotEmpty) {
         DebugConfig.notif('deleteItem: calling deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
         await ReminderScheduler.instance.deleteAllRemindersForItem(id);
       }
-      await ref.read(dbProvider).items.softDelete(id);
+      await db.items.softDelete(id);
       ref.invalidateSelf();
     } catch (e, s) {
       DebugConfig.error('ItemNotifier.deleteItem', e, s);
     }
+  }
+
+  /// D1: cascade των knowledge εγγραφών της συλλογής (reuse getByWorkspace + getCollectionIds).
+  /// Εγγραφές πρώτα, συλλογή τελευταία (interrupt-safe). Οι εγγραφές είναι knowledge → χωρίς recursion βρόχο.
+  Future<void> _cascadeCollectionEntries(int collectionId, int workspaceId) async {
+    final db = ref.read(dbProvider);
+    final entries = await db.items.getByWorkspace(workspaceId, type: ItemType.knowledge, includeArchived: true);
+    final colIds = await db.properties.getCollectionIds([for (final e in entries) e.id]);
+    final target = collectionId.toString();
+    final ids = [for (final e in colIds.entries) if (e.value == target) e.key];
+    DebugConfig.db('deleteItem cascade collection=$collectionId entries=${ids.length}');
+    for (final eid in ids) { await deleteItem(eid); }
   }
 
   /// Restore από soft delete
