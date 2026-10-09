@@ -1425,3 +1425,15 @@
 **Backups:** `backups/fix_walker_weekly/` (habit_service + oldsessions)
 
 **DESIGN.md:** καμία αλλαγή (ίδιος walker/entry-points, όχι αρχιτεκτονική).
+
+## Session 138 — 09/10/2026 (Anchor divergence: απόφαση + κλείδωμα)
+
+**Scope (v3 FINAL, κανόνες 2+4 ανεστάλησαν):** 3 decision-comments + 3 tests (μηδέν behavior-diff).
+
+**Υλοποίηση:** epochMonday-doc (native συνεπές, μην ενοποιήσεις) · scheduler-DTSTART + monthly/yearly-διευκρίνιση · walker-epoch · tests epoch/root-mirror/native-agreement (DST-safe: Ιανουάριος + σχετικές διάρκειες).
+
+**Επαλήθευση:** weekly-test 9/9 (6+3 νέα) · full **138/138** · `analyze` clean · device ΟΧΙ (μηδέν behavior-diff).
+
+**Backups:** `backups/anchor_docs/` (5 αρχεία)
+
+**DESIGN.md:** καμία αλλαγή (σχόλια + tests).

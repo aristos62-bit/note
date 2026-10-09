@@ -791,6 +791,8 @@ class HabitService {
       if (candidate.isBefore(after)) {
         candidate = candidate.add(const Duration(days: 1));
       }
+      // Anchor = epochMonday, όπως το getPeriodStart — grid και walker
+      // συμφωνούν· ο scheduler χρησιμοποιεί DTSTART (σκόπιμα).
       final cap = recurrence.interval > 1 ? 7 * recurrence.interval + 8 : 8;
       int safety = 0;
       while (!Recurrence.isValidWeeklyDay(candidate, recurrence.days!,
