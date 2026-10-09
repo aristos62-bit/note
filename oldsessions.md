@@ -1437,3 +1437,11 @@
 **Backups:** `backups/anchor_docs/` (5 αρχεία)
 
 **DESIGN.md:** καμία αλλαγή (σχόλια + tests).
+
+## Session 139 — 09/10/2026 (Fix: yearly _isPeriodComplete clamp)
+
+**Scope (1 γραμμή + σχόλιο, `habit_service.dart:984-993`):** raw `DateTime(year, month, day)` → `_safeDay(...)` (όπως monthly) — 29 Φεβ σε μη-δίσεκτο → 28 Φεβ, όχι 1 Μαρ (ψευδής ολοκλήρωση περιόδου).
+
+**Επαλήθευση:** `flutter test` → **138/138** · `analyze` clean · device N/A (legacy-only, χωρίς UI path· hermetic αδύνατο χωρίς Isar-harness).
+
+**Backups:** `backups/fix_yearly_clamp/` (habit_service + oldsessions)
