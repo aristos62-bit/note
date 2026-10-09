@@ -1420,7 +1420,7 @@
 
 **Υλοποίηση:** weekly branch +same-day-advance (`candidate.isBefore(after)` → +1 μέρα, ώρα κρατιέται — το date-only scan επέστρεφε παρελθόν και το loop έσπαγε με άδειο ορίζοντα) · `_maxPerTime` 40→60 (πραγματικός 60d, δένει με `horizonDays`).
 
-**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device (Δευτέρα-απόγευμα save περασμένου slot → Τετάρτη ✅ · μονή ώρα → 60/60 · 0 ERR) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **135/135** · `analyze` clean · device retest ✅ (user verdict 09/10/2026): same-day-past → επόμενη έγκυρη μέρα, 60/60 ορίζοντας, 0 ERR.
 
 **Backups:** `backups/fix_walker_weekly/` (habit_service + oldsessions)
 
