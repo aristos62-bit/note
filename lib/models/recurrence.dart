@@ -192,6 +192,11 @@ class Recurrence {
   // Week-math SPoT για weekly interval>1 (_BYDAY_).
   // ─────────────────────────────────────────────────────────
 
+  /// ΑΠΟΦΑΣΗ anchor (S54/S61): habit grid + walker μετράνε από epochMonday
+  /// (σταθερό, ίδιο για όλους)· ο generic scheduler μετράει από DTSTART
+  /// (root.triggerAt — RRULE-σωστό) και ΣΚΙΠΑΡΕΙ habit-roots. Το native
+  /// habit flow είναι εσωτερικά συνεπές (αμφότερα epoch)· η απόκλιση
+  /// αφορά μόνο παγωμένα bell-rows. ΜΗΝ ενοποιήσεις χωρίς ξεχωριστή απόφαση.
   /// Monday-ref για multi-week στοίχιση χωρίς user anchor (ίδιο με getPeriodStart).
   static final DateTime epochMonday = DateTime(1970, 1, 5);
 

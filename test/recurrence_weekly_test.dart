@@ -61,4 +61,31 @@ void main() {
       expect(next.day, 12);
     });
   });
+
+  group('anchor divergence — documented decision (epoch vs root)', () {
+    const days = [DateTime.monday];
+    final mon0 = Recurrence.epochMonday;
+    final mon1 = mon0.add(const Duration(days: 7));
+    final mon2 = mon0.add(const Duration(days: 14));
+
+    test('epoch: mon0 ON, mon1 OFF, mon2 ON', () {
+      expect(Recurrence.isValidWeeklyDay(mon0, days, 2, Recurrence.epochMonday), isTrue);
+      expect(Recurrence.isValidWeeklyDay(mon1, days, 2, Recurrence.epochMonday), isFalse);
+      expect(Recurrence.isValidWeeklyDay(mon2, days, 2, Recurrence.epochMonday), isTrue);
+    });
+
+    test('root σε off-epoch εβδομάδα: αντίστροφα (mirror)', () {
+      expect(Recurrence.isValidWeeklyDay(mon1, days, 2, mon1), isTrue);
+      expect(Recurrence.isValidWeeklyDay(mon2, days, 2, mon1), isFalse);
+      expect(Recurrence.isValidWeeklyDay(mon0, days, 2, mon1), isTrue);
+    });
+
+    test('native agreement: periodStart = valid boundary', () {
+      const r = Recurrence(type: RecurrenceType.weekly, interval: 2, days: [DateTime.monday]);
+      expect(r.getPeriodStart(DateTime(1970, 1, 14)), DateTime(1970, 1, 5));
+      expect(Recurrence.isValidWeeklyDay(DateTime(1970, 1, 5), days, 2, Recurrence.epochMonday), isTrue);
+      expect(Recurrence.isValidWeeklyDay(DateTime(1970, 1, 12), days, 2, Recurrence.epochMonday), isFalse);
+      expect(Recurrence.isValidWeeklyDay(DateTime(1970, 1, 19), days, 2, Recurrence.epochMonday), isTrue);
+    });
+  });
 }

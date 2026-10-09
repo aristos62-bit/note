@@ -261,6 +261,9 @@ class ReminderScheduler {
             ? nextOccurrences.last
             : todayAtTriggerTime;
         while (nextOccurrences.length < batchSize) {
+          // Anchor = DTSTART του root (RRULE-σωστό)· monthly/yearly anchors
+          // είναι απόλυτα (μήνες/έτη) χωρίς epoch-αντίστοιχο → μηδέν απόκλιση.
+          // Για weekly-habits ισχύει το epochMonday (βλ. Recurrence) — σκόπιμα.
           final next = recurrence.nextOccurrence(current, anchor: root.triggerAt);
           if (next == null) break;
           nextOccurrences.add(next);
