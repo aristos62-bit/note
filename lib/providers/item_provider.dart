@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import 'db_provider.dart';
 import 'workspace_provider.dart';
+import 'pinned_provider.dart';
 import '../core/utils/debug_config.dart';
 import 'dart:async';
 import '../services/reminder_scheduler.dart';
@@ -272,14 +273,21 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
   Future<void> toggleFavorite(int id, bool currentValue) =>
       updateItem(id, favorite: !currentValue);
 
-  /// Toggle archive
+  /// Toggle archive (#2): archive = σίγαση OS reminders· unarchive = reschedule.
+  /// Τα Reminder rows ΔΕΝ διαγράφονται (non-destructive) — μόνο τα OS alarms.
   Future<void> toggleArchive(int id, bool currentValue) async {
-    final reminders = await ref.read(dbProvider).reminders.getForItem(id);
-    DebugConfig.db('ItemNotifier.toggleArchive id=$id new=${!currentValue} reminders=${reminders.length} — NO reminder handling!');
-    for (final r in reminders) {
-      DebugConfig.notif('  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
+    final newValue = !currentValue;
+    DebugConfig.db('ItemNotifier.toggleArchive id=$id → archived=$newValue');
+    await updateItem(id, archived: newValue);
+    if (newValue) {
+      await ReminderScheduler.instance.cancelAllForItem(id);
+      DebugConfig.notif('toggleArchive: ARCHIVE id=$id → cancelled OS (rows kept)');
+    } else {
+      await ReminderScheduler.instance.refreshRecurringReminders();
+      await ReminderScheduler.instance.scheduleAll();
+      DebugConfig.notif('toggleArchive: UNARCHIVE id=$id → rescheduled');
     }
-    await updateItem(id, archived: !currentValue);
+    ref.invalidate(archivedItemsProvider);
   }
 
   /// Μετακίνηση item σε άλλο φάκελο
@@ -431,68 +439,4 @@ final collectionEntriesCountProvider = FutureProvider<Map<int, int>>((ref) async
     if (colId != null) counts[colId] = (counts[colId] ?? 0) + 1;
   }
   return counts;
-});
-
-// ─────────────────────────────────────────────────────────────────
-// ΑΝΕΞΑΡΤΗΤΑ STREAMS ΓΙΑ PINNED / FAVORITES (ΥΨΗΛΗ ΑΠΟΔΟΣΗ)
-// 🔹 Δεν εξαρτώνται από το itemsStreamProvider
-// 🔹 Κάνουν yield μόνο όταν αλλάζουν τα σχετικά δεδομένα
-// ─────────────────────────────────────────────────────────────────
-
-/// Stream όλων των pinned items του active workspace — ανεξάρτητο
-final pinnedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return Stream.value(const []);
-  return db.items.watchPinnedByWorkspace(wsId);
-});
-
-/// Stream όλων των favorite items του active workspace — ανεξάρτητο
-/// Stream pinned + favorites — ανεξάρτητα Isar queries.
-/// ΔΕΝ εξαρτάται από itemsStreamProvider.
-/// Φωτίζει ΜΟΝΟ όταν αλλάξει pinned ή favorite status.
-final pinnedAndFavoritesProvider =
-StreamProvider<({List<Item> pinned, List<Item> favorites})>((ref) {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-
-  if (wsId == null) {
-    return Stream.value((pinned: <Item>[], favorites: <Item>[]));
-  }
-
-  // ignore: close_sinks — κλείνει στο onDispose
-  final controller =
-  StreamController<({List<Item> pinned, List<Item> favorites})>();
-
-  List<Item> currentPinned    = [];
-  List<Item> currentFavorites = [];
-  bool pinnedLoaded    = false;
-  bool favoritesLoaded = false;
-
-  void emit() {
-    if (pinnedLoaded && favoritesLoaded && !controller.isClosed) {
-      controller.add((pinned: currentPinned, favorites: currentFavorites));
-    }
-  }
-
-  final pinnedSub = db.items.watchPinnedByWorkspace(wsId).listen((items) {
-    currentPinned = items;
-    pinnedLoaded  = true;
-    emit();
-  });
-
-  final favoritesSub =
-  db.items.watchFavoritesByWorkspace(wsId).listen((items) {
-    currentFavorites = items;
-    favoritesLoaded  = true;
-    emit();
-  });
-
-  ref.onDispose(() {
-    pinnedSub.cancel();
-    favoritesSub.cancel();
-    controller.close();
-  });
-
-  return controller.stream;
 });

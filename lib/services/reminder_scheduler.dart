@@ -143,6 +143,12 @@ class ReminderScheduler {
               'refreshRecurringReminders: skipping habit root id=${r.id}');
           continue;
         }
+        // #2: Τα αρχειοθετημένα items δεν ξαναγεμίζουν recurring παιδιά.
+        if (item != null && item.archived) {
+          DebugConfig.notif(
+              'refreshRecurringReminders: skipping archived root id=${r.id}');
+          continue;
+        }
         filtered.add(r);
       }
 
@@ -558,6 +564,12 @@ class ReminderScheduler {
     final item = await SuperNoteHelper.instance.items.getById(reminder.itemId);
     DebugConfig.notif(
         '_scheduleOne: itemId=${reminder.itemId} archived=${item?.archived} title=${AppStringUtils.redact(item?.title)}');
+    // #2: Τα αρχειοθετημένα items ΔΕΝ προγραμματίζουν OS reminders (archive = σίγαση).
+    if (item?.archived == true) {
+      DebugConfig.notif(
+          'ReminderScheduler._scheduleOne: ARCHIVED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
+      return;
+    }
     try {
       await NotificationService.instance.schedule(
         id: reminder.id,

@@ -1490,3 +1490,28 @@
 **Backups:** `backups/f1_collection_lifecycle/` (item_provider)
 
 **DESIGN.md:** καμία αλλαγή (behavior fix σε provider method — όχι layer/SPoT/dependency· το `_cascadeCollectionEntries` παραμένει private/SPoT).
+
+## Session 143 — 09/10/2026 (Reminder semantics: archived = σίγαση — Fix #2)
+
+**Scope (κανόνες 2+4 ανεστάλησαν):** deferred Fix #2 — τα αρχειοθετημένα items να ΜΗΝ προγραμματίζουν OS reminders. 6 αρχεία (1 νέο provider split) · καμία νέα public API · καμία migration/dependency.
+
+**SPoT:** `ItemNotifier.toggleArchive` (archive=σίγαση· unarchive=reschedule) — όχι `handleArchive` (τα Settings bypass-άρουν).
+
+**Fix (Model A — non-destructive):**
+- `item_provider.toggleArchive`: `updateItem(archived:)` **πρώτα** → archive: `ReminderScheduler.cancelAllForItem(id)` (rows μένουν, φεύγουν μόνο τα OS alarms)· unarchive: `refreshRecurringReminders()` + `scheduleAll()` → `ref.invalidate(archivedItemsProvider)`.
+- `reminder_scheduler._scheduleOne`: guard `if (item?.archived == true) return;` (μοναδικό choke-point `NotificationService.schedule`, χωρίς extra DB read — item ήδη fetched).
+- `reminder_scheduler.refreshRecurringReminders`: skip archived roots (μαζί με habit-skip).
+- `settings_screen`: `restoreSingle`/`restoreSelected` → `toggleArchive(id, true)`· `deleteSingle`/`deleteSelected` → `deleteItem(id)` (SPoT· κλείνει το direct-`update`/`softDelete` bypass).
+- `reminder_diagnostics_screen`: archive-awareness — roots + pending rows muted («σε σίγαση»), όχι ψευδείς συναγερμοί «ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS».
+
+**Split (file budget):** νέο `lib/providers/pinned_provider.dart` (pinned/favorites streams) + export στο barrel → `item_provider` **498→442** (<500 ✅).
+
+**Αριθμοί:** `item_provider` 498→**442** · `reminder_scheduler` 660→**672** · `pinned_provider` **70** (νέο) · 0 νέα API.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → clean · `flutter test` → **138/138** · device: εκτός του τρέχοντος flow (tests+analyze).
+
+**Backups:** `backups/f2_archived_silence/` (item_provider, reminder_scheduler, settings_screen, reminder_diagnostics_screen, providers)
+
+**DESIGN.md:** ενημέρωση reminder semantics (archived = σίγαση).
+
+**Docs:** `supernote.md` δομή providers (+`pinned_provider.dart`).

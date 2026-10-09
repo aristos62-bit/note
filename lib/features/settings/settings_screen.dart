@@ -961,13 +961,12 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
 
         // ── Βοηθητική: επαναφορά ενός item ────────────────────
         Future<void> restoreSingle(Item item) async {
-          await SuperNoteHelper.instance.items.update(item.id, archived: false);
+          // #2: επαναφορά μέσω SPoT → unarchive + reschedule OS reminders.
+          await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, true);
           setModal(() {
             selectedIds.remove(item.id);
             mutableItems.remove(item);
           });
-          ref.invalidate(archivedItemsProvider);
-          ref.invalidate(itemNotifierProvider);
           if (mutableItems.isEmpty && ctx.mounted) {
             Navigator.of(ctx, rootNavigator: true).pop();
           }
@@ -975,13 +974,13 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
 
         // ── Βοηθητική: soft delete ενός item ──────────────────
         Future<void> deleteSingle(Item item) async {
-          await SuperNoteHelper.instance.items.softDelete(item.id);
+          // #2: διαγραφή μέσω SPoT deleteItem → cascade reminders + cancel OS.
+          await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
           setModal(() {
             selectedIds.remove(item.id);
             mutableItems.remove(item);
           });
           ref.invalidate(archivedItemsProvider);
-          ref.invalidate(itemNotifierProvider);
           if (mutableItems.isEmpty && ctx.mounted) {
             Navigator.of(ctx, rootNavigator: true).pop();
           }
@@ -991,14 +990,13 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
         Future<void> restoreSelected(Set<int> ids) async {
           final toRestore = mutableItems.where((i) => ids.contains(i.id)).toList();
           for (final item in toRestore) {
-            await SuperNoteHelper.instance.items.update(item.id, archived: false);
+            // #2: επαναφορά μέσω SPoT → unarchive + reschedule OS reminders.
+            await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, true);
           }
           setModal(() {
             mutableItems.removeWhere((i) => ids.contains(i.id));
             selectedIds.clear();
           });
-          ref.invalidate(archivedItemsProvider);
-          ref.invalidate(itemNotifierProvider);
           if (mutableItems.isEmpty && ctx.mounted) {
             Navigator.of(ctx, rootNavigator: true).pop();
           }
@@ -1008,14 +1006,14 @@ Future<void> _showArchivedItemsDialog(BuildContext context, WidgetRef ref) async
         Future<void> deleteSelected(Set<int> ids) async {
           final toDelete = mutableItems.where((i) => ids.contains(i.id)).toList();
           for (final item in toDelete) {
-            await SuperNoteHelper.instance.items.softDelete(item.id);
+            // #2: διαγραφή μέσω SPoT deleteItem → cascade reminders + cancel OS.
+            await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
           }
           setModal(() {
             mutableItems.removeWhere((i) => ids.contains(i.id));
             selectedIds.clear();
           });
           ref.invalidate(archivedItemsProvider);
-          ref.invalidate(itemNotifierProvider);
           if (mutableItems.isEmpty && ctx.mounted) {
             Navigator.of(ctx, rootNavigator: true).pop();
           }
