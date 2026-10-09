@@ -41,12 +41,68 @@
 
 `settings 2816→6` (screen/tiles/dialogs/import/pin/colors)· `habit_detail 1874→5`· `entries 1776→list/detail/fields`· `contact_detail 1480→3`· `task_detail 1303→3`· `home 1253→3`· `event 916→2`· `journal_detail 914→2`· `appointment_detail 942→2`· `calendar 798→2`· `collection_detail 860→2`· `collections 673→2`· `search 695→2`· `folder_browser 768→2`· `trash 501→2` (οριακό)· `embedded 545→2`· `home_folder_view 570→2`.
 
-## 3. Κατάλογος bugs (επαληθευμένα γραμμή-γραμμή)
+## 3. Κατάλογος bugs — ΕΠΑΛΗΘΕΥΜΕΝΟΣ (audit εναντίον τρέχοντος κώδικα)
 
-**Crash:** `trash:323 deletedAt!`· `collection_detail:585 int.parse`· `appointment:99-104 int.parse time`· `contact:996/entries/journal orElse tags.first`· `folder_browser:416 SliverToBoxAdapter σε Column>RefreshIndicator`.
-**Απώλεια:** `task:103-105 flush μόνο τίτλο`· `event:173-177 cancel→isActive false→ποτέ save`· `habit:59 _isEditingTitle ποτέ false→guard 166 νεκρό`· `contact:678 early-return κόβει sync`· `appointment notes εκτός _hasChanges (195-203 χωρίς notes listener)`· `journal pendingContent ποτέ clear`· `block_editor:38-46 postFrame delete χωρίς mounted/try`.
-**Λάθος:** `search:176-190` (task/checklist/knowledge μόνο, άλλα→Note) + `main:76-85` (ίδιο, null για collections) → κοινός helper· `calendar:402 Γενέθλια→pop(event)` κανένα `🎂` path· `journal:106 retry λάθος provider (vs 102) + Future:128 ανά build + κανένα archived φίλτρο`· `collections:206-211 ψευδές cascade`· `entries:457 reorder φιλτραρισμένων + 408 watches σε loop + 1428 PII log + 857 debugPrint + 150 stale AppBar + ValueKey(f.key+i)`· `calendar N+1:17-36 + months hardcoded:145 + indigo/pink:390 + icon-string:562 + διπλό _createEvent`· `event Colors.green:656-666 + διπλά AppBars + 6 actions overflow + controller-in-build:327 + location fragile:548`· `contact tags read:485/530 + side-effect build:804 + photo gallery χωρίς resize:231 + fav dirty:381`· `collection_detail back-cascade:128 + N+1:162 + undisposed editor ctrls:218 + key regex σβήνει ελληνικά:425 + int.parse:585 + ValueKey(f.key+i):742`.
-**Ποιότητα:** `watch` σε `when/loop/builder` (contacts:104,118· journal:113· tasks:193· entries:410)· `Navigator.pop` αντί `safePop` + blind pop (`item_list:92,97,99-123`)· `MaterialPageRoute` αντί `slideRoute`· controllers χωρίς dispose (`settings:804,1922`· collection_detail editor)· touch 16-22px· `???` mojibake· «συμπιεσμένων»→«αρχειοθετημένων»· `if(!mounted)return` χωρίς κενό· `use_build_context_synchronously`· `select((v)=>v)` no-op· `Text('')` κενό AppBar· `✓` αντί Icon· `day/month/year` χειροκίνητα αντί intl· `DateTime.now()` σε build· `O(n²) block_editor:105`· `BlockTileWidget Stateful χωρίς state:165`· delete πάντα ορατό· `autofocus` σε inline editor· `showArchived` toggle χωρίς φίλτρο (`item_list:211`)· `archivedItems/pastReminders providers` σε UI (`settings:28,39`)→μεταφορά· `FutureBuilder per-row (settings:548)`→batch· `ValueKey entries accentColor (274)` full rebuild· `_ToggleButton` διπλό· `types` arrays τριπλά με ίδιο emoji `📅`· `take(10)` magic· stats αγνοούν journal/appointment· `_green 0xFF4CAF50 ×2`· `Colors.white/black` hardcoded· `main _InitError/_WebNotSupported hardcoded 0xFF1E1E2E`· `trash:250 error χωρίς retry`· `lock triple-fetch settings:29,45,82 + race pinLength/biometric + _pinCtrl.text+=digit + side-effect settings write:33 + no try-catch + 72px overflow + biometric μόνο μετά αποτυχία`.
+> **Audit (read-only):** grep σε όλο το `lib/` + file-level verifications + spot-checks.
+> Το παλιό §3 ήταν snapshot **πριν** τη Φ3 → ~50% έχει κλείσει. Παρακάτω ο καθαρός τρέχων κατάλογος.
+> Τα `file:line` είναι του **τρέχοντος** κώδικα· κατηγορίες 3.1–3.6 αντιστοιχούν στα βήματα Φ4c (41–46).
+
+### 3.0 ✅ Επιβεβαιωμένα κλεισμένα (μην τα ξανακυνηγάτε)
+`trash deletedAt!` → 0· raw `int.parse` (appointment→`parseHabitTime`, collection_detail→`tryParse`· μένει μόνο `parseHex` `item_color_helper:51`)· `tags.first orElse` (contact/entries/journal)· `habit _isEditingTitle→false` (`habit_detail:75`)· `block_editor` postFrame delete `mounted`+`try` (`:39-48`)· `event cancel→save` (PopScope)· `onDeleteEmpty` wired (`task:573`,`event:709`,`journal:477`,appointment)· `journal _pendingContent` clear (`journal_detail:103`)· **contact notes loss S98** (`_saveNotesDirect`+`onNotesSaved`+setState)· contact favorite dirty· appointment notes save· **search/main misroute** → `AppRoutes.forType` (`main:76`,`app_router:76`)· calendar months → `AppDateUtils.monthFullNames` (`calendar:145`)· habit dead bell· item_list blind pops (`canPop:!isDragging`)· collection_detail raw `int.parse`· leftover `debugPrint`.
+
+### 3.1 Crash guards (Φ4c-41)
+- Βασικά κλεισμένα (βλ. 3.0).
+- `item_color_helper:51` — `int.parse` hex· επιβεβαίωση try/catch + range fallback.
+
+### 3.2 Flush / dirty / απώλεια (Φ4c-42)
+- ✅ (S141) `collection_detail:146` — back-cascade αφαιρέθηκε: empty+existing → SnackBar + κρατάει τον προηγούμενο τίτλο (καμία διαγραφή· D2).
+- 🟠 `event_detail:195` — save-on-pop χάνει location edits σε άτιτλο υπάρχον event.
+- 🟠 `habit_detail:68` — `_saveTitle` early-return πριν το `_isEditingTitle=false` (`:75`).
+- 🟡 `collection_detail:197,202,207` — `_hasChanges` εκτός `setState`.
+
+### 3.3 Routing (Φ4c-43)
+- 🟠 `calendar:384` — «Γενέθλια» → `pop(_EventCreationType.event)`· **κανένα `🎂` path** (το «Ειδική ημέρα» κάνει `_createEventWithIcon(...,'⭐')` `:406`).
+- 🟡 `MaterialPageRoute` αντί `AppTransitions` (×8): `item_list_screen:59,65`· `settings:1904,1909`· `habit_list:41,47`· `contact_list:35,43`.
+- 🟡 `app_router:207` — log τυπώνει literal `\$isNew`.
+
+### 3.4 Λίστες / queries (Φ4c-44)
+- 🟡 **N+1**: `calendar:25`· `collection_entries:497`· `journal_list:128`· `item_list_embedded:197,214`.
+- 🔴 `collection_entries:454` — reorder σε **φιλτραρισμένο** υποσύνολο (indices → filtered, όχι full list).
+- ✅ (S141) `collections:69-72` — cascade κεντρικοποιήθηκε: `ItemNotifier.deleteItem` (type-aware· `project` → soft-delete εγγραφών πρώτα, μετά το root).
+- 🟠 `journal_list:106` — retry σε λάθος provider· `:129` Future ανά build.
+- 🟡 `collection_entries:166,169` — stale AppBar (widget αντί watched).
+- 🟡 `ValueKey` compound: `collection_detail:746`· `collection_entries:290`.
+
+### 3.5 Providers / lifecycle (Φ4c-45)
+- 🔴 `contact:509,555,565` — `ref.read(itemTagsProvider)` σε build → tags μη-reactive (δεν refresh μετά add/remove).
+- 🟡 `ref.watch` σε `when`/itemBuilder: `journal_list:113`· `task_list:181`· `contact:499`· `collection_entries:497`· `item_list:157`· `contact_list:167`· `habit_list:184`.
+- 🟠 `collection_entries:1451` — `addListener` χωρίς `removeListener` (leak).
+- 🟠 `contact:249,267` — gallery photo χωρίς downscale (base64· μόνο 2MB guard· camera OK).
+- 🟡 controllers χωρίς `dispose`: `collection_detail:220-228`· `settings:802,1280,1928,1929,2013`.
+- 🟡 raw `Navigator.pop` αντί `safePop` (~8 detail screens).
+- 🟡 `settings:538-539,1701` — per-row `FutureBuilder` + `SuperNoteHelper.instance` άμεσα.
+- 🟡 `lock_screen:29,45,82,60,159` — triple-fetch, race pinLength/biometric, `_pinCtrl.text+=`, no try-catch, biometric μόνο μετά αποτυχία.
+- 🟡 `collection_entries:430` — postFrame callback κάθε build.
+
+### 3.6 Theming / tokens / a11y (Φ4c-46)
+- 🟡 Hardcoded `Colors.*`: `event:663-673` (green box)· `calendar:372-389` (indigo/pink/amber)· `main:375,416`· `reminder_diagnostics:232,264,272`.
+- 🟡 `event:432,830` — διπλό AppBar / 6 actions (overflow risk).
+- 🟡 `calendar:410,441` — διπλό `_createEvent`/`_createEventWithIcon`· `:441` error swallow χωρίς SnackBar· `:637-656` νεκρό branch (identical render).
+- 🟡 Ετυμολογία: `calendar:214`·`journal_list:195` «συμπιεσμένων»→«αρχειοθετημένων».
+- 🟡 mojibake comments: `collection_detail:97-121`·`collection_entries:719-751`·`contact:202,209`.
+- 🟡 `const`: `journal_list:419`·`habit_list:450`.
+- ⏳ **a11y (48px/Semantics)** — ξεχωριστό device pass.
+
+### 3.7 🆕 Νέα ευρήματα (audit)
+- `calendar:441` error swallow · `calendar:637-656` dead branch (βλ. 3.6).
+- `contact:_syncPropsFromDB` (`:692`) — full sync κάθε rebuild όταν email κενό.
+- `habit_detail:253` — νεκρό `Text('')` στον spinner.
+- `appointment:226` — time unpadded `9:5`.
+- `collection_entries` — διπλό watch (`:143`+`:344`).
+
+### 3.8 Παλιό §3 — Ποιότητα (ΔΕΝ επανελέγχθηκε σε αυτό το audit)
+> Διατηρείται για να μη χαθεί· επανέλεγχος πριν από Φ4c-46.
+`if(!mounted)return` χωρίς κενό· `use_build_context_synchronously`· `select((v)=>v)` no-op· `✓` αντί Icon· `day/month/year` χειροκίνητα αντί intl· `DateTime.now()` σε build· `O(n²) block_editor:105`· `BlockTileWidget Stateful χωρίς state:165`· delete πάντα ορατό· `autofocus` σε inline editor· `showArchived` χωρίς φίλτρο (`item_list:211`)· `archivedItems/pastReminders` providers σε UI (`settings:28,39`)→μεταφορά· `FutureBuilder per-row (settings:548)`→batch· `ValueKey entries accentColor (274)`· `_ToggleButton` διπλό· `types` arrays τριπλά με ίδιο emoji `📅`· `take(10)` magic· stats αγνοούν journal/appointment· `_green 0xFF4CAF50 ×2`· `Colors.white/black` hardcoded· main init/web hardcoded `0xFF1E1E2E`· `trash:250` error χωρίς retry· touch 16-22px.
 
 ## 4. Βήματα υλοποίησης (αριθμημένα, για εύκολη αναίρεση)
 

@@ -5,7 +5,7 @@
 | Πεδίο | Τιμή |
 |---|---|
 | Όνομα | super_note (SuperNote) |
-| Version | 1.0.2+2 |
+| Version | 1.0.4+2 |
 | Flutter | 3.41.9 (stable) |
 | Dart | 3.11.5 |
 | GitHub | https://github.com/aristos62-bit/note |
@@ -13,6 +13,8 @@
 | IDE | Android Studio Panda 4 \| 2025.3.4 Patch 1 |
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
+| Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
+| Test suite | 138/138 🟢 (`flutter test`) |
 
 ---
 
@@ -37,10 +39,13 @@
 ### Notifications
 - `flutter_local_notifications` (`^17.2.2`)
 - `timezone` (`^0.9.4`) — timezone-aware scheduling
+- `flutter_timezone` (`^4.1.1`) — IANA timezone lookup (`FlutterTimezone.getLocalTimezone()`)
 - Δεν χρησιμοποιείται `flutter_native_timezone` — manual timezone setup στο `NotificationService`
 
 ### Files & Import
 - `file_picker` (`^8.0.7`) — SAF file picker/save
+- `image_picker` (`^1.1.2`) — λήψη/επιλογή φωτογραφιών (κάμερα/gallery)
+- `open_filex` (`^4.5.0`) — άνοιγμα αρχείου με system app
 - `mime` (`^1.0.5`) — MIME type lookup
 - `path` (`^1.9.0`) — path manipulation
 
@@ -54,6 +59,16 @@
 - `reorderable_grid` (`^1.0.13`) — grid with drag & drop
 - `share_plus` (`^12.0.2`) — share functionality
 - `collection` (`^1.18.0`) — collection utilities
+- `package_info_plus` (`^9.0.1`) — app version/build info
+
+### App Lock, Share & Archive
+- `local_auth` (`^2.3.0`) — biometrics
+- `crypto` (`^3.0.6`) — SHA-256 (PIN hashing)
+- `receive_sharing_intent` (`^1.9.0`) — λήψη κοιν/νου content
+- `url_launcher` (`^6.3.3`) — άνοιγμα URLs
+- `archive` (`^4.3.0`) — zip backup/restore
+
+> Πηγή αλήθειας για dependencies: `pubspec.yaml`
 
 ---
 
@@ -77,7 +92,10 @@ lib/
 │       ├── responsive.dart       — ResponsiveLayout, breakpoints
 │       ├── transitions.dart      — AppTransitions (fade, slideRight, slideUp)
 │       ├── recurrence_utils.dart — Recurrence UI helpers
-│       └── reminder_picker.dart  — Reminder time picker
+│       ├── reminder_picker.dart  — Reminder time picker
+│       ├── image_utils.dart      — avatarProvider/ResizeImage, fileThumb, checkMaxBytes
+│       ├── contact_props.dart    — ContactProps.fromProperties (SPoT)
+│       └── app_errors.dart       — Κεντρικά user-facing strings (AppErrors)
 ├── models/
 │   ├── models.dart               — Barrel export
 │   ├── item.dart                 — Item collection (core entity)
@@ -113,10 +131,14 @@ lib/
 │   ├── services.dart             — Barrel export
 │   ├── notification_service.dart — flutter_local_notifications init
 │   ├── reminder_scheduler.dart   — Schedule/cancel platform notifications
+│   ├── migration_service.dart    — Schema versioning + migrations
 │   ├── search_service.dart       — Full-text search
 │   ├── habit_service.dart        — Habit stats, streak, progress
 │   ├── attachment_service.dart   — File pick + save + delete
-│   ├── backup_service.dart       — Export/import Isar DB
+│   ├── backup_service.dart       — Export/import Isar DB (zip)
+│   ├── backup_archive.dart       — Zip archive helpers
+│   ├── app_lock_service.dart     — PIN (SHA-256) + biometric
+│   ├── shared_intent_service.dart — Λήψη κοιν/νου content (share intent)
 │   ├── contact_import_service.dart — Import device contacts
 │   └── share_service.dart        — Share items
 ├── helpers/
@@ -196,6 +218,15 @@ lib/
         ├── archive_helper.dart    — Central archive/unarchive function
         └── reorder_handle.dart    — Drag handle icon
 ```
+
+---
+
+### Συμβάσεις κώδικα (Conventions)
+
+- **Barrel imports**: import από barrels (`models/models.dart`, `providers/providers.dart`, `core/core.dart`, `services/services.dart`, `features/<name>/<name>.dart`, `shared/widgets/widgets.dart`), όχι απευθείας από individual files.
+- **Code generation**: Isar models + annotations παράγουν `*.g.dart` (εξαιρούνται από τον analyzer στο `analysis_options.yaml`).
+- **Soft delete**: `Item.deletedAt` — ποτέ hard delete στην κανονική ροή (hard delete υπάρχει μόνο για τον κάδο).
+- **Sync-ready**: `Item.isDirty`, `Item.localVersion`, `Item.serverVersion`, `Item.syncedAt`.
 
 ---
 
@@ -331,6 +362,21 @@ final db = SuperNoteHelper.instance;
 | `WorkspaceRepository` | create, getAll, getDefault | — |
 | `AttachmentRepository` | create, getForItem, getById, delete | — |
 | `SettingsRepository` | get, update | watch (object id=1) |
+
+---
+
+## Schema Migration (lib/services/migration_service.dart)
+
+- `MigrationService.ensureSchemaVersion(isar)` — καλείται στο `SuperNoteHelper.init()` μετά το `Isar.open()`.
+- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`).
+- Safety backup (file copy) πριν από κάθε migration.
+- Batch pagination (50 records) για αποφυγή OOM.
+- Idempotent migrations — crash-safe.
+
+### Πώς προσθέτεις νέο migration
+1. Αύξησε το `_targetVersion` στο `migration_service.dart`.
+2. Πρόσθεσε case στο `_runMigration()` switch.
+3. Γράψε τη μέθοδο `_vNToVNext()` με batch pagination.
 
 ---
 
@@ -805,13 +851,28 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 
 ---
 
+## DebugConfig logging (lib/core/utils/debug_config.dart)
+
+| Κλήση | Prefix |
+|---|---|
+| `DebugConfig.startup('...')` | 🚀 STARTUP +ms |
+| `DebugConfig.db('...')` | 🗄️ DB \| |
+| `DebugConfig.nav('...')` | 🧭 NAV \| |
+| `DebugConfig.provider('...')` | ⚡ PRV \| |
+| `DebugConfig.notif('...')` | 🔔 NTF \| |
+| `DebugConfig.error(...)` | ❌ ERR |
+| `DebugConfig.warning(...)` | ⚠️ WRN |
+| `DebugConfig.print(...)` | 💬 |
+
+---
+
 ## Commands
 
 | Command | Description |
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Runs widget_test.dart (stale — based on non-existent counter) |
+| `flutter test` | Πλήρες suite (138/138 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |
