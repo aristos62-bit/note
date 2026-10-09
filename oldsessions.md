@@ -1508,9 +1508,9 @@
 
 **Αριθμοί:** `item_provider` 498→**442** · `reminder_scheduler` 660→**672** · `pinned_provider` **70** (νέο) · 0 νέα API.
 
-**Επαλήθευση:** `flutter analyze --no-pub` → clean · `flutter test` → **138/138** · device: εκτός του τρέχοντος flow (tests+analyze).
+**Επαλήθευση:** `flutter analyze --no-pub` → clean · `flutter test` → **138/138** · **device ✅ (09/10/2026, `run_log_f2.txt`, pid 16807, 319 γρ.):** cold start με **ήδη αρχειοθετημένο** item 455 (root 2050 + child 2052) → `refreshRecurringReminders: skipping archived root id=2050` (×2) + `scheduleAll: scheduling id=2052 itemId=455 archived=true` → `_scheduleOne: ARCHIVED, SKIP id=2052` (καμία OS) · unarchive 455 → `refresh` **χωρίς** skip (σωστή σειρά `updateItem`→`refresh`) → `scheduleAll … id=2052 archived=false` + `UNARCHIVE … rescheduled` · re-archive 455 → `cancelAllForItem: itemId=455` + `ARCHIVE … cancelled OS (rows kept)` · delete από Αρχειοθετημένα → `deleteItem id=455 reminders=6` + `deleteAllRemindersForItem(455)` (cascade· τα rows διατηρήθηκαν μέχρι τότε = **non-destructive**) · 2ο delete `reminders=0` idempotent · **137/137 non-archived** OK σε κάθε `scheduleAll` · **0 ERR**. Παρατήρηση (όχι regression): το archive (18:14:45) πέρασε απευθείας `toggleArchive` χωρίς `handleArchive` logs — σωστό αποτέλεσμα, μελλοντικό consistency check.
 
-**Backups:** `backups/f2_archived_silence/` (item_provider, reminder_scheduler, settings_screen, reminder_diagnostics_screen, providers)
+**Backups:** `backups/f2_archived_silence/` (item_provider, reminder_scheduler, settings_screen, reminder_diagnostics_screen, providers, oldsessions)
 
 **DESIGN.md:** ενημέρωση reminder semantics (archived = σίγαση).
 
