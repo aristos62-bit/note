@@ -397,6 +397,7 @@ final db = SuperNoteHelper.instance;
 - `scheduleReminder(Reminder)` — single reminder scheduling
 - `cancelAllForItem(int itemId)` — cancel all for an item
 - `refreshRecurringReminders()` — re-schedule recurring reminders
+- Archival semantics (S143): `_scheduleOne` σκιπάρει `archived` items (καμία OS ειδοποίηση)· το `refreshRecurringReminders()` σκιπάρει archived roots — αρχειοθετημένο = **σίγαση** (rows μένουν · unarchive → reschedule)
 - `debouncedRefreshRecurringReminders()` — with debounce for app resume
 
 ### HabitService (`lib/services/habit_service.dart`)
