@@ -528,7 +528,7 @@ class HabitService {
   /// Ορίζοντας προ-δημιουργίας occurrences.
   static const int horizonDays = 60;
 
-  static const int _maxPerTime = 40;
+  static const int _maxPerTime = 60;
 
   /// Pure: ποιες needed λείπουν από existing (για unit test).
   static List<DateTime> planTopUp(
@@ -786,6 +786,11 @@ class HabitService {
     if (recurrence.type == RecurrenceType.weekly &&
         recurrence.days != null &&
         recurrence.days!.isNotEmpty) {
+      // Same-day-passed slot (candidate πάντα σήμερα-με-ώρα): αύριο,
+      // αλλιώς το loop σπάει με άδειο ορίζοντα (isValid = date-only).
+      if (candidate.isBefore(after)) {
+        candidate = candidate.add(const Duration(days: 1));
+      }
       final cap = recurrence.interval > 1 ? 7 * recurrence.interval + 8 : 8;
       int safety = 0;
       while (!Recurrence.isValidWeeklyDay(candidate, recurrence.days!,
