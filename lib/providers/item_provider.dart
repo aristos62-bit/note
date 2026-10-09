@@ -190,14 +190,11 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
   }
 
   /// Soft delete — cascade delete reminders (root + children) + cancel OS notifications.
-  /// D1: Αν είναι συλλογή (project) → soft-delete cascade και των εγγραφών της (→ κάδος).
+  /// D1/F1: Αν είναι συλλογή (project) → soft-delete cascade και των εγγραφών της (→ κάδος).
   Future<void> deleteItem(int id) async {
     try {
       final db = ref.read(dbProvider);
-      final item = await db.items.getById(id);
-      if (item != null && item.type == ItemType.project) {
-        await _cascadeCollectionEntries(id, item.workspaceId);
-      }
+      await _cascadeCollectionEntries(id, deleteItem);
       final reminders = await db.reminders.getForItem(id);
       DebugConfig.db('ItemNotifier.deleteItem id=$id reminders=${reminders.length}');
       if (reminders.isNotEmpty) {
@@ -211,21 +208,24 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     }
   }
 
-  /// D1: cascade των knowledge εγγραφών της συλλογής (reuse getByWorkspace + getCollectionIds).
-  /// Εγγραφές πρώτα, συλλογή τελευταία (interrupt-safe). Οι εγγραφές είναι knowledge → χωρίς recursion βρόχο.
-  Future<void> _cascadeCollectionEntries(int collectionId, int workspaceId) async {
+  /// D1/F1: εφαρμόζει [action] στις knowledge εγγραφές της συλλογής [id] (αν project).
+  /// includeDeleted=true → και soft-deleted (restore/permanent). Εγγραφές πρώτα (interrupt-safe).
+  Future<void> _cascadeCollectionEntries(int id, Future<void> Function(int) action, {bool includeDeleted = false, String logTag = 'deleteItem'}) async {
     final db = ref.read(dbProvider);
-    final entries = await db.items.getByWorkspace(workspaceId, type: ItemType.knowledge, includeArchived: true);
+    final item = await db.items.getById(id);
+    if (item == null || item.type != ItemType.project) return;
+    final entries = await db.items.getByWorkspace(item.workspaceId, type: ItemType.knowledge, includeArchived: true, includeDeleted: includeDeleted);
     final colIds = await db.properties.getCollectionIds([for (final e in entries) e.id]);
-    final target = collectionId.toString();
-    final ids = [for (final e in colIds.entries) if (e.value == target) e.key];
-    DebugConfig.db('deleteItem cascade collection=$collectionId entries=${ids.length}');
-    for (final eid in ids) { await deleteItem(eid); }
+    final ids = [for (final e in colIds.entries) if (e.value == id.toString()) e.key];
+    DebugConfig.db('$logTag cascade collection=$id entries=${ids.length}');
+    for (final eid in ids) { await action(eid); }
   }
 
-  /// Restore από soft delete
+  /// Restore από soft delete (F1: αν συλλογή → restore και των εγγραφών της)
   Future<void> restoreItem(int id) async {
     try {
+      await _cascadeCollectionEntries(id, (eid) => ref.read(dbProvider).items.restore(eid),
+          includeDeleted: true, logTag: 'restoreItem');
       await ref.read(dbProvider).items.restore(id);
       ref.invalidateSelf();
     } catch (e, s) {
@@ -236,6 +236,7 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
   /// Permanent delete
   Future<void> permanentDelete(int id) async {
     try {
+      await _cascadeCollectionEntries(id, permanentDelete, includeDeleted: true, logTag: 'permanentDelete');
       final reminders = await ref.read(dbProvider).reminders.getForItem(id);
       DebugConfig.db('ItemNotifier.permanentDelete id=$id reminders=${reminders.length}');
       for (final r in reminders) {
