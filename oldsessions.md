@@ -1464,7 +1464,7 @@
 
 **Αριθμοί:** `item_provider` 479→**497** · `collection_detail` 864→**833** (<500 ✅).
 
-**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.2s) · `flutter test` → **138/138** · **device retest ✅ (09/10/2026, `run_log_d1d2.txt`, pid 30831):** D1 cascade 4/4 σωστό (443 `entries=1`, 448 `entries=1` → εγγραφή πρώτα/root τελευταίο· 444/445 `entries=0`· 1×`getCollectionIds` batch, 38→37 χωρίς orphan) · D2 κενός τίτλος υπάρχουσας → pop χωρίς save/delete (init `id=448 isNew=false` → dispose, 0 γραμμές cascade) · κανονικό back με τίτλο → `no changes, skip save` (καμία διαγραφή) · νέα-κενή εγγραφή idempotent · **0 ERR/WRN**. Εκκρεμούν (μη-regressions): Folder Browser delete, reminder-cancel branch, αρχειοθετημένη εγγραφή, οπτικός κάδος.
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.2s) · `flutter test` → **138/138** · **device retest ✅ (09/10/2026, `run_log_d1d2.txt`, pid 30831, 1865 γρ.):** D1 cascade **6/6** σωστό — grid 443/448 `entries=1` (εγγραφή πρώτα/root τελευταίο) + 444/445/450 `entries=0`· **Folder Browser 451 `entries=0`** (`FolderBrowser deleteItem id=451` → cascade) · 1×`getCollectionIds` batch πριν από κάθε cascade, 38→37 χωρίς orphan · D2 κενός τίτλος υπάρχουσας → pop χωρίς save/delete (init `id=448 isNew=false` → dispose, 0 γραμμές cascade) · κανονικό back με τίτλο → `no changes, skip save` (καμία διαγραφή) · νέα-κενή εγγραφή idempotent · **0 ERR/WRN**. Reminder-cancel branch **N/A στις συλλογές** (καμία Reminder UI στο `lib/features/collections/` → πάντα `reminders=0`· κοινό path, αγγίζεται από notes/tasks κ.λπ.) · αρχειοθετημένη εγγραφή **N/A** (δεν αρχειοθετούνται) · οπτικός κάδος: μόνο οπτικά.
 
 **Backups:** `backups/d1d2_cascade/` (item_provider + collection_detail + code_refactor + oldsessions)
 

@@ -55,7 +55,7 @@
 - `item_color_helper:51` — `int.parse` hex· επιβεβαίωση try/catch + range fallback.
 
 ### 3.2 Flush / dirty / απώλεια (Φ4c-42)
-- ✅ (S141) `collection_detail:146` — back-cascade αφαιρέθηκε: empty+existing → SnackBar + κρατάει τον προηγούμενο τίτλο (καμία διαγραφή· D2).
+- ✅ (S141) `collection_detail:146` — back-cascade αφαιρέθηκε: empty+existing → SnackBar + κρατάει τον προηγούμενο τίτλο (καμία διαγραφή· D2)· device ✅ 09/10/2026 (`run_log_d1d2.txt`).
 - 🟠 `event_detail:195` — save-on-pop χάνει location edits σε άτιτλο υπάρχον event.
 - 🟠 `habit_detail:68` — `_saveTitle` early-return πριν το `_isEditingTitle=false` (`:75`).
 - 🟡 `collection_detail:197,202,207` — `_hasChanges` εκτός `setState`.
@@ -68,7 +68,7 @@
 ### 3.4 Λίστες / queries (Φ4c-44)
 - 🟡 **N+1**: `calendar:25`· `collection_entries:497`· `journal_list:128`· `item_list_embedded:197,214`.
 - 🔴 `collection_entries:454` — reorder σε **φιλτραρισμένο** υποσύνολο (indices → filtered, όχι full list).
-- ✅ (S141) `collections:69-72` — cascade κεντρικοποιήθηκε: `ItemNotifier.deleteItem` (type-aware· `project` → soft-delete εγγραφών πρώτα, μετά το root).
+- ✅ (S141) `collections:69-72` — cascade κεντρικοποιήθηκε: `ItemNotifier.deleteItem` (type-aware· `project` → soft-delete εγγραφών πρώτα, μετά το root)· device ✅ 09/10/2026 (`run_log_d1d2.txt`, grid + Folder Browser).
 - 🟠 `journal_list:106` — retry σε λάθος provider· `:129` Future ανά build.
 - 🟡 `collection_entries:166,169` — stale AppBar (widget αντί watched).
 - 🟡 `ValueKey` compound: `collection_detail:746`· `collection_entries:290`.
