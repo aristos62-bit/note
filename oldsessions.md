@@ -1515,3 +1515,23 @@
 **DESIGN.md:** ενημέρωση reminder semantics (archived = σίγαση).
 
 **Docs:** `supernote.md` δομή providers (+`pinned_provider.dart`).
+
+## Session 144 — 09/10/2026 (Collections: reorder εγγραφών σε φιλτραρισμένο υποσύνολο — deferred #3)
+
+**Scope (κανόνες 2+4 ανεστάλησαν):** deferred #3 (`code_refactor §3.4:70`) — το `onReorder` της λίστας εγγραφών συλλογής πέρναγε στο `ItemRepository.reorder` **μόνο το φιλτραρισμένο υποσύνολο** (viewMode/search/tags) → η αρίθμηση 0..k-1 γινόταν μόνο σε αυτά, τα υπόλοιπα κρατούσαν τα `sortOrder` τους (default `0.0`, `item_provider:136`) → ισοβαθμίες + χαμένη/ασταθής σειρά μετά το unfilter. 1 αρχείο · καμία νέα public API · κανένα νέο SPoT.
+
+**Fix (`collection_entries_screen.dart`, pattern `HomeFolderView._buildItemsList:158-183`):**
+- Το `_FilteredEntriesList` διαβάζει την **πλήρη workspace λίστα** μέσω του ήδη-cached `itemsStreamProvider` (`valueOrNull ?? const []` — 0 νέες queries· το widget ήδη rebuilds κάθε stream αλλαγή μέσω `candidates`).
+- `onReorder`: move στο filtered → merge στη **FULL workspace** λίστα (τα slots των `filteredIds` παίρνουν τη νέα σειρά, τα non-filtered μένουν στις θέσεις τους) → `reorder(fullReordered)` → αρίθμηση 0..N **χωρίς ισοβαθμίες** (ίδιο με HomeFolderView· όχι subset).
+- R2 (parity `item_list_embedded:102-105`): `onReorderStart/End` → `isDraggingProvider` + `PopScope(canPop: !isDragging)` — κλειδώνει back-gesture κατά το drag.
+- 1 `DebugConfig.db` (old/new + μεγέθη) στο callback.
+
+**Αποφάσεις:** merge σε **ολόκληρο το workspace** (όχι μόνο τα items της συλλογής) — το `sortOrder` είναι global και η δημιουργία default-άρει στο `0.0`, άρα το subset-merge αφήνει ties με τα υπόλοιπα items· full-workspace = αυθεντικό εγκεκριμένο pattern (S30-34, oldsessions:78). Τα άλλα 3 λανθάνοντα subset-reorder sites (`item_list_screen:237-243`· `item_list_embedded:396-402`· `habit_list_screen:58-64`) εκτός scope (άλλα αρχεία → ξεχωριστή έγκριση). Δεν χρειάστηκε νέο test (device verification, όπως S142-143).
+
+**Αριθμοί:** `collection_entries_screen` 1725→**1756** (προϋπάρχον >500 — το split Φ4b παραμένει ξεχωριστό task) · 1 αρχείο · 0 νέα API.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.5s) · `flutter test` → **138/138** · **device verification εκκρεμεί από χρήστη** (matrix: Όλα χωρίς φίλτρα · Όλα+search/tag drag→unfilter · άλλη συλλογή ελέγχου · pinned/favorites άθικτα · grid 2+ στήλες · restart).
+
+**Backups:** `backups/f3_entries_reorder/` (collection_entries_screen + oldsessions)
+
+**DESIGN.md:** καμία αλλαγή (behavior fix σε UI callback — όχι layer/SPoT/dependency· τα `itemsStreamProvider`/`itemNotifier.reorder` παραμένουν SPoT).

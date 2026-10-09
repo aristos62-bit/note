@@ -386,6 +386,12 @@ class _FilteredEntriesList extends ConsumerWidget {
     // Φιλτράρουμε όλες τις εγγραφές της συλλογής — 1 batch DB call
     final allEntries = <Item>[];
     final colIdMap = ref.watch(_batchColIdProvider).valueOrNull ?? {};
+
+    // Πλήρης workspace λίστα — σωστό merge του reorder στο παγκόσμιο sortOrder
+    // (pattern HomeFolderView._buildItemsList, όχι filtered subset).
+    final allWorkspaceItems =
+        ref.watch(itemsStreamProvider).valueOrNull ?? const <Item>[];
+
     for (final c in candidates) {
       final colIdStr = colIdMap[c.id];
       if (colIdStr == collectionId.toString()) allEntries.add(c);
@@ -446,28 +452,53 @@ class _FilteredEntriesList extends ConsumerWidget {
       );
     }
 
-    return ReorderableItemList(
-      items: entries,
-      gridItemExtent: 140,
-      onReorder: (oldIndex, newIndex) {
-        if (oldIndex == newIndex) return;
-        final reordered = List<Item>.from(entries);
-        final item = reordered.removeAt(oldIndex);
-        reordered.insert(newIndex, item);
-        ref.read(itemNotifierProvider.notifier).reorder(reordered);
-      },
-      itemBuilder: (ctx, entry, index) => _EntryCard(
-        entry: entry,
-        fields: fields,
-        accentColor: accentColor,
-        onTap: () => Navigator.of(context)
-            .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
-          entryId: entry.id,
-          collectionId: collectionId,
+    return PopScope(
+      canPop: !ref.watch(isDraggingProvider),
+      child: ReorderableItemList(
+        items: entries,
+        gridItemExtent: 140,
+        onReorder: (oldIndex, newIndex) {
+          if (oldIndex == newIndex) return;
+
+          // 1. Κινούμε το item μέσα στη φιλτραρισμένη λίστα
+          final filtered = List<Item>.from(entries);
+          final moved = filtered.removeAt(oldIndex);
+          filtered.insert(newIndex, moved);
+
+          // 2. Εφαρμόζουμε τη νέα σειρά στη FULL workspace λίστα
+          //    (pattern HomeFolderView._buildItemsList, όχι filtered subset).
+          //    Τα non-filtered μένουν στις θέσεις τους · τα filtered στη νέα
+          //    σειρά → το ItemRepository.reorder αριθμεί 0..N χωρίς ισοβαθμίες.
+          final filteredIds = filtered.map((e) => e.id).toSet();
+          final fullReordered = <Item>[];
+          int filteredIdx = 0;
+          for (final item in allWorkspaceItems) {
+            if (filteredIds.contains(item.id)) {
+              fullReordered.add(filtered[filteredIdx++]);
+            } else {
+              fullReordered.add(item);
+            }
+          }
+
+          DebugConfig.db('ENTRIES reorder old=$oldIndex new=$newIndex '
+              'filtered=${filtered.length} full=${fullReordered.length}');
+          ref.read(itemNotifierProvider.notifier).reorder(fullReordered);
+        },
+        onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
+        onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
+        itemBuilder: (ctx, entry, index) => _EntryCard(
+          entry: entry,
           fields: fields,
-          isNew: false,
-        ))),
-        onShare: () => ShareService.shareItem(context, entry.id),
+          accentColor: accentColor,
+          onTap: () => Navigator.of(context)
+              .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
+            entryId: entry.id,
+            collectionId: collectionId,
+            fields: fields,
+            isNew: false,
+          ))),
+          onShare: () => ShareService.shareItem(context, entry.id),
+        ),
       ),
     );
   }
