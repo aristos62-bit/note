@@ -87,6 +87,20 @@ class _CollectionEntriesScreenState
   Set<String> _visibleTagNames = {};
 
   @override
+  void initState() {
+    super.initState();
+    // Reset κατά το άνοιγμα (pattern SearchScreen :128-139): οι providers
+    // είναι app-scoped και κρατούν παλιά αποτελέσματα μεταξύ navigations.
+    // PostFrame (όχι σύγχρονα): η Riverpod απαγορεύει modify σε initState.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(_entriesSearchQueryProvider.notifier).state = '';
+      ref.read(_entriesTagFilterProvider.notifier).state = {};
+      DebugConfig.search('ENTRIES opened → query/tags reset');
+    });
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     _searchFocus.dispose();
@@ -97,6 +111,7 @@ class _CollectionEntriesScreenState
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(AppDuration.debounceSearch, () {
+      DebugConfig.search('ENTRIES query write="$value" (debounce fired)');
       ref.read(_entriesSearchQueryProvider.notifier).state = value.trim();
     });
   }
@@ -104,9 +119,13 @@ class _CollectionEntriesScreenState
   void _toggleSearch() {
     setState(() => _searchActive = !_searchActive);
     if (!_searchActive) {
+      // Ακύρωση pending debounce: αλλιώς ξαναγράφει το query ΜΕΤΑ το clear
+      // (αόρατο φίλτρο χωρίς γραμμή search).
+      _debounce?.cancel();
       _searchCtrl.clear();
       ref.read(_entriesSearchQueryProvider.notifier).state = '';
       ref.read(_entriesTagFilterProvider.notifier).state = {};
+      DebugConfig.search('ENTRIES search closed → query/tags reset');
     } else {
       Future.microtask(() => _searchFocus.requestFocus());
     }

@@ -1547,3 +1547,33 @@
 **Backups:** `backups/f3_revert_entries_reorder/` (fixed state 1756 γρ. + oldsessions — κρατείται για ενδεχόμενη re-εφαρμογή).
 
 **Ανοικτό θέμα (μελλοντικό session, χρειάζεται repro + έγκριση):** σειρά pinned/favorites στο Home grid. Root-cause map: toggle OFF μηδενίζει το order (`super_note_helper:334,342`) → σε both-view sort (`home_screen:575-584`) το item με `pinnedOrder=null` πάει **στο τέλος** · toggle ON **δεν ορίζει ποτέ** order → νέα pinned/fav πάντα στο τέλος · both-view sort αγνοεί το `favoriteOrder` (cross-view desync όταν το drag γίνεται στο Favorites view). Το deferred #3 παραμένει ανοιχτό (`code_refactor §3.4:70`).
+
+## Session 146 — 09/10/2026 (Collections: stale search/tag state μετά από έξοδο/είσοδο στην οθόνη εγγραφών)
+
+**Σύμπτωμα (device):** μετά από search σε συλλογή (collectionId=29, 37 εγγραφές), αν βγεις από την οθόνη εγγραφών (back) και ξαναμπείς, η λίστα **συνεχίζει να δείχνει τα αποτελέσματα του search** χωρίς ορατή γραμμή αναζήτησης. Μόνο με cold start (νέο PID — π.χ. 8307→10716 στο logcat) ξαναφαίνεται όλο το περιεχόμενο.
+
+**Αιτία (επιβεβαιωμένη στον κώδικα):** τα `_entriesSearchQueryProvider` + `_entriesTagFilterProvider` (`collection_entries_screen:33-34`) είναι top-level `StateProvider` — app-scoped, δεν σβήνουν όταν κλείνει η οθόνη. Το `dispose()` (90-95) καθάριζε μόνο controllers/focus/debounce, **ΟΧΙ** τα providers. Έξοδος με back ενώ το search είναι ενεργό → στο re-entry το `_searchActive` είναι πάλι `false` (τοπικό), αλλά το `searchQuery = ref.watch(...)` κρατάει το παλιό query → η λίστα φιλτράρει χωρίς γραμμή search. Το 🔍 toggle-off (108-109) καθάριζε ήδη σωστά — γι' αυτό το bug φαινόταν μόνο στο exit/entry. Το `listViewModeProvider` (`ui_provider:9`) είναι global επίτηδες → εκτός scope.
+
+**Fix (1 αρχείο, 3 γραμμές):** reset των 2 providers μέσα στο `dispose()` πριν το `super.dispose()`. Side effects ελεγμένα: όταν ανοίγεις εγγραφή από τα αποτελέσματα και επιστρέφεις, η οθόνη εγγραφών παραμένει ζωντανή → το search μένει (σωστό)· τα providers είναι `_`-private του αρχείου → καμία επίδραση αλλού.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (4.0s) · `flutter test` → **138/138**.
+
+**Backups:** `backups/ss_stale_search_fix/` (collection_entries_screen.dart — pre-fix SHA256 `E3B965…3BF40`, 1725 γρ.)
+
+**Ανοικτά (μελλοντικά):** deferred #3 (`code_refactor §3.4:70`) χρειάζεται κατευθυντικό repro (drag `Delta μπροστά από τη Beta` μέσα σε search 2 αποτελεσμάτων) · σειρά pinned/favorites στο Home grid (root-cause map στο S145).
+
+**Αναίρεση (κατόπιν αιτήματος χρήστη, ίδια συνεδρία):** το fix **δεν έλυσε** το πρόβλημα στο device — μετά από rebuild/reinstall, η συμπεριφορά παρέμεινε (stale αποτελέσματα μετά από έξοδο/είσοδο στην οθόνη). Επαναφορά του `dispose()` στο αρχικό → **byte-identical** (SHA256 `E3B965…3BF40`, 1725 γρ.) · `flutter analyze` clean (3.6s). Fixed state κρατείται στο `backups/ss_stale_search_fix_revert/` (SHA256 `A0F7D27F…`). **Υπόθεση προς διερεύνηση:** το `dispose()` ίσως **δεν τρέχει** στη ροή πλοήγησης του χρήστη — πιθανά σημεία: StatefulShellRoute (bottom-nav tab-switch κρατάει τη σκηνή ζωντανή) ή push detail → back (η οθόνη εγγραφών παραμένει mounted). Εναλλακτικές: `StateProvider.autoDispose` (πεθαίνουν όταν φύγουν όλοι οι listeners) ή reset σε `PopScope.onPopInvokedWithResult`.
+
+## Session 147 — 10/10/2026 (Collections: stale search/tag — reset-on-open, τελική λύση)
+
+**Σύμπτωμα:** ίδιο με S146 — search σε συλλογή → έξοδος (back) → επανείσοδος → φιλτραρισμένη λίστα χωρίς ορατή γραμμή search· μόνο cold start καθάριζε.
+
+**Διερεύνηση (πλήρη διαβάσματα, 1725 γρ.):** (1) Δύο μονοπάτια: app-scoped providers (33-34) + write-after-clear race — `_toggleSearch`/Χ δεν ακύρωναν το pending 300ms debounce (99) → ξαναέγραφε το query ΜΕΤΑ το clear (αόρατο φίλτρο ακόμα και χωρίς έξοδο). (2) Η υπόθεση StatefulShellRoute **διαψεύστηκε** (`app_router:99` = απλό `ShellRoute`· είσοδος = `Navigator.push`, `collections_screen:56-60`) → το dispose τρέχει κανονικά. (3) Το S146 απέτυχε αδιαφανώς: κανένα log tag → άγνωστο αν το binary περιείχε το fix (μάθημα S145). (4) Το ίδιο πρόβλημα είναι ΗΔΗ λυμένο στο `search_screen:128-139` (reset-on-open με postframe + `clear()`). (5) `StateProvider.autoDispose` **απορρίφθηκε**: αχρησιμοποίητο σε όλο το `lib/` (μόνο 3× `FutureProvider.autoDispose`) + τρύπα overlap (παλιά+νέα οθόνη mounted → listeners≠0 → το stale κληρονομείται). (6) `ContentFieldWidget` απορρίφθηκε τεκμηριωμένα (δικός του controller + flush-on-dispose + autoDeleteEmpty). (7) Νέο widget test **αδύνατο**: private providers + κανένα Isar harness στα tests → verification σε device (precedent S77/S142-145). (8) Μοναδικό entry point επιβεβαιωμένο· `openKnowledgeEntry` ανοίγει μόνο detail· detail `PopScope`+`safePop` → επιστροφή με search ζωντανό (σωστό).
+
+**Fix (`collection_entries_screen.dart`, 1 αρχείο, ~12 γρ., 0 νέα API/SPoT):** `initState` + postframe reset query/tags + log (πιστό αντίγραφο του SearchScreen pattern)· `_debounce?.cancel()` στο toggle-off (κλείνει τη race)· log στο debounce-fire. ΟΧΙ autoDispose/dispose-reset/PopScope.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → clean (7.6s) · `flutter test` → **138/138**. Device verification εκκρεμεί από χρήστη (πρωτόκολλο: search→back→είσοδος όλα ορατά· γρήγορο toggle-off άμεση επαναφορά· detail→back διατηρεί· Α→Β καθαρή· overlap <300ms καθαρή· logcat: `ENTRIES opened → query/tags reset` σε κάθε είσοδο, `query write` μόνο ~300ms μετά keystroke, build με `query=""`).
+
+**Backups:** `backups/s147_entries_search_scope/` (dart + oldsessions + supernote — pre-change SHA256 `E3B965…3BF40`).
+
+**DESIGN.md:** καμία αλλαγή (UI-state fix, όχι layer/SPoT/dependency — όπως S144· η μόνη αναφορά `autoDispose` είναι για families, R6). **supernote.md:32:** καμία αλλαγή σε αυτό το session (η γραμμή ήταν ήδη ξεπερασμένη πριν το S147 από τα 3 προϋπάρχοντα `FutureProvider.autoDispose`· διορθώνεται με το Φ4c-45).
