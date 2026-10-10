@@ -1579,3 +1579,17 @@
 **DESIGN.md:** καμία αλλαγή (UI-state fix, όχι layer/SPoT/dependency — όπως S144· η μόνη αναφορά `autoDispose` είναι για families, R6). **supernote.md:32:** καμία αλλαγή σε αυτό το session (η γραμμή ήταν ήδη ξεπερασμένη πριν το S147 από τα 3 προϋπάρχοντα `FutureProvider.autoDispose`· διορθώνεται με το Φ4c-45).
 
 **Device verification (user run 10/10/2026, `run_log_s147.txt` 1806 γρ.):** PASS — fix CLOSED. `ENTRIES opened → query/tags reset` 3× (απόδειξη νέου binary)· re-entry εντός ίδιου process (PID 27518: queries 10:36:47-58 → έξοδος → επανείσοδος 10:37:05.964 με reset) = το bug scenario κλειστό· `query write` 9× μόνο μετά από πληκτρολόγηση (2× `""` από Χ-clear — νόμιμα)· 0× `search closed` (το 🔍-off δεν εξασκήθηκε σε αυτό το run — το cancel καλύπτεται από code review + analyze)· 0 ERR/FATAL· 2× WRN `[LIFECYCLE] RACE RISK` από reminder-scheduler (άλλο subsystem, προϋπάρχον, εκτός scope)· cold start (PID 27966) + 3η είσοδος με reset.
+
+## Session 148 — 10/10/2026 (ReorderUtils SPoT: κοινό subset→full merge σε 8 λίστες — deferred #3)
+
+**Scope (2+4 ανεστάλησαν):** deferred #3 (`code_refactor §3.4:70`, επιβεβαιωμένο με case `[1,2,3]→[3,1,2]`) — 7 sites πέρναγαν φιλτραρισμένο υποσύνολο στο `ItemNotifier.reorder()` (αρίθμηση `0..k-1` μόνο αυτά → ties → εκτοπισμός ανέγγιχτων): entries, item_list, embedded, habit, task (sections + `TaskWithDetails` wrapper), browser (type-filter), collections-grid. Πλήρης απογραφή `reorder(`: home both-view (`reorderCombined`, πλήρες σύνολο), folders/blocks (άλλες entities), FieldDef (όχι Items) = εκτός, αποδεδειγμένα.
+
+**Fix (11 αρχεία, +~130/-60):** ΝΕΟ `lib/core/utils/reorder_utils.dart` (pure `moveAndMerge`: move → ∩-merge στη full — stale ids αγνοούνται, υπερχείλιση αποδεδειγμένα αδύνατη) + export στο `core.dart` (0 νέα imports — όλα τα sites importάρουν `core`) + 8 call sites (μόνο σώμα `onReorder`, 4 γρ. το καθένα· task με adapter `map((td) => td.task)`· browser με folder-list base· folder_view migration ταυτόσημης λογικής) + guard parity list-mode (entries+habit +PopScope/Start/End· task +Start/End· collections-grid/grids skip — το πακέτο δεν έχει `onReorderEnd`). Invariant: merge-base ⊇ display-scope (workspace ×6, folder ×2).
+
+**Επαλήθευση:** νέο `test/reorder_utils_test.dart` 6/6 (acceptance `[1,2,3]→[1,3,2]` μέσα) · `flutter test` **144/144** · `flutter analyze --no-pub` clean (45.6s). **Device verification εκκρεμεί από χρήστη** (`run_log_s148.txt`: entries `[1,2,3]→[1,3,2]` ΠΡΕΠΕΙ· task section· browser type-filter· collections pinned-tab· habit· embedded search+tags+day· folder απαράλλακτο· 1 `ReorderUtils moveAndMerge` tag/drop· 0 ERR).
+
+**Backups + revert (έτοιμο πριν την υλοποίηση):** `backups/s148_reorder_spot/` (12 αρχεία pre-change + `BASE_HEAD.txt` = 749ea08) + τοπικό branch `s148-base` (όχι pushed). Revert: `git checkout s148-base -- <11 αρχεία>` + `del lib\core\utils\reorder_utils.dart, test\reorder_utils_test.dart` · ή `git reset --hard s148-base` (σβήνει το S148 commit) · ή αντιγραφή από το backup dir.
+
+**DESIGN.md:** νέα ενότητα S148 (SPoT + barrel + tests — φόρμα Φ4a). **code_refactor §3.4:70:** ✅ S148 (device pending).
+
+**Ανοικτά:** pin/fav Home-grid (S145) · embedded-toggleSearch race (follow-up) · grid-mode guard gap (πακέτο).

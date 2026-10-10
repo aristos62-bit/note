@@ -57,10 +57,9 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
 
   void _reorderHabits(List<Item> items, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
-    final reordered = List<Item>.from(items);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    ref.read(itemNotifierProvider.notifier).reorder(reordered);
+    final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: items, oldIndex: oldIndex, newIndex: newIndex);
+    ref.read(itemNotifierProvider.notifier).reorder(merged);
   }
 
   @override
@@ -78,7 +77,11 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
       debugLabel: 'HabitList',
     );
 
-    return Scaffold(
+    final isDragging = ref.watch(isDraggingProvider);
+
+    return PopScope(
+      canPop: !isDragging,
+      child: Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
       floatingActionButton: selectedFolderId != null
@@ -129,6 +132,8 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
                           gridItemExtent: 140,
                           onReorder: (oldIndex, newIndex) =>
                               _reorderHabits(habitsOnly, oldIndex, newIndex),
+                          onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
+                          onReorderEnd: () => ref.read(isDraggingProvider.notifier).state = false,
                           itemBuilder: (ctx, item, index) => _DraggableHabitCard(
                             habit: item,
                             onTap: () => _openDetail(item.id),
@@ -145,6 +150,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
           ),
         ],
       ),
+    ),
     );
   }
 

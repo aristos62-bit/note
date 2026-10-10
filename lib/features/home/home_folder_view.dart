@@ -157,29 +157,8 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       gridItemExtent: 100,
       onReorder: (oldIdx, newIdx) {
         if (oldIdx == newIdx) return;
-
-        // 1. Κινούμε το item μέσα στη φιλτραρισμένη λίστα
-        final filtered = List<Item>.from(items);
-        final moved = filtered.removeAt(oldIdx);
-        filtered.insert(newIdx, moved);
-
-        // 2. Εφαρμόζουμε τη νέα σειρά στη FULL λίστα
-        //    Παίρνουμε τα IDs της νέας σειράς από τα filtered
-        final filteredIds = filtered.map((i) => i.id).toSet();
-
-        // Χτίζουμε τη full λίστα διατηρώντας τα non-filtered στη θέση τους
-        // και αντικαθιστώντας τα filtered με τη νέα σειρά τους
-        final fullReordered = <Item>[];
-        int filteredIdx = 0;
-        for (final item in allItems) {
-          if (filteredIds.contains(item.id)) {
-            fullReordered.add(filtered[filteredIdx++]);
-          } else {
-            fullReordered.add(item);
-          }
-        }
-
-        ref.read(itemNotifierProvider.notifier).reorder(fullReordered);
+        final merged = ReorderUtils.moveAndMerge(full: allItems, filtered: items, oldIndex: oldIdx, newIndex: newIdx);
+        ref.read(itemNotifierProvider.notifier).reorder(merged);
       },
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
       onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,

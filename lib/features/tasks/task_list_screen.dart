@@ -384,6 +384,8 @@ class _TaskListBody extends ConsumerWidget {
         physics: const NeverScrollableScrollPhysics(),
         onReorder: (oldIndex, newIndex) =>
             _onTaskReorder(ref, items, oldIndex, newIndex),
+        onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
+        onReorderEnd: () => ref.read(isDraggingProvider.notifier).state = false,
         itemBuilder: (ctx, item, index) {
           final td = items.firstWhere((t) => t.task.id == item.id);
           return Opacity(
@@ -407,11 +409,12 @@ class _TaskListBody extends ConsumerWidget {
       int newIndex,
       ) {
     if (oldIndex == newIndex) return;
-    final reordered = List<TaskWithDetails>.from(items);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
+    final all = ref.read(tasksWithDetailsProvider).valueOrNull ?? const [];
+    final full = all.where((td) => td.task.deletedAt == null && td.parentId == null).map((td) => td.task).toList();
+    final filtered = items.map((td) => td.task).toList();
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: filtered, oldIndex: oldIndex, newIndex: newIndex);
     ref.read(itemNotifierProvider.notifier)
-        .reorder(reordered.map((td) => td.task).toList());
+        .reorder(merged);
   }
 }
 

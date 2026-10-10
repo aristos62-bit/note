@@ -174,7 +174,11 @@ class _CollectionEntriesScreenState
     final accentColor = _colorFromItem(collection);
     DebugConfig.print('ENTRIES COLOR CHECK: collection.id=${collection.id} color="${collection.color}" accentColor=$accentColor');
 
-    return Scaffold(
+    final isDragging = ref.watch(isDraggingProvider);
+
+    return PopScope(
+      canPop: !isDragging,
+      child: Scaffold(
       backgroundColor: context.cBg,
       appBar: AppBar(
         backgroundColor: context.cBg,
@@ -326,6 +330,7 @@ class _CollectionEntriesScreenState
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -470,11 +475,12 @@ class _FilteredEntriesList extends ConsumerWidget {
       gridItemExtent: 140,
       onReorder: (oldIndex, newIndex) {
         if (oldIndex == newIndex) return;
-        final reordered = List<Item>.from(entries);
-        final item = reordered.removeAt(oldIndex);
-        reordered.insert(newIndex, item);
-        ref.read(itemNotifierProvider.notifier).reorder(reordered);
+        final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
+        final merged = ReorderUtils.moveAndMerge(full: full, filtered: entries, oldIndex: oldIndex, newIndex: newIndex);
+        ref.read(itemNotifierProvider.notifier).reorder(merged);
       },
+      onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
+      onReorderEnd: () => ref.read(isDraggingProvider.notifier).state = false,
       itemBuilder: (ctx, entry, index) => _EntryCard(
         entry: entry,
         fields: fields,
