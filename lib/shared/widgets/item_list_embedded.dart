@@ -396,7 +396,7 @@ class _EmbeddedItemListBody extends ConsumerWidget {
   void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
     if (oldIndex == newIndex) return;
     final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
-    final merged = ReorderUtils.moveAndMerge(full: full, filtered: items, oldIndex: oldIndex, newIndex: newIndex);
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: items, oldIndex: oldIndex, newIndex: newIndex, debugLabel: 'embedded');
     ref.read(itemNotifierProvider.notifier).reorder(merged);
   }
 

@@ -476,7 +476,7 @@ class _FilteredEntriesList extends ConsumerWidget {
       onReorder: (oldIndex, newIndex) {
         if (oldIndex == newIndex) return;
         final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
-        final merged = ReorderUtils.moveAndMerge(full: full, filtered: entries, oldIndex: oldIndex, newIndex: newIndex);
+        final merged = ReorderUtils.moveAndMerge(full: full, filtered: entries, oldIndex: oldIndex, newIndex: newIndex, debugLabel: 'entries');
         ref.read(itemNotifierProvider.notifier).reorder(merged);
       },
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,

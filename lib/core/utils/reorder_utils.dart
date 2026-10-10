@@ -21,6 +21,7 @@ class ReorderUtils {
     required List<Item> filtered,
     required int oldIndex,
     required int newIndex,
+    String? debugLabel,
   }) {
     if (oldIndex == newIndex) return List<Item>.from(full);
     final moved = List<Item>.from(filtered);
@@ -34,7 +35,19 @@ class ReorderUtils {
     for (final f in full) {
       merged.add(placeIds.contains(f.id) ? place[j++] : f);
     }
-    DebugConfig.db('ReorderUtils moveAndMerge full=${full.length} filtered=${filtered.length} $oldIndex→$newIndex');
+    final tag = debugLabel == null ? 'ReorderUtils' : 'ReorderUtils[$debugLabel]';
+    DebugConfig.db('$tag move full=${full.length} filtered=${filtered.length} $oldIndex→$newIndex');
+    DebugConfig.db('$tag merged order: ${_describeOrder(merged)}');
     return merged;
+  }
+
+  /// Compact `id:title` σειρά, capped — για οπτική επαλήθευση σειράς στο logcat.
+  static String _describeOrder(List<Item> items, [int max = 30]) {
+    final shown = items.take(max).map((i) {
+      final t = (i.title ?? '').replaceAll('\n', ' ');
+      final short = t.length > 20 ? '${t.substring(0, 20)}…' : t;
+      return '${i.id}:$short';
+    }).join(', ');
+    return items.length > max ? '[$shown, …+${items.length - max}]' : '[$shown]';
   }
 }

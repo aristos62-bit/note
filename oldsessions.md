@@ -1593,3 +1593,15 @@
 **DESIGN.md:** νέα ενότητα S148 (SPoT + barrel + tests — φόρμα Φ4a). **code_refactor §3.4:70:** ✅ S148 (device pending).
 
 **Ανοικτά:** pin/fav Home-grid (S145) · embedded-toggleSearch race (follow-up) · grid-mode guard gap (πακέτο).
+
+## Session 149 — 10/10/2026 (Reorder order-logging για device verification)
+
+**Σκοπός:** οπτική επαλήθευση της σειράς ειδών σε κάθε reorder (κανονικά + με search), κατόπιν αιτήματος χρήστη. Μόνο logs — καμία αλλαγή λογικής.
+
+**Αλλαγές (10 αρχεία, όλα logging):** SPoT `moveAndMerge` + προαιρετικό `debugLabel` + γραμμή `merged order: [id:title, …]` (capped 30, τίτλοι κομμένοι)· 8 call sites με ετικέτα (entries/item_list/embedded/habit/task/browser/collections/folder_view)· helper `_orderMap` + γραμμή `reorder wrote [id:sortOrder]` (ground truth numbering)· `reorderPinned/Favorites/Combined ids=[…]` (pinnedOrder = θέση στη λίστα).
+
+**Επαλήθευση:** `test/reorder_utils_test` 6/6 · `flutter test` **144/144** · `flutter analyze --no-pub` clean (3.8s).
+
+**Backups:** `backups/s149_reorder_logs/` (11 pre-change αρχεία + `BASE_HEAD.txt`).
+
+**Device:** ίδιο πρωτόκολλο S148 (`run_log_s148.txt`) + νέα tags: `ReorderUtils[<οθόνη>] merged order:` (αναμενόμενη σειρά τίτλων) · `ItemRepository.reorder wrote` (id:sortOrder 1-1 με merged) · `reorderPinned/Favorites/Combined ids=` (Home grid).
