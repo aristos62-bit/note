@@ -1577,3 +1577,5 @@
 **Backups:** `backups/s147_entries_search_scope/` (dart + oldsessions + supernote — pre-change SHA256 `E3B965…3BF40`).
 
 **DESIGN.md:** καμία αλλαγή (UI-state fix, όχι layer/SPoT/dependency — όπως S144· η μόνη αναφορά `autoDispose` είναι για families, R6). **supernote.md:32:** καμία αλλαγή σε αυτό το session (η γραμμή ήταν ήδη ξεπερασμένη πριν το S147 από τα 3 προϋπάρχοντα `FutureProvider.autoDispose`· διορθώνεται με το Φ4c-45).
+
+**Device verification (user run 10/10/2026, `run_log_s147.txt` 1806 γρ.):** PASS — fix CLOSED. `ENTRIES opened → query/tags reset` 3× (απόδειξη νέου binary)· re-entry εντός ίδιου process (PID 27518: queries 10:36:47-58 → έξοδος → επανείσοδος 10:37:05.964 με reset) = το bug scenario κλειστό· `query write` 9× μόνο μετά από πληκτρολόγηση (2× `""` από Χ-clear — νόμιμα)· 0× `search closed` (το 🔍-off δεν εξασκήθηκε σε αυτό το run — το cancel καλύπτεται από code review + analyze)· 0 ERR/FATAL· 2× WRN `[LIFECYCLE] RACE RISK` από reminder-scheduler (άλλο subsystem, προϋπάρχον, εκτός scope)· cold start (PID 27966) + 3η είσοδος με reset.
