@@ -337,7 +337,10 @@ class ItemRepository {
     if (priority != null) item.priority = priority;
     if (pinned != null) {
       item.pinned = pinned;
-      if (!pinned) item.pinnedOrder = null;
+      // S152: ΔΕΝ μηδενίζουμε το pinnedOrder στο unpin — η σειρά διατηρείται
+      // (αλλιώς το both-view sort, που βλέπει μόνο pinnedOrder με nulls-last,
+      //  στέλνει το item στο τέλος). Cleanup εκτός-προβολής κάνει το
+      // reorderPinned, όχι το toggle.
     }
     if (archived != null) {
       DebugConfig.db('ItemRepository.update id=$id setting archived=$archived (was=${item.archived})');
@@ -354,7 +357,7 @@ class ItemRepository {
     item.localVersion++;
     item.isDirty = true;
 
-    DebugConfig.db('ItemRepository.update id=$id BEFORE writeTxn localVersion=${item.localVersion}');
+    DebugConfig.db('ItemRepository.update id=$id BEFORE writeTxn localVersion=${item.localVersion} pinned=$pinned pinnedOrder=${item.pinnedOrder} favorite=$favorite favoriteOrder=${item.favoriteOrder}');
     await _isar.writeTxn(() async {
       await _isar.items.put(item);
     });

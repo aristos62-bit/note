@@ -1608,6 +1608,18 @@
 
 **DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer/SPoT — όπως S144).
 
+## Session 152 — 10/10/2026 (Unpin keeps pinnedOrder — S145-map fix)
+
+**Scope (2+4 ανεστάλησαν):** pinned 1ο στο Home → detail → unpin + fav → επιστροφή → τελευταίο (αντί 1ο). Αιτία: `update(pinned:false)` μηδένιζε `pinnedOrder` (helper:340) → both-view sort (μόνο `pinnedOrder`, nulls-last) → τέλος. Fav αθώο (sort το αγνοεί· toggle δεν αγγίζει `pinnedOrder`).
+
+**Fix (1 αρχείο, 2 γραμμές):** διαγραφή του nulling (η σειρά διατηρείται)· επέκταση log-357 με `pinned/pinnedOrder/favorite/favoriteOrder` (αποδεικτικό). `favorite`-branch άθικτο (αόρατο παντού)· toggle-ON άθικτο (εκτός αναφοράς)· choke-point καλύπτει 10+ toggle-callers (όλοι single-flag, επαληθευμένο).
+
+**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (3.5s). **Device matrix εκκρεμεί από χρήστη:** unpin+fav 1η→ΜΕΝΕΙ· μέση· no-fav→εξαφανίζεται· re-pin→παλιά· fav→ακίνητο· drag→ακριβές· logcat `pinned=false pinnedOrder=<kept>` (όχι null)· 0 ERR.
+
+**Backups:** `backups/s152_unpin_keep/` (helper + oldsessions, pre-change SHA256 `36B5A4EB…` επαληθευμένο πριν τα edits).
+
+**DESIGN.md:** καμία αλλαγή (1-γραμμο repository fix).
+
 ## Session 149 — 10/10/2026 (Reorder order-logging για device verification)
 
 **Σκοπός:** οπτική επαλήθευση της σειράς ειδών σε κάθε reorder (κανονικά + με search), κατόπιν αιτήματος χρήστη. Μόνο logs — καμία αλλαγή λογικής.
