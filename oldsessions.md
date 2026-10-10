@@ -1607,3 +1607,7 @@
 **Backups:** `backups/s149_reorder_logs/` (11 pre-change αρχεία + `BASE_HEAD.txt`).
 
 **Device:** ίδιο πρωτόκολλο S148 (`run_log_s148.txt`) + νέα tags: `ReorderUtils[<οθόνη>] merged order:` (αναμενόμενη σειρά τίτλων) · `ItemRepository.reorder wrote` (id:sortOrder 1-1 με merged) · `reorderPinned/Favorites/Combined ids=` (Home grid).
+
+## Session 150 — 10/10/2026 (Grid drop-index D0 — αρνητικό, κλείνει χωρίς κώδικα)
+
+**Ερώτημα:** μήπως τα package-grid drops (raw indices, χωρίς adjust) προσγειώνονται +1 στα downward. **D0 (τρέχον build, 0 edits):** collections grid (πάντα-grid) `0→6, 6→0, 4→3, 3→6, 6→3` + entries `0→16, 16→0, 2→3, 3→2` (PID 19515, φρέσκο capture `run_log_s147.txt`) — ο χρήστης-arbiter δεν είδε mislanding πουθενά· 0 ERR. **Ετυμηγορία:** δεν επιβεβαιώνεται (μαζί με: example πακέτου χωρίς adjust + καμία αναφορά από βαρύ Home-grid use) → το `_insertIndex` είναι προφανώς σωστό για plain removeAt/insert· η pre-removal υπόθεση απορρίπτεται με στοιχεία. **0 αλλαγές κώδικα** (list-modes ήδη ακριβή via `onReorderItem`). Λ2 closed.
