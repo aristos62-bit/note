@@ -29,7 +29,7 @@
 - **Riverpod** (`flutter_riverpod ^2.5.1`, `riverpod ^2.5.1`)
   - Providers: `Provider`, `StateProvider`, `FutureProvider`, `StreamProvider`, `AsyncNotifierProvider`
   - Family providers: `FutureProvider.family`, `StreamProvider.family`, `AsyncNotifierProviderFamily`
-  - No `autoDispose` used anywhere
+  - `autoDispose` μόνο σε batch/family providers (entries `_batchTags/_batchColId`, contacts) — screen-scoped search state λύνεται με reset-on-open (`SearchScreen` + entries `initState` postframe, S147)
 
 ### Routing
 - **go_router** (`^17.1.0`) — `ShellRoute` with `GoRouter`, declarative routing
