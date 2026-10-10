@@ -87,3 +87,10 @@
 
 ## Αλλαγές Session 72 (Φ4a βήμα 9: toggle-button SPoT)
 - Νέο `CircleToggleButton` (3 privates → 1, tokens cError/cWarning/cSuccess/cInfo)· `ViewModeToggle` API άθικτο· enums άθικτα· tests `test/toggle_button_test.dart` (3/3)· suite 77/77· analyze clean.
+
+## Αλλαγές Session 148 (ReorderUtils SPoT — Φ4c-44)
+- Νέο `core/utils/reorder_utils.dart` (pure `moveAndMerge`: filtered-move → full-merge, stale-guard, 1 `DebugConfig.db` tag) + barrel export· 0 νέα imports (όλα τα sites importάρουν `core`).
+- 8 call sites (μόνο σώμα `onReorder`): entries/item_list/embedded/habit (workspace base) · task (adapter `TaskWithDetails→task`) · browser (folder base) · collections · folder_view migration (ταυτόσημη λογική).
+- Guard parity list-mode: entries+habit (+PopScope/Start/End)· task (+Start/End)· collections/grids skip (το πακέτο δεν έχει `onReorderEnd`).
+- Invariant merge-base ⊇ display-scope (workspace ×6, folder ×2)· `ItemNotifier.reorder` API άθικτο.
+- Tests `test/reorder_utils_test.dart` (6/6, acceptance `[1,2,3]→[1,3,2]`)· suite 144/144· analyze clean· device pending (`run_log_s148.txt`).

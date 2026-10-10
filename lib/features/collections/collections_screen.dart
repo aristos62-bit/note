@@ -221,10 +221,9 @@ class _CollectionsReorderableGrid extends ConsumerWidget {
 
   void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
     if (oldIndex == newIndex) return;
-    final reordered = List<Item>.from(collections);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    ref.read(itemNotifierProvider.notifier).reorder(reordered);
+    final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: collections, oldIndex: oldIndex, newIndex: newIndex);
+    ref.read(itemNotifierProvider.notifier).reorder(merged);
   }
 
   bool _canDrag(Item item) => !item.pinned && !item.favorite;

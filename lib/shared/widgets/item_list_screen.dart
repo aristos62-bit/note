@@ -236,10 +236,9 @@ class _ItemListBody extends ConsumerWidget {
 
   void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
     if (oldIndex == newIndex) return;
-    final reordered = List<Item>.from(items);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    ref.read(itemNotifierProvider.notifier).reorder(reordered);
+    final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: items, oldIndex: oldIndex, newIndex: newIndex);
+    ref.read(itemNotifierProvider.notifier).reorder(merged);
   }
 
   @override

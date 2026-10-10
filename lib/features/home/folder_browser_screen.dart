@@ -236,13 +236,9 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
                         // ── ΝΕΟ: reorder callbacks ──────────────────
                         onReorder: (oldIdx, newIdx) {
                           if (oldIdx == newIdx) return;
-                          final reordered = List<Item>.from(filteredItems);
-                          final moved = reordered.removeAt(oldIdx);
-                          reordered.insert(
-                            newIdx,
-                            moved,
-                          );
-                          ref.read(itemNotifierProvider.notifier).reorder(reordered);
+                          final full = ref.read(itemsByFolderStreamProvider(_folder.id)).valueOrNull ?? const [];
+                          final merged = ReorderUtils.moveAndMerge(full: full, filtered: filteredItems, oldIndex: oldIdx, newIndex: newIdx);
+                          ref.read(itemNotifierProvider.notifier).reorder(merged);
                         },
                         onReorderStart: () =>
                         ref.read(isDraggingProvider.notifier).state = true,
