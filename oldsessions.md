@@ -1594,6 +1594,8 @@
 
 **Ανοικτά:** pin/fav Home-grid (S145) · embedded-toggleSearch race (follow-up) · grid-mode guard gap (πακέτο).
 
+**Device verification (user, S149 build, run_log_s147.txt):** PASS — **deferred #3 CLOSED**. Acceptance `[1,2,3]` → search → drag `3` μπροστά → clear → **`[1,3,2]`** (ήταν `[3,1,2]`)· pipeline move→merge→write 1:1 (traced pair, pinned/fav skips + dense numbering exact)· `ReorderUtils` ×3 entries + ×4 collections + `reorderCombined` ×3· `ENTRIES opened` ×4· 0 ERR/WRN· ties pinned-vs-κανονικών αβλαβή (category sort)· collections 4× identical merges: gesture-truth άγνωστο (user), no-actionable-signal, log κρατείται. Grid off-by-one (package, προϋπάρχον) → ξεχωριστό follow-up S150.
+
 ## Session 149 — 10/10/2026 (Reorder order-logging για device verification)
 
 **Σκοπός:** οπτική επαλήθευση της σειράς ειδών σε κάθε reorder (κανονικά + με search), κατόπιν αιτήματος χρήστη. Μόνο logs — καμία αλλαγή λογικής.
