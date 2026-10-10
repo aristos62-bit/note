@@ -1596,6 +1596,18 @@
 
 **Device verification (user, S149 build, run_log_s147.txt):** PASS — **deferred #3 CLOSED**. Acceptance `[1,2,3]` → search → drag `3` μπροστά → clear → **`[1,3,2]`** (ήταν `[3,1,2]`)· pipeline move→merge→write 1:1 (traced pair, pinned/fav skips + dense numbering exact)· `ReorderUtils` ×3 entries + ×4 collections + `reorderCombined` ×3· `ENTRIES opened` ×4· 0 ERR/WRN· ties pinned-vs-κανονικών αβλαβή (category sort)· collections 4× identical merges: gesture-truth άγνωστο (user), no-actionable-signal, log κρατείται. Grid off-by-one (package, προϋπάρχον) → ξεχωριστό follow-up S150.
 
+## Session 151 — 10/10/2026 (Embedded search race + day-leak — S147-pattern)
+
+**Scope (2+4 ανεστάλησαν):** το `toggleSearch` του embedded δεν ακύρωνε το pending 300ms debounce → write-after-clear (αόρατο φίλτρο)· + day-switch leak (σταθερό GlobalKey calendar, `onlyIds` αλλάζει, `didUpdateWidget` ανύπαρκτο). Trash/task/search αποκλείστηκαν με στοιχεία (όχι toggle / όχι debounce / όχι toggle).
+
+**Fix (1 αρχείο, ~+20):** `_debounce?.cancel()` στο toggle-off + `didUpdateWidget`-reset σε itemType/folderId/`onlyIds` (με `setEquals` — όχι hand-rolled· precedents content_field/home) + 3 `DebugConfig.search` (prefix `EMBEDDED`, anti-collision με `ENTRIES`).
+
+**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (38.1s). **Device matrix εκκρεμεί από χρήστη** (calendar: type→off<300ms → πλήρης· X· Δευτέρα→Τρίτη καθαρή· rotation κρατά· `EMBEDDED` assertions· 0 ERR).
+
+**Backups:** `backups/s151_embedded_search/` (embedded + oldsessions, pre-change SHA256 `03A318C5…`). **Μάθημα διαδικασίας:** το backup πιάστηκε POST-edit (παράλληλη εκτέλεση με τα edits) + η ανακατασκευή μέσω PowerShell strings διέφθειρε τα Ελληνικά (ANSI-decode → +2.6KB mojibake) → λύση: byte-level LF→CRLF από `git show` + επαλήθευση με hash. Κανόνας: backups ΠΑΝΤΑ πριν τα edits, ποτέ παράλληλα.
+
+**DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer/SPoT — όπως S144).
+
 ## Session 149 — 10/10/2026 (Reorder order-logging για device verification)
 
 **Σκοπός:** οπτική επαλήθευση της σειράς ειδών σε κάθε reorder (κανονικά + με search), κατόπιν αιτήματος χρήστη. Μόνο logs — καμία αλλαγή λογικής.
