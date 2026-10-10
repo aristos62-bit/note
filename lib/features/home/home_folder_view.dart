@@ -157,7 +157,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       gridItemExtent: 100,
       onReorder: (oldIdx, newIdx) {
         if (oldIdx == newIdx) return;
-        final merged = ReorderUtils.moveAndMerge(full: allItems, filtered: items, oldIndex: oldIdx, newIndex: newIdx);
+        final merged = ReorderUtils.moveAndMerge(full: allItems, filtered: items, oldIndex: oldIdx, newIndex: newIdx, debugLabel: 'folder_view');
         ref.read(itemNotifierProvider.notifier).reorder(merged);
       },
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,

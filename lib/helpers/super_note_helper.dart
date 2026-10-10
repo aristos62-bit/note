@@ -210,6 +210,12 @@ class ItemRepository {
     return list;
   }
 
+  /// Compact `id:value` mapping για επαλήθευση σειράς εγγραφών στο logcat (capped).
+  String _orderMap(List<Item> items, double? Function(Item) get, [int max = 30]) {
+    final shown = items.take(max).map((i) => '${i.id}:${get(i)}').join(', ');
+    return items.length > max ? '[$shown, …+${items.length - max}]' : '[$shown]';
+  }
+
   // ── CREATE ──────────────────────────────────────────────
 
   Future<Item> create({
@@ -443,6 +449,7 @@ class ItemRepository {
           await _isar.items.put(item);
         }
       }
+      DebugConfig.db('ItemRepository.reorderPinned ids=$itemIds');
       if (itemIds.isNotEmpty) {
         final anyItem = await _isar.items.get(itemIds.first);
         if (anyItem != null) {
@@ -470,6 +477,7 @@ class ItemRepository {
           await _isar.items.put(item);
         }
       }
+      DebugConfig.db('ItemRepository.reorderFavorites ids=$itemIds');
       if (itemIds.isNotEmpty) {
         final anyItem = await _isar.items.get(itemIds.first);
         if (anyItem != null) {
@@ -499,6 +507,7 @@ class ItemRepository {
           await _isar.items.put(item);
         }
       }
+      DebugConfig.db('ItemRepository.reorderCombined ids=$itemIds');
     });
   }
   // ── WATCH (Reactive) ────────────────────────────────────
@@ -579,6 +588,7 @@ class ItemRepository {
         items[i].isDirty = true;
         order++;
       }
+      DebugConfig.db('ItemRepository.reorder wrote ${_orderMap(items, (i) => i.sortOrder)}');
       await _isar.items.putAll(items);
     });
   }

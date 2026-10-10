@@ -222,7 +222,7 @@ class _CollectionsReorderableGrid extends ConsumerWidget {
   void _onReorder(int oldIndex, int newIndex, WidgetRef ref) {
     if (oldIndex == newIndex) return;
     final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
-    final merged = ReorderUtils.moveAndMerge(full: full, filtered: collections, oldIndex: oldIndex, newIndex: newIndex);
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: collections, oldIndex: oldIndex, newIndex: newIndex, debugLabel: 'collections');
     ref.read(itemNotifierProvider.notifier).reorder(merged);
   }
 

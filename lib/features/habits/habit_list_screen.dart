@@ -58,7 +58,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
   void _reorderHabits(List<Item> items, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
     final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];
-    final merged = ReorderUtils.moveAndMerge(full: full, filtered: items, oldIndex: oldIndex, newIndex: newIndex);
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: items, oldIndex: oldIndex, newIndex: newIndex, debugLabel: 'habit');
     ref.read(itemNotifierProvider.notifier).reorder(merged);
   }
 

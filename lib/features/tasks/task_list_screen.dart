@@ -412,7 +412,7 @@ class _TaskListBody extends ConsumerWidget {
     final all = ref.read(tasksWithDetailsProvider).valueOrNull ?? const [];
     final full = all.where((td) => td.task.deletedAt == null && td.parentId == null).map((td) => td.task).toList();
     final filtered = items.map((td) => td.task).toList();
-    final merged = ReorderUtils.moveAndMerge(full: full, filtered: filtered, oldIndex: oldIndex, newIndex: newIndex);
+    final merged = ReorderUtils.moveAndMerge(full: full, filtered: filtered, oldIndex: oldIndex, newIndex: newIndex, debugLabel: 'task');
     ref.read(itemNotifierProvider.notifier)
         .reorder(merged);
   }
