@@ -62,9 +62,27 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(ItemListEmbedded oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Νέο scope (ημέρα/φάκελος/τύπος) = φρέσκο search — όπως reset-on-open.
+    // setEquals: null-safe σύγκριση περιεχομένου (το Set == είναι identity).
+    if (widget.itemType != oldWidget.itemType ||
+        widget.folderId != oldWidget.folderId ||
+        !setEquals(widget.onlyIds, oldWidget.onlyIds)) {
+      _debounce?.cancel();
+      _searchCtrl.clear();
+      _searchQuery = '';
+      _activeTags = {};
+      _visibleTagNames = {};
+      DebugConfig.search('EMBEDDED scope changed → query/tags reset');
+    }
+  }
+
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(AppDuration.debounceSearch, () {
+      DebugConfig.search('EMBEDDED query write="$value" (debounce fired)');
       setState(() => _searchQuery = value.trim());
     });
   }
@@ -72,11 +90,16 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   void toggleSearch() {
     setState(() => _searchActive = !_searchActive);
     if (!_searchActive) {
+      // Ακύρωση pending debounce (ίδιο race με προ-S147 entries):
+      // αλλιώς ξαναγράφει το query ΜΕΤΑ το clear. Καλύπτει και τον
+      // εξωτερικό caller (calendar AppBar μέσω GlobalKey).
+      _debounce?.cancel();
       _searchCtrl.clear();
       setState(() {
         _searchQuery = '';
         _activeTags = {};
       });
+      DebugConfig.search('EMBEDDED search closed → query/tags reset');
     } else {
       Future.microtask(() => _searchFocus.requestFocus());
     }
