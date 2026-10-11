@@ -1602,7 +1602,7 @@
 
 **Fix (1 αρχείο, ~+20):** `_debounce?.cancel()` στο toggle-off + `didUpdateWidget`-reset σε itemType/folderId/`onlyIds` (με `setEquals` — όχι hand-rolled· precedents content_field/home) + 3 `DebugConfig.search` (prefix `EMBEDDED`, anti-collision με `ENTRIES`).
 
-**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (38.1s). **Device matrix εκκρεμεί από χρήστη** (calendar: type→off<300ms → πλήρης· X· Δευτέρα→Τρίτη καθαρή· rotation κρατά· `EMBEDDED` assertions· 0 ERR).
+**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (38.1s). **Device verification (user retest): PASS** — όλα οκ (toggle-off<300ms → πλήρης· X· Δευτέρα→Τρίτη καθαρή· rotation κρατά· `EMBEDDED` assertions· 0 ERR).
 
 **Backups:** `backups/s151_embedded_search/` (embedded + oldsessions, pre-change SHA256 `03A318C5…`). **Μάθημα διαδικασίας:** το backup πιάστηκε POST-edit (παράλληλη εκτέλεση με τα edits) + η ανακατασκευή μέσω PowerShell strings διέφθειρε τα Ελληνικά (ANSI-decode → +2.6KB mojibake) → λύση: byte-level LF→CRLF από `git show` + επαλήθευση με hash. Κανόνας: backups ΠΑΝΤΑ πριν τα edits, ποτέ παράλληλα.
 
