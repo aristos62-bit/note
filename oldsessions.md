@@ -1634,7 +1634,7 @@
 
 **DESIGN.md:** καμία αλλαγή (router-guard, όχι layer/SPoT).
 
-**Προβλεπόμενο follow-up (ξεχωριστό):** αν η Opera δίνει stream χωρίς read-grant, το `_saveAttachments` (`File(f.path)`) θα το προσπερνά σιωπηλά — φαίνεται μόνο σε device μετά το fix.
+**Προβλεπόμενο follow-up (ξεχωριστό):** ~~αν η Opera δίνει stream χωρίς read-grant, το `_saveAttachments` (`File(f.path)`) θα το προσπερνά σιωπηλά — φαίνεται μόνο σε device μετά το fix.~~ **ΕΛΗΞΕ (user device retest): OK** — η εικόνα επισυνάπτεται κανονικά, κανένα skip. Δεν χρειάζεται fix.
 
 ## Session 149 — 10/10/2026 (Reorder order-logging για device verification)
 
