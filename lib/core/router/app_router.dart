@@ -93,7 +93,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.home,
     debugLogDiagnostics: false,
     observers: [_RouterObserver()],
-    redirect: (context, state) => null,
+    redirect: (context, state) {
+      // Guard: εξωτερικά URIs (π.χ. Opera share βάζει content:// στο
+      // intent.data → engine initial-route) δεν είναι routes → home.
+      // Καλύπτει cold start (initialRoute) + warm (onNewIntent pushRoute):
+      // ο top-level redirect καλείται ΠΑΝΤΑ, και σε error matches
+      // (go_router 17.2.3: parser → configuration.redirect →
+      //  applyTopLegacyRedirect, χωρίς isError gate).
+      // Όλα τα νόμιμα routes ξεκινάνε με '/'· loop αδύνατο ('/' → null).
+      final loc = state.uri.toString();
+      if (!loc.startsWith('/')) {
+        DebugConfig.nav('Router redirect garbage location → home: $loc');
+        return AppRoutes.home;
+      }
+      return null;
+    },
     routes: [
       // ── Shell route — bottom nav / navigation rail ──────────
       ShellRoute(
