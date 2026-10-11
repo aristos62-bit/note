@@ -1614,7 +1614,7 @@
 
 **Fix (1 αρχείο, 2 γραμμές):** διαγραφή του nulling (η σειρά διατηρείται)· επέκταση log-357 με `pinned/pinnedOrder/favorite/favoriteOrder` (αποδεικτικό). `favorite`-branch άθικτο (αόρατο παντού)· toggle-ON άθικτο (εκτός αναφοράς)· choke-point καλύπτει 10+ toggle-callers (όλοι single-flag, επαληθευμένο).
 
-**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (3.5s). **Device matrix εκκρεμεί από χρήστη:** unpin+fav 1η→ΜΕΝΕΙ· μέση· no-fav→εξαφανίζεται· re-pin→παλιά· fav→ακίνητο· drag→ακριβές· logcat `pinned=false pinnedOrder=<kept>` (όχι null)· 0 ERR.
+**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (3.5s). **Device verification (user retest): PASS** — unpin+fav μένει 1η (και στη μέση)· no-fav εξαφανίζεται· re-pin παλιά θέση· fav ακίνητο· drag ακριβές· logcat `pinnedOrder=<kept>`· 0 ERR.
 
 **Backups:** `backups/s152_unpin_keep/` (helper + oldsessions, pre-change SHA256 `36B5A4EB…` επαληθευμένο πριν τα edits).
 
