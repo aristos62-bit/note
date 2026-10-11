@@ -1628,7 +1628,7 @@
 
 **Fix (1 αρχείο, +9/-1):** top-level `redirect` guard — non-`/` → home + log. Αποδεδειγμένο από go_router 17.2.3 source ότι καλείται ΠΑΝΤΑ, και σε error matches (parser → configuration.redirect → applyTopLegacyRedirect, χωρίς isError gate). Καλύπτει cold + warm· loop αδύνατο· errorBuilder μένει.
 
-**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (38.1s). **Device matrix εκκρεμεί από χρήστη** (reinstall): Opera κλειστή → home + sheet (ΟΧΙ error)· Opera ανοιχτή· Chrome image+text· notification tap· logcat `Router redirect garbage location` 2×· 0 ERR.
+**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (38.1s). **Device verification (user): PASS** — όλα σωστά (Opera cold/warm → home + sheet, Chrome regression, notification tap).
 
 **Backups:** `backups/s153_opera_redirect/` (app_router + oldsessions, pre-change SHA256 `20A30E03…` επαληθευμένο πριν το edit).
 
