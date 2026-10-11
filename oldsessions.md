@@ -1620,6 +1620,22 @@
 
 **DESIGN.md:** καμία αλλαγή (1-γραμμο repository fix).
 
+## Session 153 — 11/10/2026 (Opera share: router guard για εξωτερικά URIs)
+
+**Σύμπτωμα (device + screenshot):** share εικόνας από Opera → «Σφάλμα πλοήγησης» (`GoException: no routes for location: content://com.opera.browser.fileprovider/images/share/….webp`)· από Chrome δουλεύει.
+
+**Αιτία (αποδεδειγμένη):** η Opera βάζει το URI στο `intent.data` (η Chrome όχι) → default `MainActivity` → engine initial-route/pushRoute → go_router. Ο δικός μας κώδικας αθώος (38 nav sites, όλα internal· notification int-parsed· plugin αγνοεί το data στο SEND· manifest χωρίς VIEW).
+
+**Fix (1 αρχείο, +9/-1):** top-level `redirect` guard — non-`/` → home + log. Αποδεδειγμένο από go_router 17.2.3 source ότι καλείται ΠΑΝΤΑ, και σε error matches (parser → configuration.redirect → applyTopLegacyRedirect, χωρίς isError gate). Καλύπτει cold + warm· loop αδύνατο· errorBuilder μένει.
+
+**Επαλήθευση:** `flutter test` **144/144** · `flutter analyze --no-pub` clean (38.1s). **Device matrix εκκρεμεί από χρήστη** (reinstall): Opera κλειστή → home + sheet (ΟΧΙ error)· Opera ανοιχτή· Chrome image+text· notification tap· logcat `Router redirect garbage location` 2×· 0 ERR.
+
+**Backups:** `backups/s153_opera_redirect/` (app_router + oldsessions, pre-change SHA256 `20A30E03…` επαληθευμένο πριν το edit).
+
+**DESIGN.md:** καμία αλλαγή (router-guard, όχι layer/SPoT).
+
+**Προβλεπόμενο follow-up (ξεχωριστό):** αν η Opera δίνει stream χωρίς read-grant, το `_saveAttachments` (`File(f.path)`) θα το προσπερνά σιωπηλά — φαίνεται μόνο σε device μετά το fix.
+
 ## Session 149 — 10/10/2026 (Reorder order-logging για device verification)
 
 **Σκοπός:** οπτική επαλήθευση της σειράς ειδών σε κάθε reorder (κανονικά + με search), κατόπιν αιτήματος χρήστη. Μόνο logs — καμία αλλαγή λογικής.
