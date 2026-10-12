@@ -54,14 +54,14 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule} parentId=${r.parentReminderId}');
       }
       if (reminders.isNotEmpty) {
-        // âœ… Î¦Î¿ÏÏ„ÏŽÎ½Î¿Ï…Î¼Îµ Ï€Î¬Î½Ï„Î± Ï„Î¿ ROOT reminder (parentReminderId == null)
-        // Î‘Î½ Î´ÎµÎ½ Ï…Ï€Î¬ÏÏ‡ÎµÎ¹ root (Ï€.Ï‡. Î¼ÏŒÎ½Î¿ Ï€Î±Î¹Î´Î¹Î¬), Ï€Î±Î¯ÏÎ½Î¿Ï…Î¼Îµ Ï„Î¿ first Ï‰Ï‚ fallback
+        // ✅ Φορτώνουμε πάντα το ROOT reminder (parentReminderId == null)
+        // Αν δεν υπάρχει root (π.χ. μόνο παιδιά), παίρνουμε το first ως fallback
         final root = reminders.firstWhere(
               (r) => r.parentReminderId == null,
           orElse: () => reminders.first,
         );
         if (roots.length > 1) {
-          DebugConfig.warning('ReminderSection._loadData: âš ï¸ MULTIPLE ROOTS ($roots) for item=${widget.itemId}! Selected root id=${root.id}');
+          DebugConfig.warning('ReminderSection._loadData: ⚠️ MULTIPLE ROOTS ($roots) for item=${widget.itemId}! Selected root id=${root.id}');
         }
         _reminderId = root.id;
         _triggerDateTime = root.triggerAt;
@@ -86,7 +86,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     DebugConfig.notif('ReminderSection._saveReminder: enabled=$_enabled, trigger=$_triggerDateTime, reminderId=$_reminderId, itemId=${widget.itemId}');
     try {
       if (!_enabled || _triggerDateTime == null) {
-        DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger â†’ deleting if exists');
+        DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger → deleting if exists');
         if (_reminderId != null) {
           DebugConfig.notif('ReminderSection._saveReminder: deleting ALL reminders for itemId=${widget.itemId}');
           await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
@@ -106,15 +106,15 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         DebugConfig.notif('ReminderSection._saveReminder: yearly keep interval=$iv');
       }
       final rrule = recurrenceToRRULE(_recurrence);
-      const title = 'Î¥Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·';
+      const title = 'Υπενθύμιση';
       final body = widget.itemTitle;
       DebugConfig.notif('ReminderSection._saveReminder: rrule=$rrule, title=$title, body=$body');
 
       if (_reminderId != null) {
-        DebugConfig.notif('ReminderSection._saveReminder: UPDATING (reminderId=$_reminderId) â†’ rrule=${rrule ?? 'null'}');
+        DebugConfig.notif('ReminderSection._saveReminder: UPDATING (reminderId=$_reminderId) → rrule=${rrule ?? 'null'}');
 
         if (rrule != null) {
-          // â”€â”€ Recurring update: Î´Î¹Î±Î³ÏÎ±Ï†Î® Ï€Î±Î»Î¹Î¿Ï thread + Î½Î­Î¿ root â”€â”€
+          // ── Recurring update: διαγραφή παλιού thread + νέο root ──
           DebugConfig.notif('ReminderSection._saveReminder: recurring update, deleting old thread id=$_reminderId');
           await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
           final root = await ref.read(reminderNotifierProvider(widget.itemId).notifier).create(
@@ -129,13 +129,13 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           }
           _reminderId = root.id;
           DebugConfig.notif('ReminderSection._saveReminder: created new root id=${root.id}, trigger=${root.triggerAt}');
-          // ÎœÎ·Î½ Ï€ÏÎ¿Î³ÏÎ±Î¼Î¼Î±Ï„Î¯Î¶ÎµÎ¹Ï‚ Ï„Î¿ root â€” Ï„Î± Ï€Î±Î¹Î´Î¹Î¬ Î±Ï€ÏŒ refreshRecurringReminders Ï„Î¿ Î±Î½Ï„Î¹ÎºÎ±Î¸Î¹ÏƒÏ„Î¿ÏÎ½
+          // Μην προγραμματίζεις το root — τα παιδιά από refreshRecurringReminders το αντικαθιστούν
           await ReminderScheduler.instance.refreshRecurringReminders();
           DebugConfig.notif('ReminderSection._saveReminder: recurring update DONE');
 
         } else {
-          // â”€â”€ One-shot update: Î´Î¹Î±Î³ÏÎ±Ï†Î® Ï€Î±Î»Î¹Î¿Ï thread (root + Ï„Ï…Ï‡ÏŒÎ½ Ï€Î±Î¹Î´Î¹Î¬)
-          //    ÎºÎ±Î¹ Î´Î·Î¼Î¹Î¿Ï…ÏÎ³Î¯Î± Î½Î­Î¿Ï… one-shot reminder â”€â”€
+          // ── One-shot update: διαγραφή παλιού thread (root + τυχόν παιδιά)
+          //    και δημιουργία νέου one-shot reminder ──
           DebugConfig.notif('ReminderSection._saveReminder: one-shot update, deleting old thread id=$_reminderId');
           await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
 
@@ -156,7 +156,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         }
 
       } else {
-        // â”€â”€ ÎÎ­Î¿ reminder (Î´ÎµÎ½ Ï…Ï€Î®ÏÏ‡Îµ Ï€ÏÎ¿Î·Î³Î¿Ï…Î¼Î­Î½Ï‰Ï‚) â”€â”€
+        // ── Νέο reminder (δεν υπήρχε προηγουμένως) ──
         DebugConfig.notif('ReminderSection._saveReminder: CREATING NEW reminder for itemId=${widget.itemId}');
         final newReminder = await ref.read(reminderNotifierProvider(widget.itemId).notifier).create(
           triggerAt: _triggerDateTime!,
@@ -192,7 +192,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       initialDate: initial,
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + AppDateUtils.pickerLastYears),
-      helpText: 'Î—Î¼ÎµÏÎ¿Î¼Î·Î½Î¯Î± Ï…Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·Ï‚',
+      helpText: 'Ημερομηνία υπενθύμισης',
     );
     if (!mounted) return;
     if (date == null) {
@@ -202,7 +202,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
-      helpText: 'ÎÏÎ± Ï…Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·Ï‚',
+      helpText: 'Ώρα υπενθύμισης',
     );
     if (!mounted) return;
     if (time == null) {
@@ -245,7 +245,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           children: [
             Icon(Icons.notifications_outlined, size: 18, color: context.cText2),
             const SizedBox(width: Spacing.sm),
-            Text('Î¥Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·', style: context.bodyMd),
+            Text('Υπενθύμιση', style: context.bodyMd),
             const Spacer(),
             Switch(
               value: _enabled,
@@ -253,7 +253,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
                 DebugConfig.notif('ReminderSection: Switch changed to $val');
                 setState(() => _enabled = val);
                 if (val && _triggerDateTime == null) {
-                  DebugConfig.notif('ReminderSection: Switch ON, no trigger yet â†’ opening picker');
+                  DebugConfig.notif('ReminderSection: Switch ON, no trigger yet → opening picker');
                   await _pickDateTime();
                 } else {
                   await _saveReminder();
@@ -276,7 +276,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
                   Text(
                     _triggerDateTime != null
                         ? AppDateUtils.formatDateTime(_triggerDateTime!)
-                        : 'Î•Ï€Î¹Î»Î¿Î³Î® ÏŽÏÎ±Ï‚',
+                        : 'Επιλογή ώρας',
                     style: context.bodyMd.copyWith(
                       color: _triggerDateTime != null ? context.cText : context.cText2,
                     ),
@@ -297,7 +297,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
                   const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
-                      _recurrence != null ? _recurrence!.describe() : 'Î§Ï‰ÏÎ¯Ï‚ ÎµÏ€Î±Î½Î¬Î»Î·ÏˆÎ·',
+                      _recurrence != null ? _recurrence!.describe() : 'Χωρίς επανάληψη',
                       style: context.bodyMd.copyWith(color: context.cText2),
                     ),
                   ),
