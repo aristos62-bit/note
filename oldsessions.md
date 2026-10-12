@@ -1783,7 +1783,7 @@
 
 **Fix:** N1 `MainActivity` channel → FLAG_SECURE· N2 `SecurityService.setSecure` (+export)· N3 startup (F1-read) + toggle (μετά update). Πολιτική ON-με-enabled· iOS parked.
 
-**Επαλήθευση:** νέο 2/2 · `flutter test` → **171/171** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 2 lint στο test: typing + null-`!`) · device retest (recents-blank· screenshot-blocked· OFF-ΟΚ· toggle· 0 ERR) εκκρεμεί — θέλει φρέσκο APK (native αλλαγή).
+**Επαλήθευση:** νέο 2/2 · `flutter test` → **171/171** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκαν 2 lint στο test: typing + null-`!`) · **device ✅ (12/10/2026, user verdict, φρέσκο APK):** recents-blank · screenshot-blocked · OFF-ΟΚ · toggle-ζωντανά · 0 ERR.
 
 **Backups:** `backups/fix_flag_secure/` (+SHA).
 
