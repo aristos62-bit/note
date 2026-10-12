@@ -1747,7 +1747,7 @@
 
 **Fix:** L1 `_pausedAt` + `shouldLockOnResume` (lock-πρώτα στο resumed)· L2 `v1$iter$salt$hash` (100k, secure-salt, constant-time, legacy-compat, ίδιο πεδίο — 0 migration)· L3 attempts/lockout (30δ→cap 5λ, central, no-Timer, `pinLockedOut`, biometric-εκτός).
 
-**Επαλήθευση:** νέο 9/9 · `flutter test` → **168/168** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκε 1 lint `unnecessary_brace` στο νέο log) · device retest (overtime→locked· immediate→unlocked· legacy-login· backoff· latency· 0 ERR) εκκρεμεί.
+**Επαλήθευση:** νέο 9/9 · `flutter test` → **168/168** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκε 1 lint `unnecessary_brace` στο νέο log) · **device ✅ (12/10/2026, `run_log_lock.txt`, pid 18525):** background 68δ → Timer `auto-lock after 60s` + resumed `resumed past timeout — locked` (και οι 2 μηχανισμοί, idempotent) · PIN-unlock ΟΚ · refresh υγιές (4 roots, `created 0`) · 0 ERR.
 
 **Backups:** `backups/fix_lock_pkg/` (4 dart + oldsessions.pre, SHA πριν τα edits).
 
