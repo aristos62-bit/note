@@ -88,4 +88,20 @@ void main() {
       expect(Recurrence.isValidWeeklyDay(DateTime(1970, 1, 19), days, 2, Recurrence.epochMonday), isTrue);
     });
   });
+
+  group('yearly interval (P1: keep interval on save-sync)', () {
+    test('toRRULE keeps INTERVAL=2 with BYMONTH/BYMONTHDAY', () {
+      const r = Recurrence(type: RecurrenceType.yearly, interval: 2, days: [5, 15]);
+      expect(r.toRRULE(), 'FREQ=YEARLY;INTERVAL=2;BYMONTH=5;BYMONTHDAY=15');
+    });
+
+    test('nextOccurrence yearly interval=2 skips one year', () {
+      const r = Recurrence(type: RecurrenceType.yearly, interval: 2, days: [5, 15]);
+      final next = r.nextOccurrence(DateTime(2026, 5, 15, 10, 0), anchor: DateTime(2026, 5, 15, 10, 0))!;
+      expect(next.year, 2028);
+      expect(next.month, 5);
+      expect(next.day, 15);
+      expect(next.hour, 10);
+    });
+  });
 }
