@@ -1677,3 +1677,18 @@
 **Backups:** `backups/fix_event_resync/` (dart + oldsessions.pre, SHA πριν το edit).
 
 **DESIGN.md:** καμία αλλαγή (behavior fix σε UI callback — όχι layer/SPoT/dependency).
+
+## Session 156 — 12/10/2026 (P3: birthday-ροή + ✅ + κάρτες 🎂/✅)
+
+**Scope (2+4 ανεστάλησαν):** «Γενέθλια» έφτιαχνε απλό event (χωρίς icon/reminder — η ροή σβήστηκε στο `30f8529`)· ⭐ μπερδευόταν με fav· κάρτες αγνοούσαν `item.icon`. 4 lib αρχεία (micro-edits) + 5 tests.
+
+**Υλοποίηση:**
+- C1 `item_color_helper`: `kBirthdayIcon/kSpecialDayIcon/kLegacySpecialDayIcon` + `isBirthday/isSpecialDay` (null-safe) + bg-tints (shade100/900) + `specialAccent` (ροζ/πορτοκαλί).
+- C2 calendar dots → helpers + ✅ (compat ⭐)· C3 event resync → 🎂-only (firstDate και τα δύο, μήνυμα → helper)· C4 `ItemCard` (emoji-Text 16/18 pattern `_FolderChip`, tint+accent, custom-override κερδίζει)· C5 `_createBirthdayEvent` (enum+onTap+case+μέθοδος, παλιά literals, SPoT).
+- Κανόνας: 🎂 αυτόματα (ΧΩΡΙΣ καμπάνα)· ✅ ΜΟΝΟ καμπάνα (κάθε διάστημα, υπάρχουσα).
+
+**Επαλήθευση:** νέο 5/5 · `flutter test` → **151/151** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκε 1 lint `no_leading_underscores` στο test) · device retest (Γενέθλια/Ειδική/παλιό⭐/bell/dark/0 ERR) εκκρεμεί.
+
+**Backups:** `backups/p3_birthday_special/` (5 αρχεία pre-change + oldsessions.pre, SHA πριν τα edits).
+
+**DESIGN.md:** SPoT icon-σημασιολογία (C1) — ενημερώθηκε (παράγραφος Session 156).

@@ -5,11 +5,12 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../helpers/item_color_helper.dart';
 import 'event_detail_screen.dart';
 import '../../services/services.dart';
 
 // ── Τύποι δημιουργίας συμβάντος ─────────────────────────────
-enum _EventCreationType { event, specialDay }
+enum _EventCreationType { event, birthday, specialDay }
 
 // ── Τύπος ενδείξεων ημερολογίου (για sorting/display) ────────
 enum _DayMarkerType { birthday, specialDay, event }
@@ -381,7 +382,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
               iconColor: Colors.pink.shade600,
               title: 'Γενέθλια',
               subtitle: 'Υπενθύμιση γενεθλίων',
-              onTap: () => Navigator.pop(context, _EventCreationType.event),
+              onTap: () => Navigator.pop(context, _EventCreationType.birthday),
             ),
             _EventTypeOption(
               icon: Icons.star_rounded,
@@ -402,8 +403,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     switch (type) {
       case _EventCreationType.event:
         await _createEvent(context, ref, selectedDay);
+      case _EventCreationType.birthday:
+        await _createBirthdayEvent(context, ref, selectedDay);
       case _EventCreationType.specialDay:
-        await _createEventWithIcon(context, ref, selectedDay, '⭐');
+        await _createEventWithIcon(context, ref, selectedDay, ItemColorHelper.kSpecialDayIcon);
     }
   }
 
@@ -437,6 +440,53 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     }
   }
 
+
+  Future<void> _createBirthdayEvent(
+      BuildContext context, WidgetRef ref, DateTime selectedDay) async {
+    final selectedFolderId = ref.read(selectedFolderIdProvider);
+    try {
+      final item = await ref.read(itemNotifierProvider.notifier).create(
+            type: ItemType.event,
+            folderId: selectedFolderId,
+            icon: ItemColorHelper.kBirthdayIcon,
+          );
+      if (item == null || !context.mounted) return;
+      final startTime =
+          DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
+      final endTime = startTime.add(const Duration(hours: 1));
+      final propNotifier = ref.read(propertyNotifierProvider(item.id).notifier);
+      await propNotifier.setDate('start_time', startTime);
+      await propNotifier.setDate('end_time', endTime);
+
+      // Αυτόματη ετήσια υπενθύμιση (χωρίς καμπάνα — τα γενέθλια είναι 1×/χρόνο).
+      final rrule = recurrenceToRRULE(Recurrence.yearly(
+        month: selectedDay.month,
+        day: selectedDay.day,
+      ));
+      await ref.read(dbProvider).reminders.create(
+            itemId: item.id,
+            triggerAt: startTime,
+            rrule: rrule,
+            title: '🎂 Γενέθλια',
+            body: 'Σήμερα είναι γενεθλίων!',
+          );
+      await ReminderScheduler.instance.refreshRecurringReminders();
+      DebugConfig.notif('CalendarScreen _createBirthdayEvent id=${item.id} m=${selectedDay.month} d=${selectedDay.day}');
+
+      if (!context.mounted) return;
+      Navigator.of(context).push(
+        AppTransitions.slideRoute(
+            EventDetailScreen(itemId: item.id, isNew: true)),
+      );
+    } catch (e) {
+      DebugConfig.error('CalendarScreen _createBirthdayEvent', e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppErrors.eventCreateFailed)),
+        );
+      }
+    }
+  }
 
   Future<void> _createEventWithIcon(BuildContext context, WidgetRef ref,
       DateTime selectedDay, String icon) async {
@@ -541,9 +591,9 @@ class _MonthGrid extends ConsumerWidget {
 
     final types = <_DayMarkerType>{};
     for (final item in items) {
-      if (item.icon == '🎂') {
+      if (ItemColorHelper.isBirthdayEvent(item)) {
         types.add(_DayMarkerType.birthday);
-      } else if (item.icon == '⭐') {
+      } else if (ItemColorHelper.isSpecialDayEvent(item)) {
         types.add(_DayMarkerType.specialDay);
       } else {
         types.add(_DayMarkerType.event);
