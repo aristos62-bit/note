@@ -10,7 +10,6 @@ import 'package:super_note/core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import 'confirm_dialog.dart';
-import '../../helpers/super_note_helper.dart';
 
 enum ItemLabel { journal, note, task, habit, event, appointment, contact, entry }
 
@@ -62,11 +61,6 @@ Future<void> handleArchive({
     DebugConfig.db('ArchiveHelper AFTER toggleArchive id=$itemId (unarchive)');
     if (!context.mounted) return;
     DebugConfig.db('ArchiveHelper unarchive id=$itemId');
-    final reminders = await SuperNoteHelper.instance.reminders.getForItem(itemId);
-    for (final r in reminders) {
-      DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} triggerAt=${r.triggerAt} rrule=${r.rrule}');
-    }
-    if (!context.mounted)return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(AppErrors.restored(_label(label)))),
     );
@@ -76,10 +70,6 @@ Future<void> handleArchive({
     final ok = await ConfirmDialog.archive(context);
     if (!ok || !context.mounted) return;
     await ref.read(itemNotifierProvider.notifier).toggleArchive(itemId, isArchived);
-    final reminders = await SuperNoteHelper.instance.reminders.getForItem(itemId);
-    for (final r in reminders) {
-      DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} triggerAt=${r.triggerAt} rrule=${r.rrule}');
-    }
     if (!context.mounted) return;
     DebugConfig.db('ArchiveHelper archive id=$itemId');
     ScaffoldMessenger.of(context).showSnackBar(

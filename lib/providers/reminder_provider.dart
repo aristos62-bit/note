@@ -41,14 +41,14 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
     return ref.watch(dbProvider).reminders.getForItem(arg);
   }
 
-  Future<void> create({
+  Future<Reminder?> create({
     required DateTime triggerAt,
     String? rrule,
     String? title,
     String? body,
   }) async {
     try {
-      await ref.read(dbProvider).reminders.create(
+      final created = await ref.read(dbProvider).reminders.create(
         itemId: arg,
         triggerAt: triggerAt,
         rrule: rrule,
@@ -56,9 +56,12 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
         body: body,
       );
       ref.invalidateSelf();
+      ref.invalidate(itemRemindersProvider(arg));
       ref.invalidate(pendingRemindersProvider);
+      return created;
     } catch (e, s) {
       DebugConfig.error('ReminderNotifier.create', e, s);
+      return null;
     }
   }
 

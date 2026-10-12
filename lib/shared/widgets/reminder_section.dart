@@ -1,13 +1,12 @@
-// lib/shared/widgets/reminder_section.dart
+﻿// lib/shared/widgets/reminder_section.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
-import '../../helpers/super_note_helper.dart';
-import 'package:isar/isar.dart';
+import '../../providers/providers.dart';
 import '../../models/models.dart';
 import '../../services/reminder_scheduler.dart';
-import 'safe_sheet.dart';
+import 'reminder_recurrence_picker.dart';
 
 // ---------------------------------------------------------------------
 // Main Widget
@@ -46,7 +45,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     DebugConfig.notif('ReminderSection._loadData: itemId=${widget.itemId}');
     setState(() => _isLoading = true);
     try {
-      final reminders = await SuperNoteHelper.instance.reminders.getForItem(widget.itemId);
+      final reminders = await ref.read(itemRemindersProvider(widget.itemId).future);
       DebugConfig.notif('ReminderSection._loadData: found ${reminders.length} reminders for item ${widget.itemId}');
       final roots = reminders.where((r) => r.rrule != null && r.parentReminderId == null).toList();
       final children = reminders.where((r) => r.rrule == null && r.parentReminderId != null).toList();
@@ -55,14 +54,14 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         DebugConfig.notif('  reminder id=${r.id} status=${r.status.name} trigger=${r.triggerAt} rrule=${r.rrule} parentId=${r.parentReminderId}');
       }
       if (reminders.isNotEmpty) {
-        // ✅ Φορτώνουμε πάντα το ROOT reminder (parentReminderId == null)
-        // Αν δεν υπάρχει root (π.χ. μόνο παιδιά), παίρνουμε το first ως fallback
+        // âœ… Î¦Î¿ÏÏ„ÏŽÎ½Î¿Ï…Î¼Îµ Ï€Î¬Î½Ï„Î± Ï„Î¿ ROOT reminder (parentReminderId == null)
+        // Î‘Î½ Î´ÎµÎ½ Ï…Ï€Î¬ÏÏ‡ÎµÎ¹ root (Ï€.Ï‡. Î¼ÏŒÎ½Î¿ Ï€Î±Î¹Î´Î¹Î¬), Ï€Î±Î¯ÏÎ½Î¿Ï…Î¼Îµ Ï„Î¿ first Ï‰Ï‚ fallback
         final root = reminders.firstWhere(
               (r) => r.parentReminderId == null,
           orElse: () => reminders.first,
         );
         if (roots.length > 1) {
-          DebugConfig.warning('ReminderSection._loadData: ⚠️ MULTIPLE ROOTS ($roots) for item=${widget.itemId}! Selected root id=${root.id}');
+          DebugConfig.warning('ReminderSection._loadData: âš ï¸ MULTIPLE ROOTS ($roots) for item=${widget.itemId}! Selected root id=${root.id}');
         }
         _reminderId = root.id;
         _triggerDateTime = root.triggerAt;
@@ -87,11 +86,14 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     DebugConfig.notif('ReminderSection._saveReminder: enabled=$_enabled, trigger=$_triggerDateTime, reminderId=$_reminderId, itemId=${widget.itemId}');
     try {
       if (!_enabled || _triggerDateTime == null) {
-        DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger → deleting if exists');
+        DebugConfig.notif('ReminderSection._saveReminder: disabled or no trigger â†’ deleting if exists');
         if (_reminderId != null) {
           DebugConfig.notif('ReminderSection._saveReminder: deleting ALL reminders for itemId=${widget.itemId}');
           await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
           _reminderId = null;
+          ref.invalidate(itemRemindersProvider(widget.itemId));
+          ref.invalidate(reminderNotifierProvider(widget.itemId));
+          ref.invalidate(pendingRemindersProvider);
           DebugConfig.notif('ReminderSection._saveReminder: all reminders deleted');
         }
         return;
@@ -104,75 +106,49 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         DebugConfig.notif('ReminderSection._saveReminder: yearly keep interval=$iv');
       }
       final rrule = recurrenceToRRULE(_recurrence);
-      const title = 'Υπενθύμιση';
+      const title = 'Î¥Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·';
       final body = widget.itemTitle;
       DebugConfig.notif('ReminderSection._saveReminder: rrule=$rrule, title=$title, body=$body');
 
-      // ★ Ελεγχος: πόσα roots υπάρχουν ΠΡΙΝ την αποθήκευση
-      final allRootsBefore = await SuperNoteHelper.instance.isar.reminders
-          .filter()
-          .itemIdEqualTo(widget.itemId)
-          .rruleIsNotNull()
-          .and()
-          .not()
-          .rruleEqualTo('')
-          .parentReminderIdIsNull()
-          .findAll();
-      DebugConfig.notif('ReminderSection._saveReminder: roots BEFORE save: ${allRootsBefore.length}');
-      for (final rr in allRootsBefore) {
-        DebugConfig.notif('  root id=${rr.id} trigger=${rr.triggerAt} rrule="${rr.rrule}"');
-      }
-
       if (_reminderId != null) {
-        DebugConfig.notif('ReminderSection._saveReminder: UPDATING (reminderId=$_reminderId) → rrule=${rrule ?? 'null'}');
+        DebugConfig.notif('ReminderSection._saveReminder: UPDATING (reminderId=$_reminderId) â†’ rrule=${rrule ?? 'null'}');
 
         if (rrule != null) {
-          // ── Recurring update: διαγραφή παλιού thread + νέο root ──
+          // â”€â”€ Recurring update: Î´Î¹Î±Î³ÏÎ±Ï†Î® Ï€Î±Î»Î¹Î¿Ï thread + Î½Î­Î¿ root â”€â”€
           DebugConfig.notif('ReminderSection._saveReminder: recurring update, deleting old thread id=$_reminderId');
           await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
-          final root = Reminder()
-            ..itemId = widget.itemId
-            ..triggerAt = _triggerDateTime!
-            ..rrule = rrule
-            ..title = title
-            ..body = body
-            ..status = ReminderStatus.pending
-            ..createdAt = DateTime.now();
-          await SuperNoteHelper.instance.isar.writeTxn(() async {
-            await SuperNoteHelper.instance.isar.reminders.put(root);
-          });
+          final root = await ref.read(reminderNotifierProvider(widget.itemId).notifier).create(
+            triggerAt: _triggerDateTime!,
+            rrule: rrule,
+            title: title,
+            body: body,
+          );
+          if (root == null) {
+            DebugConfig.error('ReminderSection._saveReminder recurring create failed');
+            return;
+          }
           _reminderId = root.id;
           DebugConfig.notif('ReminderSection._saveReminder: created new root id=${root.id}, trigger=${root.triggerAt}');
-          // ★ Ελεγχος αν έμειναν άλλα roots μετά το delete+create
-          final rootsAfter = await SuperNoteHelper.instance.isar.reminders
-              .filter()
-              .itemIdEqualTo(widget.itemId)
-              .rruleIsNotNull()
-              .and()
-              .not()
-              .rruleEqualTo('')
-              .parentReminderIdIsNull()
-              .findAll();
-          if (rootsAfter.length > 1) {
-            DebugConfig.warning('⚠️ ReminderSection._saveReminder: STILL HAVE ${rootsAfter.length} roots after recurring update!');
-          }
-          // Μην προγραμματίζεις το root — τα παιδιά από refreshRecurringReminders το αντικαθιστούν
+          // ÎœÎ·Î½ Ï€ÏÎ¿Î³ÏÎ±Î¼Î¼Î±Ï„Î¯Î¶ÎµÎ¹Ï‚ Ï„Î¿ root â€” Ï„Î± Ï€Î±Î¹Î´Î¹Î¬ Î±Ï€ÏŒ refreshRecurringReminders Ï„Î¿ Î±Î½Ï„Î¹ÎºÎ±Î¸Î¹ÏƒÏ„Î¿ÏÎ½
           await ReminderScheduler.instance.refreshRecurringReminders();
           DebugConfig.notif('ReminderSection._saveReminder: recurring update DONE');
 
         } else {
-          // ── One-shot update: διαγραφή παλιού thread (root + τυχόν παιδιά)
-          //    και δημιουργία νέου one-shot reminder ──
+          // â”€â”€ One-shot update: Î´Î¹Î±Î³ÏÎ±Ï†Î® Ï€Î±Î»Î¹Î¿Ï thread (root + Ï„Ï…Ï‡ÏŒÎ½ Ï€Î±Î¹Î´Î¹Î¬)
+          //    ÎºÎ±Î¹ Î´Î·Î¼Î¹Î¿Ï…ÏÎ³Î¯Î± Î½Î­Î¿Ï… one-shot reminder â”€â”€
           DebugConfig.notif('ReminderSection._saveReminder: one-shot update, deleting old thread id=$_reminderId');
           await ReminderScheduler.instance.deleteReminderThread(_reminderId!);
 
-          final newReminder = await SuperNoteHelper.instance.reminders.create(
-            itemId: widget.itemId,
+          final newReminder = await ref.read(reminderNotifierProvider(widget.itemId).notifier).create(
             triggerAt: _triggerDateTime!,
             rrule: null,
             title: title,
             body: body,
           );
+          if (newReminder == null) {
+            DebugConfig.error('ReminderSection._saveReminder one-shot create failed');
+            return;
+          }
           _reminderId = newReminder.id;
           DebugConfig.notif('ReminderSection._saveReminder: created one-shot id=${newReminder.id}, trigger=${newReminder.triggerAt}');
           await ReminderScheduler.instance.scheduleReminder(newReminder);
@@ -180,19 +156,18 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         }
 
       } else {
-        // ── Νέο reminder (δεν υπήρχε προηγουμένως) ──
+        // â”€â”€ ÎÎ­Î¿ reminder (Î´ÎµÎ½ Ï…Ï€Î®ÏÏ‡Îµ Ï€ÏÎ¿Î·Î³Î¿Ï…Î¼Î­Î½Ï‰Ï‚) â”€â”€
         DebugConfig.notif('ReminderSection._saveReminder: CREATING NEW reminder for itemId=${widget.itemId}');
-        // ★ Ελεγχος αν ήδη υπάρχει root παρόλο που _reminderId == null
-        if (allRootsBefore.isNotEmpty) {
-          DebugConfig.warning('⚠️ ReminderSection._saveReminder: _reminderId=null BUT ${allRootsBefore.length} root(s) exist in DB! Creating another may duplicate.');
-        }
-        final newReminder = await SuperNoteHelper.instance.reminders.create(
-          itemId: widget.itemId,
+        final newReminder = await ref.read(reminderNotifierProvider(widget.itemId).notifier).create(
           triggerAt: _triggerDateTime!,
           rrule: rrule,
           title: title,
           body: body,
         );
+        if (newReminder == null) {
+          DebugConfig.error('ReminderSection._saveReminder create failed');
+          return;
+        }
         _reminderId = newReminder.id;
         DebugConfig.notif('ReminderSection._saveReminder: created reminder id=${newReminder.id}, trigger=${newReminder.triggerAt}, status=${newReminder.status.name}');
         if (rrule != null) {
@@ -217,7 +192,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       initialDate: initial,
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + AppDateUtils.pickerLastYears),
-      helpText: 'Ημερομηνία υπενθύμισης',
+      helpText: 'Î—Î¼ÎµÏÎ¿Î¼Î·Î½Î¯Î± Ï…Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·Ï‚',
     );
     if (!mounted) return;
     if (date == null) {
@@ -227,7 +202,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
-      helpText: 'Ώρα υπενθύμισης',
+      helpText: 'ÎÏÎ± Ï…Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·Ï‚',
     );
     if (!mounted) return;
     if (time == null) {
@@ -270,7 +245,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           children: [
             Icon(Icons.notifications_outlined, size: 18, color: context.cText2),
             const SizedBox(width: Spacing.sm),
-            Text('Υπενθύμιση', style: context.bodyMd),
+            Text('Î¥Ï€ÎµÎ½Î¸ÏÎ¼Î¹ÏƒÎ·', style: context.bodyMd),
             const Spacer(),
             Switch(
               value: _enabled,
@@ -278,7 +253,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
                 DebugConfig.notif('ReminderSection: Switch changed to $val');
                 setState(() => _enabled = val);
                 if (val && _triggerDateTime == null) {
-                  DebugConfig.notif('ReminderSection: Switch ON, no trigger yet → opening picker');
+                  DebugConfig.notif('ReminderSection: Switch ON, no trigger yet â†’ opening picker');
                   await _pickDateTime();
                 } else {
                   await _saveReminder();
@@ -301,7 +276,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
                   Text(
                     _triggerDateTime != null
                         ? AppDateUtils.formatDateTime(_triggerDateTime!)
-                        : 'Επιλογή ώρας',
+                        : 'Î•Ï€Î¹Î»Î¿Î³Î® ÏŽÏÎ±Ï‚',
                     style: context.bodyMd.copyWith(
                       color: _triggerDateTime != null ? context.cText : context.cText2,
                     ),
@@ -322,7 +297,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
                   const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
-                      _recurrence != null ? _recurrence!.describe() : 'Χωρίς επανάληψη',
+                      _recurrence != null ? _recurrence!.describe() : 'Î§Ï‰ÏÎ¯Ï‚ ÎµÏ€Î±Î½Î¬Î»Î·ÏˆÎ·',
                       style: context.bodyMd.copyWith(color: context.cText2),
                     ),
                   ),
@@ -333,370 +308,6 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           ),
         ],
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------
-// Recurrence Picker Modal (with custom unit support)
-// ---------------------------------------------------------------------
-
-Future<Recurrence?> showRecurrencePicker({
-  required BuildContext context,
-  Recurrence? initialRecurrence,
-  DateTime? initialTrigger,
-}) {
-  return showSafeSheet<Recurrence>(
-    context,
-    scrollControlled: true,
-    child: _RecurrencePickerModal(
-      initialRecurrence: initialRecurrence,
-      initialTrigger: initialTrigger,
-    ),
-  );
-}
-
-class _RecurrencePickerModal extends StatefulWidget {
-  final Recurrence? initialRecurrence;
-  final DateTime? initialTrigger;
-  const _RecurrencePickerModal({this.initialRecurrence, this.initialTrigger});
-
-  @override
-  State<_RecurrencePickerModal> createState() => _RecurrencePickerModalState();
-}
-
-class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
-  late RecurrenceType _type;
-  late int _interval;
-  late List<int> _weeklyDays;
-  int? _monthlyDay;
-  late String _customUnit; // 'days', 'weeks', 'months'
-
-  final _intervalController = TextEditingController();
-  final _monthlyDayController = TextEditingController();
-
-  void _applyDefaultsForType(RecurrenceType type) {
-    if (widget.initialRecurrence != null) return;
-    switch (type) {
-      case RecurrenceType.weekly:
-        if (widget.initialTrigger != null) {
-          _weeklyDays = [widget.initialTrigger!.weekday];
-        }
-        _interval = 1;
-      case RecurrenceType.monthly:
-        if (widget.initialTrigger != null) {
-          _monthlyDay = widget.initialTrigger!.day;
-        }
-        _interval = 1;
-      case RecurrenceType.yearly:
-        _interval = 1;
-      default:
-        _interval = 1;
-    }
-    _intervalController.text = _interval.toString();
-    _monthlyDayController.text = _monthlyDay?.toString() ?? '';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    final init = widget.initialRecurrence;
-    _type = init?.type ?? RecurrenceType.daily;
-    if (init != null) {
-      if (init.days != null) _weeklyDays = init.days!.toList();
-      if (init.dayOfMonth != null) _monthlyDay = init.dayOfMonth;
-      _interval = init.interval;
-    } else {
-      _weeklyDays = [];
-      _monthlyDay = null;
-      _applyDefaultsForType(_type);
-    }
-    _customUnit = 'days';
-    _intervalController.text = _interval.toString();
-    _monthlyDayController.text = _monthlyDay?.toString() ?? '';
-  }
-
-  @override
-  void dispose() {
-    _intervalController.dispose();
-    _monthlyDayController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeSheet(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
-        child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Επανάληψη υπενθύμισης', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: Spacing.md),
-          // Type selector
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: RecurrenceType.values.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 4),
-              itemBuilder: (context, index) {
-                final t = RecurrenceType.values[index];
-                final isActive = _type == t;
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    _type = t;
-                    if (t == RecurrenceType.weekly) {
-                      _weeklyDays = _weeklyDays
-                          .where((d) => d >= 1 && d <= 7)
-                          .toList();
-                      if (_weeklyDays.isEmpty &&
-                          widget.initialTrigger != null) {
-                        _weeklyDays = [widget.initialTrigger!.weekday];
-                        DebugConfig.notif(
-                            'RecurrencePicker: weekly reset to trigger weekday');
-                      }
-                    } else if (t == RecurrenceType.monthly) {
-                      if (_monthlyDay == null ||
-                          _monthlyDay! < 1 ||
-                          _monthlyDay! > 31) {
-                        _monthlyDay = widget.initialTrigger?.day;
-                        _monthlyDayController.text =
-                            _monthlyDay?.toString() ?? '';
-                      }
-                    }
-                    _applyDefaultsForType(t);
-                  }),
-                  child: AnimatedContainer(
-                    duration: AppDuration.fast,
-                    padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
-                    decoration: BoxDecoration(
-                      color: isActive ? context.cPrimary.withValues(alpha: 0.12) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(
-                        color: isActive ? context.cPrimary : ColorsUI.getBorder(context.brightness),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        t == RecurrenceType.daily ? 'Καθημερινά' :
-                        t == RecurrenceType.weekly ? 'Εβδομαδιαία' :
-                        t == RecurrenceType.monthly ? 'Μηνιαία' :
-                        t == RecurrenceType.yearly ? 'Κάθε Χρόνο' : 'Προσαρμοσμένο',
-                        style: context.labelSm.withColor(isActive ? context.cPrimary : context.cText),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: Spacing.md),
-          // Interval (common for all types)
-          Row(
-            children: [
-              Text('Κάθε', style: context.bodyMd),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: TextFormField(
-                  controller: _intervalController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: AppRadius.inputBR,
-                      borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
-                  ),
-                  onChanged: (v) {
-                    final i = int.tryParse(v);
-                    if (i != null && i > 0) setState(() => _interval = i);
-                  },
-                ),
-              ),
-              const SizedBox(width: Spacing.sm),
-              if (_type != RecurrenceType.custom)
-                Text(
-                  _type == RecurrenceType.daily ? 'ημέρες' :
-                  _type == RecurrenceType.weekly ? 'εβδομάδες' :
-                  _type == RecurrenceType.yearly ? 'χρόνο' :
-                  'μήνες',
-                  style: context.bodyMd,
-                ),
-            ],
-          ),
-          // Custom unit selector (only when custom type)
-          if (_type == RecurrenceType.custom) ...[
-            const SizedBox(height: Spacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _customUnit, // διορθωμένο: χρήση initialValue
-                    items: const [
-                      DropdownMenuItem(value: 'days', child: Text('ημέρες')),
-                      DropdownMenuItem(value: 'weeks', child: Text('εβδομάδες')),
-                      DropdownMenuItem(value: 'months', child: Text('μήνες')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _customUnit = value);
-                    },
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: AppRadius.inputBR,
-                        borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: Spacing.md),
-          // Weekly days (if weekly)
-          if (_type == RecurrenceType.weekly) ...[
-            Text('Ημέρες της εβδομάδας', style: context.labelMd),
-            const SizedBox(height: Spacing.xs),
-            Wrap(
-              spacing: Spacing.xs,
-              children: [
-                for (int i = 1; i <= 7; i++)
-                  _WeekdayChip(
-                    day: i,
-                    selected: _weeklyDays.contains(i),
-                    onToggle: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _weeklyDays.add(i);
-                        } else {
-                          _weeklyDays.remove(i);
-                        }
-                      });
-                    },
-                  ),
-              ],
-            ),
-          ],
-          // Monthly day (if monthly)
-          if (_type == RecurrenceType.monthly) ...[
-            Text('Ημέρα του μήνα', style: context.labelMd),
-            const SizedBox(height: Spacing.xs),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _monthlyDayController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: AppRadius.inputBR,
-                        borderSide: BorderSide(color: ColorsUI.getBorder(context.brightness)),
-                      ),
-                    ),
-                    onChanged: (v) {
-                      final d = int.tryParse(v);
-                      if (d != null && d >= 1 && d <= 31) setState(() => _monthlyDay = d);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: Spacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Άκυρο'),
-                ),
-              ),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () {
-                    Recurrence recurrence;
-                    if (_type == RecurrenceType.custom) {
-                      // Map custom to daily/weekly/monthly based on selected unit
-                      switch (_customUnit) {
-                        case 'weeks':
-                          recurrence = Recurrence(
-                            type: RecurrenceType.weekly,
-                            interval: _interval,
-                          );
-                          break;
-                        case 'months':
-                          recurrence = Recurrence(
-                            type: RecurrenceType.monthly,
-                            interval: _interval,
-                          );
-                          break;
-                        default:
-                          recurrence = Recurrence(
-                            type: RecurrenceType.daily,
-                            interval: _interval,
-                          );
-                      }
-                    } else {
-                      // Save-guard: άκυρα weekdays (stale από switch) δεν
-                      // φτάνουν ποτέ στο toRRULE/describe.
-                      final safeWeekly = _weeklyDays
-                          .where((d) => d >= 1 && d <= 7)
-                          .toList();
-                      recurrence = Recurrence(
-                        type: _type,
-                        interval: _interval,
-                        days: _type == RecurrenceType.weekly &&
-                                safeWeekly.isNotEmpty
-                            ? safeWeekly
-                            : _type == RecurrenceType.monthly &&
-                                    _monthlyDay != null
-                                ? [_monthlyDay!]
-                                : null,
-                      );
-                    }
-                    Navigator.pop(context, recurrence);
-                  },
-                  child: const Text('Εφαρμογή'),
-                ),
-              ),
-            ]),
-            const SizedBox(height: Spacing.md),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WeekdayChip extends StatelessWidget {
-  final int day;
-  final bool selected;
-  final ValueChanged<bool> onToggle;
-
-  const _WeekdayChip({
-    required this.day,
-    required this.selected,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const names = AppDateUtils.weekdayNames;
-    return GestureDetector(
-      onTap: () => onToggle(!selected),
-      child: AnimatedContainer(
-        duration: AppDuration.fast,
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
-        decoration: BoxDecoration(
-          color: selected ? context.cPrimary.withValues(alpha: 0.12) : ColorsUI.getSurface(context.brightness),
-          borderRadius: BorderRadius.circular(AppRadius.badge),
-          border: Border.all(color: selected ? context.cPrimary : ColorsUI.getBorder(context.brightness)),
-        ),
-        child: Text(names[day - 1], style: context.labelSm.withColor(selected ? context.cPrimary : context.cText2)),
-      ),
     );
   }
 }
