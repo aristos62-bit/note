@@ -1752,3 +1752,15 @@
 **Backups:** `backups/fix_lock_pkg/` (4 dart + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md:** καμία αλλαγή (behavior-fix, όχι αρχιτεκτονική).
+
+## Session 162 — 12/10/2026 (lockout auto-clear μηνύματος)
+
+**Scope (2+4 ανεστάλησαν):** το κόκκινο lockout έμενε μέχρι το επόμενο tap (ο χρήστης δεν ήξερε πότε έληξε)· το «6 δ» ήταν υπόλοιπο ενεργού lockout (recompute-on-tap, σωστό — όχι bug). 1 αρχείο (+~15).
+
+**Fix:** UI-only `_lockoutTimer` (καθαρίζει το μήνυμα στη λήξη αν όντως έληξε· cancel σε dispose/success/νέο lockout· `dart:async` import).
+
+**Επαλήθευση:** `flutter test` → **168/168** · `flutter analyze --no-pub` → `No issues found!` · device retest (μήνυμα σβήνει στη λήξη· 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_lockout_clear/` (dart + oldsessions.pre, SHA πριν το edit).
+
+**supernote.md:** καμία αλλαγή (behavior-fix, όχι αρχιτεκτονική).
