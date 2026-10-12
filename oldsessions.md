@@ -1687,7 +1687,7 @@
 - C2 calendar dots → helpers + ✅ (compat ⭐)· C3 event resync → 🎂-only (firstDate και τα δύο, μήνυμα → helper)· C4 `ItemCard` (emoji-Text 16/18 pattern `_FolderChip`, tint+accent, custom-override κερδίζει)· C5 `_createBirthdayEvent` (enum+onTap+case+μέθοδος, παλιά literals, SPoT).
 - Κανόνας: 🎂 αυτόματα (ΧΩΡΙΣ καμπάνα)· ✅ ΜΟΝΟ καμπάνα (κάθε διάστημα, υπάρχουσα).
 
-**Επαλήθευση:** νέο 5/5 · `flutter test` → **151/151** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκε 1 lint `no_leading_underscores` στο test) · device retest (Γενέθλια/Ειδική/παλιό⭐/bell/dark/0 ERR) εκκρεμεί.
+**Επαλήθευση:** νέο 5/5 · `flutter test` → **151/151** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκε 1 lint `no_leading_underscores` στο test) · **device ✅ (12/10/2026, `run_log_p3.txt`, pid 15792):** «Γενέθλια» → `_createBirthdayEvent id=463 m=10 d=12` + root + 5 παιδιά Οκτ 2027-2031 (ΧΩΡΙΣ καμπάνα) · αλλαγή → `resync m=9 d=15` → `deleted [2464-thread]` → root + 5 παιδιά Σεπ (παλιά σβησμένα) · 0 `updateRoot/NO root/STILL HAVE/MULTIPLE` · 0 ERR/FATAL.
 
 **Backups:** `backups/p3_birthday_special/` (5 αρχεία pre-change + oldsessions.pre, SHA πριν τα edits).
 
