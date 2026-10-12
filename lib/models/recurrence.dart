@@ -262,12 +262,15 @@ class Recurrence {
       case RecurrenceType.monthly:
         if (days != null && days!.isNotEmpty) {
           final sortedDays = [...days!]..sort();
-          final today = DateTime(from.year, from.month, from.day);
           DateTime? found;
 
+          // Time-aware (mirror habit walker): η clamped μέρα με την ώρα
+          // του from — ισότητα ημερομηνίας δεν αρκεί (θα επέστρεφε το ίδιο).
           for (final d in sortedDays) {
-            final candidate = _safeMonthDay(from.year, from.month, d);
-            if (candidate.isAfter(today)) {
+            final safe = _safeMonthDay(from.year, from.month, d);
+            final candidate = DateTime(safe.year, safe.month, safe.day,
+                from.hour, from.minute, from.second);
+            if (candidate.isAfter(from)) {
               found = candidate;
               break;
             }
@@ -278,7 +281,9 @@ class Recurrence {
             int nextYear = from.year;
             nextYear += (nextMonth - 1) ~/ 12;
             nextMonth = (nextMonth - 1) % 12 + 1;
-            found = _safeMonthDay(nextYear, nextMonth, sortedDays.first);
+            final safe = _safeMonthDay(nextYear, nextMonth, sortedDays.first);
+            found = DateTime(safe.year, safe.month, safe.day,
+                from.hour, from.minute, from.second);
           }
 
           next = found;
@@ -287,7 +292,8 @@ class Recurrence {
           int nextYear = from.year;
           nextYear += (nextMonth - 1) ~/ 12;
           nextMonth = (nextMonth - 1) % 12 + 1;
-          next = _safeMonthDay(nextYear, nextMonth, from.day);
+          // Anti-drift: η ημέρα από το anchor (root), όχι από το clamped from.
+          next = _safeMonthDay(nextYear, nextMonth, anchor?.day ?? from.day);
         }
         break;
 

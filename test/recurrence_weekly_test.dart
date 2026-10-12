@@ -104,4 +104,32 @@ void main() {
       expect(next.hour, 10);
     });
   });
+
+  group('monthly clamp (Φεβ) + anti-drift', () {
+    test('days [31]: Φεβ → 28 (όχι άλμα Μαρτίου)', () {
+      const r = Recurrence(
+          type: RecurrenceType.monthly, interval: 1, days: [31]);
+      final next = r.nextOccurrence(DateTime(2026, 2, 1, 10, 0))!;
+      expect(next.year, 2026);
+      expect(next.month, 2);
+      expect(next.day, 28);
+      expect(next.hour, 10);
+    });
+
+    test('no-days anti-drift: Ιαν31 → Φεβ28 → Μαρ31', () {
+      const r = Recurrence(type: RecurrenceType.monthly, interval: 1);
+      final anchor = DateTime(2026, 1, 31, 10, 0);
+      final feb = r.nextOccurrence(anchor, anchor: anchor)!;
+      expect([feb.year, feb.month, feb.day], [2026, 2, 28]);
+      final mar = r.nextOccurrence(feb, anchor: anchor)!;
+      expect([mar.year, mar.month, mar.day], [2026, 3, 31]);
+    });
+
+    test('yearly 29/2: μη-δίσεκτο → 28/2', () {
+      const r = Recurrence(
+          type: RecurrenceType.yearly, interval: 1, days: [2, 29]);
+      final next = r.nextOccurrence(DateTime(2026, 2, 1, 10, 0))!;
+      expect([next.year, next.month, next.day], [2026, 2, 28]);
+    });
+  });
 }

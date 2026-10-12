@@ -1704,3 +1704,15 @@
 **Backups:** `backups/fix_picker_switch/` (dart + test + oldsessions.pre, SHA πριν τα edits).
 
 **DESIGN.md:** καμία αλλαγή (UI-state fix, όχι layer/SPoT/dependency).
+
+## Session 158 — 12/10/2026 (μηνιαία 31→Φεβ + yearly-29/2 clamp)
+
+**Scope (2+4 ανεστάλησαν):** μηνιαία-31 έχανε τον Φεβ (today-false + search-skip + μόνιμο drift 31→28)· ετήσια-29/2 χανόταν τα μη-δίσεκτα. 2 αρχεία (≤6γρ./σημείο) + 3 pure tests.
+
+**Fix:** F1 today-clamp (`safeDay`, days + no-days)· F2 time-aware search (mirror habit-walker)· F3 anti-drift (`anchor?.day ?? from.day`, βήμα από `from`)· F4 yearly-clamp (days + no-days). Habit-walker άθικτος (ήδη σωστός).
+
+**Επαλήθευση:** νέο 3/3 · `flutter test` → **155/155** · `flutter analyze --no-pub` → `No issues found!` · device retest (28/2 today· κύκλος 31· interval-2· 29/2 δίσεκτο/μη· 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_monthly_feb/` (2 dart + test + oldsessions.pre, SHA πριν τα edits).
+
+**DESIGN.md:** καμία αλλαγή (pure-fix, όχι layer/SPoT/dependency).
