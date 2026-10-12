@@ -1699,7 +1699,7 @@
 
 **Fix:** F1 tap-sanitize (weekly φίλτρο 1-7→fallback trigger-weekday+notif· monthly έλεγχος, έγκυρο κρατιέται)· F2 save-guard (`safeWeekly`, κενό→null). Μάθημα test: `[5,15]` κρατά το έγκυρο 5 (Παρασκευή) — το test uses `[9,15]` (πλήρως άκυρα → fallback Δευτέρα).
 
-**Επαλήθευση:** νέο 1/1 · `flutter test` → **152/152** · `flutter analyze --no-pub` → `No issues found!` · device retest (yearly→weekly/monthly31→weekly/πίσω-μπρος/0 ERR) εκκρεμεί.
+**Επαλήθευση:** νέο 1/1 · `flutter test` → **152/152** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, user verdict):** yearly→weekly (chips+save ΟΚ) · monthly31→weekly ΟΚ · εβδομαδιαία→μηνιαία→εβδομαδιαία (κρατά έγκυρες) · 0 ERR.
 
 **Backups:** `backups/fix_picker_switch/` (dart + test + oldsessions.pre, SHA πριν τα edits).
 
