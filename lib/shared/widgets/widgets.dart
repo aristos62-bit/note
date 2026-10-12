@@ -13,6 +13,7 @@ export 'item_type_icon.dart';
 export 'folder_selector.dart';
 export 'view_mode_toggle.dart';
 export 'reminder_section.dart';
+export 'reminder_recurrence_picker.dart';
 export 'item_list_screen.dart';
 export 'item_list_embedded.dart';
 export 'tag_picker_sheet.dart';

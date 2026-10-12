@@ -1800,3 +1800,15 @@
 **Backups:** `backups/fix_flash_lock/` (main + oldsessions.pre, SHA πριν το edit).
 
 **supernote.md:** καμία αλλαγή (startup-σειρά, όχι αρχιτεκτονική).
+
+## Session 166 — 12/10/2026 (DB από UI SPoT: mixin/archive/reminder_section + split)
+
+**Scope (2+4 ανεστάλησαν):** άμεση `SuperNoteHelper.instance/isar.writeTxn` σε widgets/mixin. 5 lib αρχεία + 1 νέο split + 1 test import.
+
+**Υλοποίηση:** F1 mixin → `ItemNotifier.deleteItem` (cascade+cancel, unawaited)· F2 archive → διαγραφή 2 diagnostic `getForItem`· F3-5 reminder_section → `_loadData` via `itemRemindersProvider.future`, διαγραφή root diagnostics, `writeTxn/create` → `reminderNotifierProvider(itemId).notifier.create` + scheduler + invalidates· provider `create: void→Future<Reminder?>` + `invalidate(itemRemindersProvider)` (0 callers)· F6 split 677→313+357 (`reminder_recurrence_picker.dart`, barrel export)· test import → νέο αρχείο.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → `No issues found!` · `flutter test` → **171/171** · device retest εκκρεμεί (6 reminder flows + 9 dispose + 11 archive).
+
+**Backups:** `backups/spot_db_ui/` (5 pre + test pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (shared widget split + provider signature, όχι layer — precedent S136).

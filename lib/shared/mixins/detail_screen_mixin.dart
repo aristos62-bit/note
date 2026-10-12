@@ -28,10 +28,11 @@
 //     }
 //   }
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
-import '../../helpers/super_note_helper.dart';
+import '../../providers/providers.dart';
 import '../widgets/widgets.dart';
 
 mixin DetailScreenMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
@@ -56,8 +57,8 @@ mixin DetailScreenMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     _disposeGuard = true;
     DebugConfig.nav('$runtimeType dispose id=$_itemId');
     if (_isNew && _itemId != null && titleCtrl.text.trim().isEmpty) {
-      DebugConfig.db('$runtimeType softDelete empty new item id=$_itemId');
-      SuperNoteHelper.instance.items.softDelete(_itemId!);
+      DebugConfig.db('$runtimeType deleteItem empty new item id=$_itemId');
+      unawaited(ref.read(itemNotifierProvider.notifier).deleteItem(_itemId!));
     }
   }
 
@@ -102,7 +103,7 @@ mixin DetailScreenMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
           if (deleteFn != null) {
             await deleteFn();
           } else {
-            await SuperNoteHelper.instance.items.softDelete(_itemId!);
+            await ref.read(itemNotifierProvider.notifier).deleteItem(_itemId!);
           }
         } catch (e, stack) {
           DebugConfig.error('$runtimeType executeSaveOrDelete delete', e, stack);

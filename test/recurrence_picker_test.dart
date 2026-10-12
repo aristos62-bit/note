@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_note/models/recurrence.dart';
-import 'package:super_note/shared/widgets/reminder_section.dart';
+import 'package:super_note/shared/widgets/reminder_recurrence_picker.dart';
 
 void main() {
   testWidgets('weekly flow επιστρέφει Recurrence', (tester) async {
