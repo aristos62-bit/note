@@ -559,19 +559,22 @@ class ReminderScheduler {
       return;
     }
 
+    final item =
+        await SuperNoteHelper.instance.items.getById(reminder.itemId);
     String title = reminder.title ?? 'SuperNote';
     String body = reminder.body ?? 'Έχεις μια υπενθύμιση';
 
-    if (reminder.title == null) {
-      final item =
-          await SuperNoteHelper.instance.items.getById(reminder.itemId);
-      if (item != null) {
-        title = item.icon != null
-            ? '${item.icon} ${item.title ?? 'Χωρίς τίτλο'}'
-            : item.title ?? 'Χωρίς τίτλο';
-      }
+    if (reminder.title == null && item != null) {
+      title = item.icon != null
+          ? '${item.icon} ${item.title ?? 'Χωρίς τίτλο'}'
+          : item.title ?? 'Χωρίς τίτλο';
+    } else if (reminder.title == 'Υπενθύμιση' &&
+        item?.title?.isNotEmpty == true) {
+      // Generic bell → ζωντανός τίτλος (staleness fix)· habits/γενέθλια
+      // (δικοί τους τίτλοι) κρατούν snapshot.
+      body = item!.title!;
+      DebugConfig.notif('ReminderScheduler._scheduleOne: live-body used');
     }
-    final item = await SuperNoteHelper.instance.items.getById(reminder.itemId);
     DebugConfig.notif(
         '_scheduleOne: itemId=${reminder.itemId} archived=${item?.archived} title=${AppStringUtils.redact(item?.title)}');
     // #2: Τα αρχειοθετημένα items ΔΕΝ προγραμματίζουν OS reminders (archive = σίγαση).

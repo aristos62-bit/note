@@ -1716,3 +1716,15 @@
 **Backups:** `backups/fix_monthly_feb/` (2 dart + test + oldsessions.pre, SHA πριν τα edits).
 
 **DESIGN.md:** καμία αλλαγή (pure-fix, όχι layer/SPoT/dependency).
+
+## Session 159 — 12/10/2026 (live-body τίτλου + sound-reschedule)
+
+**Scope (2+4 ανεστάλησαν):** body snapshot (μετονομασία → παλιός τίτλος στην ειδοποίηση)· ήχος ψημένος (setSound χωρίς reschedule). 2 αρχεία (+~12).
+
+**Fix:** T1 `_scheduleOne` (single-fetch + live-body ΜΟΝΟ για generic `'Υπενθύμιση'` — habits/γενέθλια snapshot)· S1 `setSound` + `scheduleAll` (mirror toggle/vibration).
+
+**Επαλήθευση:** `flutter test` → **155/155** · `flutter analyze --no-pub` → `No issues found!` · device retest (μετονομασία→νέος τίτλος· ήχος OFF/ON σε υπάρχουσα· 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_title_sound/` (2 dart + oldsessions.pre, SHA πριν τα edits).
+
+**DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer/SPoT/dependency).
