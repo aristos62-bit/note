@@ -1728,3 +1728,15 @@
 **Backups:** `backups/fix_title_sound/` (2 dart + oldsessions.pre, SHA πριν τα edits).
 
 **DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer/SPoT/dependency).
+
+## Session 160 — 12/10/2026 (ημερολόγιο μελλοντικά έτη — yearly expansion)
+
+**Scope (2+4 ανεστάλησαν):** yearly events αόρατα εκτός αρχικού μήνα/έτους (provider φίλτραρε `start.year/month`). 2 lib αρχεία (+~35) + 4 pure tests. Μάθημα: έλειπε `isar` import (generated μέθοδοι έρχονται via models, `findAll` όχι) — πιάστηκε από tests, διορθώθηκε + απλοποιήθηκε το query (χωρίς `.and().not()`).
+
+**Fix:** Y1 pure `yearlyOccurrenceDay` (DTSTART-όριο, interval, Feb-clamp)· Y2 provider-expansion (1 query + ίδιο Item + dedup· contacts εκτός δομικά· φίλτρα κληρονομικά).
+
+**Επαλήθευση:** νέο 4/4 · `flutter test` → **159/159** · `flutter analyze --no-pub` → `No issues found!` · device retest (Μάιος-27· tap→root· interval-2· Feb29· no-dups· 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/future_years_cal/` (2 dart + test + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md:** καμία αλλαγή (display-only, όχι αρχιτεκτονική).
