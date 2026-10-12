@@ -1776,3 +1776,15 @@
 **Backups:** `backups/fix_salt_upgrade/` (4 αρχεία + test + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md:** καμία αλλαγή (behavior-fix, όχι αρχιτεκτονική).
+
+## Session 164 — 12/10/2026 (flash-fix: pre-runApp lock)
+
+**Scope (2+4 ανεστάλησαν):** καρέ-1 = Αρχική πριν το PIN (device-verified). 1 αρχείο (+~12/±1).
+
+**Fix:** F1 pre-runApp lock (με catch-fallback)· F2 postFrame-guard (safety-net, όχι διπλό set).
+
+**Επαλήθευση:** `flutter test` → **169/169** · `flutter analyze --no-pub` → `No issues found!` · device retest (kill→launch καρέ-1 PIN· OFF καρέ-1 Αρχική· 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_flash_lock/` (main + oldsessions.pre, SHA πριν το edit).
+
+**supernote.md:** καμία αλλαγή (startup-σειρά, όχι αρχιτεκτονική).
