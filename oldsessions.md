@@ -1672,7 +1672,7 @@
 
 **Fix (mirror επαφών, μη-καταστροφικό):** lookup `getForItem` → `existingRoot` με **YEARLY-φίλτρο** (όχι ANY — η εβδομαδιαία καμπάνα του χρήστη διατηρείται· σύγκριση προτάσεων: το ANY θα την έσβηνε σιωπηλά) → `deleteReminderThread` (μόνο yearly thread) → `create` (trigger=newTrigger, rrule yearly, title=kept/`'Υπενθύμιση'`, body=φρέσκος τίτλος με fallback `'Συμβάν'`, pattern `_showReminderDialog`) + `notif` (m/d, όχι PII) → `refresh`. Καλύπτει και no-root (πριν: σιωπηλό «NO root», καμία υπενθύμιση). 0 νέα imports (barrel/`firstOrNull`/scheduler παρόντα).
 
-**Επαλήθευση:** `flutter test` → **146/146** · `flutter analyze --no-pub` → `No issues found!` · device retest (🎂 10/5→20/6: Μάιος σβησμένος/Ιούνιος προγραμματισμένος, weekly-bell άθικτη · ⭐ · no-root · μη-🎂 · 0 ERR) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **146/146** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, `run_log_p1p2.txt`, pid 7552):** `birthday resync m=5 d=10` → root 2464 + 5 παιδιά Μαΐου 2027-2031 · `birthday resync m=6 d=20` → `deleted thread [2464+5]` (Μάιος σβησμένος) → root 2470 + 5 παιδιά Ιουνίου 2027-2031 (5× `SUCCESS`) · 0 `updateRootReminderForItem` · 0 `STILL HAVE/MULTIPLE ROOTS/NO root` · 0 ERR/FATAL.
 
 **Backups:** `backups/fix_event_resync/` (dart + oldsessions.pre, SHA πριν το edit).
 
