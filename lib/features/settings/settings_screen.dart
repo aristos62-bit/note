@@ -2062,6 +2062,12 @@ Future<bool> _showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
                 final settings = await ref.read(settingsProvider.future);
                 final hash = settings.appLockPinHash;
                 if (hash != null && AppLockService.instance.verifyPin(ctrl.text, hash)) {
+                  if (AppLockService.shouldUpgradeHash(hash)) {
+                    await ref.read(settingsNotifierProvider.notifier).updateSettings(
+                        (s) => s.appLockPinHash =
+                            AppLockService.instance.hashPin(ctrl.text));
+                    DebugConfig.notif('AppLock: hash upgraded to v1 (settings)');
+                  }
                   if (!ctx.mounted) return;
                   Navigator.pop(ctx, true);
                 } else {

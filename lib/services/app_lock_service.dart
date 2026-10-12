@@ -65,6 +65,11 @@ class AppLockService {
     return sha256.convert(bytes).toString();
   }
 
+  /// true = legacy hash προς αναβάθμιση (χωρίς `$`)· άδειο/νέο → false.
+  /// Καλείται ΜΟΝΟ μετά επιτυχές verify (garbage αποκλείεται από το verify).
+  static bool shouldUpgradeHash(String? stored) =>
+      stored != null && stored.isNotEmpty && !stored.contains('\$');
+
   List<int> _stretch(List<int> pin, List<int> salt, int iterations) {
     var current = <int>[...pin, ...salt];
     for (var i = 0; i < iterations; i++) {

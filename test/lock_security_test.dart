@@ -82,4 +82,15 @@ void main() {
       expect(AppLockService.nextLockoutSeconds(20), 300);
     });
   });
+
+  group('shouldUpgradeHash (salt-upgrade)', () {
+    test('legacy → true· νέο/άδειο/null → false', () {
+      final legacy = AppLockService.instance.hashPinLegacy('1234');
+      expect(AppLockService.shouldUpgradeHash(legacy), isTrue);
+      final fresh = AppLockService.instance.hashPin('1234');
+      expect(AppLockService.shouldUpgradeHash(fresh), isFalse);
+      expect(AppLockService.shouldUpgradeHash(''), isFalse);
+      expect(AppLockService.shouldUpgradeHash(null), isFalse);
+    });
+  });
 }

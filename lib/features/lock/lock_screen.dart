@@ -118,6 +118,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final hash = settings.appLockPinHash;
     if (hash == null) return;
     if (AppLockService.instance.verifyPin(_pinCtrl.text, hash)) {
+      if (AppLockService.shouldUpgradeHash(hash)) {
+        await ref.read(settingsNotifierProvider.notifier).updateSettings(
+            (s) => s.appLockPinHash =
+                AppLockService.instance.hashPin(_pinCtrl.text));
+        DebugConfig.notif('AppLock: hash upgraded to v1 (lock)');
+      }
       DebugConfig.print('🔓 AppLock: PIN unlock ok');
       _failedAttempts = 0;
       _lockoutUntil = null;
