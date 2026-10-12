@@ -297,6 +297,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   bool _disposed = false;
   Timer? _lockTimer;
   DateTime? _lastLifecycleEvent; // 🔍 DEBUG: για εντοπισμό γρήγορων resumed/paused κύκλων
+  DateTime? _pausedAt; // L1: ώρα paused — fallback αν το OS παγώσει τον timer.
 
   _AppLifecycleObserver(this.container);
 
@@ -318,6 +319,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
       _lastLifecycleEvent = now;
 
       if (state == AppLifecycleState.paused) {
+        _pausedAt = DateTime.now();
         final settings = await SuperNoteHelper.instance.settings
             .get()
             .timeout(const Duration(seconds: 5));
@@ -342,6 +344,22 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
       if (state == AppLifecycleState.resumed) {
         _lockTimer?.cancel();
         _lockTimer = null;
+        // L1: ο Timer μπορεί να μην έτρεξε (παγωμένο isolate) — σύγκριση ώρας.
+        try {
+          final settings = await SuperNoteHelper.instance.settings
+              .get()
+              .timeout(const Duration(seconds: 5));
+          if (settings.appLockEnabled &&
+              AppLockService.shouldLockOnResume(
+                  _pausedAt, DateTime.now(), settings.appLockTimeoutSeconds)) {
+            AppLockService.instance.lock();
+            container.read(appLockStateProvider.notifier).state = true;
+            DebugConfig.print('🔒 AppLock: resumed past timeout — locked');
+          }
+        } catch (e, stack) {
+          DebugConfig.error('AppLock resume-check', e, stack);
+        }
+        _pausedAt = null;
         DebugConfig.startup(
             'App resumed — debounced refreshing recurring reminders');
         await ReminderScheduler.instance.debouncedRefreshRecurringReminders();

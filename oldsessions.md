@@ -1740,3 +1740,15 @@
 **Backups:** `backups/future_years_cal/` (2 dart + test + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md:** καμία αλλαγή (display-only, όχι αρχιτεκτονική).
+
+## Session 161 — 12/10/2026 (lock-πακέτο: timestamp + salt-hash + backoff)
+
+**Scope (2+4 ανεστάλησαν):** Timer-πάγωμα (ξεκλείδωτο μετά timeout)· unsalted SHA (plain-zip backups)· απεριόριστα tries. 4 lib αρχεία (+~70) + 9 pure tests.
+
+**Fix:** L1 `_pausedAt` + `shouldLockOnResume` (lock-πρώτα στο resumed)· L2 `v1$iter$salt$hash` (100k, secure-salt, constant-time, legacy-compat, ίδιο πεδίο — 0 migration)· L3 attempts/lockout (30δ→cap 5λ, central, no-Timer, `pinLockedOut`, biometric-εκτός).
+
+**Επαλήθευση:** νέο 9/9 · `flutter test` → **168/168** · `flutter analyze --no-pub` → `No issues found!` (διορθώθηκε 1 lint `unnecessary_brace` στο νέο log) · device retest (overtime→locked· immediate→unlocked· legacy-login· backoff· latency· 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_lock_pkg/` (4 dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md:** καμία αλλαγή (behavior-fix, όχι αρχιτεκτονική).

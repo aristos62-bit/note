@@ -16,6 +16,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   String? _error;
   bool _biometricFailed = false;
 
+  int _failedAttempts = 0;
+  DateTime? _lockoutUntil;
+
   int? _pinLength;
 
   @override
@@ -54,6 +57,10 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   void _onDigit(String digit) {
+    if (_lockoutRemaining() > 0) {
+      setState(() => _error = AppErrors.pinLockedOut(_lockoutRemaining()));
+      return;
+    }
     final maxLen = _pinLength ?? 6;
     if (_pinCtrl.text.length >= maxLen) return;
     setState(() => _error = null);
@@ -78,18 +85,46 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     _pinCtrl.text = _pinCtrl.text.substring(0, _pinCtrl.text.length - 1);
   }
 
+  /// Υπόλοιπο lockout σε δευτερόλεπτα (0 = ελεύθερο). Χωρίς Timer —
+  /// επανυπολογίζεται σε κάθε tap.
+  int _lockoutRemaining() {
+    if (_lockoutUntil == null) return 0;
+    final left = _lockoutUntil!.difference(DateTime.now()).inSeconds;
+    return left > 0 ? left : 0;
+  }
+
   Future<void> _verifyPin() async {
+    if (_lockoutRemaining() > 0) {
+      if (mounted) {
+        setState(
+            () => _error = AppErrors.pinLockedOut(_lockoutRemaining()));
+      }
+      return;
+    }
     final settings = await ref.read(settingsNotifierProvider.future);
     final hash = settings.appLockPinHash;
     if (hash == null) return;
     if (AppLockService.instance.verifyPin(_pinCtrl.text, hash)) {
       DebugConfig.print('🔓 AppLock: PIN unlock ok');
+      _failedAttempts = 0;
+      _lockoutUntil = null;
       AppLockService.instance.unlock();
       ref.read(appLockStateProvider.notifier).state = false;
     } else {
       DebugConfig.print('🔓 AppLock: wrong PIN');
+      _failedAttempts++;
+      final lockSecs =
+          AppLockService.nextLockoutSeconds(_failedAttempts);
+      if (lockSecs > 0) {
+        _lockoutUntil = DateTime.now().add(Duration(seconds: lockSecs));
+        DebugConfig.print(
+            '🔒 AppLock: lockout $_failedAttempts fails ($lockSecs s)');
+      }
+      if (!mounted) return;
       setState(() {
-        _error = AppErrors.pinWrong;
+        _error = lockSecs > 0
+            ? AppErrors.pinLockedOut(lockSecs)
+            : AppErrors.pinWrong;
         _pinCtrl.clear();
       });
     }
