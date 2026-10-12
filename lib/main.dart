@@ -113,6 +113,18 @@ void main() async {
     DebugConfig.error('defaultWorkspace load', e, stack);
   }
 
+  // Pre-runApp lock: το καρέ-1 να είναι ήδη PIN (όχι Αρχική-μετά-PIN).
+  try {
+    final lockSettings = await SuperNoteHelper.instance.settings.get();
+    if (lockSettings.appLockEnabled) {
+      AppLockService.instance.lock();
+      container.read(appLockStateProvider.notifier).state = true;
+      DebugConfig.print('🔒 AppLock: initial lock on startup');
+    }
+  } catch (e, stack) {
+    DebugConfig.error('Pre-runApp app lock check failed', e, stack);
+  }
+
   DebugConfig.startup('runApp');
   runApp(
     UncontrolledProviderScope(
@@ -199,7 +211,7 @@ void main() async {
 
     try {
       final settings = await SuperNoteHelper.instance.settings.get();
-      if (settings.appLockEnabled) {
+      if (settings.appLockEnabled && !AppLockService.instance.isLocked) {
         AppLockService.instance.lock();
         container.read(appLockStateProvider.notifier).state = true;
       DebugConfig.print('🔒 AppLock: initial lock on startup');
