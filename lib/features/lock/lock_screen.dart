@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
@@ -18,6 +20,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   int _failedAttempts = 0;
   DateTime? _lockoutUntil;
+  Timer? _lockoutTimer; // Καθαρίζει το μήνυμα στη λήξη (UI-only, cancel σε dispose).
 
   int? _pinLength;
 
@@ -85,8 +88,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     _pinCtrl.text = _pinCtrl.text.substring(0, _pinCtrl.text.length - 1);
   }
 
-  /// Υπόλοιπο lockout σε δευτερόλεπτα (0 = ελεύθερο). Χωρίς Timer —
-  /// επανυπολογίζεται σε κάθε tap.
+  /// Προγραμματίζει καθαρισμό του μηνύματος στη λήξη του lockout.
+  void _scheduleLockoutClear(int lockSecs) {
+    _lockoutTimer?.cancel();
+    _lockoutTimer = Timer(Duration(seconds: lockSecs), () {
+      if (!mounted) return;
+      // Μόνο αν όντως έληξε (όχι νεότερο lockout στο μεταξύ).
+      if (_lockoutRemaining() == 0) {
+        setState(() => _error = null);
+      }
+    });
+  }
+  /// Υπόλοιπο lockout σε δευτερόλεπτα (0 = ελεύθερο).
   int _lockoutRemaining() {
     if (_lockoutUntil == null) return 0;
     final left = _lockoutUntil!.difference(DateTime.now()).inSeconds;
@@ -108,6 +121,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       DebugConfig.print('🔓 AppLock: PIN unlock ok');
       _failedAttempts = 0;
       _lockoutUntil = null;
+      _lockoutTimer?.cancel();
       AppLockService.instance.unlock();
       ref.read(appLockStateProvider.notifier).state = false;
     } else {
@@ -119,6 +133,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         _lockoutUntil = DateTime.now().add(Duration(seconds: lockSecs));
         DebugConfig.print(
             '🔒 AppLock: lockout $_failedAttempts fails ($lockSecs s)');
+        _scheduleLockoutClear(lockSecs);
       }
       if (!mounted) return;
       setState(() {
@@ -132,6 +147,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _pinCtrl.dispose();
     super.dispose();
   }
