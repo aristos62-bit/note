@@ -1771,7 +1771,7 @@
 
 **Fix:** G1 `shouldUpgradeHash` pure · G2 lock-branch (πριν unlock) · G3 settings-gate (πριν pop) — best-effort rewrite, idempotent.
 
-**Επαλήθευση:** νέο 1/1 · `flutter test` → **169/169** · `flutter analyze --no-pub` → `No issues found!` · device retest (legacy-login→`upgraded`→νέο-path· 0 ERR) εκκρεμεί.
+**Επαλήθευση:** νέο 1/1 · `flutter test` → **169/169** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, fresh-build log, pid 9137/9369):** legacy-login → `AppLock: hash upgraded to v1 (lock)` → `PIN unlock ok` · startup υγιές (4 roots, `created 0`, purge 0, `scheduleAll DONE`, `live-body used`) · 0 ERR.
 
 **Backups:** `backups/fix_salt_upgrade/` (4 αρχεία + test + oldsessions.pre, SHA πριν τα edits).
 
