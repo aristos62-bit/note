@@ -1807,7 +1807,7 @@
 
 **Υλοποίηση:** F1 mixin → `ItemNotifier.deleteItem` (cascade+cancel, unawaited)· F2 archive → διαγραφή 2 diagnostic `getForItem`· F3-5 reminder_section → `_loadData` via `itemRemindersProvider.future`, διαγραφή root diagnostics, `writeTxn/create` → `reminderNotifierProvider(itemId).notifier.create` + scheduler + invalidates· provider `create: void→Future<Reminder?>` + `invalidate(itemRemindersProvider)` (0 callers)· F6 split 677→313+357 (`reminder_recurrence_picker.dart`, barrel export)· test import → νέο αρχείο.
 
-**Επαλήθευση:** `flutter analyze --no-pub` → `No issues found!` · `flutter test` → **171/171** · device retest εκκρεμεί (6 reminder flows + 9 dispose + 11 archive).
+**Επαλήθευση:** `flutter analyze --no-pub` → `No issues found!` · `flutter test` → **171/171** · **device ✅ (12/10/2026, user verdict + `run_log_s166.txt` 2320 γρ.):** καμπάνα one-shot→weekly→monthly→monthly-2→yearly-2 (INTERVAL kept, 5 παιδιά/batch, SUCCESS), `deleteItem` cascade, archive→σίγαση, `Υπενθύμιση` σωστά, 0 ERR/FATAL/overflow.
 
 **Backups:** `backups/spot_db_ui/` (5 pre + test pre + BASE_HEAD).
 
