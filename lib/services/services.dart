@@ -17,3 +17,4 @@ export 'share_service.dart';
 export 'shared_intent_service.dart';
 export 'app_lock_service.dart';
 export 'migration_service.dart';
+export 'security_service.dart';

@@ -121,6 +121,7 @@ void main() async {
       container.read(appLockStateProvider.notifier).state = true;
       DebugConfig.print('🔒 AppLock: initial lock on startup');
     }
+    await SecurityService.setSecure(lockSettings.appLockEnabled);
   } catch (e, stack) {
     DebugConfig.error('Pre-runApp app lock check failed', e, stack);
   }
