@@ -447,6 +447,25 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                 return GestureDetector(
                   onTap: () => setState(() {
                     _type = t;
+                    if (t == RecurrenceType.weekly) {
+                      _weeklyDays = _weeklyDays
+                          .where((d) => d >= 1 && d <= 7)
+                          .toList();
+                      if (_weeklyDays.isEmpty &&
+                          widget.initialTrigger != null) {
+                        _weeklyDays = [widget.initialTrigger!.weekday];
+                        DebugConfig.notif(
+                            'RecurrencePicker: weekly reset to trigger weekday');
+                      }
+                    } else if (t == RecurrenceType.monthly) {
+                      if (_monthlyDay == null ||
+                          _monthlyDay! < 1 ||
+                          _monthlyDay! > 31) {
+                        _monthlyDay = widget.initialTrigger?.day;
+                        _monthlyDayController.text =
+                            _monthlyDay?.toString() ?? '';
+                      }
+                    }
                     _applyDefaultsForType(t);
                   }),
                   child: AnimatedContainer(
@@ -621,14 +640,21 @@ class _RecurrencePickerModalState extends State<_RecurrencePickerModal> {
                           );
                       }
                     } else {
+                      // Save-guard: άκυρα weekdays (stale από switch) δεν
+                      // φτάνουν ποτέ στο toRRULE/describe.
+                      final safeWeekly = _weeklyDays
+                          .where((d) => d >= 1 && d <= 7)
+                          .toList();
                       recurrence = Recurrence(
                         type: _type,
                         interval: _interval,
-                        days: _type == RecurrenceType.weekly && _weeklyDays.isNotEmpty
-                            ? _weeklyDays
-                            : _type == RecurrenceType.monthly && _monthlyDay != null
-                            ? [_monthlyDay!]
-                            : null,
+                        days: _type == RecurrenceType.weekly &&
+                                safeWeekly.isNotEmpty
+                            ? safeWeekly
+                            : _type == RecurrenceType.monthly &&
+                                    _monthlyDay != null
+                                ? [_monthlyDay!]
+                                : null,
                       );
                     }
                     Navigator.pop(context, recurrence);

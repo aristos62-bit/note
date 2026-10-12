@@ -1692,3 +1692,15 @@
 **Backups:** `backups/p3_birthday_special/` (5 αρχεία pre-change + oldsessions.pre, SHA πριν τα edits).
 
 **DESIGN.md:** SPoT icon-σημασιολογία (C1) — ενημερώθηκε (παράγραφος Session 156).
+
+## Session 157 — 12/10/2026 (F-picker: switch με stale days — sanitize+guard)
+
+**Scope (2+4 ανεστάλησαν):** picker τύπου με υπάρχον recurrence κουβαλούσε stale days (`initState` + early-return) → weekly με `[5,15]/[31]` → `wd[14]` RangeError σε `toRRULE/describe`. 1 lib αρχείο (+~15) + 1 test.
+
+**Fix:** F1 tap-sanitize (weekly φίλτρο 1-7→fallback trigger-weekday+notif· monthly έλεγχος, έγκυρο κρατιέται)· F2 save-guard (`safeWeekly`, κενό→null). Μάθημα test: `[5,15]` κρατά το έγκυρο 5 (Παρασκευή) — το test uses `[9,15]` (πλήρως άκυρα → fallback Δευτέρα).
+
+**Επαλήθευση:** νέο 1/1 · `flutter test` → **152/152** · `flutter analyze --no-pub` → `No issues found!` · device retest (yearly→weekly/monthly31→weekly/πίσω-μπρος/0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_picker_switch/` (dart + test + oldsessions.pre, SHA πριν τα edits).
+
+**DESIGN.md:** καμία αλλαγή (UI-state fix, όχι layer/SPoT/dependency).

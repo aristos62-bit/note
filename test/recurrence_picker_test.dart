@@ -54,8 +54,7 @@ void main() {
     expect(got, isNull);
   });
 
-  testWidgets('κοντό landscape: κυλάει χωρίς overflow', (tester) async {
-    // Πραγματικό κοντό viewport (το modal ανοίγει σε overlay — wrapper
+  testWidgets('κοντό landscape: κυλάει χωρίς overflow', (tester) async {    // Πραγματικό κοντό viewport (το modal ανοίγει σε overlay — wrapper
     // SizedBox δεν θα περιόριζε τίποτα).
     tester.view.physicalSize = const Size(800, 200);
     tester.view.devicePixelRatio = 1.0;
@@ -75,5 +74,42 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(SingleChildScrollView), findsWidgets);
     expect(find.text('Εφαρμογή'), findsOneWidget);
+  });
+
+  testWidgets('yearly→weekly switch: stale days αγνοούνται (F-picker)',
+      (tester) async {
+    Recurrence? got;
+    // Δευτέρα 05/10/2026 — trigger weekday = Δευτέρα.
+    final trigger = DateTime(2026, 10, 5, 9, 0);
+    // Σεπτέμβριος 15 — 9 και 15 άκυρα ως weekdays → fallback Δευτέρα trigger.
+    const staleYearly =
+        Recurrence(type: RecurrenceType.yearly, interval: 2, days: [9, 15]);
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              got = await showRecurrencePicker(
+                context: ctx,
+                initialRecurrence: staleYearly,
+                initialTrigger: trigger,
+              );
+            },
+            child: const Text('Άνοιγμα'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Άνοιγμα'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Εβδομαδιαία'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Εφαρμογή'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(got, isNotNull);
+    expect(got!.type, RecurrenceType.weekly);
+    // 15 απορρίφθηκε· έμεινε η Δευτέρα του trigger.
+    expect(got!.days, [DateTime.monday]);
   });
 }
