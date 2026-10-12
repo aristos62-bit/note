@@ -382,7 +382,11 @@ class ReminderScheduler {
         return diff >= 0 && diff % (7 * recurrence.interval) == 0;
       case RecurrenceType.monthly:
         if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-          if (!recurrence.days!.contains(now.day)) return false;
+          // Clamp: 31→28 Φεβ (κ.ο.κ.) — η τελευταία μέρα καλύπτει τις μεγαλύτερες.
+          final effective = recurrence.days!
+              .map((d) => Recurrence.safeDay(now.year, now.month, d))
+              .toSet();
+          if (!effective.contains(now.day)) return false;
           if (recurrence.interval <= 1) return true;
           final totalMonths = now.year * 12 + now.month - 1;
           final rootMonths = root.triggerAt.year * 12 + root.triggerAt.month - 1;
@@ -391,13 +395,17 @@ class ReminderScheduler {
         }
         final totalMonths = now.year * 12 + now.month - 1;
         final rootMonths = root.triggerAt.year * 12 + root.triggerAt.month - 1;
-        return now.day == root.triggerAt.day &&
+        return now.day ==
+                Recurrence.safeDay(
+                    now.year, now.month, root.triggerAt.day) &&
             totalMonths >= rootMonths &&
             (totalMonths - rootMonths) % recurrence.interval == 0;
       case RecurrenceType.yearly:
         if (recurrence.days != null && recurrence.days!.length == 2) {
           if (recurrence.days![0] != now.month ||
-              recurrence.days![1] != now.day) {
+              Recurrence.safeDay(
+                      now.year, recurrence.days![0], recurrence.days![1]) !=
+                  now.day) {
             return false;
           }
           if (recurrence.interval <= 1) return true;
@@ -405,7 +413,9 @@ class ReminderScheduler {
               (now.year - root.triggerAt.year) % recurrence.interval == 0;
         }
         return now.month == root.triggerAt.month &&
-            now.day == root.triggerAt.day &&
+            now.day ==
+                Recurrence.safeDay(
+                    now.year, now.month, root.triggerAt.day) &&
             now.year >= root.triggerAt.year &&
             (now.year - root.triggerAt.year) % recurrence.interval == 0;
     }
