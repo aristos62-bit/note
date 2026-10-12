@@ -71,3 +71,16 @@ Recurrence? rruleToRecurrence(String? rrule) {
     days: days,
   );
 }
+
+/// Ετήσια εμφάνιση root μέσα στον (year, month) → day-of-month ή null.
+/// Display-only (ημερολόγιο): DTSTART-όριο, interval, Feb-clamp.
+int? yearlyOccurrenceDay(String rrule, DateTime rootTrigger, int year, int month) {
+  final r = rruleToRecurrence(rrule);
+  if (r == null || r.type != RecurrenceType.yearly) return null;
+  if (r.days == null || r.days!.length != 2) return null;
+  if (month != r.days![0] || year < rootTrigger.year) return null;
+  if (r.interval > 1 && (year - rootTrigger.year) % r.interval != 0) {
+    return null;
+  }
+  return Recurrence.safeDay(year, month, r.days![1]);
+}

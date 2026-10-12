@@ -4,6 +4,7 @@
 // Τρέξιμο: flutter test test/recurrence_weekly_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_note/models/recurrence.dart';
+import 'package:super_note/core/utils/recurrence_utils.dart';
 
 void main() {
   group('isValidWeeklyDay', () {
@@ -130,6 +131,35 @@ void main() {
           type: RecurrenceType.yearly, interval: 1, days: [2, 29]);
       final next = r.nextOccurrence(DateTime(2026, 2, 1, 10, 0))!;
       expect([next.year, next.month, next.day], [2026, 2, 28]);
+    });
+  });
+
+  group('yearlyOccurrenceDay (ημερολόγιο μελλοντικά έτη)', () {
+    const rrule = 'FREQ=YEARLY;INTERVAL=1;BYMONTH=5;BYMONTHDAY=10';
+    final root = DateTime(2026, 5, 10, 9, 0);
+
+    test('ίδιος μήνας/μελλοντικό έτος → day', () {
+      expect(yearlyOccurrenceDay(rrule, root, 2027, 5), 10);
+    });
+
+    test('interval=2: άρτιο έτος ναι, μονό όχι', () {
+      const r2 = 'FREQ=YEARLY;INTERVAL=2;BYMONTH=5;BYMONTHDAY=10';
+      expect(yearlyOccurrenceDay(r2, root, 2028, 5), 10);
+      expect(yearlyOccurrenceDay(r2, root, 2027, 5), isNull);
+    });
+
+    test('Feb29 → 28 σε μη-δίσεκτο', () {
+      const r29 = 'FREQ=YEARLY;INTERVAL=1;BYMONTH=2;BYMONTHDAY=29';
+      expect(yearlyOccurrenceDay(r29, DateTime(2024, 2, 29), 2026, 2), 28);
+    });
+
+    test('λάθος μήνας / έτος πριν το root / non-yearly → null', () {
+      expect(yearlyOccurrenceDay(rrule, root, 2027, 6), isNull);
+      expect(yearlyOccurrenceDay(rrule, root, 2025, 5), isNull);
+      expect(
+          yearlyOccurrenceDay(
+              'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=10', root, 2027, 5),
+          isNull);
     });
   });
 }

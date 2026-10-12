@@ -1,6 +1,7 @@
 // lib/features/calendar/calendar_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar/isar.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -32,6 +33,32 @@ final _monthEventsProvider =
     if (start.year != month.year || start.month != month.month) continue;
     final day = DateTime(start.year, start.month, start.day);
     result.putIfAbsent(day, () => []).add(event);
+  }
+
+  // Επέκταση ετήσιων στους μελλοντικούς μήνες (display-only, ίδιο Item —
+  // tap ανοίγει τη σειρά). Μόνο yearly (birthdays + bell-yearly).
+  final allRoots = await ref
+      .read(dbProvider)
+      .isar
+      .reminders
+      .filter()
+      .rruleIsNotNull()
+      .parentReminderIdIsNull()
+      .findAll();
+  final byItem = <int, Reminder>{};
+  for (final r in allRoots) {
+    if (r.rrule == null || r.rrule!.isEmpty) continue;
+    byItem.putIfAbsent(r.itemId, () => r);
+  }
+  for (final event in events) {
+    final root = byItem[event.id];
+    if (root == null || root.rrule == null) continue;
+    final day = yearlyOccurrenceDay(
+        root.rrule!, root.triggerAt, month.year, month.month);
+    if (day == null) continue;
+    final key = DateTime(month.year, month.month, day);
+    final list = result.putIfAbsent(key, () => []);
+    if (!list.any((e) => e.id == event.id)) list.add(event);
   }
   return result;
 });
