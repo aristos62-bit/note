@@ -98,10 +98,10 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       }
 
       if (_recurrence?.type == RecurrenceType.yearly && _triggerDateTime != null) {
-        _recurrence = Recurrence.yearly(
-          month: _triggerDateTime!.month,
-          day: _triggerDateTime!.day,
-        );
+        final cur = _recurrence!;
+        final iv = cur.interval < 1 ? 1 : cur.interval;
+        _recurrence = Recurrence(type: RecurrenceType.yearly, interval: iv, days: [_triggerDateTime!.month, _triggerDateTime!.day]);
+        DebugConfig.notif('ReminderSection._saveReminder: yearly keep interval=$iv');
       }
       final rrule = recurrenceToRRULE(_recurrence);
       const title = 'Υπενθύμιση';

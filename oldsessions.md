@@ -1651,3 +1651,17 @@
 ## Session 150 — 10/10/2026 (Grid drop-index D0 — αρνητικό, κλείνει χωρίς κώδικα)
 
 **Ερώτημα:** μήπως τα package-grid drops (raw indices, χωρίς adjust) προσγειώνονται +1 στα downward. **D0 (τρέχον build, 0 edits):** collections grid (πάντα-grid) `0→6, 6→0, 4→3, 3→6, 6→3` + entries `0→16, 16→0, 2→3, 3→2` (PID 19515, φρέσκο capture `run_log_s147.txt`) — ο χρήστης-arbiter δεν είδε mislanding πουθενά· 0 ERR. **Ετυμηγορία:** δεν επιβεβαιώνεται (μαζί με: example πακέτου χωρίς adjust + καμία αναφορά από βαρύ Home-grid use) → το `_insertIndex` είναι προφανώς σωστό για plain removeAt/insert· η pre-removal υπόθεση απορρίπτεται με στοιχεία. **0 αλλαγές κώδικα** (list-modes ήδη ακριβή via `onReorderItem`). Λ2 closed.
+
+## Session 154 — 12/10/2026 (P0+P1: yearly interval keep σε σημειώσεις)
+
+**Scope (2+4 ανεστάλησαν):** F1 — το `_saveReminder` (`reminder_section:100-105`) ξανάφτιαχνε `Recurrence.yearly(month,day)` με default `interval:1`, χάνοντας το «Κάθε 2+ χρόνια» του picker. 1 lib αρχείο (net 0) + 2 pure tests.
+
+**Fix (`reminder_section.dart`):** `Recurrence.yearly(...)` → `Recurrence(type:yearly, interval:iv, days:[m,d])` με `cur` local + `iv` sanitize (`<1 → 1`, ιδιωματισμός `isValidWeeklyDay`) + `DebugConfig.notif` (χωρίς PII). Reuse constructor (όχι νέο factory — θα ήθελε 2ο αρχείο· `copyWith` ανύπαρκτο στο μοντέλο). Για interval=1 byte-identical. `toRRULE↔rruleToRecurrence`/scheduler-yearly ήδη σέβονται interval — καμία αλλαγή αλλού. Habits (yearly→clear) + γενέθλια (πάντα 1) ανεπηρέαστα.
+
+**Parked (εύρημα επανελέγχου, εκτός P1):** picker type-switch με υπάρχον recurrence (`initState:406` + early-return `:379`) κουβαλάει stale days (yearly `[5,15]`/monthly `[31]` → weekly → `wd[14]` RangeError). Ξεχωριστό βήμα F-picker.
+
+**Επαλήθευση:** νέο yearly group 2/2 · `flutter test` → **146/146** · `flutter analyze --no-pub` → `No issues found!` · device retest (σημείωση «Κάθε 2 χρόνια» → `INTERVAL=2`, παιδιά 2026/2028) εκκρεμεί.
+
+**Backups:** `backups/fix_yearly_interval/` (dart + test + oldsessions.pre, SHA πριν το edit).
+
+**DESIGN.md:** καμία αλλαγή (behavior fix σε UI callback — όχι layer/SPoT/dependency).
