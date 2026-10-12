@@ -47,15 +47,24 @@ class ItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final b = context.brightness;
     final typeColor = context.itemTypeColor(item.type);
-    final accentColor = item.color != null
-        ? (_parseColor(item.color!) ?? typeColor)
-        : typeColor;
+    // Γενέθλια/ειδικές: accent φούξια/πορτοκαλί, αλλιώς χρώμα τύπου.
+    final accentColor = ItemColorHelper.specialAccent(item) ??
+        (item.color != null
+            ? (_parseColor(item.color!) ?? typeColor)
+            : typeColor);
 
     final isCompact = compact ||
         (context.isMobile && item.title != null && item.title!.length < 30);
 
-    // ⭐ Χρώμα φόντου: αν έχει οριστεί override από settings, αλλιώς default από τύπο
+    // ⭐ Χρώμα φόντου: override settings > γενέθλια/ειδική tint > default τύπου
+    Color? specialBg;
+    if (ItemColorHelper.isBirthdayEvent(item)) {
+      specialBg = ItemColorHelper.birthdayBackground(context);
+    } else if (ItemColorHelper.isSpecialDayEvent(item)) {
+      specialBg = ItemColorHelper.specialDayBackground(context);
+    }
     final backgroundColor = customBackgroundColor ??
+        specialBg ??
         ItemColorHelper.backgroundColorForType(item.type, context);
 
     // ⭐ Χρώμα κειμένου: βέλτιστη αντίθεση πάνω στο background
@@ -237,8 +246,16 @@ class _TitleRow extends StatelessWidget {
           const SizedBox(width: Spacing.sm),
         ],
         if (!_showCheckbox) ...[
-          ItemTypeIcon(
-              item.type, color: typeColor, size: compact ? 16 : 18),
+          // Γενέθλια/ειδικές: emoji αντί type-icon (pattern _FolderChip).
+          if (ItemColorHelper.isBirthdayEvent(item) ||
+              ItemColorHelper.isSpecialDayEvent(item))
+            Text(
+              item.icon!,
+              style: TextStyle(fontSize: compact ? 16 : 18),
+            )
+          else
+            ItemTypeIcon(
+                item.type, color: typeColor, size: compact ? 16 : 18),
           const SizedBox(width: Spacing.xs + 2),
         ],
         Expanded(

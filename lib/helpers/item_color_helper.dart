@@ -4,6 +4,43 @@ import '../core/theme/ui_tokens.dart';
 import '../core/utils/debug_config.dart';
 
 class ItemColorHelper {
+  /// SPoT εικονίδια γενεθλίων/ειδικών ημερών (item.icon για ItemType.event).
+  /// Το '⭐' είναι legacy (παλιές ειδικές) — διαβάζεται, δεν γράφεται ποτέ.
+  static const String kBirthdayIcon = '🎂';
+  static const String kSpecialDayIcon = '✅';
+  static const String kLegacySpecialDayIcon = '⭐';
+
+  /// Γενέθλια = event με 🎂 (αυτόματη ετήσια, χωρίς καμπάνα).
+  static bool isBirthdayEvent(Item? item) =>
+      item != null &&
+      item.type == ItemType.event &&
+      item.icon == kBirthdayIcon;
+
+  /// Ειδική ημέρα = event με ✅ (ή legacy ⭐) — μόνο καμπάνα, ποτέ αυτόματη.
+  static bool isSpecialDayEvent(Item? item) =>
+      item != null &&
+      item.type == ItemType.event &&
+      (item.icon == kSpecialDayIcon || item.icon == kLegacySpecialDayIcon);
+
+  /// Φόντο κάρτας γενεθλίων (φούξια tint, ίδια οικογένεια με calendar dots).
+  static Color birthdayBackground(BuildContext context) {
+    final isDark = context.brightness == Brightness.dark;
+    return isDark ? Colors.pink.shade900 : Colors.pink.shade100;
+  }
+
+  /// Φόντο κάρτας ειδικής ημέρας (πορτοκαλί tint).
+  static Color specialDayBackground(BuildContext context) {
+    final isDark = context.brightness == Brightness.dark;
+    return isDark ? Colors.amber.shade900 : Colors.amber.shade100;
+  }
+
+  /// Accent (μπάρα/icon) γενεθλίων/ειδικών — null για κανονικά items.
+  static Color? specialAccent(Item? item) {
+    if (isBirthdayEvent(item)) return const Color(0xFFEC4899);
+    if (isSpecialDayEvent(item)) return const Color(0xFFF59E0B);
+    return null;
+  }
+
   static Color backgroundColorForType(ItemType type, BuildContext context,
       {String? overrideHex}) {
     if (overrideHex != null) {

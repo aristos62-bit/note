@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../helpers/item_color_helper.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../services/reminder_scheduler.dart';
 
@@ -206,7 +207,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
     // Για γενέθλια και ειδική μέρα επιτρέπουμε παλιές ημερομηνίες
     final item = ref.read(itemStreamProvider(widget.itemId)).valueOrNull;
-    final isBirthdayOrSpecial = item?.icon == '🎂' || item?.icon == '⭐';
+    // firstDate: παλιές ημερομηνίες και για γενέθλια και για ειδικές.
+    final isBirthdayOrSpecial = ItemColorHelper.isBirthdayEvent(item) ||
+        ItemColorHelper.isSpecialDayEvent(item);
     final firstDate = isBirthdayOrSpecial
         ? DateTime(AppDateUtils.birthdayFirstYear)
         : DateTime(now.year - 1);
@@ -234,7 +237,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
     // Αν είναι γενέθλια ή ειδική ημέρα, ενημέρωσε και την
     // επαναλαμβανόμενη υπενθύμιση με το νέο μήνα/ημέρα
-    if (isBirthdayOrSpecial) {
+    // Resync ΜΟΝΟ για γενέθλια (αυτόματη ετήσια) — οι ειδικές
+    // ρυθμίζονται από την καμπάνα, δεν τις αγγίζουμε (όπως απλά events).
+    if (ItemColorHelper.isBirthdayEvent(item)) {
       final newRrule =
           'FREQ=YEARLY;INTERVAL=1;BYMONTH=${date.month};BYMONTHDAY=${date.day}';
       final newTrigger = DateTime(
@@ -671,7 +676,7 @@ class _EventBody extends ConsumerWidget {
               const SizedBox(height: 8),
 
               // 🆕 ΜΟΝΙΜΟ ΜΗΝΥΜΑ ΓΙΑ ΓΕΝΕΘΛΙΑ
-              if (item.icon == '🎂')
+              if (ItemColorHelper.isBirthdayEvent(item))
                 Container(
                   margin: const EdgeInsets.only(top: 10),
                   padding:

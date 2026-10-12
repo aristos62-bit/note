@@ -94,3 +94,9 @@
 - Guard parity list-mode: entries+habit (+PopScope/Start/End)· task (+Start/End)· collections/grids skip (το πακέτο δεν έχει `onReorderEnd`).
 - Invariant merge-base ⊇ display-scope (workspace ×6, folder ×2)· `ItemNotifier.reorder` API άθικτο.
 - Tests `test/reorder_utils_test.dart` (6/6, acceptance `[1,2,3]→[1,3,2]`)· suite 144/144· analyze clean· device pending (`run_log_s148.txt`).
+
+## Φ4c-45, Session 156 (birthday/special icon SPoT + κάρτες + birthday-ροή)
+- SPoT `helpers/item_color_helper.dart`: `kBirthdayIcon/kSpecialDayIcon/kLegacySpecialDayIcon` + `isBirthdayEvent/isSpecialDayEvent` (null-safe) + `birthdayBackground/specialDayBackground` (shade100/900) + `specialAccent` (ροζ/πορτοκαλί). Κανόνας: 🎂 = αυτόματη ετήσια (χωρίς καμπάνα)· ✅ = μόνο καμπάνα (κάθε διάστημα)· compat `⭐||✅` (χωρίς migration).
+- Callers: calendar dots + `event_detail` resync (🎂-only) + `ItemCard` (emoji αντί type-icon + tint + accent, custom-override κερδίζει).
+- Επαναφορά `_createBirthdayEvent` (icon 🎂 + yearly + refresh, όπως προ-30f8529 με SPoT).
+- Tests `test/item_card_icons_test.dart` (+5: helpers ×3, card-emoji ×2)· suite 151/151· analyze clean· device pending.
