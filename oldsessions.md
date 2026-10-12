@@ -1764,3 +1764,15 @@
 **Backups:** `backups/fix_lockout_clear/` (dart + oldsessions.pre, SHA πριν το edit).
 
 **supernote.md:** καμία αλλαγή (behavior-fix, όχι αρχιτεκτονική).
+
+## Session 163 — 12/10/2026 (salt-upgrade: transparent legacy → v1)
+
+**Scope (2+4 ανεστάλησαν):** παλιά hashes αιώνια αδύναμα (salt χωρίς migration = μισό). 3 σημεία (+~15) + 1 group tests.
+
+**Fix:** G1 `shouldUpgradeHash` pure · G2 lock-branch (πριν unlock) · G3 settings-gate (πριν pop) — best-effort rewrite, idempotent.
+
+**Επαλήθευση:** νέο 1/1 · `flutter test` → **169/169** · `flutter analyze --no-pub` → `No issues found!` · device retest (legacy-login→`upgraded`→νέο-path· 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_salt_upgrade/` (4 αρχεία + test + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md:** καμία αλλαγή (behavior-fix, όχι αρχιτεκτονική).
