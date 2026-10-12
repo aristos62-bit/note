@@ -1723,7 +1723,7 @@
 
 **Fix:** T1 `_scheduleOne` (single-fetch + live-body ΜΟΝΟ για generic `'Υπενθύμιση'` — habits/γενέθλια snapshot)· S1 `setSound` + `scheduleAll` (mirror toggle/vibration).
 
-**Επαλήθευση:** `flutter test` → **155/155** · `flutter analyze --no-pub` → `No issues found!` · device retest (μετονομασία→νέος τίτλος· ήχος OFF/ON σε υπάρχουσα· 0 ERR) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **155/155** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, user verdict):** μετονομασία → νέος τίτλος · ήχος OFF/ON σε υπάρχουσα · 0 ERR.
 
 **Backups:** `backups/fix_title_sound/` (2 dart + oldsessions.pre, SHA πριν τα edits).
 
