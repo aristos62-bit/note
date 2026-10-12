@@ -240,11 +240,28 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       final newTrigger = DateTime(
         date.year, date.month, date.day, dt.hour, dt.minute,
       );
-      await ref.read(dbProvider).reminders.updateRootReminderForItem(
-            widget.itemId,
-            newRrule: newRrule,
-            newTriggerAt: newTrigger,
+      final existing =
+          await ref.read(dbProvider).reminders.getForItem(widget.itemId);
+      final existingRoot = existing
+          .where((r) =>
+              r.rrule?.contains('YEARLY') == true &&
+              r.parentReminderId == null)
+          .firstOrNull;
+      final keptTitle = existingRoot?.title;
+      final freshTitle = _titleCtrl.text.trim().isEmpty
+          ? 'Συμβάν'
+          : _titleCtrl.text.trim();
+      if (existingRoot != null) {
+        await ReminderScheduler.instance.deleteReminderThread(existingRoot.id);
+      }
+      await ref.read(dbProvider).reminders.create(
+            itemId: widget.itemId,
+            triggerAt: newTrigger,
+            rrule: newRrule,
+            title: keptTitle ?? 'Υπενθύμιση',
+            body: freshTitle,
           );
+      DebugConfig.notif('EventDetail birthday resync: deleteThread+create m=${date.month} d=${date.day}');
       await ReminderScheduler.instance.refreshRecurringReminders();
     }
   }
