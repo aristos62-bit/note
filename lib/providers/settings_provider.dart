@@ -109,6 +109,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> setSound(bool enabled) async {
     try {
       await updateSettings((s) => s.soundEnabled = enabled);
+      // Re-bake ήχου στα ήδη-προγραμματισμένα OS alarms (η σημαία είναι
+      // per-notification, όχι channel — mirror toggleNotifications).
+      await ReminderScheduler.instance.scheduleAll();
     } catch (e, s) {
       DebugConfig.error('SettingsNotifier.setSound', e, s);
     }
