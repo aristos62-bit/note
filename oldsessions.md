@@ -1812,3 +1812,13 @@
 **Backups:** `backups/spot_db_ui/` (5 pre + test pre + BASE_HEAD).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (shared widget split + provider signature, όχι layer — precedent S136).
+
+## Session 167 — 12/10/2026 (Encoding fix: reminder_section mojibake)
+
+**Αιτία:** PowerShell `Get-Content|Set-Content` χωρίς `-Encoding utf8` στο split → Ελληνικά σε UTF-8 → mojibake (`Υπενθύμιση` → `Î¥...`, τίτλος notification σκουπίδια στην καμπάνα).
+
+**Fix:** restore byte-safe `pre-split` (Copy-Item) → split redo με `-Encoding utf8` ρητό + import fix via edit-tool. Verify grep `Υπενθύμιση :109,248` + `analyze` clean + `test` 171/171.
+
+**Backups:** `backups/spot_db_ui/reminder_section.dart.corrupted` + `pre-split`.
+
+**Μάθημα:** ποτέ PowerShell strings χωρίς `-Encoding utf8` — όπως S151.
