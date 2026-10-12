@@ -95,6 +95,11 @@
 - Invariant merge-base ⊇ display-scope (workspace ×6, folder ×2)· `ItemNotifier.reorder` API άθικτο.
 - Tests `test/reorder_utils_test.dart` (6/6, acceptance `[1,2,3]→[1,3,2]`)· suite 144/144· analyze clean· device pending (`run_log_s148.txt`).
 
+## Φ4c-46, Session 165 (FLAG_SECURE — πρώτο MethodChannel)
+- Android `MainActivity`: `MethodChannel("super_note/security")` + `setSecure` → `addFlags/clearFlags(FLAG_SECURE)` (runOnUiThread, try/catch). Νέο `services/security_service.dart` (`setSecure` bool, catch→false, barrel-export).
+- Hooks: main pre-runApp (F1-read reuse) + settings-toggle (μετά update, `await` — async callback, service-safe). Πολιτική: ON όσο lock-enabled (κλείνει την pre-timeout τρύπα)· OFF→clear· άλλες πλατφόρμες no-op. iOS parked.
+- Tests `test/security_service_test.dart` (2/2 mock)· suite 171/171· analyze clean.
+
 ## Φ4c-45, Session 156 (birthday/special icon SPoT + κάρτες + birthday-ροή)
 - SPoT `helpers/item_color_helper.dart`: `kBirthdayIcon/kSpecialDayIcon/kLegacySpecialDayIcon` + `isBirthdayEvent/isSpecialDayEvent` (null-safe) + `birthdayBackground/specialDayBackground` (shade100/900) + `specialAccent` (ροζ/πορτοκαλί). Κανόνας: 🎂 = αυτόματη ετήσια (χωρίς καμπάνα)· ✅ = μόνο καμπάνα (κάθε διάστημα)· compat `⭐||✅` (χωρίς migration).
 - Callers: calendar dots + `event_detail` resync (🎂-only) + `ItemCard` (emoji αντί type-icon + tint + accent, custom-override κερδίζει).

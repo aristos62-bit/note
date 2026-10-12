@@ -219,6 +219,7 @@ class _SystemGroupState extends State<_SystemGroup> {
                     s.appLockEnabled = v;
                   });
                 }
+                await SecurityService.setSecure(v);
                 if (v && mounted) {
                   AppLockService.instance.lock();
                   widget.ref.read(appLockStateProvider.notifier).state = true;
