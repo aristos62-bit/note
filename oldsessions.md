@@ -1711,7 +1711,7 @@
 
 **Fix:** F1 today-clamp (`safeDay`, days + no-days)· F2 time-aware search (mirror habit-walker)· F3 anti-drift (`anchor?.day ?? from.day`, βήμα από `from`)· F4 yearly-clamp (days + no-days). Habit-walker άθικτος (ήδη σωστός).
 
-**Επαλήθευση:** νέο 3/3 · `flutter test` → **155/155** · `flutter analyze --no-pub` → `No issues found!` · device retest (28/2 today· κύκλος 31· interval-2· 29/2 δίσεκτο/μη· 0 ERR) εκκρεμεί.
+**Επαλήθευση:** νέο 3/3 · `flutter test` → **155/155** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, user verdict):** 28/2 today · κύκλος 31 (Φεβ28→Μαρ31, κανένα drift) · interval-2 · 29/2 δίσεκτο/μη · 0 ERR.
 
 **Backups:** `backups/fix_monthly_feb/` (2 dart + test + oldsessions.pre, SHA πριν τα edits).
 
