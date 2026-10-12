@@ -1735,7 +1735,7 @@
 
 **Fix:** Y1 pure `yearlyOccurrenceDay` (DTSTART-όριο, interval, Feb-clamp)· Y2 provider-expansion (1 query + ίδιο Item + dedup· contacts εκτός δομικά· φίλτρα κληρονομικά).
 
-**Επαλήθευση:** νέο 4/4 · `flutter test` → **159/159** · `flutter analyze --no-pub` → `No issues found!` · device retest (Μάιος-27· tap→root· interval-2· Feb29· no-dups· 0 ERR) εκκρεμεί.
+**Επαλήθευση:** νέο 4/4 · `flutter test` → **159/159** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, user verdict):** Μάιος-27 (τελεία+εγγραφή) · tap→root · interval-2 · Feb29 · no-dups · 0 ERR.
 
 **Backups:** `backups/future_years_cal/` (2 dart + test + oldsessions.pre, SHA πριν τα edits).
 
