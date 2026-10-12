@@ -1665,3 +1665,15 @@
 **Backups:** `backups/fix_yearly_interval/` (dart + test + oldsessions.pre, SHA πριν το edit).
 
 **DESIGN.md:** καμία αλλαγή (behavior fix σε UI callback — όχι layer/SPoT/dependency).
+
+## Session 155 — 12/10/2026 (P2: event birthday resync — delete+create, YEARLY-φίλτρο)
+
+**Scope (2+4 ανεστάλησαν):** F2 — το `_pickStartTime` 🎂/⭐ (`event_detail:237-249`) καλούσε `updateRootReminderForItem` (αλλάζει ΜΟΝΟ root, warn «Old children NOT deleted!») → παλιά παιδιά έμεναν με παλιά ημερομηνία, το refresh τα έβλεπε ίδιας ώρας (`>=4`) και σκιπάριζε → η νέα ημερομηνία ΠΟΤΕ. 1 αρχείο (net +4).
+
+**Fix (mirror επαφών, μη-καταστροφικό):** lookup `getForItem` → `existingRoot` με **YEARLY-φίλτρο** (όχι ANY — η εβδομαδιαία καμπάνα του χρήστη διατηρείται· σύγκριση προτάσεων: το ANY θα την έσβηνε σιωπηλά) → `deleteReminderThread` (μόνο yearly thread) → `create` (trigger=newTrigger, rrule yearly, title=kept/`'Υπενθύμιση'`, body=φρέσκος τίτλος με fallback `'Συμβάν'`, pattern `_showReminderDialog`) + `notif` (m/d, όχι PII) → `refresh`. Καλύπτει και no-root (πριν: σιωπηλό «NO root», καμία υπενθύμιση). 0 νέα imports (barrel/`firstOrNull`/scheduler παρόντα).
+
+**Επαλήθευση:** `flutter test` → **146/146** · `flutter analyze --no-pub` → `No issues found!` · device retest (🎂 10/5→20/6: Μάιος σβησμένος/Ιούνιος προγραμματισμένος, weekly-bell άθικτη · ⭐ · no-root · μη-🎂 · 0 ERR) εκκρεμεί.
+
+**Backups:** `backups/fix_event_resync/` (dart + oldsessions.pre, SHA πριν το edit).
+
+**DESIGN.md:** καμία αλλαγή (behavior fix σε UI callback — όχι layer/SPoT/dependency).
