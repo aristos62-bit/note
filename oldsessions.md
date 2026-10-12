@@ -1783,7 +1783,7 @@
 
 **Fix:** F1 pre-runApp lock (με catch-fallback)· F2 postFrame-guard (safety-net, όχι διπλό set).
 
-**Επαλήθευση:** `flutter test` → **169/169** · `flutter analyze --no-pub` → `No issues found!` · device retest (kill→launch καρέ-1 PIN· OFF καρέ-1 Αρχική· 0 ERR) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **169/169** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, user verdict):** kill→launch καρέ-1 PIN · OFF καρέ-1 Αρχική · 0 ERR.
 
 **Backups:** `backups/fix_flash_lock/` (main + oldsessions.pre, SHA πριν το edit).
 
