@@ -1759,7 +1759,7 @@
 
 **Fix:** UI-only `_lockoutTimer` (καθαρίζει το μήνυμα στη λήξη αν όντως έληξε· cancel σε dispose/success/νέο lockout· `dart:async` import).
 
-**Επαλήθευση:** `flutter test` → **168/168** · `flutter analyze --no-pub` → `No issues found!` · device retest (μήνυμα σβήνει στη λήξη· 0 ERR) εκκρεμεί.
+**Επαλήθευση:** `flutter test` → **168/168** · `flutter analyze --no-pub` → `No issues found!` · **device ✅ (12/10/2026, user verdict):** μήνυμα σβήνει μόνο του στη λήξη · σωστό PIN μετά ξεκλειδώνει · 0 ERR.
 
 **Backups:** `backups/fix_lockout_clear/` (dart + oldsessions.pre, SHA πριν το edit).
 
