@@ -23,6 +23,8 @@ class AppErrors {
   static const pinTooShort = 'Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία';
   static const pinMismatch = 'Τα PIN δεν ταιριάζουν';
   static const pinWrong = 'Το PIN δεν είναι σωστό';
+  static String pinLockedOut(int seconds) =>
+      'Πολλές προσπάθειες — δοκιμάστε ξανά σε $seconds δ';
 
   // ── Save ─────────────────────────────────────────────────────
   static const saveFailed = 'Σφάλμα κατά την αποθήκευση';
