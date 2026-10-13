@@ -107,8 +107,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     if (!ok || !mounted) return;
     DebugConfig.db('NoteDetail delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
+    safePop();
   }
 
   // --- Εμφάνιση bottom sheet με ReminderSection ---

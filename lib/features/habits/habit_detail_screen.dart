@@ -122,8 +122,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
     await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
     if (!mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
+    safePop();
   }
 
   Future<void> _togglePin(Item item) async {

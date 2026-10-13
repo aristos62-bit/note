@@ -513,7 +513,7 @@ class _AppointmentDetailScreenState
     final ok = await ConfirmDialog.delete(context, title: 'Διαγραφή ραντεβού;');
     if (!ok || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    if (mounted) Navigator.pop(context);
+    safePop();
   }
 
   // --- Υπολογισμός startDateTime για τις υπενθυμίσεις ---
