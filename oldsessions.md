@@ -1869,6 +1869,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (batch + 1 repo-method, όχι layer).
 
+## Session 182 — 13/10/2026 (LockScreen PIN-state, §3.5)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** PIN σε controller-χωρίς-listener + 3 settings-gaps.
+
+**Υλοποίηση:** K1 single-load+cache (bio σειριοποιημένο) · K2 `String _pin` (controller έξω) · K3 try/catch · hash-refresh άμεσο (όχι provider-read race).
+
+**Επαλήθευση:** `analyze` clean (διορθώθηκε 1 `use_build_context_synchronously`) · `flutter test` → **178/178** · device PIN-matrix εκκρεμεί (digits/backspace/submit/wrong×5→lockout/auto-clear/upgrade/bio/rotation/kill→lock).
+
+**Backups:** `backups/lock_pinstate/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (UI-state, service άθικτο).
+
 ## Session 179 — 13/10/2026 (Gallery downscale R2, unify με camera)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** gallery χωρίς downscale (R2 παράβαση) — 1.9MB → 2.5MB base64.

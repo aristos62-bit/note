@@ -14,7 +14,7 @@ class LockScreen extends ConsumerStatefulWidget {
 }
 
 class _LockScreenState extends ConsumerState<LockScreen> {
-  final _pinCtrl = TextEditingController();
+  String _pin = '';
   String? _error;
   bool _biometricFailed = false;
 
@@ -23,39 +23,51 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Timer? _lockoutTimer; // Καθαρίζει το μήνυμα στη λήξη (UI-only, cancel σε dispose).
 
   int? _pinLength;
+  bool _bioEnabled = false;
+  String? _pinHash;
 
   @override
   void initState() {
     super.initState();
-    _loadPinLength();
-    _tryBiometric();
+    _loadSettings();
   }
 
-  Future<void> _loadPinLength() async {
-    final settings = await ref.read(settingsNotifierProvider.future);
-    if (!mounted) return;
-    final raw = settings.appLockPinLength;
-    final valid = (raw >= 4 && raw <= 6) ? raw : 6;
-    if (valid != raw) {
-      ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
-        s.appLockPinLength = valid;
-      });
-    }
-    setState(() => _pinLength = valid);
-    if (_pinCtrl.text.length == valid) {
-      _verifyPin();
+  /// Μοναδικό φόρτωμα ρυθμίσεων (αντί 3): μήκος + hash + biometric.
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await ref.read(settingsNotifierProvider.future);
+      if (!mounted) return;
+      final raw = settings.appLockPinLength;
+      final valid = (raw >= 4 && raw <= 6) ? raw : 6;
+      if (valid != raw) {
+        ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
+          s.appLockPinLength = valid;
+        });
+      }
+      _bioEnabled = settings.biometricEnabled;
+      _pinHash = settings.appLockPinHash;
+      setState(() => _pinLength = valid);
+      if (_pin.length == valid) {
+        _verifyPin();
+      }
+      await _tryBiometric();
+    } catch (e, s) {
+      DebugConfig.error('LockScreen _loadSettings', e, s);
     }
   }
 
   Future<void> _tryBiometric() async {
-    final settings = await ref.read(settingsNotifierProvider.future);
-    if (!settings.biometricEnabled) return;
-    final ok = await AppLockService.instance.authenticate();
-    if (ok && mounted) {
-      AppLockService.instance.unlock();
-      ref.read(appLockStateProvider.notifier).state = false;
-    } else if (mounted) {
-      setState(() => _biometricFailed = true);
+    try {
+      if (!_bioEnabled) return;
+      final ok = await AppLockService.instance.authenticate();
+      if (ok && mounted) {
+        AppLockService.instance.unlock();
+        ref.read(appLockStateProvider.notifier).state = false;
+      } else if (mounted) {
+        setState(() => _biometricFailed = true);
+      }
+    } catch (e, s) {
+      DebugConfig.error('LockScreen _tryBiometric', e, s);
     }
   }
 
@@ -65,17 +77,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       return;
     }
     final maxLen = _pinLength ?? 6;
-    if (_pinCtrl.text.length >= maxLen) return;
-    setState(() => _error = null);
-    _pinCtrl.text += digit;
-    if (_pinCtrl.text.length == maxLen) {
+    if (_pin.length >= maxLen) return;
+    setState(() {
+      _error = null;
+      _pin += digit;
+    });
+    if (_pin.length == maxLen) {
       _verifyPin();
     }
   }
 
   void _onSubmit() {
-    final pin = _pinCtrl.text;
-    if (pin.length < 4) {
+    if (_pin.length < 4) {
       setState(() => _error = AppErrors.pinTooShort);
       return;
     }
@@ -83,9 +96,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   void _onBackspace() {
-    if (_pinCtrl.text.isEmpty) return;
-    setState(() => _error = null);
-    _pinCtrl.text = _pinCtrl.text.substring(0, _pinCtrl.text.length - 1);
+    if (_pin.isEmpty) return;
+    setState(() {
+      _error = null;
+      _pin = _pin.substring(0, _pin.length - 1);
+    });
   }
 
   /// Προγραμματίζει καθαρισμό του μηνύματος στη λήξη του lockout.
@@ -114,14 +129,14 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       }
       return;
     }
-    final settings = await ref.read(settingsNotifierProvider.future);
-    final hash = settings.appLockPinHash;
+    final hash = _pinHash;
     if (hash == null) return;
-    if (AppLockService.instance.verifyPin(_pinCtrl.text, hash)) {
+    if (AppLockService.instance.verifyPin(_pin, hash)) {
       if (AppLockService.shouldUpgradeHash(hash)) {
+        final newHash = AppLockService.instance.hashPin(_pin);
         await ref.read(settingsNotifierProvider.notifier).updateSettings(
-            (s) => s.appLockPinHash =
-                AppLockService.instance.hashPin(_pinCtrl.text));
+            (s) => s.appLockPinHash = newHash);
+        _pinHash = newHash;
         DebugConfig.notif('AppLock: hash upgraded to v1 (lock)');
       }
       DebugConfig.print('🔓 AppLock: PIN unlock ok');
@@ -146,7 +161,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         _error = lockSecs > 0
             ? AppErrors.pinLockedOut(lockSecs)
             : AppErrors.pinWrong;
-        _pinCtrl.clear();
+        _pin = '';
       });
     }
   }
@@ -154,7 +169,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   void dispose() {
     _lockoutTimer?.cancel();
-    _pinCtrl.dispose();
     super.dispose();
   }
 
@@ -190,7 +204,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_pinLength ?? 6, (i) {
-                final filled = i < _pinCtrl.text.length;
+                final filled = i < _pin.length;
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 6),
                   width: 14,
@@ -212,7 +226,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
               onDigit: _onDigit,
               onBackspace: _onBackspace,
               onSubmit: _onSubmit,
-              hasDigits: _pinCtrl.text.isNotEmpty,
+              hasDigits: _pin.isNotEmpty,
               showBiometric: _biometricFailed,
               onBiometric: _tryBiometric,
             ),
