@@ -1839,7 +1839,7 @@
 
 **Υλοποίηση:** 3× read→watch (`:510,556,566`). Invalidates υπήρχαν (`TagNotifier:70,80`). Embedded parked (ξεχωριστό).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · device retest εκκρεμεί (add→φαίνεται/remove→φεύγει/rotation).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · **device ✅ (13/10/2026, user verdict):** add→φαίνεται/remove→φεύγει/rotation, 0 ERR.
 
 **Backups:** `backups/reactive_tags/` (dart + oldsessions.pre + BASE_HEAD).
 
