@@ -1880,3 +1880,13 @@
 **Backups:** `backups/theme_hardcoded/` (7 pre + BASE_HEAD).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (styling + shared consts, όχι layer — precedent S136).
+
+## Session 173 — 13/10/2026 (§7 device εκκρεμότητες — CLOSED)
+
+**Scope:** `code_refactor.md §7` (1) note AppBar overflow 21px · (2) habit ListTile ink-splash assertion.
+
+**Κατάσταση:** (1) mitigation (compact + 20px + `titleSpacing: 0`), device OK — unified AppBar parked · (2) fixed S99 (`Container` → `Material`) + device OK.
+
+**Verdict:** user 13/10/2026 — όλα device retest OK, §7 άδειο.
+
+**Backups:** `backups/close_s7/` (code_refactor.pre + oldsessions.pre).
