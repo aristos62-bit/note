@@ -1857,6 +1857,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (lifecycle micro-fix, όχι layer).
 
+## Session 172 — 13/10/2026 (MaterialPageRoute → AppTransitions, Φ4c-43)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** 8× `MaterialPageRoute` σε 4 αρχεία (planned `code_refactor §3.3`). R0 παράβαση + ασυνεπείς μεταβάσεις.
+
+**Υλοποίηση:** 6 details → `slideRoute` · trash → `slideUpRoute` (Settings-tier precedent) · diagnostics → `fadeRoute` (search-tier precedent). 0 imports (4/4 έχουν `core.dart`).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · device retest εκκρεμεί (8 pushes × open/back/rotation + landscape).
+
+**Backups:** `backups/routes_transitions/` (4 pre + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (navigation micro-fix, όχι layer).
+
 ## Session 169 — 13/10/2026 (Dark hardcoded → tokens, Φ4c-46)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** hardcoded χρώματα σε dark (event green box, calendar options/dots, diagnostics, tasks `_green` ×2, contact cake). `main` parked (const, χωρίς context). Settings παλέτες εκτός (δεδομένα χρήστη).

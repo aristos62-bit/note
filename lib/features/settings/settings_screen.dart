@@ -1900,12 +1900,12 @@ class _SummaryRow extends StatelessWidget {
 }
 
 void _navigateToTrash(BuildContext context) {
-  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TrashScreen()));
+  Navigator.of(context).push(AppTransitions.slideUpRoute(const TrashScreen()));
 }
 
 void _navigateToReminderDiagnostics(BuildContext context) {
   Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => const ReminderDiagnosticsScreen()),
+    AppTransitions.fadeRoute(const ReminderDiagnosticsScreen()),
   );
 }
 

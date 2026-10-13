@@ -38,13 +38,13 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
     final item = await notifier.create(type: ItemType.habit, folderId: selectedFolderId);
     if (item == null || !mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => HabitDetailScreen(itemId: item.id, isNew: true)),
+      AppTransitions.slideRoute(HabitDetailScreen(itemId: item.id, isNew: true)),
     );
   }
 
   void _openDetail(int id) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => HabitDetailScreen(itemId: id, isNew: false)),
+      AppTransitions.slideRoute(HabitDetailScreen(itemId: id, isNew: false)),
     );
   }
 
