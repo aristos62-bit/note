@@ -682,17 +682,17 @@ class _EventBody extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.08),
+                    color: context.cSuccess.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.green.withValues(alpha: 0.25),
+                      color: context.cSuccess.withValues(alpha: 0.25),
                       width: 1,
                     ),
                   ),
                   child: Text(
                     'Είναι Γενέθλια — θα οριστεί αυτόματα ετήσια υπενθύμιση',
                     style: context.bodySm.copyWith(
-                      color: Colors.green.shade700,
+                      color: context.cSuccess,
                       height: 1.3,
                       fontWeight: FontWeight.bold,
                     ),

@@ -243,7 +243,7 @@ class _ReminderDiagnosticsScreenState
           padding: const EdgeInsets.all(Spacing.md),
           child: Row(
             children: [
-              const Icon(Icons.archive_rounded, color: Colors.grey),
+              Icon(Icons.archive_rounded, color: context.cText2),
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: Column(
@@ -271,7 +271,7 @@ class _ReminderDiagnosticsScreenState
           children: [
             Icon(
               starved ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
-              color: starved ? Colors.orange : Colors.green,
+              color: starved ? context.cWarning : context.cSuccess,
             ),
             const SizedBox(width: Spacing.sm),
             Expanded(
@@ -303,8 +303,8 @@ class _ReminderDiagnosticsScreenState
       // #2: σκόπιμα σε σίγαση — όχι προειδοποίηση "λείπει από το OS".
       return ListTile(
         dense: true,
-        leading: const Icon(Icons.archive_rounded,
-            color: Colors.grey, size: 20),
+        leading: Icon(Icons.archive_rounded,
+            color: context.cText2, size: 20),
         title: Text(r.body ?? r.title ?? 'Υπενθύμιση', style: context.bodyMd),
         subtitle: Text(
           '$time'
@@ -318,7 +318,7 @@ class _ReminderDiagnosticsScreenState
       dense: true,
       leading: Icon(
         row.inOs ? Icons.notifications_active_rounded : Icons.error_outline_rounded,
-        color: row.inOs ? Colors.green : Colors.red,
+        color: row.inOs ? context.cSuccess : context.cError,
         size: 20,
       ),
       title: Text(r.body ?? r.title ?? 'Υπενθύμιση', style: context.bodyMd),
@@ -326,7 +326,7 @@ class _ReminderDiagnosticsScreenState
         '$time'
             '${row.isRecurringChild ? '  •  επαναλαμβανόμενο' : '  •  εφάπαξ'}'
             '${row.inOs ? '' : '  •  ⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!'}',
-        style: context.bodySm.withColor(row.inOs ? context.cText2 : Colors.red),
+        style: context.bodySm.withColor(row.inOs ? context.cText2 : context.cError),
       ),
     );
   }

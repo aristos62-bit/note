@@ -1050,7 +1050,7 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
                           '$done/${subtasks.length}',
                           style: context.labelSm.withColor(
                             done == subtasks.length
-                                ? const Color(0xFF4CAF50)
+                                ? context.cSuccess
                                 : context.cText2,
                           ),
                         );

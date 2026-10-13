@@ -18,6 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+import '../../helpers/item_color_helper.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -1269,7 +1270,7 @@ class _BirthdayField extends StatelessWidget {
             child: Icon(
               Icons.cake_rounded,
               size: 18,
-              color: hasBirthday ? const Color(0xFFEC4899) : context.cText2,
+              color: hasBirthday ? ItemColorHelper.birthdayPink : context.cText2,
             ),
           ),
           const SizedBox(width: Spacing.md),
