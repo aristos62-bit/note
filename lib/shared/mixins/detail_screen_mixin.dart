@@ -32,6 +32,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+import '../../helpers/super_note_helper.dart';
 import '../../providers/providers.dart';
 import '../widgets/widgets.dart';
 
@@ -51,14 +52,23 @@ mixin DetailScreenMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     DebugConfig.nav('$runtimeType init id=$itemId isNew=$isNew');
   }
 
-  /// Κάλεσε στο dispose() του screen (πριν το super.dispose())
+  /// Κάλεσε στο dispose() του screen (πριν το super.dispose()).
+  /// ΠΡΟΣΟΧΗ: εδώ το ref είναι ΝΕΚΡΟ (unmount) — καμία κλήση ref (crash
+  /// S85-κλάσης, device 13/10). Best-effort κατευθείαν repo· το cascade
+  /// καλύπτεται από το ζωντανό executeSaveOrDelete πριν το pop.
   void disposeScreen() {
     if (_disposeGuard) return;
     _disposeGuard = true;
     DebugConfig.nav('$runtimeType dispose id=$_itemId');
     if (_isNew && _itemId != null && titleCtrl.text.trim().isEmpty) {
-      DebugConfig.db('$runtimeType deleteItem empty new item id=$_itemId');
-      unawaited(ref.read(itemNotifierProvider.notifier).deleteItem(_itemId!));
+      DebugConfig.db('$runtimeType softDelete empty new item id=$_itemId');
+      unawaited(
+        SuperNoteHelper.instance.items.softDelete(_itemId!).then(
+          (_) {},
+          onError: (Object e, StackTrace s) =>
+              DebugConfig.error('$runtimeType disposeScreen softDelete', e, s),
+        ),
+      );
     }
   }
 

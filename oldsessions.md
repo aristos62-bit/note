@@ -1917,6 +1917,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (flag micro-fix).
 
+## Session 187 — 13/10/2026 (disposeScreen χωρίς ref — crash-fix S166-regression)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** 4× `Bad state: ref after dispose` σε dispose κενού-νέου (S166 έβαλε `ref.read` στο unmount).
+
+**Υλοποίηση:** X1 repo-απευθείας + onError + σχόλιο + import (live `deleteItem` άθικτο, cascade από live path).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (κενό-νέο ×3, 0 `Bad state`).
+
+**Backups:** `backups/dispose_noref/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (lifecycle-safety > SPoT).
+
 ## Session 179 — 13/10/2026 (Gallery downscale R2, unify με camera)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** gallery χωρίς downscale (R2 παράβαση) — 1.9MB → 2.5MB base64.
