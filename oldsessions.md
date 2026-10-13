@@ -1923,7 +1923,7 @@
 
 **Υλοποίηση:** C1 `_creating` + guard + `await push` + finally · C2 loading-branch (`_LoadingList`) · C3 FAB-null.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (empty→detail-0-flash/back/double-tap/rotation).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, user verdict):** empty→detail 0-flash, back τίτλος/κενό, double-tap, rotation, 0 ERR.
 
 **Backups:** `backups/habit_createflash/` (dart + oldsessions.pre + BASE_HEAD).
 
