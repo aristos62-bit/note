@@ -27,6 +27,10 @@ class ItemListEmbedded extends ConsumerStatefulWidget {
   /// null = όλα (όπως πριν — οι άλλες οθόνες ανεπηρέαστες).
   final Set<int>? onlyIds;
 
+  /// True = παράκαμψη του type-φίλτρου (ημερολόγιο με επαφές).
+  /// Default false — οι άλλες οθόνες byte-identical.
+  final bool allowMixedTypes;
+
   /// True όσο φορτώνει το day-map (δείχνει skeleton αντί για empty state).
   final bool dayLoading;
 
@@ -39,6 +43,7 @@ class ItemListEmbedded extends ConsumerStatefulWidget {
     this.onShare,
     this.onlyIds,
     this.dayLoading = false,
+    this.allowMixedTypes = false,
   });
 
   @override
@@ -69,6 +74,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
     // setEquals: null-safe σύγκριση περιεχομένου (το Set == είναι identity).
     if (widget.itemType != oldWidget.itemType ||
         widget.folderId != oldWidget.folderId ||
+        widget.allowMixedTypes != oldWidget.allowMixedTypes ||
         !setEquals(widget.onlyIds, oldWidget.onlyIds)) {
       _debounce?.cancel();
       _searchCtrl.clear();
@@ -184,9 +190,11 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                   onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (allItems) {
-                  var items = allItems
-                      .where((i) => i.type == widget.itemType)
-                      .toList();
+                  var items = widget.allowMixedTypes
+                      ? List<Item>.from(allItems)
+                      : allItems
+                          .where((i) => i.type == widget.itemType)
+                          .toList();
 
                   if (widget.folderId != null) {
                     items = items
@@ -300,7 +308,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
       ref: ref,
       itemId: item.id,
       isArchived: item.archived,
-      label: ItemLabelX.fromType(widget.itemType),
+      label: ItemLabelX.fromType(item.type),
       showPopOnArchive: false,
       showPopOnUnarchive: false,
     );

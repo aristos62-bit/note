@@ -162,4 +162,24 @@ void main() {
           isNull);
     });
   });
+
+  group('contactBirthdayDay (γενέθλια επαφών στο ημερολόγιο)', () {
+    test('ίδιος μήνας κάθε έτος → day', () {
+      expect(contactBirthdayDay(DateTime(1990, 10, 18), 2026, 10), 18);
+      expect(contactBirthdayDay(DateTime(1990, 10, 18), 2030, 10), 18);
+    });
+
+    test('λάθος μήνας → null', () {
+      expect(contactBirthdayDay(DateTime(1990, 10, 18), 2026, 11), isNull);
+    });
+
+    test('Feb29 → 28 σε μη-δίσεκτο', () {
+      expect(contactBirthdayDay(DateTime(2000, 2, 29), 2026, 2), 28);
+      expect(contactBirthdayDay(DateTime(2000, 2, 29), 2028, 2), 29);
+    });
+
+    test('ίδια μέρα-μήνας, άλλο έτος γέννησης → day', () {
+      expect(contactBirthdayDay(DateTime(2020, 5, 10), 2026, 5), 10);
+    });
+  });
 }

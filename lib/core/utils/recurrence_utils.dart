@@ -84,3 +84,10 @@ int? yearlyOccurrenceDay(String rrule, DateTime rootTrigger, int year, int month
   }
   return Recurrence.safeDay(year, month, r.days![1]);
 }
+
+/// Ετήσια εμφάνιση γενεθλίου επαφής μέσα στον (year, month) → day-of-month ή null.
+/// Display-only (ημερολόγιο): τα γενέθλια επαναλαμβάνονται κάθε χρόνο· Feb-clamp.
+int? contactBirthdayDay(DateTime birthday, int year, int month) {
+  if (month != birthday.month) return null;
+  return Recurrence.safeDay(year, month, birthday.day);
+}
