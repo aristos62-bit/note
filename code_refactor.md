@@ -57,8 +57,8 @@
 ### 3.2 Flush / dirty / απώλεια (Φ4c-42)
 - ✅ (S141) `collection_detail:146` — back-cascade αφαιρέθηκε: empty+existing → SnackBar + κρατάει τον προηγούμενο τίτλο (καμία διαγραφή· D2)· device ✅ 09/10/2026 (`run_log_d1d2.txt`).
 - ✅ CLOSED 13/10/2026 — `event_detail:195`: `_flushSaves` (`:152-161`) + `_saveData` σε save ΚΑΙ pop (`:182-199`), location δεν χάνεται.
-- 🟠 `habit_detail:68` — `_saveTitle` early-return πριν το `_isEditingTitle=false` (`:75`).
-- 🟡 `collection_detail:197,202,207` — `_hasChanges` εκτός `setState`.
+- ✅ CLOSED 13/10/2026 — `habit_detail:68`: reset `_isEditingTitle=false` στο early-return (revert-πριν-debounce).
+- 🟡 `collection_detail:197,202,207` — `_hasChanges` εκτός `setState` → REVIEWED 13/10/2026: no-change (διαβάζεται μόνο στο pop-gate `:140`, 0 UI — setState θα ήταν regression).
 
 ### 3.3 Routing (Φ4c-43)
 - ✅ CLOSED 13/10/2026 (S156) — calendar birthday path: επιλογή → `_createBirthdayEvent` (`:435,472`) με 🎂 + yearly reminder· ειδική με ✅ (`:437`).

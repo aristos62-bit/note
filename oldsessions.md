@@ -1893,6 +1893,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (1 γραμμή data-hygiene).
 
+## Session 185 — 13/10/2026 (Habit flag-reset + collection no-change)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** stuck `_isEditingTitle` σε revert-πριν-debounce (§3.2) · collection `_hasChanges` reviewed no-change (1 read/0 UI).
+
+**Υλοποίηση:** F1 habit `:68` reset (2γρ.) · tracker §3.2 updates.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (type→revert→DB-change→sync).
+
+**Backups:** `backups/flags_fix/` (dart + tracker.pre + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (flag micro-fix).
+
 ## Session 179 — 13/10/2026 (Gallery downscale R2, unify με camera)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** gallery χωρίς downscale (R2 παράβαση) — 1.9MB → 2.5MB base64.
