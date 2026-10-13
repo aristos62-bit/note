@@ -1833,6 +1833,18 @@
 
 **Backups:** `backups/attachments_done/` (oldsessions.pre).
 
+## Session 170 — 13/10/2026 (Reactive tags σε contact detail, Φ4c-45)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** `ref.read(itemTagsProvider)` σε build (mobile + tablet ×2) → stale tags. Planned `code_refactor §3.5:79`.
+
+**Υλοποίηση:** 3× read→watch (`:510,556,566`). Invalidates υπήρχαν (`TagNotifier:70,80`). Embedded parked (ξεχωριστό).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · device retest εκκρεμεί (add→φαίνεται/remove→φεύγει/rotation).
+
+**Backups:** `backups/reactive_tags/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (0 νέα API).
+
 ## Session 169 — 13/10/2026 (Dark hardcoded → tokens, Φ4c-46)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** hardcoded χρώματα σε dark (event green box, calendar options/dots, diagnostics, tasks `_green` ×2, contact cake). `main` parked (const, χωρίς context). Settings παλέτες εκτός (δεδομένα χρήστη).
