@@ -1857,6 +1857,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (lifecycle micro-fix, όχι layer).
 
+## Session 181 — 13/10/2026 (Settings batch + `getByIds`)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** N+1 σε settings dialogs (per-row `getById` + loop) + άμεσα instance deletes.
+
+**Υλοποίηση:** T1 `ItemRepository.getByIds` (pattern) · T2 deletes → `dbProvider` (invalidates ίδια) · T3 rows → Map (φόρτωση `:422`) · T4 imported → batch (φίλτρο) · +mounted-guard (lint).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (30-rows/single/bulk/auto-pop/imported/rotation).
+
+**Backups:** `backups/settings_batch/` (2 pre + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (batch + 1 repo-method, όχι layer).
+
 ## Session 179 — 13/10/2026 (Gallery downscale R2, unify με camera)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** gallery χωρίς downscale (R2 παράβαση) — 1.9MB → 2.5MB base64.
