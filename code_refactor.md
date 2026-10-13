@@ -149,6 +149,6 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 
 ## 7. Εκκρεμότητες — διορθώνονται αμέσως μετά το refactor (από device testing)
 
-1. `note_detail_screen.dart:227` — AppBar `Row` overflow 21px σε στενά κινητά (6 actions). Fix Φ4c: ενοποιημένο DetailAppBar + overflow menu.
-2. `habit_detail_screen` — `ListTile ... ink splashes may be invisible` assertion (ListTiles μέσα σε DecoratedBox με bg + radius 16). Fix Φ4c: Material wrapper ή αφαίρεση bg.
+1. ✅ CLOSED 13/10/2026 (device OK) — `note_detail_screen.dart` AppBar 6 actions: compact density + 20px + `titleSpacing: 0`, κανένα overflow στη συσκευή· ενοποιημένο DetailAppBar parked.
+2. ✅ CLOSED 13/10/2026 (fixed S99 + device OK) — `habit_detail_screen`: `Container` → `Material` (ίδια χρώματα/radius/border).
 3. (συμπληρώνεται με κάθε νέο εύρημα από device logs)
