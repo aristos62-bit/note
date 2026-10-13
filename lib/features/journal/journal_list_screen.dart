@@ -60,17 +60,24 @@ class JournalListScreen extends ConsumerStatefulWidget {
 class _JournalListScreenState extends ConsumerState<JournalListScreen>
     with FolderAutoSelectMixin {
   bool _showArchiveHintShown = false;
+  bool _creating = false;
 
   Future<void> _createEntry() async {
+    if (_creating) return;
     final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
-    final item = await ref.read(itemNotifierProvider.notifier).create(
-      type: ItemType.journal,
-      folderId: selectedFolderId,
-    );
-    if (item == null || !mounted) return;
-    Navigator.of(context).push(AppTransitions.slideRoute(
-        JournalDetailScreen(itemId: item.id, isNew: true)));
+    setState(() => _creating = true);
+    try {
+      final item = await ref.read(itemNotifierProvider.notifier).create(
+        type: ItemType.journal,
+        folderId: selectedFolderId,
+      );
+      if (item == null || !mounted) return;
+      await Navigator.of(context).push(AppTransitions.slideRoute(
+          JournalDetailScreen(itemId: item.id, isNew: true)));
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   void _openDetail(int id) {
@@ -103,7 +110,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: selectedFolderId != null ? _buildFab() : null,
+      floatingActionButton: selectedFolderId != null && !_creating ? _buildFab() : null,
       body: Column(
         children: [
           const DraggableFolderSelector(),
@@ -117,6 +124,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
                   onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (allItems) {
+                  if (_creating) return _LoadingList();
                   var entries = allItems.where((i) => i.type == ItemType.journal).toList();
                   if (selectedFolderId != null) {
                     entries = entries.where((e) => e.folderId == selectedFolderId).toList();

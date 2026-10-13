@@ -68,12 +68,12 @@
 - ✅ CLOSED 13/10/2026 — `app_router` EventDetail nav-log: `\$isNew` → `$isNew` (8/8 ομοιόμορφα).
 
 ### 3.4 Λίστες / queries (Φ4c-44)
-- 🟡 **N+1**: ✅ calendar (S177 batch `getAllForItems`) · 🟡 `collection_entries:497` (per-card watch) · 🟡 `journal_list:67-75,128-129` (sequential awaits + Future-per-build) · 🟡 `item_list_embedded:228,245` (sync cache reads, cold-only fetches).
+- ✅ CLOSED 13/10/2026 (S191) — journal batch (1 bulk + signal) · calendar batch (S177) · 🟡 P1-OPEN: `collection_entries:497` (per-card watch) · `item_list_embedded:228,245` (sync cache reads).
 - ✅ (S148) reorder σε φιλτραρισμένο υποσύνολο — SPoT `ReorderUtils.moveAndMerge` (subset → full merge) σε 8 sites (entries/item_list/embedded/habit/task/browser/collections/folder_view)· **device-verified 10/10/2026** (acceptance `[1,2,3]→[1,3,2]`, pipeline 1:1, 0 ERR/WRN).
 - ✅ (S141) `collections:69-72` — cascade κεντρικοποιήθηκε: `ItemNotifier.deleteItem` (type-aware· `project` → soft-delete εγγραφών πρώτα, μετά το root)· device ✅ 09/10/2026 (`run_log_d1d2.txt`, grid + Folder Browser).
 - ✅ (S142) `item_provider` — συμμετρικό lifecycle κάδου (F1): `_cascadeCollectionEntries` έγινε action-based και καλείται **και** από `restoreItem`/`permanentDelete` (`includeDeleted:true`) → restore συλλογής επαναφέρει τις εγγραφές της· permanent τις διαγράφει + καθαρίζει attachments. 1 αρχείο (497→498), 0 νέα public API· `analyze` clean + `test` 138/138· device ✅ 09/10/2026 (`run_log_f1.txt` — delete/restore/permanent με εγγραφές + `deleted file` attachment cleanup).
 - ✅ (S143) `item_provider` split (R1 <500): pinned/favorites streams → νέο `providers/pinned_provider.dart` (+ barrel export)· **498→442**· 0 νέα public API. Behavior (Fix #2): αρχειοθετημένα items = σίγαση OS reminders (`toggleArchive` cancel/reschedule · guard `_scheduleOne` · skip archived roots `refreshRecurringReminders` · Settings restore/delete → SPoT `ItemNotifier`)· `analyze` clean + `test` 138/138· device ✅ 09/10/2026 (`run_log_f2.txt` — ARCHIVED/SKIP, unarchive reschedule, delete cascade, 0 ERR).
-- 🟠 `journal_list:106` — retry σε λάθος provider (OPEN, 1γρ.)· `:128-129` Future ανά build (OPEN, batch-pass).
+- ✅ CLOSED 13/10/2026 — `journal_list:106` retry → `itemsStreamProvider` (1γρ.) · `:128-129` Future-per-build → batch-map (S191).
 - 🟡 `collection_entries:166,169` — stale AppBar (widget αντί watched).
 - ✅ CLOSED 13/10/2026 — entries stable key (S189)· `collection_detail:719` = legit field-key (όχι accent-compound).
 
@@ -91,7 +91,7 @@
 ### 3.6 Theming / tokens / a11y (Φ4c-46)
 - ✅ CLOSED 13/10/2026 (S169) — tokens + shared consts· `main` parked (const, χωρίς context)· **device ✅ (13/10/2026):** eyeball PASS, 0 ERR.
 - 🟡 `event:432,830` — ✅ CLOSED 13/10/2026 (S183: 1 widget, device tablet PASS) · 6 actions (overflow risk — αν σκάσει, overflow-menu follow-up).
-- 🟡 `calendar:476,554` — διπλό `_createEvent`/`_createEventWithIcon`· `_createEventWithIcon:575-577` catch ΧΩΡΙΣ SnackBar (OPEN parity)· παλιό dead branch `:637-656` ✅ GONE (restructured S156/S177)· νέο identical-pair `:753-772` (OPEN merge −11γρ.).
+- 🟡 `calendar:476,554` — ✅ CLOSED 13/10/2026: error SnackBar και στα 3 (parity `_createEventWithIcon:575-581`) · παλιό dead branch `:637-656` ✅ GONE (restructured S156/S177)· νέο identical-pair `:753-772` (P2-OPEN merge −11γρ.).
 - 🟡 Ετυμολογία: `calendar:214`·`journal_list:195` «συμπιεσμένων»→«αρχειοθετημένων».
 - ✅ CLOSED 13/10/2026 (S178) — ξαναγραφή από context· grep `�` = 0.
 - 🟡 `const`: habit ✅ (const ctor)· journal `_LoadingList:419` OPEN (1 micro).
