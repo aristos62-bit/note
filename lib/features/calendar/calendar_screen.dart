@@ -289,37 +289,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     );
   }
 
-  /// Κοινό tap ημέρας (mobile + tablet): ορίζει selectedDay και, σε
-  /// μικτή ημέρα (birthday-event + επαφή), ρωτά για την επαφή.
-  Future<void> _onDayTap(DateTime day, Map<DateTime, List<Item>> dayMap) async {
-    final prev = ref.read(_selectedDayProvider);
+  /// Κοινό tap ημέρας (mobile + tablet): μόνο selectedDay (η λίστα δείχνει
+  /// τις κάρτες — το χρώμα δείχνει επαφή/event/γενέθλια/ειδική).
+  void _onDayTap(DateTime day) {
     ref.read(_selectedDayProvider.notifier).state = day;
     DebugConfig.nav('Calendar day selected $day');
-    if (day == prev || !mounted) return;
-    final items = dayMap[day] ?? const [];
-    final events = items.where((i) => i.type == ItemType.event).toList();
-    final contacts =
-        items.where((i) => i.type == ItemType.contact).toList()
-          ..sort((a, b) => a.id.compareTo(b.id));
-    if (contacts.isEmpty) return;
-    if (events.isEmpty) {
-      // Μόνο επαφές: 1 → κατευθείαν, πολλές → λίστα (rows ανοίγουν).
-      if (contacts.length == 1 && mounted) _openDayItem(contacts.first);
-      return;
-    }
-    final hasEventBday =
-        events.any((i) => ItemColorHelper.isBirthdayEvent(i));
-    if (!hasEventBday || !mounted) return;
-    final open = await ConfirmDialog.show(
-      context,
-      title: 'Γενέθλια',
-      subtitle: 'Υπάρχουν γενέθλια και από επαφή. Να ανοίξει η επαφή;',
-      confirmLabel: 'Ναι',
-      cancelLabel: 'Όχι',
-      icon: Icons.cake_rounded,
-    );
-    if (open && mounted) _openDayItem(contacts.first);
-    DebugConfig.nav('Calendar mixed birthday dialog open=$open');
   }
 
   /// Κοινό άνοιγμα γραμμής ημέρας (mobile + tablet): επαφή → ContactDetail.
@@ -346,7 +320,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           selectedDay: selectedDay,
           // ✅ Περνάμε ολόκληρο το map (items με icon info)
           dayEvents: monthAsync.valueOrNull ?? {},
-          onDayTap: (day) => _onDayTap(day, monthAsync.valueOrNull ?? {}),
+          onDayTap: (day) => _onDayTap(day),
         ),
         const Divider(height: 1),
         _DayHeader(day: selectedDay),
@@ -389,7 +363,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                   focusedMonth: focusedMonth,
                   selectedDay: selectedDay,
                   dayEvents: monthAsync.valueOrNull ?? {},
-                  onDayTap: (day) => _onDayTap(day, monthAsync.valueOrNull ?? {}),
+                  onDayTap: (day) => _onDayTap(day),
                 ),
                 const Divider(height: 1),
               ],
