@@ -10,6 +10,10 @@ class ItemColorHelper {
   static const String kSpecialDayIcon = '✅';
   static const String kLegacySpecialDayIcon = '⭐';
 
+  /// Brand χρώματα γενεθλίων/ειδικών ( dots/legend/icons — ίδια και στα 2 modes).
+  static const Color birthdayPink = Color(0xFFEC4899); // pink-500
+  static const Color specialAmber = Color(0xFFF59E0B); // amber-500
+
   /// Γενέθλια = event με 🎂 (αυτόματη ετήσια, χωρίς καμπάνα).
   static bool isBirthdayEvent(Item? item) =>
       item != null &&
@@ -36,8 +40,8 @@ class ItemColorHelper {
 
   /// Accent (μπάρα/icon) γενεθλίων/ειδικών — null για κανονικά items.
   static Color? specialAccent(Item? item) {
-    if (isBirthdayEvent(item)) return const Color(0xFFEC4899);
-    if (isSpecialDayEvent(item)) return const Color(0xFFF59E0B);
+    if (isBirthdayEvent(item)) return birthdayPink;
+    if (isSpecialDayEvent(item)) return specialAmber;
     return null;
   }
 

@@ -369,6 +369,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
 
   Future<void> _showCreationMenu(
       BuildContext context, WidgetRef ref, DateTime selectedDay) async {
+    final isDark = context.brightness == Brightness.dark;
     final type = await showModalBottomSheet<_EventCreationType>(
       context: context,
       backgroundColor: ColorsUI.getSurface(context.brightness),
@@ -397,24 +398,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
             const Divider(height: 1),
             _EventTypeOption(
               icon: Icons.event_rounded,
-              iconBgColor: Colors.indigo.shade100,
-              iconColor: Colors.indigo.shade600,
+              iconBgColor: isDark ? Colors.indigo.shade900 : Colors.indigo.shade100,
+              iconColor: isDark ? Colors.indigo.shade200 : Colors.indigo.shade600,
               title: 'Συμβάν',
               subtitle: 'Προγραμματισμένο γεγονός',
               onTap: () => Navigator.pop(context, _EventCreationType.event),
             ),
             _EventTypeOption(
               icon: Icons.cake_rounded,
-              iconBgColor: Colors.pink.shade100,
-              iconColor: Colors.pink.shade600,
+              iconBgColor: ItemColorHelper.birthdayBackground(context),
+              iconColor: isDark ? Colors.pink.shade200 : Colors.pink.shade600,
               title: 'Γενέθλια',
               subtitle: 'Υπενθύμιση γενεθλίων',
               onTap: () => Navigator.pop(context, _EventCreationType.birthday),
             ),
             _EventTypeOption(
               icon: Icons.star_rounded,
-              iconBgColor: Colors.amber.shade100,
-              iconColor: Colors.amber.shade700,
+              iconBgColor: ItemColorHelper.specialDayBackground(context),
+              iconColor: isDark ? Colors.amber.shade200 : Colors.amber.shade700,
               title: 'Ειδική Ημέρα',
               subtitle: 'Σημαντική ημερομηνία',
               onTap: () =>
@@ -599,9 +600,9 @@ class _MonthGrid extends ConsumerWidget {
 
   static const _weekDays = AppDateUtils.weekdayInitials;
 
-  // ── Χρώματα δεικτών ────────────────────────────────────────
-  static const _birthdayColor = Color(0xFFEC4899); // pink-500
-  static const _specialDayColor = Color(0xFFF59E0B); // amber-500
+  // ── Χρώματα δεικτών (SPoT: ItemColorHelper) ──────────────────
+  static const _birthdayColor = ItemColorHelper.birthdayPink; // pink-500
+  static const _specialDayColor = ItemColorHelper.specialAmber; // amber-500
 
   const _MonthGrid({
     required this.focusedMonth,

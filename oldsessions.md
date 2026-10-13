@@ -1832,3 +1832,15 @@
 **Verdict:** user 13/10/2026 — ολοκληρωμένο, device OK.
 
 **Backups:** `backups/attachments_done/` (oldsessions.pre).
+
+## Session 169 — 13/10/2026 (Dark hardcoded → tokens, Φ4c-46)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** hardcoded χρώματα σε dark (event green box, calendar options/dots, diagnostics, tasks `_green` ×2, contact cake). `main` parked (const, χωρίς context). Settings παλέτες εκτός (δεδομένα χρήστη).
+
+**Υλοποίηση:** B1 event → `cSuccess`· B2 options same-family ανά brightness + SPoT fills· B3 `ItemColorHelper.birthdayPink/specialAmber` consts → `specialAccent` + 4 dots + contact· B4 diagnostics → tokens· B5 tasks → `cSuccess` (διαγραφή const).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** (3 νέα theme_tokens) · device eyeball εκκρεμεί.
+
+**Backups:** `backups/theme_hardcoded/` (7 pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (styling + shared consts, όχι layer — precedent S136).

@@ -509,10 +509,9 @@ class _TaskProgressBar extends StatelessWidget {
     required this.dueDate,
   });
 
-  static const Color _green = Color(0xFF4CAF50);
-
   @override
   Widget build(BuildContext context) {
+    final successColor = context.cSuccess;
     final isDone = item.status == ItemStatus.done;
     final now    = DateTime.now();
     final today  = DateTime(now.year, now.month, now.day);
@@ -528,7 +527,7 @@ class _TaskProgressBar extends StatelessWidget {
     if (subtasks.isEmpty) {
       // Χωρίς υποεργασίες
       if (isDone) {
-        segments = [Expanded(child: Container(color: _green))];
+        segments = [Expanded(child: Container(color: successColor))];
       } else if (isOverdue) {
         segments = [Expanded(child: Container(color: errorColor))];
       } else {
@@ -544,7 +543,7 @@ class _TaskProgressBar extends StatelessWidget {
         if (doneCount > 0)
           Expanded(
             flex: doneCount,
-            child: Container(color: _green),
+            child: Container(color: successColor),
           ),
         if (undoneCount > 0)
           Expanded(
