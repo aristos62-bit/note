@@ -56,14 +56,14 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
     final item = await notifier.create(type: widget.itemType, folderId: selectedFolderId);
     if (item == null || !mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => widget.detailScreenBuilder(context, item, isNew: true)),
+      AppTransitions.slideRoute(widget.detailScreenBuilder(context, item, isNew: true)),
     );
   }
 
   void _openDetail(Item item) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => widget.detailScreenBuilder(context, item, isNew: false),
+      AppTransitions.slideRoute(
+        widget.detailScreenBuilder(context, item, isNew: false),
       ),
     );
   }

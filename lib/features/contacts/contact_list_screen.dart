@@ -32,16 +32,16 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
     );
     if (item == null || !mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ContactDetailScreen(itemId: item.id, isNew: true),
+      AppTransitions.slideRoute(
+        ContactDetailScreen(itemId: item.id, isNew: true),
       ),
     );
   }
 
   void _openDetail(int id) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ContactDetailScreen(itemId: id, isNew: false),
+      AppTransitions.slideRoute(
+        ContactDetailScreen(itemId: id, isNew: false),
       ),
     );
   }
