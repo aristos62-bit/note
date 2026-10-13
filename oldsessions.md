@@ -1863,7 +1863,7 @@
 
 **Υλοποίηση:** 6 details → `slideRoute` · trash → `slideUpRoute` (Settings-tier precedent) · diagnostics → `fadeRoute` (search-tier precedent). 0 imports (4/4 έχουν `core.dart`).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · device retest εκκρεμεί (8 pushes × open/back/rotation + landscape).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · **device ✅ (13/10/2026, user verdict):** 8 pushes × open/back/rotation + landscape, 0 jank/ERR.
 
 **Backups:** `backups/routes_transitions/` (4 pre + oldsessions.pre + BASE_HEAD).
 
