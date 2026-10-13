@@ -507,7 +507,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
       body: _ContactBody(
         item: item,
         properties: props,
-        tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+        tags: ref.watch(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
         nameCtrl: _nameCtrl,
         phoneCtrls: _phoneCtrls,
         emailCtrl: _emailCtrl,
@@ -553,7 +553,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
             child: _ContactSummaryPanel(
               item: item,
               properties: props,
-              tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+              tags: ref.watch(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
               onShowTagPicker: _showTagPicker,
             ),
           ),
@@ -563,7 +563,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
             child: _ContactBody(
               item: item,
               properties: props,
-              tags: ref.read(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
+              tags: ref.watch(itemTagsProvider(widget.itemId)).valueOrNull ?? [],
               nameCtrl: _nameCtrl,
               phoneCtrls: _phoneCtrls,
               emailCtrl: _emailCtrl,
