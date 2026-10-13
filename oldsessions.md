@@ -1961,6 +1961,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (1 char log, όχι layer).
 
+## Session 183 — 13/10/2026 (Event διπλό AppBar → 1, §3.6)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** `_buildAppBar` + `_EventDetailAppBar` αποκλίνοντα (bg/σειρά) + νεκρή `textColor`.
+
+**Υλοποίηση:** widget → `context.*` (−6 params, bg `cBg`, σειρά μεθόδου, χωρίς paddings — δεν τα είχε καμία) · tablet → widget · delete μεθόδου (−60γρ.).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (mobile+tablet 6×states×dark+rotation).
+
+**Backups:** `backups/event_appbar/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (SPoT unify, όχι layer).
+
 ## Session 180 — 13/10/2026 (Raw pops → safePop ×7, uniformity)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** guard+pop σε 7 mixin-screens (dialog/sheet/rootNavigator/canPop ρητά εκτός — 39-hit audit).
