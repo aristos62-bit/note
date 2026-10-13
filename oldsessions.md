@@ -1923,7 +1923,7 @@
 
 **Υλοποίηση:** X1 repo-απευθείας + onError + σχόλιο + import (live `deleteItem` άθικτο, cascade από live path).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (κενό-νέο ×3, 0 `Bad state`).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, pid 27217):** κενό-νέο note/task/habit → live `deleteItem` + dispose `softDelete`, 0 `Bad state`, 0 ERR.
 
 **Backups:** `backups/dispose_noref/` (dart + oldsessions.pre + BASE_HEAD).
 
