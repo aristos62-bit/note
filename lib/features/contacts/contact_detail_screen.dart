@@ -11,7 +11,6 @@
 // ✅ Tags: προβολή, προσθήκη, αφαίρεση
 //
 import 'dart:convert';
-import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -245,33 +244,46 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     setState(() => _lastBirthday = null);
   }
 
+  /// Κοινό store picked bytes (gallery/camera R2 1024/85):
+  /// guard → base64 → save → version-signal.
+  Future<void> _storePickedPhoto(
+    List<int> bytes,
+    String source, [
+    BuildContext? context,
+  ]) async {
+    if (bytes.isEmpty) {
+      DebugConfig.warning('_pickImage: empty bytes ($source)');
+      return;
+    }
+    if (!ImageUtils.checkMaxBytes(bytes)) {
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppErrors.oversizeSkipped(1))),
+        );
+      }
+      return;
+    }
+    final base64 = base64Encode(bytes);
+    DebugConfig.db('_pickImage: saved ${bytes.length}B as base64 ($source)');
+    await ref
+        .read(propertyNotifierProvider(widget.itemId).notifier)
+        .setText('photo', base64);
+    ref.read(propertyWriteVersionProvider.notifier).state++;
+    DebugConfig.db('_pickImage: version=${ref.read(propertyWriteVersionProvider)} ($source)');
+  }
+
   Future<void> _pickGallery(BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
+      final image = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
       );
-      if (result == null || result.files.isEmpty) return;
-      final bytes = result.files.single.bytes;
-      if (bytes == null || bytes.isEmpty) {
-        DebugConfig.warning('_pickGallery: empty bytes');
-        return;
-      }
-      if (!ImageUtils.checkMaxBytes(bytes)) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppErrors.oversizeSkipped(1))),
-          );
-        }
-        return;
-      }
-      final base64 = base64Encode(bytes);
-      DebugConfig.db('_pickGallery: saved ${bytes.length}B as base64');
-      await ref
-          .read(propertyNotifierProvider(widget.itemId).notifier)
-          .setText('photo', base64);
-      ref.read(propertyWriteVersionProvider.notifier).state++;
-      DebugConfig.db('_pickGallery: version=${ref.read(propertyWriteVersionProvider)}');
+      if (image == null || !context.mounted) return;
+      final bytes = await image.readAsBytes();
+      if (!context.mounted) return;
+      await _storePickedPhoto(bytes, 'gallery', context);
     } catch (e, s) {
       DebugConfig.error('_pickGallery', e, s);
     }
@@ -279,22 +291,14 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
 
   Future<void> _pickCamera() async {
     try {
-      final picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
+      final image = await ImagePicker().pickImage(
         source: ImageSource.camera,
         maxWidth: 1024,
         maxHeight: 1024,
         imageQuality: 85,
       );
       if (image == null) return;
-      final bytes = await image.readAsBytes();
-      final base64 = base64Encode(bytes);
-      DebugConfig.db('_pickCamera: saved ${bytes.length}B as base64');
-      await ref
-          .read(propertyNotifierProvider(widget.itemId).notifier)
-          .setText('photo', base64);
-      ref.read(propertyWriteVersionProvider.notifier).state++;
-      DebugConfig.db('_pickCamera: version=${ref.read(propertyWriteVersionProvider)}');
+      await _storePickedPhoto(await image.readAsBytes(), 'camera');
     } catch (e, s) {
       DebugConfig.error('_pickCamera', e, s);
     }

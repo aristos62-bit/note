@@ -1857,6 +1857,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (lifecycle micro-fix, όχι layer).
 
+## Session 179 — 13/10/2026 (Gallery downscale R2, unify με camera)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** gallery χωρίς downscale (R2 παράβαση) — 1.9MB → 2.5MB base64.
+
+**Υλοποίηση:** κοινό `_storePickedPhoto` (guard→base64→save→version) · gallery/camera delegates (1024/1024/85) · `file_picker` import έξω (μοναδική χρήση) · `mounted` guards (lint).
+
+**Επαλήθευση:** `analyze` clean (διορθώθηκε 1 `use_build_context_synchronously`) · `flutter test` → **178/178** · device retest εκκρεμεί (8MB→SnackBar, 1.9MB→~150KB, camera-identical, rotation/cancel + παλιά συσκευή fallback).
+
+**Backups:** `backups/gallery_downscale/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (R2 συμμόρφωση, όχι layer).
+
 ## Session 172 — 13/10/2026 (MaterialPageRoute → AppTransitions, Φ4c-43)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** 8× `MaterialPageRoute` σε 4 αρχεία (planned `code_refactor §3.3`). R0 παράβαση + ασυνεπείς μεταβάσεις.
