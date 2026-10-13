@@ -105,3 +105,6 @@
 - Callers: calendar dots + `event_detail` resync (🎂-only) + `ItemCard` (emoji αντί type-icon + tint + accent, custom-override κερδίζει).
 - Επαναφορά `_createBirthdayEvent` (icon 🎂 + yearly + refresh, όπως προ-30f8529 με SPoT).
 - Tests `test/item_card_icons_test.dart` (+5: helpers ×3, card-emoji ×2)· suite 151/151· analyze clean· device pending.
+
+## Session 174 — 13/10/2026 (allowBackup=false — όχι cloud auto-backup)
+- Android manifest `<application android:allowBackup="false">` (έλειπε → default true → Drive auto-backup αντέγραφε Isar DB + attachments + PIN hash). Επίσημη οδός backup: in-app zip export. Debug/profile manifests χωρίς application-node (κληρονομούν το main). iOS parked.
