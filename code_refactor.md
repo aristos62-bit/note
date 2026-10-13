@@ -88,7 +88,7 @@
 
 ### 3.6 Theming / tokens / a11y (Φ4c-46)
 - 🟡 Hardcoded `Colors.*`: `event:663-673` (green box)· `calendar:372-389` (indigo/pink/amber)· `main:375,416`· `reminder_diagnostics:232,264,272`.
-- 🟡 `event:432,830` — διπλό AppBar / 6 actions (overflow risk).
+- 🟡 `event:432,830` — ✅ CLOSED 13/10/2026 (S183: 1 widget, device tablet PASS) · 6 actions (overflow risk — αν σκάσει, overflow-menu follow-up).
 - 🟡 `calendar:410,441` — διπλό `_createEvent`/`_createEventWithIcon`· ✅ CLOSED 13/10/2026: error SnackBar και στα 2 (`:464-465,512-513`)· `:637-656` νεκρό branch (identical render) — ανοιχτό.
 - 🟡 Ετυμολογία: `calendar:214`·`journal_list:195` «συμπιεσμένων»→«αρχειοθετημένων».
 - 🟡 mojibake comments: `collection_detail:97-121`·`collection_entries:719-751`·`contact:202,209`.
