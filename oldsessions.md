@@ -1967,7 +1967,7 @@
 
 **Υλοποίηση:** widget → `context.*` (−6 params, bg `cBg`, σειρά μεθόδου, χωρίς paddings — δεν τα είχε καμία) · tablet → widget · delete μεθόδου (−60γρ.).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (mobile+tablet 6×states×dark+rotation).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, pid 22960, tablet):** cancel→παραμονή, save, reminder-dialog (1+5), pin/fav toggles, delete→cascade 6 + pop/dispose, rotation mobile/tablet, 0 ERR/overflow.
 
 **Backups:** `backups/event_appbar/` (dart + oldsessions.pre + BASE_HEAD).
 
