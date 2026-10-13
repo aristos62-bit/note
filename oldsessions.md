@@ -1890,3 +1890,15 @@
 **Verdict:** user 13/10/2026 — όλα device retest OK, §7 άδειο.
 
 **Backups:** `backups/close_s7/` (code_refactor.pre + oldsessions.pre).
+
+## Session 174 — 13/10/2026 (allowBackup=false)
+
+**Scope:** manifest `<application>` χωρίς backup attrs → default true → Android auto-backup αντέγραφε DB. 1 attr, 0 Dart.
+
+**Υλοποίηση:** `android:allowBackup="false"` (main manifest· debug/profile κληρονομούν). Επίσημο backup: in-app zip.
+
+**Επαλήθευση:** `analyze` clean · grep `allowBackup` 1 hit · device retest: reinstall → καθαρή DB (εκκρεμεί από χρήστη).
+
+**Backups:** `backups/nobackup_manifest/` (manifest + DESIGN.pre + oldsessions.pre).
+
+**supernote.md:** καμία αλλαγή (manifest flag, όχι layer)· **DESIGN.md:** +παράγραφος Session 174.
