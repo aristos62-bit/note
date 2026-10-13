@@ -94,7 +94,7 @@ class _CollectionDetailScreenState
     final title = _titleCtrl.text.trim();
     DebugConfig.db('CollectionDetail save id=${widget.collectionId} title="$title"');
 
-    // 1. ??? + ?�?��? στο Item model (??α να το διαβ?�?ει το card)
+    // 1. Τίτλος + χρώμα στο Item model (για να το διαβάζει το card)
     await ref.read(itemNotifierProvider.notifier)
         .updateItem(widget.collectionId,
       title: title.isEmpty ? 'Νέα Συλλογή' : title,

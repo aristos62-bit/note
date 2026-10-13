@@ -82,7 +82,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
     }
   }
 
-  /// ?�?��?�?�? ?? save logic (no ?�?U?I management)
+  /// Κοινή save logic (no GUI management)
   Future<void> _saveData() async {
     final title = _titleCtrl.text.trim();
 
@@ -109,7 +109,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
     DebugConfig.db('JournalDetail saved successfully');
   }
 
-  /// ??? wrapper ?�? executeSave + pop
+  /// ??? wrapper για executeSave + pop
   Future<void> _save() async {
     final ok = await executeSave(() => _saveData());
     if (ok && mounted) safePop();
