@@ -19,6 +19,36 @@ import '../../shared/widgets/widgets.dart';
 import 'journal_detail_screen.dart';
 import '../../services/services.dart';
 import '../../helpers/item_color_helper.dart';
+import '../../helpers/super_note_helper.dart';
+
+/// Pure helper: ημερομηνία προβολής εγγραφής (entry_date → fallback).
+/// Ίδια σημασιολογία με τα παλιά _getDisplayDate/_DraggableJournalCard (byte-identical αποτελέσματα).
+DateTime journalEntryDisplayDate(Item item, List<ItemProperty> props) {
+  final str = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
+  return (str != null ? DateTime.tryParse(str) : null) ?? item.updatedAt ?? item.createdAt;
+}
+
+/// Batch: ημερομηνίες όλων των journal entries — 1 DB call αντί για N.
+/// Reactivity: itemsStream (CRUD) + journalDatesVersionProvider (entry_date edits —
+/// τα property-writes δεν αγγίζουν Item rows, S130-class). Αγνοεί content/mood σκόπιμα.
+/// Κατανάλωση με valueOrNull (entries-precedent): ποτέ loading-flash σε rebuilds.
+final journalDatesProvider = FutureProvider.autoDispose<Map<int, DateTime>>((ref) async {
+  final items = ref.watch(itemsStreamProvider).valueOrNull
+      ?.where((i) => i.type == ItemType.journal)
+      .toList() ??
+      const [];
+  if (items.isEmpty) return {};
+  ref.watch(journalDatesVersionProvider);
+  final ids = items.map((e) => e.id).toList();
+  DebugConfig.db('_journalDatesProvider: ids=${ids.length}');
+  try {
+    final all = await SuperNoteHelper.instance.properties.getAllForItems(ids);
+    return {for (final it in items) it.id: journalEntryDisplayDate(it, all[it.id] ?? const <ItemProperty>[])};
+  } catch (e, s) {
+    DebugConfig.error('_journalDatesProvider', e, s);
+    return {};
+  }
+});
 
 class JournalListScreen extends ConsumerStatefulWidget {
   const JournalListScreen({super.key});
@@ -54,29 +84,10 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
   }
 
-  Future<DateTime> _getDisplayDate(Item item) async {
-    final props = await ref.read(itemPropertiesProvider(item.id).future);
-    final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
-    if (entryDateStr != null) {
-      final parsed = DateTime.tryParse(entryDateStr);
-      if (parsed != null) return parsed;
-    }
-    return item.updatedAt ?? item.createdAt;
-  }
-
-  Future<List<_EntryWithDate>> _processEntriesWithDate(List<Item> entries) async {
-    final result = <_EntryWithDate>[];
-    for (final entry in entries) {
-      final date = await _getDisplayDate(entry);
-      result.add(_EntryWithDate(entry: entry, displayDate: date));
-    }
-    result.sort((a, b) => b.displayDate.compareTo(a.displayDate));
-    return result;
-  }
-
   @override
   Widget build(BuildContext context) {
     final entriesAsync = ref.watch(itemsStreamProvider);
+    final datesMap = ref.watch(journalDatesProvider).valueOrNull ?? {};
     final foldersAsync = ref.watch(foldersStreamProvider);
     final settingsAsync = ref.watch(settingsNotifierProvider);
 
@@ -103,7 +114,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
               child: entriesAsync.when(
                 loading: () => _LoadingList(),
                 error: (e, _) => EmptyState.error(
-                  onRetry: () => ref.invalidate(itemNotifierProvider),
+                  onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (allItems) {
                   var entries = allItems.where((i) => i.type == ItemType.journal).toList();
@@ -125,31 +136,26 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
                     return EmptyState.forType(ItemType.journal, onAction: _createEntry);
                   }
 
-                  return FutureBuilder<List<_EntryWithDate>>(
-                    future: _processEntriesWithDate(entries),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError || !snapshot.hasData) {
-                        return EmptyState.error(onRetry: () => ref.invalidate(itemsStreamProvider));
-                      }
-                      final processed = snapshot.data!;
-                      return ResponsiveLayout(
-                        mobile: _JournalListMobile(
-                          entriesWithDate: processed,
-                          onTap: _openDetail,
-                          onDelete: _delete,
-                          onShare: (item) => ShareService.shareItem(context, item.id),
-                        ),
-                        tablet: _JournalListTablet(
-                          entriesWithDate: processed,
-                          onTap: _openDetail,
-                          onDelete: _delete,
-                          onShare: (item) => ShareService.shareItem(context, item.id),
-                        ),
-                      );
-                    },
+                  final processed = entries
+                      .map((e) => _EntryWithDate(
+                            entry: e,
+                            displayDate: datesMap[e.id] ?? e.updatedAt ?? e.createdAt,
+                          ))
+                      .toList()
+                    ..sort((a, b) => b.displayDate.compareTo(a.displayDate));
+                  return ResponsiveLayout(
+                    mobile: _JournalListMobile(
+                      entriesWithDate: processed,
+                      onTap: _openDetail,
+                      onDelete: _delete,
+                      onShare: (item) => ShareService.shareItem(context, item.id),
+                    ),
+                    tablet: _JournalListTablet(
+                      entriesWithDate: processed,
+                      onTap: _openDetail,
+                      onDelete: _delete,
+                      onShare: (item) => ShareService.shareItem(context, item.id),
+                    ),
                   );
                 },
               ),
@@ -241,9 +247,9 @@ class _JournalListMobile extends StatelessWidget {
               padding: const EdgeInsets.only(top: Spacing.md, bottom: Spacing.xs),
               child: Text(group.monthLabel, style: context.labelMd.withColor(context.cText2)),
             ),
-            ...group.items.map((item) => Padding(
+            ...group.items.map((ewd) => Padding(
               padding: const EdgeInsets.only(bottom: Spacing.sm),
-              child: _DraggableJournalCard(item: item, onTap: onTap, onDelete: onDelete, onShare: onShare != null ? () => onShare!(item) : null),
+              child: _DraggableJournalCard(item: ewd.entry, displayDate: ewd.displayDate, onTap: onTap, onDelete: onDelete, onShare: onShare != null ? () => onShare!(ewd.entry) : null),
             )),
           ],
         );
@@ -276,6 +282,7 @@ class _JournalListTablet extends StatelessWidget {
       itemCount: entriesWithDate.length,
       itemBuilder: (_, i) => _DraggableJournalCard(
         item: entriesWithDate[i].entry,
+        displayDate: entriesWithDate[i].displayDate,
         onTap: onTap,
         onDelete: onDelete,
         onShare: onShare != null ? () => onShare!(entriesWithDate[i].entry) : null,
@@ -289,14 +296,14 @@ class _JournalListTablet extends StatelessWidget {
 // ──────────────────────────────────────────────
 class _DraggableJournalCard extends ConsumerWidget {
   final Item item;
+  final DateTime displayDate;
   final ValueChanged<int> onTap;
   final ValueChanged<Item> onDelete;
   final VoidCallback? onShare;
-  const _DraggableJournalCard({required this.item, required this.onTap, required this.onDelete, this.onShare});
+  const _DraggableJournalCard({required this.item, required this.displayDate, required this.onTap, required this.onDelete, this.onShare});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
     final showArchived = ref.watch(showArchivedProvider);
     final isArchived = item.archived && showArchived;
     DebugConfig.db('JournalCard id=${item.id} archived=${item.archived} showArchived=$showArchived isArchived=$isArchived');
@@ -306,15 +313,7 @@ class _DraggableJournalCard extends ConsumerWidget {
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
     final accentColor = ColorsUI.itemTypeColor(ItemType.journal, context.brightness);
 
-    return propsAsync.when(
-      loading: () => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor, isArchived),
-      error: (_, __) => _buildDraggable(context, null, backgroundColor, foregroundColor, secondaryForeground, accentColor, isArchived),
-      data: (props) {
-        final entryDateStr = props.where((p) => p.key == 'entry_date').firstOrNull?.value;
-        final displayDate = entryDateStr != null ? DateTime.tryParse(entryDateStr) : (item.updatedAt ?? item.createdAt);
-        return _buildDraggable(context, displayDate, backgroundColor, foregroundColor, secondaryForeground, accentColor, isArchived);
-      },
-    );
+    return _buildDraggable(context, displayDate, backgroundColor, foregroundColor, secondaryForeground, accentColor, isArchived);
   }
 
   Widget _buildDraggable(
@@ -401,17 +400,17 @@ class _DraggableJournalCard extends ConsumerWidget {
 // ──────────────────────────────────────────────
 class _MonthGroup {
   final String monthLabel;
-  final List<Item> items;
+  final List<_EntryWithDate> items;
   const _MonthGroup(this.monthLabel, this.items);
 }
 
 List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
   const months = AppDateUtils.monthFullNames;
-  final map = <String, List<Item>>{};
+  final map = <String, List<_EntryWithDate>>{};
   for (final ewd in entriesWithDate) {
     final date = ewd.displayDate;
     final key = '${months[date.month - 1]} ${date.year}';
-    map.putIfAbsent(key, () => []).add(ewd.entry);
+    map.putIfAbsent(key, () => []).add(ewd);
   }
   return map.entries.map((e) => _MonthGroup(e.key, e.value)).toList();
 }

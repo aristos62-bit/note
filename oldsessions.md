@@ -2096,3 +2096,15 @@
 **supernote.md/DESIGN.md:** καμία αλλαγή (zone-fix, όχι layer).
 
 **Parked:** sheet outer-ctx micro · rename + system-dead-cleanup · menu-SafeSheet (χωρά αριθμητικά).
+
+## Session 191 — 13/10/2026 (Journal batch dates — N+1 τέλος)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** P0-open N+1 (`code_refactor §3.4`) — N σειριακά reads + Future-per-build flicker + per-card re-reads.
+
+**Υλοποίηση (σχεδίαση E, 3 αρχεία, 0 νέα API):** pure `journalEntryDisplayDate` + `journalDatesProvider` (autoDispose: itemsStream + `journalDatesVersionProvider`, 1× `getAllForItems`, try/catch→{}) · οθόνη με valueOrNull (ποτέ loading-flash) · `_MonthGroup`→`_EntryWithDate` · κάρτα −DB-watch +`displayDate` (sync watches μένουν) · διαγραφή `_getDisplayDate/_processEntriesWithDate` · bump στο `_setEntryDate` (sole-writer, αποδεδειγμένο). D απορρίφθηκε (cold N+1 + keystroke-spam)· global-signal ανέγγιχτο (S45)· v6-`.when` απορρίφθηκε (flash-regression).
+
+**Επαλήθευση:** νέο `test/journal_dates_test.dart` 3/3 (ok/corrupt/missing, χωρίς Isar-harness) · full **186/186** · `analyze` clean · device retest εκκρεμεί (cold-χρόνος, no-flicker, mutation-αλλού→σιγή, edit→group, mood→σιγή, delete, 0 ERR).
+
+**Backups:** `backups/journal_batch/` (3 pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (batch + signal, όχι layer).

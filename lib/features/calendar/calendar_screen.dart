@@ -574,6 +574,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
       );
     } catch (e) {
       DebugConfig.error('CalendarScreen _createEventWithIcon', e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppErrors.eventCreateFailed)),
+        );
+      }
     }
   }
 }
