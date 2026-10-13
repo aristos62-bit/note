@@ -1943,7 +1943,7 @@
 
 **Υλοποίηση:** habit/note/task/journal/contact/entries/appointment-delete → `safePop()`.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (7 deletes + cancel + rotation-mid-delete).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, `run_log_s180.txt`, pid 19105):** note/task/contact delete (cancel→παραμονή + confirm→`deleteItem`→dispose 1:1) · empty-new note/event (mixin cascade) · appointment open/close · 0 ERR/FATAL/overflow.
 
 **Backups:** `backups/safepop/` (7 pre + oldsessions.pre + BASE_HEAD).
 
