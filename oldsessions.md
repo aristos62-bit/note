@@ -1893,6 +1893,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (1 γραμμή data-hygiene).
 
+## Session 186 — 13/10/2026 (Collection `_hasChanges` στα setState ×3)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** σημαία έξω από διπλανό setState (remove/reorder/color) · υπόλοιπα σκόπιμα σκέτα (precedent `:805`).
+
+**Υλοποίηση:** H1-H3 merges (0 έξτρα rebuilds).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (remove/reorder/color → back → save-prompt).
+
+**Backups:** `backups/flags_collection/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (style consistency).
+
 ## Session 185 — 13/10/2026 (Habit flag-reset + collection no-change)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** stuck `_isEditingTitle` σε revert-πριν-debounce (§3.2) · collection `_hasChanges` reviewed no-change (1 read/0 UI).
