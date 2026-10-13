@@ -218,7 +218,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   final id =
                       int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   final isNew = (state.extra as bool?) ?? false;
-                  DebugConfig.nav('Router → EventDetail id=$id isNew=\$isNew');
+                  DebugConfig.nav('Router → EventDetail id=$id isNew=$isNew');
                   return AppTransitions.slideUp(
                       state, EventDetailScreen(itemId: id, isNew: isNew));
                 },
