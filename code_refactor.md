@@ -50,6 +50,8 @@
 ### 3.0 ✅ Επιβεβαιωμένα κλεισμένα (μην τα ξανακυνηγάτε)
 `trash deletedAt!` → 0· raw `int.parse` (appointment→`parseHabitTime`, collection_detail→`tryParse`· μένει μόνο `parseHex` `item_color_helper:51`)· `tags.first orElse` (contact/entries/journal)· `habit _isEditingTitle→false` (`habit_detail:75`)· `block_editor` postFrame delete `mounted`+`try` (`:39-48`)· `event cancel→save` (PopScope)· `onDeleteEmpty` wired (`task:573`,`event:709`,`journal:477`,appointment)· `journal _pendingContent` clear (`journal_detail:103`)· **contact notes loss S98** (`_saveNotesDirect`+`onNotesSaved`+setState)· contact favorite dirty· appointment notes save· **search/main misroute** → `AppRoutes.forType` (`main:76`,`app_router:76`)· calendar months → `AppDateUtils.monthFullNames` (`calendar:145`)· habit dead bell· item_list blind pops (`canPop:!isDragging`)· collection_detail raw `int.parse`· leftover `debugPrint`.
 
+- ✅ CLOSED 13/10/2026 (code-audit, μην τα ξανακυνηγάτε): MaterialPageRoute→AppTransitions S172· dark-hardcoded→tokens S169· event-double-AppBar→1 S183· raw-pops→safePop S180· mojibake-comments S178· contact-birthdays-calendar S177· contact-reactive-tags S170· _SelectField-listener S171· settings-batch S181· lock-PIN-state S182· appointment-HH:MM S184· habit-flag S185· collection-flags-reviewed S186· dispose-no-ref S187· habit-create-flash S188· entries-ValueKey-stable S189· gallery-downscale S179· router-$isNew S176· §7 S173· allowBackup=false S174· habit-Text('')-gone· calendar-old-dead-branch-gone· collection_detail-ValueKey-legit(:719)· entries-double-watch/postFrame-reviewed-no-change· syncProps-guarded· settings-disposes-accepted(S131).
+
 ### 3.1 Crash guards (Φ4c-41)
 - Βασικά κλεισμένα (βλ. 3.0).
 - ✅ CLOSED 13/10/2026 — `item_color_helper:51` (`parseHex` try/catch + warning + null-fallback, επαληθευμένο `:84-93`).
@@ -62,45 +64,45 @@
 
 ### 3.3 Routing (Φ4c-43)
 - ✅ CLOSED 13/10/2026 (S156) — calendar birthday path: επιλογή → `_createBirthdayEvent` (`:435,472`) με 🎂 + yearly reminder· ειδική με ✅ (`:437`).
-- 🟡 `MaterialPageRoute` αντί `AppTransitions` (×8): `item_list_screen:59,65`· `settings:1904,1909`· `habit_list:41,47`· `contact_list:35,43`.
+- ✅ CLOSED 13/10/2026 (S172) — `MaterialPageRoute`→`AppTransitions` (×8 + trash-slideUp + diagnostics-fade)· device ✅.
 - ✅ CLOSED 13/10/2026 — `app_router` EventDetail nav-log: `\$isNew` → `$isNew` (8/8 ομοιόμορφα).
 
 ### 3.4 Λίστες / queries (Φ4c-44)
-- 🟡 **N+1**: `calendar:25`· `collection_entries:497`· `journal_list:128`· `item_list_embedded:197,214`.
+- 🟡 **N+1**: ✅ calendar (S177 batch `getAllForItems`) · 🟡 `collection_entries:497` (per-card watch) · 🟡 `journal_list:67-75,128-129` (sequential awaits + Future-per-build) · 🟡 `item_list_embedded:228,245` (sync cache reads, cold-only fetches).
 - ✅ (S148) reorder σε φιλτραρισμένο υποσύνολο — SPoT `ReorderUtils.moveAndMerge` (subset → full merge) σε 8 sites (entries/item_list/embedded/habit/task/browser/collections/folder_view)· **device-verified 10/10/2026** (acceptance `[1,2,3]→[1,3,2]`, pipeline 1:1, 0 ERR/WRN).
 - ✅ (S141) `collections:69-72` — cascade κεντρικοποιήθηκε: `ItemNotifier.deleteItem` (type-aware· `project` → soft-delete εγγραφών πρώτα, μετά το root)· device ✅ 09/10/2026 (`run_log_d1d2.txt`, grid + Folder Browser).
 - ✅ (S142) `item_provider` — συμμετρικό lifecycle κάδου (F1): `_cascadeCollectionEntries` έγινε action-based και καλείται **και** από `restoreItem`/`permanentDelete` (`includeDeleted:true`) → restore συλλογής επαναφέρει τις εγγραφές της· permanent τις διαγράφει + καθαρίζει attachments. 1 αρχείο (497→498), 0 νέα public API· `analyze` clean + `test` 138/138· device ✅ 09/10/2026 (`run_log_f1.txt` — delete/restore/permanent με εγγραφές + `deleted file` attachment cleanup).
 - ✅ (S143) `item_provider` split (R1 <500): pinned/favorites streams → νέο `providers/pinned_provider.dart` (+ barrel export)· **498→442**· 0 νέα public API. Behavior (Fix #2): αρχειοθετημένα items = σίγαση OS reminders (`toggleArchive` cancel/reschedule · guard `_scheduleOne` · skip archived roots `refreshRecurringReminders` · Settings restore/delete → SPoT `ItemNotifier`)· `analyze` clean + `test` 138/138· device ✅ 09/10/2026 (`run_log_f2.txt` — ARCHIVED/SKIP, unarchive reschedule, delete cascade, 0 ERR).
-- 🟠 `journal_list:106` — retry σε λάθος provider· `:129` Future ανά build.
+- 🟠 `journal_list:106` — retry σε λάθος provider (OPEN, 1γρ.)· `:128-129` Future ανά build (OPEN, batch-pass).
 - 🟡 `collection_entries:166,169` — stale AppBar (widget αντί watched).
-- 🟡 `ValueKey` compound: `collection_detail:746`· `collection_entries:290`.
+- ✅ CLOSED 13/10/2026 — entries stable key (S189)· `collection_detail:719` = legit field-key (όχι accent-compound).
 
 ### 3.5 Providers / lifecycle (Φ4c-45)
-- 🔴 `contact:509,555,565` — `ref.read(itemTagsProvider)` σε build → tags μη-reactive (δεν refresh μετά add/remove).
+- ✅ CLOSED 13/10/2026 (S170) — 3× read→watch· device ✅.
 - 🟡 `ref.watch` σε `when`/itemBuilder: `journal_list:113`· `task_list:181`· `contact:499`· `collection_entries:497`· `item_list:157`· `contact_list:167`· `habit_list:184`.
-- 🟠 `collection_entries:1451` — `addListener` χωρίς `removeListener` (leak).
-- 🟠 `contact:249,267` — gallery photo χωρίς downscale (base64· μόνο 2MB guard· camera OK).
-- 🟡 controllers χωρίς `dispose`: `collection_detail:220-228`· `settings:802,1280,1928,1929,2013`.
-- 🟡 raw `Navigator.pop` αντί `safePop` (~8 detail screens).
-- 🟡 `settings:538-539,1701` — per-row `FutureBuilder` + `SuperNoteHelper.instance` άμεσα.
-- 🟡 `lock_screen:29,45,82,60,159` — triple-fetch, race pinLength/biometric, `_pinCtrl.text+=`, no try-catch, biometric μόνο μετά αποτυχία.
-- 🟡 `collection_entries:430` — postFrame callback κάθε build.
+- ✅ CLOSED 13/10/2026 (S171) — named + dispose + didUpdateWidget· device ✅.
+- ✅ CLOSED 13/10/2026 (S179) — κοινό `_storePickedPhoto` (1024/85)· **device ✅ (13/10/2026):** PASS, 0 ERR.
+- 🟡 controllers χωρίς `dispose`: settings ✅ accepted (S131 docs ×4, S120)· `collection_detail:191-199` dialog-ctrls → doc-parity (OPEN micro, 0 κώδικα).
+- ✅ CLOSED 13/10/2026 (S180) — 7 screens → `safePop`· έμεινε 1 νόμιμο guarded (`appointment:574`, dialog-ctx)· device ✅.
+- ✅ CLOSED 13/10/2026 (S181) — `getByIds` batch + dbProvider· device ✅.
+- ✅ CLOSED 13/10/2026 (S182) — single-load+cache, `String _pin`, try/catch· device ✅.
+- ✅ REVIEWED 13/10/2026 — postFrames guarded (setEquals `:454`, one-shot flag `:212`, reset `:95`)· no-change.
 
 ### 3.6 Theming / tokens / a11y (Φ4c-46)
-- 🟡 Hardcoded `Colors.*`: `event:663-673` (green box)· `calendar:372-389` (indigo/pink/amber)· `main:375,416`· `reminder_diagnostics:232,264,272`.
+- ✅ CLOSED 13/10/2026 (S169) — tokens + shared consts· `main` parked (const, χωρίς context)· **device ✅ (13/10/2026):** eyeball PASS, 0 ERR.
 - 🟡 `event:432,830` — ✅ CLOSED 13/10/2026 (S183: 1 widget, device tablet PASS) · 6 actions (overflow risk — αν σκάσει, overflow-menu follow-up).
-- 🟡 `calendar:410,441` — διπλό `_createEvent`/`_createEventWithIcon`· ✅ CLOSED 13/10/2026: error SnackBar και στα 2 (`:464-465,512-513`)· `:637-656` νεκρό branch (identical render) — ανοιχτό.
+- 🟡 `calendar:476,554` — διπλό `_createEvent`/`_createEventWithIcon`· `_createEventWithIcon:575-577` catch ΧΩΡΙΣ SnackBar (OPEN parity)· παλιό dead branch `:637-656` ✅ GONE (restructured S156/S177)· νέο identical-pair `:753-772` (OPEN merge −11γρ.).
 - 🟡 Ετυμολογία: `calendar:214`·`journal_list:195` «συμπιεσμένων»→«αρχειοθετημένων».
-- 🟡 mojibake comments: `collection_detail:97-121`·`collection_entries:719-751`·`contact:202,209`.
-- 🟡 `const`: `journal_list:419`·`habit_list:450`.
+- ✅ CLOSED 13/10/2026 (S178) — ξαναγραφή από context· grep `�` = 0.
+- 🟡 `const`: habit ✅ (const ctor)· journal `_LoadingList:419` OPEN (1 micro).
 - ⏳ **a11y (48px/Semantics)** — ξεχωριστό device pass.
 
 ### 3.7 🆕 Νέα ευρήματα (audit)
-- `calendar:441` error swallow · `calendar:637-656` dead branch (βλ. 3.6).
-- `contact:_syncPropsFromDB` (`:692`) — full sync κάθε rebuild όταν email κενό.
-- `habit_detail:253` — νεκρό `Text('')` στον spinner.
-- `appointment:226` — time unpadded `9:5`.
-- `collection_entries` — διπλό watch (`:143`+`:344`).
+- ✅ `_createEventWithIcon` catch ΧΩΡΙΣ SnackBar (OPEN parity, βλ. 3.6)· παλιό dead branch GONE· νέο identical-pair `:753-772` (OPEN, βλ. 3.6).
+- ✅ REVIEWED 13/10/2026 — guarded (`isEmpty`/`_lastEmail`/one-shot flag)· μένει micro-cost in-memory (όχι DB)· no-change ή 2γρ. flag.
+- ✅ CLOSED 13/10/2026 — εξαφανισμένο (grep 0).
+- ✅ CLOSED 13/10/2026 (S184) — padLeft· device ✅.
+- ✅ REVIEWED 13/10/2026 — shared stream watches (0 extra queries)· no-change.
 
 ### 3.8 Παλιό §3 — Ποιότητα (ΔΕΝ επανελέγχθηκε σε αυτό το audit)
 > Διατηρείται για να μη χαθεί· επανέλεγχος πριν από Φ4c-46.
