@@ -1917,6 +1917,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (flag micro-fix).
 
+## Session 189 — 13/10/2026 (Entries ValueKey σταθερό)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** compound key με accent → remount + scroll-jump σε αλλαγή χρώματος (§3.4).
+
+**Υλοποίηση:** V1 key → `'entries_${collection.id}'` (scoping κρατιέται, χρώμα από params).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (χρώμα→scroll-μένει+reorder+rotation).
+
+**Backups:** `backups/entries_key/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (1 γραμμή key).
+
 ## Session 188 — 13/10/2026 (Habit create-flash guard)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** κάρτα-φάντασμα σε empty + (create→stream→push race).

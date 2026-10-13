@@ -14,7 +14,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 138/138 🟢 (`flutter test`) |
+| Test suite | 178/178 🟢 (`flutter test`) |
 
 ---
 
@@ -95,7 +95,8 @@ lib/
 │       ├── reminder_picker.dart  — Reminder time picker
 │       ├── image_utils.dart      — avatarProvider/ResizeImage, fileThumb, checkMaxBytes
 │       ├── contact_props.dart    — ContactProps.fromProperties (SPoT)
-│       └── app_errors.dart       — Κεντρικά user-facing strings (AppErrors)
+│       ├── app_errors.dart       — Κεντρικά user-facing strings (AppErrors)
+│       └── reorder_utils.dart    — SPoT moveAndMerge subset→full (S148)
 ├── models/
 │   ├── models.dart               — Barrel export
 │   ├── item.dart                 — Item collection (core entity)
@@ -111,7 +112,8 @@ lib/
 │   ├── user.dart                 — User collection
 │   ├── device.dart               — Device collection
 │   ├── app_settings.dart         — AppSettings singleton
-│   └── recurrence.dart           — Recurrence (not Isar, plain Dart class)
+│   ├── recurrence.dart           — Recurrence (not Isar, plain Dart class)
+│   └── item_type_label.dart      — ItemTypeX.labelGr SPoT (S70)
 ├── providers/
 │   ├── providers.dart            — Barrel export
 │   ├── db_provider.dart          — SuperNoteHelper instance
@@ -141,7 +143,8 @@ lib/
 │   ├── app_lock_service.dart     — PIN (SHA-256) + biometric
 │   ├── shared_intent_service.dart — Λήψη κοιν/νου content (share intent)
 │   ├── contact_import_service.dart — Import device contacts
-│   └── share_service.dart        — Share items
+│   ├── share_service.dart        — Share items
+│   └── security_service.dart     — FLAG_SECURE MethodChannel (S165)
 ├── helpers/
 │   ├── super_note_helper.dart    — Singleton + sub-repositories (ItemRepository, etc.)
 │   └── item_color_helper.dart    — Background/text colors per ItemType
@@ -150,11 +153,14 @@ lib/
 │   │   ├── home.dart             — Barrel
 │   │   ├── home_screen.dart      — Main home with pinned/favorites/recent
 │   │   ├── home_folder_view.dart — Folder-specific view
-│   │   └── folder_browser_screen.dart — Browse all folders
+│   │   ├── folder_browser_screen.dart — Browse all folders
+│   │   ├── folder_browser_filter.dart — Type filter chips (split S100)
+│   │   └── folder_browser_items.dart — Items list/grid (split S100)
 │   ├── notes/
 │   │   ├── notes.dart            — Barrel
 │   │   ├── note_list_screen.dart — All notes list
-│   │   └── note_detail_screen.dart — Note editor with blocks
+│   │   ├── note_detail_screen.dart — Note editor with blocks
+│   │   └── note_detail_widgets.dart — Detail body + metadata (split S93)
 │   ├── tasks/
 │   │   ├── tasks.dart            — Barrel
 │   │   ├── task_list_screen.dart — Tasks with subtasks, due dates
@@ -179,7 +185,9 @@ lib/
 │   │   ├── collections.dart      — Barrel
 │   │   ├── collections_screen.dart — All collections
 │   │   ├── collection_detail_screen.dart — Single collection
-│   │   └── collection_entries_screen.dart — Collection items
+│   │   ├── collection_entries_screen.dart — Collection items
+│   │   ├── collection_fields.dart — FieldType/FieldDef model (split S94)
+│   │   └── knowledge_entry_nav.dart — Knowledge entry routing (S91)
 │   ├── appointments/
 │   │   ├── appointments.dart     — Barrel
 │   │   ├── appointment_list_screen.dart — Appointments list
@@ -217,7 +225,18 @@ lib/
         ├── reminder_section.dart  — Reminder date/time picker
         ├── view_mode_toggle.dart  — Pinned/Favorites/All toggle
         ├── archive_helper.dart    — Central archive/unarchive function
-        └── reorder_handle.dart    — Drag handle icon
+        ├── reorder_handle.dart    — Drag handle icon
+        ├── sheet_handle.dart      — Bottom-sheet grabber SPoT (S64)
+        ├── item_actions_sheet.dart — Long-press actions sheet SPoT (S65)
+        ├── folder_form_dialog.dart — Folder create/edit form SPoT (S66)
+        ├── search_clear_button.dart — Live clear-X button SPoT (S67)
+        ├── link_text.dart         — URL extract + launcher SPoT (S59)
+        ├── shared_intent_sheet.dart — Share-intent save sheet (S59)
+        ├── folder_create_sheet.dart — Folder create type picker (S90)
+        ├── safe_sheet.dart        — Scroll-safe sheet shell SPoT (S109)
+        ├── safe_dialog.dart       — Scroll-safe dialog body (S109)
+        ├── attachments_strip.dart — Shared attachments strip SPoT (S136)
+        └── reminder_recurrence_picker.dart — Recurrence picker (split S166)
 ```
 
 ---
@@ -874,7 +893,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (138/138 🟢) |
+| `flutter test` | Πλήρες suite (178/178 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |
