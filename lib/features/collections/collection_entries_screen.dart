@@ -310,7 +310,7 @@ class _CollectionEntriesScreenState
               error: (e, _) => EmptyState.error(),
               data: (allItems) {
                 return _EntriesList(
-                  key: ValueKey('entries_${accentColor.toARGB32()}'),
+                  key: ValueKey('entries_${widget.collection.id}'),
                   collectionId: widget.collection.id,
                   fields: fields,
                   accentColor: accentColor,
