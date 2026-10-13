@@ -1875,7 +1875,7 @@
 
 **Υλοποίηση:** K1 single-load+cache (bio σειριοποιημένο) · K2 `String _pin` (controller έξω) · K3 try/catch · hash-refresh άμεσο (όχι provider-read race).
 
-**Επαλήθευση:** `analyze` clean (διορθώθηκε 1 `use_build_context_synchronously`) · `flutter test` → **178/178** · device PIN-matrix εκκρεμεί (digits/backspace/submit/wrong×5→lockout/auto-clear/upgrade/bio/rotation/kill→lock).
+**Επαλήθευση:** `analyze` clean (διορθώθηκε 1 `use_build_context_synchronously`) · `flutter test` → **178/178** · **device ✅ (13/10/2026, user verdict):** digits/dots/backspace/submit, wrong×5→lockout→auto-clear, unlock, bio on/off, rotation, kill→lock, 0 ERR.
 
 **Backups:** `backups/lock_pinstate/` (dart + oldsessions.pre + BASE_HEAD).
 
