@@ -172,8 +172,10 @@ class _CollectionDetailScreenState
   }
 
   void _removeField(int index) {
-    setState(() => _fields.removeAt(index));
-    _hasChanges = true;
+    setState(() {
+      _fields.removeAt(index);
+      _hasChanges = true;
+    });
   }
 
   void _reorderFields(int oldIndex, int newIndex) {
@@ -181,8 +183,8 @@ class _CollectionDetailScreenState
       if (newIndex > oldIndex) newIndex--;
       final f = _fields.removeAt(oldIndex);
       _fields.insert(newIndex, f);
+      _hasChanges = true;
     });
-    _hasChanges = true;
   }
 
   void _showFieldEditor(FieldDef? existing, int index) {
@@ -634,8 +636,10 @@ class _CollectionDetailScreenState
             final isActive = _color == hex;
             return GestureDetector(
               onTap: () {
-                setState(() => _color = hex);
-                _hasChanges = true;
+                setState(() {
+                  _color = hex;
+                  _hasChanges = true;
+                });
               },
               child: AnimatedContainer(
                 duration: AppDuration.fast,
