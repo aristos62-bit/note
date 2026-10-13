@@ -1924,3 +1924,15 @@
 **Backups:** `backups/router_log/` (dart + oldsessions.pre + BASE_HEAD).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (1 char log, όχι layer).
+
+## Session 177 — 13/10/2026 (Γενέθλια επαφών στο ημερολόγιο + διάλογος μικτής)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** επαφές αόρατες στο calendar (φίλτρο `type==event` ×2) — Σταυρούλα 18/10 χωρίς φούξια.
+
+**Υλοποίηση:** D1 pure `contactBirthdayDay` + 4 tests · D2 map += birthdays (batch `getAllForItems`, 1 query) · D3 contact→birthday marker · D4 `allowMixedTypes` (default false) + per-item archive label + didUpdate compare · D5 `_onDayTap/_openDayItem` (mobile+tablet κοινά): μόνη επαφή→κατευθείαν, μικτή→ΝΑΙ/ΟΧΙ (`ConfirmDialog`, cake), row→απευθείας detail.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** (4 νέα) · device retest εκκρεμεί (φούξια Οκτωβρίου + tap/ΝΑΙ/ΟΧΙ + roundtrip + rotation/Feb).
+
+**Backups:** `backups/contact_bday_cal/` (3 pre + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (display + dialog, όχι layer — precedent S160).

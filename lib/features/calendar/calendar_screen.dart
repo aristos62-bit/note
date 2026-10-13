@@ -8,6 +8,7 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../helpers/item_color_helper.dart';
 import 'event_detail_screen.dart';
+import '../contacts/contact_detail_screen.dart';
 import '../../services/services.dart';
 
 // ── Τύποι δημιουργίας συμβάντος ─────────────────────────────
@@ -59,6 +60,33 @@ final _monthEventsProvider =
     final key = DateTime(month.year, month.month, day);
     final list = result.putIfAbsent(key, () => []);
     if (!list.any((e) => e.id == event.id)) list.add(event);
+  }
+
+  // Γενέθλια επαφών (display-only, ίδιο Item — tap ανοίγει την επαφή).
+  // Batch props (1 query, όχι N+1 όπως τα events).
+  final contacts = allItems.where((i) => i.type == ItemType.contact).toList();
+  if (contacts.isNotEmpty) {
+    final propsMap = await ref
+        .read(dbProvider)
+        .properties
+        .getAllForItems([for (final c in contacts) c.id]);
+    var added = 0;
+    for (final c in contacts) {
+      final props = propsMap[c.id] ?? const [];
+      final bStr =
+          props.where((p) => p.key == 'birthday').firstOrNull?.value;
+      final b = bStr != null ? DateTime.tryParse(bStr) : null;
+      if (b == null) continue;
+      final day = contactBirthdayDay(b, month.year, month.month);
+      if (day == null) continue;
+      final key = DateTime(month.year, month.month, day);
+      final list = result.putIfAbsent(key, () => []);
+      if (!list.any((e) => e.id == c.id)) {
+        list.add(c);
+        added++;
+      }
+    }
+    DebugConfig.db('Calendar month ${month.month}/${month.year}: contact birthdays added=$added');
   }
   return result;
 });
@@ -261,6 +289,47 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     );
   }
 
+  /// Κοινό tap ημέρας (mobile + tablet): ορίζει selectedDay και, σε
+  /// μικτή ημέρα (birthday-event + επαφή), ρωτά για την επαφή.
+  Future<void> _onDayTap(DateTime day, Map<DateTime, List<Item>> dayMap) async {
+    final prev = ref.read(_selectedDayProvider);
+    ref.read(_selectedDayProvider.notifier).state = day;
+    DebugConfig.nav('Calendar day selected $day');
+    if (day == prev || !mounted) return;
+    final items = dayMap[day] ?? const [];
+    final events = items.where((i) => i.type == ItemType.event).toList();
+    final contacts =
+        items.where((i) => i.type == ItemType.contact).toList()
+          ..sort((a, b) => a.id.compareTo(b.id));
+    if (contacts.isEmpty) return;
+    if (events.isEmpty) {
+      // Μόνο επαφές: 1 → κατευθείαν, πολλές → λίστα (rows ανοίγουν).
+      if (contacts.length == 1 && mounted) _openDayItem(contacts.first);
+      return;
+    }
+    final hasEventBday =
+        events.any((i) => ItemColorHelper.isBirthdayEvent(i));
+    if (!hasEventBday || !mounted) return;
+    final open = await ConfirmDialog.show(
+      context,
+      title: 'Γενέθλια',
+      subtitle: 'Υπάρχουν γενέθλια και από επαφή. Να ανοίξει η επαφή;',
+      confirmLabel: 'Ναι',
+      cancelLabel: 'Όχι',
+      icon: Icons.cake_rounded,
+    );
+    if (open && mounted) _openDayItem(contacts.first);
+    DebugConfig.nav('Calendar mixed birthday dialog open=$open');
+  }
+
+  /// Κοινό άνοιγμα γραμμής ημέρας (mobile + tablet): επαφή → ContactDetail.
+  void _openDayItem(Item item) {
+    final page = item.type == ItemType.contact
+        ? ContactDetailScreen(itemId: item.id)
+        : EventDetailScreen(itemId: item.id);
+    Navigator.of(context).push(AppTransitions.slideRoute(page));
+  }
+
   Widget _buildMobile(
     BuildContext context,
     WidgetRef ref,
@@ -277,10 +346,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           selectedDay: selectedDay,
           // ✅ Περνάμε ολόκληρο το map (items με icon info)
           dayEvents: monthAsync.valueOrNull ?? {},
-          onDayTap: (day) {
-            DebugConfig.nav('Calendar day selected $day');
-            ref.read(_selectedDayProvider.notifier).state = day;
-          },
+          onDayTap: (day) => _onDayTap(day, monthAsync.valueOrNull ?? {}),
         ),
         const Divider(height: 1),
         _DayHeader(day: selectedDay),
@@ -294,9 +360,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
             showFolderSelector: false,
             onlyIds: dayIds,
             dayLoading: dayLoading,
-            onItemTap: (item) => Navigator.of(context).push(
-              AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
-            ),
+            allowMixedTypes: true,
+            onItemTap: (item) => _openDayItem(item),
             onShare: (item) => ShareService.shareItem(context, item.id),
           ),
         ),
@@ -324,10 +389,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                   focusedMonth: focusedMonth,
                   selectedDay: selectedDay,
                   dayEvents: monthAsync.valueOrNull ?? {},
-                  onDayTap: (day) {
-                    DebugConfig.nav('Calendar day selected $day');
-                    ref.read(_selectedDayProvider.notifier).state = day;
-                  },
+                  onDayTap: (day) => _onDayTap(day, monthAsync.valueOrNull ?? {}),
                 ),
                 const Divider(height: 1),
               ],
@@ -350,9 +412,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                   showFolderSelector: false,
                   onlyIds: dayIds,
                   dayLoading: dayLoading,
-                  onItemTap: (item) => Navigator.of(context).push(
-                    AppTransitions.slideRoute(EventDetailScreen(itemId: item.id)),
-                  ),
+                  allowMixedTypes: true,
+                  onItemTap: (item) => _openDayItem(item),
                   onShare: (item) => ShareService.shareItem(context, item.id),
                 ),
               ),
@@ -620,6 +681,9 @@ class _MonthGrid extends ConsumerWidget {
     final types = <_DayMarkerType>{};
     for (final item in items) {
       if (ItemColorHelper.isBirthdayEvent(item)) {
+        types.add(_DayMarkerType.birthday);
+      } else if (item.type == ItemType.contact) {
+        // Γενέθλιο επαφής (στο map μπαίνει μόνο σε επέτειο) — φούξια.
         types.add(_DayMarkerType.birthday);
       } else if (ItemColorHelper.isSpecialDayEvent(item)) {
         types.add(_DayMarkerType.specialDay);
