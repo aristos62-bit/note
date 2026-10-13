@@ -1899,7 +1899,7 @@
 
 **Υλοποίηση:** F1 habit `:68` reset (2γρ.) · tracker §3.2 updates.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (type→revert→DB-change→sync).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, user verdict):** revert→sync, κανονικό save, 0 ERR.
 
 **Backups:** `backups/flags_fix/` (dart + tracker.pre + oldsessions.pre + BASE_HEAD).
 
