@@ -1863,7 +1863,7 @@
 
 **Υλοποίηση:** T1 `ItemRepository.getByIds` (pattern) · T2 deletes → `dbProvider` (invalidates ίδια) · T3 rows → Map (φόρτωση `:422`) · T4 imported → batch (φίλτρο) · +mounted-guard (lint).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (30-rows/single/bulk/auto-pop/imported/rotation).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, user verdict):** άμεσοι τίτλοι (1 batch), single/bulk/όλων (auto-pop), imported-dialog, rotation, 0 ERR.
 
 **Backups:** `backups/settings_batch/` (2 pre + oldsessions.pre + BASE_HEAD).
 
