@@ -1845,6 +1845,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (0 νέα API).
 
+## Session 171 — 13/10/2026 (Listener leak σε `_SelectField`, Φ4c-45)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** ανώνυμο `addListener` σε ξένο ctrl χωρίς unsubscribe (planned `code_refactor §3.5:81`).
+
+**Υλοποίηση:** named `_onCtrlChanged` + `dispose` remove + defensive `didUpdateWidget` (child ποτέ dispose ξένου ctrl, S120).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · device retest εκκρεμεί (saved-φαίνεται/tap/scroll-out-in/type-change).
+
+**Backups:** `backups/select_listener/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (lifecycle micro-fix, όχι layer).
+
 ## Session 169 — 13/10/2026 (Dark hardcoded → tokens, Φ4c-46)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** hardcoded χρώματα σε dark (event green box, calendar options/dots, diagnostics, tasks `_green` ×2, contact cake). `main` parked (const, χωρίς context). Settings παλέτες εκτός (δεδομένα χρήστη).

@@ -1473,9 +1473,27 @@ class _SelectFieldState extends State<_SelectField> {
   void initState() {
     super.initState();
     _selected = widget.ctrl?.text;
-    widget.ctrl?.addListener(() {
-      if (mounted) setState(() => _selected = widget.ctrl?.text);
-    });
+    widget.ctrl?.addListener(_onCtrlChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SelectField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ctrl != widget.ctrl) {
+      oldWidget.ctrl?.removeListener(_onCtrlChanged);
+      _selected = widget.ctrl?.text;
+      widget.ctrl?.addListener(_onCtrlChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.ctrl?.removeListener(_onCtrlChanged);
+    super.dispose();
+  }
+
+  void _onCtrlChanged() {
+    if (mounted) setState(() => _selected = widget.ctrl?.text);
   }
 
   @override
