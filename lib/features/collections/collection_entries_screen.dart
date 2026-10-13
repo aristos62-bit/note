@@ -741,12 +741,12 @@ class _CollectionEntryDetailScreenState
     final title = _titleCtrl.text.trim();
     DebugConfig.db('EntryDetail save id=${widget.entryId} title=${AppStringUtils.redact(title)}');
 
-    // 1. ??lo?
+    // 1. Τίτλος
     await ref
         .read(itemNotifierProvider.notifier)
         .updateItem(widget.entryId, title: title.isEmpty ? null : title);
 
-    // 2. ?�λα τα properties παράλληλα
+    // 2. Όλα τα properties παράλληλα
     final notifier = ref.read(propertyNotifierProvider(widget.entryId).notifier);
     await Future.wait(widget.fields.where((f) => f.key.isNotEmpty).map((f) {
       switch (f.type) {

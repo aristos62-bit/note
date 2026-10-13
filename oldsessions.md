@@ -1925,6 +1925,16 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (1 char log, όχι layer).
 
+## Session 178 — 13/10/2026 (Mojibake σχόλια — καθαρισμός)
+
+**Scope:** φθορά encoding σε σχόλια (μόνο σχόλια, κώδικας άθικτος): journal `:85,112`, collection_detail `:97`, entries `:744,749`. Ανάκτηση από backups αδύνατη (παλιά φθορά) — ξαναγραφή από context. Τα `???` είναι original στυλ, δεν αγγίχτηκαν.
+
+**Υλοποίηση (edit-tool only):** `Κοινή save logic` · `wrapper για executeSave` · `Τίτλος + χρώμα…διαβάζει το card` · `Τίτλος` · `Όλα τα properties παράλληλα`.
+
+**Επαλήθευση:** grep `�` σε `lib/` → 0 · `analyze` clean.
+
+**Backups:** `backups/mojibake_comments/` (3 pre).
+
 ## Session 177 — 13/10/2026 (Γενέθλια επαφών στο ημερολόγιο + διάλογος μικτής)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** επαφές αόρατες στο calendar (φίλτρο `type==event` ×2) — Σταυρούλα 18/10 χωρίς φούξια.
