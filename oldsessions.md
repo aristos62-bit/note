@@ -1887,7 +1887,7 @@
 
 **Υλοποίηση:** A1 `:226` padLeft (ίδιο με `:472,501`) · reader/display άθικτα (self-heal, 0 migration).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (save→`09:05`→reopen + παλιά `9:5`).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, pid 24166):** 480+481 create→save→reopen→delete cascade, 0 `invalid time` warnings (= parse OK), 0 ERR.
 
 **Backups:** `backups/appt_time/` (dart + oldsessions.pre + BASE_HEAD).
 
