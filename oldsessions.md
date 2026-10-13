@@ -2108,3 +2108,15 @@
 **Backups:** `backups/journal_batch/` (3 pre + BASE_HEAD).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (batch + signal, όχι layer).
+
+## Session 192 — 13/10/2026 (Journal create-flash guard — S188 parity)
+
+**Σύμπτωμα (device, user):** άδειο journal → νέα εγγραφή → φλας λίστας με 1 κάρτα πίσω από το detail (ίδιο με habits S188).
+
+**Fix (`journal_list_screen.dart`, 4 micro, καθρέφτης `habit_list:33-50,94,114`):** `_creating` guard + `await push` + finally · FAB-null · `data → _LoadingList` όσο δημιουργείται.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **186/186** · **device ✅ (13/10/2026, user verdict):** 0-flash, back τίτλος/κενό, double-tap 1 εγγραφή, rotation, 0 ERR.
+
+**Backups:** `backups/journal_createflash/` (dart.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (loading-guard, όχι layer).
