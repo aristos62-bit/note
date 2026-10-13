@@ -65,7 +65,10 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
 
   Future<void> _saveTitle(String title) async {
     if (!mounted) return;
-    if (title == _lastSavedTitle) return;
+    if (title == _lastSavedTitle) {
+      _isEditingTitle = false;
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       await ref
