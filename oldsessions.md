@@ -1912,3 +1912,15 @@
 **Ανοιχτά (επαληθευμένα):** `app_router:221` literal · «συμπιεσμένων» ×8 · mojibake σχόλια ×4 · gallery downscale · raw pops ×12 · settings instance · lock · event διπλό AppBar · appointment `9:5` · habit/collection flags · ValueKey · N+1/υπόλοιπα §3.x προς εξάντληση.
 
 **Backups:** `backups/close_verified4/` (code_refactor.pre + oldsessions.pre).
+
+## Session 176 — 13/10/2026 (router nav-log `\$isNew`, §3.3)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** literal `$isNew` στο EventDetail nav-log (μοναδικό από τα 8).
+
+**Υλοποίηση:** διαγραφή `\` (`:221`). 8/8 ομοιόμορφα.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · device: 1 open event (log `isNew=<τιμή>`).
+
+**Backups:** `backups/router_log/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (1 char log, όχι layer).

@@ -63,7 +63,7 @@
 ### 3.3 Routing (Φ4c-43)
 - ✅ CLOSED 13/10/2026 (S156) — calendar birthday path: επιλογή → `_createBirthdayEvent` (`:435,472`) με 🎂 + yearly reminder· ειδική με ✅ (`:437`).
 - 🟡 `MaterialPageRoute` αντί `AppTransitions` (×8): `item_list_screen:59,65`· `settings:1904,1909`· `habit_list:41,47`· `contact_list:35,43`.
-- 🟡 `app_router:207` — log τυπώνει literal `\$isNew`.
+- ✅ CLOSED 13/10/2026 — `app_router` EventDetail nav-log: `\$isNew` → `$isNew` (8/8 ομοιόμορφα).
 
 ### 3.4 Λίστες / queries (Φ4c-44)
 - 🟡 **N+1**: `calendar:25`· `collection_entries:497`· `journal_list:128`· `item_list_embedded:197,214`.
