@@ -28,6 +28,11 @@ import 'db_provider.dart';
 /// ΔΕΝ αυξάνεται από PropertyNotifier (δεν επηρεάζονται tasks/notes κλπ).
 final propertyWriteVersionProvider = StateProvider<int>((ref) => 0);
 
+/// Αυξάνεται από journal detail ΜΟΝΟ μετά από entry_date write.
+/// Το βλέπει ο batch provider ημερομηνιών της λίστας journal.
+/// ΜΟΝΟ writer: _setEntryDate (journal_detail_screen.dart) — content/mood αγνοούνται σκόπιμα.
+final journalDatesVersionProvider = StateProvider<int>((ref) => 0);
+
 // ── Read providers ────────────────────────────────────────────────
 
 /// Όλα τα properties ενός item

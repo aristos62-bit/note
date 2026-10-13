@@ -165,6 +165,8 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
     await ref
         .read(propertyNotifierProvider(widget.itemId).notifier)
         .setDate('entry_date', date);
+    // Signal λίστας (sole-writer contract): entry_date γράφεται ΜΟΝΟ εδώ.
+    ref.read(journalDatesVersionProvider.notifier).state++;
     if (mounted) setState(() => _entryDate = date);
   }
 
