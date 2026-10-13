@@ -397,11 +397,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           onFavorite: _toggleFavorite,
           onArchive: _archive,
           onDelete: () => _delete(context),
-          brightness: context.brightness,
-          primaryColor: context.cPrimary,
-          textColor: context.cText,
-          text2Color: context.cText2,
-          errorColor: context.cError,
         ),
         body: _EventBody(
           item: item,
@@ -418,7 +413,18 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
   Widget _buildTablet(BuildContext context, Item item) => Scaffold(
         backgroundColor: context.cBg,
-        appBar: _buildAppBar(context, item),
+        appBar: _EventDetailAppBar(
+          isSaving: _isSaving,
+          isPinned: _isPinned,
+          isFavorite: _isFavorite,
+          isArchived: _isArchived,
+          onSave: _save,
+          onReminder: _showReminderDialog,
+          onPin: _togglePinned,
+          onFavorite: _toggleFavorite,
+          onArchive: _archive,
+          onDelete: () => _delete(context),
+        ),
         body: Row(
           children: [
             SizedBox(
@@ -449,70 +455,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             ),
           ],
         ),
-      );
-
-  AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
-        backgroundColor: context.cBg,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        title: _isSaving
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : null,
-        actions: [
-          // Save
-          IconButton(
-            icon: Icon(Icons.save_rounded, color: context.cPrimary),
-            tooltip: 'Αποθήκευση',
-            onPressed: _save,
-          ),
-          // Reminder
-          IconButton(
-            icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
-            onPressed: _showReminderDialog,
-            tooltip: 'Υπενθύμιση',
-          ),
-          // Pin
-          IconButton(
-            icon: Icon(
-              _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-              color: _isPinned ? context.cPrimary : context.cText2,
-            ),
-            onPressed: _togglePinned,
-            tooltip: _isPinned ? 'Ξεκαρφίτσωμα' : 'Καρφίτσωμα',
-          ),
-          // Favorite
-          IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: _isFavorite
-                  ? ColorsUI.getWarning(context.brightness)
-                  : context.cText2,
-            ),
-            onPressed: _toggleFavorite,
-            tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-          ),
-          // Archive
-          IconButton(
-            icon: Icon(
-              item.archived
-                  ? Icons.unarchive_rounded
-                  : Icons.archive_rounded,
-              color: context.cText2,
-            ),
-            onPressed: _archive,
-            tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-          ),
-          // Delete
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-            onPressed: () => _delete(context),
-            tooltip: 'Διαγραφή',
-          ),
-        ],
       );
 
   Widget _buildLoading() => Scaffold(
@@ -863,12 +805,6 @@ class _EventDetailAppBar extends StatelessWidget
   final VoidCallback onArchive;
   final VoidCallback onDelete;
 
-  final Brightness brightness;
-  final Color primaryColor;
-  final Color textColor;
-  final Color text2Color;
-  final Color errorColor;
-
   const _EventDetailAppBar({
     required this.isSaving,
     required this.isPinned,
@@ -880,11 +816,6 @@ class _EventDetailAppBar extends StatelessWidget
     required this.onFavorite,
     required this.onArchive,
     required this.onDelete,
-    required this.brightness,
-    required this.primaryColor,
-    required this.textColor,
-    required this.text2Color,
-    required this.errorColor,
   });
 
   @override
@@ -893,7 +824,7 @@ class _EventDetailAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: ColorsUI.getSurface(brightness),
+      backgroundColor: context.cBg,
       elevation: 0,
       scrolledUnderElevation: 1,
       title: isSaving
@@ -905,19 +836,19 @@ class _EventDetailAppBar extends StatelessWidget
           : null,
       actions: [
         IconButton(
-          icon: Icon(Icons.save_rounded, color: primaryColor),
+          icon: Icon(Icons.save_rounded, color: context.cPrimary),
           tooltip: 'Αποθήκευση',
           onPressed: onSave,
         ),
         IconButton(
-          icon: Icon(Icons.notifications_none_rounded, color: text2Color),
+          icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
           onPressed: onReminder,
           tooltip: 'Υπενθύμιση',
         ),
         IconButton(
           icon: Icon(
             isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            color: isPinned ? primaryColor : text2Color,
+            color: isPinned ? context.cPrimary : context.cText2,
           ),
           tooltip: isPinned ? 'Ξεκαρφίτσωμα' : 'Καρφίτσωμα',
           onPressed: onPin,
@@ -925,25 +856,27 @@ class _EventDetailAppBar extends StatelessWidget
         IconButton(
           icon: Icon(
             isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: isFavorite ? ColorsUI.getWarning(brightness) : text2Color,
+            color: isFavorite
+                ? ColorsUI.getWarning(context.brightness)
+                : context.cText2,
           ),
           tooltip: isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
           onPressed: onFavorite,
-        ),
-        IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: errorColor),
-          tooltip: 'Διαγραφή',
-          onPressed: onDelete,
         ),
         IconButton(
           icon: Icon(
             isArchived
                 ? Icons.unarchive_rounded
                 : Icons.archive_rounded,
-            color: text2Color,
+            color: context.cText2,
           ),
           onPressed: onArchive,
           tooltip: isArchived ? 'Επαναφορά' : 'Αρχειοθέτηση',
+        ),
+        IconButton(
+          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
+          tooltip: 'Διαγραφή',
+          onPressed: onDelete,
         ),
       ],
     );
