@@ -127,10 +127,16 @@ class _FolderChipSelectorState extends ConsumerState<FolderChipSelector> {
                       icon: folder.icon ?? '📁',
                       isSelected: widget.selectedFolderId == folder.id,
                       color: folderColor,
-                      onTap: () => widget.onSelect(folder.id),
+                      onTap: () {
+                        DebugConfig.nav('FolderChip select id=${folder.id}');
+                        widget.onSelect(folder.id);
+                      },
                       isDragOver: isDragOver,
                       onMoreTap: (!isSystem && widget.onFolderLongPress != null)
-                          ? () => widget.onFolderLongPress!(folder)
+                          ? () {
+                              DebugConfig.nav('FolderChip menu id=${folder.id}');
+                              widget.onFolderLongPress!(folder);
+                            }
                           : null,
                     ),
                   );
@@ -235,28 +241,23 @@ class _FolderChip extends StatelessWidget {
                 child: GestureDetector(
                   onTap: onMoreTap,
                   behavior: HitTestBehavior.opaque,
-                  // 48px hit-target, οπτικά αμετάβλητο (κύκλος 20px πάνω-δεξιά).
+                  // Στενή ζώνη = ο οπτικός κύκλος (pattern συλλογών):
+                  // αόρατο κουτί 48px καταπίνει taps της κάρτας.
                   child: Tooltip(
                     message: 'Επιλογές φακέλου',
                     child: Container(
-                      width: 48,
-                      height: 48,
-                      color: Colors.transparent,
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Colors.white.withValues(alpha: 0.25)
-                              : color.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.more_vert_rounded,
-                          size: 13,
-                          color: isSelected ? Colors.white : color,
-                        ),
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.white.withValues(alpha: 0.25)
+                            : color.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.more_vert_rounded,
+                        size: 13,
+                        color: isSelected ? Colors.white : color,
                       ),
                     ),
                   ),
