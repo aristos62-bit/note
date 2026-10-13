@@ -1902,3 +1902,13 @@
 **Backups:** `backups/nobackup_manifest/` (manifest + DESIGN.pre + oldsessions.pre).
 
 **supernote.md:** καμία αλλαγή (manifest flag, όχι layer)· **DESIGN.md:** +παράγραφος Session 174.
+
+## Session 175 — 13/10/2026 (code_refactor: κλείσιμο 4 επαληθευμένων)
+
+**Scope:** έλεγχος ισχυρισμού «όλα ολοκληρωμένα» — αποτέλεσμα μεικτό (4/19 κλειστά, τα υπόλοιπα επαληθευμένα ανοιχτά).
+
+**Κλειστά:** `parseHex` try/catch (§3.1) · event location flush (§3.2) · calendar birthday path S156 (§3.3) · calendar error SnackBars (§3.6 μερικώς — διπλό create + dead branch ανοιχτά).
+
+**Ανοιχτά (επαληθευμένα):** `app_router:221` literal · «συμπιεσμένων» ×8 · mojibake σχόλια ×4 · gallery downscale · raw pops ×12 · settings instance · lock · event διπλό AppBar · appointment `9:5` · habit/collection flags · ValueKey · N+1/υπόλοιπα §3.x προς εξάντληση.
+
+**Backups:** `backups/close_verified4/` (code_refactor.pre + oldsessions.pre).
