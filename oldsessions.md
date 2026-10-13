@@ -1822,3 +1822,13 @@
 **Backups:** `backups/spot_db_ui/reminder_section.dart.corrupted` + `pre-split`.
 
 **Μάθημα:** ποτέ PowerShell strings χωρίς `-Encoding utf8` — όπως S151.
+
+## Session 168 — 13/10/2026 (Attachments & όρια — CLOSED)
+
+**Scope:** S117b parked (1) προβολή shared φωτογραφίας + (2) όρια μεγέθους share.
+
+**Επαλήθευση κώδικα:** SPoT `AttachmentsStrip` ενσωματωμένο σε note + event · `maxAttachmentSizeMB` (default 20) με UI + migration guard · `oversizeSkipped` messaging.
+
+**Verdict:** user 13/10/2026 — ολοκληρωμένο, device OK.
+
+**Backups:** `backups/attachments_done/` (oldsessions.pre).
