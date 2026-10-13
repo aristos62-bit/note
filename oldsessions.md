@@ -1917,6 +1917,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (flag micro-fix).
 
+## Session 188 — 13/10/2026 (Habit create-flash guard)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** κάρτα-φάντασμα σε empty + (create→stream→push race).
+
+**Υλοποίηση:** C1 `_creating` + guard + `await push` + finally · C2 loading-branch (`_LoadingList`) · C3 FAB-null.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (empty→detail-0-flash/back/double-tap/rotation).
+
+**Backups:** `backups/habit_createflash/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (loading-guard, όχι layer).
+
 ## Session 187 — 13/10/2026 (disposeScreen χωρίς ref — crash-fix S166-regression)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** 4× `Bad state: ref after dispose` σε dispose κενού-νέου (S166 έβαλε `ref.read` στο unmount).

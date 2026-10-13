@@ -30,16 +30,23 @@ class HabitListScreen extends ConsumerStatefulWidget {
 class _HabitListScreenState extends ConsumerState<HabitListScreen>
     with FolderAutoSelectMixin {
   bool _showArchiveHintShown = false;
+  bool _creating = false;
 
   Future<void> _createHabit() async {
+    if (_creating) return;
     final selectedFolderId = ref.read(selectedFolderIdProvider);
     if (selectedFolderId == null) return;
-    final notifier = ref.read(itemNotifierProvider.notifier);
-    final item = await notifier.create(type: ItemType.habit, folderId: selectedFolderId);
-    if (item == null || !mounted) return;
-    Navigator.of(context).push(
-      AppTransitions.slideRoute(HabitDetailScreen(itemId: item.id, isNew: true)),
-    );
+    setState(() => _creating = true);
+    try {
+      final notifier = ref.read(itemNotifierProvider.notifier);
+      final item = await notifier.create(type: ItemType.habit, folderId: selectedFolderId);
+      if (item == null || !mounted) return;
+      await Navigator.of(context).push(
+        AppTransitions.slideRoute(HabitDetailScreen(itemId: item.id, isNew: true)),
+      );
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   void _openDetail(int id) {
@@ -84,7 +91,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
       child: Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: selectedFolderId != null
+      floatingActionButton: selectedFolderId != null && !_creating
           ? FloatingActionButton(
         onPressed: _createHabit,
         tooltip: 'Νέα συνήθεια',
@@ -104,6 +111,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
                   onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (items) {
+                  if (_creating) return _LoadingList();
                   var habitsOnly = items.where((it) => it.type == ItemType.habit).toList();
                   if (selectedFolderId != null) {
                     habitsOnly = habitsOnly.where((h) => h.folderId == selectedFolderId).toList();
