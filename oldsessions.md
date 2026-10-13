@@ -2089,7 +2089,7 @@
 
 **Fix (`folder_selector.dart`, −6γρ.+logs, 0 νέα API):** διαγραφή wrapper → ζώνη = οπτικός κύκλος 20px (ακριβής parity `_DraggableCollectionCard:353-359`, incl. γραπτή απόφαση `:351-352`)· 2 `DebugConfig.nav`· long-press-redundancy σκόπιμα εκτός (το long-press ανήκει στο reorder `LongPressDraggable`)· `_FolderChip` Stateless· pixel-identical οπτικά.
 
-**Επαλήθευση:** νέο `test/folder_chip_tap_test.dart` 5/5 (ΚΟΚΚΙΝΟ πριν σε 2 center-taps → ΠΡΑΣΙΝΟ· 1ο `ProviderScope` στη σουίτα· `ensureVisible` S90-lesson) · full **183/183** · `analyze` clean · device retest εκκρεμεί (νέος φάκελος→κέντρο→back→⋮→edit→delete→system→rotation→TalkBack, 0 ERR).
+**Επαλήθευση:** νέο `test/folder_chip_tap_test.dart` 5/5 (ΚΟΚΚΙΝΟ πριν σε 2 center-taps → ΠΡΑΣΙΝΟ· 1ο `ProviderScope` στη σουίτα· `ensureVisible` S90-lesson) · full **183/183** · `analyze` clean · **device ✅ (13/10/2026, user verdict):** PASS (κέντρο→περιεχόμενα, ⋮→μόνο menu, edit/delete/system/rotation/TalkBack), 0 ERR.
 
 **Backups:** `backups/folderchip_collections/` (dart.pre + BASE_HEAD).
 
