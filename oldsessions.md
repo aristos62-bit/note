@@ -1931,7 +1931,7 @@
 
 **Υλοποίηση:** D1 pure `contactBirthdayDay` + 4 tests · D2 map += birthdays (batch `getAllForItems`, 1 query) · D3 contact→birthday marker · D4 `allowMixedTypes` (default false) + per-item archive label + didUpdate compare · D5 `_onDayTap/_openDayItem` (mobile+tablet κοινά): μόνη επαφή→κατευθείαν, μικτή→ΝΑΙ/ΟΧΙ (`ConfirmDialog`, cake), row→απευθείας detail.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** (4 νέα) · device retest εκκρεμεί (φούξια Οκτωβρίου + tap κάρτες + roundtrip + rotation/Feb).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** (4 νέα) · **device ✅ (13/10/2026, release log pid 11257):** `contact birthdays added=1`, 18/10 `shown=2` (470 event + 216 επαφή), delete event → cascade `reminders=0` → μένει μόνο η επαφή, 0 ERR/overflow. (11411 = ξένο app, αγνοήθηκε.)
 
 **Διόρθωση (ίδια μέρα, user):** αφαιρέθηκε ο διάλογος ΝΑΙ/ΟΧΙ + το auto-open επαφής — αρκούν οι κάρτες (το χρώμα διακρίνει επαφή/event/γενέθλια/ειδική, διαγραφή του περιττού από κάρτα). Έμειναν: dots + mixed λίστα + tap-branch ανά τύπο.
 
