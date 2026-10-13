@@ -52,16 +52,16 @@
 
 ### 3.1 Crash guards (Φ4c-41)
 - Βασικά κλεισμένα (βλ. 3.0).
-- `item_color_helper:51` — `int.parse` hex· επιβεβαίωση try/catch + range fallback.
+- ✅ CLOSED 13/10/2026 — `item_color_helper:51` (`parseHex` try/catch + warning + null-fallback, επαληθευμένο `:84-93`).
 
 ### 3.2 Flush / dirty / απώλεια (Φ4c-42)
 - ✅ (S141) `collection_detail:146` — back-cascade αφαιρέθηκε: empty+existing → SnackBar + κρατάει τον προηγούμενο τίτλο (καμία διαγραφή· D2)· device ✅ 09/10/2026 (`run_log_d1d2.txt`).
-- 🟠 `event_detail:195` — save-on-pop χάνει location edits σε άτιτλο υπάρχον event.
+- ✅ CLOSED 13/10/2026 — `event_detail:195`: `_flushSaves` (`:152-161`) + `_saveData` σε save ΚΑΙ pop (`:182-199`), location δεν χάνεται.
 - 🟠 `habit_detail:68` — `_saveTitle` early-return πριν το `_isEditingTitle=false` (`:75`).
 - 🟡 `collection_detail:197,202,207` — `_hasChanges` εκτός `setState`.
 
 ### 3.3 Routing (Φ4c-43)
-- 🟠 `calendar:384` — «Γενέθλια» → `pop(_EventCreationType.event)`· **κανένα `🎂` path** (το «Ειδική ημέρα» κάνει `_createEventWithIcon(...,'⭐')` `:406`).
+- ✅ CLOSED 13/10/2026 (S156) — calendar birthday path: επιλογή → `_createBirthdayEvent` (`:435,472`) με 🎂 + yearly reminder· ειδική με ✅ (`:437`).
 - 🟡 `MaterialPageRoute` αντί `AppTransitions` (×8): `item_list_screen:59,65`· `settings:1904,1909`· `habit_list:41,47`· `contact_list:35,43`.
 - 🟡 `app_router:207` — log τυπώνει literal `\$isNew`.
 
@@ -89,7 +89,7 @@
 ### 3.6 Theming / tokens / a11y (Φ4c-46)
 - 🟡 Hardcoded `Colors.*`: `event:663-673` (green box)· `calendar:372-389` (indigo/pink/amber)· `main:375,416`· `reminder_diagnostics:232,264,272`.
 - 🟡 `event:432,830` — διπλό AppBar / 6 actions (overflow risk).
-- 🟡 `calendar:410,441` — διπλό `_createEvent`/`_createEventWithIcon`· `:441` error swallow χωρίς SnackBar· `:637-656` νεκρό branch (identical render).
+- 🟡 `calendar:410,441` — διπλό `_createEvent`/`_createEventWithIcon`· ✅ CLOSED 13/10/2026: error SnackBar και στα 2 (`:464-465,512-513`)· `:637-656` νεκρό branch (identical render) — ανοιχτό.
 - 🟡 Ετυμολογία: `calendar:214`·`journal_list:195` «συμπιεσμένων»→«αρχειοθετημένων».
 - 🟡 mojibake comments: `collection_detail:97-121`·`collection_entries:719-751`·`contact:202,209`.
 - 🟡 `const`: `journal_list:419`·`habit_list:450`.
