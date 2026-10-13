@@ -1923,7 +1923,7 @@
 
 **Υλοποίηση:** V1 key → `'entries_${collection.id}'` (scoping κρατιέται, χρώμα από params).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (χρώμα→scroll-μένει+reorder+rotation).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (13/10/2026, user verdict):** PASS (χρώμα→scroll-μένει, reorder, rotation), 0 ERR.
 
 **Backups:** `backups/entries_key/` (dart + oldsessions.pre + BASE_HEAD).
 
@@ -1959,7 +1959,7 @@
 
 **Υλοποίηση:** κοινό `_storePickedPhoto` (guard→base64→save→version) · gallery/camera delegates (1024/1024/85) · `file_picker` import έξω (μοναδική χρήση) · `mounted` guards (lint).
 
-**Επαλήθευση:** `analyze` clean (διορθώθηκε 1 `use_build_context_synchronously`) · `flutter test` → **178/178** · device retest εκκρεμεί (8MB→SnackBar, 1.9MB→~150KB, camera-identical, rotation/cancel + παλιά συσκευή fallback).
+**Επαλήθευση:** `analyze` clean (διορθώθηκε 1 `use_build_context_synchronously`) · `flutter test` → **178/178** · **device ✅ (13/10/2026, user verdict):** PASS (8MB→SnackBar, downscale, camera-identical, rotation/cancel), 0 ERR.
 
 **Backups:** `backups/gallery_downscale/` (dart + oldsessions.pre + BASE_HEAD).
 
@@ -1983,7 +1983,7 @@
 
 **Υλοποίηση:** B1 event → `cSuccess`· B2 options same-family ανά brightness + SPoT fills· B3 `ItemColorHelper.birthdayPink/specialAmber` consts → `specialAccent` + 4 dots + contact· B4 diagnostics → tokens· B5 tasks → `cSuccess` (διαγραφή const).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** (3 νέα theme_tokens) · device eyeball εκκρεμεί.
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** (3 νέα theme_tokens) · **device ✅ (13/10/2026, user verdict):** eyeball PASS, 0 ERR.
 
 **Backups:** `backups/theme_hardcoded/` (7 pre + BASE_HEAD).
 
