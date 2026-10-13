@@ -150,8 +150,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     if (!ok || !mounted) return;
     DebugConfig.db('TaskDetail delete id=${item.id}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
+    safePop();
   }
 
   Future<void> _togglePin(Item item) async {

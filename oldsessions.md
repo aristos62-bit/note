@@ -1937,6 +1937,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (1 char log, όχι layer).
 
+## Session 180 — 13/10/2026 (Raw pops → safePop ×7, uniformity)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** guard+pop σε 7 mixin-screens (dialog/sheet/rootNavigator/canPop ρητά εκτός — 39-hit audit).
+
+**Υλοποίηση:** habit/note/task/journal/contact/entries/appointment-delete → `safePop()`.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (7 deletes + cancel + rotation-mid-delete).
+
+**Backups:** `backups/safepop/` (7 pre + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (SPoT uniformity, όχι layer).
+
 ## Session 178 — 13/10/2026 (Mojibake σχόλια — καθαρισμός)
 
 **Scope:** φθορά encoding σε σχόλια (μόνο σχόλια, κώδικας άθικτος): journal `:85,112`, collection_detail `:97`, entries `:744,749`. Ανάκτηση από backups αδύνατη (παλιά φθορά) — ξαναγραφή από context. Τα `???` είναι original στυλ, δεν αγγίχτηκαν.

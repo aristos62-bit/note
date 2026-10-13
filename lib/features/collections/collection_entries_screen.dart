@@ -831,7 +831,7 @@ class _CollectionEntryDetailScreenState
     );
     if (!confirm || !mounted) return;
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.entryId);
-    if (mounted) Navigator.of(context).pop();
+    safePop();
   }
 
   Future<void> _addAttachment(String fieldKey) async {

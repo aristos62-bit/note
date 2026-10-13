@@ -404,7 +404,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     if (!ok || !mounted) return;
     DebugConfig.db('ContactDetail delete id=${widget.itemId}');
     await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
-    if (context.mounted) Navigator.of(context).pop();
+    safePop();
   }
 
   Future<void> _togglePin(Item item) async {
