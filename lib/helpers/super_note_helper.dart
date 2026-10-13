@@ -249,6 +249,14 @@ class ItemRepository {
 
   Future<Item?> getById(int id) => _isar.items.get(id);
 
+  /// Batch: items για λίστα IDs — 1 DB call αντί για N (pattern getAllForItems).
+  /// Αγνοεί missing ids (whereType).
+  Future<List<Item>> getByIds(List<int> ids) {
+    if (ids.isEmpty) return Future.value(const []);
+    return _isar.items.getAll(ids).then(
+        (items) => items.whereType<Item>().toList());
+  }
+
   Future<List<Item>> getByWorkspace(
       int workspaceId, {
         ItemType? type,

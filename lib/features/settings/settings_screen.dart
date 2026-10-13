@@ -442,6 +442,22 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
   List<Reminder> mutableReminders = List.from(reminders);
   final selectedIds = <int>{};
 
+  // Batch τίτλοι γραμμών (1 query αντί για N FutureBuilders).
+  final itemTitles = <int, Item>{};
+  try {
+    final batchItems = await ref.read(dbProvider).items.getByIds(
+      [for (final r in reminders) r.itemId],
+    );
+    for (final i in batchItems) {
+      itemTitles[i.id] = i;
+    }
+    DebugConfig.db('Settings past reminders batch: ${itemTitles.length}/${reminders.length}');
+  } catch (e) {
+    DebugConfig.error('Settings past reminders batch', e);
+  }
+
+  if (!context.mounted) return;
+
   await showDialog(
     context: context,
     useRootNavigator: true, // ✅ ρητά — αποφεύγουμε GoRouter confusion
@@ -454,7 +470,7 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
         // ── Βοηθητική: διαγραφή μιας υπενθύμισης ──────────────
         Future<void> deleteSingle(Reminder r) async {
           await ReminderScheduler.instance.cancelReminder(r.id);
-          await SuperNoteHelper.instance.reminders.delete(r.id);
+          await ref.read(dbProvider).reminders.delete(r.id);
           setModal(() {
             selectedIds.remove(r.id);
             mutableReminders.remove(r);
@@ -472,7 +488,7 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
               .toList();
           for (final r in toDelete) {
             await ReminderScheduler.instance.cancelReminder(r.id);
-            await SuperNoteHelper.instance.reminders.delete(r.id);
+            await ref.read(dbProvider).reminders.delete(r.id);
           }
           setModal(() {
             mutableReminders.removeWhere((r) => ids.contains(r.id));
@@ -536,53 +552,48 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
                     itemBuilder: (_, i) {
                       final r = mutableReminders[i];
                       final isSelected = selectedIds.contains(r.id);
-                      return FutureBuilder<Item?>(
-                        future: SuperNoteHelper.instance.items.getById(r.itemId),
-                        builder: (_, snapshot) {
-                          final item = snapshot.data;
-                          final title = item?.title ?? 'Άγνωστο στοιχείο';
-                          final type = item?.type.name ?? 'item';
-                          return CheckboxListTile(
-                            value: isSelected,
-                            onChanged: (selected) {
-                              setModal(() {
-                                if (selected == true) {
-                                  selectedIds.add(r.id);
-                                } else {
-                                  selectedIds.remove(r.id);
-                                }
-                              });
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                            contentPadding: const EdgeInsets.only(
-                              left: Spacing.xs,
-                              right: Spacing.xs,
-                            ),
-                            title: Text(title, style: ctx.bodyMd),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Τύπος: $type',
-                                  style: ctx.bodySm.withColor(ctx.cText2),
-                                ),
-                                Text(
-                                  'Έληξε: ${AppDateUtils.formatDateTime(r.triggerAt)}',
-                                  style: ctx.bodySm.withColor(ctx.cError),
-                                ),
-                              ],
-                            ),
-                            secondary: IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: ctx.cError,
-                                size: 20,
-                              ),
-                              tooltip: 'Διαγραφή',
-                              onPressed: () => deleteSingle(r),
-                            ),
-                          );
+                      final item = itemTitles[r.itemId];
+                      final title = item?.title ?? 'Άγνωστο στοιχείο';
+                      final type = item?.type.name ?? 'item';
+                      return CheckboxListTile(
+                        value: isSelected,
+                        onChanged: (selected) {
+                          setModal(() {
+                            if (selected == true) {
+                              selectedIds.add(r.id);
+                            } else {
+                              selectedIds.remove(r.id);
+                            }
+                          });
                         },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.only(
+                          left: Spacing.xs,
+                          right: Spacing.xs,
+                        ),
+                        title: Text(title, style: ctx.bodyMd),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Τύπος: $type',
+                              style: ctx.bodySm.withColor(ctx.cText2),
+                            ),
+                            Text(
+                              'Έληξε: ${AppDateUtils.formatDateTime(r.triggerAt)}',
+                              style: ctx.bodySm.withColor(ctx.cError),
+                            ),
+                          ],
+                        ),
+                        secondary: IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: ctx.cError,
+                            size: 20,
+                          ),
+                          tooltip: 'Διαγραφή',
+                          onPressed: () => deleteSingle(r),
+                        ),
                       );
                     },
                   ),
@@ -1697,12 +1708,9 @@ Future<void> _showImportedContactsDialog(BuildContext context, WidgetRef ref) as
 
   if (!context.mounted) return;
 
-  final helper = SuperNoteHelper.instance;
-  final items = <Item>[];
-  for (final id in importedIds) {
-    final item = await helper.items.getById(id);
-    if (item != null && item.deletedAt == null) items.add(item);
-  }
+  final items = (await ref.read(dbProvider).items.getByIds(importedIds.toList()))
+      .where((i) => i.deletedAt == null)
+      .toList();
 
   if (!context.mounted) return;
 
