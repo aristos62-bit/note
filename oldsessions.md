@@ -1881,6 +1881,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (UI-state, service άθικτο).
 
+## Session 184 — 13/10/2026 (Appointment `time` canonical `HH:MM`)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** μοναδικός outlier — habits padded, appointments `H:M`.
+
+**Υλοποίηση:** A1 `:226` padLeft (ίδιο με `:472,501`) · reader/display άθικτα (self-heal, 0 migration).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (save→`09:05`→reopen + παλιά `9:5`).
+
+**Backups:** `backups/appt_time/` (dart + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (1 γραμμή data-hygiene).
+
 ## Session 179 — 13/10/2026 (Gallery downscale R2, unify με camera)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** gallery χωρίς downscale (R2 παράβαση) — 1.9MB → 2.5MB base64.

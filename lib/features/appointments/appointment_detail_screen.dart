@@ -223,7 +223,7 @@ class _AppointmentDetailScreenState
       propertyNotifier.setText(
         'time',
         _selectedTime != null
-            ? '${_selectedTime!.hour}:${_selectedTime!.minute}'
+            ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
             : null,
       ),
       propertyNotifier.setText(
