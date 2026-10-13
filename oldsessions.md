@@ -1851,7 +1851,7 @@
 
 **Υλοποίηση:** named `_onCtrlChanged` + `dispose` remove + defensive `didUpdateWidget` (child ποτέ dispose ξένου ctrl, S120).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · device retest εκκρεμεί (saved-φαίνεται/tap/scroll-out-in/type-change).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **174/174** · **device ✅ (13/10/2026, user verdict):** saved-φαίνεται/tap/scroll-out-in/type-change, 0 warnings/ERR.
 
 **Backups:** `backups/select_listener/` (dart + oldsessions.pre + BASE_HEAD).
 
