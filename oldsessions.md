@@ -2176,7 +2176,7 @@
 - Μαθήματα: `==` σε nullable enum δεν κάνει promote (compile error, fix `?.`) · DST guard με λάθος predicate (midnight-σύγκριση) → σωστό με ημερολογιακή κατασκευή · callers `nextOccurrence` μόνο scheduler (habits δικό τους walker).
 - Παλιά off-grid παιδιά δεν καθαρίζονται (σκόπιμα — manual re-save από UI).
 
-**Επαλήθευση:** νέο 5/5 · `flutter test` → **191/191** · `analyze` clean · device πρωτόκολλο εκκρεμεί (daily/weekly/κάθε-3-ημέρες μελλοντικά + `Created child` logs).
+**Επαλήθευση:** νέο 5/5 · `flutter test` → **191/191** · `analyze` clean · **device ✅ (14/10/2026, user verdict + `run_log_step11.txt`):** roots 2469/2475 με σωστές αλυσίδες (`Created child` 15-19/10 + 1-5/11, 0 διπλότυπα) · restart `created 0` · 0 ERR/FATAL.
 
 **Backups:** `backups/step11_occurrences/` (scheduler + recurrence + oldsessions.pre, SHA πριν τα edits).
 
