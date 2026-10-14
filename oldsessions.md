@@ -2390,6 +2390,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (behavior εντός choke-point — precedent S159).
 
+## Session 212 — 14/10/2026 (Habit serialization — A6-mirror)
+
+**Σύμπτωμα:** `topUpHabitReminders` read-existing → create με awaits· ταυτόχρονο `setReminderTimes`/`_clearHabitGenerated` (αλλαγή ωρών στο startup) → διπλά rows/ghosts.
+
+**Fix (1 αρχείο, 0 νέα API/imports, edit-tool only):** future-chain mirror A6 — `_habitChain` + `_queuedHabitPass`· delegates `topUp→_topUpImpl` (guard μέσα), `_scheduleReminders→Impl` (καλύπτει set/single/multi/sync), null-branch via queue· `repair` εκτός σκόπιμα (funnelάρει σε chained → deadlock)· delete-vs-topUp αποδεκτό υπόλοιπο (parity A6).
+
+**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · device retest εκκρεμεί (set/change/disable → singles · race-chase kill→launch→άμεση αλλαγή → 0 duplicates · unarchive-force → singles · restart idempotent · 0 ERR).
+
+**Backups:** `backups/habit_serial/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (private chain σε υπάρχον service — precedent A6).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
