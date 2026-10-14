@@ -1164,10 +1164,14 @@ class ReminderRepository {
 
   Future<List<Reminder>> getPastPending() {
     final now = DateTime.now();
+    // A1: τα recurring roots (rrule != null) έχουν πάντα παλιό triggerAt ως
+    // anchor και ΔΕΝ είναι «παρελθούσες» — αν εμφανίζονταν, η διαγραφή τους
+    // από το Settings θα σκότωνε σιωπηλά την επανάληψη.
     return _isar.reminders
         .filter()
         .statusEqualTo(ReminderStatus.pending)
         .triggerAtLessThan(now)
+        .rruleIsNull()
         .sortByTriggerAt()
         .findAll();
   }

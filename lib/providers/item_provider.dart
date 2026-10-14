@@ -172,6 +172,10 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
         bool? favorite,
       }) async {
     try {
+      // A2: προηγούμενο status (μόνο όταν αλλάζει status — 1 read).
+      final prevStatus = status == null
+          ? null
+          : (await ref.read(dbProvider).items.getById(id))?.status;
       await ref.read(dbProvider).items.update(
         id,
         title: title,
@@ -183,6 +187,20 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
         archived: archived,
         favorite: favorite,
       );
+      // A2: done/cancelled = σίγαση OS reminders (rows μένουν)· επιστροφή
+      // σε ενεργό status = reschedule (ίδια λογική με toggleArchive).
+      if (status != null && prevStatus != status) {
+        bool silenced(ItemStatus? s) =>
+            s == ItemStatus.done || s == ItemStatus.cancelled;
+        if (silenced(status)) {
+          await ReminderScheduler.instance.cancelAllForItem(id);
+          DebugConfig.notif('updateItem: status=${status.name} id=$id → cancelled OS (rows kept)');
+        } else if (silenced(prevStatus)) {
+          await ReminderScheduler.instance.refreshRecurringReminders();
+          await ReminderScheduler.instance.scheduleAll();
+          DebugConfig.notif('updateItem: status=${status.name} id=$id → rescheduled');
+        }
+      }
       ref.invalidateSelf();
       ref.invalidate(itemByIdProvider(id));
     } catch (e, s) {

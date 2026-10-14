@@ -2120,3 +2120,35 @@
 **Backups:** `backups/journal_createflash/` (dart.pre + BASE_HEAD).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (loading-guard, όχι layer).
+
+## Session 193 — 14/10/2026 (Past dialog: recurring roots excluded — A1)
+
+**Σύμπτωμα:** το `getPastPending()` έφερνε κάθε pending με `triggerAt < now` χωρίς φίλτρο rrule → τα roots επαναλαμβανόμενων (παλιό triggerAt ως anchor) εμφανίζονταν ως «παρελθούσες» · το `deleteSingle/deleteSelected` (`settings_screen:471-501`) έκανε απλό `reminders.delete` χωρίς cascade → ο «καθαρισμός παλιών» σκότωνε σιωπηλά την επανάληψη (ορφανά παιδιά, `ReminderSection` fallback σε παιδί ως root).
+
+**Fix (`super_note_helper.dart:1165-1177`, 1 αρχείο):** +`.rruleIsNull()` + σχόλιο Α1 (parity με `cleanupOldPending:1160`) — τα roots δεν εμφανίζονται ποτέ στο dialog · τα παρελθοντικά παιδιά (rrule null) σβήνουν ακίνδυνα με απλό delete. Νόμιμες διαγραφές roots (OFF καμπάνας, delete item, resync, habit sync) ανεπηρέαστες.
+
+**Test:** κανένα νέο — σύμβαση project (35 αρχεία pure/unit, 0 Isar-harness · precedent S77/S139/S142-145) · κάλυψη από device.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **186/186** · **device ✅ (14/10/2026, user verdict):** Settings → παρελθούσες → καμία επαναλαμβανόμενη.
+
+**Backups:** `backups/fix_past_roots/` (dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (query-φίλτρο, όχι layer).
+
+## Session 194 — 14/10/2026 (Done/cancelled σίγαση υπενθυμίσεων — A2)
+
+**Σύμπτωμα:** το `updateItem(status: done)` δεν άγγιζε reminders (7 task call sites ακάλυπτα) · `_scheduleOne`/`refresh` έλεγχαν μόνο `archived` → ολοκληρωμένο task με υπενθύμιση χτυπούσε κανονικά, επαναλαμβανόμενο για πάντα.
+
+**Fix (3 αρχεία, 0 νέα API/imports, reuse `toggleArchive`-συμπεριφοράς):**
+- `reminder_scheduler.dart` (5α `_scheduleOne` + 5β `refresh`): skip `done/cancelled` (το item ήδη fetched — 0 έξτρα queries · choke-point καλύπτει save-καμπάνας/snooze δωρεάν).
+- `item_provider.dart::updateItem`: branch μόνο όταν `status != null && changed` (1 read) — `done/cancelled → cancelAllForItem` (rows μένουν) · επιστροφή σε ενεργό → `refresh + scheduleAll`. Καλύπτει toggles + status-sheet (active/inProgress ξυπνούν) + subtask→parent cascade.
+- `reminder_diagnostics_screen.dart`: +`silenced` σε `_RootStatus`/`_PendingRow` (ίδιο loop, 0 έξτρα queries) + reuse muted branches (αλλιώς ψευδές «ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!»).
+- Μάθημα: `==` σε nullable enum δεν κάνει promote (`st.name` compile error — το έπιασαν τα tests, fix με `?.`).
+
+**Test:** κανένα νέο (σύμβαση: 0 Isar-harness · precedent S193) · κάλυψη από device.
+
+**Επαλήθευση:** `flutter test` → **186/186** · `analyze` clean · device πρωτόκολλο εκκρεμεί (done→σιγή/OS άδειο/rows μένουν · active→ξαναχτυπά · recurring done→κανένα νέο παιδί · diagnostics muted-πράσινο).
+
+**Backups:** `backups/a2_done_silence/` (3 dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer — precedent S143).
