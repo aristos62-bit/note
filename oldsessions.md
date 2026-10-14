@@ -2200,7 +2200,7 @@
 
 **Fix (1 αρχείο):** `reminder_scheduler.dart:179-185` — daily/custom → 14, weekly/monthly/yearly → 5 (μοναδικό σημείο με σκληρό 5 · `recurrence` σε scope · σταδιακό γέμισμα via top-up+dedup · όγκος iOS-64 → Βήμα 16).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **193/193** · device πρωτόκολλο εκκρεμεί (RUNWAY daily ≈ 14d).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **193/193** · **device ✅ (14/10/2026, user verdict):** RUNWAY daily ≈ 14d.
 
 **Backups:** `backups/a5_batch14/` (dart + oldsessions.pre, SHA πριν τα edits).
 
