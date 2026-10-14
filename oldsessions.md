@@ -2205,3 +2205,15 @@
 **Backups:** `backups/a5_batch14/` (dart + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (const → per-type, όχι layer).
+
+## Session 199 — 14/10/2026 (Refresh serialization — A6)
+
+**Σύμπτωμα:** 9 unguarded callers του `refreshRecurringReminders` (startup/resume/bell/unarchive/γενέθλια/calendar) · check-then-put με awaits → 2 ταυτόχρονες εκτελέσεις έβλεπαν «0 παιδιά» και διπλασίαζαν rows + OS alarms.
+
+**Fix (1 αρχείο):** future-chain (`_refreshChain` + `_refreshRecurringRemindersImpl`, υπογραφή ίδια) — κάθε pass περιμένει το προηγούμενο, κάθε caller παίρνει φρέσκο pass · `catchError` ζώνη ασφαλείας · δουλεύει και για unawaited κλήσεις.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **193/193** · κανένα νέο test (Isar-μέθοδος, σύμβαση) · device οπορτουνιστικά (σπάνιο timing).
+
+**Backups:** `backups/a6_serial/` (dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (συγχρονισμός, όχι layer).

@@ -87,7 +87,17 @@ class ReminderScheduler {
   // Ανανέωση επαναλαμβανόμενων υπενθυμίσεων (batch logic)
   // ─────────────────────────────────────────────────────────
 
-  Future<void> refreshRecurringReminders() async {
+  // A6: σειριοποίηση — δύο ταυτόχρονες εκτελέσεις (startup/resume/
+  // ReminderSection/archive) μπορούσαν να δημιουργήσουν διπλά παιδιά.
+  Future<void> _refreshChain = Future<void>.value();
+
+  Future<void> refreshRecurringReminders() {
+    final next = _refreshChain.then((_) => _refreshRecurringRemindersImpl());
+    _refreshChain = next.catchError((_) {});
+    return next;
+  }
+
+  Future<void> _refreshRecurringRemindersImpl() async {
     try {
       final now0 = DateTime.now();
       if (_lastRefreshRun != null) {
