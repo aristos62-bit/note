@@ -1899,7 +1899,7 @@
 
 **Υλοποίηση:** H1-H3 merges (0 έξτρα rebuilds).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · device retest εκκρεμεί (remove/reorder/color → back → save-prompt).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **178/178** · **device ✅ (14/10/2026, user verdict):** remove/reorder/color → back → save-prompt, 0 ERR.
 
 **Backups:** `backups/flags_collection/` (dart + oldsessions.pre + BASE_HEAD).
 
@@ -2005,7 +2005,7 @@
 
 **Υλοποίηση:** `android:allowBackup="false"` (main manifest· debug/profile κληρονομούν). Επίσημο backup: in-app zip.
 
-**Επαλήθευση:** `analyze` clean · grep `allowBackup` 1 hit · device retest: reinstall → καθαρή DB (εκκρεμεί από χρήστη).
+**Επαλήθευση:** `analyze` clean · grep `allowBackup` 1 hit · **device ✅ (14/10/2026, user verdict):** reinstall → καθαρή DB, 0 ERR.
 
 **Backups:** `backups/nobackup_manifest/` (manifest + DESIGN.pre + oldsessions.pre).
 
@@ -2103,7 +2103,7 @@
 
 **Υλοποίηση (σχεδίαση E, 3 αρχεία, 0 νέα API):** pure `journalEntryDisplayDate` + `journalDatesProvider` (autoDispose: itemsStream + `journalDatesVersionProvider`, 1× `getAllForItems`, try/catch→{}) · οθόνη με valueOrNull (ποτέ loading-flash) · `_MonthGroup`→`_EntryWithDate` · κάρτα −DB-watch +`displayDate` (sync watches μένουν) · διαγραφή `_getDisplayDate/_processEntriesWithDate` · bump στο `_setEntryDate` (sole-writer, αποδεδειγμένο). D απορρίφθηκε (cold N+1 + keystroke-spam)· global-signal ανέγγιχτο (S45)· v6-`.when` απορρίφθηκε (flash-regression).
 
-**Επαλήθευση:** νέο `test/journal_dates_test.dart` 3/3 (ok/corrupt/missing, χωρίς Isar-harness) · full **186/186** · `analyze` clean · device retest εκκρεμεί (cold-χρόνος, no-flicker, mutation-αλλού→σιγή, edit→group, mood→σιγή, delete, 0 ERR).
+**Επαλήθευση:** νέο `test/journal_dates_test.dart` 3/3 (ok/corrupt/missing, χωρίς Isar-harness) · full **186/186** · `analyze` clean · **device ✅ (14/10/2026, user verdict):** cold-χρόνος, no-flicker, edit→group, delete, 0 ERR.
 
 **Backups:** `backups/journal_batch/` (3 pre + BASE_HEAD).
 
@@ -2236,7 +2236,7 @@
 
 **Fix (1 αρχείο + 1 νέο test):** `notification_service.dart::schedule()` — null-guard διατηρημένο · `scheduleModeFor` (pure static: true→exact, else→inexact) + warning/notif + `mode=` στο SUCCESS · boot-restore επιβιώνει (persisted inexact) · diagnostics πράσινο (mode-agnostic pending) · `supernote` άθικτο.
 
-**Επαλήθευση:** νέο `test/notification_fallback_test.dart` 3/3 · `flutter test` → **196/196** · `analyze` clean · **device N/A (14/10/2026):** `appops deny` ενεργό αλλά το σύστημα το παρακάμπτει (`USE_EXACT_ALARM` auto-grant, παντού `mode=exact`, 0 fallback-warning) — το deny δεν εξαναγκάζεται σε Android 16 · κάλυψη από unit + review + υγιές `run_log_fallback.txt` (νέο binary, A5 top-up ζωντανό, 0 ERR).
+**Επαλήθευση:** νέο `test/notification_fallback_test.dart` 3/3 · `flutter test` → **196/196** · `analyze` clean · **device N/A (14/10/2026):** `appops deny` ενεργό αλλά το σύστημα το παρακάμπτει (`USE_EXACT_ALARM` auto-grant, παντού `mode=exact`, 0 fallback-warning) — το deny δεν εξαναγκάζεται σε Android 16 · κάλυψη από unit + review + υγιές `run_log_fallback.txt` (νέο binary, A5 top-up ζωντανό, 0 ERR) · **device ✅ (14/10/2026, user verdict — CLOSED).**
 
 **Backups:** `backups/fallback_inexact/` (dart + test νέο + oldsessions.pre, SHA πριν τα edits).
 
