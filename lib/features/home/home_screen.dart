@@ -248,40 +248,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .toList();
     final isEmpty = folderItems.isEmpty;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeArea(
+    showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SafeSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SheetHandle(
-              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-            ),
             Padding(
               padding: const EdgeInsets.symmetric(
                   horizontal: Spacing.lg, vertical: Spacing.xs),
               child: Row(children: [
                 Text(folder.icon ?? '📁', style: const TextStyle(fontSize: 20)),
                 const SizedBox(width: Spacing.sm),
-                Text(folder.name, style: context.titleSm),
+                Text(folder.name, style: sheetCtx.titleSm),
                 if (!isEmpty) ...[
                   const SizedBox(width: Spacing.sm),
                   Container(
                     padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: context.cText2.withValues(alpha: 0.1),
+                      color: sheetCtx.cText2.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppRadius.badge),
                     ),
                     child: Text('${folderItems.length} στοιχεία',
-                        style: context.labelSm.withColor(context.cText2)),
+                        style: sheetCtx.labelSm.withColor(sheetCtx.cText2)),
                   ),
                 ],
               ]),
@@ -290,49 +280,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             // ── Επεξεργασία (πάντα διαθέσιμη) ─────────────────
             ListTile(
-              leading: Icon(Icons.edit_rounded, color: context.cText),
-              title: Text('Επεξεργασία', style: context.bodyMd),
+              leading: Icon(Icons.edit_rounded, color: sheetCtx.cText),
+              title: Text('Επεξεργασία', style: sheetCtx.bodyMd),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(sheetCtx);
                 _editFolder(context, ref, folder);
               },
             ),
 
-            // ── Διαγραφή ή ενημερωτικό μήνυμα ─────────────────
-            if (!folder.isSystem) ...[
-              // Κανονικός φάκελος: εμφάνιση delete αν είναι άδειος
-              ListTile(
-                leading: Icon(Icons.delete_outline_rounded,
-                    color: isEmpty ? context.cError : context.cDisabled),
-                title: Text('Διαγραφή',
-                    style: context.bodyMd
-                        .withColor(isEmpty ? context.cError : context.cDisabled)),
-                subtitle: !isEmpty
-                    ? Text('Αδείασε πρώτα τον φάκελο',
-                    style: context.bodySm.withColor(context.cText2))
-                    : null,
-                onTap: isEmpty
-                    ? () {
-                  Navigator.pop(context);
-                  _deleteFolder(context, ref, folder);
-                }
-                    : null,
-              ),
-            ] else ...[
-              // System φάκελος: ενημέρωση ότι δεν διαγράφεται
-              ListTile(
-                leading: Icon(Icons.info_outline_rounded, color: context.cText2),
-                title: Text(
-                  'Ο φάκελος "Γενικά" δεν διαγράφεται',
-                  style: context.bodyMd.withColor(context.cText2),
-                ),
-                subtitle: Text(
-                  'Είναι ο προεπιλεγμένος φάκελος του συστήματος',
-                  style: context.bodySm.withColor(context.cDisabled),
-                ),
-                enabled: false,  // Μη επιλέξιμο
-              ),
-            ],
+            // ── Διαγραφή (μόνο άδειος φάκελος — το ⋮ δεν εμφανίζεται σε system) ──
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded,
+                  color: isEmpty ? sheetCtx.cError : sheetCtx.cDisabled),
+              title: Text('Διαγραφή',
+                  style: sheetCtx.bodyMd
+                      .withColor(isEmpty ? sheetCtx.cError : sheetCtx.cDisabled)),
+              subtitle: !isEmpty
+                  ? Text('Αδείασε πρώτα τον φάκελο',
+                  style: sheetCtx.bodySm.withColor(sheetCtx.cText2))
+                  : null,
+              onTap: isEmpty
+                  ? () {
+                Navigator.pop(sheetCtx);
+                _deleteFolder(context, ref, folder);
+              }
+                  : null,
+            ),
 
             const SizedBox(height: Spacing.sm),
           ],

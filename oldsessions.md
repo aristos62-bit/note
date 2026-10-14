@@ -2533,6 +2533,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (strings, όχι layer).
 
+## Session 223 — 14/10/2026 (Folder ⋮ menu → SafeSheet + ctx + dead-cleanup — S190-parked closed)
+
+**Scope (2+4 ανεστάλησαν — τελική πρόταση V3 ολόκληρη):** `_showFolderOptions` (home) τελευταίο bare-sheet · outer-ctx lookups/pops (S129/S133-class) · νεκρό system-else (το ⋮ κρύβεται σε system — μοναδικός caller, ⋮-guard). 1 αρχείο · 0 imports (barrel) · 0 tests.
+
+**Υλοποίηση (edit-tool only):** `showModalBottomSheet+SafeArea+shape` → `showSafeSheet<void>(builder: sheetCtx → SafeSheet(child: Column))` · ~12 lookups + 2 pops → sheetCtx (τα follow-calls `_edit/_deleteFolder` κρατούν outer — νέο dialog μετά το close) · διαγραφή dead else + flatten · μάθημα: το Edit-E έφαγε κλείσιμο μεθόδου (174 errors) → άμεσο restore από backup + ξαναχτίσιμο (οι closer-γραμμές αντιστοιχούσαν 1:1, το E ήταν περιττό).
+
+**Επαλήθευση:** `analyze` clean (μετά το restore) · `flutter test` → **215/215** · device εκκρεμεί (⋮ open/select/cancel/rotation/landscape/edit-save/delete, 0 ERR).
+
+**Backups:** `backups/foldermenu_safesheet/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (SPoT-υιοθέτηση σε 1 μέθοδο, όχι layer).
+
 ## Session 222 — 14/10/2026 (Const `_LoadingList` ×5 — Επιλογή Β)
 
 **Scope (Επιλογή Β χρήστη — 5 αρχεία):** `_LoadingList` χωρίς const ctor σε tasks/contacts/journal/item_list/habits (grep: 5 ορισμοί + 7 κλήσεις· το embedded έχει `_EmbeddedLoadingList`, εκτός).
