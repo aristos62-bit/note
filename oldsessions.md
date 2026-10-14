@@ -2491,7 +2491,7 @@
 
 **Υλοποίηση (edit-tool only):** τίτλος → live `collection.title` (Item, stream) · icon → ήδη-watched `propsAsync` με αλυσίδα props-icon → `collection.icon` → `'📦'` (setText-invalidate ξυπνά δωρεάν· V1-λάθος διορθώθηκε στον επανέλεγχο).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device εκκρεμεί (rename+icon → back φρέσκα, rotation, 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (14/10/2026, user verdict):** rename+icon → back φρέσκα, rotation, 0 ERR — S219 CLOSED.
 
 **Backups:** `backups/entries_appbar_live/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
@@ -2503,7 +2503,7 @@
 
 **Υλοποίηση (edit-tool only, 2 micro-edits):** `_saveData` detail → `updateItem(..., icon: _icon)` (dual-write, το `icon:` υπήρχε ήδη στο API· stream ξυπνά grid+entries) + αφαίρεση probe-log από entries (έκανε τη δουλειά του). Legacy σειρές θέλουν 1 re-save.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device εκκρεμεί (icon-change → grid δείχνει ⚽, entries-AppBar, 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (14/10/2026, user verdict):** icon-change → grid δείχνει ⚽, entries-AppBar, 0 ERR — S220 CLOSED.
 
 **Backups:** `backups/collection_icon_dualwrite/` (2 dart.pre, SHA πριν τα edits).
 
