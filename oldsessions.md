@@ -2437,7 +2437,7 @@
 
 **Fix (edit-tool only):** weekly-branch → ημερολογιακή αφαίρεση + μεσάνυχτα (και τα 2 paths) · `_mondayOf` → constructor (ισοδύναμο, TZ-ανεξάρτητο).
 
-**Επαλήθευση (RED/GREEN):** 3 νέα tests FAIL πριν το patch, PASS μετά · `flutter test` → **208/208** · `analyze` clean · device: habit-weekly-interval>1 καλοκαίρι (πράσινες μέρες σωστές) + 0 ERR.
+**Επαλήθευση (RED/GREEN):** 3 νέα tests FAIL πριν το patch, PASS μετά · `flutter test` → **208/208** · `analyze` clean · **device ✅ (14/10/2026, user verdict)** · S215 CLOSED.
 
 **Backups:** `backups/recurrence.dart.bak_S215_pre`, `backups/recurrence_weekly_test.dart.bak_S215_pre` (ονοματοδοσία σχεδίου).
 
