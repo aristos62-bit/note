@@ -68,7 +68,7 @@
 - ✅ CLOSED 13/10/2026 — `app_router` EventDetail nav-log: `\$isNew` → `$isNew` (8/8 ομοιόμορφα).
 
 ### 3.4 Λίστες / queries (Φ4c-44)
-- ✅ CLOSED 13/10/2026 (S191) — journal batch (1 bulk + signal) · calendar batch (S177) · 🟡 P1-OPEN: `collection_entries:497` (per-card watch) · `item_list_embedded:228,245` (sync cache reads).
+- ✅ CLOSED 13/10/2026 (S191) — journal batch (1 bulk + signal) · calendar batch (S177) · ✅ CLOSED 14/10/2026 (S216+S217, device ✅) — P1 N+1 τέλος: entries props-batch + embedded tags-batch (contacts-batch προϋπήρχε).
 - ✅ (S148) reorder σε φιλτραρισμένο υποσύνολο — SPoT `ReorderUtils.moveAndMerge` (subset → full merge) σε 8 sites (entries/item_list/embedded/habit/task/browser/collections/folder_view)· **device-verified 10/10/2026** (acceptance `[1,2,3]→[1,3,2]`, pipeline 1:1, 0 ERR/WRN).
 - ✅ (S141) `collections:69-72` — cascade κεντρικοποιήθηκε: `ItemNotifier.deleteItem` (type-aware· `project` → soft-delete εγγραφών πρώτα, μετά το root)· device ✅ 09/10/2026 (`run_log_d1d2.txt`, grid + Folder Browser).
 - ✅ (S142) `item_provider` — συμμετρικό lifecycle κάδου (F1): `_cascadeCollectionEntries` έγινε action-based και καλείται **και** από `restoreItem`/`permanentDelete` (`includeDeleted:true`) → restore συλλογής επαναφέρει τις εγγραφές της· permanent τις διαγράφει + καθαρίζει attachments. 1 αρχείο (497→498), 0 νέα public API· `analyze` clean + `test` 138/138· device ✅ 09/10/2026 (`run_log_f1.txt` — delete/restore/permanent με εγγραφές + `deleted file` attachment cleanup).
