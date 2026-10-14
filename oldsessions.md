@@ -2450,3 +2450,21 @@
 **Backups:** `backups/reminder_ghost/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (UI-behavior + SPoT strings, όχι layer — precedent S136/S191).
+
+## Session 216 — 14/10/2026 (Entries props batch — N+1 τέλος, P1-OPEN closed)
+
+**Scope (κανόνες 2+4 τηρήθηκαν — πρόταση → OK → ένα-ένα):** `_EntryCard` έκανε `ref.watch(itemPropertiesProvider(entry.id))` ανά κάρτα → N queries (device-μετρημένο Β0: 17 κάρτες = 17 loads). 1 αρχείο lib + 1 νέο test · 0 νέα repo/dependency/barrel.
+
+**Υλοποίηση (Βήματα 0-3, 1 αρχείο `collection_entries_screen.dart`):**
+- Β0: 2 προσωρινά `DebugConfig.db` (list built + card build) — μόνο μέτρηση, αφαιρέθηκαν στο Β3.
+- Β1: pure `entryPreviewValue(field, props)` byte-identical + νέο `test/entry_preview_test.dart` 7/7 (zero-touch σε υπάρχουσα λογική).
+- Β2: `entriesPropsVersionProvider` signal (ΜΟΝΟΣ writer `_saveData` — όχι shared signals, cross-talk) + `_batchEntryPropsProvider` (1× `getAllForItems`, try/catch→{}, valueOrNull) + `_FilteredEntriesList` περνά `props:` + `_EntryCard` ConsumerWidget→StatelessWidget (inline αυτούσιο).
+- Β3: inline 28γρ. → `entryPreviewValue(f, props)` + αφαίρεση Β0-logs.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (+7 νέα) · **device ✅ (14/10/2026, pid 13584):** `_batchEntryPropsProvider: ids=37 → found=37`, 0 per-card loads, λίστα/detail×4/share/reminders υγιή, 0 ERR.
+
+**Backups:** `backups/entries_n1_measure/`, `backups/entries_preview_helper/`, `backups/entries_batch_wiring/`, `backups/entries_helper_adopt/`, `backups/session216_entries_batch/` (dart.pre/test + SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (batch + signal + pure helper, όχι layer — precedent S191/contacts-batch).
+
+**Ανοιχτό (άλλο session):** calendar `_monthEventsProvider:27-37` N+1 (events loop, τα contacts από κάτω ήδη batch) — καταγράφηκε, εκτός scope.
