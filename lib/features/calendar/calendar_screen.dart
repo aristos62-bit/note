@@ -755,19 +755,7 @@ class _MonthGrid extends ConsumerWidget {
                       ),
 
                       // ── Δείκτες τύπου συμβάντων ─────────
-                      if (markers.isNotEmpty && !isSelected)
-                        Positioned(
-                          bottom: 3,
-                          child: _DayMarkerRow(
-                            markers: markers,
-                            primary: context.cPrimary,
-                          ),
-                        ),
-
-                      // ── Αν selected και έχει events:
-                      //    δείχνουμε όλες τις κουκκίδες με
-                      //    κανονικά χρώματα ─────────────────
-                      if (markers.isNotEmpty && isSelected)
+                      if (markers.isNotEmpty)
                         Positioned(
                           bottom: 3,
                           child: _DayMarkerRow(
