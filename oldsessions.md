@@ -2369,7 +2369,7 @@
 
 **Σύμπτωμα (device debug):** `RenderFlex overflowed by 9.3px on the bottom` στο `_EventPropertiesPanel` Column (`event_detail_screen.dart:717`) — tablet panel με σταθερό ύψος (h≤88.7), περιεχόμενο ~98px. Αδελφό του S115 (task panel 2.3px).
 
-**Fix (1 αρχείο, S115-pattern):** Column → `SingleChildScrollView > Column` (εσωτερικό byte-identical). Portrait no-op.
+**Fix (1 αρχείο, S115-pattern):** Column → `SingleChildScrollView > Column` (εσωτερικό λογικά-πανομοιότυπο, μόνο re-indent από το wrap — diff whitespace-inflated, λειτουργικά ταυτόσημο). Portrait no-op.
 
 **Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · **device ✅ (14/10/2026, user verdict — όλα ΟΚ).**
 
