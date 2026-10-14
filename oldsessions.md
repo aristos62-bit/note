@@ -2283,7 +2283,7 @@
 - Loop-risk ελεγμένο: το `getStats` γράφει μόνο properties (`_resetDailyIfNeeded`, `best_streak`) — δεν αγγίζει `dayTick` ούτε `updatedAt` → 1 recompute, τέλος. Οι 4 `watch` θέσεις (list ×2, detail ×2) ξαναχτίζουν μία φορά στην αλλαγή μέρας.
 - Όριο (σκόπιμα): καλύπτει «ανοίγω το app το πρωί»· foreground πάνω από τα μεσάνυχτα χωρίς resume θέλει Timer μεσάνυχτων (follow-up).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **199/199** · device retest εκκρεμεί (background→πρωί: completedToday/progress φρέσκα, 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **199/199** · **device ✅ (14/10/2026, user verdict — όλα ΟΚ):** background→πρωί completedToday/progress φρέσκα, 0 ERR.
 
 **Backups:** `backups/daytick_stats/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
@@ -2359,11 +2359,23 @@
 - events: ίδιο + `_saveData`→unconditional title+location (διόρθωσε το cancel→isActive no-op που έχανε τίτλο σε γρήγορο back) + drop `_pendingTitleValue`· location-debounce μένει (όχι τίτλος)· `_isSavingTitle` μένει.
 - Εκτός: content-fields (blocks/notes/location-typing), back/save/PopScope (διάβαζαν ήδη current-text), dedup/sync-guards.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · device retest εκκρεμεί (νέα σημείωση/συνήθεια/συμβάν: πληκτρολόγηση → tap αλλού → αποθηκευμένο · γρήγορο back → αποθηκευμένο · 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · **device ✅ (14/10/2026, user verdict — όλα ΟΚ):** focus-loss + γρήγορο back αποθηκεύουν, 0 ERR.
 
 **Backups:** `backups/notitle_autosave/` (4 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο pattern παντού, όχι layer).
+
+## Session 210 — 14/10/2026 (Event tablet panel overflow 9.3px)
+
+**Σύμπτωμα (device debug):** `RenderFlex overflowed by 9.3px on the bottom` στο `_EventPropertiesPanel` Column (`event_detail_screen.dart:717`) — tablet panel με σταθερό ύψος (h≤88.7), περιεχόμενο ~98px. Αδελφό του S115 (task panel 2.3px).
+
+**Fix (1 αρχείο, S115-pattern):** Column → `SingleChildScrollView > Column` (εσωτερικό byte-identical). Portrait no-op.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · **device ✅ (14/10/2026, user verdict — όλα ΟΚ).**
+
+**Backups:** `backups/fix_event_panel/` (dart.pre, SHA πριν το edit).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (layout micro-fix, όχι layer).
 
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 

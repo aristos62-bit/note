@@ -714,38 +714,40 @@ class _EventPropertiesPanel extends ConsumerWidget {
         final allDay = prop('all_day') == 'true';
         final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: Spacing.sm),
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: Spacing.sm),
 
-            // All day toggle
-            _PropRow(
-              icon: Icons.wb_sunny_rounded,
-              label: 'Ολοήμερο',
-              child: Switch(
-                value: allDay,
-                onChanged: onToggleAllDay,
-                activeThumbColor: context.cPrimary,
-              ),
-            ),
-
-            // Start time
-            _PropRow(
-              icon: Icons.schedule_rounded,
-              label: 'Έναρξη',
-              child: GestureDetector(
-                onTap: () => onPickStart(startTime),
-                child: Text(
-                  startTime != null
-                      ? (allDay ? startTime.short : startTime.dateTime)
-                      : 'Επιλογή',
-                  style: context.bodyMd.withColor(
-                      startTime != null ? context.cText : context.cText2),
+              // All day toggle
+              _PropRow(
+                icon: Icons.wb_sunny_rounded,
+                label: 'Ολοήμερο',
+                child: Switch(
+                  value: allDay,
+                  onChanged: onToggleAllDay,
+                  activeThumbColor: context.cPrimary,
                 ),
               ),
-            ),
-          ],
+
+              // Start time
+              _PropRow(
+                icon: Icons.schedule_rounded,
+                label: 'Έναρξη',
+                child: GestureDetector(
+                  onTap: () => onPickStart(startTime),
+                  child: Text(
+                    startTime != null
+                        ? (allDay ? startTime.short : startTime.dateTime)
+                        : 'Επιλογή',
+                    style: context.bodyMd.withColor(
+                        startTime != null ? context.cText : context.cText2),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
