@@ -2377,6 +2377,19 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (layout micro-fix, όχι layer).
 
+## Session 211 — 14/10/2026 (Birthday live-body μέσω SPoT predicate)
+
+**Σύμπτωμα:** γενέθλια από ημερολόγιο χωρίς όνομα — root με σταθερά `title='🎂 Γενέθλια'`/`body='Σήμερα είναι γενεθλίων!'`, το `_scheduleOne` ανανέωνε live-body μόνο για generic. Το όνομα εμφανιζόταν μόνο με resync αλλαγής ώρας.
+
+**Fix (1 αρχείο + 1 import, edit-tool only):** διεύρυνση live-branch σε `reminder.title == 'Υπενθύμιση' || ItemColorHelper.isBirthdayEvent(item)` (S156 SPoT, ίδιο predicate με το resync — όχι literal· προέκυψε από επανέλεγχο) + import `helpers/item_color_helper.dart` (pattern `settings_provider:10`, κανένας κύκλος).
+- Title μένει snapshot · κενό όνομα → stored fallback · παλιές rows αυτοθεραπεύονται σε `scheduleAll`/rename (S207), 0 migration · habits-custom/special-day/contact-birthdays άθικτα.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · device retest εκκρεμεί (νέο Γενέθλια+όνομα → restart → όνομα στα pending · παλιό nameless → φρέσκο · resync-regression · habits · 0 ERR).
+
+**Backups:** `backups/birthday_livebody/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (behavior εντός choke-point — precedent S159).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).

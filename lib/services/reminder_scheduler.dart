@@ -1,5 +1,6 @@
 // lib/services/reminder_scheduler.dart
 import '../helpers/super_note_helper.dart';
+import '../helpers/item_color_helper.dart';
 import '../models/models.dart';
 import 'notification_service.dart';
 import 'package:flutter/foundation.dart';
@@ -556,10 +557,12 @@ class ReminderScheduler {
       title = item.icon != null
           ? '${item.icon} ${item.title ?? 'Χωρίς τίτλο'}'
           : item.title ?? 'Χωρίς τίτλο';
-    } else if (reminder.title == 'Υπενθύμιση' &&
+    } else if ((reminder.title == 'Υπενθύμιση' ||
+            ItemColorHelper.isBirthdayEvent(item)) &&
         item?.title?.isNotEmpty == true) {
-      // Generic bell → ζωντανός τίτλος (staleness fix)· habits/γενέθλια
-      // (δικοί τους τίτλοι) κρατούν snapshot.
+      // Generic bell + γενέθλια (S156 SPoT predicate, όπως το resync) →
+      // ζωντανός τίτλος: το resync σώζει body=όνομα, το schedule το
+      // ξαναδιαβάζει (ίδια σύμβαση)· habits (δικοί τους τίτλοι) snapshot.
       body = item!.title!;
       DebugConfig.notif('ReminderScheduler._scheduleOne: live-body used');
     }
