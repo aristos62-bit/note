@@ -2248,7 +2248,7 @@
 
 **Fix (5 αρχεία, 0 συμπεριφορά):** `isSupportedPlatform` SPoT στο service (delegate ο scheduler — διπλή λίστα σβησμένη) · `AppErrors.notificationsUnsupportedWindows` · hint Row (icon + Expanded, file-local idiom) σε ReminderSection (πάντα, +warning στο save μετά disabled-return) + Settings δίπλα στο master switch (που σε Windows φαίνεται ζωντανός ενώ είναι no-op) · 2 περιττά foundation imports αφαιρέθηκαν (analyze τα έπιασε, material τα καλύπτει).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **196/196** (0 νέα — no harness · host Windows αλλά κανένα test δεν κάνει pump αυτών των widgets) · device εκκρεμεί (`flutter run -d windows`: hint bell+settings, στενό+max-font, mobile regression).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **196/196** (0 νέα — no harness · host Windows αλλά κανένα test δεν κάνει pump αυτών των widgets) · **device ✅ (14/10/2026, user verdict, `flutter run -d windows`):** hint ορατό σε bell + settings, στενό παράθυρο + max-font χωρίς overflow, mobile regression αμετάβλητη.
 
 **Backups:** `backups/win_hint/` (5 dart + oldsessions.pre, SHA πριν τα edits).
 
