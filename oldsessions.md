@@ -2468,3 +2468,17 @@
 **supernote.md/DESIGN.md:** καμία αλλαγή (batch + signal + pure helper, όχι layer — precedent S191/contacts-batch).
 
 **Ανοιχτό (άλλο session):** calendar `_monthEventsProvider:27-37` N+1 (events loop, τα contacts από κάτω ήδη batch) — καταγράφηκε, εκτός scope.
+
+## Session 217 — 14/10/2026 (Embedded tags batch — ~2N→2 + staleness-fix)
+
+**Scope (2+4 ανεστάλησαν — τελική πρόταση V5 ολόκληρη):** `item_list_embedded:228,245` διάβαζε `itemTagsProvider` ανά γραμμή με `ref.read` → ~2N queries (`getForItem` = join + tags) + stale chips (το read δεν κάνει subscribe — τα αποτελέσματα δεν ξυπνούν το widget). 1 αρχείο (465→~490, <500 ✅) · 0 νέα repo/dependency/imports/tests.
+
+**Υλοποίηση (1 αρχείο `item_list_embedded.dart`, edit-tool only, 3 micro-edits):**
+- `_embeddedTagsProvider` (file-private, autoDispose, `Map<int, List<String>>`): `watch(itemsStreamProvider)` + `watch(tagNotifierProvider)` (υποχρεωτικό signal — tag-writes δεν αγγίζουν Items) + ids ΟΛΟΥ του workspace (χωρίς φίλτρο — ο provider δεν βλέπει widget· V5-διόρθωση) + `db.tags.getAllForItems` + try/catch→{} + `db/error` logs.
+- Call-sites `:228/:245` → map lookups (`?? const <String>[]`). Κάρτες: καμία αλλαγή (δεν δείχνουν tags).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (0 νέα — 2 lookups, device-σύμβαση) · device εκκρεμεί (ημέρα με tags → 1× `ids=` · detail add/remove → φρέσκα chips χωρίς πληκτρολόγηση · search+tags · day-switch · rotation/reorder · 0 ERR).
+
+**Backups:** `backups/embedded_tags_batch/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (batch + signal στο ίδιο αρχείο, όχι layer — precedent S216/S191).
