@@ -200,6 +200,9 @@ class _CollectionEntriesScreenState
     final collectionAsync = ref.watch(itemStreamProvider(widget.collection.id));
     final collection = collectionAsync.valueOrNull ?? widget.collection;
     final accentColor = _colorFromItem(collection);
+    final propsIcon = propsAsync.valueOrNull
+        ?.where((p) => p.key == 'icon')
+        .firstOrNull?.value;
     DebugConfig.print('ENTRIES COLOR CHECK: collection.id=${collection.id} color="${collection.color}" accentColor=$accentColor');
 
     final isDragging = ref.watch(isDraggingProvider);
@@ -214,10 +217,12 @@ class _CollectionEntriesScreenState
         scrolledUnderElevation: 1,
         title: Row(
           children: [
-            Text(widget.collection.icon ?? '📦',
+            Text(
+                (propsIcon?.isNotEmpty == true ? propsIcon : collection.icon) ??
+                    '📦',
                 style: const TextStyle(fontSize: 20)),
             const SizedBox(width: Spacing.sm),
-            Text(widget.collection.title ?? 'Συλλογή',
+            Text(collection.title ?? 'Συλλογή',
                 style: context.titleMd),
           ],
         ),
