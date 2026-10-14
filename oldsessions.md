@@ -2485,6 +2485,18 @@
 
 **P1 N+1 CLOSED (14/10/2026, user verdict):** και τα 4 σκέλη (entries-tags ✅ προϋπήρχε · entries-props S216 ✅ · embedded-tags S217 ✅ · contacts-batch ✅ προϋπήρχε).
 
+## Session 219 — 14/10/2026 (Entries AppBar live τίτλος/icon)
+
+**Scope (2+4 ανεστάλησαν — τελική πρόταση V3 ολόκληρη):** τίτλος/icon διάβαζαν `widget.collection` (αμετάβλητο) → rename ήθελε re-entry, icon παγωμένο 📦 παντού (ζεί στα props, οι οθόνες διάβαζαν το Item field). 1 αρχείο, 2 γραμμές · 0 queries/providers/imports/tests.
+
+**Υλοποίηση (edit-tool only):** τίτλος → live `collection.title` (Item, stream) · icon → ήδη-watched `propsAsync` με αλυσίδα props-icon → `collection.icon` → `'📦'` (setText-invalidate ξυπνά δωρεάν· V1-λάθος διορθώθηκε στον επανέλεγχο).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device εκκρεμεί (rename+icon → back φρέσκα, rotation, 0 ERR).
+
+**Backups:** `backups/entries_appbar_live/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (2 γραμμές UI, όχι layer).
+
 ## Session 218 — 14/10/2026 (Calendar markers merge — identical-pair −11γρ.)
 
 **Scope (2+4 ανεστάλησαν — τελική πρόταση ολόκληρη):** `_MonthGrid` είχε 2 byte-identical `Positioned > _DayMarkerRow` (`!isSelected` / `isSelected` · grep: 2 call-sites + 1 ορισμός). 1 αρχείο (`calendar_screen.dart` 901→890) · 0 νέα API/tests.
