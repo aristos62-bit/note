@@ -2193,3 +2193,15 @@
 **Backups:** `backups/fix_picker_late/` (dart + test + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (init micro-fix + tests, όχι layer).
+
+## Session 198 — 14/10/2026 (Daily batch 5→14 — A5)
+
+**Σύμπτωμα:** `batchSize = 5` ενιαίο → daily reminder σταματούσε μετά 5 μέρες χωρίς άνοιγμα (παιδιά μόνο σε refresh · habits 60 μέρες · RUNWAY logs το αναγνωρίζουν).
+
+**Fix (1 αρχείο):** `reminder_scheduler.dart:179-185` — daily/custom → 14, weekly/monthly/yearly → 5 (μοναδικό σημείο με σκληρό 5 · `recurrence` σε scope · σταδιακό γέμισμα via top-up+dedup · όγκος iOS-64 → Βήμα 16).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **193/193** · device πρωτόκολλο εκκρεμεί (RUNWAY daily ≈ 14d).
+
+**Backups:** `backups/a5_batch14/` (dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (const → per-type, όχι layer).
