@@ -2329,7 +2329,7 @@
 - `item_provider.dart::updateItem`: 1 prev-read (επέκταση του A2-read) + σύγκριση τίτλου/icon → re-bake ΜΟΝΟ σε πραγματική αλλαγή και όχι όταν το A2 ήδη έκανε scheduleAll/cancel (`!statusChanged`)· A2 block byte-identical (0 `!`).
 - Επαληθευμένα: null-skip semantics (`helper:341`) · toggleArchive/Pin/Fav → skip (χωρίς title) · folder-move bypass text-neutral · snoozed rows ακίνδυνα (`triggerAt` οδηγεί, S52) · entries χωρίς reminders → no-op · custom-snapshot pairs κρατούν S159 (όριο) · restore-reschedule προϋπάρχον κενό S142 (parked).
 
-**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · device retest εκκρεμεί (one-shot 2λ → μετονομασία → banner ΝΕΟ τίτλο · done-task rename → σιγή · no-op save → 0 `rescheduleForItem` · rotation · 0 ERR).
+**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · **device ✅ (14/10/2026, `run_log.txt`, 1313 γρ., 0 ERR/FATAL/overflow):** rename χωρίς rows → `rebaked=0` (no-op) · bell → one-shot 2543 `SUCCESS` (τίτλος 4ch) · rename → `_scheduleOne` με τίτλο 6ch + `zonedSchedule OK` **στο ίδιο id** (overwrite, όχι διπλότυπο) + `rebaked=1` · ίδια ροή σε 2ο item (513) · switch-OFF cascade καθαρό.
 
 **Backups:** `backups/rename_reschedule/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
