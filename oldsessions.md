@@ -2484,3 +2484,15 @@
 **supernote.md/DESIGN.md:** καμία αλλαγή (batch + signal στο ίδιο αρχείο, όχι layer — precedent S216/S191).
 
 **P1 N+1 CLOSED (14/10/2026, user verdict):** και τα 4 σκέλη (entries-tags ✅ προϋπήρχε · entries-props S216 ✅ · embedded-tags S217 ✅ · contacts-batch ✅ προϋπήρχε).
+
+## Session 218 — 14/10/2026 (Calendar markers merge — identical-pair −11γρ.)
+
+**Scope (2+4 ανεστάλησαν — τελική πρόταση ολόκληρη):** `_MonthGrid` είχε 2 byte-identical `Positioned > _DayMarkerRow` (`!isSelected` / `isSelected` · grep: 2 call-sites + 1 ορισμός). 1 αρχείο (`calendar_screen.dart` 901→890) · 0 νέα API/tests.
+
+**Υλοποίηση (edit-tool only, 1 edit):** merge σε ένα `if (markers.isNotEmpty)` (το `_DayMarkerRow` δεν διαβάζει `isSelected` — ροζ/πορτοκαλί/primary ίδια και στις 2 περιπτώσεις· pixel-identical εκ κατασκευής· το 2ο σχόλιο ήταν απολίθωμα).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device εκκρεμεί (κουκκίδες ίδιες πατημένη/μη, 0 ERR).
+
+**Backups:** `backups/calendar_markers_merge/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (διαγραφή διπλοτυπίας, όχι layer).
