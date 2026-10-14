@@ -501,14 +501,18 @@ class HabitService {
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}')
         .toList();
 
-    await props.set(
-      itemId: habitId,
-      key: 'reminder_times',
-      value: jsonEncode(timesStr),
-      type: PropertyType.json,
-    );
+      await props.set(
+        itemId: habitId,
+        key: 'reminder_times',
+        value: jsonEncode(timesStr),
+        type: PropertyType.json,
+      );
+      // H1: το legacy μονό 'reminder_time' δεν πρέπει να επιβιώνει — το
+      // topUpHabitReminders ενώνει reminder_time + reminder_times και θα
+      // ξαναδημιουργούσε «φάντασμα» ώρα που ο χρήστης έχει αλλάξει.
+      await props.delete(habitId, 'reminder_time');
 
-    final allProps = await _getAllProps(habitId);
+      final allProps = await _getAllProps(habitId);
     final recurrence = Recurrence.fromProperties(allProps);
     await _scheduleReminders(habitId, times, recurrence);
     } catch (e, stack) {
