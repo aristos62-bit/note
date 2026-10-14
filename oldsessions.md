@@ -2159,7 +2159,7 @@
 
 **Fix (1 αρχείο, pattern S114):** το `Text` → `Flexible` + `maxLines:1/ellipsis/softWrap:false` (spinner πάντα ορατός · κανονικός τίτλος `null` άθικτος · καλύπτει max fontScale).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **186/186** · device retest εκκρεμεί (πληκτρολόγηση → indicator, portrait/landscape/max-font, 0 stripes).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **186/186** · **device ✅ (14/10/2026, user verdict):** indicator χωρίς stripes (portrait/landscape/max-font).
 
 **Backups:** `backups/fix_task_appbar_title/` (dart + oldsessions.pre, SHA πριν τα edits).
 
