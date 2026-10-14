@@ -2539,7 +2539,7 @@
 
 **Υλοποίηση (edit-tool only, 12+5 micro-edits):** 5× `const _LoadingList();` (χωρίς `{super.key}` — το analyze το ζήτησε ως `unused_element_parameter`, διορθώθηκε αμέσως → clean) + 7× const-κλήσεις. 0 λογική.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device-eyeball εκκρεμεί (φόρτωση λιστών).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (14/10/2026, user verdict) — S222 CLOSED.**
 
 **Backups:** `backups/const_loadinglist/` (5 dart.pre + oldsessions.pre).
 
