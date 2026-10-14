@@ -5,6 +5,7 @@ import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
 import '../core/core.dart';
 import 'reminder_scheduler.dart';
+import 'notification_service.dart';
 
 // ─────────────────────────────────────────────────────────────
 // HabitStats
@@ -567,7 +568,11 @@ class HabitService {
         final nextOcc = _nextOccurrenceForTime(recurrence, time, current);
         if (nextOcc.isAfter(from) && nextOcc.isBefore(end)) {
           out.add(nextOcc);
-          current = nextOcc.add(const Duration(days: 1));
+          // H2: μεσάνυχτα της επόμενης ημερολογιακής μέρας (όχι +24h: την
+          // αλλαγή ώρας Μαρτίου η ημέρα έχει 23ω και χανόταν μία εμφάνιση).
+          // Διορθώνει και τις διαδοχικές μέρες μήνα (π.χ. [10,11]) που
+          // παραλείπονταν επειδή target == after.
+          current = DateTime(nextOcc.year, nextOcc.month, nextOcc.day + 1);
           count++;
         } else {
           break;
@@ -704,6 +709,11 @@ class HabitService {
       }
       DebugConfig.notif(
           'HabitService.topUp: done scanned=$scanned needTopUp=$habits created=$created');
+      // H3 debug: πόσα alarms υπάρχουν πραγματικά στο OS (Android ~500/app,
+      // iOS 64) — αν πλησιάζει το όριο, μείωσε το horizonDays.
+      final osPending =
+      await NotificationService.instance.getPendingNotifications();
+      DebugConfig.notif('HabitService.topUp: OS pending=${osPending.length}');
     } catch (e, stack) {
       DebugConfig.error('topUpHabitReminders', e, stack);
     }
@@ -775,17 +785,19 @@ class HabitService {
     // jump μόνο για καθαρά περιοδικά (daily — weekly/monthly χωρίς
     // μέρες αδύνατα από UI). Αλλιώς χάνουμε μέρες της τρέχουσας περιόδου.
     final hasDays = (recurrence.days != null &&
-            recurrence.days!.isNotEmpty) &&
+        recurrence.days!.isNotEmpty) &&
         (recurrence.type == RecurrenceType.weekly ||
             recurrence.type == RecurrenceType.monthly);
     if (candidate.isBefore(after) && !hasDays) {
       // nextPeriodStart κρατά ώρα σε daily/custom, μηδενίζει σε
       // monthly/yearly — ομαλοποίηση σε μεσάνυχτα + μία προσθήκη.
       final midnight =
-          DateTime(candidate.year, candidate.month, candidate.day);
-      candidate = recurrence
-          .nextPeriodStart(midnight)
-          .add(Duration(hours: time.hour, minutes: time.minute));
+      DateTime(candidate.year, candidate.month, candidate.day);
+      // H2: wall-clock ώρα με constructor (όχι .add(Duration(hours:)) —
+      // την ημέρα DST έδινε +1ω).
+      final nps = recurrence.nextPeriodStart(midnight);
+      candidate =
+          DateTime(nps.year, nps.month, nps.day, time.hour, time.minute);
     }
     if (recurrence.type == RecurrenceType.weekly &&
         recurrence.days != null &&
@@ -793,16 +805,20 @@ class HabitService {
       // Same-day-passed slot (candidate πάντα σήμερα-με-ώρα): αύριο,
       // αλλιώς το loop σπάει με άδειο ορίζοντα (isValid = date-only).
       if (candidate.isBefore(after)) {
-        candidate = candidate.add(const Duration(days: 1));
+        // H2
+        candidate = DateTime(candidate.year, candidate.month,
+            candidate.day + 1, time.hour, time.minute);
       }
       // Anchor = epochMonday, όπως το getPeriodStart — grid και walker
       // συμφωνούν· ο scheduler χρησιμοποιεί DTSTART (σκόπιμα).
       final cap = recurrence.interval > 1 ? 7 * recurrence.interval + 8 : 8;
       int safety = 0;
       while (!Recurrence.isValidWeeklyDay(candidate, recurrence.days!,
-              recurrence.interval, Recurrence.epochMonday) &&
+          recurrence.interval, Recurrence.epochMonday) &&
           safety < cap) {
-        candidate = candidate.add(const Duration(days: 1));
+        // H2
+        candidate = DateTime(candidate.year, candidate.month,
+            candidate.day + 1, time.hour, time.minute);
         safety++;
       }
     }
@@ -1038,9 +1054,13 @@ class HabitService {
     switch (recurrence.type) {
       case RecurrenceType.daily:
       case RecurrenceType.custom:
-        return periodStart.subtract(Duration(days: recurrence.interval));
+      // H2: ημερολογιακή αφαίρεση (όχι −24h: την αλλαγή ώρας Μαρτίου
+      // παραλειπόταν μέρα στον υπολογισμό streak).
+        return DateTime(periodStart.year, periodStart.month,
+            periodStart.day - recurrence.interval);
       case RecurrenceType.weekly:
-        return periodStart.subtract(Duration(days: recurrence.interval * 7));
+        return DateTime(periodStart.year, periodStart.month,
+            periodStart.day - recurrence.interval * 7);
       case RecurrenceType.monthly:
         int month = periodStart.month - recurrence.interval;
         int year = periodStart.year;

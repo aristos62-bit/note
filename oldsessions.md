@@ -2253,3 +2253,22 @@
 **Backups:** `backups/win_hint/` (5 dart + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (UI hint + static, όχι layer).
+
+## Session 203 — 14/10/2026 (User batch: H1 ghost, H2 DST, H4α, unarchive topUp, debug logs)
+
+**Scope:** υλοποίηση χρήστη στα δικά του αρχεία + review/verify από agent (ξένα αρχεία δεν αγγίζονται).
+
+**Υλοποιήθηκαν (review ✅ ένα-ένα):**
+- **H1** (νωρίτερα, `f912ce6`): `reminder_time` delete στο `setReminderTimes` · device ✅ (κρατήθηκε για αυτό το κλείσιμο).
+- **Β8'** (`recurrence.dart`): `nextPeriodStart` daily/weekly + weekly-no-days → ημερολογιακή αριθμητική · +2 DST tests (`nextPeriodStart` 25/10 + 28/3).
+- **Β9** (`habit_service.dart`): cursor + jump-rebuild + weekly scan + `_prevPeriodStart` → calendar (χωρίς Β8-helper, σκόπιμα).
+- **Β13** (`reminder_scheduler.dart`): bulk cancel + 1 `deleteAll` + count-log.
+- **Β14** (`item_provider.dart`): unarchive → `topUpHabitReminders(force: true)` (force υπαρκτό `:635`, κανένας κύκλος).
+- **Β16α/β:** OS-pending log στο topUp · 2 skip-logs στο event saveTitle.
+- **DST group test** (`reminder_occurrences_test.dart`): 25/10 unit (πράσινο ορθώς — fix προϋπήρχε).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **199/199** · device: H1 ✅ · Β9/Β13/Β14/Β16 οπορτουνιστικά (σπάνια timings/DST).
+
+**Backups:** `backups/session_close_batch2/` (oldsessions.pre) · οι αλλαγές χρήστη καλύπτονται από git working-diff (reviewed πριν το commit).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (fixes + logs + tests, όχι layer).

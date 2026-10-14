@@ -402,9 +402,18 @@ class ReminderScheduler {
           .filter()
           .itemIdEqualTo(itemId)
           .findAll();
-      for (final r in all) {
-        await deleteReminderThread(r.id);
+      if (all.isEmpty) return;
+      // H4α: ένα batch αντί για thread-delete ανά row (μια συνήθεια έχει
+      // ~180 rows → 180 queries/transactions). Τα παιδιά έχουν ίδιο itemId.
+      final ids = [for (final r in all) r.id];
+      for (final id in ids) {
+        await NotificationService.instance.cancel(id);
       }
+      await SuperNoteHelper.instance.isar.writeTxn(() async {
+        await SuperNoteHelper.instance.isar.reminders.deleteAll(ids);
+      });
+      DebugConfig.notif(
+          'deleteAllRemindersForItem: deleted ${ids.length} rows itemId=$itemId');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.deleteAllRemindersForItem', e, stack);
     }

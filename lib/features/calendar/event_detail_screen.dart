@@ -103,10 +103,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     if (!mounted) return;
 
     // 🔥 NEW: block parallel saves
-    if (_isSavingTitle) return;
+    if (_isSavingTitle) {
+      DebugConfig.db('EventDetail saveTitle SKIPPED (in-flight) pending="$title"');
+      return;
+    }
 
     // 🔥 NEW: avoid duplicate writes
-    if (title == _lastSavedTitle) return;
+    if (title == _lastSavedTitle) {
+      DebugConfig.db('EventDetail saveTitle SKIPPED (duplicate) title="$title"');
+      return;
+    }
 
     _isSavingTitle = true;
     setState(() => _isSaving = true);

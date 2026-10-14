@@ -63,4 +63,22 @@ void main() {
       ]);
     });
   });
+
+  group('Recurrence DST (Europe/Athens)', () {
+    test('daily: 25/10/2026 (λήξη DST, μέρα 25 ωρών) → 26/10 ίδια ώρα', () {
+      final n = Recurrence.daily().nextOccurrence(DateTime(2026, 10, 25, 9, 0));
+      expect(n, DateTime(2026, 10, 26, 9, 0));
+    });
+    test('nextPeriodStart daily: 25/10 00:00 → 26/10 00:00 ακριβώς', () {
+      final n =
+      Recurrence.daily().nextPeriodStart(DateTime(2026, 10, 25));
+      expect(n, DateTime(2026, 10, 26));
+    });
+
+    test('nextPeriodStart daily: 28/3 00:00 → 29/3 00:00 ακριβώς', () {
+      final n =
+      Recurrence.daily().nextPeriodStart(DateTime(2026, 3, 28));
+      expect(n, DateTime(2026, 3, 29));
+    });
+  });
 }

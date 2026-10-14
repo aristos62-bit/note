@@ -167,9 +167,11 @@ class Recurrence {
   DateTime nextPeriodStart(DateTime periodStart) {
     switch (type) {
       case RecurrenceType.daily:
-        return periodStart.add(Duration(days: interval));
+        return DateTime(periodStart.year, periodStart.month,
+            periodStart.day + interval);
       case RecurrenceType.weekly:
-        return periodStart.add(Duration(days: interval * 7));
+        return DateTime(periodStart.year, periodStart.month,
+            periodStart.day + interval * 7);
       case RecurrenceType.monthly:
         int nextMonth = periodStart.month + interval;
         int nextYear = periodStart.year;
@@ -257,7 +259,8 @@ class Recurrence {
             next = candidate;
           }
         } else {
-          next = from.add(Duration(days: 7 * interval));
+          next = DateTime(from.year, from.month,
+              from.day + 7 * interval, from.hour, from.minute, from.second);
         }
         break;
 
