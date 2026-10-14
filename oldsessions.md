@@ -2396,7 +2396,7 @@
 
 **Fix (1 αρχείο, 0 νέα API/imports, edit-tool only):** future-chain mirror A6 — `_habitChain` + `_queuedHabitPass`· delegates `topUp→_topUpImpl` (guard μέσα), `_scheduleReminders→Impl` (καλύπτει set/single/multi/sync), null-branch via queue· `repair` εκτός σκόπιμα (funnelάρει σε chained → deadlock)· delete-vs-topUp αποδεκτό υπόλοιπο (parity A6).
 
-**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · device retest εκκρεμεί (set/change/disable → singles · race-chase kill→launch→άμεση αλλαγή → 0 duplicates · unarchive-force → singles · restart idempotent · 0 ERR).
+**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · **device ✅ (14/10/2026, `run_log.txt`, 5034 γρ., 0 ERR/FATAL/overflow):** set 2 ωρών → wipe+regen singles · change/disable → καθαρά wipes · restart-topUp `created=14/23` (ολοκλήρωση διακοπέντων regens / αλλαγμένων ωρών — missing-only, όχι διπλότυπα) → τελικός κύκλος `needTopUp=0 created=0` · OS pending σταθερό 164→163→164 (όχι runaway) · passes σειριακά, καμία αλληλεπικάλυψη.
 
 **Backups:** `backups/habit_serial/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
