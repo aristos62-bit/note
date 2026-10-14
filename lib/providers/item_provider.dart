@@ -7,6 +7,7 @@ import 'pinned_provider.dart';
 import '../core/utils/debug_config.dart';
 import 'dart:async';
 import '../services/reminder_scheduler.dart';
+import '../services/habit_service.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // Filters (για το UI — φίλτρα λίστας)
@@ -303,6 +304,9 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     } else {
       await ReminderScheduler.instance.refreshRecurringReminders();
       await ReminderScheduler.instance.scheduleAll();
+      // Συνήθειες: ο ορίζοντας 60ημ. μπορεί να εξαντλήθηκε όσο ήταν
+      // αρχειοθετημένη (το topUp εξαιρεί archived) — top-up τώρα, όχι στο resume.
+      await HabitService.instance.topUpHabitReminders(force: true);
       DebugConfig.notif('toggleArchive: UNARCHIVE id=$id → rescheduled');
     }
     ref.invalidate(archivedItemsProvider);
