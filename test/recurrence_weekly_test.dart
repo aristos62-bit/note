@@ -132,6 +132,18 @@ void main() {
       final next = r.nextOccurrence(DateTime(2026, 2, 1, 10, 0))!;
       expect([next.year, next.month, next.day], [2026, 2, 28]);
     });
+
+    test('yearly no-days 29/2: μη-δίσεκτο → 28/2 (όχι 1/3)', () {
+      const r = Recurrence(type: RecurrenceType.yearly, interval: 1);
+      final next = r.nextOccurrence(DateTime(2024, 2, 29, 10, 0))!;
+      expect([next.year, next.month, next.day], [2025, 2, 28]);
+    });
+
+    test('yearly no-days 29/2 interval=2 → 28/2/2026 (interval κρατιέται)', () {
+      const r = Recurrence(type: RecurrenceType.yearly, interval: 2);
+      final next = r.nextOccurrence(DateTime(2024, 2, 29, 10, 0))!;
+      expect([next.year, next.month, next.day], [2026, 2, 28]);
+    });
   });
 
   group('yearlyOccurrenceDay (ημερολόγιο μελλοντικά έτη)', () {
