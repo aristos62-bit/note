@@ -195,7 +195,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
               const Icon(Icons.archive_rounded, size: 18),
               const SizedBox(width: Spacing.sm),
               Text(
-                ref.watch(showArchivedProvider) ? 'Απόκρυψη συμπιεσμένων αρχείων' : 'Εμφάνιση συμπιεσμένων αρχείων',
+                ref.watch(showArchivedProvider) ? 'Απόκρυψη αρχειοθετημένων' : 'Εμφάνιση αρχειοθετημένων',
               ),
             ]),
           ),

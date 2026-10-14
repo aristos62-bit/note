@@ -206,8 +206,8 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
               const SizedBox(width: Spacing.sm),
               Text(
                 ref.watch(showArchivedProvider)
-                    ? 'Απόκρυψη συμπιεσμένων αρχείων'
-                    : 'Εμφάνιση συμπιεσμένων αρχείων',
+                    ? 'Απόκρυψη αρχειοθετημένων'
+                    : 'Εμφάνιση αρχειοθετημένων',
               ),
             ]),
           ),
