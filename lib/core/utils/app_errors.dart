@@ -80,6 +80,10 @@ class AppErrors {
   // ── Notifications ──────────────────────────────────────────
   static const notificationsUnsupportedWindows =
       'Σε Windows οι υπενθυμίσεις αποθηκεύονται αλλά δεν χτυπούν (δεν υποστηρίζονται ειδοποιήσεις)';
+  static const reminderInPast =
+      'Η ώρα έχει περάσει — διάλεξε μελλοντική ώρα';
+  static const reminderSavedNoAlarm =
+      'Αποθηκεύτηκε, αλλά οι ειδοποιήσεις είναι κλειστές — δεν θα χτυπήσει';
 
   // ── Birthday ─────────────────────────────────────────────────
   static String birthdayReplaced(String name) =>

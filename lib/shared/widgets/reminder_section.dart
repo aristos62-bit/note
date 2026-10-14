@@ -36,6 +36,23 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
   bool _isLoading = true;
   int? _reminderId;
 
+  /// Υπάρχει ώρα που μπορεί πραγματικά να χτυπήσει: μελλοντική ώρα, ή
+  /// επαναλαμβανόμενη (το DTSTART μπορεί να είναι στο παρελθόν).
+  bool get _hasUsableTrigger {
+    final t = _triggerDateTime;
+    if (t == null) return false;
+    return _recurrence != null || !t.isBefore(DateTime.now());
+  }
+
+  /// SnackBar με mounted check (mirror DetailScreenMixin.showSnackBar —
+  /// το mixin δεν εφαρμόζεται εδώ, απαιτεί titleCtrl).
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -182,9 +199,30 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           await ReminderScheduler.instance.scheduleReminder(newReminder);
         }
       }
+      if (mounted && NotificationService.isSupportedPlatform) {
+        try {
+          final settings = await ref.read(dbProvider).settings.get();
+          if (!settings.notificationsEnabled && mounted) {
+            _snack(AppErrors.reminderSavedNoAlarm);
+          }
+        } catch (e) {
+          DebugConfig.error('ReminderSection settings-check', e);
+        }
+      }
       DebugConfig.notif('ReminderSection._saveReminder: DONE');
     } catch (e) {
       DebugConfig.error('ReminderSection._saveReminder', e);
+    }
+  }
+
+  /// Ακύρωση picker χωρίς χρήσιμη ώρα και χωρίς τίποτα στη βάση → το switch
+  /// επιστρέφει σε OFF (αλλιώς δείχνει ενεργή υπενθύμιση που δεν αποθηκεύτηκε).
+  void _revertSwitchIfNoTrigger() {
+    if (!mounted) return;
+    if (_reminderId == null && !_hasUsableTrigger) {
+      DebugConfig.notif(
+          'ReminderSection: picker cancelled, no usable trigger → switch OFF');
+      setState(() => _enabled = false);
     }
   }
 
@@ -203,6 +241,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     if (!mounted) return;
     if (date == null) {
       DebugConfig.notif('ReminderSection._pickDateTime: date picker cancelled');
+      _revertSwitchIfNoTrigger();
       return;
     }
     final time = await showTimePicker(
@@ -213,10 +252,17 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     if (!mounted) return;
     if (time == null) {
       DebugConfig.notif('ReminderSection._pickDateTime: time picker cancelled');
+      _revertSwitchIfNoTrigger();
       return;
     }
     final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     DebugConfig.notif('ReminderSection._pickDateTime: selected dt=$dt');
+    if (_recurrence == null && dt.isBefore(DateTime.now())) {
+      DebugConfig.notif('ReminderSection._pickDateTime: past one-shot, blocked');
+      _snack(AppErrors.reminderInPast);
+      _revertSwitchIfNoTrigger();
+      return;
+    }
     setState(() => _triggerDateTime = dt);
     await _saveReminder();
   }
@@ -258,8 +304,8 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
               onChanged: (val) async {
                 DebugConfig.notif('ReminderSection: Switch changed to $val');
                 setState(() => _enabled = val);
-                if (val && _triggerDateTime == null) {
-                  DebugConfig.notif('ReminderSection: Switch ON, no trigger yet → opening picker');
+                if (val && !_hasUsableTrigger) {
+                  DebugConfig.notif('ReminderSection: Switch ON, no usable trigger → opening picker');
                   await _pickDateTime();
                 } else {
                   await _saveReminder();

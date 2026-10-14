@@ -2288,3 +2288,19 @@
 **Backups:** `backups/daytick_stats/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (UI-state signal, όχι layer — precedent S191).
+
+## Session 205 — 14/10/2026 (ReminderSection: cancel-ghost + past-block + OFF-warning)
+
+**Συμπτώματα:** (1) switch ΟΝ + ακύρωση picker → switch έμενε ΟΝ χωρίς αποθηκευμένη ώρα (ghost)· (2) παρελθοντικό one-shot γραφόταν στη DB και σκιπαριζόταν σιωπηλά από τον scheduler· (3) καμία προειδοποίηση με κλειστές ειδοποιήσεις/χωρίς άδεια.
+
+**Fix (2 αρχεία, 0 νέα imports — όλα via barrels, edit-tool only):**
+- `app_errors.dart`: +`reminderInPast`, +`reminderSavedNoAlarm` (SPoT S68· κενό επιβεβαιωμένο με grep).
+- `reminder_section.dart`: getter `_hasUsableTrigger` (μελλοντική ώρα Ή recurrence — past-DTSTART νόμιμο για επαναλαμβανόμενα)· `_revertSwitchIfNoTrigger` (μόνο με `_reminderId == null`, προστατεύει edit-row)· past-block ΜΟΝΟ για one-shot + SnackBar· OFF-warning στην ουρά της `_saveReminder` (κεντρικό σημείο — καλύπτει time-pick + recurrence-edit + updates· delete-path επιστρέφει νωρίς)· πηγή `dbProvider` (ίδια με scheduler)· skip σε Windows (μόνιμο hint ήδη στο build)· switch-συνθήκη `!_hasUsableTrigger`· `_snack` mirror του mixin (το mixin απαιτεί titleCtrl).
+- Απορρίφθηκαν τεκμηριωμένα: shared `showReminderPicker` (κόβει past-dates, σπάει S155/S156)· diagnostics `silenced` (άλλη διάσταση)· OS-permission query (θέλει νέο service API — follow-up)· persistent OFF hint-row (θέλει stream-watch — follow-up)· scheduler άθικτος (safety net).
+- Κάλυψη 6 detail screens δωρεάν (task/event/note/appointment/journal/contact), callers άθικτοι.
+
+**Επαλήθευση:** `flutter test` → **199/199** · `analyze` clean · device retest εκκρεμεί (cancel→OFF · past one-shot→SnackBar+OFF · past με επανάληψη→σώζεται · OFF→warning · edit-row άθικτο).
+
+**Backups:** `backups/reminder_ghost/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (UI-behavior + SPoT strings, όχι layer — precedent S136/S191).
