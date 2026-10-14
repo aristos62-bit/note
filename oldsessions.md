@@ -2413,7 +2413,7 @@
 - `settings_screen`: past-dialog φίλτρο known-deleted + empty-SnackBar (missing ως πριν).
 - Εκτός: `permanentDelete`/άδειασμα (hard delete) · moveToFolder · toggles (χωρίς title → skip) · restore-reschedule S142-κενό — έκλεισε εδώ.
 
-**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · device retest εκκρεμεί (delete→σιγή+muted · restore→φωτιά · reboot-με-κάδο→σιγή · permanent→τέλος · dialog καθαρό · bulk-restore · 0 ERR).
+**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · **device ✅ (14/10/2026, `run_log.txt`, 1266 γρ., 0 ERR/FATAL/overflow):** delete → `reminders=1` + cancel (0 DB-delete) · restore → refresh+scheduleAll+topUp + `rescheduled` · reboot-με-κάδο → `DELETED, SKIP` · permanent → `deleted 1 rows` · S207-rename ενδιάμεσα ΟΚ. Σημείωση: το refire παρατηρήσιμο θέλει μελλοντικό trigger (το test-row είχε ήδη χτυπήσει)· ο μηχανισμός (refresh+scheduleAll πάνω σε restored state) αποδεδειγμένος στα logs.
 
 **Backups:** `backups/trash_symmetric/` (4 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
