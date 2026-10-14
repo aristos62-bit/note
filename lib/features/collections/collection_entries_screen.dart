@@ -63,6 +63,34 @@ final _batchColIdProvider = FutureProvider.autoDispose<Map<int, String>>((ref) a
   return result;
 });
 
+/// Signal: ξανατρέξε το props-batch μετά από save σε entry-detail
+/// (τα property-writes δεν αγγίζουν Item rows — S130-class).
+/// ΜΟΝΟΣ writer: `_saveData` παρακάτω. ΔΕΝ μοιραζόμαστε τα
+/// contact/journal signals (cross-talk).
+final entriesPropsVersionProvider = StateProvider<int>((ref) => 0);
+
+/// Batch provider: ΟΛΑ τα properties για όλα τα knowledge items — 1 DB call
+/// αντί για N (mirror `_batchTagsProvider` + `journalDatesProvider`).
+/// Κατανάλωση με valueOrNull (ποτέ loading-flash). Fail-open: σφάλμα → {}.
+final _batchEntryPropsProvider = FutureProvider.autoDispose<Map<int, List<ItemProperty>>>((ref) async {
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  ref.watch(entriesPropsVersionProvider);
+  final ids = itemsAsync.valueOrNull
+      ?.where((i) => i.type == ItemType.knowledge)
+      .map((e) => e.id)
+      .toList() ?? [];
+  if (ids.isEmpty) return {};
+  DebugConfig.db('_batchEntryPropsProvider: ids=${ids.length}');
+  try {
+    final result = await SuperNoteHelper.instance.properties.getAllForItems(ids);
+    DebugConfig.db('_batchEntryPropsProvider: found=${result.length}');
+    return result;
+  } catch (e, s) {
+    DebugConfig.error('_batchEntryPropsProvider', e, s);
+    return {};
+  }
+});
+
 // ════════════════════════════════════════════════════════════════
 // COLLECTION ENTRIES SCREEN
 // ════════════════════════════════════════════════════════════════
@@ -439,6 +467,8 @@ class _FilteredEntriesList extends ConsumerWidget {
 
     // Tag filter (batch map — όχι per-row watch, βλ. _batchTagsProvider)
     final tagsMap = ref.watch(_batchTagsProvider).valueOrNull ?? {};
+    // Props για previews (batch map — όχι per-card watch)
+    final propsMap = ref.watch(_batchEntryPropsProvider).valueOrNull ?? {};
     if (activeTags.isNotEmpty) {
       entries = entries.where((e) {
         final names = tagsMap[e.id] ?? const <String>[];
@@ -485,6 +515,7 @@ class _FilteredEntriesList extends ConsumerWidget {
         entry: entry,
         fields: fields,
         accentColor: accentColor,
+        props: propsMap[entry.id] ?? const [],
         onTap: () => Navigator.of(context)
             .push(AppTransitions.slideRoute(CollectionEntryDetailScreen(
           entryId: entry.id,
@@ -502,10 +533,41 @@ class _FilteredEntriesList extends ConsumerWidget {
 // ENTRY CARD — με χρήση ItemColorHelper (ίδιο)
 // ════════════════════════════════════════════════════════════════
 
-class _EntryCard extends ConsumerWidget {
+/// Pure helper: τιμή preview κάρτας για ένα πεδίο (χωρίς Isar/widget).
+/// Byte-identical με το inline `_EntryCard` — δεν αλλάζει τίποτα οπτικά.
+String entryPreviewValue(FieldDef field, List<ItemProperty> props) {
+  if (field.type == FieldType.bulletList ||
+      field.type == FieldType.numberedList) {
+    final listJson =
+        props.where((p) => p.key == field.key).firstOrNull?.value ?? '';
+    if (listJson.isEmpty) return '';
+    try {
+      final list = jsonDecode(listJson) as List;
+      return list.isNotEmpty ? '${list.length} στοιχεία' : '';
+    } catch (_) {
+      return '';
+    }
+  }
+  if (field.type == FieldType.attachment) {
+    final idsJson =
+        props.where((p) => p.key == field.key).firstOrNull?.value ?? '';
+    if (idsJson.isEmpty) return '';
+    try {
+      final ids = jsonDecode(idsJson) as List;
+      if (ids.isEmpty) return '';
+      return ids.length == 1 ? '1 συνημμένο' : '${ids.length} συνημμένα';
+    } catch (_) {
+      return '';
+    }
+  }
+  return props.where((p) => p.key == field.key).firstOrNull?.value ?? '';
+}
+
+class _EntryCard extends StatelessWidget {
   final Item entry;
   final List<FieldDef> fields;
   final Color accentColor;
+  final List<ItemProperty> props;
   final VoidCallback onTap;
   final VoidCallback? onShare;
 
@@ -513,15 +575,13 @@ class _EntryCard extends ConsumerWidget {
     required this.entry,
     required this.fields,
     required this.accentColor,
+    required this.props,
     required this.onTap,
     this.onShare,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(entry.id));
-    final props = propsAsync.valueOrNull ?? [];
-
+  Widget build(BuildContext context) {
     final previewFields = fields.take(3).toList();
 
     final backgroundColor = accentColor.withValues(alpha: 0.85);
@@ -579,33 +639,7 @@ class _EntryCard extends ConsumerWidget {
             if (previewFields.isNotEmpty) ...[
               const SizedBox(height: Spacing.xs),
               ...previewFields.map((f) {
-                String val = '';
-                if (f.type == FieldType.bulletList ||
-                    f.type == FieldType.numberedList) {
-                  final listJson =
-                      props.where((p) => p.key == f.key).firstOrNull?.value ??
-                          '';
-                  if (listJson.isNotEmpty) {
-                    try {
-                      final list = jsonDecode(listJson) as List;
-                      if (list.isNotEmpty) val = '${list.length} στοιχεία';
-                    } catch (_) {}
-                  }
-                } else if (f.type == FieldType.attachment) {
-                  final idsJson =
-                      props.where((p) => p.key == f.key).firstOrNull?.value ?? '';
-                  if (idsJson.isNotEmpty) {
-                    try {
-                      final ids = jsonDecode(idsJson) as List;
-                      if (ids.isNotEmpty) {
-                        val = ids.length == 1 ? '1 συνημμένο' : '${ids.length} συνημμένα';
-                      }
-                    } catch (_) {}
-                  }
-                } else {
-                  val = props.where((p) => p.key == f.key).firstOrNull?.value ??
-                      '';
-                }
+                final val = entryPreviewValue(f, props);
                 if (val.isEmpty) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: 2),
@@ -770,6 +804,7 @@ class _CollectionEntryDetailScreenState
     _lastSavedTitle = title;
     _isEditingTitle = false;
     _hasChanges     = false;
+    ref.read(entriesPropsVersionProvider.notifier).state++;
     DebugConfig.db('EntryDetail saved');
   }
 
