@@ -74,12 +74,12 @@
 - ✅ (S142) `item_provider` — συμμετρικό lifecycle κάδου (F1): `_cascadeCollectionEntries` έγινε action-based και καλείται **και** από `restoreItem`/`permanentDelete` (`includeDeleted:true`) → restore συλλογής επαναφέρει τις εγγραφές της· permanent τις διαγράφει + καθαρίζει attachments. 1 αρχείο (497→498), 0 νέα public API· `analyze` clean + `test` 138/138· device ✅ 09/10/2026 (`run_log_f1.txt` — delete/restore/permanent με εγγραφές + `deleted file` attachment cleanup).
 - ✅ (S143) `item_provider` split (R1 <500): pinned/favorites streams → νέο `providers/pinned_provider.dart` (+ barrel export)· **498→442**· 0 νέα public API. Behavior (Fix #2): αρχειοθετημένα items = σίγαση OS reminders (`toggleArchive` cancel/reschedule · guard `_scheduleOne` · skip archived roots `refreshRecurringReminders` · Settings restore/delete → SPoT `ItemNotifier`)· `analyze` clean + `test` 138/138· device ✅ 09/10/2026 (`run_log_f2.txt` — ARCHIVED/SKIP, unarchive reschedule, delete cascade, 0 ERR).
 - ✅ CLOSED 13/10/2026 — `journal_list:106` retry → `itemsStreamProvider` (1γρ.) · `:128-129` Future-per-build → batch-map (S191).
-- 🟡 `collection_entries:166,169` — stale AppBar (widget αντί watched).
+- ✅ CLOSED 14/10/2026 (S219+S220, device ✅) — τίτλος → live Item, icon → props-αλυσίδα + dual-write `Item.icon` για το grid.
 - ✅ CLOSED 13/10/2026 — entries stable key (S189)· `collection_detail:719` = legit field-key (όχι accent-compound).
 
 ### 3.5 Providers / lifecycle (Φ4c-45)
 - ✅ CLOSED 13/10/2026 (S170) — 3× read→watch· device ✅.
-- 🟡 `ref.watch` σε `when`/itemBuilder: `journal_list:113`· `task_list:181`· `contact:499`· `collection_entries:497`· `item_list:157`· `contact_list:167`· `habit_list:184`.
+- ✅ REVIEWED 14/10/2026 — watches μέσα σε `data:` κάνουν subscribe κανονικά (όχι bug όπως το embedded `ref.read`)· hoist δεν αλλάζει συμπεριφορά → no-change.
 - ✅ CLOSED 13/10/2026 (S171) — named + dispose + didUpdateWidget· device ✅.
 - ✅ CLOSED 13/10/2026 (S179) — κοινό `_storePickedPhoto` (1024/85)· **device ✅ (13/10/2026):** PASS, 0 ERR.
 - 🟡 controllers χωρίς `dispose`: settings ✅ accepted (S131 docs ×4, S120)· `collection_detail:191-199` dialog-ctrls → doc-parity (OPEN micro, 0 κώδικα).
@@ -91,14 +91,14 @@
 ### 3.6 Theming / tokens / a11y (Φ4c-46)
 - ✅ CLOSED 13/10/2026 (S169) — tokens + shared consts· `main` parked (const, χωρίς context)· **device ✅ (13/10/2026):** eyeball PASS, 0 ERR.
 - 🟡 `event:432,830` — ✅ CLOSED 13/10/2026 (S183: 1 widget, device tablet PASS) · 6 actions (overflow risk — αν σκάσει, overflow-menu follow-up).
-- 🟡 `calendar:476,554` — ✅ CLOSED 13/10/2026: error SnackBar και στα 3 (parity `_createEventWithIcon:575-581`) · παλιό dead branch `:637-656` ✅ GONE (restructured S156/S177)· νέο identical-pair `:753-772` (P2-OPEN merge −11γρ.).
-- 🟡 Ετυμολογία: `calendar:214`·`journal_list:195` «συμπιεσμένων»→«αρχειοθετημένων».
+- ✅ `calendar:476,554` — ✅ CLOSED 13/10/2026: error SnackBar και στα 3 (parity `_createEventWithIcon:575-581`) · παλιό dead branch `:637-656` ✅ GONE (restructured S156/S177)· νέο identical-pair `:753-772` ✅ MERGED 14/10/2026 (S218, −11γρ., device ✅).
+- ✅ CLOSED 14/10/2026 (S221, device ✅) — 8 αρχεία → «αρχειοθετημένων», grep `συμπιεσμένων` = 0 σε `lib/`.
 - ✅ CLOSED 13/10/2026 (S178) — ξαναγραφή από context· grep `�` = 0.
-- 🟡 `const`: habit ✅ (const ctor)· journal `_LoadingList:419` OPEN (1 micro).
+- ✅ CLOSED 14/10/2026 (S222, Επιλογή Β, device ✅) — const `_LoadingList` ×5 αρχεία + key-cleanup (`unused_element_parameter`).
 - ⏳ **a11y (48px/Semantics)** — ξεχωριστό device pass.
 
 ### 3.7 🆕 Νέα ευρήματα (audit)
-- ✅ `_createEventWithIcon` catch ΧΩΡΙΣ SnackBar (OPEN parity, βλ. 3.6)· παλιό dead branch GONE· νέο identical-pair `:753-772` (OPEN, βλ. 3.6).
+- ✅ `_createEventWithIcon` catch ΧΩΡΙΣ SnackBar (OPEN parity, βλ. 3.6)· παλιό dead branch GONE· identical-pair ✅ MERGED (S218, βλ. 3.6).
 - ✅ REVIEWED 13/10/2026 — guarded (`isEmpty`/`_lastEmail`/one-shot flag)· μένει micro-cost in-memory (όχι DB)· no-change ή 2γρ. flag.
 - ✅ CLOSED 13/10/2026 — εξαφανισμένο (grep 0).
 - ✅ CLOSED 13/10/2026 (S184) — padLeft· device ✅.
