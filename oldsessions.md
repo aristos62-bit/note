@@ -2152,3 +2152,15 @@
 **Backups:** `backups/a2_done_silence/` (3 dart + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer — precedent S143).
+
+## Session 195 — 14/10/2026 (Task AppBar saving-indicator overflow 14px)
+
+**Σύμπτωμα (device debug):** `RenderFlex overflowed by 14px on the right` στο `task_detail_screen.dart:308` — ο saving-tίτλος (`Row(min)`: spinner 14 + gap 8 + `Text('Αποθήκευση...')` ~72px ≈ 94px) σε middle-slot 80px (στενό από leading + 6 actions).
+
+**Fix (1 αρχείο, pattern S114):** το `Text` → `Flexible` + `maxLines:1/ellipsis/softWrap:false` (spinner πάντα ορατός · κανονικός τίτλος `null` άθικτος · καλύπτει max fontScale).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **186/186** · device retest εκκρεμεί (πληκτρολόγηση → indicator, portrait/landscape/max-font, 0 stripes).
+
+**Backups:** `backups/fix_task_appbar_title/` (dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (layout micro-fix, όχι layer).
