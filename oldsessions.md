@@ -2527,7 +2527,7 @@
 
 **Υλοποίηση (edit-tool only, 8× replaceAll):** `συμπιεσμένων αρχείων` → `αρχειοθετημένων` σε task_list/item_list/habit_list/calendar/contact_list/collections/entries/journal (2 αντικαταστάσεις/αρχείο — Απόκρυψη+Εμφάνιση). 0 λογική.
 
-**Επαλήθευση:** grep `συμπιεσμένων` → 0 σε `lib/` · `analyze` clean · `flutter test` → **215/215** · device-eyeball εκκρεμεί (1 μενού).
+**Επαλήθευση:** grep `συμπιεσμένων` → 0 σε `lib/` · `analyze` clean · `flutter test` → **215/215** · **device ✅ (14/10/2026, user verdict) — S221 CLOSED.**
 
 **Backups:** `backups/terminology_archived/` (8 dart.pre + oldsessions.pre).
 
