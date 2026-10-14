@@ -226,18 +226,24 @@ class NotificationService {
       // οπότε το zonedSchedule μπορεί να μην πυροδοτηθεί ποτέ χωρίς exception.
       final android = _plugin.resolvePlatformSpecificImplementation
       <AndroidFlutterLocalNotificationsPlugin>();
+      // Fallback: χωρίς exact-άδεια το exact mode πετάει
+      // ExactAlarmPermissionException (απώλεια σιωπηλή, +διαγραφή από
+      // cache στο reboot) — inexact (χτυπά, ίσως με Doze-καθυστέρηση).
+      var scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
       if (android != null) {
         try {
-          final canExact = await android.canScheduleExactNotifications();
-          if (canExact == false) {
+          scheduleMode = scheduleModeFor(
+              await android.canScheduleExactNotifications());
+          if (scheduleMode == AndroidScheduleMode.inexactAllowWhileIdle) {
             DebugConfig.warning(
-              'NotificationService.schedule: ⚠️ canScheduleExactNotifications=false '
-                  'id=$id scheduledAt=$scheduledAt — το OS ΔΕΝ επιτρέπει exact alarms αυτή τη στιγμή',
+              'NotificationService.schedule: exact alarm χωρίς άδεια '
+                  'id=$id scheduledAt=$scheduledAt — fallback σε inexact (πιθανή καθυστέρηση Doze)',
             );
           }
         } catch (e) {
+          scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
           DebugConfig.notif(
-              'NotificationService.schedule: canScheduleExactNotifications check failed: $e');
+              'NotificationService.schedule: canScheduleExactNotifications check failed: $e — fallback σε inexact');
         }
       }
 
@@ -248,16 +254,23 @@ class NotificationService {
         tz.TZDateTime.from(scheduledAt, tz.local),
         _details(sound: sound, vibration: vibration),
         payload: payload,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         uiLocalNotificationDateInterpretation:
         UILocalNotificationDateInterpretation.absoluteTime,
       );
       DebugConfig.notif(
-          'NotificationService.schedule: ✅ zonedSchedule OK id=$id at $scheduledAt');
+          'NotificationService.schedule: ✅ zonedSchedule OK id=$id at $scheduledAt mode=$scheduleMode');
     } catch (e, stack) {
       DebugConfig.error('NotificationService.schedule', e, stack);
     }
   }
+
+  /// Pure: exact ΜΟΝΟ με ρητή άδεια· `false`/`null` (channel-error)
+  /// → inexact (ασφαλής κατεύθυνση — χτυπά αντί να χάνεται).
+  static AndroidScheduleMode scheduleModeFor(bool? canScheduleExact) =>
+      canScheduleExact == true
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
 
   Future<void> cancel(int id) async {
     if (!_initialized) return;

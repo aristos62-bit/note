@@ -2229,3 +2229,15 @@
 **Backups:** `backups/fix_tap_deleted/` (dart + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (guard 5 γραμμών, όχι layer).
+
+## Session 201 — 14/10/2026 (Exact-alarm fallback σε inexact)
+
+**Σύμπτωμα:** άρνηση exact-άδειας (Android 12+, MIUI ανάκληση) → `zonedSchedule(exact)` πετούσε `ExactAlarmPermissionException` (native) → catch → μόνο log → χαμένη υπενθύμιση · στο reboot τα persisted exact σβήνονταν από cache (`rescheduleNotifications:231-234`).
+
+**Fix (1 αρχείο + 1 νέο test):** `notification_service.dart::schedule()` — null-guard διατηρημένο · `scheduleModeFor` (pure static: true→exact, else→inexact) + warning/notif + `mode=` στο SUCCESS · boot-restore επιβιώνει (persisted inexact) · diagnostics πράσινο (mode-agnostic pending) · `supernote` άθικτο.
+
+**Επαλήθευση:** νέο `test/notification_fallback_test.dart` 3/3 · `flutter test` → **196/196** · `analyze` clean · device εκκρεμεί (deny exact → +2λ χτυπά + warning · επανέγκριση → exact · reboot με deny → επιβιώνουν · Android 12/14 + MIUI).
+
+**Backups:** `backups/fallback_inexact/` (dart + test νέο + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (fallback, όχι layer — behavior + pure static + test).
