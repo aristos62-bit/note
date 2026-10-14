@@ -2491,7 +2491,7 @@
 
 **Υλοποίηση (edit-tool only, 1 edit):** merge σε ένα `if (markers.isNotEmpty)` (το `_DayMarkerRow` δεν διαβάζει `isSelected` — ροζ/πορτοκαλί/primary ίδια και στις 2 περιπτώσεις· pixel-identical εκ κατασκευής· το 2ο σχόλιο ήταν απολίθωμα).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device εκκρεμεί (κουκκίδες ίδιες πατημένη/μη, 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (14/10/2026, user verdict):** κουκκίδες ίδιες πατημένη/μη, 0 ERR — S218 CLOSED.
 
 **Backups:** `backups/calendar_markers_merge/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
