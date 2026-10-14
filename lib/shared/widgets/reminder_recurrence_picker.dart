@@ -65,12 +65,12 @@ class RecurrencePickerModalState extends State<RecurrencePickerModal> {
     super.initState();
     final init = widget.initialRecurrence;
     _type = init?.type ?? RecurrenceType.daily;
+    _weeklyDays = [];
     if (init != null) {
       if (init.days != null) _weeklyDays = init.days!.toList();
       if (init.dayOfMonth != null) _monthlyDay = init.dayOfMonth;
       _interval = init.interval;
     } else {
-      _weeklyDays = [];
       _monthlyDay = null;
       _applyDefaultsForType(_type);
     }

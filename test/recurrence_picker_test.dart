@@ -112,4 +112,52 @@ void main() {
     // 15 απορρίφθηκε· έμεινε η Δευτέρα του trigger.
     expect(got!.days, [DateTime.monday]);
   });
+
+  testWidgets('weekly χωρίς μέρες ανοίγει χωρίς LateError', (tester) async {
+    // Custom-weeks save γράφει weekly με days=null (S157) — το initState
+    // δεν αρχικοποιούσε το _weeklyDays → LateInitializationError στο build.
+    const weeklyNoDays = Recurrence(type: RecurrenceType.weekly, interval: 2);
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => Scaffold(
+          body: TextButton(
+            onPressed: () => showRecurrencePicker(
+              context: ctx,
+              initialRecurrence: weeklyNoDays,
+            ),
+            child: const Text('Άνοιγμα'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Άνοιγμα'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Επανάληψη υπενθύμισης'), findsOneWidget);
+    await tester.tap(find.text('Εφαρμογή'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('daily init + tap weekly δεν κρασάρει (δεύτερο path)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => Scaffold(
+          body: TextButton(
+            onPressed: () => showRecurrencePicker(
+              context: ctx,
+              initialRecurrence: Recurrence.daily(),
+            ),
+            child: const Text('Άνοιγμα'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Άνοιγμα'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Εβδομαδιαία'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }

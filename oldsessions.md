@@ -2181,3 +2181,15 @@
 **Backups:** `backups/step11_occurrences/` (scheduler + recurrence + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (behavior + pure static + test, όχι layer).
+
+## Session 197 — 14/10/2026 (RecurrencePicker LateError `_weeklyDays`)
+
+**Σύμπτωμα (device debug, red screen):** `LateInitializationError: Field '_weeklyDays' has not been initialized` στο build του picker — `initState` το έβαζε μόνο αν `init.days != null` · weekly χωρίς μέρες (custom-weeks save `:281-285`, ή άδεια chips) + `_type==weekly` → crash στο `:227`. Δεύτερο λανθάνον path: daily/custom init → tap weekly (`:113`). Προϋπάρχον (κανένα session δεν άγγιξε το `initState`) — το ξύπνησε το step11-testing.
+
+**Fix (1 γραμμή, μηδέν συμπεριφορά):** `_weeklyDays = []` πάντα μετά το `_type` (το `[]` στο else έφυγε ως πλεονασμός).
+
+**Επαλήθευση:** 2 νέα regression (`recurrence_picker_test.dart`: weekly-χωρίς-μέρες + daily→weekly tap) · `flutter test` → **193/193** · `analyze` clean · **device ✅ (14/10/2026, user verdict, φρέσκο `flutter run`):** καμπάνα σε weekly/custom-weeks → ανοίγει χωρίς κόκκινη οθόνη.
+
+**Backups:** `backups/fix_picker_late/` (dart + test + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (init micro-fix + tests, όχι layer).
