@@ -18,6 +18,7 @@ import '../../shared/widgets/widgets.dart';
 class NoteDetailBody extends ConsumerWidget {
   final Item item;
   final TextEditingController titleCtrl;
+  final FocusNode titleFocusNode;
   final ValueChanged<String> onTitleChange;
   final bool isSaving;
 
@@ -25,6 +26,7 @@ class NoteDetailBody extends ConsumerWidget {
     super.key,
     required this.item,
     required this.titleCtrl,
+    required this.titleFocusNode,
     required this.onTitleChange,
     required this.isSaving,
   });
@@ -47,6 +49,7 @@ class NoteDetailBody extends ConsumerWidget {
             ),
             child: TextField(
               controller: titleCtrl,
+              focusNode: titleFocusNode,
               onChanged: onTitleChange,
               style: context.h2.copyWith(fontWeight: FontWeight.w600),
               maxLines: null,

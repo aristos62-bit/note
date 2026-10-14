@@ -30,7 +30,7 @@ class HabitDetailScreen extends ConsumerStatefulWidget {
 class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
     with DetailScreenMixin<HabitDetailScreen> {
   late final TextEditingController _titleCtrl;
-  Timer? _titleDebounce;
+  late final FocusNode _titleFocusNode;
   bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
@@ -44,23 +44,28 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
+    _titleFocusNode = FocusNode();
+    _titleFocusNode.addListener(() {
+      if (!_titleFocusNode.hasFocus) {
+        _isEditingTitle = false;
+        _saveTitle(_titleCtrl.text.trim());
+      } else {
+        _isEditingTitle = true;
+      }
+    });
     initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
-    _titleDebounce?.cancel();
     disposeScreen();
     _titleCtrl.dispose();
+    _titleFocusNode.dispose();
     super.dispose();
   }
 
   void _onTitleChanged(String value) {
     _isEditingTitle = true;
-    _titleDebounce?.cancel();
-    _titleDebounce = Timer(AppDuration.debounceTitle, () {
-      _saveTitle(value.trim());
-    });
   }
 
   Future<void> _saveTitle(String title) async {
@@ -87,7 +92,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
   Future<void> _saveOrDelete() async {
     await executeSaveOrDelete(
       saveFn: () async {
-        _titleDebounce?.cancel();
         await _saveTitle(_titleCtrl.text.trim());
       },
       deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
@@ -199,6 +203,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
         body: _HabitBody(
           item: item,
           titleCtrl: _titleCtrl,
+          titleFocusNode: _titleFocusNode,
           isSaving: _isSaving,
           onTitleChange: _onTitleChanged,
           onIncrement: _incrementProgress,
@@ -224,6 +229,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
               child: _HabitBody(
                 item: item,
                 titleCtrl: _titleCtrl,
+                titleFocusNode: _titleFocusNode,
                 isSaving: _isSaving,
                 onTitleChange: _onTitleChanged,
                 onIncrement: _incrementProgress,
@@ -269,7 +275,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
                 );
                 return;
               }
-              _titleDebounce?.cancel();
               final nav = Navigator.of(context);
               setState(() => _isSaving = true);
               try {
@@ -352,6 +357,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
 class _HabitBody extends ConsumerWidget {
   final Item item;
   final TextEditingController titleCtrl;
+  final FocusNode titleFocusNode;
   final bool isSaving;
   final ValueChanged<String> onTitleChange;
   final VoidCallback onIncrement;
@@ -364,6 +370,7 @@ class _HabitBody extends ConsumerWidget {
   const _HabitBody({
     required this.item,
     required this.titleCtrl,
+    required this.titleFocusNode,
     required this.isSaving,
     required this.onTitleChange,
     required this.onIncrement,
@@ -392,6 +399,7 @@ class _HabitBody extends ConsumerWidget {
                 context.responsiveHPadding, Spacing.xs),
             child: TextField(
               controller: titleCtrl,
+              focusNode: titleFocusNode,
               onChanged: onTitleChange,
               style: context.h2.copyWith(fontWeight: FontWeight.w600),
               maxLines: null,

@@ -35,13 +35,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     with DetailScreenMixin<EventDetailScreen> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _locationCtrl;
-  Timer? _titleDebounce;
+  late final FocusNode _titleFocusNode;
   Timer? _locationDebounce;
   bool _isSaving = false;
   bool _isSavingTitle = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
-  String? _pendingTitleValue;
   bool _isPinned = false;
   bool _isFavorite = false;
   bool _isArchived = false;
@@ -54,38 +53,30 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     super.initState();
     _titleCtrl = TextEditingController();
     _locationCtrl = TextEditingController();
+    _titleFocusNode = FocusNode();
+    _titleFocusNode.addListener(() {
+      if (!_titleFocusNode.hasFocus) {
+        _isEditingTitle = false;
+        _saveTitle(_titleCtrl.text.trim());
+      } else {
+        _isEditingTitle = true;
+      }
+    });
     initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
-    _titleDebounce?.cancel();
     _locationDebounce?.cancel();
     disposeScreen();
     _titleCtrl.dispose();
     _locationCtrl.dispose();
+    _titleFocusNode.dispose();
     super.dispose();
   }
 
   void _onTitleChanged(String v) {
     _isEditingTitle = true;
-
-    final trimmed = v.trim();
-
-    // 🔥 NEW: ignore duplicate pending values
-    if (_pendingTitleValue == trimmed) return;
-
-    _pendingTitleValue = trimmed;
-
-    _titleDebounce?.cancel();
-    _titleDebounce = Timer(AppDuration.debounceTitle, () async {
-      final title = _pendingTitleValue ?? '';
-
-      await _saveTitle(title);
-
-      await Future.delayed(const Duration(milliseconds: 100));
-      _isEditingTitle = false;
-    });
   }
 
   void _onLocationChanged(String v) {
@@ -156,14 +147,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 
   Future<void> _flushSaves() async {
-    if (_titleDebounce?.isActive == true) {
-      _titleDebounce!.cancel();
-      await _saveTitle(_titleCtrl.text.trim());
-    }
-    if (_locationDebounce?.isActive == true) {
-      _locationDebounce!.cancel();
-      await _saveLocation(_locationCtrl.text.trim());
-    }
+    await _saveTitle(_titleCtrl.text.trim());
+    await _saveLocation(_locationCtrl.text.trim());
   }
 
   Future<void> _toggleFavorite() async {
@@ -186,7 +171,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   /// Flush των debounce timers και αποθήκευση — χωρίς validation, χωρίς navigation.
   /// Χρησιμοποιείται από _save() και _onPopInvoked() (auto-save on back).
   Future<void> _saveData() async {
-    _titleDebounce?.cancel();
     _locationDebounce?.cancel();
     await _flushSaves();
   }
@@ -408,6 +392,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           item: item,
           titleCtrl: _titleCtrl,
           locationCtrl: _locationCtrl,
+          titleFocusNode: _titleFocusNode,
           isSaving: _isSaving,
           onTitleChange: _onTitleChanged,
           onLocationChange: _onLocationChanged,
@@ -450,6 +435,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 item: item,
                 titleCtrl: _titleCtrl,
                 locationCtrl: _locationCtrl,
+                titleFocusNode: _titleFocusNode,
                 isSaving: _isSaving,
                 onTitleChange: _onTitleChanged,
                 onLocationChange: _onLocationChanged,
@@ -492,6 +478,7 @@ class _EventBody extends ConsumerWidget {
   final Item item;
   final TextEditingController titleCtrl;
   final TextEditingController locationCtrl;
+  final FocusNode titleFocusNode;
   final bool isSaving;
   final ValueChanged<String> onTitleChange;
   final ValueChanged<String> onLocationChange;
@@ -504,6 +491,7 @@ class _EventBody extends ConsumerWidget {
     required this.item,
     required this.titleCtrl,
     required this.locationCtrl,
+    required this.titleFocusNode,
     required this.isSaving,
     required this.onTitleChange,
     required this.onLocationChange,
@@ -549,6 +537,7 @@ class _EventBody extends ConsumerWidget {
                 Expanded(
                   child: TextField(
                     controller: titleCtrl,
+                    focusNode: titleFocusNode,
                     onChanged: onTitleChange,
                     style: context.h2.copyWith(fontWeight: FontWeight.w600),
                     maxLines: null,
