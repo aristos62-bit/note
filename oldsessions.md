@@ -2482,3 +2482,5 @@
 **Backups:** `backups/embedded_tags_batch/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (batch + signal στο ίδιο αρχείο, όχι layer — precedent S216/S191).
+
+**P1 N+1 CLOSED (14/10/2026, user verdict):** και τα 4 σκέλη (entries-tags ✅ προϋπήρχε · entries-props S216 ✅ · embedded-tags S217 ✅ · contacts-batch ✅ προϋπήρχε).
