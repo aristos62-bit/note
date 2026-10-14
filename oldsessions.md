@@ -2335,6 +2335,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (νέα public method σε υπάρχον service + branch — όχι layer).
 
+## Session 208 — 14/10/2026 (Note AppBar saving-indicator overflow 14px)
+
+**Σύμπτωμα (device debug):** `RenderFlex overflowed by 14px on the right` στο `note_detail_screen.dart:227` — ο saving-tίτλος (spinner + γυμνό `Text('Αποθήκευση...')`) σε middle-slot 80px. Αδελφό του S195 (task — φτιαγμένο)· το note ήταν το μοναδικό γυμνό σε όλο το `lib/` (grep 2 hits).
+
+**Fix (1 αρχείο, mirror S195/S114):** `Text` → `Flexible` + `maxLines:1/ellipsis/softWrap:false` (spinner πάντα ορατός· κανονικός τίτλος `null` άθικτος).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · **device ✅ (14/10/2026, user verdict).**
+
+**Backups:** `backups/fix_note_appbar_title/` (dart.pre, SHA πριν το edit).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (layout micro-fix, όχι layer).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
