@@ -2539,7 +2539,7 @@
 
 **Υλοποίηση (edit-tool only):** `showModalBottomSheet+SafeArea+shape` → `showSafeSheet<void>(builder: sheetCtx → SafeSheet(child: Column))` · ~12 lookups + 2 pops → sheetCtx (τα follow-calls `_edit/_deleteFolder` κρατούν outer — νέο dialog μετά το close) · διαγραφή dead else + flatten · μάθημα: το Edit-E έφαγε κλείσιμο μεθόδου (174 errors) → άμεσο restore από backup + ξαναχτίσιμο (οι closer-γραμμές αντιστοιχούσαν 1:1, το E ήταν περιττό).
 
-**Επαλήθευση:** `analyze` clean (μετά το restore) · `flutter test` → **215/215** · device εκκρεμεί (⋮ open/select/cancel/rotation/landscape/edit-save/delete, 0 ERR).
+**Επαλήθευση:** `analyze` clean (μετά το restore) · `flutter test` → **215/215** · **device ✅ (14/10/2026, user verdict) — S223 CLOSED (S190-parked closed).**
 
 **Backups:** `backups/foldermenu_safesheet/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
