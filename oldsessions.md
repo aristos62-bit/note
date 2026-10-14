@@ -2320,6 +2320,21 @@
 
 **Επαλήθευση:** στοχευμένα 34/34 · `flutter test` → **203/203** · `analyze` clean · **device ✅ (14/10/2026, `run_log.txt`, 3187 γρ., 0 ERR/FATAL/overflow):** daily-2000 → `walk hit cap — keeping thread` 3× (roots 2529 ×2 διεργασίες, 2530), 0 `deleting thread`, roots επιβιώνουν cross-process · weekly-13/SA,TU,TH με DTSTART 2000 → 5 παιδιά με ακριβές 91-ημερών spacing (08-12 → 09-03) + restart `skipping` (σταθερό, 0 duplicates) · past-block/edit-row/refresh-idempotent από προηγούμενο run · scheduleAll όλα `SUCCESS` · topUp καθαρό. **Μένει:** — (device pass 14/10/2026, user verdict — S206 CLOSED).
 
+## Session 207 — 14/10/2026 (Μετονομασία → reschedule OS alarms)
+
+**Σύμπτωμα:** μετονομασία item δεν άλλαζε την ήδη προγραμματισμένη ειδοποίηση — το live-body ψηνόταν μόνο στο schedule, το `updateItem(title)` δεν ξαναπρογραμμάτιζε.
+
+**Fix (2 αρχεία, 0 νέα imports, edit-tool only):**
+- `reminder_scheduler.dart`: νέο SPoT `rescheduleForItem(id)` (μετά τη `scheduleReminder`) — platform + master-switch guards, `getForItem`, skip non-pending + recurring roots (mirror `scheduleAll`), `_scheduleOne` ανά row (past/archived/done κληρονομικά), summary log.
+- `item_provider.dart::updateItem`: 1 prev-read (επέκταση του A2-read) + σύγκριση τίτλου/icon → re-bake ΜΟΝΟ σε πραγματική αλλαγή και όχι όταν το A2 ήδη έκανε scheduleAll/cancel (`!statusChanged`)· A2 block byte-identical (0 `!`).
+- Επαληθευμένα: null-skip semantics (`helper:341`) · toggleArchive/Pin/Fav → skip (χωρίς title) · folder-move bypass text-neutral · snoozed rows ακίνδυνα (`triggerAt` οδηγεί, S52) · entries χωρίς reminders → no-op · custom-snapshot pairs κρατούν S159 (όριο) · restore-reschedule προϋπάρχον κενό S142 (parked).
+
+**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · device retest εκκρεμεί (one-shot 2λ → μετονομασία → banner ΝΕΟ τίτλο · done-task rename → σιγή · no-op save → 0 `rescheduleForItem` · rotation · 0 ERR).
+
+**Backups:** `backups/rename_reschedule/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (νέα public method σε υπάρχον service + branch — όχι layer).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).

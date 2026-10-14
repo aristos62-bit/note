@@ -173,10 +173,12 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
         bool? favorite,
       }) async {
     try {
-      // A2: προηγούμενο status (μόνο όταν αλλάζει status — 1 read).
-      final prevStatus = status == null
-          ? null
-          : (await ref.read(dbProvider).items.getById(id))?.status;
+      // A2: προηγούμενο status + τίτλος/icon (1 read — re-bake μόνο σε
+      // πραγματική αλλαγή, όχι σε κάθε no-op save).
+      final prev = (status != null || title != null || icon != null)
+          ? await ref.read(dbProvider).items.getById(id)
+          : null;
+      final prevStatus = prev?.status;
       await ref.read(dbProvider).items.update(
         id,
         title: title,
@@ -201,6 +203,16 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
           await ReminderScheduler.instance.scheduleAll();
           DebugConfig.notif('updateItem: status=${status.name} id=$id → rescheduled');
         }
+      }
+      // Μετονομασία → ξαναψήσιμο OS alarms (εκτός αν μόλις άλλαξε status —
+      // το A2 κάλυψε ήδη το reschedule/cancel· εκτός αν το item χάθηκε).
+      // color/priority/pinned/favorite δεν μπαίνουν στο κείμενο — σκόπιμα έξω.
+      final statusChanged = status != null && prevStatus != status;
+      final titleChanged = title != null && prev != null && title != prev.title;
+      final iconChanged = icon != null && prev != null && icon != prev.icon;
+      if ((titleChanged || iconChanged) && !statusChanged) {
+        await ReminderScheduler.instance.rescheduleForItem(id);
+        DebugConfig.notif('updateItem: title/icon changed id=$id → rescheduled OS');
       }
       ref.invalidateSelf();
       ref.invalidate(itemByIdProvider(id));
