@@ -178,7 +178,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
               child: RefreshIndicator(
                 onRefresh: () async => ref.invalidate(itemNotifierProvider),
                 child: itemsAsync.when(
-                  loading: () => _LoadingList(),
+                  loading: () => const _LoadingList(),
                   error: (e, _) => EmptyState.error(onRetry: () => ref.invalidate(itemNotifierProvider)),
                   data: (allItems) {
                     var items = allItems.where((i) => i.type == widget.itemType).toList();
@@ -260,6 +260,8 @@ class _ItemListBody extends ConsumerWidget {
 }
 
 class _LoadingList extends StatelessWidget {
+  const _LoadingList();
+
   @override
   Widget build(BuildContext context) {
     return ListView.separated(

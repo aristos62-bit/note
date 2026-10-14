@@ -85,7 +85,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemNotifierProvider),
               child: allAsync.when(
-                loading: () => _LoadingList(),
+                loading: () => const _LoadingList(),
                 error: (e, _) => EmptyState.error(
                   onRetry: () => ref.invalidate(itemNotifierProvider),
                 ),
@@ -422,6 +422,8 @@ class _ContactAvatar extends StatelessWidget {
 }
 
 class _LoadingList extends StatelessWidget {
+  const _LoadingList();
+
   @override
   Widget build(BuildContext context) => ListView.separated(
     padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),
