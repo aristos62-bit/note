@@ -2431,6 +2431,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-fix, όχι layer).
 
+## Session 215 — 14/10/2026 (Weekly midnights — RED/GREEN)
+
+**Θέμα:** `getPeriodStart` weekly έβγαζε Δευτέρα 01:00 το καλοκαίρι (`ref+N·168ω`) + κρατούσε την ώρα του input στο interval==1. Πραγματικό bug σε `habit_detail:1037` (day-coloring: `contains` με μεσάνυχτα → ποτέ πράσινο το καλοκαίρι) + σπάνιο Sunday-miss στο `habit_service:915` (spring-εβδομάδα, άνοιγμα μετά 23:00). Εντοπίστηκε σε κοινή ανάλυση· το δικό μου audit το είχε χάσει (truncated read).
+
+**Fix (edit-tool only):** weekly-branch → ημερολογιακή αφαίρεση + μεσάνυχτα (και τα 2 paths) · `_mondayOf` → constructor (ισοδύναμο, TZ-ανεξάρτητο).
+
+**Επαλήθευση (RED/GREEN):** 3 νέα tests FAIL πριν το patch, PASS μετά · `flutter test` → **208/208** · `analyze` clean · device: habit-weekly-interval>1 καλοκαίρι (πράσινες μέρες σωστές) + 0 ERR.
+
+**Backups:** `backups/recurrence.dart.bak_S215_pre`, `backups/recurrence_weekly_test.dart.bak_S215_pre` (ονοματοδοσία σχεδίου).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (pure-fix, όχι layer).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
