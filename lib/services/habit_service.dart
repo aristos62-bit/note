@@ -465,7 +465,7 @@ class HabitService {
       DebugConfig.db('🕒 Disabling reminders for habit $habitId');
       await props.delete(habitId, 'reminder_time');
       await props.delete(habitId, 'reminder_times');
-      await _clearHabitGenerated(habitId);
+      await _queuedHabitPass(() => _clearHabitGenerated(habitId));
     } else {
       DebugConfig.db(
           '🕒 Setting reminder for habit $habitId at ${time.hour}:${time.minute}');
@@ -637,7 +637,23 @@ class HabitService {
   /// Τρέχει ΜΟΝΟ όπου υπάρχουν reminder_time(s) (ρητό opt-in).
   static DateTime? _lastTopUp;
 
-  Future<void> topUpHabitReminders({bool force = false}) async {
+  /// A6-mirror: σειριοποίηση habit row-mutations (topUp/set/clear).
+  /// Check-then-act με awaits (read existing → create) + ταυτόχρονο
+  /// setReminderTimes/_clearHabitGenerated (π.χ. αλλαγή ωρών στο startup)
+  /// έβγαζε διπλά rows/ghosts. Κάθε pass περιμένει το προηγούμενο·
+  /// οι υπογραφές μένουν ίδιες· catchError ζώνη ασφαλείας (και unawaited).
+  Future<void> _habitChain = Future<void>.value();
+
+  Future<void> _queuedHabitPass(Future<void> Function() task) {
+    final next = _habitChain.then((_) => task());
+    _habitChain = next.catchError((_) {});
+    return next;
+  }
+
+  Future<void> topUpHabitReminders({bool force = false}) =>
+      _queuedHabitPass(() => _topUpHabitRemindersImpl(force: force));
+
+  Future<void> _topUpHabitRemindersImpl({bool force = false}) async {
     try {
       final now = DateTime.now();
       if (!force &&
@@ -754,6 +770,11 @@ class HabitService {
   }
 
   Future<void> _scheduleReminders(
+      int habitId, List<TimeOfDay> times, Recurrence recurrence) =>
+      _queuedHabitPass(
+          () => _scheduleRemindersImpl(habitId, times, recurrence));
+
+  Future<void> _scheduleRemindersImpl(
       int habitId, List<TimeOfDay> times, Recurrence recurrence) async {
     await _clearHabitGenerated(habitId);
 
