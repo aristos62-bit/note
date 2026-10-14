@@ -2461,7 +2461,7 @@
 - Β2: `entriesPropsVersionProvider` signal (ΜΟΝΟΣ writer `_saveData` — όχι shared signals, cross-talk) + `_batchEntryPropsProvider` (1× `getAllForItems`, try/catch→{}, valueOrNull) + `_FilteredEntriesList` περνά `props:` + `_EntryCard` ConsumerWidget→StatelessWidget (inline αυτούσιο).
 - Β3: inline 28γρ. → `entryPreviewValue(f, props)` + αφαίρεση Β0-logs.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (+7 νέα) · **device ✅ (14/10/2026, pid 13584):** `_batchEntryPropsProvider: ids=37 → found=37`, 0 per-card loads, λίστα/detail×4/share/reminders υγιή, 0 ERR.
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (+7 νέα) · **device ✅ (14/10/2026, pid 13584):** `_batchEntryPropsProvider: ids=37 → found=37`, 0 per-card loads, λίστα/detail×4/share/reminders υγιή, 0 ERR · **final state (Β3 helper+dedup-log) device ✅ (14/10/2026, user verdict) — S216 CLOSED.**
 
 **Backups:** `backups/entries_n1_measure/`, `backups/entries_preview_helper/`, `backups/entries_batch_wiring/`, `backups/entries_helper_adopt/`, `backups/session216_entries_batch/` (dart.pre/test + SHA πριν τα edits).
 
@@ -2477,7 +2477,7 @@
 - `_embeddedTagsProvider` (file-private, autoDispose, `Map<int, List<String>>`): `watch(itemsStreamProvider)` + `watch(tagNotifierProvider)` (υποχρεωτικό signal — tag-writes δεν αγγίζουν Items) + ids ΟΛΟΥ του workspace (χωρίς φίλτρο — ο provider δεν βλέπει widget· V5-διόρθωση) + `db.tags.getAllForItems` + try/catch→{} + `db/error` logs.
 - Call-sites `:228/:245` → map lookups (`?? const <String>[]`). Κάρτες: καμία αλλαγή (δεν δείχνουν tags).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (0 νέα — 2 lookups, device-σύμβαση) · device εκκρεμεί (ημέρα με tags → 1× `ids=` · detail add/remove → φρέσκα chips χωρίς πληκτρολόγηση · search+tags · day-switch · rotation/reorder · 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (0 νέα — 2 lookups, device-σύμβαση) · **device ✅ (14/10/2026, user verdict):** ημέρα με tags, detail add/remove με φρέσκα chips, search+tags, day-switch, rotation/reorder, 0 ERR — S217 CLOSED.
 
 **Backups:** `backups/embedded_tags_batch/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
