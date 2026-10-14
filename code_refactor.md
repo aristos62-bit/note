@@ -153,4 +153,4 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 
 1. ✅ CLOSED 13/10/2026 (device OK) — `note_detail_screen.dart` AppBar 6 actions: compact density + 20px + `titleSpacing: 0`, κανένα overflow στη συσκευή· ενοποιημένο DetailAppBar parked.
 2. ✅ CLOSED 13/10/2026 (fixed S99 + device OK) — `habit_detail_screen`: `Container` → `Material` (ίδια χρώματα/radius/border).
-3. (συμπληρώνεται με κάθε νέο εύρημα από device logs)
+3. 🔜 Snooze UI + notification actions (μελλοντική ανάπτυξη, απόφαση 14/10/2026) — το `ReminderNotifier.snooze` δουλεύει (S52: pending + OS reschedule) αλλά δεν έχει κουμπί/μενού πουθενά· το `markSent` επίσης 0 callers (σκόπιμα κρατείται για μελλοντικό OS fire-callback — μην το σβήσεις). Εύρημα 14/10/2026: οι ειδοποιήσεις δεν έχουν action buttons (Αναβολή 10′ / Έγινε) — το `_details()` (`notification_service.dart:325-343`) δεν ορίζει Android `actions` ούτε iOS category, το `_onTap` αγνοεί `actionId`, το `_onBackgroundTap` είναι no-op. Θέλει spec (κουμπί σε ReminderSection; actions; iOS categories) + σχεδίαση background-tap (εκεί δεν υπάρχει Isar) + λειτουργικό τεστ + device matrix.
