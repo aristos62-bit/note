@@ -2497,6 +2497,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (2 γραμμές UI, όχι layer).
 
+## Session 220 — 14/10/2026 (Collection icon dual-write — grid-κάρτα)
+
+**Σύμπτωμα (device, user):** αλλαγή icon σε ⚽ σώζεται (το detail δείχνει μπάλα) αλλά η κάρτα του grid δείχνει το παλιό — διάγνωση με probe-log: η κάρτα διαβάζει `item.icon` (Item field) που δεν γραφόταν ποτέ (ούτε create ούτε save — μόνο props `icon`).
+
+**Υλοποίηση (edit-tool only, 2 micro-edits):** `_saveData` detail → `updateItem(..., icon: _icon)` (dual-write, το `icon:` υπήρχε ήδη στο API· stream ξυπνά grid+entries) + αφαίρεση probe-log από entries (έκανε τη δουλειά του). Legacy σειρές θέλουν 1 re-save.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device εκκρεμεί (icon-change → grid δείχνει ⚽, entries-AppBar, 0 ERR).
+
+**Backups:** `backups/collection_icon_dualwrite/` (2 dart.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (1 παράμετρος σε υπάρχον API, όχι layer).
+
 ## Session 218 — 14/10/2026 (Calendar markers merge — identical-pair −11γρ.)
 
 **Scope (2+4 ανεστάλησαν — τελική πρόταση ολόκληρη):** `_MonthGrid` είχε 2 byte-identical `Positioned > _DayMarkerRow` (`!isSelected` / `isSelected` · grep: 2 call-sites + 1 ορισμός). 1 αρχείο (`calendar_screen.dart` 901→890) · 0 νέα API/tests.
