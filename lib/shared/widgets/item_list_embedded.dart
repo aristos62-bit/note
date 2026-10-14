@@ -16,6 +16,27 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../widgets/widgets.dart';
 
+/// Batch provider: tag names για όλα τα workspace items — 2 DB calls αντί για ~2N.
+/// Ανανέωση σε item-list αλλαγές ΚΑΙ tag mutations (tagNotifier signal — αλλιώς
+/// stale chips, τα tag-writes δεν αγγίζουν Item rows).
+/// Κατανάλωση με valueOrNull (ποτέ loading-flash). Fail-open: σφάλμα → {}.
+final _embeddedTagsProvider = FutureProvider.autoDispose<Map<int, List<String>>>((ref) async {
+  final itemsAsync = ref.watch(itemsStreamProvider);
+  // Signal: ξανατρέξε σε add/remove tag (το notifier κάνει invalidateSelf).
+  ref.watch(tagNotifierProvider);
+  final ids = itemsAsync.valueOrNull?.map((e) => e.id).toList() ?? [];
+  if (ids.isEmpty) return {};
+  DebugConfig.db('_embeddedTagsProvider: ids=${ids.length}');
+  try {
+    final result = await ref.watch(dbProvider).tags.getAllForItems(ids);
+    DebugConfig.db('_embeddedTagsProvider: found=${result.length}');
+    return result.map((k, v) => MapEntry(k, v.map((t) => t.name).toList()));
+  } catch (e, s) {
+    DebugConfig.error('_embeddedTagsProvider', e, s);
+    return {};
+  }
+});
+
 class ItemListEmbedded extends ConsumerStatefulWidget {
   final ItemType itemType;
   final int? folderId;
@@ -222,13 +243,10 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                       break;
                   }
 
+                  final tagsMap = ref.watch(_embeddedTagsProvider).valueOrNull ?? {};
                   final visibleTagNames = <String>{};
                   for (final item in items) {
-                    final tags =
-                        ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
-                    for (final t in tags) {
-                      visibleTagNames.add(t.name);
-                    }
+                    visibleTagNames.addAll(tagsMap[item.id] ?? const <String>[]);
                   }
 
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -242,9 +260,8 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
 
                   if (activeTags.isNotEmpty) {
                     filtered = filtered.where((item) {
-                      final tags = ref.read(itemTagsProvider(item.id)).valueOrNull ?? [];
-                      final tagNames = tags.map((t) => t.name);
-                      return tagNames.any((name) => activeTags.contains(name));
+                      final names = tagsMap[item.id] ?? const <String>[];
+                      return names.any((name) => activeTags.contains(name));
                     }).toList();
                   }
 
