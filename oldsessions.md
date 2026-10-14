@@ -2301,6 +2301,29 @@
 
 **Επαλήθευση:** `flutter test` → **199/199** · `analyze` clean · **device ✅ (14/10/2026, `run_log.txt`, pid 23692/24712, 2304 γρ.):** cancel date ×2 + cancel time → `switch OFF` 3/3, 0 rows · past one-shot ×3 (14:20/11:15/13-10) → `blocked` + revert, 0 `created`, 0 `trigger in past` · future one-shot ×2 (2487/2488 `SUCCESS`) · past-DTSTART + weekly → root 2495 + 5 παιδιά `SUCCESS` (η εξαίρεση recurring δουλεύει) · switch OFF → cascade delete 1 row · edit-row cancel (με reminder) → καμία revert-γραμμή, παλιά ώρα κρατήθηκε · cold start από tap (payload 507) χωρίς crash · **0 ERR/FATAL/overflow** (μόνο γνωστά LIFECYCLE RACE WRN, άλλο subsystem). **Κενό:** — (device-OK 14/10/2026, user verdict: OFF → save → SnackBar `Αποθηκεύτηκε, αλλά...`).
 
+## Session 206 — 14/10/2026 (DST weekly interval>1 + walk-cap silent delete + monthly streak loop)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** 3 αρχεία lib + 2 tests, 0 νέα API/imports.
+
+**Θέματα (όλα εκτελεστικά αποδεδειγμένα πριν το fix, Athens TZ):**
+- **#6a:** `_weeksSinceAnchor`/`getPeriodStart` με `difference().inDays` — εβδομάδα 167/169h → λάθος ισοτιμία (1970→06-04-2026: 2934 αντί 2935· full-year 2026: 2 violations παλιός, 0 νέος).
+- **#6b:** weekly scan με `.add(Duration(days:1))` — Σαβ 28-03-2026 23:30 → Δευτέρα (χανόταν η Κυριακή)· fall-back έδινε λάθος ώρα (22:30).
+- **#7:** `planOccurrences` cap 6000 → `[]` (daily από 2000 = 9783 βήματα) → caller έσβηνε το thread σιωπηλά.
+- **#8 (νέο, ίδιος έλεγχος):** monthly `_isPeriodComplete` loop έχανε την 31η (dup 25η) τον Οκτ-2026 → ψευδές σπάσιμο streak.
+
+**Fix:**
+- `recurrence.dart`: SPoT `_calendarDaysBetween` (UTC-midnights) + 3 swaps (weeks/period/scan, H2-pattern, caps ίδια).
+- `reminder_scheduler.dart`: probe-guard — delete ΜΟΝΟ σε γνήσιο τέλος, αλλιώς keep + `warning` (fail-open).
+- `habit_service.dart`: monthly loop → calendar-step (pattern `habit_list:313`).
+- Tests: DST group (parity 13 · alignment 30/03 · Σαβ-23:30→Κυριακή) + contract (daily-2000 → empty). Μάθημα: το 1ο alignment-test έγραψα λάθος expected (06/04 αντί 30/03 — η aligned περίοδος ξεκινά την προηγούμενη άρτια Δευτέρα, όπως το υπάρχον Jan-1970 test) → διορθώθηκε, 34/34.
+- Παρκαρισμένα: `custom:184` (απρόσιτο) · yearly-fallback `:333` · display-`inDays` · `firstDate:2000` μένει · OS-permission (παλιό).
+
+**Επαλήθευση:** στοχευμένα 34/34 · `flutter test` → **203/203** · `analyze` clean · device retest εκκρεμεί ((i) «Κάθε 2 εβδομάδες» διασχίζοντας 29-03 · (ii) daily-2000 → `walk hit cap`, root ζωντανό · (iii) monthly-31/10 streak · (iv) restart `created 0`, 0 ERR).
+
+**Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
+
 **Backups:** `backups/reminder_ghost/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (UI-behavior + SPoT strings, όχι layer — precedent S136/S191).

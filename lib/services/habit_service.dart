@@ -993,9 +993,10 @@ class HabitService {
         } else {
           final daysInMonth =
               DateTime(periodStart.year, periodStart.month + 1, 0).day;
+          final base = _dateOnly(periodStart);
           for (int i = 0; i < daysInMonth; i++) {
-            if (completionDays.contains(
-                _dateOnly(periodStart.add(Duration(days: i))))) {
+            if (completionDays.contains(DateTime(
+                base.year, base.month, base.day + i))) {
               return true;
             }
           }

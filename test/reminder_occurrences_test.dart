@@ -62,6 +62,12 @@ void main() {
         DateTime(2026, 10, 27, 9, 0),
       ]);
     });
+
+    test('daily από 2000 → κενό (walk-cap): ο caller οφείλει keep, όχι delete', () {
+      final out = ReminderScheduler.planOccurrences(Recurrence.daily(),
+          DateTime(2000, 1, 1, 9, 0), DateTime(2026, 10, 14, 12, 0), 5);
+      expect(out, isEmpty);
+    });
   });
 
   group('Recurrence DST (Europe/Athens)', () {
