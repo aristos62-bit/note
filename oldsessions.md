@@ -2272,3 +2272,19 @@
 **Backups:** `backups/session_close_batch2/` (oldsessions.pre) · οι αλλαγές χρήστη καλύπτονται από git working-diff (reviewed πριν το commit).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (fixes + logs + tests, όχι layer).
+
+## Session 204 — 14/10/2026 (Habit stats day-rollover — dayTick)
+
+**Σύμπτωμα:** τα stats συνηθειών δεν ανανεώνονταν με την αλλαγή μέρας. Το `habitStatsProvider` είναι `FutureProvider.family` χωρίς day-dependency και το `main.dart` δεν έκανε κανένα invalidate στο resume — αν η εφαρμογή έμενε στο παρασκήνιο μέχρι το πρωί, φαινόταν το «ολοκληρώθηκε σήμερα» και η πρόοδος της χθεσινής μέρας.
+
+**Fix (2 αρχεία, 0 νέα imports — barrel `providers.dart` εξάγει ήδη το `habit_provider`):**
+- `habit_provider.dart`: νέο `dayTickProvider` (`StateProvider<DateTime>`, date-only `DateTime(y,m,d)`) + `ref.watch(dayTickProvider)` στο `habitStatsProvider` (recompute μόνο σε αλλαγή μέρας, όχι σε κάθε resume).
+- `main.dart` (`resumed`, μετά το `_pausedAt = null`, πριν το refresh/topUp): σύγκριση `container.read(dayTickProvider) != today` → update + `DebugConfig.provider` log.
+- Loop-risk ελεγμένο: το `getStats` γράφει μόνο properties (`_resetDailyIfNeeded`, `best_streak`) — δεν αγγίζει `dayTick` ούτε `updatedAt` → 1 recompute, τέλος. Οι 4 `watch` θέσεις (list ×2, detail ×2) ξαναχτίζουν μία φορά στην αλλαγή μέρας.
+- Όριο (σκόπιμα): καλύπτει «ανοίγω το app το πρωί»· foreground πάνω από τα μεσάνυχτα χωρίς resume θέλει Timer μεσάνυχτων (follow-up).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **199/199** · device retest εκκρεμεί (background→πρωί: completedToday/progress φρέσκα, 0 ERR).
+
+**Backups:** `backups/daytick_stats/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (UI-state signal, όχι layer — precedent S191).
