@@ -48,6 +48,7 @@
 //
 // ═══════════════════════════════════════════════════════════════
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -64,6 +65,14 @@ class NotificationService {
   static const String _channelId    = 'super_note_reminders';
   static const String _channelName  = 'Υπενθυμίσεις';
   static const String _channelDesc  = 'Notifications για υπενθυμίσεις SuperNote';
+
+  /// SPoT: πλατφόρμες με OS ειδοποιήσεις — μοναδική πηγή (scheduler + UI).
+  static bool get isSupportedPlatform => const [
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+        TargetPlatform.macOS,
+        TargetPlatform.linux,
+      ].contains(defaultTargetPlatform);
 
   bool _initialized = false;
 

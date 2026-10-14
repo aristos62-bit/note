@@ -17,12 +17,8 @@ class ReminderScheduler {
     try {
       DebugConfig.notif(
           'ReminderScheduler.scheduleAll: called, platform=$defaultTargetPlatform');
-      if (![
-        TargetPlatform.android,
-        TargetPlatform.iOS,
-        TargetPlatform.macOS,
-        TargetPlatform.linux,
-      ].contains(defaultTargetPlatform)) {
+      // Μοναδική πηγή πλατφορμών: NotificationService.isSupportedPlatform.
+      if (!NotificationService.isSupportedPlatform) {
         DebugConfig.notif(
             'ReminderScheduler.scheduleAll: platform not supported, skipping');
         return;

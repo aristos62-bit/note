@@ -6,6 +6,7 @@ import '../../core/core.dart';
 import '../../providers/providers.dart';
 import '../../models/models.dart';
 import '../../services/reminder_scheduler.dart';
+import '../../services/notification_service.dart';
 import 'reminder_recurrence_picker.dart';
 
 // ---------------------------------------------------------------------
@@ -97,6 +98,11 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           DebugConfig.notif('ReminderSection._saveReminder: all reminders deleted');
         }
         return;
+      }
+
+      // Windows: rows saved, no OS alarm (hint shown in UI).
+      if (!NotificationService.isSupportedPlatform) {
+        DebugConfig.warning('ReminderSection._saveReminder: unsupported platform — rows saved, no OS alarm');
       }
 
       if (_recurrence?.type == RecurrenceType.yearly && _triggerDateTime != null) {
@@ -263,6 +269,21 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
             ),
           ],
         ),
+        if (!NotificationService.isSupportedPlatform) ...[
+          const SizedBox(height: Spacing.xs),
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 16, color: context.cText2),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Text(
+                  AppErrors.notificationsUnsupportedWindows,
+                  style: context.bodySm.withColor(context.cText2),
+                ),
+              ),
+            ],
+          ),
+        ],
         if (_enabled) ...[
           const SizedBox(height: Spacing.xs),
           GestureDetector(

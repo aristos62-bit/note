@@ -77,6 +77,10 @@ class AppErrors {
   static const noPastReminders = 'Δεν υπάρχουν παρελθούσες υπενθυμίσεις.';
   static const noArchivedItems = 'Δεν υπάρχουν αρχειοθετημένα στοιχεία.';
 
+  // ── Notifications ──────────────────────────────────────────
+  static const notificationsUnsupportedWindows =
+      'Σε Windows οι υπενθυμίσεις αποθηκεύονται αλλά δεν χτυπούν (δεν υποστηρίζονται ειδοποιήσεις)';
+
   // ── Birthday ─────────────────────────────────────────────────
   static String birthdayReplaced(String name) =>
       'Αντικαταστάθηκε η υπενθύμιση γενεθλίων για $name';
