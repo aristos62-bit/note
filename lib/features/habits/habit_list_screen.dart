@@ -106,12 +106,12 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemsStreamProvider),
               child: habitsAsync.when(
-                loading: () => _LoadingList(),
+                loading: () => const _LoadingList(),
                 error: (e, _) => EmptyState.error(
                   onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (items) {
-                  if (_creating) return _LoadingList();
+                  if (_creating) return const _LoadingList();
                   var habitsOnly = items.where((it) => it.type == ItemType.habit).toList();
                   if (selectedFolderId != null) {
                     habitsOnly = habitsOnly.where((h) => h.folderId == selectedFolderId).toList();
@@ -462,6 +462,8 @@ class _StatBadge extends StatelessWidget {
 }
 
 class _LoadingList extends StatelessWidget {
+  const _LoadingList();
+
   @override
   Widget build(BuildContext context) => ListView.separated(
     padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),

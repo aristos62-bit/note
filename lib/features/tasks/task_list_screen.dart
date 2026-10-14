@@ -165,7 +165,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
               child: RefreshIndicator(
                 onRefresh: () async => ref.invalidate(tasksWithDetailsProvider),
                 child: itemsAsync.when(
-                  loading: () => _LoadingList(),
+                  loading: () => const _LoadingList(),
                   error: (e, _) {
                     DebugConfig.error('TaskList load failed', e);
                     return EmptyState.error(
@@ -779,6 +779,8 @@ class _StatusChip extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class _LoadingList extends StatelessWidget {
+  const _LoadingList();
+
   @override
   Widget build(BuildContext context) {
     return ListView.separated(

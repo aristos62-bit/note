@@ -119,12 +119,12 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(itemsStreamProvider),
               child: entriesAsync.when(
-                loading: () => _LoadingList(),
+                loading: () => const _LoadingList(),
                 error: (e, _) => EmptyState.error(
                   onRetry: () => ref.invalidate(itemsStreamProvider),
                 ),
                 data: (allItems) {
-                  if (_creating) return _LoadingList();
+                  if (_creating) return const _LoadingList();
                   var entries = allItems.where((i) => i.type == ItemType.journal).toList();
                   if (selectedFolderId != null) {
                     entries = entries.where((e) => e.folderId == selectedFolderId).toList();
@@ -424,6 +424,8 @@ List<_MonthGroup> _groupByMonth(List<_EntryWithDate> entriesWithDate) {
 }
 
 class _LoadingList extends StatelessWidget {
+  const _LoadingList();
+
   @override
   Widget build(BuildContext context) => ListView.separated(
     padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),

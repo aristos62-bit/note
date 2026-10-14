@@ -2532,3 +2532,15 @@
 **Backups:** `backups/terminology_archived/` (8 dart.pre + oldsessions.pre).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (strings, όχι layer).
+
+## Session 222 — 14/10/2026 (Const `_LoadingList` ×5 — Επιλογή Β)
+
+**Scope (Επιλογή Β χρήστη — 5 αρχεία):** `_LoadingList` χωρίς const ctor σε tasks/contacts/journal/item_list/habits (grep: 5 ορισμοί + 7 κλήσεις· το embedded έχει `_EmbeddedLoadingList`, εκτός).
+
+**Υλοποίηση (edit-tool only, 12+5 micro-edits):** 5× `const _LoadingList();` (χωρίς `{super.key}` — το analyze το ζήτησε ως `unused_element_parameter`, διορθώθηκε αμέσως → clean) + 7× const-κλήσεις. 0 λογική.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device-eyeball εκκρεμεί (φόρτωση λιστών).
+
+**Backups:** `backups/const_loadinglist/` (5 dart.pre + oldsessions.pre).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (const, όχι layer).
