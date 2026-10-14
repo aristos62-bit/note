@@ -2164,3 +2164,20 @@
 **Backups:** `backups/fix_task_appbar_title/` (dart + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (layout micro-fix, όχι layer).
+
+## Session 196 — 14/10/2026 (DTSTART chain + DST — A3/A4, ΒΗΜΑ 11)
+
+**Σύμπτωμα:** επαναλαμβανόμενο με μελλοντική αρχή χτυπούσε πριν το DTSTART (A3 — 4 κλάδοι `_isTodayValidRecurrence` χωρίς lower-bound) · πλέγμα interval>1 σπασμένο γιατί ο walker ξεκινούσε από σήμερα (A4 — daily/monthly/yearly/weekly-no-days).
+
+**Fix (2 αρχεία + 1 νέο test, 0 νέα API/imports):**
+- `reminder_scheduler.dart`: batch-block → static pure `planOccurrences` (replay αλυσίδας από DTSTART προς τα εμπρός, φίλτρο αυστηρά μελλοντικών · σχετικοί βηματισμοί διατηρούν φάση κατασκευαστικά) · διαγραφή `_isTodayValidRecurrence` (0 άλλοι callers).
+- `recurrence.dart` daily κλάδος → ημερολογιακή αριθμητική `DateTime(y, m, d + interval)` (DST fall-back stall: +24h προσγειωνόταν ίδια μέρα → 1 παιδί αντί 5 · και phase-shift interval>1 · spring-forward ανεπηρέαστο).
+- Νέο `test/reminder_occurrences_test.dart` 5/5 (daily-3 πλέγμα · monthly-2 Ιαν→Μαρ · yearly-2 →2028 · μελλοντικό DTSTART · DST 25/10 · τιμές επαληθευμένες με το χέρι).
+- Μαθήματα: `==` σε nullable enum δεν κάνει promote (compile error, fix `?.`) · DST guard με λάθος predicate (midnight-σύγκριση) → σωστό με ημερολογιακή κατασκευή · callers `nextOccurrence` μόνο scheduler (habits δικό τους walker).
+- Παλιά off-grid παιδιά δεν καθαρίζονται (σκόπιμα — manual re-save από UI).
+
+**Επαλήθευση:** νέο 5/5 · `flutter test` → **191/191** · `analyze` clean · device πρωτόκολλο εκκρεμεί (daily/weekly/κάθε-3-ημέρες μελλοντικά + `Created child` logs).
+
+**Backups:** `backups/step11_occurrences/` (scheduler + recurrence + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (behavior + pure static + test, όχι layer).
