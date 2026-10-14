@@ -243,47 +243,11 @@ class ReminderScheduler {
           );
         }
 
-        // 2. Δημιούργησε νέο batch (ή top-up αν έχουν απομείνει λίγα παιδιά)
-        final List<DateTime> nextOccurrences = [];
-
-        // ✅ Χρησιμοποιούμε την ώρα του root trigger αντί για now
-        // ώστε τα παιδιά να έχουν πάντα τη σωστή ώρα (π.χ. 20:30)
-        final rootHour = root.triggerAt.hour;
-        final rootMinute = root.triggerAt.minute;
-        final rootSecond = root.triggerAt.second;
-
-        final todayAtTriggerTime = DateTime(
-          now.year,
-          now.month,
-          now.day,
-          rootHour,
-          rootMinute,
-          rootSecond,
-        );
-
-        // Αν η σημερινή ώρα trigger δεν έχει παρέλθει ΚΑΙ είναι έγκυρη ημέρα
-        // βάσει recurrence, συμπεριλαμβάνουμε το σήμερα
-        // (το nextOccurrence επιστρέφει ΠΑΝΤΑ επόμενη περίοδο, ποτέ ίδια)
-        if (todayAtTriggerTime.isAfter(now) && _isTodayValidRecurrence(recurrence, now, root)) {
-          nextOccurrences.add(todayAtTriggerTime);
-        }
-
-        // ✅ Ξεκινάμε πάντα από todayAtTriggerTime (με τη σωστή ώρα του root)
-        // Έτσι το nextOccurrence() παράγει παιδιά με τη σωστή ώρα
-        // Αν η λίστα έχει ήδη entries, ξεκινάμε από το τελευταίο +1sec
-        DateTime current = nextOccurrences.isNotEmpty
-            ? nextOccurrences.last
-            : todayAtTriggerTime;
-        while (nextOccurrences.length < batchSize) {
-          // Anchor = DTSTART του root (RRULE-σωστό)· monthly/yearly anchors
-          // είναι απόλυτα (μήνες/έτη) χωρίς epoch-αντίστοιχο → μηδέν απόκλιση.
-          // Για weekly-habits ισχύει το epochMonday (βλ. Recurrence) — σκόπιμα.
-          final next = recurrence.nextOccurrence(current, anchor: root.triggerAt);
-          if (next == null) break;
-          nextOccurrences.add(next);
-          // current = next.add(const Duration(seconds: 1));
-          current = next;
-        }
+        // 2. Νέο batch (ή top-up): A3/A4 — αλυσίδα από το DTSTART του root
+        // (RRULE-σωστό): καμία εμφάνιση πριν το DTSTART και σωστό πλέγμα
+        // interval>1 (daily/monthly/yearly). Βλ. planOccurrences.
+        final List<DateTime> nextOccurrences =
+            planOccurrences(recurrence, root.triggerAt, now, batchSize);
 
         if (nextOccurrences.isEmpty) {
           DebugConfig.notif(
@@ -362,71 +326,28 @@ class ReminderScheduler {
     }
   }
 
-  /// Ελέγχει αν το σήμερα είναι έγκυρη ημέρα βάσει recurrence
-  bool _isTodayValidRecurrence(Recurrence recurrence, DateTime now, Reminder root) {
-    switch (recurrence.type) {
-      case RecurrenceType.daily:
-      case RecurrenceType.custom:
-      // ✅ Αν interval > 1 (π.χ. κάθε 3 μέρες), ελέγχουμε αν σήμερα
-      // είναι έγκυρη μέρα βάσει της αρχικής ημερομηνίας του root
-        if (recurrence.interval == 1) return true;
-        final diffDays = DateTime(now.year, now.month, now.day)
-            .difference(DateTime(
-          root.triggerAt.year,
-          root.triggerAt.month,
-          root.triggerAt.day,
-        ))
-            .inDays;
-        return diffDays >= 0 && diffDays % recurrence.interval == 0;
-      case RecurrenceType.weekly:
-        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-          return Recurrence.isValidWeeklyDay(
-              now, recurrence.days!, recurrence.interval, root.triggerAt);
-        }
-        final diff = DateTime(now.year, now.month, now.day)
-            .difference(DateTime(
-              root.triggerAt.year, root.triggerAt.month, root.triggerAt.day))
-            .inDays;
-        return diff >= 0 && diff % (7 * recurrence.interval) == 0;
-      case RecurrenceType.monthly:
-        if (recurrence.days != null && recurrence.days!.isNotEmpty) {
-          // Clamp: 31→28 Φεβ (κ.ο.κ.) — η τελευταία μέρα καλύπτει τις μεγαλύτερες.
-          final effective = recurrence.days!
-              .map((d) => Recurrence.safeDay(now.year, now.month, d))
-              .toSet();
-          if (!effective.contains(now.day)) return false;
-          if (recurrence.interval <= 1) return true;
-          final totalMonths = now.year * 12 + now.month - 1;
-          final rootMonths = root.triggerAt.year * 12 + root.triggerAt.month - 1;
-          return totalMonths >= rootMonths &&
-              (totalMonths - rootMonths) % recurrence.interval == 0;
-        }
-        final totalMonths = now.year * 12 + now.month - 1;
-        final rootMonths = root.triggerAt.year * 12 + root.triggerAt.month - 1;
-        return now.day ==
-                Recurrence.safeDay(
-                    now.year, now.month, root.triggerAt.day) &&
-            totalMonths >= rootMonths &&
-            (totalMonths - rootMonths) % recurrence.interval == 0;
-      case RecurrenceType.yearly:
-        if (recurrence.days != null && recurrence.days!.length == 2) {
-          if (recurrence.days![0] != now.month ||
-              Recurrence.safeDay(
-                      now.year, recurrence.days![0], recurrence.days![1]) !=
-                  now.day) {
-            return false;
-          }
-          if (recurrence.interval <= 1) return true;
-          return now.year >= root.triggerAt.year &&
-              (now.year - root.triggerAt.year) % recurrence.interval == 0;
-        }
-        return now.month == root.triggerAt.month &&
-            now.day ==
-                Recurrence.safeDay(
-                    now.year, now.month, root.triggerAt.day) &&
-            now.year >= root.triggerAt.year &&
-            (now.year - root.triggerAt.year) % recurrence.interval == 0;
+  /// Pure (για unit test): οι επόμενες [count] εμφανίσεις ΜΕΤΑ το [now],
+  /// με αλυσίδα από το [dtstart] (root.triggerAt). Το DTSTART είναι η πρώτη
+  /// εμφάνιση· καμία εμφάνιση πριν από αυτό, και το πλέγμα interval>1
+  /// μετριέται πάντα από το DTSTART (όχι από «σήμερα»).
+  static List<DateTime> planOccurrences(
+      Recurrence recurrence, DateTime dtstart, DateTime now, int count) {
+    const maxWalk = 6000; // daily ~16 χρόνια ιστορικού — ασφάλεια loop
+    final out = <DateTime>[];
+    DateTime cursor = dtstart;
+    int guard = 0;
+    while (!cursor.isAfter(now)) {
+      final n = recurrence.nextOccurrence(cursor, anchor: dtstart);
+      if (n == null || !n.isAfter(cursor) || ++guard > maxWalk) return out;
+      cursor = n;
     }
+    out.add(cursor);
+    while (out.length < count) {
+      final n = recurrence.nextOccurrence(out.last, anchor: dtstart);
+      if (n == null || !n.isAfter(out.last)) break;
+      out.add(n);
+    }
+    return out;
   }
 
   // ─────────────────────────────────────────────────────────

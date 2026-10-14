@@ -229,8 +229,10 @@ class Recurrence {
     switch (type) {
       case RecurrenceType.daily:
       case RecurrenceType.custom:
-        next = DateTime(from.year, from.month, from.day)
-            .add(Duration(days: interval));
+        // Ημερολογιακές μέρες (όχι +24h durations): ανοσία σε DST
+        // transitions — η fall-back 25ωρη μέρα θα «κολλούσε» (ίδια μέρα)
+        // ή θα μετατόπιζε το πλέγμα interval>1.
+        next = DateTime(from.year, from.month, from.day + interval);
         break;
 
       case RecurrenceType.weekly:
