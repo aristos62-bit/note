@@ -2384,7 +2384,7 @@
 **Fix (1 αρχείο + 1 import, edit-tool only):** διεύρυνση live-branch σε `reminder.title == 'Υπενθύμιση' || ItemColorHelper.isBirthdayEvent(item)` (S156 SPoT, ίδιο predicate με το resync — όχι literal· προέκυψε από επανέλεγχο) + import `helpers/item_color_helper.dart` (pattern `settings_provider:10`, κανένας κύκλος).
 - Title μένει snapshot · κενό όνομα → stored fallback · παλιές rows αυτοθεραπεύονται σε `scheduleAll`/rename (S207), 0 migration · habits-custom/special-day/contact-birthdays άθικτα.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · device retest εκκρεμεί (νέο Γενέθλια+όνομα → restart → όνομα στα pending · παλιό nameless → φρέσκο · resync-regression · habits · 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · **device ✅ (14/10/2026, user verdict):** όνομα στα pending, παλιό nameless φρέσκο, resync/habits ΟΚ, 0 ERR.
 
 **Backups:** `backups/birthday_livebody/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
