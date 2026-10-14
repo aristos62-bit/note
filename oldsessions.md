@@ -2147,7 +2147,7 @@
 
 **Test:** κανένα νέο (σύμβαση: 0 Isar-harness · precedent S193) · κάλυψη από device.
 
-**Επαλήθευση:** `flutter test` → **186/186** · `analyze` clean · device πρωτόκολλο εκκρεμεί (done→σιγή/OS άδειο/rows μένουν · active→ξαναχτυπά · recurring done→κανένα νέο παιδί · diagnostics muted-πράσινο).
+**Επαλήθευση:** `flutter test` → **186/186** · `analyze` clean · **device ✅ (14/10/2026, user verdict + logs PID 14751):** done→`cancelled OS (rows kept)` + σιγή (καμία ειδοποίηση) · active→refresh υγιές + `SUCCESS id=2468` + `rescheduled` · guards 5α/5β (`done SKIP`, `skipping done root`) · rotation tablet καθαρό · 0 ERR/FATAL.
 
 **Backups:** `backups/a2_done_silence/` (3 dart + oldsessions.pre, SHA πριν τα edits).
 
