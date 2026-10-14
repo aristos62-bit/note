@@ -267,7 +267,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
               size: 18,
             ),
             label: Text(
-              showArchived ? 'Απόκρυψη συμπιεσμένων αρχείων' : 'Εμφάνιση συμπιεσμένων αρχείων',
+              showArchived ? 'Απόκρυψη αρχειοθετημένων' : 'Εμφάνιση αρχειοθετημένων',
               style: context.labelSm,
             ),
             onPressed: () {

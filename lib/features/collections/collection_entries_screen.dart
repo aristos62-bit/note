@@ -258,7 +258,7 @@ class _CollectionEntriesScreenState
                 child: Row(children: [
                   const Icon(Icons.archive_rounded, size: 18),
                   const SizedBox(width: Spacing.sm),
-                  Text(ref.watch(showArchivedProvider) ? 'Απόκρυψη συμπιεσμένων αρχείων' : 'Εμφάνιση συμπιεσμένων αρχείων'),
+                  Text(ref.watch(showArchivedProvider) ? 'Απόκρυψη αρχειοθετημένων' : 'Εμφάνιση αρχειοθετημένων'),
                 ]),
               ),
             ],
