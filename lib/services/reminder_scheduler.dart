@@ -149,6 +149,14 @@ class ReminderScheduler {
               'refreshRecurringReminders: skipping archived root id=${r.id}');
           continue;
         }
+        // A2: ούτε τα done/cancelled (το item είναι ήδη fetched — 0 έξτρα query).
+        if (item != null &&
+            (item.status == ItemStatus.done ||
+                item.status == ItemStatus.cancelled)) {
+          DebugConfig.notif(
+              'refreshRecurringReminders: skipping ${item.status.name} root id=${r.id}');
+          continue;
+        }
         filtered.add(r);
       }
 
@@ -581,6 +589,14 @@ class ReminderScheduler {
     if (item?.archived == true) {
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: ARCHIVED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
+      return;
+    }
+    // A2: ολοκληρωμένο/ακυρωμένο δεν χτυπά (ίδια σημασιολογία με archive·
+    // το item είναι ήδη fetched για το live-body — 0 έξτρα query).
+    final st = item?.status;
+    if (st == ItemStatus.done || st == ItemStatus.cancelled) {
+      DebugConfig.notif(
+          'ReminderScheduler._scheduleOne: ${st?.name}, SKIP id=${reminder.id} itemId=${reminder.itemId}');
       return;
     }
     try {

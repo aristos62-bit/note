@@ -26,6 +26,7 @@ class _RootStatus {
   final Reminder root;
   final String itemLabel;
   final bool archived;
+  final bool silenced;
   final int futureCount;
   final DateTime? nextTrigger;
   final DateTime? maxTrigger;
@@ -34,6 +35,7 @@ class _RootStatus {
     required this.root,
     required this.itemLabel,
     required this.archived,
+    required this.silenced,
     required this.futureCount,
     required this.nextTrigger,
     required this.maxTrigger,
@@ -45,12 +47,14 @@ class _PendingRow {
   final bool isRecurringChild;
   final bool inOs;
   final bool archived;
+  final bool silenced;
 
   _PendingRow({
     required this.reminder,
     required this.isRecurringChild,
     required this.inOs,
     required this.archived,
+    required this.silenced,
   });
 }
 
@@ -95,6 +99,9 @@ class _ReminderDiagnosticsScreenState
           root: root,
           itemLabel: item?.title ?? root.body ?? root.title ?? 'Άγνωστο',
           archived: item?.archived ?? false,
+          // A2: done/cancelled σε σίγαση (το item είναι ήδη fetched — 0 έξτρα query).
+          silenced: item?.status == ItemStatus.done ||
+              item?.status == ItemStatus.cancelled,
           futureCount: future.length,
           nextTrigger: future.isNotEmpty ? future.first.triggerAt : null,
           maxTrigger: future.isNotEmpty ? future.last.triggerAt : null,
@@ -122,10 +129,15 @@ class _ReminderDiagnosticsScreenState
       // #2: Τα αρχειοθετημένα items ΔΕΝ προγραμματίζονται στο OS — να μη
       // βγαίνουν ψευδώς ως "λείπουν από το OS".
       final archivedByItem = <int, bool>{};
+      // A2: done/cancelled σε σίγαση όπως τα archived (ίδιο loop — 0 έξτρα queries).
+      final silencedByItem = <int, bool>{};
       for (final r in filtered) {
         if (!archivedByItem.containsKey(r.itemId)) {
           final it = await SuperNoteHelper.instance.items.getById(r.itemId);
           archivedByItem[r.itemId] = it?.archived ?? false;
+          final st = it?.status;
+          silencedByItem[r.itemId] =
+              st == ItemStatus.done || st == ItemStatus.cancelled;
         }
       }
 
@@ -140,6 +152,7 @@ class _ReminderDiagnosticsScreenState
           isRecurringChild: r.parentReminderId != null,
           inOs: osIds.contains(r.id),
           archived: archivedByItem[r.itemId] ?? false,
+          silenced: silencedByItem[r.itemId] ?? false,
         );
       }).toList();
 
@@ -236,14 +249,18 @@ class _ReminderDiagnosticsScreenState
   }
 
   Widget _buildRootCard(_RootStatus s) {
-    if (s.archived) {
+    if (s.archived || s.silenced) {
       return Card(
         margin: const EdgeInsets.only(bottom: Spacing.sm),
         child: Padding(
           padding: const EdgeInsets.all(Spacing.md),
           child: Row(
             children: [
-              Icon(Icons.archive_rounded, color: context.cText2),
+              Icon(
+                  s.archived
+                      ? Icons.archive_rounded
+                      : Icons.notifications_off_rounded,
+                  color: context.cText2),
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: Column(
@@ -251,7 +268,9 @@ class _ReminderDiagnosticsScreenState
                   children: [
                     Text(s.itemLabel, style: context.bodyMd),
                     Text(
-                      'Αρχειοθετημένο — σε σίγαση (δεν προγραμματίζεται)',
+                      s.archived
+                          ? 'Αρχειοθετημένο — σε σίγαση (δεν προγραμματίζεται)'
+                          : 'Ολοκληρωμένο/ακυρωμένο — σε σίγαση (δεν προγραμματίζεται)',
                       style: context.bodySm.withColor(context.cText2),
                     ),
                   ],
@@ -299,17 +318,21 @@ class _ReminderDiagnosticsScreenState
     final t = r.triggerAt;
     String two(int n) => n.toString().padLeft(2, '0');
     final time = '${two(t.hour)}:${two(t.minute)}';
-    if (row.archived) {
-      // #2: σκόπιμα σε σίγαση — όχι προειδοποίηση "λείπει από το OS".
+    if (row.archived || row.silenced) {
+      // #2 + A2: σκόπιμα σε σίγαση — όχι προειδοποίηση "λείπει από το OS".
       return ListTile(
         dense: true,
-        leading: Icon(Icons.archive_rounded,
-            color: context.cText2, size: 20),
+        leading: Icon(
+            row.archived
+                ? Icons.archive_rounded
+                : Icons.notifications_off_rounded,
+            color: context.cText2,
+            size: 20),
         title: Text(r.body ?? r.title ?? 'Υπενθύμιση', style: context.bodyMd),
         subtitle: Text(
           '$time'
               '${row.isRecurringChild ? '  •  επαναλαμβανόμενο' : '  •  εφάπαξ'}'
-              '  •  αρχειοθετημένο (σε σίγαση)',
+              '${row.archived ? '  •  αρχειοθετημένο (σε σίγαση)' : '  •  ολοκληρωμένο/ακυρωμένο (σε σίγαση)'}',
           style: context.bodySm.withColor(context.cText2),
         ),
       );
