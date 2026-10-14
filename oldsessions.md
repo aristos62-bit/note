@@ -2217,3 +2217,15 @@
 **Backups:** `backups/a6_serial/` (dart + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (συγχρονισμός, όχι layer).
+
+## Session 200 — 14/10/2026 (Notification tap σε διαγραμμένο item)
+
+**Σύμπτωμα:** το `handleNotificationTap` (`main.dart:60-89`) έλεγχε μόνο `null` · το `getById:250` δεν φιλτράρει soft-deleted → tap σε stale tray notification άνοιγε επεξεργάσιμο detail-φάντασμα στον κάδο (στενό παράθυρο: tray + αποτυχημένο cancel / stale restore).
+
+**Fix (1 αρχείο, 5 γραμμές):** `isDeleted` guard mirror του null-branch (log + skip, χωρίς Context) · καλύπτει warm + cold + init-race (ίδιος handler `:206`) · Trash UI ανεπηρέαστο (μόνο restore) · restore ξανανοίγει taps.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **193/193** (main χωρίς harness, 0 breakage αναμενόμενο) · device: σπάνιο timing, οπορτουνιστικά.
+
+**Backups:** `backups/fix_tap_deleted/` (dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (guard 5 γραμμών, όχι layer).
