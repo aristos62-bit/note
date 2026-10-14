@@ -379,6 +379,14 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
           DebugConfig.error('AppLock resume-check', e, stack);
         }
         _pausedAt = null;
+        // Habit stats: αν άλλαξε η ημερολογιακή μέρα όσο ήταν στο
+        // παρασκήνιο → ενημέρωση του dayTick ώστε να γίνει recompute.
+        final nowDay = DateTime.now();
+        final today = DateTime(nowDay.year, nowDay.month, nowDay.day);
+        if (container.read(dayTickProvider) != today) {
+          container.read(dayTickProvider.notifier).state = today;
+          DebugConfig.provider('dayTick → $today (habit stats refresh)');
+        }
         DebugConfig.startup(
             'App resumed — debounced refreshing recurring reminders');
         await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
