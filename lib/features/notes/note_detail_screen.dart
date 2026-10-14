@@ -37,7 +37,7 @@ class NoteDetailScreen extends ConsumerStatefulWidget {
 class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     with DetailScreenMixin<NoteDetailScreen> {
   late final TextEditingController _titleCtrl;
-  Timer? _saveDebounce;
+  late final FocusNode _titleFocusNode;
   bool _isSaving = false;
   bool _isEditingTitle = false;
   String _lastSavedTitle = '';
@@ -49,24 +49,28 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController();
+    _titleFocusNode = FocusNode();
+    _titleFocusNode.addListener(() {
+      if (!_titleFocusNode.hasFocus) {
+        _isEditingTitle = false;
+        _saveTitle(_titleCtrl.text.trim());
+      } else {
+        _isEditingTitle = true;
+      }
+    });
     initScreen(itemId: widget.itemId, isNew: widget.isNew);
   }
 
   @override
   void dispose() {
-    _saveDebounce?.cancel();
     disposeScreen();
     _titleCtrl.dispose();
+    _titleFocusNode.dispose();
     super.dispose();
   }
 
   void _onTitleChanged(String value) {
     _isEditingTitle = true;
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(seconds: 2), () {
-      _isEditingTitle = false;
-      _saveTitle(value.trim());
-    });
   }
 
   Future<void> _saveTitle(String title) async {
@@ -163,7 +167,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             if (_isSaving) return;
-            _saveDebounce?.cancel();
             await executeSaveOrDelete(
               saveFn: () => _saveTitle(titleCtrl.text.trim()),
               deleteFn: () => ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId),
@@ -186,6 +189,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       body: NoteDetailBody(
         item: item,
         titleCtrl: _titleCtrl,
+        titleFocusNode: _titleFocusNode,
         onTitleChange: _onTitleChanged,
         isSaving: _isSaving,
       ),
@@ -207,6 +211,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
             child: NoteDetailBody(
               item: item,
               titleCtrl: _titleCtrl,
+              titleFocusNode: _titleFocusNode,
               onTitleChange: _onTitleChanged,
               isSaving: _isSaving,
             ),
@@ -249,7 +254,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
           onPressed: _isSaving
               ? null
               : () async {
-            _saveDebounce?.cancel();
             final saved = await executeSave(
               () => _saveTitle(titleCtrl.text.trim()),
             );

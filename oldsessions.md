@@ -2347,6 +2347,24 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (layout micro-fix, όχι layer).
 
+## Session 209 — 14/10/2026 (Τέλος title-autosave — task-way παντού)
+
+**Απόφαση (χρήστης):** κανένα autosave τίτλου — ούτε σε νέα εισαγωγή ούτε σε επεξεργασία. Save σε focus-loss + κουμπί + back (τρόπος tasks).
+
+**Έλεγχος (8 οθόνες):** ήδη task-way: tasks · appointments · journal · contacts-όνομα · collections detail+entries. Διορθώθηκαν: notes · habits · events.
+
+**Fix (4 αρχεία, 0 νέα imports, edit-tool only):**
+- notes: `note_detail_screen` −Timer +`_titleFocusNode` (listener/dispose) + flag-only onChanged · `note_detail_widgets` +`titleFocusNode` → TextField + 2 call sites.
+- habits: ίδιο (`_HabitBody` + 2 call sites)· `_saveOrDelete`/save-button ως είχαν.
+- events: ίδιο + `_saveData`→unconditional title+location (διόρθωσε το cancel→isActive no-op που έχανε τίτλο σε γρήγορο back) + drop `_pendingTitleValue`· location-debounce μένει (όχι τίτλος)· `_isSavingTitle` μένει.
+- Εκτός: content-fields (blocks/notes/location-typing), back/save/PopScope (διάβαζαν ήδη current-text), dedup/sync-guards.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **203/203** · device retest εκκρεμεί (νέα σημείωση/συνήθεια/συμβάν: πληκτρολόγηση → tap αλλού → αποθηκευμένο · γρήγορο back → αποθηκευμένο · 0 ERR).
+
+**Backups:** `backups/notitle_autosave/` (4 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο pattern παντού, όχι layer).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
