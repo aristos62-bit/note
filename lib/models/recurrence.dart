@@ -144,7 +144,7 @@ class Recurrence {
         if (interval == 1) return startOfWeek;
         final ref = epochMonday;
         final weeksSinceRef =
-        (startOfWeek.difference(ref).inDays / 7).floor();
+        (_calendarDaysBetween(startOfWeek, ref) / 7).floor();
         final alignedWeeks = weeksSinceRef - (weeksSinceRef % interval);
         return ref.add(Duration(days: alignedWeeks * 7));
       case RecurrenceType.monthly:
@@ -207,9 +207,19 @@ class Recurrence {
     return dayOnly.subtract(Duration(days: (d.weekday - 1) % 7));
   }
 
+  /// Ημερολογιακή διαφορά ημερών (ανοσία DST): UTC-midnights. Το τοπικό
+  /// .difference().inDays χάνει/κερδίζει μέρα στα όρια DST (βδομάδα 167/169h
+  /// → inDays 6/7 → λάθος ισοτιμία στο interval>1). Εκτελεστικά: 2026 → 0
+  /// violations (παλιός τρόπος: 2).
+  static int _calendarDaysBetween(DateTime a, DateTime b) {
+    final ua = DateTime.utc(a.year, a.month, a.day);
+    final ub = DateTime.utc(b.year, b.month, b.day);
+    return ua.difference(ub).inDays;
+  }
+
   /// Ακέραιος αριθμός εβδομάδων από την εβδομάδα του anchor (αρνητικό → 0).
   static int _weeksSinceAnchor(DateTime date, DateTime anchor) {
-    final w = _mondayOf(date).difference(_mondayOf(anchor)).inDays ~/ 7;
+    final w = _calendarDaysBetween(_mondayOf(date), _mondayOf(anchor)) ~/ 7;
     return w < 0 ? 0 : w;
   }
 
@@ -240,20 +250,24 @@ class Recurrence {
       case RecurrenceType.weekly:
         if (days != null && days!.isNotEmpty) {
           if (interval > 1 && anchor != null) {
-            DateTime candidate = from.add(const Duration(days: 1));
+            DateTime candidate = DateTime(from.year, from.month, from.day + 1,
+                from.hour, from.minute, from.second);
             final cap = 7 * interval + 8;
             int safety = 0;
             while (!isValidWeeklyDay(candidate, days!, interval, anchor) &&
                 safety < cap) {
-              candidate = candidate.add(const Duration(days: 1));
+              candidate = DateTime(candidate.year, candidate.month,
+                  candidate.day + 1, from.hour, from.minute, from.second);
               safety++;
             }
             next = candidate;
           } else {
-            DateTime candidate = from.add(const Duration(days: 1));
+            DateTime candidate = DateTime(from.year, from.month, from.day + 1,
+                from.hour, from.minute, from.second);
             int safety = 0;
             while (!days!.contains(candidate.weekday) && safety < 8) {
-              candidate = candidate.add(const Duration(days: 1));
+              candidate = DateTime(candidate.year, candidate.month,
+                  candidate.day + 1, from.hour, from.minute, from.second);
               safety++;
             }
             next = candidate;

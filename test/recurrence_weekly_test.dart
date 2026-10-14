@@ -182,4 +182,34 @@ void main() {
       expect(contactBirthdayDay(DateTime(2020, 5, 10), 2026, 5), 10);
     });
   });
+
+  group('DST weekly (Europe/Athens — η σουίτα τρέχει σε Athens TZ)', () {
+    // Άνοιξη 2026: μετάβαση Κυριακή 29/03.
+    test('interval=2: 06/04/2026 = 13η εβδομάδα (όχι 12η)', () {
+      final anchor = DateTime(2026, 1, 5, 9, 0);
+      expect(
+          Recurrence.isValidWeeklyDay(
+              DateTime(2026, 4, 6), [DateTime.monday], 2, anchor),
+          isFalse);
+      expect(
+          Recurrence.isValidWeeklyDay(
+              DateTime(2026, 4, 13), [DateTime.monday], 2, anchor),
+          isTrue);
+    });
+
+    test('getPeriodStart: 08/04/2026 → Δευτέρα 30/03 (aligned περίοδος)', () {
+      const r = Recurrence(type: RecurrenceType.weekly, interval: 2, days: [DateTime.monday]);
+      final start = r.getPeriodStart(DateTime(2026, 4, 8, 12, 0));
+      expect([start.year, start.month, start.day], [2026, 3, 30]);
+      expect(start.weekday, DateTime.monday);
+    });
+
+    test('scan Σαβ-23:30 προ-αλλαγής → Κυριακή (όχι Δευτέρα)', () {
+      const r = Recurrence(type: RecurrenceType.weekly, days: [DateTime.sunday]);
+      final next = r.nextOccurrence(DateTime(2026, 3, 28, 23, 30))!;
+      expect([next.year, next.month, next.day], [2026, 3, 29]);
+      expect(next.weekday, DateTime.sunday);
+      expect([next.hour, next.minute], [23, 30]);
+    });
+  });
 }

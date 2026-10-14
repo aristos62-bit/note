@@ -261,9 +261,20 @@ class ReminderScheduler {
             planOccurrences(recurrence, root.triggerAt, now, batchSize);
 
         if (nextOccurrences.isEmpty) {
-          DebugConfig.notif(
-              'Root ${root.id}: no future occurrences from rrule, deleting thread');
-          await deleteReminderThread(root.id);
+          // Κενό = γνήσιο τέλος Ή υπέρβαση walk-cap (daily από 2000 ≈
+          // 9700 βήματα > 6000 — εκτελεστικά επιβεβαιωμένο). Διαγραφή
+          // ΜΟΝΟ στο γνήσιο τέλος (πρώτο βήμα νεκρό)· στο cap κρατάμε
+          // το thread — σιωπηλή διαγραφή = απώλεια υπενθύμισης.
+          final probe = recurrence.nextOccurrence(root.triggerAt,
+              anchor: root.triggerAt);
+          if (probe == null || !probe.isAfter(root.triggerAt)) {
+            DebugConfig.notif(
+                'Root ${root.id}: no future occurrences from rrule, deleting thread');
+            await deleteReminderThread(root.id);
+          } else {
+            DebugConfig.warning(
+                'Root ${root.id}: occurrence walk hit cap — keeping thread, no children created');
+          }
           continue;
         }
 
