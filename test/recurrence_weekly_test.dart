@@ -216,6 +216,23 @@ void main() {
       expect(start.weekday, DateTime.monday);
     });
 
+    // S215: το ref(1970, χειμερινή ώρα)+N·168ω έδινε 01:00 στη θερινή ώρα →
+    // το πλήρες DateTime (όχι μόνο y/m/d) πρέπει να είναι μεσάνυχτα.
+    test('getPeriodStart interval=2: 08/04/2026 → ακριβώς 30/03 00:00', () {
+      const r = Recurrence(type: RecurrenceType.weekly, interval: 2, days: [DateTime.monday]);
+      expect(r.getPeriodStart(DateTime(2026, 4, 8, 12, 0)), DateTime(2026, 3, 30));
+    });
+
+    test('getPeriodStart interval=2: 15/07/2026 (καλοκαίρι) → ακριβώς 06/07 00:00', () {
+      const r = Recurrence(type: RecurrenceType.weekly, interval: 2, days: [DateTime.monday]);
+      expect(r.getPeriodStart(DateTime(2026, 7, 15, 10, 0)), DateTime(2026, 7, 6));
+    });
+
+    test('getPeriodStart interval=1: Τρί 24/03 23:30 → Δευτέρα 23/03 00:00 (όχι 23:30)', () {
+      const r = Recurrence(type: RecurrenceType.weekly, days: [DateTime.monday]);
+      expect(r.getPeriodStart(DateTime(2026, 3, 24, 23, 30)), DateTime(2026, 3, 23));
+    });
+
     test('scan Σαβ-23:30 προ-αλλαγής → Κυριακή (όχι Δευτέρα)', () {
       const r = Recurrence(type: RecurrenceType.weekly, days: [DateTime.sunday]);
       final next = r.nextOccurrence(DateTime(2026, 3, 28, 23, 30))!;

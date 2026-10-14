@@ -140,13 +140,16 @@ class Recurrence {
         return DateTime(date.year, date.month, date.day);
       case RecurrenceType.weekly:
         final daysSinceMonday = (date.weekday - 1) % 7;
-        final startOfWeek = date.subtract(Duration(days: daysSinceMonday));
+        // Ημερολογιακή αφαίρεση + μεσάνυχτα (όχι subtract(Duration)/add(Duration):
+        // DST → ±1ω, ώρα του date διατηρείτο, ref+N·168ω έδινε Δευτέρα 01:00 το καλοκαίρι).
+        final startOfWeek =
+            DateTime(date.year, date.month, date.day - daysSinceMonday);
         if (interval == 1) return startOfWeek;
         final ref = epochMonday;
         final weeksSinceRef =
         (_calendarDaysBetween(startOfWeek, ref) / 7).floor();
         final alignedWeeks = weeksSinceRef - (weeksSinceRef % interval);
-        return ref.add(Duration(days: alignedWeeks * 7));
+        return DateTime(ref.year, ref.month, ref.day + alignedWeeks * 7);
       case RecurrenceType.monthly:
         if (interval == 1) return DateTime(date.year, date.month, 1);
         final totalMonths = date.year * 12 + (date.month - 1);
@@ -203,8 +206,7 @@ class Recurrence {
   static final DateTime epochMonday = DateTime(1970, 1, 5);
 
   static DateTime _mondayOf(DateTime d) {
-    final dayOnly = DateTime(d.year, d.month, d.day);
-    return dayOnly.subtract(Duration(days: (d.weekday - 1) % 7));
+    return DateTime(d.year, d.month, d.day - (d.weekday - 1) % 7);
   }
 
   /// Ημερολογιακή διαφορά ημερών (ανοσία DST): UTC-midnights. Το τοπικό
