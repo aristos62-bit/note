@@ -2241,3 +2241,15 @@
 **Backups:** `backups/fallback_inexact/` (dart + test νέο + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (fallback, όχι layer — behavior + pure static + test).
+
+## Session 202 — 14/10/2026 (Windows hint μη-υποστήριξης ειδοποιήσεων)
+
+**Σύμπτωμα:** σε Windows η καμπάνα σώζει rows με ΟΝ switch αλλά δεν χτυπά ποτέ (guard skip) — 0 ένδειξη UI (μόνο το «Web δεν υποστηρίζεται» υπάρχει ως platform-string).
+
+**Fix (5 αρχεία, 0 συμπεριφορά):** `isSupportedPlatform` SPoT στο service (delegate ο scheduler — διπλή λίστα σβησμένη) · `AppErrors.notificationsUnsupportedWindows` · hint Row (icon + Expanded, file-local idiom) σε ReminderSection (πάντα, +warning στο save μετά disabled-return) + Settings δίπλα στο master switch (που σε Windows φαίνεται ζωντανός ενώ είναι no-op) · 2 περιττά foundation imports αφαιρέθηκαν (analyze τα έπιασε, material τα καλύπτει).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **196/196** (0 νέα — no harness · host Windows αλλά κανένα test δεν κάνει pump αυτών των widgets) · device εκκρεμεί (`flutter run -d windows`: hint bell+settings, στενό+max-font, mobile regression).
+
+**Backups:** `backups/win_hint/` (5 dart + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (UI hint + static, όχι layer).

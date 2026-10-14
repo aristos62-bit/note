@@ -159,6 +159,21 @@ class _SystemGroupState extends State<_SystemGroup> {
               },
             ),
           ),
+          if (!NotificationService.isSupportedPlatform) ...[
+            const SizedBox(height: Spacing.sm),
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 20, color: context.cText2),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: Text(
+                    AppErrors.notificationsUnsupportedWindows,
+                    style: context.bodySm.withColor(context.cText2),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: Spacing.sm),
           _buildCard(
             _SwitchTile(
