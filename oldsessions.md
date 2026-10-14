@@ -2236,7 +2236,7 @@
 
 **Fix (1 αρχείο + 1 νέο test):** `notification_service.dart::schedule()` — null-guard διατηρημένο · `scheduleModeFor` (pure static: true→exact, else→inexact) + warning/notif + `mode=` στο SUCCESS · boot-restore επιβιώνει (persisted inexact) · diagnostics πράσινο (mode-agnostic pending) · `supernote` άθικτο.
 
-**Επαλήθευση:** νέο `test/notification_fallback_test.dart` 3/3 · `flutter test` → **196/196** · `analyze` clean · device εκκρεμεί (deny exact → +2λ χτυπά + warning · επανέγκριση → exact · reboot με deny → επιβιώνουν · Android 12/14 + MIUI).
+**Επαλήθευση:** νέο `test/notification_fallback_test.dart` 3/3 · `flutter test` → **196/196** · `analyze` clean · **device N/A (14/10/2026):** `appops deny` ενεργό αλλά το σύστημα το παρακάμπτει (`USE_EXACT_ALARM` auto-grant, παντού `mode=exact`, 0 fallback-warning) — το deny δεν εξαναγκάζεται σε Android 16 · κάλυψη από unit + review + υγιές `run_log_fallback.txt` (νέο binary, A5 top-up ζωντανό, 0 ERR).
 
 **Backups:** `backups/fallback_inexact/` (dart + test νέο + oldsessions.pre, SHA πριν τα edits).
 
