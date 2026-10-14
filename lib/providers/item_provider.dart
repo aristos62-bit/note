@@ -230,8 +230,8 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       final reminders = await db.reminders.getForItem(id);
       DebugConfig.db('ItemNotifier.deleteItem id=$id reminders=${reminders.length}');
       if (reminders.isNotEmpty) {
-        DebugConfig.notif('deleteItem: calling deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
-        await ReminderScheduler.instance.deleteAllRemindersForItem(id);
+        DebugConfig.notif('deleteItem: cancelling OS for $id — rows kept for restore (symmetric with archive)');
+        await ReminderScheduler.instance.cancelAllForItem(id);
       }
       await db.items.softDelete(id);
       ref.invalidateSelf();
@@ -259,6 +259,12 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       await _cascadeCollectionEntries(id, (eid) => ref.read(dbProvider).items.restore(eid),
           includeDeleted: true, logTag: 'restoreItem');
       await ref.read(dbProvider).items.restore(id);
+      // Συμμετρικό με unarchive: οι κρατημένες rows ξαναπρογραμματίζονται·
+      // οι συνήθειες θέλουν top-up (ο ορίζοντας εξαντλήθηκε στον κάδο).
+      await ReminderScheduler.instance.refreshRecurringReminders();
+      await ReminderScheduler.instance.scheduleAll();
+      await HabitService.instance.topUpHabitReminders(force: true);
+      DebugConfig.notif('restoreItem: id=$id → rescheduled');
       ref.invalidateSelf();
     } catch (e, s) {
       DebugConfig.error('ItemNotifier.restoreItem', e, s);

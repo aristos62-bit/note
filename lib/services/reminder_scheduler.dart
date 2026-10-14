@@ -156,6 +156,12 @@ class ReminderScheduler {
               'refreshRecurringReminders: skipping archived root id=${r.id}');
           continue;
         }
+        // Κάδος: συμμετρικά με archive — κρατημένες rows, καμία αναγέννηση.
+        if (item != null && item.isDeleted) {
+          DebugConfig.notif(
+              'refreshRecurringReminders: skipping deleted root id=${r.id}');
+          continue;
+        }
         // A2: ούτε τα done/cancelled (το item είναι ήδη fetched — 0 έξτρα query).
         if (item != null &&
             (item.status == ItemStatus.done ||
@@ -572,6 +578,13 @@ class ReminderScheduler {
     if (item?.archived == true) {
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: ARCHIVED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
+      return;
+    }
+    // Κάδος: συμμετρικά με archive — οι rows κρατιούνται για το restore,
+    // το OS μένει σιωπηλό (χωρίς αυτό το scheduleAll/reboot θα τα ξυπνούσε).
+    if (item?.isDeleted == true) {
+      DebugConfig.notif(
+          'ReminderScheduler._scheduleOne: DELETED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
       return;
     }
     // A2: ολοκληρωμένο/ακυρωμένο δεν χτυπά (ίδια σημασιολογία με archive·
