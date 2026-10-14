@@ -71,6 +71,12 @@ void main() async {
             'handleNotificationTap: item $itemId not found, skipping');
         return;
       }
+      // Deleted (κάδος): stale tray tap — μην ανοίγεις detail-φάντασμα.
+      if (item.isDeleted) {
+        DebugConfig.notif(
+            'handleNotificationTap: item $itemId is deleted, skipping');
+        return;
+      }
       DebugConfig.notif(
           'handleNotificationTap: itemId=$itemId type=${item.type.name} archived=${item.archived}');
       final route = AppRoutes.forType(item.type, item.id);
