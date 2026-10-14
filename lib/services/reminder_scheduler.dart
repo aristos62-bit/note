@@ -177,7 +177,12 @@ class ReminderScheduler {
         }
 
         // ✅ batchSize ορίζεται ΕΔΩ ώστε να είναι ορατό και στο skip logic παρακάτω
-        const batchSize = 5;
+        // A5: daily/custom 14 (με 5 το reminder σταματούσε μετά 5 μέρες χωρίς
+        // άνοιγμα της εφαρμογής)· weekly/monthly/yearly μένουν 5.
+        final batchSize = (recurrence.type == RecurrenceType.daily ||
+                recurrence.type == RecurrenceType.custom)
+            ? 14
+            : 5;
 
         // 1. Έλεγξε αν ο root έχει ήδη παιδιά στο μέλλον (ενεργό batch)
         final futureChildren = await SuperNoteHelper.instance.isar.reminders
