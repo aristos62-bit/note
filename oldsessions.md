@@ -2318,7 +2318,7 @@
 - Tests: DST group (parity 13 · alignment 30/03 · Σαβ-23:30→Κυριακή) + contract (daily-2000 → empty). Μάθημα: το 1ο alignment-test έγραψα λάθος expected (06/04 αντί 30/03 — η aligned περίοδος ξεκινά την προηγούμενη άρτια Δευτέρα, όπως το υπάρχον Jan-1970 test) → διορθώθηκε, 34/34.
 - Παρκαρισμένα: `custom:184` (απρόσιτο) · yearly-fallback `:333` · display-`inDays` · `firstDate:2000` μένει · OS-permission (παλιό).
 
-**Επαλήθευση:** στοχευμένα 34/34 · `flutter test` → **203/203** · `analyze` clean · **device ✅ (14/10/2026, `run_log.txt`, 3187 γρ., 0 ERR/FATAL/overflow):** daily-2000 → `walk hit cap — keeping thread` 3× (roots 2529 ×2 διεργασίες, 2530), 0 `deleting thread`, roots επιβιώνουν cross-process · weekly-13/SA,TU,TH με DTSTART 2000 → 5 παιδιά με ακριβές 91-ημερών spacing (08-12 → 09-03) + restart `skipping` (σταθερό, 0 duplicates) · past-block/edit-row/refresh-idempotent από προηγούμενο run · scheduleAll όλα `SUCCESS` · topUp καθαρό. **Μένει:** monthly-31/10 streak (ημερολογιακά μελλοντικό — unit + no-regression).
+**Επαλήθευση:** στοχευμένα 34/34 · `flutter test` → **203/203** · `analyze` clean · **device ✅ (14/10/2026, `run_log.txt`, 3187 γρ., 0 ERR/FATAL/overflow):** daily-2000 → `walk hit cap — keeping thread` 3× (roots 2529 ×2 διεργασίες, 2530), 0 `deleting thread`, roots επιβιώνουν cross-process · weekly-13/SA,TU,TH με DTSTART 2000 → 5 παιδιά με ακριβές 91-ημερών spacing (08-12 → 09-03) + restart `skipping` (σταθερό, 0 duplicates) · past-block/edit-row/refresh-idempotent από προηγούμενο run · scheduleAll όλα `SUCCESS` · topUp καθαρό. **Μένει:** — (device pass 14/10/2026, user verdict — S206 CLOSED).
 
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
