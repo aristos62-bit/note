@@ -485,6 +485,34 @@ class ReminderScheduler {
     }
   }
 
+  /// Ξαναψήνει τα OS alarms ενός item με ζωντανό τίτλο (μετά από μετονομασία).
+  /// Μόνο pending one-shots/παιδιά (όχι recurring roots — όπως το scheduleAll)·
+  /// τα guards του _scheduleOne (past/archived/done) ισχύουν από κάτω.
+  Future<void> rescheduleForItem(int itemId) async {
+    try {
+      if (!NotificationService.isSupportedPlatform) return;
+      final settings = await SuperNoteHelper.instance.settings.get();
+      if (!settings.notificationsEnabled) return;
+      final reminders =
+          await SuperNoteHelper.instance.reminders.getForItem(itemId);
+      var rebaked = 0;
+      for (final r in reminders) {
+        if (r.status != ReminderStatus.pending) continue;
+        if (r.rrule != null && r.rrule!.isNotEmpty) continue;
+        await _scheduleOne(
+          r,
+          sound: settings.soundEnabled,
+          vibration: settings.vibrationEnabled,
+        );
+        rebaked++;
+      }
+      DebugConfig.notif(
+          'rescheduleForItem: itemId=$itemId rebaked=$rebaked');
+    } catch (e, stack) {
+      DebugConfig.error('ReminderScheduler.rescheduleForItem', e, stack);
+    }
+  }
+
   Future<void> cancelReminder(int reminderId) async {
     try {
       DebugConfig.notif('ReminderScheduler.cancelReminder: id=$reminderId');
