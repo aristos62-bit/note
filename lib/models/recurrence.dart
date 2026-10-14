@@ -343,8 +343,10 @@ class Recurrence {
             );
           }
         } else {
-          // Fallback: ίδια μέρα/μήνας του επόμενου έτους
-          next = DateTime(from.year + interval, from.month, from.day);
+          // Fallback: ίδια μέρα/μήνας του επόμενου έτους (clamp, όπως
+          // παντού — το raw DateTime(2025,2,29) γίνεται 1 Μαρτίου).
+          next = DateTime(from.year + interval, from.month,
+              _safeDay(from.year + interval, from.month, from.day));
         }
         break;
     }

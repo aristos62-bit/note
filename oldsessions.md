@@ -2419,6 +2419,18 @@
 
 **supernote.md:** καμία αλλαγή (behavior, όχι layer)· **DESIGN.md:** +γραμμή Session 213 (mirror S143 — reminder semantics).
 
+## Session 214 — 14/10/2026 (Yearly-fallback clamp 29/2)
+
+**Θέμα:** yearly-χωρίς-days από 29/2 → raw `DateTime(2025,2,29)` = 1/3 (λάθος μήνας). Μοναδική γυμνή θέση στο αρχείο (days-branch ήδη clamped).
+
+**Fix (1 γραμμή + 2 tests, SPoT `_safeDay`, edit-tool only):** fallback → clamp (28/2, σύμβαση S139/S158)· interval/ώρα άθικτα.
+
+**Επαλήθευση:** νέο 2/2 · `flutter test` → **205/205** · `analyze` clean · device n/a (pure legacy-only — precedent S139).
+
+**Backups:** `backups/yearly_nodays/` (dart.pre + test.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (pure-fix, όχι layer).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
