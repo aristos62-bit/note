@@ -312,8 +312,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
               strokeWidth: 2, color: context.cText2),
         ),
         const SizedBox(width: Spacing.xs),
-        Text('Αποθήκευση...',
-            style: context.bodySm.withColor(context.cText2)),
+        Flexible(
+          child: Text('Αποθήκευση...',
+              style: context.bodySm.withColor(context.cText2),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false),
+        ),
       ])
           : null,
       actions: [
