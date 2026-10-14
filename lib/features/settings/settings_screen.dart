@@ -471,7 +471,19 @@ Future<void> _showPastRemindersDialog(BuildContext context, WidgetRef ref) async
     DebugConfig.error('Settings past reminders batch', e);
   }
 
+  // Κάδος: οι κρατημένες rows δεν φαίνονται εδώ (θα επανέλθουν με restore).
+  // Μόνο known-deleted φιλτράρονται — missing items ως πριν (εκτός scope).
+  mutableReminders = List.from(mutableReminders.where(
+      (r) => itemTitles[r.itemId]?.isDeleted != true));
+
   if (!context.mounted) return;
+
+  if (mutableReminders.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppErrors.noPastReminders)),
+    );
+    return;
+  }
 
   await showDialog(
     context: context,

@@ -2402,6 +2402,23 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (private chain σε υπάρχον service — precedent A6).
 
+## Session 213 — 14/10/2026 (Κάδος συμμετρικός με archive — restore ξαναχτυπά)
+
+**Απόφαση (D):** ο κάδος κρατά rows (non-destructive) + σιγάζει OS· το restore ξαναπρογραμματίζει. Habits αυτοθεραπεύονταν ήδη (props+topUp)· τώρα και notes/tasks/events/contacts.
+
+**Fix (4 αρχεία, 0 νέα API/imports, edit-tool only):**
+- `item_provider`: `deleteItem` → `cancelAllForItem` (αντί DB-delete· cascade/softDelete άθικτα) · `restoreItem` → refresh+scheduleAll+topUp-force (mirror unarchive).
+- `reminder_scheduler`: deleted-guards σε `_scheduleOne` + refresh-roots (χωρίς αυτά το scheduleAll/reboot θα ξυπνούσε κάδο· 0 έξτρα queries).
+- `reminder_diagnostics_screen`: +`deleted` (ίδιο loop) + muted mirror ('Στον κάδο — σε σίγαση').
+- `settings_screen`: past-dialog φίλτρο known-deleted + empty-SnackBar (missing ως πριν).
+- Εκτός: `permanentDelete`/άδειασμα (hard delete) · moveToFolder · toggles (χωρίς title → skip) · restore-reschedule S142-κενό — έκλεισε εδώ.
+
+**Επαλήθευση:** `flutter test` → **203/203** · `analyze` clean · device retest εκκρεμεί (delete→σιγή+muted · restore→φωτιά · reboot-με-κάδο→σιγή · permanent→τέλος · dialog καθαρό · bulk-restore · 0 ERR).
+
+**Backups:** `backups/trash_symmetric/` (4 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md:** καμία αλλαγή (behavior, όχι layer)· **DESIGN.md:** +γραμμή Session 213 (mirror S143 — reminder semantics).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
