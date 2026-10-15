@@ -2720,3 +2720,20 @@
 **Backups:** `backups/no_hint/` (8 dart + const + test.pre + oldsessions.pre).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (strings-delete, όχι layer).
+
+## Session 236 — 15/10/2026 (Μ3 budget + Μ4 diagnostics header)
+
+**Scope (2+4 ανεστάλησαν):** επαναφορά budget πάνω σε έντιμα counters (S234) — cap ρητό μήνυμα 500/uid αποδεδειγμένο, ψευδές-SUCCESS νεκρό.
+
+**Υλοποίηση (5 αρχεία + 1 test, 0 νέα APIs/αρχεία/hooks, edit-tool only):**
+- **Μ3-loop:** SPoT `osAlarmLimit` (60/450) · κορυφή-loop `baked>=limit → truncated+warning+break` (oldest-first από `sortByTriggerAt`, χωρίς day-buckets) · silenced εκτός cap · singles ασυλία · summary `db/baked/failed/skipped/cut/os/truncated` (`B+F+S+C=db`).
+- **Μ3-flag:** `_osWindowTruncated/_lastFullBakeDay` (in-memory — AppSettings χωρίς ελεύθερο field, όχι migration) + getter + `_rebaking` · `startOfDay` (R3).
+- **Μ3-rebake:** 1 γραμμή resume-hook (μετά το topUp) · kill-mid idempotent.
+- **Μ3-test:** extend υπάρχοντος (`osAlarmLimit` android+iOS via override+teardown).
+- **Μ4:** `_osCount/_truncated` (0 queries) + header-card (`DB/OS/limit` + περικοπή) · Windows-branch (S202 reuse).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** (+2 νέα) · device trip + rollover + no-regression εκκρεμεί.
+
+**Backups:** `backups/m3_budget/` (4 dart.pre + test.pre + DESIGN.pre + oldsessions.pre + BASE_HEAD `d55498d` — revert point).
+
+**supernote.md:** καμία αλλαγή (ίδια layers)· **DESIGN.md:** +γραμμή Session 236.

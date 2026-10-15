@@ -75,6 +75,19 @@ class NotificationService {
         TargetPlatform.linux,
       ].contains(defaultTargetPlatform);
 
+  /// SPoT: λειτουργικό όριο OS alarms (με headroom κάτω από το σκληρό:
+  /// Android ~500/app, iOS/macOS 64). Χρησιμοποιείται για budget (cap) +
+  /// display (diagnostics header). Deterministic: oldest-first.
+  static int get osAlarmLimit {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return 60;
+      default:
+        return 450;
+    }
+  }
+
   bool _initialized = false;
 
   // ─────────────────────────────────────────────────────────

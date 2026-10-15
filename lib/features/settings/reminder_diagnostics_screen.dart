@@ -67,6 +67,8 @@ class _ReminderDiagnosticsScreenState
   bool _loading = true;
   List<_RootStatus> _roots = [];
   List<_PendingRow> _pending = [];
+  int _osCount = 0;
+  bool _truncated = false;
 
   @override
   void initState() {
@@ -154,6 +156,9 @@ class _ReminderDiagnosticsScreenState
       await NotificationService.instance.getPendingNotifications();
       final osIds = osPending.map((p) => p.id).toSet();
 
+      _osCount = osPending.length;
+      _truncated = ReminderScheduler.instance.isOsWindowTruncated;
+
       final pendingRows = filtered.map((r) {
         return _PendingRow(
           reminder: r,
@@ -202,6 +207,8 @@ class _ReminderDiagnosticsScreenState
         child: ListView(
           padding: const EdgeInsets.all(Spacing.md),
           children: [
+            _buildOsHeader(context),
+            const SizedBox(height: Spacing.sm),
             Text('Επαναλαμβανόμενες υπενθυμίσεις', style: context.titleMd),
             const SizedBox(height: Spacing.sm),
             if (_roots.isEmpty)
@@ -255,6 +262,64 @@ class _ReminderDiagnosticsScreenState
     final wd = weekdays[day.weekday - 1];
     String two(int n) => n.toString().padLeft(2, '0');
     return '$wd ${two(day.day)}/${two(day.month)}';
+  }
+
+  /// M4: OS alarms `N / όριο` + κατάσταση περικοπής — reuse του υπάρχοντος
+  /// `osPending`-fetch (0 νέα queries). Σε unsupported πλατφόρμα δείχνει
+  /// το S202-hint αντί για αριθμούς.
+  Widget _buildOsHeader(BuildContext context) {
+    if (!NotificationService.isSupportedPlatform) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: Spacing.sm),
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.md),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 20, color: context.cText2),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Text(
+                  AppErrors.notificationsUnsupportedWindows,
+                  style: context.bodySm.withColor(context.cText2),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final limit = NotificationService.osAlarmLimit;
+    return Card(
+      margin: const EdgeInsets.only(bottom: Spacing.sm),
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.md),
+        child: Row(
+          children: [
+            Icon(
+              _truncated ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
+              color: _truncated ? context.cWarning : context.cSuccess,
+            ),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('OS: $_osCount / $limit',
+                      style: context.bodyMd),
+                  Text(
+                    _truncated
+                        ? 'Περικοπή ενεργή — οι μακρινές μπαίνουν σταδιακά'
+                        : 'Πλήρης κάλυψη',
+                    style: context.bodySm.withColor(context.cText2),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildRootCard(_RootStatus s) {
