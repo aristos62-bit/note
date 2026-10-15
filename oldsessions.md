@@ -2471,6 +2471,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδια layers, παράμετροι).
 
+## Session 226 — 15/10/2026 (PERF M2′-Π1 — unarchive via rescheduleForItem)
+
+**Σκοπός:** single-item reschedule αντί global re-bake στο unarchive (~1.7s → ~100ms).
+
+**Fix (2 αρχεία, προσωρινός helper, edit-tool only):** +`logOsDiff` (snapshot OS-ids πριν/μετά, added⊆item/removed=∅, φεύγει στο τέλος) · unarchive-branch: `scheduleAll()` → wrapped `rescheduleForItem(id)` (refresh + topUp-force ως είχαν· σχόλιο-habit διατηρήθηκε).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device retest εκκρεμεί (fixture ≥1h + foreground-ησυχία · `created N` + `rebaked=K` + OsDiff added⊆item/removed=∅ · topUp-singles · PERF-timing · 0 ERR).
+
+**Backups:** `backups/perf_m2p1/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο pattern, προσωρινό instrument).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).

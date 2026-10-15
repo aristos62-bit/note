@@ -545,6 +545,19 @@ class ReminderScheduler {
     }
   }
 
+  /// PERF#9 M2′ (προσωρινό — φεύγει στο τέλος των φάσεων): snapshot OS ids
+  /// πριν/μετά — added ⊆ rows του item (μόνο όσα έλειπαν), removed = ∅ πάντα
+  /// (το reschedule δεν σβήνει rows). Οτιδήποτε άλλο = FAIL του σημείου.
+  static Future<void> logOsDiff(String tag, Future<void> Function() action) async {
+    Future<Set<int>> ids() async => (await NotificationService.instance
+        .getPendingNotifications()).map((p) => p.id).toSet();
+    final before = await ids();
+    await action();
+    final after = await ids();
+    DebugConfig.notif('PERF#9 M2′ $tag added=${after.difference(before).toList()} '
+        'removed=${before.difference(after).toList()}');
+  }
+
   Future<void> cancelReminder(int reminderId) async {
     try {
       DebugConfig.notif('ReminderScheduler.cancelReminder: id=$reminderId');
