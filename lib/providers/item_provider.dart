@@ -200,7 +200,9 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
           DebugConfig.notif('updateItem: status=${status.name} id=$id → cancelled OS (rows kept)');
         } else if (silenced(prevStatus)) {
           await ReminderScheduler.instance.refreshRecurringReminders();
-          await ReminderScheduler.instance.scheduleAll();
+          await ReminderScheduler.logOsDiff('reactivate $id', () async {
+            await ReminderScheduler.instance.rescheduleForItem(id);
+          });
           DebugConfig.notif('updateItem: status=${status.name} id=$id → rescheduled');
         }
       }

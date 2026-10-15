@@ -2495,6 +2495,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή.
 
+## Session 228 — 15/10/2026 (PERF M2′-Π3 — reactivate via rescheduleForItem)
+
+**Σκοπός:** ίδιο με Π1/Π2 για status done/cancelled→ενεργό (3ο συμφωνημένο σημείο).
+
+**Fix (1 αρχείο, edit-tool only):** A2-branch: `scheduleAll()` → wrapped `rescheduleForItem(id)` (refresh ως είχε).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device retest εκκρεμεί (done→active με μελλοντική υπενθύμιση · OsDiff added⊆item/removed=[] · 0 ERR).
+
+**Backups:** `backups/perf_m2p3/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή.
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
