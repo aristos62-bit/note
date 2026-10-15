@@ -36,7 +36,6 @@ class CollectionsScreen extends ConsumerStatefulWidget {
 
 class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
     with FolderAutoSelectMixin {
-  bool _showArchiveHintShown = false;
 
   Future<void> _createCollection() async {
     final selectedFolderId = ref.read(selectedFolderIdProvider);
@@ -101,18 +100,8 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
             icon: const Icon(Icons.more_vert_rounded),
             onSelected: (value) {
               if (value == 'archived') {
-                final show = ref.read(showArchivedProvider);
-                ref.read(showArchivedProvider.notifier).state = !show;
-                if (!show && !_showArchiveHintShown) {
-                  _showArchiveHintShown = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
-                      );
-                    }
-                  });
-                }
+                ref.read(showArchivedProvider.notifier).state =
+                    !ref.read(showArchivedProvider);
               }
             },
             itemBuilder: (_) => [

@@ -33,8 +33,8 @@ class AppErrors {
   // ── Archive (label = πεζό ουσιαστικό, π.χ. 'σημείωση') ─────────
   static String archived(String label) => 'Η $label αρχειοθετήθηκε';
   static String restored(String label) => 'Η $label επαναφέρθηκε';
-  static const longPressRestoreHint =
-      'Πατήστε παρατεταμένα (long press) στο στοιχείο για επαναφορά';
+  // (removed: misleading long-press restore hint — restore happens
+  // from the item detail AppBar, not via long-press)
 
   // ── Move ─────────────────────────────────────────────────────
   static String movedToFolder(String label) =>

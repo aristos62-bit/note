@@ -2708,3 +2708,15 @@
 **Backups:** `backups/m2_honest/` (3 dart.pre + DESIGN.pre + oldsessions.pre + BASE_HEAD `3284fd6` — revert point).
 
 **supernote.md:** καμία αλλαγή (ίδια layers)· **DESIGN.md:** +γραμμή Session 234.
+
+## Session 235 — 15/10/2026 (Αφαίρεση παραπλανητικού long-press hint)
+
+**Σύμπτωμα (user):** στο «Εμφάνιση αρχειοθετημένων» έβγαινε hint «πατήστε παρατεταμένα για επαναφορά», αλλά το long-press κάνει grab (LongPressDraggable 400ms < 500ms long-press → κερδίζει πάντα το drag) και 5/8 sheets δεν έχουν καν tile Επαναφοράς. Η επαναφορά γίνεται από το detail AppBar — το hint έλεγε ψέματα.
+
+**Υλοποίηση (10 αρχεία, διαγραφές μόνο, edit-tool only):** 8× flag `_showArchiveHintShown` + SnackBar-block (tasks, contacts, calendar, journal, entries, collections, habits, item_list_screen — toggle έμεινε 1 γραμμή) · διαγραφή const `AppErrors.longPressRestoreHint` · διαγραφή 1 γραμμής test.
+
+**Επαλήθευση:** grep 0 hits · `analyze` clean · `flutter test` → **215/215** · device: μενού αρχειοθετημένων χωρίς hint.
+
+**Backups:** `backups/no_hint/` (8 dart + const + test.pre + oldsessions.pre).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (strings-delete, όχι layer).

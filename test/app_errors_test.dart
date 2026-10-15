@@ -10,7 +10,6 @@ void main() {
     expect(AppErrors.needTitle, 'Παρακαλώ προσθέστε τίτλο');
     expect(AppErrors.saveFailed, 'Σφάλμα κατά την αποθήκευση');
     expect(AppErrors.dateRequired, isNotEmpty);
-    expect(AppErrors.longPressRestoreHint, contains('παρατεταμένα'));
     expect(AppErrors.shareFailed, isNotEmpty);
     expect(AppErrors.loadFailed, isNotEmpty);
     expect(AppErrors.contactsPermission, isNotEmpty);
