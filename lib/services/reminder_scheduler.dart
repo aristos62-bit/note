@@ -9,6 +9,9 @@ import '../core/core.dart';
 import 'package:isar/isar.dart';
 import 'dart:async';
 
+/// Έκβαση ενός OS-bake (skipped ≠ failed: τα skips δεν μετράνε ως αποτυχίες).
+enum ScheduleOutcome { baked, skipped, failed }
+
 class ReminderScheduler {
   ReminderScheduler._internal();
   static final ReminderScheduler instance = ReminderScheduler._internal();
@@ -48,6 +51,9 @@ class ReminderScheduler {
 
       final loopSw = Stopwatch()..start(); // PERF#9 (S224)
       var done = 0; // PERF#9 (S224)
+      var baked = 0;
+      var failed = 0;
+      var skipped = 0;
       var chunkStartMs = 0; // PERF#9 (S224)
       // M1: 1 resolve για όλο το batch (αντί για 1/alarm) — singles αλλού per-call.
       final batchMode =
@@ -57,12 +63,19 @@ class ReminderScheduler {
             await SuperNoteHelper.instance.items.getById(reminder.itemId);
         DebugConfig.notif(
             '  scheduleAll: scheduling id=${reminder.id} itemId=${reminder.itemId} archived=${scheduledItem?.archived}');
-        await _scheduleOne(
+        final outcome = await _scheduleOne(
           reminder,
           sound: settings.soundEnabled,
           vibration: settings.vibrationEnabled,
           mode: batchMode,
         );
+        if (outcome == ScheduleOutcome.baked) {
+          baked++;
+        } else if (outcome == ScheduleOutcome.failed) {
+          failed++;
+        } else {
+          skipped++;
+        }
         done++; // PERF#9 (S224)
         if (done % 50 == 0) {
           // PERF#9 (S224): αν ο χρόνος ανά 50άδα μεγαλώνει → O(n²) στο plugin
@@ -76,7 +89,7 @@ class ReminderScheduler {
       final osCount = // PERF#9 (S224)
           (await NotificationService.instance.getPendingNotifications()).length;
       DebugConfig.notif(
-          'PERF#9 scheduleAll: DONE db=${pending.length} os=$osCount '
+          'PERF#9 scheduleAll: DONE db=${pending.length} baked=$baked failed=$failed skipped=$skipped os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
           'avg=${pending.isEmpty ? 0 : (loopSw.elapsedMilliseconds / pending.length).toStringAsFixed(1)}ms/alarm');
       DebugConfig.notif('ReminderScheduler.scheduleAll: DONE');
@@ -528,18 +541,26 @@ class ReminderScheduler {
       final reminders =
           await SuperNoteHelper.instance.reminders.getForItem(itemId);
       var rebaked = 0;
+      var failed = 0;
+      var skipped = 0;
       for (final r in reminders) {
         if (r.status != ReminderStatus.pending) continue;
         if (r.rrule != null && r.rrule!.isNotEmpty) continue;
-        await _scheduleOne(
+        final outcome = await _scheduleOne(
           r,
           sound: settings.soundEnabled,
           vibration: settings.vibrationEnabled,
         );
-        rebaked++;
+        if (outcome == ScheduleOutcome.baked) {
+          rebaked++;
+        } else if (outcome == ScheduleOutcome.failed) {
+          failed++;
+        } else {
+          skipped++;
+        }
       }
       DebugConfig.notif(
-          'rescheduleForItem: itemId=$itemId rebaked=$rebaked');
+          'rescheduleForItem: itemId=$itemId rebaked=$rebaked failed=$failed skipped=$skipped');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.rescheduleForItem', e, stack);
     }
@@ -567,7 +588,7 @@ class ReminderScheduler {
     }
   }
 
-  Future<void> _scheduleOne(
+  Future<ScheduleOutcome> _scheduleOne(
     Reminder reminder, {
     bool sound = true,
     bool vibration = true,
@@ -577,7 +598,7 @@ class ReminderScheduler {
     if (reminder.triggerAt.isBefore(now)) {
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: SKIP - trigger in past');
-      return;
+      return ScheduleOutcome.skipped;
     }
 
     final item =
@@ -604,14 +625,14 @@ class ReminderScheduler {
     if (item?.archived == true) {
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: ARCHIVED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
-      return;
+      return ScheduleOutcome.skipped;
     }
     // Κάδος: συμμετρικά με archive — οι rows κρατιούνται για το restore,
     // το OS μένει σιωπηλό (χωρίς αυτό το scheduleAll/reboot θα τα ξυπνούσε).
     if (item?.isDeleted == true) {
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: DELETED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
-      return;
+      return ScheduleOutcome.skipped;
     }
     // A2: ολοκληρωμένο/ακυρωμένο δεν χτυπά (ίδια σημασιολογία με archive·
     // το item είναι ήδη fetched για το live-body — 0 έξτρα query).
@@ -619,10 +640,10 @@ class ReminderScheduler {
     if (st == ItemStatus.done || st == ItemStatus.cancelled) {
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: ${st?.name}, SKIP id=${reminder.id} itemId=${reminder.itemId}');
-      return;
+      return ScheduleOutcome.skipped;
     }
     try {
-      await NotificationService.instance.schedule(
+      final ok = await NotificationService.instance.schedule(
         id: reminder.id,
         title: title,
         body: body,
@@ -632,13 +653,20 @@ class ReminderScheduler {
         vibration: vibration,
         mode: mode,
       );
+      if (!ok) {
+        DebugConfig.warning(
+            'ReminderScheduler._scheduleOne: FAILED id=${reminder.id} (OS rejected — rows kept)');
+        return ScheduleOutcome.failed;
+      }
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: ✅ SUCCESS id=${reminder.id}');
+      return ScheduleOutcome.baked;
     } catch (e, stack) {
       DebugConfig.error(
           'ReminderScheduler._scheduleOne: ❌ EXCEPTION id=${reminder.id}',
           e,
           stack);
+      return ScheduleOutcome.failed;
     }
   }
 

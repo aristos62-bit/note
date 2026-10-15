@@ -200,7 +200,7 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
           DebugConfig.notif('updateItem: status=${status.name} id=$id → cancelled OS (rows kept)');
         } else if (silenced(prevStatus)) {
           await ReminderScheduler.instance.refreshRecurringReminders();
-          await ReminderScheduler.instance.scheduleAll();
+          await ReminderScheduler.instance.rescheduleForItem(id);
           DebugConfig.notif('updateItem: status=${status.name} id=$id → rescheduled');
         }
       }
@@ -262,7 +262,7 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       // Συμμετρικό με unarchive: οι κρατημένες rows ξαναπρογραμματίζονται·
       // οι συνήθειες θέλουν top-up (ο ορίζοντας εξαντλήθηκε στον κάδο).
       await ReminderScheduler.instance.refreshRecurringReminders();
-      await ReminderScheduler.instance.scheduleAll();
+      await ReminderScheduler.instance.rescheduleForItem(id);
       await HabitService.instance.topUpHabitReminders(force: true);
       DebugConfig.notif('restoreItem: id=$id → rescheduled');
       ref.invalidateSelf();
@@ -321,7 +321,7 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       DebugConfig.notif('toggleArchive: ARCHIVE id=$id → cancelled OS (rows kept)');
     } else {
       await ReminderScheduler.instance.refreshRecurringReminders();
-      await ReminderScheduler.instance.scheduleAll();
+      await ReminderScheduler.instance.rescheduleForItem(id);
       // Συνήθειες: ο ορίζοντας 60ημ. μπορεί να εξαντλήθηκε όσο ήταν
       // αρχειοθετημένη (το topUp εξαιρεί archived) — top-up τώρα, όχι στο resume.
       await HabitService.instance.topUpHabitReminders(force: true);

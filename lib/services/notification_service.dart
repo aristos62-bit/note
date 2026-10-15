@@ -243,7 +243,10 @@ class NotificationService {
     }
   }
 
-  Future<void> schedule({
+  /// Επιστρέφει true ΜΟΝΟ αν το OS δέχτηκε το alarm — οι callers ΔΕΝ
+  /// πρέπει να λογίζουν SUCCESS από μόνα τους (το ψευδές-SUCCESS ήταν το
+  /// S231-παράδοξο: ERR + SUCCESS για το ίδιο id από μία κλήση).
+  Future<bool> schedule({
     required int id,
     required String title,
     required String body,
@@ -253,7 +256,7 @@ class NotificationService {
     bool vibration = true,
     AndroidScheduleMode? mode, // batch-override· null = resolve per-call (ως πριν)
   }) async {
-    if (!_initialized) return;
+    if (!_initialized) return false;
     try {
       // 🔍 DEBUG: έλεγχος exact-alarm permission πριν το scheduling.
       // Σε Android 12+ το OS μπορεί να ανακαλέσει αυτή την άδεια σιωπηλά
@@ -300,8 +303,10 @@ class NotificationService {
       }
       DebugConfig.notif(
           'NotificationService.schedule: ✅ zonedSchedule OK id=$id at $scheduledAt mode=$scheduleMode');
+      return true;
     } catch (e, stack) {
       DebugConfig.error('NotificationService.schedule', e, stack);
+      return false;
     }
   }
 
