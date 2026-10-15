@@ -2465,7 +2465,7 @@
 - `notification_service`: +import services · +`resolveScheduleMode()` (extract as-is) · `schedule({mode})` (null = per-call) · retry ΜΟΝΟ `exact_alarms_not_permitted`→1×inexact (native Java class → Dart `PlatformException.code`, πηγαία 17.2.4)· SUCCESS/outer-catch άθικτα.
 - `reminder_scheduler`: `_scheduleOne({mode})` pass-through · `scheduleAll` resolve-1× + pass-down · singles (refresh/topUp/reschedule/snooze/bell) default per-call (τεκμηριωμένα σπάνια/λίγα).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device: PERF#9 loop/avg πριν-μετά (στόχος ~−30%) · revoke οπορτουνιστικά · 0 ERR.
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (15/10, PERF#9):** loop 1664→1533ms (**−8%**, όχι −30% — η υπόθεση διαψεύστηκε· κυριαρχεί το plugin-O(n²)) · chunks 352/432/542→308/416/491 (αυξανόμενα) · avg 9.4→8.7ms · db177/os176 σταθερό · revoke οπορτουνιστικά · 0 ERR.
 
 **Backups:** `backups/perf_m1/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
