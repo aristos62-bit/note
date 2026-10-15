@@ -2663,3 +2663,18 @@
 **Backups:** `backups/const_loadinglist/` (5 dart.pre + oldsessions.pre).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (const, όχι layer).
+
+## Session 232 — 15/10/2026 (Revert M1 + habit cancel-guard + prop-dupe heal)
+
+**Revert (κανόνες 2+4 ανεστάλησαν):** επιστροφή κώδικα στο M1 (`c607652`) — έξω M2′ (S226-228 reschedule-branches), M3-budget (S229) και S230-global-chain· μέσα το M1 exact-param+retry· σβησμένο το προσωρινό `logOsDiff`. Docs/oldsessions S226–S231 κρατήθηκαν ως ιστορικό. 7 αρχεία (scheduler, habit_service, notification_service, item_provider, app_errors, main, DESIGN).
+
+**Fix χαμένης επανάληψης/ωρών (2 κανάλια, 0 νέα APIs/αρχεία/hooks, edit-tool only):**
+- **Α — daily cancel-guard** (`habit_detail_screen:1354-1362`): `if (times == null) { db-log; return; }` — mirror weekly/monthly. Το Άκυρο στο time-picker έφτιαχνε `daily(times:null)` → wipe ωρών+rows+reset προόδου (device-αποδεδειγμένο: `Disabling reminders` + `cancelAllForItem` χωρίς tap-αποθήκευσης).
+- **Β1 — self-healing `set()`** (`super_note_helper:754-808`): `findFirst`→`findAll`· αν >1 rows, επιβίωση LWW (max `updatedAt ?? createdAt`, tie→max `id`) + διαγραφή υπολοίπων στο ίδιο txn. Ρίζα: non-unique index + check-then-act race → διπλότυπα → last-wins ανάγνωση έδειχνε πότε 1 πότε 2 ώρες («αποθηκεύτηκε με 2, ξαναμπήκα και έλειπε»).
+- **Β2 — heal υπαρχόντων** (μέσα στο υπάρχον `repairLegacyHabitRows`, hook `main.dart:178` άθικτο): έλεγχος 6 habit keys ανά συνήθεια + ίδιος LWW + warning logs (precedent pseudo-roots). Scope σκόπιμα habit-only.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device εκκρεμεί (μήτρα: picker σταθερά 2 ώρες ×3 · Άκυρο→no-op · Save κενού→σκόπιμο wipe · restart `found` σταθερό + heal-warnings).
+
+**Backups:** `backups/revert_m1/` (7 files.pre + BASE_HEAD) · `backups/habit_cancel_guard/` · `backups/habit_dupes/` (dart.pre + oldsessions.pre).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (ίδια layers, όχι αρχιτεκτονική).

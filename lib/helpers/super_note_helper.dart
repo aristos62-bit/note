@@ -760,16 +760,38 @@ class PropertyRepository {
     bool isVisible = true,
     int sortOrder = 0,
   }) async {
-    // Upsert: βρες existing ή φτιάξε νέο
-    final existing = await _isar.itemPropertys
+    // Upsert: βρες existing ή φτιάξε νέο. Self-healing: αν υπάρχουν
+    // διπλότυπα rows για το ίδιο (itemId, key) — το index δεν είναι unique
+    // και το παλιό check-then-act μπορούσε να φτιάξει 2 puts — κράτα το
+    // νεότερο (LWW: max updatedAt ?? createdAt, tie → max id) και σβήσε τα
+    // υπόλοιπα στο ίδιο txn. Συγκλίνει: όλοι οι concurrent healers
+    // διαλέγουν τον ίδιο επιζώντα.
+    final matches = await _isar.itemPropertys
         .filter()
         .itemIdEqualTo(itemId)
         .keyEqualTo(key)
-        .findFirst();
+        .findAll();
 
-    final prop = existing ?? ItemProperty()
-      ..itemId = itemId
-      ..key = key;
+    late final ItemProperty prop;
+    List<ItemProperty> dupes = const [];
+    if (matches.isEmpty) {
+      prop = ItemProperty()
+        ..itemId = itemId
+        ..key = key;
+    } else {
+      matches.sort((a, b) {
+        final at = a.updatedAt ?? a.createdAt;
+        final bt = b.updatedAt ?? b.createdAt;
+        final c = at.compareTo(bt);
+        return c != 0 ? c : a.id.compareTo(b.id);
+      });
+      prop = matches.last;
+      dupes = matches.sublist(0, matches.length - 1);
+      if (dupes.isNotEmpty) {
+        DebugConfig.warning(
+            'PropertyRepository.set: healed ${dupes.length} duplicate(s) itemId=$itemId key=$key');
+      }
+    }
 
     prop
       ..value = value
@@ -781,6 +803,9 @@ class PropertyRepository {
 
     await _isar.writeTxn(() async {
       await _isar.itemPropertys.put(prop);
+      for (final d in dupes) {
+        await _isar.itemPropertys.delete(d.id);
+      }
     });
 
     return prop;

@@ -15,15 +15,7 @@ class ReminderScheduler {
   Timer? _refreshTimer;
   DateTime? _lastRefreshRun; // 🔍 DEBUG: για μέτρηση του κενού μεταξύ refresh
 
-  // M3 budget: περικοπή + day-granular resume re-bake (≤1 βαρύ resume/μέρα).
-  // Χάνεται σε restart (cold start κάνει πάντα πλήρες scheduleAll).
-  bool _osWindowTruncated = false;
-  DateTime? _lastFullBakeDay; // date-only
-
-  Future<void> scheduleAll() =>
-      queuedPass(_scheduleAllImpl);
-
-  Future<void> _scheduleAllImpl() async {
+  Future<void> scheduleAll() async {
     try {
       DebugConfig.notif(
           'ReminderScheduler.scheduleAll: called, platform=$defaultTargetPlatform');
@@ -60,37 +52,17 @@ class ReminderScheduler {
       // M1: 1 resolve για όλο το batch (αντί για 1/alarm) — singles αλλού per-call.
       final batchMode =
           await NotificationService.instance.resolveScheduleMode();
-      // M3 budget: oldest-first (το getPending είναι sortByTriggerAt) + stop
-      // στο λειτουργικό όριο — deterministic αντί για σιωπηλή απώλεια iOS.
-      // Pre-checks με το ήδη-fetched item (χωρίς _scheduleOne-call)· τα guards
-      // μέσα στο _scheduleOne μένουν ως δίχτυ. Μετράμε baked (OS slots), όχι attempts.
-      final limit = NotificationService.osAlarmLimit;
-      var baked = 0;
-      var truncated = false;
       for (final reminder in pending) {
         final scheduledItem =
             await SuperNoteHelper.instance.items.getById(reminder.itemId);
         DebugConfig.notif(
             '  scheduleAll: scheduling id=${reminder.id} itemId=${reminder.itemId} archived=${scheduledItem?.archived}');
-        final st = scheduledItem?.status;
-        final silenced = scheduledItem?.archived == true ||
-            scheduledItem?.isDeleted == true ||
-            st == ItemStatus.done ||
-            st == ItemStatus.cancelled;
-        if (silenced) continue;
-        if (baked >= limit) {
-          truncated = true;
-          DebugConfig.warning(
-              'scheduleAll: BUDGET cut at $baked/$limit — ${AppErrors.osBudgetTruncated(baked, pending.length)}');
-          break;
-        }
         await _scheduleOne(
           reminder,
           sound: settings.soundEnabled,
           vibration: settings.vibrationEnabled,
           mode: batchMode,
         );
-        baked++;
         done++; // PERF#9 (S224)
         if (done % 50 == 0) {
           // PERF#9 (S224): αν ο χρόνος ανά 50άδα μεγαλώνει → O(n²) στο plugin
@@ -103,30 +75,14 @@ class ReminderScheduler {
       loopSw.stop(); // PERF#9 (S224)
       final osCount = // PERF#9 (S224)
           (await NotificationService.instance.getPendingNotifications()).length;
-      final nowEnd = DateTime.now();
-      _osWindowTruncated = truncated;
-      _lastFullBakeDay =
-          DateTime(nowEnd.year, nowEnd.month, nowEnd.day);
       DebugConfig.notif(
-          'PERF#9 scheduleAll: DONE db=${pending.length} baked=$baked os=$osCount truncated=$truncated '
+          'PERF#9 scheduleAll: DONE db=${pending.length} os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
           'avg=${pending.isEmpty ? 0 : (loopSw.elapsedMilliseconds / pending.length).toStringAsFixed(1)}ms/alarm');
       DebugConfig.notif('ReminderScheduler.scheduleAll: DONE');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.scheduleAll', e, stack);
     }
-  }
-
-  /// Resume re-bake ΜΟΝΟ αν κόπηκε budget ΚΑΙ άλλαξε η μέρα (≤1 βαρύ
-  /// resume/μέρα). Τραβάει μακρινές rows στο OS καθώς περνά ο χρόνος.
-  Future<void> rebakeIfTruncatedAndDayChanged() async {
-    if (!_osWindowTruncated) return;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    if (_lastFullBakeDay == today) return;
-    DebugConfig.notif(
-        'rebakeIfTruncatedAndDayChanged: day rolled over — full re-bake');
-    await scheduleAll();
   }
 
   // ─────────────────────────────────────────────────────────
@@ -153,25 +109,15 @@ class ReminderScheduler {
   // Ανανέωση επαναλαμβανόμενων υπενθυμίσεων (batch logic)
   // ─────────────────────────────────────────────────────────
 
-  // A6+S212-unified: ΜΙΑ καθολική αλυσίδα για ΟΛΑ τα row-mutating/OS-baking
-  // passes (refresh, scheduleAll, rescheduleForItem, habit topUp/set/clear).
-  // Δύο αλυσίδες ή αλυσίδα+αλυσίδωτο (scheduleAll) επέτρεπαν ταυτόχρονο
-  // διπλό ψήσιμο ίδιων rows (device-αποδεδειγμένο: ERR+SUCCESS ίδιου id).
-  // Κανένα chained pass δεν καλεί chained entry (deadlock-audit) — τα
-  // primitives (scheduleReminder, _scheduleOne, cancel*, delete*,
-  // _clearHabitGenerated) ΜΕΝΟΥΝ αλυσίδωτα.
-  Future<void> _globalChain = Future<void>.value();
+  // A6: σειριοποίηση — δύο ταυτόχρονες εκτελέσεις (startup/resume/
+  // ReminderSection/archive) μπορούσαν να δημιουργήσουν διπλά παιδιά.
+  Future<void> _refreshChain = Future<void>.value();
 
-  /// Εκτέλεση task σειριοποιημένα με όλα τα scheduler/habit passes.
-  /// Οι υπογραφές των callers μένουν ίδιες· catchError ζώνη (και unawaited).
-  Future<void> queuedPass(Future<void> Function() task) {
-    final next = _globalChain.then((_) => task());
-    _globalChain = next.catchError((_) {});
+  Future<void> refreshRecurringReminders() {
+    final next = _refreshChain.then((_) => _refreshRecurringRemindersImpl());
+    _refreshChain = next.catchError((_) {});
     return next;
   }
-
-  Future<void> refreshRecurringReminders() =>
-      queuedPass(_refreshRecurringRemindersImpl);
 
   Future<void> _refreshRecurringRemindersImpl() async {
     try {
@@ -574,10 +520,7 @@ class ReminderScheduler {
   /// Ξαναψήνει τα OS alarms ενός item με ζωντανό τίτλο (μετά από μετονομασία).
   /// Μόνο pending one-shots/παιδιά (όχι recurring roots — όπως το scheduleAll)·
   /// τα guards του _scheduleOne (past/archived/done) ισχύουν από κάτω.
-  Future<void> rescheduleForItem(int itemId) =>
-      queuedPass(() => _rescheduleForItemImpl(itemId));
-
-  Future<void> _rescheduleForItemImpl(int itemId) async {
+  Future<void> rescheduleForItem(int itemId) async {
     try {
       if (!NotificationService.isSupportedPlatform) return;
       final settings = await SuperNoteHelper.instance.settings.get();
@@ -600,19 +543,6 @@ class ReminderScheduler {
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.rescheduleForItem', e, stack);
     }
-  }
-
-  /// PERF#9 M2′ (προσωρινό — φεύγει στο τέλος των φάσεων): snapshot OS ids
-  /// πριν/μετά — added ⊆ rows του item (μόνο όσα έλειπαν), removed = ∅ πάντα
-  /// (το reschedule δεν σβήνει rows). Οτιδήποτε άλλο = FAIL του σημείου.
-  static Future<void> logOsDiff(String tag, Future<void> Function() action) async {
-    Future<Set<int>> ids() async => (await NotificationService.instance
-        .getPendingNotifications()).map((p) => p.id).toSet();
-    final before = await ids();
-    await action();
-    final after = await ids();
-    DebugConfig.notif('PERF#9 M2′ $tag added=${after.difference(before).toList()} '
-        'removed=${before.difference(after).toList()}');
   }
 
   Future<void> cancelReminder(int reminderId) async {
