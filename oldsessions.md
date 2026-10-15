@@ -2701,7 +2701,9 @@
 - **Π0 — έντιμη αποτυχία:** `schedule(): void→bool` (μοναδικός caller `_scheduleOne:625`) · νέο `enum ScheduleOutcome { baked, skipped, failed }` (skips ≠ failed — το bool μόνο του θα δηλητηρίαζε το `failed`) · `_scheduleOne` το επιστρέφει (SUCCESS μόνο σε πραγμάτωση) · counters `baked/failed/skipped` σε `scheduleAll` (`done` μένει attempts/PERF) + `rescheduleForItem` (`rebaked` πλέον χωρίς skips).
 - **Π1/Π2/Π3:** unarchive/restore/reactivate → `rescheduleForItem(id)` (1 γραμμή έκαστο, canary). Χωρίς temporaries (μάθημα OsDiff), χωρίς chains, χωρίς budget (M3).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (0 callers στα tests — αδύνατο να σπάσουν) · device ανά σημείο εκκρεμεί (live-cap συσκευή: `FAILED` χωρίς `SUCCESS`, `baked+failed+skipped=attempts`).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (0 callers στα tests — αδύνατο να σπάσουν) · **device (15/10/2026): Π0-counters ✅** (`baked/failed/skipped` ζωντανά, μαθηματικά σωστά)· **Π1 ✅** (unarchive 435 → `rebaked=240 failed=0`, χωρίς ολικό bake)· **Π2 ✅** (restore 435 → `rebaked=22` + topUp)· Π0-FAILED-branch + Π3 εκκρεμούν (θέλουν over-cap / done→active event).
+
+**Νέα ευρήματα device (parked, δικά τους sessions):** delete-χρήστη ταυτόχρονα με topUp → μερική διαγραφή (218 σβησμένα/22 έμειναν, topUp ξανάφτιαχνε) — χρειάζεται σειριοποίηση/back-guard· `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187). Προϋπάρχοντα, όχι S234.
 
 **Backups:** `backups/m2_honest/` (3 dart.pre + DESIGN.pre + oldsessions.pre + BASE_HEAD `3284fd6` — revert point).
 
