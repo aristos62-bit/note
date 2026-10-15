@@ -2678,3 +2678,17 @@
 **Backups:** `backups/revert_m1/` (7 files.pre + BASE_HEAD) · `backups/habit_cancel_guard/` · `backups/habit_dupes/` (dart.pre + oldsessions.pre).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδια layers, όχι αρχιτεκτονική).
+
+## Session 233 — 15/10/2026 (Habit stale providers στο re-entry — fresh-on-open)
+
+**Σύμπτωμα (device, user repro 1-4):** συνήθεια με 2 ώρες σώθηκε (120 rows, SUCCESS 1:1) → αρχική → συνήθειες → επανείσοδος έδειχνε «καμία επανάληψη» → restart έδειχνε σωστά. Real-time UI bug, όχι DB.
+
+**Αιτία (log-αποδεδειγμένη):** το save τελείωσε ΜΕΤΑ το dispose (`recurrence saved` 17:29:54 > dispose 17:29:50) → τα `ref.invalidate` του save σκιπαρίστηκαν (`!mounted`, σκόπιμα anti-`ref after dispose`, S187) → η family-cache κράτησε προ-save δεδομένα.
+
+**Fix (1 αρχείο, precedent S147 reset-on-open, edit-tool only):** `habit_detail_screen:initState` + postFrame `invalidate(itemPropertiesProvider)` + `invalidate(habitStatsProvider)` — φρέσκα δεδομένα σε κάθε άνοιγμα.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (15/10/2026, user verdict — όλα ΟΚ):** επανείσοδος δείχνει κατευθείαν τις 2 ώρες, χωρίς restart — S233 CLOSED.
+
+**Backups:** `backups/habit_fresh_open/` (dart.pre + oldsessions.pre + BASE_HEAD).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (UI-state signal, όχι layer).

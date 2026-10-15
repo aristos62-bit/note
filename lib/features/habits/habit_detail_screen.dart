@@ -54,6 +54,14 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
       }
     });
     initScreen(itemId: widget.itemId, isNew: widget.isNew);
+    // Fresh providers σε κάθε άνοιγμα: το save μπορεί να ολοκληρώθηκε
+    // μετά το dispose (mounted=false → τα invalidates του save σκιπαρίστηκαν
+    // για αποφυγή ref-after-dispose) και η family-cache θα έδειχνε
+    // μπαγιάτικα (π.χ. «καμία επανάληψη»). Precedent: SearchScreen reset-on-open.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(itemPropertiesProvider(widget.itemId));
+      ref.invalidate(habitStatsProvider(widget.itemId));
+    });
   }
 
   @override
