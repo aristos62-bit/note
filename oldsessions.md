@@ -2489,7 +2489,7 @@
 
 **Fix (1 αρχείο, edit-tool only):** `restoreItem`: `scheduleAll()` → wrapped `rescheduleForItem(id)` (refresh + topUp-force ως είχαν).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device retest εκκρεμεί (fixture ≥1h · OsDiff added⊆item/removed=[] · 0 ξένα ids · 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ Π2 (15/10, `run_log.txt`, 0 ERR):** restore-117 `rebaked=0`, OsDiff added=[]/removed=[] · Π1 re-confirm (415/216/218, removed=[] παντού).
 
 **Backups:** `backups/perf_m2p2/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
