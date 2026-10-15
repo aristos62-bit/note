@@ -30,8 +30,10 @@ class ReminderScheduler {
           'ReminderScheduler.scheduleAll: notificationsEnabled=${settings.notificationsEnabled}');
       if (!settings.notificationsEnabled) return;
 
+      final totalSw = Stopwatch()..start(); // PERF#9 (S224)
       await NotificationService.instance.cancelAll();
-      DebugConfig.notif('ReminderScheduler.scheduleAll: cancelAll done');
+      DebugConfig.notif(
+          'ReminderScheduler.scheduleAll: cancelAll done (PERF#9 ${totalSw.elapsedMilliseconds}ms)');
 
       var pending = await SuperNoteHelper.instance.reminders.getPending();
       pending =
@@ -43,6 +45,9 @@ class ReminderScheduler {
             '  pending: id=${r.id} trigger=${r.triggerAt} status=${r.status.name} itemId=${r.itemId}');
       }
 
+      final loopSw = Stopwatch()..start(); // PERF#9 (S224)
+      var done = 0; // PERF#9 (S224)
+      var chunkStartMs = 0; // PERF#9 (S224)
       for (final reminder in pending) {
         final scheduledItem =
             await SuperNoteHelper.instance.items.getById(reminder.itemId);
@@ -53,7 +58,22 @@ class ReminderScheduler {
           sound: settings.soundEnabled,
           vibration: settings.vibrationEnabled,
         );
+        done++; // PERF#9 (S224)
+        if (done % 50 == 0) {
+          // PERF#9 (S224): αν ο χρόνος ανά 50άδα μεγαλώνει → O(n²) στο plugin
+          final nowMs = loopSw.elapsedMilliseconds;
+          DebugConfig.notif(
+              'PERF#9 scheduleAll: $done/${pending.length} — τελευταία 50 σε ${nowMs - chunkStartMs}ms');
+          chunkStartMs = nowMs;
+        }
       }
+      loopSw.stop(); // PERF#9 (S224)
+      final osCount = // PERF#9 (S224)
+          (await NotificationService.instance.getPendingNotifications()).length;
+      DebugConfig.notif(
+          'PERF#9 scheduleAll: DONE db=${pending.length} os=$osCount '
+          'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
+          'avg=${pending.isEmpty ? 0 : (loopSw.elapsedMilliseconds / pending.length).toStringAsFixed(1)}ms/alarm');
       DebugConfig.notif('ReminderScheduler.scheduleAll: DONE');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.scheduleAll', e, stack);

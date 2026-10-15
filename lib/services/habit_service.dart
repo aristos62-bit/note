@@ -663,6 +663,8 @@ class HabitService {
       }
       _lastTopUp = now;
 
+      final topUpSw = Stopwatch()..start(); // PERF#9 (S224)
+
       final helper = SuperNoteHelper.instance;
       final end = now.add(const Duration(days: horizonDays));
       var created = 0;
@@ -730,6 +732,9 @@ class HabitService {
       final osPending =
       await NotificationService.instance.getPendingNotifications();
       DebugConfig.notif('HabitService.topUp: OS pending=${osPending.length}');
+      DebugConfig.notif( // PERF#9 (S224)
+          'PERF#9 topUp: scanned=$scanned needTopUp=$habits created=$created '
+          'os=${osPending.length} took=${topUpSw.elapsedMilliseconds}ms');
     } catch (e, stack) {
       DebugConfig.error('topUpHabitReminders', e, stack);
     }

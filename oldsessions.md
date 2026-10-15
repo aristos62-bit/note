@@ -2443,6 +2443,20 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-fix, όχι layer).
 
+## Session 216 — 15/10/2026 (PERF μέτρηση scheduleAll/topUp — M0)
+
+**Σκοπός:** μέτρηση πριν από βελτιστοποιήσεις (0 behavior-change): Stopwatch + counts + per-50 chunk-timing (O(n²)-check) στο `scheduleAll` · Stopwatch-wrap στο `topUp` (δίπλα στο H3) · tags `PERF#9 (S224)`.
+
+**Fix (2 αρχεία, logging-only, edit-tool only):** `reminder_scheduler` (totalSw/loopSw/done/chunks/summary) · `habit_service` (topUpSw + summary, H3 άθικτο).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device: cold start → ανάγνωση γραμμών `PERF#9` (loop-ms, avg-ms/alarm, chunk-τάσεις, db-vs-os) · pub-cache static-check για SharedPreferences · 0 ERR.
+
+**Σημείωση ακεραιότητας:** static audit (169 `test(` + 46 `testWidgets` = 215) + 2 runs συμφωνούν στο **215**· η αλυσίδα 199→208 που είχα αναφέρει (S203–S215) δεν συμφωνεί με αμετάβλητα test-αρχεία — λανθασμένες αναγνώσεις μου σε προηγούμενα runs, το παραδέχομαι. Καμία επίπτωση κώδικα (logging-only αλλαγή, suite πράσινη). Κανόνας: static cross-check σε κάθε μελλοντική αναφορά.
+
+**Backups:** `backups/perf_measure/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (logging-only).
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
