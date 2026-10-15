@@ -2732,7 +2732,7 @@
 - **Μ3-test:** extend υπάρχοντος (`osAlarmLimit` android+iOS via override+teardown).
 - **Μ4:** `_osCount/_truncated` (0 queries) + header-card (`DB/OS/limit` + περικοπή) · Windows-branch (S202 reuse).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** (+2 νέα) · device trip + rollover + no-regression εκκρεμεί.
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** (+2 νέα) · **device trip ✅ (15/10/2026, pid 19583, `run_log_m3.txt`):** `DONE db=527 baked=450 failed=0 skipped=0 cut=77 truncated=true os=450` (invariant `450+0+0+77=527` ✓) + `BUDGET cut` warning · topUp `created=0 os=450` · 0 FAILED/ERR · **M4 ✅:** header `OS: N/450` ζωντανό (σημείωση: άνοιγμα ενδιάμεσα στο bake δείχνει μερικό N + `truncated=false` — φυσιολογικό, refresh ↻ μετά το πέρας δείχνει `450/450` + περικοπή) · day-rollover + no-regression εκκρεμεί.
 
 **Backups:** `backups/m3_budget/` (4 dart.pre + test.pre + DESIGN.pre + oldsessions.pre + BASE_HEAD `d55498d` — revert point).
 
