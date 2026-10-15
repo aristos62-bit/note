@@ -84,6 +84,8 @@ class AppErrors {
       'Η ώρα έχει περάσει — διάλεξε μελλοντική ώρα';
   static const reminderSavedNoAlarm =
       'Αποθηκεύτηκε, αλλά οι ειδοποιήσεις είναι κλειστές — δεν θα χτυπήσει';
+  static String osBudgetTruncated(int kept, int total) =>
+      'Προγραμματίστηκαν $kept από $total υπενθυμίσεις (όριο συσκευής) — οι υπόλοιπες μπαίνουν αυτόματα';
 
   // ── Birthday ─────────────────────────────────────────────────
   static String birthdayReplaced(String name) =>
