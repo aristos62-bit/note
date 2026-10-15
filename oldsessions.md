@@ -2483,6 +2483,23 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο pattern, προσωρινό instrument).
 
+## Session 229 — 15/10/2026 (PERF M3 — budget + day-rebake)
+
+**Σκοπός:** ντετερμινιστική συμπεριφορά στο όριο (αντί σιωπηλής απώλειας iOS).
+
+**Fix (4 αρχεία + DESIGN, edit-tool only):**
+- `notification_service`: SPoT `osAlarmLimit` (60 iOS/macOS, 450 Android, με headroom-σχόλιο).
+- `app_errors`: +`osBudgetTruncated(kept, total)` (S68).
+- `reminder_scheduler`: `_osWindowTruncated` + `_lastFullBakeDay` · loop pre-checks με fetched item (cap = baked-slots) + stop + warning · summary +`baked/truncated` · `rebakeIfTruncatedAndDayChanged()`.
+- `main`: +1 γραμμή στο resume (μετά το topUp).
+- Singles (bell/snooze/reschedule/refresh-standalone/topUp-immediate) ψήνουν πάντα — το budget αφορά ΜΟΝΟ το `scheduleAll`.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device: budget-trip (4+ habits ή 60+ rows → warning + πρώτοι-60) · day-rollover → re-bake · kill-during-bake → recovery · PERF#9 πριν/μετά · 0 ERR.
+
+**Backups:** `backups/perf_m3/` (5 files.pre, SHA πριν τα edits).
+
+**supernote.md:** καμία αλλαγή (ίδια layers)· **DESIGN.md:** +γραμμή Session 229.
+
 ## Session 227 — 15/10/2026 (PERF M2′-Π2 — restore via rescheduleForItem)
 
 **Σκοπός:** ίδιο με Π1 για επαναφορά από κάδο.
