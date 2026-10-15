@@ -2501,7 +2501,7 @@
 
 **Fix (1 αρχείο, edit-tool only):** A2-branch: `scheduleAll()` → wrapped `rescheduleForItem(id)` (refresh ως είχε).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device retest εκκρεμεί (done→active με μελλοντική υπενθύμιση · OsDiff added⊆item/removed=[] · 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ Π3 (15/10, user verdict):** done→active με μελλοντική υπενθύμιση → χτύπησε σωστά · 0 ERR στο txt (χωρίς M2′-diff γραμμές σε αυτό το run — λειτουργική επιβεβαίωση).
 
 **Backups:** `backups/perf_m2p3/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
 
