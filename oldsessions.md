@@ -2692,3 +2692,17 @@
 **Backups:** `backups/habit_fresh_open/` (dart.pre + oldsessions.pre + BASE_HEAD).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (UI-state signal, όχι layer).
+
+## Session 234 — 15/10/2026 (Νέα Μ2: honest bake accounting + single-item reschedule)
+
+**Scope (2+4 ανεστάλησαν):** ξανασχεδιασμός Μ2 πάνω στην παλιά Μ2′ με τα νέα στοιχεία (cap CONFIRMED 500/uid με ρητό μήνυμα· S231-παράδοξο = κατάποση στο `schedule()` → ERR+SUCCESS από μία κλήση· S230-θεωρία νεκρή).
+
+**Υλοποίηση (3 αρχεία, 0 νέα APIs/αρχεία/hooks/strings, edit-tool only):**
+- **Π0 — έντιμη αποτυχία:** `schedule(): void→bool` (μοναδικός caller `_scheduleOne:625`) · νέο `enum ScheduleOutcome { baked, skipped, failed }` (skips ≠ failed — το bool μόνο του θα δηλητηρίαζε το `failed`) · `_scheduleOne` το επιστρέφει (SUCCESS μόνο σε πραγμάτωση) · counters `baked/failed/skipped` σε `scheduleAll` (`done` μένει attempts/PERF) + `rescheduleForItem` (`rebaked` πλέον χωρίς skips).
+- **Π1/Π2/Π3:** unarchive/restore/reactivate → `rescheduleForItem(id)` (1 γραμμή έκαστο, canary). Χωρίς temporaries (μάθημα OsDiff), χωρίς chains, χωρίς budget (M3).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** (0 callers στα tests — αδύνατο να σπάσουν) · device ανά σημείο εκκρεμεί (live-cap συσκευή: `FAILED` χωρίς `SUCCESS`, `baked+failed+skipped=attempts`).
+
+**Backups:** `backups/m2_honest/` (3 dart.pre + DESIGN.pre + oldsessions.pre + BASE_HEAD `3284fd6` — revert point).
+
+**supernote.md:** καμία αλλαγή (ίδια layers)· **DESIGN.md:** +γραμμή Session 234.
