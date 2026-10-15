@@ -2494,7 +2494,7 @@
 - `main`: +1 γραμμή στο resume (μετά το topUp).
 - Singles (bell/snooze/reschedule/refresh-standalone/topUp-immediate) ψήνουν πάντα — το budget αφορά ΜΟΝΟ το `scheduleAll`.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device: budget-trip (4+ habits ή 60+ rows → warning + πρώτοι-60) · day-rollover → re-bake · kill-during-bake → recovery · PERF#9 πριν/μετά · 0 ERR.
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ΜΕΡΙΚΩΣ (15/10, `run_log.txt`, 3087 γρ., 0 ERR):** no-regression ✅ — `truncated=false`, 0 warnings, `baked=db−1` (1 silenced-row skip από το νέο pre-check — σωστό), loop 4-7.5s (device-variance + O(n²), αναμενόμενο) · **trip (warning/stop/day-rebake) ΜΕΝΕΙ** — θέλει 450+ rows (έφτασε 260)· καλύπτεται από code-review (Isar-bound, 0 unit-harness κατά σύμβαση)· εκκρεμεί volume-test.
 
 **Backups:** `backups/perf_m3/` (5 files.pre, SHA πριν τα edits).
 
