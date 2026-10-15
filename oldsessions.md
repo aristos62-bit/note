@@ -2477,7 +2477,7 @@
 
 **Fix (2 αρχεία, προσωρινός helper, edit-tool only):** +`logOsDiff` (snapshot OS-ids πριν/μετά, added⊆item/removed=∅, φεύγει στο τέλος) · unarchive-branch: `scheduleAll()` → wrapped `rescheduleForItem(id)` (refresh + topUp-force ως είχαν· σχόλιο-habit διατηρήθηκε).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device retest εκκρεμεί (fixture ≥1h + foreground-ησυχία · `created N` + `rebaked=K` + OsDiff added⊆item/removed=∅ · topUp-singles · PERF-timing · 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ Π1 (15/10, `run_log.txt`, 3225 γρ., 0 ERR):** habit-538 `rebaked=32`, OsDiff added=32×item-rows/removed=[] · note-415 `rebaked=0`, added=[]/removed=[] · contact-216/218 yearly `rebaked=5`, added=5×children/removed=[] · topUp-singles · 0 ξένα ids πουθενά.
 
 **Backups:** `backups/perf_m2p1/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
