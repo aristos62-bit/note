@@ -29,7 +29,6 @@ class HabitListScreen extends ConsumerStatefulWidget {
 
 class _HabitListScreenState extends ConsumerState<HabitListScreen>
     with FolderAutoSelectMixin {
-  bool _showArchiveHintShown = false;
   bool _creating = false;
 
   Future<void> _createHabit() async {
@@ -174,18 +173,8 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
         icon: const Icon(Icons.more_vert_rounded),
         onSelected: (value) {
           if (value == 'archived') {
-            final show = ref.read(showArchivedProvider);
-            ref.read(showArchivedProvider.notifier).state = !show;
-            if (!show && !_showArchiveHintShown) {
-              _showArchiveHintShown = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
-                  );
-                }
-              });
-            }
+            ref.read(showArchivedProvider.notifier).state =
+                !ref.read(showArchivedProvider);
           }
         },
         itemBuilder: (_) => [

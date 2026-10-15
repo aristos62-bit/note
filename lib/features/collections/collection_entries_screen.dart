@@ -109,7 +109,6 @@ class _CollectionEntriesScreenState
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
-  bool _showArchiveHintShown = false;
   Timer? _debounce;
 
   Set<String> _visibleTagNames = {};
@@ -238,18 +237,8 @@ class _CollectionEntriesScreenState
             icon: const Icon(Icons.more_vert_rounded),
             onSelected: (value) {
               if (value == 'archived') {
-                final show = ref.read(showArchivedProvider);
-                ref.read(showArchivedProvider.notifier).state = !show;
-                if (!show && !_showArchiveHintShown) {
-                  _showArchiveHintShown = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
-                      );
-                    }
-                  });
-                }
+                ref.read(showArchivedProvider.notifier).state =
+                    !ref.read(showArchivedProvider);
               }
             },
             itemBuilder: (_) => [

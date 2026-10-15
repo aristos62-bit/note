@@ -42,7 +42,6 @@ class ItemListScreen extends ConsumerStatefulWidget {
 
 class _ItemListScreenState extends ConsumerState<ItemListScreen>
     with FolderAutoSelectMixin {
-  bool _showArchiveHintShown = false;
 
   @override
   void dispose() {
@@ -134,18 +133,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) {
                 if (value == 'archived') {
-                  final show = ref.read(showArchivedProvider);
-                  ref.read(showArchivedProvider.notifier).state = !show;
-                  if (!show && !_showArchiveHintShown) {
-                    _showArchiveHintShown = true;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text(AppErrors.longPressRestoreHint)),
-                        );
-                      }
-                    });
-                  }
+                  ref.read(showArchivedProvider.notifier).state =
+                      !ref.read(showArchivedProvider);
                 }
               },
               itemBuilder: (_) => [
