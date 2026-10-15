@@ -2715,7 +2715,7 @@
 
 **Υλοποίηση (10 αρχεία, διαγραφές μόνο, edit-tool only):** 8× flag `_showArchiveHintShown` + SnackBar-block (tasks, contacts, calendar, journal, entries, collections, habits, item_list_screen — toggle έμεινε 1 γραμμή) · διαγραφή const `AppErrors.longPressRestoreHint` · διαγραφή 1 γραμμής test.
 
-**Επαλήθευση:** grep 0 hits · `analyze` clean · `flutter test` → **215/215** · device: μενού αρχειοθετημένων χωρίς hint.
+**Επαλήθευση:** grep 0 hits · `analyze` clean · `flutter test` → **215/215** · **device ✅ (15/10/2026, user verdict):** μενού αρχειοθετημένων χωρίς hint — S235 CLOSED.
 
 **Backups:** `backups/no_hint/` (8 dart + const + test.pre + oldsessions.pre).
 
