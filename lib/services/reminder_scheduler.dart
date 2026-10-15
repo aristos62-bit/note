@@ -15,6 +15,15 @@ enum ScheduleOutcome { baked, skipped, failed }
 class ReminderScheduler {
   ReminderScheduler._internal();
   static final ReminderScheduler instance = ReminderScheduler._internal();
+
+  // M3 budget: περικοπή + day-granular resume re-bake.
+  // Χάνεται σε restart (το cold start κάνει πάντα πλήρες bake και τα ξαναβγάζει).
+  bool _osWindowTruncated = false;
+  DateTime? _lastFullBakeDay; // date-only (startOfDay)
+  bool _rebaking = false;
+
+  /// True αν το τελευταίο bake κόπηκε στο OS-όριο (διαβάζεται από diagnostics).
+  bool get isOsWindowTruncated => _osWindowTruncated;
   Timer? _refreshTimer;
   DateTime? _lastRefreshRun; // 🔍 DEBUG: για μέτρηση του κενού μεταξύ refresh
 
@@ -54,11 +63,22 @@ class ReminderScheduler {
       var baked = 0;
       var failed = 0;
       var skipped = 0;
+      var truncated = false;
       var chunkStartMs = 0; // PERF#9 (S224)
       // M1: 1 resolve για όλο το batch (αντί για 1/alarm) — singles αλλού per-call.
       final batchMode =
           await NotificationService.instance.resolveScheduleMode();
+      // M3 budget: oldest-first (το getPending είναι sortByTriggerAt) + stop
+      // στο λειτουργικό όριο — deterministic αντί για σιωπηλή απώλεια iOS.
+      // Χωρίς παράθυρο ημερών: καθαρό count-cap κατά triggerAt σειρά.
+      final limit = NotificationService.osAlarmLimit;
       for (final reminder in pending) {
+        if (baked >= limit) {
+          truncated = true;
+          DebugConfig.warning(
+              'scheduleAll: BUDGET cut at $baked/$limit of ${pending.length} — oldest-first kept');
+          break;
+        }
         final scheduledItem =
             await SuperNoteHelper.instance.items.getById(reminder.itemId);
         DebugConfig.notif(
@@ -88,13 +108,33 @@ class ReminderScheduler {
       loopSw.stop(); // PERF#9 (S224)
       final osCount = // PERF#9 (S224)
           (await NotificationService.instance.getPendingNotifications()).length;
+      final cut = pending.length - done;
+      _osWindowTruncated = truncated;
+      _lastFullBakeDay = DateTime.now().startOfDay;
       DebugConfig.notif(
-          'PERF#9 scheduleAll: DONE db=${pending.length} baked=$baked failed=$failed skipped=$skipped os=$osCount '
+          'PERF#9 scheduleAll: DONE db=${pending.length} baked=$baked failed=$failed skipped=$skipped cut=$cut truncated=$truncated os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
           'avg=${pending.isEmpty ? 0 : (loopSw.elapsedMilliseconds / pending.length).toStringAsFixed(1)}ms/alarm');
       DebugConfig.notif('ReminderScheduler.scheduleAll: DONE');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.scheduleAll', e, stack);
+    }
+  }
+
+  /// Resume re-bake ΜΟΝΟ αν κόπηκε budget ΚΑΙ άλλαξε η μέρα (≤1 βαρύ
+  /// resume/μέρα). Τραβάει μακρινές rows στο OS καθώς περνά ο χρόνος.
+  /// Το _rebaking σκεπάζει δεύτερο resume ενδιάμεσα στο ~14s bake.
+  Future<void> rebakeIfTruncatedAndDayChanged() async {
+    if (!_osWindowTruncated || _rebaking) return;
+    final today = DateTime.now().startOfDay;
+    if (_lastFullBakeDay == today) return;
+    _rebaking = true;
+    try {
+      DebugConfig.nav(
+          'rebakeIfTruncatedAndDayChanged: day rolled over — full re-bake');
+      await scheduleAll();
+    } finally {
+      _rebaking = false;
     }
   }
 

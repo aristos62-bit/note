@@ -43,6 +43,7 @@
 - Session 143 (#2): αρχειοθετημένα items = **σίγαση** — `ItemNotifier.toggleArchive` cancel (archive) / reschedule (unarchive) OS alarms· τα Reminder rows **μένουν** (non-destructive)· guard στο `ReminderScheduler._scheduleOne` (μοναδικό choke-point `NotificationService.schedule`)· skip archived roots στο `refreshRecurringReminders`· Settings restore/delete μέσω SPoT `ItemNotifier`· split `pinned_provider.dart`.
 - Session 213: διαγραμμένα items (κάδος) = **σίγαση, συμμετρικά με archive** — `deleteItem` cancel OS (rows μένουν, πριν τα έσβηνε)· `restoreItem` → refresh+scheduleAll+habit-topUp (mirror unarchive)· deleted-guards σε `_scheduleOne` + refresh-roots (αλλιώς το scheduleAll/reboot θα τα ξυπνούσε)· diagnostics muted-display· past-dialog φιλτράρει rows κάδου· `permanentDelete` σβήνει rows κανονικά.
 - Session 234 (M2): έντιμο bake accounting — `schedule(): void→bool` + `ScheduleOutcome {baked,skipped,failed}` (skips ≠ failed)· SUCCESS μόνο σε πραγμάτωση (τέλος στο ψευδές-SUCCESS S231)· counters σε `scheduleAll`/`rescheduleForItem`· unarchive/restore/reactivate → single-item `rescheduleForItem` (αντί ολικού bake).
+- Session 236 (M3+M4): budget `osAlarmLimit` (60/450) oldest-first + `truncated`-flag (in-memory) + day-rebake resume + diagnostics header `DB/OS/limit` (0 queries).
 
 ## Αλλαγές Session 59 (share intent IN — λήψη κοινοποιήσεων)
 - Dep: `receive_sharing_intent ^1.9.0` (`SharedMediaType`: image/video/text/file/url· `getInitialMedia/getMediaStream/reset/setMockValues`) — το `share_plus` μένει outbound μόνο.
