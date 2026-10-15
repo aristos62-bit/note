@@ -262,7 +262,9 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       // Συμμετρικό με unarchive: οι κρατημένες rows ξαναπρογραμματίζονται·
       // οι συνήθειες θέλουν top-up (ο ορίζοντας εξαντλήθηκε στον κάδο).
       await ReminderScheduler.instance.refreshRecurringReminders();
-      await ReminderScheduler.instance.scheduleAll();
+      await ReminderScheduler.logOsDiff('restore $id', () async {
+        await ReminderScheduler.instance.rescheduleForItem(id);
+      });
       await HabitService.instance.topUpHabitReminders(force: true);
       DebugConfig.notif('restoreItem: id=$id → rescheduled');
       ref.invalidateSelf();
