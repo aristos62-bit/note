@@ -20,7 +20,10 @@ class ReminderScheduler {
   bool _osWindowTruncated = false;
   DateTime? _lastFullBakeDay; // date-only
 
-  Future<void> scheduleAll() async {
+  Future<void> scheduleAll() =>
+      queuedPass(_scheduleAllImpl);
+
+  Future<void> _scheduleAllImpl() async {
     try {
       DebugConfig.notif(
           'ReminderScheduler.scheduleAll: called, platform=$defaultTargetPlatform');
@@ -150,15 +153,25 @@ class ReminderScheduler {
   // Ανανέωση επαναλαμβανόμενων υπενθυμίσεων (batch logic)
   // ─────────────────────────────────────────────────────────
 
-  // A6: σειριοποίηση — δύο ταυτόχρονες εκτελέσεις (startup/resume/
-  // ReminderSection/archive) μπορούσαν να δημιουργήσουν διπλά παιδιά.
-  Future<void> _refreshChain = Future<void>.value();
+  // A6+S212-unified: ΜΙΑ καθολική αλυσίδα για ΟΛΑ τα row-mutating/OS-baking
+  // passes (refresh, scheduleAll, rescheduleForItem, habit topUp/set/clear).
+  // Δύο αλυσίδες ή αλυσίδα+αλυσίδωτο (scheduleAll) επέτρεπαν ταυτόχρονο
+  // διπλό ψήσιμο ίδιων rows (device-αποδεδειγμένο: ERR+SUCCESS ίδιου id).
+  // Κανένα chained pass δεν καλεί chained entry (deadlock-audit) — τα
+  // primitives (scheduleReminder, _scheduleOne, cancel*, delete*,
+  // _clearHabitGenerated) ΜΕΝΟΥΝ αλυσίδωτα.
+  Future<void> _globalChain = Future<void>.value();
 
-  Future<void> refreshRecurringReminders() {
-    final next = _refreshChain.then((_) => _refreshRecurringRemindersImpl());
-    _refreshChain = next.catchError((_) {});
+  /// Εκτέλεση task σειριοποιημένα με όλα τα scheduler/habit passes.
+  /// Οι υπογραφές των callers μένουν ίδιες· catchError ζώνη (και unawaited).
+  Future<void> queuedPass(Future<void> Function() task) {
+    final next = _globalChain.then((_) => task());
+    _globalChain = next.catchError((_) {});
     return next;
   }
+
+  Future<void> refreshRecurringReminders() =>
+      queuedPass(_refreshRecurringRemindersImpl);
 
   Future<void> _refreshRecurringRemindersImpl() async {
     try {
@@ -561,7 +574,10 @@ class ReminderScheduler {
   /// Ξαναψήνει τα OS alarms ενός item με ζωντανό τίτλο (μετά από μετονομασία).
   /// Μόνο pending one-shots/παιδιά (όχι recurring roots — όπως το scheduleAll)·
   /// τα guards του _scheduleOne (past/archived/done) ισχύουν από κάτω.
-  Future<void> rescheduleForItem(int itemId) async {
+  Future<void> rescheduleForItem(int itemId) =>
+      queuedPass(() => _rescheduleForItemImpl(itemId));
+
+  Future<void> _rescheduleForItemImpl(int itemId) async {
     try {
       if (!NotificationService.isSupportedPlatform) return;
       final settings = await SuperNoteHelper.instance.settings.get();

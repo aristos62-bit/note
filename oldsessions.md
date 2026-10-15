@@ -2483,6 +2483,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο pattern, προσωρινό instrument).
 
+## Session 230 — 15/10/2026 (Scheduler-wide chain — διπλό ψήσιμο τέλος)
+
+**Αιτία (device-αποδεδειγμένη):** ERR+SUCCESS ίδιου id — δύο επικαλυπτόμενες κλήσεις (η μία πετάει 500-limit/transient, η άλλη ψήνει). Η S212-αλυσίδα κάλυπτε habit↔habit και η Α6 refresh↔refresh, αλλά το `scheduleAll` ήταν εκτός κάθε αλυσίδας (cold-start bake + habit-edit ταυτόχρονα).
+
+**Fix (2 αρχεία, 0 νέες υπογραφές callers, edit-tool only):** ΜΙΑ καθολική αλυσίδα (`ReminderScheduler.queuedPass`) — refresh/scheduleAll/rescheduleForItem/habit-topUp/set/clear όλα μέσα· habit-chain αφαιρέθηκε (dead code)· primitives αλυσίδωτα (deadlock-audit: κανένα chained-pass δεν καλεί chained entry)· trade-off: FIFO αναμονή (correctness > latency).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · 0 αναφορές στις παλιές αλυσίδες · device: overlap-repro (cold-start όγκου + edit στο +1s) → 0 ERR-burst + 0 διπλά ids · 0 ERR γενικά.
+
+**Backups:** `backups/global_chain/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md:** καμία αλλαγή (ίδια layers)· **DESIGN.md:** +γραμμή Session 230.
+
 ## Session 229 — 15/10/2026 (PERF M3 — budget + day-rebake)
 
 **Σκοπός:** ντετερμινιστική συμπεριφορά στο όριο (αντί σιωπηλής απώλειας iOS).
