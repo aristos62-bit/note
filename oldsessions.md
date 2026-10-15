@@ -2495,6 +2495,20 @@
 
 **supernote.md:** καμία αλλαγή (ίδια layers)· **DESIGN.md:** +γραμμή Session 230.
 
+## Session 231 — 15/10/2026 (116 ERRs — ανοιχτή διερεύνηση, ΚΑΜΙΑ αλλαγή κώδικα)
+
+**Μεθοδολογία (διόρθωση):** το pattern `❌` δεν ταίριαζε ποτέ λόγω encoding — όλα τα `0 ERR` verdicts (S205–S230) είναι **άκυρα ως προς απουσία σφαλμάτων**. Λειτουργικά ευρήματα (counts/diffs/created) στέκουν (ASCII-patterns σωστά). Κανόνας: ASCII-patterns πάντα + static-count.
+
+**Γεγονότα (error.txt, 8995 γρ., single pid):** 112 μοναδικά `scheduleReminder` + 112 `_scheduleOne` + 112 outer-ERR + 113 SUCCESS (ανά id 1+1+1+1) · native stack αποδεικνύει 500-limit (`AlarmManagerService.setImpl:2407`) · M1-retry αμέτοχο (0 warnings· throw-code `error`) · διπλές κλήσεις ΑΠΟΚΛΕΙΟΝΤΑΙ από τα counts.
+
+**Παράδοξο (ανοιχτό):** σε single-threaded sequential κώδικα, μία κλήση → μία έκβαση· το ERR→SUCCESS ίδιου id δεν εξηγείται στατικά. Υποθέσεις: (1) OS-cap + άγνωστος μηχανισμός SUCCESS · (2) artifact γειτνίασης/throttling · (3) overlap (αποδυναμωμένη — καμία διπλή γραμμή κλήσης).
+
+**Επόμενο (σχέδιο χρήστη):** διαγραφή όλων των habits + empty-trash (καθαρή βάση) → φόρτωση μία-μία ×5 ώρες → logs ανά γύρο → κατώφλι πρώτου ERR (κοντά στο 500 = cap· χαμηλά = συστηματικό → τότε UUID-instrumentation).
+
+**Backups:** καμία (0 αλλαγές κώδικα).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή.
+
 ## Session 229 — 15/10/2026 (PERF M3 — budget + day-rebake)
 
 **Σκοπός:** ντετερμινιστική συμπεριφορά στο όριο (αντί σιωπηλής απώλειας iOS).
