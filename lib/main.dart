@@ -392,8 +392,6 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
         // Habit top-up (own 10min guard μέσα στη μέθοδο).
         await HabitService.instance.topUpHabitReminders();
-        // Budget re-bake (M3): μόνο αν κόπηκε + άλλαξε μέρα (≤1 βαρύ resume/μέρα).
-        await ReminderScheduler.instance.rebakeIfTruncatedAndDayChanged();
       }
 
       if (!_disposed && state == AppLifecycleState.detached) {

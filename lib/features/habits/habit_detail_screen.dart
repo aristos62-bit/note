@@ -1354,6 +1354,12 @@ class _HabitSettings extends ConsumerWidget {
       case 'Καθημερινά':
         // Άνοιγμα time picker για επιλογή ωρών
         final times = await _showTimePicker(context, currentRecurrence);
+        // Άκυρο (null) → καμία αλλαγή — mirror των weekly/monthly guards.
+        // Χωρίς αυτό, το null γινόταν daily(times: null) → wipe ωρών+rows.
+        if (times == null) {
+          DebugConfig.db('HabitDetail recurrence edit cancelled — no changes');
+          return;
+        }
         if (!context.mounted) return;
         newRecurrence = Recurrence.daily(times: times);
         break;

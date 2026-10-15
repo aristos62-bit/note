@@ -465,8 +465,7 @@ class HabitService {
       DebugConfig.db('🕒 Disabling reminders for habit $habitId');
       await props.delete(habitId, 'reminder_time');
       await props.delete(habitId, 'reminder_times');
-      await ReminderScheduler.instance
-          .queuedPass(() => _clearHabitGenerated(habitId));
+      await _queuedHabitPass(() => _clearHabitGenerated(habitId));
     } else {
       DebugConfig.db(
           '🕒 Setting reminder for habit $habitId at ${time.hour}:${time.minute}');
@@ -638,12 +637,21 @@ class HabitService {
   /// Τρέχει ΜΟΝΟ όπου υπάρχουν reminder_time(s) (ρητό opt-in).
   static DateTime? _lastTopUp;
 
-  /// S212→global: τα habit passes σειριοποιούνται στην καθολική αλυσίδα
-  /// του scheduler (βλ. ReminderScheduler.queuedPass) — ξεχωριστή αλυσίδα
-  /// + αλυσίδωτο scheduleAll επέτρεπαν ταυτόχρονο διπλό ψήσιμο (device: ERR+SUCCESS).
+  /// A6-mirror: σειριοποίηση habit row-mutations (topUp/set/clear).
+  /// Check-then-act με awaits (read existing → create) + ταυτόχρονο
+  /// setReminderTimes/_clearHabitGenerated (π.χ. αλλαγή ωρών στο startup)
+  /// έβγαζε διπλά rows/ghosts. Κάθε pass περιμένει το προηγούμενο·
+  /// οι υπογραφές μένουν ίδιες· catchError ζώνη ασφαλείας (και unawaited).
+  Future<void> _habitChain = Future<void>.value();
+
+  Future<void> _queuedHabitPass(Future<void> Function() task) {
+    final next = _habitChain.then((_) => task());
+    _habitChain = next.catchError((_) {});
+    return next;
+  }
+
   Future<void> topUpHabitReminders({bool force = false}) =>
-      ReminderScheduler.instance
-          .queuedPass(() => _topUpHabitRemindersImpl(force: force));
+      _queuedHabitPass(() => _topUpHabitRemindersImpl(force: force));
 
   Future<void> _topUpHabitRemindersImpl({bool force = false}) async {
     try {
@@ -738,11 +746,52 @@ class HabitService {
     try {
       final helper = SuperNoteHelper.instance;
       var repaired = 0;
+      var healedProps = 0;
       final workspaces = await helper.workspaces.getAll();
       for (final ws in workspaces) {
         final items = await helper.items
             .getByWorkspace(ws.id, type: ItemType.habit);
         for (final habit in items) {
+          // Heal διπλοτύπων property rows (non-unique index + παλιό set()
+          // race → last-wins ανάγνωση). Ίδιος LWW κανόνας με το set():
+          // επιβίωση νεότερου, διαγραφή υπολοίπων με υπάρχουσες μεθόδους.
+          final hprops = await helper.properties.getAll(habit.id);
+          final byKey = <String, List<ItemProperty>>{};
+          for (final p in hprops) {
+            byKey.putIfAbsent(p.key, () => []).add(p);
+          }
+          const healKeys = [
+            'recurrence_type',
+            'recurrence_interval',
+            'recurrence_days',
+            'recurrence_times',
+            'reminder_time',
+            'reminder_times',
+          ];
+          for (final hk in healKeys) {
+            final dupes = byKey[hk];
+            if (dupes == null || dupes.length < 2) continue;
+            dupes.sort((a, b) {
+              final at = a.updatedAt ?? a.createdAt;
+              final bt = b.updatedAt ?? b.createdAt;
+              final c = at.compareTo(bt);
+              return c != 0 ? c : a.id.compareTo(b.id);
+            });
+            final keep = dupes.last;
+            DebugConfig.warning(
+                'HabitService.repair: habitId=${habit.id} duplicate props key=$hk rows=${dupes.length} — keeping id=${keep.id}');
+            await helper.properties.delete(habit.id, hk);
+            await helper.properties.set(
+              itemId: habit.id,
+              key: keep.key,
+              value: keep.value,
+              type: keep.type,
+              unit: keep.unit,
+              isVisible: keep.isVisible,
+              sortOrder: keep.sortOrder,
+            );
+            healedProps++;
+          }
           final rows = await helper.reminders.getForItem(habit.id);
           final pseudoRoots = rows.where((r) =>
               r.rrule != null &&
@@ -761,6 +810,10 @@ class HabitService {
       if (repaired > 0) {
         DebugConfig.notif('HabitService.repair: done habits=$repaired');
       }
+      if (healedProps > 0) {
+        DebugConfig.notif(
+            'HabitService.repair: healed duplicate habit props=$healedProps');
+      }
     } catch (e, stack) {
       DebugConfig.error('repairLegacyHabitRows', e, stack);
     }
@@ -768,7 +821,7 @@ class HabitService {
 
   Future<void> _scheduleReminders(
       int habitId, List<TimeOfDay> times, Recurrence recurrence) =>
-      ReminderScheduler.instance.queuedPass(
+      _queuedHabitPass(
           () => _scheduleRemindersImpl(habitId, times, recurrence));
 
   Future<void> _scheduleRemindersImpl(
