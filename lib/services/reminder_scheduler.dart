@@ -3,6 +3,7 @@ import '../helpers/super_note_helper.dart';
 import '../helpers/item_color_helper.dart';
 import '../models/models.dart';
 import 'notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
 import 'package:isar/isar.dart';
@@ -48,6 +49,9 @@ class ReminderScheduler {
       final loopSw = Stopwatch()..start(); // PERF#9 (S224)
       var done = 0; // PERF#9 (S224)
       var chunkStartMs = 0; // PERF#9 (S224)
+      // M1: 1 resolve για όλο το batch (αντί για 1/alarm) — singles αλλού per-call.
+      final batchMode =
+          await NotificationService.instance.resolveScheduleMode();
       for (final reminder in pending) {
         final scheduledItem =
             await SuperNoteHelper.instance.items.getById(reminder.itemId);
@@ -57,6 +61,7 @@ class ReminderScheduler {
           reminder,
           sound: settings.soundEnabled,
           vibration: settings.vibrationEnabled,
+          mode: batchMode,
         );
         done++; // PERF#9 (S224)
         if (done % 50 == 0) {
@@ -566,6 +571,7 @@ class ReminderScheduler {
     Reminder reminder, {
     bool sound = true,
     bool vibration = true,
+    AndroidScheduleMode? mode, // batch-override· null = resolve per-call (ως πριν)
   }) async {
     final now = DateTime.now();
     if (reminder.triggerAt.isBefore(now)) {
@@ -624,6 +630,7 @@ class ReminderScheduler {
         payload: reminder.itemId.toString(),
         sound: sound,
         vibration: vibration,
+        mode: mode,
       );
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: ✅ SUCCESS id=${reminder.id}');

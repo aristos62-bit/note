@@ -2443,7 +2443,7 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-fix, όχι layer).
 
-## Session 216 — 15/10/2026 (PERF μέτρηση scheduleAll/topUp — M0)
+## Session 224 — 15/10/2026 (PERF μέτρηση scheduleAll/topUp — M0)
 
 **Σκοπός:** μέτρηση πριν από βελτιστοποιήσεις (0 behavior-change): Stopwatch + counts + per-50 chunk-timing (O(n²)-check) στο `scheduleAll` · Stopwatch-wrap στο `topUp` (δίπλα στο H3) · tags `PERF#9 (S224)`.
 
@@ -2456,6 +2456,20 @@
 **Backups:** `backups/perf_measure/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (logging-only).
+
+## Session 225 — 15/10/2026 (PERF M1 — exact-param + retry)
+
+**Σκοπός:** 1 platform-call ανά batch αντί για 1/alarm + κλείσιμο revoke-απώλειας.
+
+**Fix (2 αρχεία, 0 behavior-change πλην retry, edit-tool only):**
+- `notification_service`: +import services · +`resolveScheduleMode()` (extract as-is) · `schedule({mode})` (null = per-call) · retry ΜΟΝΟ `exact_alarms_not_permitted`→1×inexact (native Java class → Dart `PlatformException.code`, πηγαία 17.2.4)· SUCCESS/outer-catch άθικτα.
+- `reminder_scheduler`: `_scheduleOne({mode})` pass-through · `scheduleAll` resolve-1× + pass-down · singles (refresh/topUp/reschedule/snooze/bell) default per-call (τεκμηριωμένα σπάνια/λίγα).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device: PERF#9 loop/avg πριν-μετά (στόχος ~−30%) · revoke οπορτουνιστικά · 0 ERR.
+
+**Backups:** `backups/perf_m1/` (2 dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (ίδια layers, παράμετροι).
 
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
