@@ -321,7 +321,9 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       DebugConfig.notif('toggleArchive: ARCHIVE id=$id → cancelled OS (rows kept)');
     } else {
       await ReminderScheduler.instance.refreshRecurringReminders();
-      await ReminderScheduler.instance.scheduleAll();
+      await ReminderScheduler.logOsDiff('unarchive $id', () async {
+        await ReminderScheduler.instance.rescheduleForItem(id);
+      });
       // Συνήθειες: ο ορίζοντας 60ημ. μπορεί να εξαντλήθηκε όσο ήταν
       // αρχειοθετημένη (το topUp εξαιρεί archived) — top-up τώρα, όχι στο resume.
       await HabitService.instance.topUpHabitReminders(force: true);
