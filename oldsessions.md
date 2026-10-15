@@ -2483,6 +2483,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο pattern, προσωρινό instrument).
 
+## Session 227 — 15/10/2026 (PERF M2′-Π2 — restore via rescheduleForItem)
+
+**Σκοπός:** ίδιο με Π1 για επαναφορά από κάδο.
+
+**Fix (1 αρχείο, edit-tool only):** `restoreItem`: `scheduleAll()` → wrapped `rescheduleForItem(id)` (refresh + topUp-force ως είχαν).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · device retest εκκρεμεί (fixture ≥1h · OsDiff added⊆item/removed=[] · 0 ξένα ids · 0 ERR).
+
+**Backups:** `backups/perf_m2p2/` (dart.pre + oldsessions.pre, SHA πριν τα edits).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή.
+
 **Backups:** `backups/dst_weeks_cap/` (3 dart.pre + 2 test.pre + oldsessions.pre, SHA πριν τα edits).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (pure-math + guard-branch + tests, όχι layer).
