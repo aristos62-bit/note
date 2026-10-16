@@ -2743,7 +2743,9 @@
 
 **Υλοποίηση:** επαναφορά `main.dart` προ-S237 από `backups/startup_order/` (byte-identical, κατοπτρικό diff).
 
-**Επαλήθευση:** `analyze` clean · device εκκρεμεί.
+**Ετυμηγορία device (οριστική):** με S237 (clean build) → σιγή postFrame· με pre-S237 → πλήρες υγιές chain (permission→refresh→purge→scheduleAll→topUp→seed→intent). **Το S237 φταίει** — μηχανισμός άγνωστος (καθαρή μετακίνηση που compile-άρει· πιθανή αλληλεπίδραση πρώτου-await, διερευνάται χωριστά). Parked σε commit `d1132ec` + backup — ΔΕΝ επανέρχεται χωρίς νέα απόδειξη.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217**.
 
 **Backups:** `backups/startup_order/` (revert point).
 
