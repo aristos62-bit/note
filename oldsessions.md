@@ -2721,6 +2721,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (strings-delete, όχι layer).
 
+## Session 237 — 16/10/2026 (Startup σειρά: ελαφριά πρώτα, scheduling τελευταίο)
+
+**Εύρημα (user, log-αποδεδειγμένο):** το 21s `scheduleAll` καθυστερούσε folder-seed (Φ4c-6 flicker νεκρό), `SharedIntent.init` και deferred-notification navigation (+24766ms/+24903ms) — όλα σειριακά μετά το bake.
+
+**Υλοποίηση (1 αρχείο, καθαρή μετακίνηση, user-provided block, edit-tool only):** `main.dart` postFrame — folder-seed + SharedIntent + payload-navigation + AppLock-check πρώτα· `requestPermission` → refresh → purge → `scheduleAll` → topUp μετά (ίδια εσωτερική σειρά). Εξαρτήσεις ελεγμένες: καμία κατεύθυνση δεν χρειάζεται την άλλη.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · device (tap-to-detail ταχύτητα + seed χωρίς flicker) εκκρεμεί.
+
+**Backups:** `backups/startup_order/` (main.pre + oldsessions.pre + BASE_HEAD `35ed7cc`).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (startup-σειρά, όχι αρχιτεκτονική — precedent S164).
+
 ## Session 236 — 15/10/2026 (Μ3 budget + Μ4 diagnostics header)
 
 **Scope (2+4 ανεστάλησαν):** επαναφορά budget πάνω σε έντιμα counters (S234) — cap ρητό μήνυμα 500/uid αποδεδειγμένο, ψευδές-SUCCESS νεκρό.
