@@ -142,9 +142,46 @@ void main() async {
 
   // ✅ Βαριές εργασίες ΜΕΤΑ το runApp
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    // Πρώτα τα «ελαφριά»/UI-κρίσιμα βήματα· το βαρύ scheduling είναι ΤΕΛΕΥΤΑΙΟ
-    // (scheduleAll ~1.5s/177 alarms, ~20s/450 — μετρημένο PERF#9) ώστε να μη
-    // καθυστερεί folder-seed / SharedIntent / πλοήγηση από πάτημα ειδοποίησης.
+    try {
+      final hasPermission =
+          await NotificationService.instance.requestPermission();
+      DebugConfig.startup('Notifications requestPermission -> $hasPermission');
+    } catch (e, stack) {
+      DebugConfig.error('requestPermission failed', e, stack);
+    }
+    try {
+      await ReminderScheduler.instance.refreshRecurringReminders();
+      DebugConfig.startup('Recurring reminders refreshed');
+    } catch (e, stack) {
+      DebugConfig.error('refreshRecurringReminders failed', e, stack);
+    }
+
+    try {
+      // Entry-reminder purge (one-shot, idempotent): η καμπάνα αφαιρέθηκε
+      // από τα entries — σβήνουμε τυχόν παλιές rows πριν το scheduleAll.
+      await ReminderScheduler.instance.purgeKnowledgeReminders();
+      DebugConfig.startup('Entry reminders purged');
+    } catch (e, stack) {
+      DebugConfig.error('purgeKnowledgeReminders failed', e, stack);
+    }
+
+    try {
+      await ReminderScheduler.instance.scheduleAll();
+      DebugConfig.startup('Reminders scheduled');
+    } catch (e, stack) {
+      DebugConfig.error('scheduleAll failed', e, stack);
+    }
+
+    try {
+      // Habit native scheduling: one-shot repair + 60d top-up (μετά το
+      // scheduleAll για ταχύτερο OS προγραμματισμό — προγραμματίζουν μόνα τους).
+      await HabitService.instance.repairLegacyHabitRows();
+      await HabitService.instance.topUpHabitReminders();
+      DebugConfig.startup('Habit reminders repaired + topped up');
+    } catch (e, stack) {
+      DebugConfig.error('habit topUp failed', e, stack);
+    }
+
     try {
       // Folder seed (Φ4c-6): προεπιλογή ΜΙΑ φορά στο startup για αποφυγή
       // του null→«Όλοι» flicker — το FolderAutoSelectMixin μένει ως fallback.
@@ -189,47 +226,6 @@ void main() async {
       } catch (e, stack) {
         DebugConfig.error('PostFrameCallback: app lock check failed', e, stack);
       }
-
-    // ── Βαρύ μπλοκ scheduling (ίδια σειρά με πριν, αλλά ΤΕΛΕΥΤΑΙΟ) ──
-    try {
-      final hasPermission =
-          await NotificationService.instance.requestPermission();
-      DebugConfig.startup('Notifications requestPermission -> $hasPermission');
-    } catch (e, stack) {
-      DebugConfig.error('requestPermission failed', e, stack);
-    }
-    try {
-      await ReminderScheduler.instance.refreshRecurringReminders();
-      DebugConfig.startup('Recurring reminders refreshed');
-    } catch (e, stack) {
-      DebugConfig.error('refreshRecurringReminders failed', e, stack);
-    }
-
-    try {
-      // Entry-reminder purge (one-shot, idempotent): η καμπάνα αφαιρέθηκε
-      // από τα entries — σβήνουμε τυχόν παλιές rows πριν το scheduleAll.
-      await ReminderScheduler.instance.purgeKnowledgeReminders();
-      DebugConfig.startup('Entry reminders purged');
-    } catch (e, stack) {
-      DebugConfig.error('purgeKnowledgeReminders failed', e, stack);
-    }
-
-    try {
-      await ReminderScheduler.instance.scheduleAll();
-      DebugConfig.startup('Reminders scheduled');
-    } catch (e, stack) {
-      DebugConfig.error('scheduleAll failed', e, stack);
-    }
-
-    try {
-      // Habit native scheduling: one-shot repair + 60d top-up (μετά το
-      // scheduleAll για ταχύτερο OS προγραμματισμό — προγραμματίζουν μόνα τους).
-      await HabitService.instance.repairLegacyHabitRows();
-      await HabitService.instance.topUpHabitReminders();
-      DebugConfig.startup('Habit reminders repaired + topped up');
-    } catch (e, stack) {
-      DebugConfig.error('habit topUp failed', e, stack);
-    }
 
     });
 }

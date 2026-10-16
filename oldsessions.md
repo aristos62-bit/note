@@ -2765,6 +2765,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή.
 
+## Session 240 — 16/10/2026 (S237 ένοχο — καθαρό A/B και τις δύο κατευθύνσεις)
+
+**Στοιχεία:** S237-clean-builds (14108, 7517, 22893, 23188) → απόλυτη σιγή postFrame· pre-S237 (9897 clean + 7 incremental) → πλήρες υγιές chain. Ο μόνος σταθερός διαχωριστής είναι η σειρά — η υγιεινή builds αποκλείστηκε και στις δύο πλευρές.
+
+**Υπόθεση εργασίας (ανοιχτή):** το πρώτο-await του S237 (`container.read(foldersProvider.future)`) δεν ολοκληρώνεται σε ψυχρή εκκίνηση, ενώ αργότερα (θέση pre-S237) λύνεται κανονικά — άρα το seed χρειάζεται timeout/direct-repo κλήση, όχι απλή επαναφορά σειράς.
+
+**Ενέργεια:** revert `main.dart` (byte-identical με `54f7915`, `git diff` κενό) · `analyze` clean.
+
+**Backups:** `backups/startup_order_v2/` (revert point).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή.
+
 ## Session 236 — 15/10/2026 (Μ3 budget + Μ4 diagnostics header)
 
 **Scope (2+4 ανεστάλησαν):** επαναφορά budget πάνω σε έντιμα counters (S234) — cap ρητό μήνυμα 500/uid αποδεδειγμένο, ψευδές-SUCCESS νεκρό.
