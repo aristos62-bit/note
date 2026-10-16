@@ -142,6 +142,83 @@ void main() async {
 
   // ✅ Βαριές εργασίες ΜΕΤΑ το runApp
   WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // PROBE S237: πρώτη γραμμή — αν λείπει, το callback δεν τρέχει καθόλου.
+    DebugConfig.startup('postFrame ENTER');
+    // Πρώτα τα «ελαφριά»/UI-κρίσιμα βήματα· το βαρύ scheduling είναι ΤΕΛΕΥΤΑΙΟ
+    // (scheduleAll ~1.5s/177 alarms, ~20s/450 — μετρημένο PERF#9) ώστε να μη
+    // καθυστερεί folder-seed / SharedIntent / πλοήγηση από πάτημα ειδοποίησης.
+    try {
+      // Folder seed (Φ4c-6): προεπιλογή ΜΙΑ φορά στο startup για αποφυγή
+      // του null→«Όλοι» flicker — το FolderAutoSelectMixin μένει ως fallback.
+      // Direct repo (όχι foldersProvider.future — κρεμάει σε cold start,
+      // το S237 το αποκάλυψε· το stream μένει για τα widgets).
+      final wsId = container.read(activeWorkspaceIdProvider);
+      if (wsId == null) {
+        DebugConfig.nav('postFrame: seed skipped (no active workspace)');
+      } else {
+        DebugConfig.nav('postFrame: seed await folders...');
+        late final List<Folder> folders;
+        try {
+          folders = await SuperNoteHelper.instance.folders
+              .getByWorkspace(wsId)
+              .timeout(const Duration(seconds: 5));
+          DebugConfig.nav('postFrame: seed folders ok count=${folders.length}');
+        } on TimeoutException {
+          DebugConfig.warning('postFrame: seed folders TIMEOUT — skipped');
+          folders = [];
+        }
+        if (container.read(selectedFolderIdProvider) == null && folders.isNotEmpty) {
+          final preferred =
+              container.read(settingsNotifierProvider).valueOrNull?.preferredFolderId;
+          final target = (preferred != null && folders.any((f) => f.id == preferred))
+              ? preferred
+              : folders.firstWhere((f) => f.isSystem, orElse: () => folders.first).id;
+          container.read(selectedFolderIdProvider.notifier).state = target;
+          DebugConfig.nav('Startup seed folder id=$target (preferredId=$preferred)');
+        } else {
+          DebugConfig.nav('postFrame: seed skipped (already selected or empty)');
+        }
+      }
+    } catch (e, stack) {
+      DebugConfig.error('folder seed failed', e, stack);
+    }
+
+    try {
+      DebugConfig.nav('postFrame: SharedIntent init start...');
+      await SharedIntentService.instance
+          .init()
+          .timeout(const Duration(seconds: 5));
+      DebugConfig.startup('SharedIntent initialized');
+    } catch (e, stack) {
+      DebugConfig.error('SharedIntent init failed', e, stack);
+    }
+
+    try {
+      if (deferredNotificationPayload != null) {
+        DebugConfig.notif('PostFrameCallback: processing deferred notification payload=$deferredNotificationPayload');
+        handleNotificationTap(deferredNotificationPayload);
+        DebugConfig.notif('PostFrameCallback: deferred notification navigation done');
+      } else {
+        DebugConfig.nav('postFrame: no deferred payload');
+      }
+    } catch (e, stack) {
+      DebugConfig.error('PostFrameCallback: deferred notification navigation failed', e, stack);
+    }
+
+    try {
+      DebugConfig.nav('postFrame: appLock check start...');
+      final settings = await SuperNoteHelper.instance.settings.get();
+      if (settings.appLockEnabled && !AppLockService.instance.isLocked) {
+        AppLockService.instance.lock();
+        container.read(appLockStateProvider.notifier).state = true;
+      DebugConfig.print('🔒 AppLock: initial lock on startup');
+        }
+      DebugConfig.nav('postFrame: appLock check done');
+      } catch (e, stack) {
+        DebugConfig.error('PostFrameCallback: app lock check failed', e, stack);
+      }
+
+    // ── Βαρύ μπλοκ scheduling (ίδια σειρά με πριν, αλλά ΤΕΛΕΥΤΑΙΟ) ──
     try {
       final hasPermission =
           await NotificationService.instance.requestPermission();
@@ -181,51 +258,6 @@ void main() async {
     } catch (e, stack) {
       DebugConfig.error('habit topUp failed', e, stack);
     }
-
-    try {
-      // Folder seed (Φ4c-6): προεπιλογή ΜΙΑ φορά στο startup για αποφυγή
-      // του null→«Όλοι» flicker — το FolderAutoSelectMixin μένει ως fallback.
-      final folders = await container.read(foldersProvider.future);
-      if (container.read(selectedFolderIdProvider) == null && folders.isNotEmpty) {
-        final preferred =
-            container.read(settingsNotifierProvider).valueOrNull?.preferredFolderId;
-        final target = (preferred != null && folders.any((f) => f.id == preferred))
-            ? preferred
-            : folders.firstWhere((f) => f.isSystem, orElse: () => folders.first).id;
-        container.read(selectedFolderIdProvider.notifier).state = target;
-        DebugConfig.nav('Startup seed folder id=$target (preferredId=$preferred)');
-      }
-    } catch (e, stack) {
-      DebugConfig.error('folder seed failed', e, stack);
-    }
-
-    try {
-      await SharedIntentService.instance.init();
-      DebugConfig.startup('SharedIntent initialized');
-    } catch (e, stack) {
-      DebugConfig.error('SharedIntent init failed', e, stack);
-    }
-
-    try {
-      if (deferredNotificationPayload != null) {
-        DebugConfig.notif('PostFrameCallback: processing deferred notification payload=$deferredNotificationPayload');
-        handleNotificationTap(deferredNotificationPayload);
-        DebugConfig.notif('PostFrameCallback: deferred notification navigation done');
-      }
-    } catch (e, stack) {
-      DebugConfig.error('PostFrameCallback: deferred notification navigation failed', e, stack);
-    }
-
-    try {
-      final settings = await SuperNoteHelper.instance.settings.get();
-      if (settings.appLockEnabled && !AppLockService.instance.isLocked) {
-        AppLockService.instance.lock();
-        container.read(appLockStateProvider.notifier).state = true;
-      DebugConfig.print('🔒 AppLock: initial lock on startup');
-        }
-      } catch (e, stack) {
-        DebugConfig.error('PostFrameCallback: app lock check failed', e, stack);
-      }
 
     });
 }

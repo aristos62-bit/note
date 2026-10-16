@@ -66,8 +66,9 @@ class SharedIntentService {
     if (_inited) return;
     _inited = true;
     try {
-      final initial =
-          await ReceiveSharingIntent.instance.getInitialMedia();
+      final initial = await ReceiveSharingIntent.instance
+          .getInitialMedia()
+          .timeout(const Duration(seconds: 5));
       if (initial.isNotEmpty) {
         DebugConfig.notif('SharedIntent cold-start n=${initial.length}');
         _emit(initial);
