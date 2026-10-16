@@ -2847,3 +2847,8 @@
 **Backups:** `backups/incremental_sync_b21/` (+`habit_service.dart.pre` SHA `7700954E`, `notification_service.temp20.pre`).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή.
+
+**Επόμενο session (ανοιχτά, 17/10/2026):**
+- S212-chain hardening (προτάθηκε, ΔΕΝ εγκρίθηκε υλοποίηση): timeout στα passes της `_queuedHabitPass` (σφήνα-για-πάντα → ηχηρό σφάλμα + ζωντανή αλυσίδα via `catchError`) + μόνιμα diagnostic logs (`pass queued/started`, `guard-skip`). Trigger του πρώτου wedge άγνωστο — το fix το καθιστά ακίνδυνο χωρίς να το κυνηγάει.
+- Συσκευή 9593c01e: ημερομηνία χειροκίνητη (αλλαγές +1/+1 για Τ2) — επαναφορά σε ΑΥΤΟΜΑΤΗ πριν κανονική χρήση.
+- Καθαρότητα: `lib/` committed (Β2.1 στο `97d1c86`)· temp-20 revert + debug-removal επαληθευμένα (`git diff lib/` κενό)· uncommitted μόνο build-artifacts (InstallerOutput exe, macos registrant).
