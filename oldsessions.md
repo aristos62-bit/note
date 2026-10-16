@@ -2862,7 +2862,7 @@
 - `dart:async` import (έλειπε — `TimeoutException`) · guard-skip `notif` log (ήταν αόρατο).
 - Απορρίφθηκαν τεκμηριωμένα: `rethrow` (θα έσπαγε resume-rebake `main:426-428` + `toggleArchive` χωρίς try) · ενοποίηση με scheduler-chain (S230-revert S232) · scheduler-timeout + shared SerialQueue SPoT (parked, δικά τους βήματα) · `AppDuration` const (UI-κλίμακα) · `AppErrors` (background, χωρίς UI) · νέο test (0 Isar-harness, σύμβαση S193/S194).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · device εκκρεμεί (cold/resume/unarchive/restore + `queued→started→done` 1:1 + wedge → `FAILED` + επόμενο pass + rebake).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · **device ✅ (16/10/2026, pid 11458):** cold `queued→started→done id=1` + `scheduleAll DONE db=46 baked=44 failed=0 skipped=2` (invariant ✓) · resume `queued→started→guard-skip→done id=2` (10λ guard ορατό πρώτη φορά) · unarchive-415 force `queued→started→done id=3` (guard bypassed) + `UNARCHIVE rescheduled` · 0 app-ERR/WRN/FAILED/FATAL σε όλο το run — **S244 CLOSED.**
 
 **Backups:** `backups/s212_hardening/` (dart.pre + oldsessions.pre, BASE `34e87dc`).
 
