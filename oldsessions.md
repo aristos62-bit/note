@@ -2727,6 +2727,10 @@
 
 **Υλοποίηση (1 αρχείο, καθαρή μετακίνηση, user-provided block, edit-tool only):** `main.dart` postFrame — folder-seed + SharedIntent + payload-navigation + AppLock-check πρώτα· `requestPermission` → refresh → purge → `scheduleAll` → topUp μετά (ίδια εσωτερική σειρά). Εξαρτήσεις ελεγμένες: καμία κατεύθυνση δεν χρειάζεται την άλλη.
 
+**Διάγνωση «νεκρού postFrame» (κρίσιμη, ίδια μέρα):** όλα τα cold starts έδειχναν μηδέν postFrame γραμμές → revert-πείραμα (S237 αθώο — σιγή και με προ-S237 κώδικα) → `flutter clean` + πλήρες rebuild → postFrame υγιέστατο. **Αιτία: μπαγιάτικα incremental builds** (6.4s assembles) — όχι κώδικας. S237 επανεφαρμόστηκε byte-identical (`git diff d1132ec` κενό).
+
+**Μάθημα (κανόνας):** μετά από δομικές αλλαγές ή «αδύνατα» συμπτώματα → πάντα `flutter clean` πριν το κυνήγι. Τα incremental builds μπορεί να τρέχουν μπαγιάτικο kernel.
+
 **Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · device (tap-to-detail ταχύτητα + seed χωρίς flicker) εκκρεμεί.
 
 **Backups:** `backups/startup_order/` (main.pre + oldsessions.pre + BASE_HEAD `35ed7cc`).
