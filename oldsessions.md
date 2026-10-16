@@ -2737,6 +2737,18 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (startup-σειρά, όχι αρχιτεκτονική — precedent S164).
 
+## Session 238 — 16/10/2026 (Revert S237 — απόφαση χρήστη)
+
+**Αιτία:** η σιγή postFrame παρέμενε αδιάγνωστη στη συσκευή· ο χρήστης ζήτησε επιστροφή στην προηγούμενη σειρά μέχρι να βρεθεί η πραγματική αιτία.
+
+**Υλοποίηση:** επαναφορά `main.dart` προ-S237 από `backups/startup_order/` (byte-identical, κατοπτρικό diff).
+
+**Επαλήθευση:** `analyze` clean · device εκκρεμεί.
+
+**Backups:** `backups/startup_order/` (revert point).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή.
+
 ## Session 236 — 15/10/2026 (Μ3 budget + Μ4 diagnostics header)
 
 **Scope (2+4 ανεστάλησαν):** επαναφορά budget πάνω σε έντιμα counters (S234) — cap ρητό μήνυμα 500/uid αποδεδειγμένο, ψευδές-SUCCESS νεκρό.
