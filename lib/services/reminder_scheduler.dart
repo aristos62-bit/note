@@ -10,7 +10,8 @@ import 'package:isar/isar.dart';
 import 'dart:async';
 
 /// Έκβαση ενός OS-bake (skipped ≠ failed: τα skips δεν μετράνε ως αποτυχίες).
-enum ScheduleOutcome { baked, skipped, failed }
+/// kept: incremental sync — το alarm υπάρχει ήδη στο OS, δεν ξαναψήθηκε.
+enum ScheduleOutcome { baked, skipped, failed, kept }
 
 class ReminderScheduler {
   ReminderScheduler._internal();
@@ -27,10 +28,10 @@ class ReminderScheduler {
   Timer? _refreshTimer;
   DateTime? _lastRefreshRun; // 🔍 DEBUG: για μέτρηση του κενού μεταξύ refresh
 
-  Future<void> scheduleAll() async {
+  Future<void> scheduleAll({bool incremental = false}) async {
     try {
       DebugConfig.notif(
-          'ReminderScheduler.scheduleAll: called, platform=$defaultTargetPlatform');
+          'ReminderScheduler.scheduleAll: called, platform=$defaultTargetPlatform incremental=$incremental');
       // Μοναδική πηγή πλατφορμών: NotificationService.isSupportedPlatform.
       if (!NotificationService.isSupportedPlatform) {
         DebugConfig.notif(
@@ -44,9 +45,30 @@ class ReminderScheduler {
       if (!settings.notificationsEnabled) return;
 
       final totalSw = Stopwatch()..start(); // PERF#9 (S224)
-      await NotificationService.instance.cancelAll();
-      DebugConfig.notif(
-          'ReminderScheduler.scheduleAll: cancelAll done (PERF#9 ${totalSw.elapsedMilliseconds}ms)');
+
+      // Incremental: current = ids που ήδη υπάρχουν στο OS. Άδειο (πραγματικά
+      // ή λόγω σφάλματος του getPendingNotifications, που επιστρέφει []) →
+      // πέφτουμε στο πλήρες flow. Το stale κρατά ό,τι δεν επιβεβαιώθηκε.
+      Set<int>? keepIds;
+      Set<int>? stale;
+      if (incremental) {
+        final current = (await NotificationService.instance
+                .getPendingNotifications())
+            .map((p) => p.id)
+            .toSet();
+        if (current.isEmpty) {
+          DebugConfig.notif(
+              'ReminderScheduler.scheduleAll: INCREMENTAL → OS empty, full flow');
+        } else {
+          keepIds = current;
+          stale = Set<int>.of(current);
+        }
+      }
+      if (keepIds == null) {
+        await NotificationService.instance.cancelAll();
+        DebugConfig.notif(
+            'ReminderScheduler.scheduleAll: cancelAll done (PERF#9 ${totalSw.elapsedMilliseconds}ms)');
+      }
 
       var pending = await SuperNoteHelper.instance.reminders.getPending();
       pending =
@@ -58,9 +80,22 @@ class ReminderScheduler {
             '  pending: id=${r.id} trigger=${r.triggerAt} status=${r.status.name} itemId=${r.itemId}');
       }
 
+      // Incremental: ghosts (στο OS αλλά όχι στο DB-pending) φεύγουν ΠΡΙΝ τα
+      // bakes, για να ελευθερωθούν slots (όριο AlarmManager 500).
+      var cancelled = 0;
+      if (stale != null) {
+        final pendingIds = pending.map((r) => r.id).toSet();
+        for (final id in stale.where((id) => !pendingIds.contains(id)).toList()) {
+          await NotificationService.instance.cancel(id);
+          stale.remove(id);
+          cancelled++;
+        }
+      }
+
       final loopSw = Stopwatch()..start(); // PERF#9 (S224)
       var done = 0; // PERF#9 (S224)
       var baked = 0;
+      var kept = 0;
       var failed = 0;
       var skipped = 0;
       var truncated = false;
@@ -71,12 +106,13 @@ class ReminderScheduler {
       // M3 budget: oldest-first (το getPending είναι sortByTriggerAt) + stop
       // στο λειτουργικό όριο — deterministic αντί για σιωπηλή απώλεια iOS.
       // Χωρίς παράθυρο ημερών: καθαρό count-cap κατά triggerAt σειρά.
+      // Στο όριο μετράνε baked + kept (και τα δύο καταλαμβάνουν OS slot).
       final limit = NotificationService.osAlarmLimit;
       for (final reminder in pending) {
-        if (baked >= limit) {
+        if (baked + kept >= limit) {
           truncated = true;
           DebugConfig.warning(
-              'scheduleAll: BUDGET cut at $baked/$limit of ${pending.length} — oldest-first kept');
+              'scheduleAll: BUDGET cut at ${baked + kept}/$limit of ${pending.length} — oldest-first kept');
           break;
         }
         final scheduledItem =
@@ -88,13 +124,23 @@ class ReminderScheduler {
           sound: settings.soundEnabled,
           vibration: settings.vibrationEnabled,
           mode: batchMode,
+          keepIds: keepIds,
         );
         if (outcome == ScheduleOutcome.baked) {
           baked++;
+          stale?.remove(reminder.id);
+        } else if (outcome == ScheduleOutcome.kept) {
+          kept++;
+          stale?.remove(reminder.id);
         } else if (outcome == ScheduleOutcome.failed) {
           failed++;
         } else {
           skipped++;
+          // Skipped αλλά υπάρχει στο OS (archived/done/past ενώ ψήθηκε παλιά) → cancel.
+          if (stale != null && stale.remove(reminder.id)) {
+            await NotificationService.instance.cancel(reminder.id);
+            cancelled++;
+          }
         }
         done++; // PERF#9 (S224)
         if (done % 50 == 0) {
@@ -106,13 +152,23 @@ class ReminderScheduler {
         }
       }
       loopSw.stop(); // PERF#9 (S224)
+      // Incremental: ό,τι έμεινε στο stale (πέρα από το budget cut, ή failed)
+      // δεν ανήκει στο desired σύνολο → cancel.
+      if (stale != null) {
+        for (final id in stale.toList()) {
+          await NotificationService.instance.cancel(id);
+          cancelled++;
+        }
+        DebugConfig.notif(
+            'PERF#9 scheduleAll: INCREMENTAL cancel=$cancelled bake=$baked keep=$kept');
+      }
       final osCount = // PERF#9 (S224)
           (await NotificationService.instance.getPendingNotifications()).length;
       final cut = pending.length - done;
       _osWindowTruncated = truncated;
       _lastFullBakeDay = DateTime.now().startOfDay;
       DebugConfig.notif(
-          'PERF#9 scheduleAll: DONE db=${pending.length} baked=$baked failed=$failed skipped=$skipped cut=$cut truncated=$truncated os=$osCount '
+          'PERF#9 scheduleAll: DONE db=${pending.length} baked=$baked kept=$kept failed=$failed skipped=$skipped cut=$cut truncated=$truncated os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
           'avg=${pending.isEmpty ? 0 : (loopSw.elapsedMilliseconds / pending.length).toStringAsFixed(1)}ms/alarm');
       DebugConfig.notif('ReminderScheduler.scheduleAll: DONE');
@@ -123,7 +179,9 @@ class ReminderScheduler {
 
   /// Resume re-bake ΜΟΝΟ αν κόπηκε budget ΚΑΙ άλλαξε η μέρα (≤1 βαρύ
   /// resume/μέρα). Τραβάει μακρινές rows στο OS καθώς περνά ο χρόνος.
-  /// Το _rebaking σκεπάζει δεύτερο resume ενδιάμεσα στο ~14s bake.
+  /// Incremental sync: κρατά ό,τι ήδη υπάρχει στο OS, ψήνει μόνο τα νέα
+  /// (αντί για cancelAll + πλήρες ~20s bake). Το _rebaking σκεπάζει δεύτερο
+  /// resume ενδιάμεσα.
   Future<void> rebakeIfTruncatedAndDayChanged() async {
     if (!_osWindowTruncated || _rebaking) return;
     final today = DateTime.now().startOfDay;
@@ -131,8 +189,8 @@ class ReminderScheduler {
     _rebaking = true;
     try {
       DebugConfig.nav(
-          'rebakeIfTruncatedAndDayChanged: day rolled over — full re-bake');
-      await scheduleAll();
+          'rebakeIfTruncatedAndDayChanged: day rolled over — incremental sync');
+      await scheduleAll(incremental: true);
     } finally {
       _rebaking = false;
     }
@@ -633,6 +691,7 @@ class ReminderScheduler {
     bool sound = true,
     bool vibration = true,
     AndroidScheduleMode? mode, // batch-override· null = resolve per-call (ως πριν)
+    Set<int>? keepIds, // incremental sync: ids ήδη στο OS → kept, χωρίς bake
   }) async {
     final now = DateTime.now();
     if (reminder.triggerAt.isBefore(now)) {
@@ -681,6 +740,12 @@ class ReminderScheduler {
       DebugConfig.notif(
           'ReminderScheduler._scheduleOne: ${st?.name}, SKIP id=${reminder.id} itemId=${reminder.itemId}');
       return ScheduleOutcome.skipped;
+    }
+    // Incremental sync: τα guards πέρασαν, το alarm υπάρχει ήδη στο OS → keep.
+    if (keepIds != null && keepIds.contains(reminder.id)) {
+      DebugConfig.notif(
+          'ReminderScheduler._scheduleOne: KEPT id=${reminder.id} (already in OS)');
+      return ScheduleOutcome.kept;
     }
     try {
       final ok = await NotificationService.instance.schedule(
