@@ -2773,6 +2773,8 @@
 
 **Ενέργεια:** revert `main.dart` (byte-identical με `54f7915`, `git diff` κενό) · `analyze` clean.
 
+**Διόρθωση (S241):** το «ένοχο» ανακαλείται — αιτία το pre-existing hang του `foldersProvider.future` (υπήρχε και πριν το S237)· το S237 το αποκάλυψε.
+
 **Backups:** `backups/startup_order_v2/` (revert point).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή.
@@ -2815,3 +2817,19 @@
 **Backups:** `backups/s237_probe_inner/` (probe+inner-timeout) · `backups/seed_direct_repo/` (main.pre SHA `9080D143`, oldsessions.pre SHA `7707BA90`).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer).
+
+## Session 242 — 16/10/2026 (Β2.1 incremental OS sync)
+
+**Scope (2+4 ανεστάλησαν):** daily rebake (`rebakeIfTruncatedAndDayChanged` → `scheduleAll`) έκανε cancelAll + πλήρες ξαναψήσιμο (~21s στα 450· 0.9s στα 57). Μόνο `lib/services/reminder_scheduler.dart`, 0 νέα API/imports. Β2.3 (title/body σύγκριση) parked — όλα τα mutation-paths ξαναψήνουν ήδη via hooks (S207 κ.λπ.), cold start παραμένει πλήρες (self-heal).
+
+**Υλοποίηση (4 βήματα):**
+- Β1 enum `:13` +`kept` (consumers μόνο στο ίδιο αρχείο — 0 tests/UI/switches τον αγγίζουν).
+- Β2 `_scheduleOne` +`keepIds` param· kept-check ΜΕΤΑ τα guards (past/archived/deleted/done) — stale OS alarm → skipped → cancel, ποτέ keep.
+- Β3 `scheduleAll({incremental=false})` — empty-OS → full flow (καλύπτει και error-`[]`)· ghosts pre-cancel· budget `baked+kept`· skipped-with-alarm → cancel· post-loop stale → cancel· invariant `B+K+F+S+cut=db`· log `INCREMENTAL cancel/bake/keep` + `kept=` στο DONE.
+- Β4 rebake → `scheduleAll(incremental: true)` + σχόλιο `~14s→~20s`. Cold/settings (toggle-ON/setSound) μένουν πλήρεις από το default.
+
+**Επαλήθευση:** `flutter test` → **217/217** (χωρίς κόλλημα) · `analyze` clean · device εκκρεμεί (θέλει >450 dataset ή temp-20 `osAlarmLimit` με revert — με 57 δεν ενεργοποιείται το cut).
+
+**Backups:** `backups/incremental_sync_b21/` (scheduler.pre SHA `C89D563C`, oldsessions.pre SHA `7707BA90`).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (ίδια layers, παράμετρος + enum-τιμή — precedent S234).
