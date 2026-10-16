@@ -2753,7 +2753,7 @@
 
 **supernote.md/DESIGN.md:** καμία αλλαγή.
 
-## Session 239 — 16/10/2026 (S237 επανεφαρμογή — 2η απόπειρα)
+## Session 240 — 16/10/2026 (S237 ένοχο — καθαρό A/B και τις δύο κατευθύνσεις)
 
 **Αιτία:** το healthy baseline αποδεικνύει υγιές postFrame χωρίς S237· επανεφαρμογή S237 (byte-identical με `d1132ec`, `git diff` κενό) για καθαρό A/B.
 
@@ -2793,3 +2793,25 @@
 **Backups:** `backups/m3_budget/` (4 dart.pre + test.pre + DESIGN.pre + oldsessions.pre + BASE_HEAD `d55498d` — revert point).
 
 **supernote.md:** καμία αλλαγή (ίδια layers)· **DESIGN.md:** +γραμμή Session 236.
+
+## Session 241 — 16/10/2026 (seed direct-repo — το S237 αποκάλυψε, hang τέλος)
+
+**Scope (edit-tool only):** probe πάνω στο S237 + μόνιμο seed-fix. 2 lib αρχεία, 0 νέα API/imports.
+
+**Probe-αποτέλεσμα (1 build, `run_log_noclean.txt` pre-fix):** 2 cold starts με `postFrame ENTER` + `seed folders TIMEOUT — skipped` (5s) → το `foldersProvider.future` κρεμάει σε ψυχρή εκκίνηση όταν περιμένει πρώτο. Η αλυσίδα ολοκληρωνόταν (scheduleAll DONE 40/0/17 ×2, 0 ERR) χάρη στο guard.
+
+**Διορθώσεις συμπερασμάτων (user, κρατούνται εδώ):**
+- Το S237 ΔΕΝ φταίει — το seed κρεμούσε και στην παλιά σειρά (τελευταίο, μετά τα 21s scheduling, αόρατο). Το S237 το έφερε στην επιφάνεια. Το «S237 guilty» των S238/S240 ανακαλείται.
+- Το timeout είναι δίχτυ ασφαλείας, όχι fix — κάθε cold start έχανε 5s (και το deferred payload μαζί).
+- Το `count=0` ήταν τιμή fallback, όχι μέτρηση — το `ok count=` log μπήκε μόνο στο success-path.
+- Ο μηχανισμός (rebuild του FutureProvider κατά την αναμονή) παραμένει υπόθεση — το fix παρακάμπτει το provider, δεν χρειάζεται να τον ξέρουμε.
+
+**Fix:**
+- `shared_intent_service.dart:69-71` — `getInitialMedia().timeout(5s)` (εσωτερικό· το init μετρήθηκε 30-60ms, μη ύποπτο· `dart:async` υπήρχε).
+- `main.dart:150-184` — seed → `SuperNoteHelper.instance.folders.getByWorkspace(wsId)` (ίδιο query με `folder_provider:53`, byte-identical δεδομένα)· `wsId` από `activeWorkspaceIdProvider` (ορισμένο pre-runApp `:110-120`, sync-read)· null-guard· timeout-δίχτυ κρατήθηκε· S237 σειρά άθικτη.
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · **device ✅ (`run_log_noclean.txt` νέο, pids 6939/7444):** `seed folders ok count=2` σε ~120ms (από 5s) + `Startup seed folder id=2` (πριν προσπερνιόταν)· `scheduleAll DONE db=57 baked=40 failed=0 skipped=17` ×2· postFrame ~4-5s (ήταν ~9s)· 0 TIMEOUT/ERR/FATAL/overflow.
+
+**Backups:** `backups/s237_probe_inner/` (probe+inner-timeout) · `backups/seed_direct_repo/` (main.pre SHA `9080D143`, oldsessions.pre SHA `7707BA90`).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (behavior fix, όχι layer).
