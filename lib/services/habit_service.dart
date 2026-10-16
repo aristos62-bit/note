@@ -1,4 +1,5 @@
 // lib/services/habit_service.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../helpers/super_note_helper.dart';
@@ -641,11 +642,28 @@ class HabitService {
   /// Check-then-act με awaits (read existing → create) + ταυτόχρονο
   /// setReminderTimes/_clearHabitGenerated (π.χ. αλλαγή ωρών στο startup)
   /// έβγαζε διπλά rows/ghosts. Κάθε pass περιμένει το προηγούμενο·
-  /// οι υπογραφές μένουν ίδιες· catchError ζώνη ασφαλείας (και unawaited).
+  /// οι υπογραφές μένουν ίδιες.
+  /// S212-hardening: timeout 60s/pass (fail-open — δεν ακυρώνει το
+  /// υποκείμενο Isar/OS work) + μόνιμα queued/started/done logs.
+  /// Σύμβαση ουράς: NEVER-THROW (όλα logάρονται εδώ· η αλυσίδα μένει
+  /// ζωντανή· οι καλούντες προχωρούν — το resume-rebake δεν σκιπάρεται).
+  static const _habitPassTimeout = Duration(seconds: 60);
+  int _habitPassSeq = 0;
   Future<void> _habitChain = Future<void>.value();
 
   Future<void> _queuedHabitPass(Future<void> Function() task) {
-    final next = _habitChain.then((_) => task());
+    final passId = ++_habitPassSeq;
+    DebugConfig.notif('HabitService.pass queued id=$passId');
+    final next = _habitChain.then((_) async {
+      DebugConfig.notif('HabitService.pass started id=$passId');
+      try {
+        await task().timeout(_habitPassTimeout);
+        DebugConfig.notif('HabitService.pass done id=$passId');
+      } catch (e, stack) {
+        if (e is TimeoutException) _lastTopUp = null; // retry, όχι guard-skip
+        DebugConfig.error('HabitService.pass FAILED id=$passId', e, stack);
+      }
+    });
     _habitChain = next.catchError((_) {});
     return next;
   }
@@ -659,6 +677,7 @@ class HabitService {
       if (!force &&
           _lastTopUp != null &&
           now.difference(_lastTopUp!).inMinutes < 10) {
+        DebugConfig.notif('HabitService.topUp: guard-skip');
         return;
       }
       _lastTopUp = now;
