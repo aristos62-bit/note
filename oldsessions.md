@@ -2745,9 +2745,23 @@
 
 **Ετυμηγορία device (οριστική):** με S237 (clean build) → σιγή postFrame· με pre-S237 → πλήρες υγιές chain (permission→refresh→purge→scheduleAll→topUp→seed→intent). **Το S237 φταίει** — μηχανισμός άγνωστος (καθαρή μετακίνηση που compile-άρει· πιθανή αλληλεπίδραση πρώτου-await, διερευνάται χωριστά). Parked σε commit `d1132ec` + backup — ΔΕΝ επανέρχεται χωρίς νέα απόδειξη.
 
+**Healthy baseline (για revert reference, 16/10 `run_log_noclean.txt`):** ΧΩΡΙΣ clean + ΧΩΡΙΣ S237 → 3+ cold starts πανομοιότυπα υγιή (`baked=41 failed=0 skipped=17`, invariant σωστό, topUp καθαρά, καμπάνα SUCCESS, 0 ERR). Revert point: HEAD `54f7915` + `backups/startup_order_v2/`.
+
 **Επαλήθευση:** `analyze` clean · `flutter test` → **217/217**.
 
 **Backups:** `backups/startup_order/` (revert point).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή.
+
+## Session 239 — 16/10/2026 (S237 επανεφαρμογή — 2η απόπειρα)
+
+**Αιτία:** το healthy baseline αποδεικνύει υγιές postFrame χωρίς S237· επανεφαρμογή S237 (byte-identical με `d1132ec`, `git diff` κενό) για καθαρό A/B.
+
+**Υλοποίηση:** `main.dart` S237-reorder (ίδιο edit) · `analyze` clean · `flutter test` → **217/217**.
+
+**Επαλήθευση device εκκρεμεί:** clean build + cold start → `Startup seed` πριν το `Reminders scheduled`, αλλιώς ξανά revert.
+
+**Backups:** `backups/startup_order_v2/` (pre-S237 main + oldsessions.pre + BASE_HEAD).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή.
 
