@@ -2852,3 +2852,18 @@
 - S212-chain hardening (προτάθηκε, ΔΕΝ εγκρίθηκε υλοποίηση): timeout στα passes της `_queuedHabitPass` (σφήνα-για-πάντα → ηχηρό σφάλμα + ζωντανή αλυσίδα via `catchError`) + μόνιμα diagnostic logs (`pass queued/started`, `guard-skip`). Trigger του πρώτου wedge άγνωστο — το fix το καθιστά ακίνδυνο χωρίς να το κυνηγάει.
 - Συσκευή 9593c01e: ημερομηνία χειροκίνητη (αλλαγές +1/+1 για Τ2) — επαναφορά σε ΑΥΤΟΜΑΤΗ πριν κανονική χρήση.
 - Καθαρότητα: `lib/` committed (Β2.1 στο `97d1c86`)· temp-20 revert + debug-removal επαληθευμένα (`git diff lib/` κενό)· uncommitted μόνο build-artifacts (InstallerOutput exe, macos registrant).
+
+## Session 244 — 16/10/2026 (S212-chain hardening — CLOSED)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** S243-open — transient wedge της `_queuedHabitPass` (resume σίγησε 40s+, τριπλή silent-σιγή). 1 αρχείο lib, 0 νέα API/imports-πακέτων/tests.
+
+**Υλοποίηση (`habit_service.dart`, ~+20):**
+- `_queuedHabitPass`: pass-id counter + μόνιμα `queued/started/done` (`DebugConfig.notif`, χωρίς PII) + `task().timeout(60s)` (fail-open — δεν ακυρώνει Isar/OS work) + catch → `TimeoutException→_lastTopUp=null` (retry αντί guard-skip) + `DebugConfig.error FAILED` + NEVER-THROW σύμβαση (η αλυσίδα μένει ζωντανή, οι καλούντες προχωρούν — το resume-rebake δεν σκιπάρεται).
+- `dart:async` import (έλειπε — `TimeoutException`) · guard-skip `notif` log (ήταν αόρατο).
+- Απορρίφθηκαν τεκμηριωμένα: `rethrow` (θα έσπαγε resume-rebake `main:426-428` + `toggleArchive` χωρίς try) · ενοποίηση με scheduler-chain (S230-revert S232) · scheduler-timeout + shared SerialQueue SPoT (parked, δικά τους βήματα) · `AppDuration` const (UI-κλίμακα) · `AppErrors` (background, χωρίς UI) · νέο test (0 Isar-harness, σύμβαση S193/S194).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · device εκκρεμεί (cold/resume/unarchive/restore + `queued→started→done` 1:1 + wedge → `FAILED` + επόμενο pass + rebake).
+
+**Backups:** `backups/s212_hardening/` (dart.pre + oldsessions.pre, BASE `34e87dc`).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο layer/service, όχι αρχιτεκτονική — precedent S234).
