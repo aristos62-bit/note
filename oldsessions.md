@@ -2833,3 +2833,17 @@
 **Backups:** `backups/incremental_sync_b21/` (scheduler.pre SHA `C89D563C`, oldsessions.pre SHA `7707BA90`).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδια layers, παράμετρος + enum-τιμή — precedent S234).
+
+## Session 243 — 16-17/10/2026 (Β2.1 device-verified + resume topUp-stall)
+
+**Τ1 ✅ (`run_log_b21_t1.txt`, temp-20, pid 29067):** `BUDGET cut at 20/20 of 42` + `DONE db=42 baked=20 kept=0 cut=22 truncated=true os=20` — full-path + budget + DONE-format (με `kept=`) επαληθευμένα.
+
+**Τ2 ✅ (`run_log_b21_t2d.txt`, pid 5378, day+1):** `day rolled over — incremental sync` → `INCREMENTAL cancel=3 bake=3 keep=17` → `DONE db=40 baked=3 kept=17 failed=0 skipped=0 cut=20 truncated=true os=20` (248ms loop αντί ~20s). Invariant `3+17+0+0+20=40` ✓. 0 app-ERR.
+
+**Παρεμπίπτον εύρημα — resume topUp-stall (transient S212-chain wedge):** το resume 20:52 (παλιό process) σίγησε 40s+ στο `await topUpHabitReminders()` — το rebake δεν έφτασε ποτέ. Στατικά αποκλείστηκε re-entrancy deadlock (repair μόνο από cold-main· UI paths σειριακά· `_clearHabitGenerated` direct). Με προσωρινά debugs (`pass queued/started`, `guard-skip` — αφαιρέθηκαν μετά) αποδείχθηκε: φρέσκο process στραγγίζει (`queued→started→guard-skip` σε 0ms), άρα η παλιά αλυσίδα σφηνώθηκε transient (~20:49 pass που δεν ολοκληρώθηκε· trigger άγνωστο). Το Β2.1 δεν έφταιγε — απλώς δεν έφτασε να τρέξει. Open: trigger του πρώτου wedge + τριπλή silent-σιγή (queued-start/guard-skip/closed-gate) που το κάνει αόρατο στα logs.
+
+**Revert:** temp-20 → 450 + αφαίρεση debugs (restore από backup) — `git diff lib/` κενό πλην Β2.1 (ήδη στο `97d1c86`).
+
+**Backups:** `backups/incremental_sync_b21/` (+`habit_service.dart.pre` SHA `7700954E`, `notification_service.temp20.pre`).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή.
