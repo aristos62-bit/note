@@ -14,6 +14,7 @@
 - UI: `DetailScreenMixin`, `FolderAutoSelectMixin`, `handleArchive` (+`ItemLabelX.fromType`), `ConfirmDialog`, `EmptyState`, `ItemTypeIcon`, `PriorityBadge`, `TagChip`, `ViewModeToggle`, `ContentFieldWidget`, `SheetHandle` (grabber 40×4, `margin?/color?`, radius `Spacing.xxs`), `ItemActionsSheet` (long-press sheets, προαιρετικά actions, pop με sheet-ctx), `FolderFormDialog` (create/edit φακέλου, `kFolderIcons/kFolderColors`, `FolderFormResult`, pop με dialog-ctx, validation `AppStringUtils.clean`), `SearchClearButton` (`controller/onCleared/iconSize`, `ValueListenableBuilder` — ζωντανό X χωρίς parent setState), `AppErrors` (όλα τα user-facing error strings, σταθερές + παραμετρικές)
 - Notifications: `NotificationService` (IANA via `flutter_timezone`) + `ReminderScheduler`
 - Backup/Migration: `BackupService` (File.copy, atomic restore), `MigrationService` (schemaVersion, safety backup, batch 50)
+- Σειριοποίηση passes: `SerialPassQueue` (`core/utils/serial_pass_queue.dart`) — per-instance chain + 60s fail-open timeout + `onTimeout?` + NEVER-THROW· 2 instances (`HabitService.pass`/`ReminderScheduler.refresh` — κοινός κώδικας, ποτέ κοινή ουρά, S246)
 
 ## Κανόνες
 - R1 <500γρ (non-generated, χωρίς `*.g.dart/*.bak`, `backups/**` excluded από analyzer)
@@ -111,3 +112,8 @@
 
 ## Session 174 — 13/10/2026 (allowBackup=false — όχι cloud auto-backup)
 - Android manifest `<application android:allowBackup="false">` (έλειπε → default true → Drive auto-backup αντέγραφε Isar DB + attachments + PIN hash). Επίσημη οδός backup: in-app zip export. Debug/profile manifests χωρίς application-node (κληρονομούν το main). iOS parked.
+
+## Session 246 — 17/10/2026 (SerialPassQueue SPoT — ουρές S212/S244/S245)
+- Νέο `core/utils/serial_pass_queue.dart` (`SerialPassQueue`: per-instance future-chain + pass-ids + default 60s fail-open timeout + προαιρετικό `onTimeout` + NEVER-THROW· logs `queued/started/done/FAILED` — μόνο label+id) + barrel export (18→19). «Shared» = κοινός κώδικας, ΠΟΤΕ κοινή ουρά (2 ξεχωριστά instances — S230→S232).
+- Callers: `HabitService` block → `_passQueue` (`onTimeout: () => _lastTopUp = null`· −`dart:async`) + `ReminderScheduler` block → `_refreshQueue` (`dart:async` μένει — Timer). 0 αλλαγές υπογραφών/logs/60s/σειράς· το 60s literal ζει μόνο στο SPoT default.
+- Tests `test/serial_pass_queue_test.dart` (6/6: σειρά · never-throw · timeout+onTimeout×1 · μη-timeout · parity · independence) → suite 223/223 · analyze clean · device pending (byte-identical logs — 4 σημεία S244/S245).

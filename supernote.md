@@ -14,7 +14,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 217/217 🟢 (`flutter test`) |
+| Test suite | 223/223 🟢 (`flutter test`) |
 
 ---
 
@@ -96,7 +96,8 @@ lib/
 │       ├── image_utils.dart      — avatarProvider/ResizeImage, fileThumb, checkMaxBytes
 │       ├── contact_props.dart    — ContactProps.fromProperties (SPoT)
 │       ├── app_errors.dart       — Κεντρικά user-facing strings (AppErrors)
-│       └── reorder_utils.dart    — SPoT moveAndMerge subset→full (S148)
+│       ├── reorder_utils.dart    — SPoT moveAndMerge subset→full (S148)
+│       └── serial_pass_queue.dart — SPoT σειριοποίησης passes (S246)
 ├── models/
 │   ├── models.dart               — Barrel export
 │   ├── item.dart                 — Item collection (core entity)
@@ -893,7 +894,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (217/217 🟢) |
+| `flutter test` | Πλήρες suite (223/223 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |
