@@ -159,3 +159,35 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 4. 🔴 S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): delete-χρήστη ταυτόχρονα με topUp → μερική διαγραφή (218 σβησμένα/22 έμειναν, topUp ξανάφτιαχνε) — χρειάζεται σειριοποίηση/back-guard· `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187).
 5. 🔴 postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) χωρίς timeout (repair/topUp/refresh καλύφθηκαν S244-S248 — εκτός scope τότε).
 6. 🟡 Grid auto-height (παλιό «parked Φ4c, για όλα μαζί») — αραιές κάρτες με fixed extents· πλήρης ανοσία μόνο με auto-height (πηγές oldsessions ~`:938,998,1246`).
+
+## 8. Κατάταξη ανοιχτών εκκρεμοτήτων (17/10/2026 — έλεγχος parked)
+
+> Πλήρης ιεραρχημένη λίστα όλων των ανοιχτών (P1→P5) — συγκεντρώνει §3.x/§7, supernote.md και oldsessions S229-S248. Δεν περιλαμβάνει ό,τι έκλεισε στον έλεγχο 17/10/2026 (9593c01e· day-rollover S229/S236).
+> Σύνολο 17: 3 κρίσιμες · 2 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
+
+### 🔴 P1 — Κρίσιμες για σωστή λειτουργία (δικό τους session)
+1. **Race: delete-χρήστη ↔ topUp → μερική διαγραφή** (§7.4 · S234) — διαγραφή μπορεί να μείνει μισή (218 σβησμένα/22 έμειναν) και το topUp ξαναφτιάχνει μέρος· ακεραιότητα δεδομένων + σιωπηλή αποτυχία. Χρειάζεται σειριοποίηση ή back-guard. Κόστος: 1 session (design+fix+device).
+2. **`_TrashScreenState` setState-after-dispose crash** (§7.4 · S234) — crash στην οθόνη κάδου (κλάση S85/S187)· fix-pattern `mounted` guards υπάρχει. Κόστος: μικρό (1 αρχείο).
+3. **postFrame δίχτυα: `purge` (`main:239`) + `scheduleAll` (`main:246`)** (§7.5) — τα 2 τελευταία βήματα χωρίς timeout· όλα τα αδέρφια θωρακίστηκαν S244-S248· το `scheduleAll` το βαρύτερο (loop ~18s/450, O(n²) plugin) → σιωπηλή καθυστέρηση/κόλλημα εκκίνησης. Κόστος: μικρό (pattern έτοιμο).
+
+### 🟠 P2 — Σημαντικές (ποιότητα/αξιοπιστία)
+4. **a11y device pass** (§3.6:98 ⏳ · oldsessions ~`:882-892`) — ο κώδικας Semantics/48px γράφτηκε, επαλήθευση συσκευής ποτέ (TalkBack/48px/no-PII/flicker + touch 16-22px). Κόστος: 1 device pass (0 κώδικα εκτός ευρημάτων).
+5. **Grid auto-height (αντοχή max fontScale)** (§7.6 · πηγές ~`:938,998,1246`) — με max fontScale + 3 πεδία (~153px) τα fixed κελιά οριακά → περικοπές/whitespace· λύση «για όλα τα grids μαζί». Κόστος: 1 session.
+
+### 🟡 P3 — Feature/βελτιώσεις (αποφασισμένες «μελλοντικές»)
+6. **Snooze UI + notification actions** (§7.3 🔜) — μηχανισμός έτοιμος, χωρίς κουμπί/actions (απόφαση 14/10)· θέλει spec πρώτα. Κόστος: μεγάλο.
+7. **Β2.3 title/body σύγκριση** (S242) — καθαρά optimization (μειώνει rebakes)· self-heal καλύπτει. Κόστος: μικρό-μεσαίο.
+8. **Ενοποιημένο DetailAppBar** (§7.1) — hygiene, μηδενικός λειτουργικός αντίκτυπος. Κόστος: μεσαίο.
+
+### ⚪ P4 — Micros/καθαριότητα (batch, μη λειτουργικά)
+9. `take(10)` magic (`item_provider:443`).
+10. §3.8 εκκρεμή χωρίς επαλήθευση: `if(!mounted)return` κενό · `✓` αντί `Icon` · `day/month/year` αντί intl · `DateTime.now()` σε build · `O(n²) block_editor` · `BlockTileWidget Stateful` (`:146-170`) · delete πάντα ορατό · `types` `📅` (`folder_create_sheet:28,33`) · stats journal/appointment (ασαφές) · `Colors.white/black`.
+11. Stale scaffolding TODOs ×7 σε `models/` (`// TODO: Σελίδα προς Ανάπτυξη`) — απόφαση: διαγραφή ή υλοποίηση.
+12. Accepted-by-design (0 κώδικα): `collection_detail` dialog-ctrls (§3.5:85) · main `0xFF1E1E2E` ×2 (§3.6:92).
+
+### 💤 P5 — By-design / ασαφή / πιθανόν obsolete (καμία ενέργεια)
+13. iOS parked ×2 (supernote `:474,493`) — Android-first.
+14. 6-actions overflow (note_detail) — watch-only.
+15. Zombie-overlap residual (S245) — αποδεκτός συμβιβασμός (dedup guards).
+16. Αρχαίες σημειώσεις S~92 (oldsessions `:801`): SnackBar-orphan · stats/search-project — πιθανόν obsolete.
+17. «reorder/dots/counts — θέλουν spec» (παλιό a11y session) — ασαφές.
