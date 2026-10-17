@@ -3036,9 +3036,15 @@
 
 **Αποτέλεσμα:** `flutter analyze --no-pub` → **No issues found!** (5.4s) · `flutter test` → **223/223** (0 νέα tests, 0 σπασμένα) · `git diff`: ακριβώς **2 hunks** (+22/−2) μόνο στο `reminder_scheduler.dart` (0 αλλαγές `main`).
 
-**Device ⏳ (εκκρεμεί — εκτέλεση χρήστη):** matrix T1-T5 (tag `flutter`) — **T1** cold start: `purge queued/started/done` πριν το `bake` + DONE invariant + repair/topUp μετά + 0 ERR/FAILED/FATAL · **T2** toggle Ειδοποιήσεις (η οθόνη δεν παγώνει) · **T3** toggle Ήχος · **T4** day-rollover → incremental bake · **T5** (temp timeout 2s + revert) → `FAILED id=N` + το επόμενο βήμα τρέχει + η αλυσίδα μένει ζωντανή. Logcat: `adb logcat -d | Select-String "bake|purge|FAILED|FATAL|ERR \|"`.
+**Device ✅ T1-T5 (M2007J20CG · 9593c01e · Android 12/API31 · arm64 — in-place `adb install -r` app-debug, 0 uninstall, 0 απώλεια δεδομένων· tag `flutter`):**
+- **T1 cold start ✅:** `purge queued/started/done id=1` → `+4618ms Entry reminders purged` → `bake queued/started id=1` → 43 pending → `PERF#9 DONE db=43 baked=41 failed=0 skipped=2 truncated=false os=41 loop=1058ms total=1284ms` → `bake done id=1` → `+5923ms Reminders scheduled` → `HabitService.repair/pass id=1` → `+5951ms Habit reminders repaired + topped up`. **Σειρά `purge`→`bake` ✅** (main:239→:246).
+- **T2 Ειδοποιήσεις OFF→ON ✅:** `bake queued/started id=2` → `scheduleAll` (43 pending) → `bake done id=2`. UI responsive. 0 ERR.
+- **T3 Ήχος OFF→ON ✅:** 2 bakes `id=3`/`id=4` (serialized, FIFO) — και τα 2 `done`. 0 ERR.
+- **T4 day-rollover:** N/A by design — απαιτεί `_osWindowTruncated=true` (εδώ `truncated=false`: το budget δεν κόπηκε).
+- **T5 fail-open ✅:** προσωρινό timeout **200ms** + revert → `❌ ERR | ReminderScheduler.bake FAILED id=1` + `TimeoutException after 0:00:00.200000` → το `await` επέστρεψε (`+4399ms Reminders scheduled`) → `HabitService.repair/pass id=1` → `+4441ms Habit reminders repaired + topped up` → **αλυσίδα ζωντανή, 0 FATAL**. *(Σημείωση: με 2s δεν αποδεικνυόταν — debug stall ~1.1s· internal `total=962ms` vs wall 2.17s → το microtask κέρδισε το race· χρειάστηκε 200ms.)* Μετά: **revert + rebuild + reinstall** → `git diff` = 0.
+- **Final ✅:** κανονικό cold start (default 60s) — `purge`→`bake`, `baked=41`, `truncated=false`, habit topUp, **0 ERR**. **Σύνολο: 0 ERR/FAILED/FATAL** σε όλα τα logs (t1/t2/t3/final)· μόνο το σκόπιμο T5b `FAILED`.
 
-**Backups:** `backups/p1_3_postframe_nets/` (reminder_scheduler.pre + main.pre + supernote.pre + code_refactor.pre + oldsessions.pre + BASE_HEAD `a659b8b`).
+**Backups:** `backups/p1_3_postframe_nets/` (reminder_scheduler.pre + main.pre + supernote.pre + code_refactor.pre + oldsessions.pre + BASE_HEAD `a659b8b` + logs `run_log_s252_{t1,t2,t3,t5,t5b,final}.txt` + screenshots `s252_{home,set,sys,sys2}.png`).
 
 **supernote.md:** ✅ άλλαξε (αρχιτεκτονική): §Συμβάσεις — **3→5 instances** (`+ReminderScheduler.bake`, `+ReminderScheduler.purge`) · §Error Handling — η MEDIUM note `cancelAll`/`pendingNotificationRequests` σημειώνεται ως καλυμμένη μέσω `scheduleAll`.
 
