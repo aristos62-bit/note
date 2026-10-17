@@ -2903,3 +2903,26 @@
 **Backups:** `backups/s246_serial_queue/` (6 `.pre`: habit_service, reminder_scheduler, core.dart, supernote.md, DESIGN.md, oldsessions.md· BASE `13963ea`).
 
 **supernote.md/DESIGN.md:** αρχιτεκτονική αλλαγή (νέο SPoT) — supernote.md: +1 tree γραμμή + test-count 217→223 ×2· DESIGN.md: SPoT bullet + ενότητα Session 246.
+
+## Session 247 — 17/10/2026 (απόσυρση DESIGN.md — ενοποίηση αρχιτεκτονικής στο supernote.md)
+
+**Scope (edit-tool only — 0 αλλαγές κώδικα):** ο χρήστης εντόπισε ότι το `DESIGN.md` συνεχίζει να ενημερώνεται ενώ επίσημη αρχιτεκτονική πηγή είναι το `supernote.md` (κανόνας 8). Root cause (git): ο κανόνας άλλαξε DESIGN→supernote στο `a49aff6` (S72) και το AGENTS.md ξαναγράφηκε χωρίς αναφορά DESIGN στο `d2d41fa` (S141) — αλλά το DESIGN.md ουδέποτε αποσύρθηκε· τα sessions αναπαρήγαγαν το pattern «DESIGN.md: +παράγραφος/καμία αλλαγή» του oldsessions (τελευταία ενημέρωση: `7ef39f1`). Εγκρίθηκε Επιλογή Α: ενοποίηση → supernote.md, ρητός κανόνας, αρχειοθέτηση + διαγραφή.
+
+**Υλοποίηση (6 βήματα + 1 ακύρωση· μόνο md + backups):**
+- ① Backup `DESIGN.md` → `backups/design_retired/` (SHA `9F60EB96`).
+- ② supernote.md, Συμβάσεις: +SerialPassQueue bullet («κοινός κώδικας, ΠΟΤΕ κοινή ουρά») + νέα ενότητα «Κανόνες ανάπτυξης (R1–R6)».
+- ③ supernote.md: NotificationService +`schedule()→Future<bool>` (S234) +`syncChannel` (S58)· ReminderScheduler +one-shot (S51), σίγαση (S143/S194/S213), snooze (S52), σειρά permanentDelete (S53), bake accounting (S234), budget (S236), interval>1 (S54), +`rescheduleForItem`.
+- ④ supernote.md: +SharedIntentService (S59: dedup 2s, saveAsNote/Event, «share→Items, ΠΟΤΕ Reminder rows», singleTask, 7 filters)· +SecurityService (S165)· HabitService +S61/S62· EventDetail +notes (S59)· Color System +«Birthday & special-day» (S156)· BackupService +allowBackup=false (S174).
+- ⑤ AGENTS.md κανόνας 8: «…η ΜΟΝΗ αρχιτεκτονική πηγή· το `DESIGN.md` έχει αποσυρθεί (`backups/design_retired/`): ΠΟΤΕ ενημέρωση, ΠΟΤΕ επαναδημιουργία».
+- ⑥ Διαγραφή `DESIGN.md` από τη ρίζα (hash-verified ταυτόσημο με το backup πρώτα).
+- ⑦ σχόλιο `habit_service.dart:525` («βλ. DESIGN.md Session 61»): **ακυρώθηκε από τον χρήστη — 0 επέμβαση σε κώδικα**· μένει ως έχει (δείχνει στο αρχειοθετημένο αντίγραφο).
+
+**Code-verify στη μεταφορά (όχι τυφλή αντιγραφή):** `ScheduleOutcome` = 4 τιμές `{baked,skipped,failed,kept}` στο scheduler (το `kept` από S242 — η περιγραφή S234 «3 τιμές» ήταν stale)· `schedule()`→`Future<bool>`· `osAlarmLimit` getter στο `NotificationService`· `isDuplicate` 2s· 7 SEND filters + singleTask + allowBackup=false στο manifest· όλα τα symbols των S61/S62/S156/S165 grep-verified.
+
+**Κάλυψη (0 μεταφορά — υπήρχαν ήδη):** Layers/SPoT registry/Φ4a S64–72/S148 → δέντρο + Συμβάσεις + R1–R6· S50 timezone → γρ. 41–43· S63 zip → ενότητα BackupService.
+
+**Επαλήθευση:** re-read όλων των σημείων μετά από κάθε βήμα· `DESIGN.md` references → μόνο AGENTS.md (σκόπιμο), oldsessions (ιστορικό), `habit_service.dart:525` (αποδεκτό), backups. `git status`/`diff --stat`: από το session μόνο `supernote.md` + `AGENTS.md`· τα `InstallerOutput\*.exe` + `macos/…/GeneratedPluginRegistrant.swift` προϋπάρχουν από 4/10. 0 `.dart` στο diff.
+
+**Backups:** `backups/design_retired/` — `DESIGN.md` (`9F60EB96`) + `AGENTS.md.pre` (`5635ABD6`) + `supernote.md.pre` (`C4A0A86A`), `.pre2` (`9567220A`), `.pre3` (`80177583`)· BASE `b269932`.
+
+**supernote.md:** ενημερώθηκε (ενοποίηση — κανόνας 8)· **DESIGN.md:** ΑΠΟΣΥΡΘΗΚΕ (διαγράφηκε· αντίγραφο: `backups/design_retired/DESIGN.md`).
