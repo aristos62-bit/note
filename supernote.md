@@ -248,7 +248,7 @@ lib/
 - **Code generation**: Isar models + annotations παράγουν `*.g.dart` (εξαιρούνται από τον analyzer στο `analysis_options.yaml`).
 - **Soft delete**: `Item.deletedAt` — ποτέ hard delete στην κανονική ροή (hard delete υπάρχει μόνο για τον κάδο).
 - **Sync-ready**: `Item.isDirty`, `Item.localVersion`, `Item.serverVersion`, `Item.syncedAt`.
-- **Σειριοποίηση passes** (S246/S248): `SerialPassQueue` — κοινός κώδικας, **ΠΟΤΕ κοινή ουρά** (3 ξεχωριστά instances: `HabitService.pass`, `HabitService.repair`, `ReminderScheduler.refresh`).
+- **Σειριοποίηση passes** (S246/S248/S252): `SerialPassQueue` — κοινός κώδικας, **ΠΟΤΕ κοινή ουρά** (5 ξεχωριστά instances: `HabitService.pass`, `HabitService.repair`, `ReminderScheduler.refresh`, `ReminderScheduler.bake`, `ReminderScheduler.purge`).
 
 ### Κανόνες ανάπτυξης (R1–R6)
 
@@ -870,7 +870,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 - **HIGH** - `attachment_service.dart`: 5 file I/O + 1 DB write (lines 45-78)
 - **MEDIUM** - `contact_import_service.dart`: JSON parsing (line 38), file ops (55-64)
 - **MEDIUM** - `backup_service.dart`: partial failure in single try-catch (leaves partial files)
-- **MEDIUM** - `reminder_scheduler.dart`: `cancelAll()`, `pendingNotificationRequests()`
+- **MEDIUM** - `reminder_scheduler.dart`: `cancelAll()`, `pendingNotificationRequests()` — ✅ S252: καλύπτονται όταν καλούνται μέσω `scheduleAll` (SPoT δίχτυο `_bakeQueue`, fail-open 60s· `:78`/`:176`)
 - **MEDIUM** - Most DB operations in SuperNoteHelper repositories have zero try-catch
 
 ### Protected:

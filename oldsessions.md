@@ -3021,3 +3021,27 @@
 **code_refactor.md:** §2 `trash 501→2` → `trash 498 ✅ <500` (split περιττό) · §7.4 ✅ CLOSED + νέο parked §7.5 (settings ×8 `setModal` setState-after-await) + renumber §7.6/§7.7 · §8 P1#2 ✅ CLOSED (σύνολο 16→16· +1 νέο P2 settings → 1 κρίσιμη · 3 σημαντικές).
 
 **Επόμενο session (επιλογή χρήστη από την §8):** P1 ③ postFrame δίχτυα (`purge`/`scheduleAll`) · P2: settings ×8 `setModal` guards · a11y device pass · grid auto-height.
+
+## Session 252 — 17/10/2026 (P1#3: postFrame δίχτυα `purge` + `scheduleAll` — SPoT per-concern, edit-tool only)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** P1#3 από `code_refactor.md` §8 — τα 2 τελευταία αθωράκιστα βήματα του postFrame (`purgeKnowledgeReminders` `main:239` + `scheduleAll` `main:246`) μέσω του υπάρχοντος SPoT `SerialPassQueue` (S246), με **δική του ουρά** ανά concern. 1 αρχείο (`reminder_scheduler.dart`), 0 αλλαγές `main`/APIs/imports/tests/strings.
+
+**Τι άλλαξε (`reminder_scheduler.dart` 862→883, 1 αρχείο, 2 hunks — τα σώματα των impl byte-identical):**
+- `_bakeQueue` (`label: 'ReminderScheduler.bake'`) + wrapper `scheduleAll` → `_scheduleAllImpl` (`:35-41`).
+- `_purgeQueue` (`label: 'ReminderScheduler.purge'`) + wrapper `purgeKnowledgeReminders` → `_purgeKnowledgeRemindersImpl` (`:599-605`).
+- Fail-open **60s** (SPoT default) + **NEVER-THROW**· **ΠΟΤΕ κοινή ουρά** (leçon S230→S232)· `_refreshTimer`/`_refreshQueue`/`_rebaking` άθικτα· τα εσωτερικά `try/catch` των impl διατηρήθηκαν (defense-in-depth).
+- Deadlock audit 0: το `rebakeIfTruncatedAndDayChanged` (`:195`) είναι ξεχωριστή public μέθοδος (καλείται από το resume, όχι από μέσα στο impl) → η κλήση `scheduleAll(incremental:true)` (`:203`) περνά από την ουρά **απ' έξω**.
+- Σειρά `purge`→`bake` διατηρημένη (μοναδικός caller του purge = `main`, sequential μέσα στο ίδιο postFrame).
+- Bonus: το δίχτυο καλύπτει και τα `cancelAll()` (`:78`) / `pendingNotificationRequests()` (`:66`/`:176`) της ίδιας μεθόδου όταν καλούνται μέσω `scheduleAll` (supernote §Error Handling MEDIUM note).
+
+**Αποτέλεσμα:** `flutter analyze --no-pub` → **No issues found!** (5.4s) · `flutter test` → **223/223** (0 νέα tests, 0 σπασμένα) · `git diff`: ακριβώς **2 hunks** (+22/−2) μόνο στο `reminder_scheduler.dart` (0 αλλαγές `main`).
+
+**Device ⏳ (εκκρεμεί — εκτέλεση χρήστη):** matrix T1-T5 (tag `flutter`) — **T1** cold start: `purge queued/started/done` πριν το `bake` + DONE invariant + repair/topUp μετά + 0 ERR/FAILED/FATAL · **T2** toggle Ειδοποιήσεις (η οθόνη δεν παγώνει) · **T3** toggle Ήχος · **T4** day-rollover → incremental bake · **T5** (temp timeout 2s + revert) → `FAILED id=N` + το επόμενο βήμα τρέχει + η αλυσίδα μένει ζωντανή. Logcat: `adb logcat -d | Select-String "bake|purge|FAILED|FATAL|ERR \|"`.
+
+**Backups:** `backups/p1_3_postframe_nets/` (reminder_scheduler.pre + main.pre + supernote.pre + code_refactor.pre + oldsessions.pre + BASE_HEAD `a659b8b`).
+
+**supernote.md:** ✅ άλλαξε (αρχιτεκτονική): §Συμβάσεις — **3→5 instances** (`+ReminderScheduler.bake`, `+ReminderScheduler.purge`) · §Error Handling — η MEDIUM note `cancelAll`/`pendingNotificationRequests` σημειώνεται ως καλυμμένη μέσω `scheduleAll`.
+
+**code_refactor.md:** §7.6 ✅ CLOSED + νέο **§7.8** (micros F2/F3/F4) · §8 P1#3 ✅ CLOSED (σύνολο **16→15**· 0 κρίσιμες) + §8 P4 note (νέα micros).
+
+**Επόμενο session (επιλογή χρήστη από την §8):** P2: settings ×8 `setModal` guards · a11y device pass · grid auto-height · (⚪ P4 §7.8 micros F2/F3/F4).

@@ -28,7 +28,17 @@ class ReminderScheduler {
   Timer? _refreshTimer;
   DateTime? _lastRefreshRun; // 🔍 DEBUG: για μέτρηση του κενού μεταξύ refresh
 
-  Future<void> scheduleAll({bool incremental = false}) async {
+  // P1#3 (S252): δίχτυο για το βαρύτερο postFrame βήμα (main:246). Ίδιο SPoT
+  // instance-per-concern με το `_refreshQueue` (S246) — ΠΟΤΕ κοινή ουρά
+  // (μάθημα S230→S232). Fail-open 60s + NEVER-THROW: ένα κόλλημα δεν παγώνει
+  // το υπόλοιπο postFrame (habit repair/topUp, main:255-256).
+  final SerialPassQueue _bakeQueue =
+      SerialPassQueue(label: 'ReminderScheduler.bake');
+
+  Future<void> scheduleAll({bool incremental = false}) =>
+      _bakeQueue.run(() => _scheduleAllImpl(incremental: incremental));
+
+  Future<void> _scheduleAllImpl({bool incremental = false}) async {
     try {
       DebugConfig.notif(
           'ReminderScheduler.scheduleAll: called, platform=$defaultTargetPlatform incremental=$incremental');
@@ -582,7 +592,17 @@ class ReminderScheduler {
   /// η καμπάνα αφαιρέθηκε από το entry detail). Σαρώνει ΟΛΑ τα rows
   /// (χωρίς παράθυρο/status) και σβήνει όσα δείχνουν σε knowledge
   /// item ή σε ανύπαρκτο item (orphans). Idempotent.
-  Future<void> purgeKnowledgeReminders() async {
+  ///
+  /// P1#3 (S252): δίχτυο για το postFrame purge (main:239) — ίδιο SPoT
+  /// instance-per-concern. Fail-open 60s + NEVER-THROW (το impl κρατά το
+  /// δικό του try/catch + `DebugConfig.error`).
+  final SerialPassQueue _purgeQueue =
+      SerialPassQueue(label: 'ReminderScheduler.purge');
+
+  Future<void> purgeKnowledgeReminders() =>
+      _purgeQueue.run(_purgeKnowledgeRemindersImpl);
+
+  Future<void> _purgeKnowledgeRemindersImpl() async {
     try {
       final all = await SuperNoteHelper.instance.isar.reminders
           .where()
