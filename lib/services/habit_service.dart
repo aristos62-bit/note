@@ -661,6 +661,17 @@ class HabitService {
     label: 'HabitService.repair',
   );
 
+  /// P1#1 (S250): wipe reminder rows + follow-up (soft/hard delete) στο ΙΔΙΟ
+  /// pass της _passQueue — κλείνει το race delete ↔ topUp (εύρημα S234).
+  /// [afterRows]: τρέχει αφού σβηστούν ΟΛΕΣ οι rows (item soft/hard delete).
+  Future<void> deleteHabitReminders(
+      int habitId, {Future<void> Function()? afterRows}) =>
+      _passQueue.run(() async {
+        DebugConfig.notif('deleteHabitReminders: habitId=$habitId');
+        await ReminderScheduler.instance.deleteAllRemindersForItem(habitId);
+        if (afterRows != null) await afterRows();
+      });
+
   Future<void> topUpHabitReminders({bool force = false}) =>
       _passQueue.run(() => _topUpHabitRemindersImpl(force: force));
 
@@ -849,7 +860,13 @@ class HabitService {
     final now = DateTime.now();
     final end = now.add(const Duration(days: horizonDays));
     final item = await SuperNoteHelper.instance.items.getById(habitId);
-    final title = item?.title ?? 'Συνήθεια';
+    if (item == null || item.isDeleted) {
+      // P1#1 (S250): pass μετά τη διαγραφή (π.χ. repair→sync) — skip (S234).
+      DebugConfig.notif(
+          'HabitService._scheduleReminders: deleted/missing, SKIP habitId=$habitId');
+      return;
+    }
+    final title = item.title ?? 'Συνήθεια';
     DebugConfig.notif('HabitService._scheduleReminders: habitId=$habitId times=${times.length} recurrence=${recurrenceToRRULE(recurrence)} → one-shot occurrences');
 
     for (final occ in _computeOccurrences(recurrence, times, now, end)) {

@@ -2963,3 +2963,25 @@
 **supernote.md/DESIGN.md:** καμία αλλαγή (docs-only).
 
 **Επόμενο session (φρέσκο — επιλογή χρήστη από την §8):** P1 ① delete↔topUp race · ② `_TrashScreenState` crash · ③ postFrame δίχτυα (`purge`/`scheduleAll`) · P2: a11y device pass · grid auto-height.
+
+## Session 250 — 17/10/2026 (P1#1: race delete-χρήστη ↔ topUp — σειριοποίηση· device ⏳)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** P1#1 από `code_refactor.md` §8 — η διαγραφή συνήθειας (detail + permanent) μπορούσε να μείνει μισή: το wipe των reminder rows έτρεχε στο UI (`habit_detail:137`, εκτός ουράς) την ώρα που το topUp έτρεχε μέσα στην `_passQueue` → race (device S234: 218 σβησμένα/22 έμειναν + το topUp ξανάφτιαχνε μέρος). Επιλογή: σειριοποίηση wipe+item-delete στο ΙΔΙΟ pass (όχι back-guard/flip/κοινή ουρά). 3 lib αρχεία, 0 νέα public APIs/imports/tests.
+
+**Υλοποίηση:**
+- `habit_service.dart` (1223→1240): νέο `deleteHabitReminders(habitId, {afterRows})` (`:664-673`, μετά το `_repairQueue`, πριν το topUp) — ένα pass: `notif` log + `deleteAllRemindersForItem` + `afterRows()` αδιαίρετα στη σειρά της `_passQueue` (FIFO: in-flight topUp ολοκληρώνεται πρώτο → το wipe τα παίρνει όλα· επόμενο topUp σκιπάρει deleted/archived).
+- `habit_service.dart`: guard στο `_scheduleRemindersImpl` μετά το `getById` (`:863-868`) — `item==null || isDeleted → SKIP`: κλείνει τον κρυφό δρόμο repair→`syncScheduleWithRecurrence`→pass ΜΕΤΑ τη διαγραφή (θα ξανάχτιζε rows για deleted habit)· micro-adjust `item?.title → item.title` (promotion μετά τον guard).
+- `item_provider.dart` (482→499): νέο `deleteHabit(id)` (`:243-251`) → `deleteHabitReminders(id, afterRows: deleteItem)`· `permanentDelete` routing (`:293-304`): habit → `deleteHabitReminders(id, afterRows: hardDelete)`, αλλιώς legacy ακριβώς ως πριν (+1 `getById`).
+- `habit_detail_screen.dart` (1866→1863): `_delete` (`:132-138`) → `deleteHabit` + `safePop`· import `reminder_scheduler` αφαιρέθηκε (0 άλλη χρήση· το `safePop` έχει δικό του mounted-check → φεύγει και το δεύτερο `if(!mounted)`).
+- Απορρίφθηκαν τεκμηριωμένα: back-guard (κρατά το παράθυρο — wipe+soft-delete πρέπει αδιαίρετα)· flip σειράς (δεν φράζει in-flight topUp + αλλάζει τη σειρά S53 του permanentDelete)· αλλαγή keep-rows σε list/back (εκτός scope — by design)· κοινή ουρά μεταξύ services (leçon S230→S232)· screen-orchestration (widget-ref νεκρό μετά το await → σιωπηλή αποτυχία item-delete — το `deleteHabit` σε notifier χρησιμοποιεί provider-ref).
+- Residuals (αποδεκτά/documented): FIFO αναμονή UX (η διαγραφή περιμένει in-flight topUp — δευτερόλεπτα)· zombie-overlap σε timeout (P5#15)· restore-during-delete human-timing· OS-bake races scheduleAll/reschedule (καθαρίζονται στο cold start).
+
+**Επαλήθευση:** baseline + post: `flutter analyze` → **No issues found!** (50.3s/5.3s) · `flutter test` → **223/223** ×2 (χωρίς κόλλημα, ~18s — 0 νέα tests, σύμβαση S193/S194) · greps: 0 `ReminderScheduler` στο habit_detail, νέα symbols μόνο στα 3 σημεία· όρια: item_provider 499 ≤500. **Device acceptance εκκρεμεί (μετά το push):** σειρά `pass started → deleteHabitReminders: habitId → deleted N rows → ItemNotifier.deleteItem … reminders=0 → pass done`· rows=0 (όχι 218/22)· permanent: `hardDelete … found 0 reminder(s)`· restore/regen + regressions note/task/list/archived/cold-start.
+
+**Backups:** `backups/delete_topup_race/` (habit_service.pre `1673DFA0` + item_provider.pre `89676451` + habit_detail_screen.pre `4B65FD72` + oldsessions.pre `045DF71B` + code_refactor.pre `9E1D3E46`, BASE `e9c9a6b`).
+
+**supernote.md:** καμία αλλαγή (ίδια layers/ουρές — κανένα νέο SPoT· precedent S245/S246/S248).
+
+**code_refactor.md:** §7.4:④ race ✅ CLOSED (μένει 🔴 μόνο το `_TrashScreenState` crash)· §8 P1#1 ✅ CLOSED (σύνολο 17→16).
+
+**Επόμενο session (φρέσκο — επιλογή χρήστη από την §8):** P1 ② `_TrashScreenState` crash · ③ postFrame δίχτυα (`purge`/`scheduleAll`) · P2: a11y device pass · grid auto-height.
