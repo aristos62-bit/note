@@ -248,6 +248,16 @@ lib/
 - **Code generation**: Isar models + annotations παράγουν `*.g.dart` (εξαιρούνται από τον analyzer στο `analysis_options.yaml`).
 - **Soft delete**: `Item.deletedAt` — ποτέ hard delete στην κανονική ροή (hard delete υπάρχει μόνο για τον κάδο).
 - **Sync-ready**: `Item.isDirty`, `Item.localVersion`, `Item.serverVersion`, `Item.syncedAt`.
+- **Σειριοποίηση passes** (S246): `SerialPassQueue` — κοινός κώδικας, **ΠΟΤΕ κοινή ουρά** (2 ξεχωριστά instances: `HabitService.pass`, `ReminderScheduler.refresh`).
+
+### Κανόνες ανάπτυξης (R1–R6)
+
+- **R1 — Μέγεθος αρχείων**: <500 γραμμές (non-generated· χωρίς `*.g.dart`/`.bak`· `backups/**` excluded από τον analyzer).
+- **R2 — Resize**: καμία raw εικόνα (camera 1024/85, gallery guard, thumbnail προτίμηση, display ResizeImage/cacheWidth).
+- **R3 — SPoT-first**: καμία νέα helper αν το καλύπτει υπάρχον SPoT.
+- **R4 — Logging & μηνύματα**: μόνο `DebugConfig.*` (error/warning πάντα ON)· Ελληνικά user μηνύματα μέσω mixin/`handleArchive`.
+- **R5 — Barrels**: barrel export για κάθε νέο util/service.
+- **R6 — Performance**: `.select()`, `const`, `autoDispose` σε family providers.
 
 ---
 
@@ -411,14 +421,23 @@ final db = SuperNoteHelper.instance;
 - `cancel(id)`, `cancelAll()` — cancel notifications
 - `getLaunchPayload()` — cold start payload
 - `onNotificationTap` — static callback for tap handling (set in `main()`)
+- `schedule(...)` → `Future<bool>` — `true` μόνο σε πραγμάτωση (S234)
+- `syncChannel(vibration)` — delete+recreate καναλιού· μόνο στο toggle, ποτέ στο init· ήχος OFF μέσω `silent` (S58)
 
 ### ReminderScheduler (`lib/services/reminder_scheduler.dart`)
 - `scheduleAll()` — schedule all pending reminders
 - `scheduleReminder(Reminder)` — single reminder scheduling
 - `cancelAllForItem(int itemId)` — cancel all for an item
 - `refreshRecurringReminders()` — re-schedule recurring reminders
-- Archival semantics (S143): `_scheduleOne` σκιπάρει `archived` items (καμία OS ειδοποίηση)· το `refreshRecurringReminders()` σκιπάρει archived roots — αρχειοθετημένο = **σίγαση** (rows μένουν · unarchive → reschedule)
+- `rescheduleForItem(int id)` — single-item OS reschedule (unarchive/restore/reactivate — S234)
 - `debouncedRefreshRecurringReminders()` — with debounce for app resume
+- One-shot κανόνας (S51): κάθε προγραμματισμένη εμφάνιση = one-shot (`rrule:null`)· roots (`rrule!=null`, `parent==null`) μόνο anchors για refresh· habits = δικά τους one-shots (η recurrence ζει στα props)
+- Σίγαση semantics: archived (S143) · done/cancelled (S194) · κάδος (S213) — `_scheduleOne` + refresh σκιπάρουν· τα rows **μένουν**, φεύγουν μόνο τα OS alarms· επιστροφή σε ενεργό → reschedule
+- Snooze (S52): status μένει `pending`, `triggerAt` = οδηγός· OS reschedule στο provider (`cancelReminder`+`scheduleReminder`)· εξαίρεση από wrong-time cleanup
+- `permanentDelete` (S53): `deleteAllRemindersForItem` **πριν** το `hardDelete` — σειρά υποχρεωτική (τα OS ids χάνονται μετά τη DB διαγραφή)
+- Bake accounting (S234): `ScheduleOutcome {baked, skipped, failed, kept}` — `kept` = incremental sync (alarm ήδη στο OS)· SUCCESS log μόνο σε `baked`
+- Budget (S236): `osAlarmLimit` — iOS/macOS 60 · Android 450, oldest-first· `truncated` flag (in-memory) + day-rebake στο resume· singles εκτός budget
+- Interval>1 (S54): weekly/monthly/yearly σέβονται το διάστημα — scheduler anchor = root· tests `recurrence_weekly_test.dart`
 
 ### HabitService (`lib/services/habit_service.dart`)
 - `getStats(int habitId)` → `HabitStats` (streak, bestStreak, completedCount, dailyProgress, progressPercent, todayTimeProgress)
@@ -428,6 +447,9 @@ final db = SuperNoteHelper.instance;
 - `setGoal()`, `setUnit()`, `setRecurrence()`, `setReminderTime()`, `setReminderTimes()`
 - Streak calculation: `_calculateStreak()`, `_countCompletedPeriods()`
 - Period awareness: respects recurrence type (daily/weekly/monthly/yearly)
+- Scheduling ownership (S61): habits έχουν δικό τους scheduling — ώρες (`reminder_time(s)`) → one-shots 60d· καμπάνα (`ReminderSection`) απενεργοποιημένη σε detail+list· `refreshRecurringReminders` σκιπάρει habits
+- `generatedTitle` = «Υπενθύμιση συνήθειας» (διαχωρισμός από bell τίτλο)· `syncScheduleWithRecurrence`· `topUpHabitReminders` (10min guard, opt-in, postFrame)· `repairLegacyHabitRows` (idempotent)· selective wipe
+- Ώρες weekly/monthly (S62): `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις)
 
 ### ContactImportService (`lib/services/contact_import_service.dart`)
 - `requestPermission()` — FlutterContacts permission
@@ -449,6 +471,7 @@ final db = SuperNoteHelper.instance;
 - `import({fromPath})` — validate + atomic restore (zip ή legacy `.isar`)
 - `autoBackup()` — zip στο background (pause, 1/24ωρο, rotation 5) + `listAutoBackups()`
 - `AppSettings.autoBackupEnabled/lastAutoBackupAt` · schema v3 (additive, no-op migration)
+- Android: `allowBackup=false` (S174) — επίσημη οδός backup = in-app zip export (το cloud auto-backup αντέγραφε DB + attachments + PIN hash· iOS parked)
 
 ### SearchService (`lib/services/search_service.dart`)
 - Full-text search on Item title: `search(query, workspaceId)` → `List<Item>`
@@ -456,6 +479,19 @@ final db = SuperNoteHelper.instance;
 
 ### ShareService (`lib/services/share_service.dart`)
 - Uses `share_plus` package
+
+### SharedIntentService (`lib/services/shared_intent_service.dart`)
+- Singleton (S59) — stream `incoming` (warm+cold)· dedup 2s (`isDuplicate`)· `reset` μετά το initial
+- `saveAsNote()` / `saveAsEvent()` → `SharedSaveResult` — `onSaved` callback (αποφυγή κύκλου imports με providers)
+- UI: `SharedIntentListener` (queue ενώ locked → dequeue στο unlock) + `_ShareSheet` dialog (`ItemTypePicker[note,event]` + `showReminderPicker` reuse)
+- Κανόνας: share δημιουργεί **Items** (note: text block + attachments + 📎· event: `start/end/all_day/notes`) — **ΠΟΤΕ Reminder rows**· υπενθυμίσεις μόνο από καμπάνα
+- Android: 7 `SEND`/`SEND_MULTIPLE` filters· `singleTask` launchMode (ποτέ νέο instance ανά intent· χωρίς κενό `taskAffinity`)· χωρίς νέα runtime permissions (temp cache paths)
+- Deps: `receive_sharing_intent` (inbound)· `share_plus` μένει **outbound-only**
+
+### SecurityService (`lib/services/security_service.dart`)
+- Android `MethodChannel("super_note/security")` → `FLAG_SECURE` — πρώτο MethodChannel (S165)
+- `setSecure(bool)` — catch→false· πολιτική: ON όσο lock-enabled (κλείνει την pre-timeout τρύπα)· OFF→clear· άλλες πλατφόρμες no-op· iOS parked
+- Hooks: `main()` pre-runApp + settings toggle (μετά update)
 
 ---
 
@@ -757,6 +793,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 ### CalendarScreen (`/calendar`) + EventDetailScreen (`/calendar/:id`)
 - Month view with event dots
 - Event creation/editing with date/time pickers
+- Πεδίο `notes` (`ContentFieldWidget`, pattern TaskDetail) — τα events αποκτούν ορατό σώμα (S59)
 
 ### ContactListScreen (`/contacts`) + ContactDetailScreen (`/contacts/:id`)
 - Two sources: manually created (ItemType.contact) + imported (ContactImportService)
@@ -819,6 +856,11 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 - Two-level picker: 19 Material color families → 10 shades (shade50–shade900)
 - `itemTypeCardColorOverrideProvider.family<Color?, ItemType>`
 - All card locations pass override: `customBackgroundColor ?? backgroundColorForType(item.type)`
+
+### Birthday & special-day (S156)
+- SPoT `item_color_helper.dart`: `kBirthdayIcon` 🎂 · `kSpecialDayIcon` ✅ · `kLegacySpecialDayIcon` ⭐ + `isBirthdayEvent/isSpecialDayEvent` (null-safe) + `birthdayBackground/specialDayBackground` + `specialAccent`
+- Κανόνας: 🎂 = αυτόματη ετήσια (χωρίς καμπάνα) · ✅ = μόνο καμπάνα (κάθε διάστημα) · compat `⭐||✅` (χωρίς migration)
+- Callers: calendar dots · `event_detail` resync (🎂-only) · `ItemCard` (emoji αντί type-icon + tint· custom override κερδίζει)
 
 ---
 
