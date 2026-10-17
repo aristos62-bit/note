@@ -2883,3 +2883,23 @@
 **Backups:** `backups/refresh_hardening/` (dart.pre + oldsessions.pre, BASE `ff7a24a`).
 
 **supernote.md/DESIGN.md:** καμία αρχιτεκτονική αλλαγή (ίδιο layer/service — precedent S244/S234)· μόνο factual sync test-count `178/178 → 217/217` στο supernote.md (2 σημεία).
+
+## Session 246 — 17/10/2026 (SerialPassQueue SPoT — εξαγωγή των 2 ουρών)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** ενεργοποίηση του parked «shared SPoT» — Επιλογή Α (S244:2863/S245:2879), εγκρίθηκε: εξαγωγή του διπλότυπου μηχανισμού των 2 ουρών (habit S212/S244 + scheduler S245) σε κοινό SPoT· «shared» = κοινός **κώδικας**, ΠΟΤΕ κοινή **ουρά** (2 ξεχωριστά instances — leçon S230→S232). 1 νέο core αρχείο + barrel + 2 services + 1 νέο test. `repair-timeout` παραμένει parked (εκτός scope).
+
+**Υλοποίηση:**
+- Νέο `core/utils/serial_pass_queue.dart` (61 γρ., `SerialPassQueue`): per-instance future-chain + pass-ids + default timeout 60s (fail-open) + προαιρετικό `onTimeout` + NEVER-THROW (logs `queued/started/done/FAILED` — μόνο label+id, R4)· pure Dart (unit-testable χωρίς Isar — σύμβαση S193/S194)· ίδια μηχανική chain (κανένα νέο primitive/package).
+- `core.dart`: +export `utils/serial_pass_queue` (18→19).
+- `HabitService` (1224→1209): block `:641-672` → `final SerialPassQueue _passQueue` (label `HabitService.pass`· `onTimeout: () => _lastTopUp = null` — retry αντί guard-skip, parity με παλιό `e is TimeoutException`)· 3 call sites → `_passQueue.run` (`:468` clear · `:657` topUp · `:828` scheduleReminders)· αφαίρεση `dart:async` (probe: `Future` χωρίς import· 0 άλλα async σύμβολα· analyze-verify).
+- `ReminderScheduler` (874→862): block `:223-248` → `final SerialPassQueue _refreshQueue` (label `ReminderScheduler.refresh`, χωρίς onTimeout)· `refreshRecurringReminders` → `_refreshQueue.run(...)`· `dart:async` μένει (Timer debounce `:208`).
+- Αμετάβλητα: υπογραφές, σειριοποίηση/σειρά, 60s, byte-identical logs· το 60s literal ζει πλέον μόνο στο SPoT default (ήταν ×2 στα services)· σχόλια `S212-hardening`/`καθρέφτης S244` διατηρήθηκαν αυτολεξεί + γραμμή S246.
+- Reuse audit: `dart:collection` Queue (0 χρήση — mechanism swap), rxdart `concatMap`, `package:synchronized` (νέα εξάρτηση), `AppDuration` (UI-scale) απορρίφθηκαν· `services.dart` barrel αμετάβλητο (13 exports).
+
+**Tests:** νέο `test/serial_pass_queue_test.dart` (6: σειρά/FIFO · NEVER-THROW+συνέχεια αλυσίδας · timeout fail-open + onTimeout×1 · χωρίς-timeout · parity TimeoutException από το task · independence 2 instances) → suite **217→223/223**. Σημείωση: τα `ERR | … FAILED` lines του test-run (tests 2/3/5) είναι το σκόπιμο never-throw logging — όχι αποτυχίες.
+
+**Επαλήθευση:** `flutter test` **223/223** · `analyze` clean · device εκκρεμεί (αναμονή byte-identical logs στα 4 σημεία S244/S245: cold topUp/scheduleAll · resume guard-skip · bell-save · unarchive· 0 ERR).
+
+**Backups:** `backups/s246_serial_queue/` (6 `.pre`: habit_service, reminder_scheduler, core.dart, supernote.md, DESIGN.md, oldsessions.md· BASE `13963ea`).
+
+**supernote.md/DESIGN.md:** αρχιτεκτονική αλλαγή (νέο SPoT) — supernote.md: +1 tree γραμμή + test-count 217→223 ×2· DESIGN.md: SPoT bullet + ενότητα Session 246.
