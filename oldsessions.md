@@ -2878,7 +2878,7 @@
 - Νέα ευρήματα τελικού ελέγχου: (α) το impl έχει ήδη εσωτερικό try-catch (`:488-491`) → ήδη never-throw στην πράξη· η αλλαγή προσθέτει μόνο το δίχτυ κατά hang. (β) Πλάγια διόρθωση: σε unarchive/restore το `refresh` προηγείται του `topUpHabitReminders(force:true)` — ένα hang του refresh μπλόκαρε για πάντα και το habit top-up (τώρα ≤60s). (γ) Residual risk zombie-overlap (>60s ενεργό pass παράλληλα με επόμενο) — μετριασμένος από υπάρχοντα dedup guards (`existingChild:428-438`, `futureChildren:352-398`), ίδιος συμβιβασμός με S244.
 - Απορρίφθηκαν τεκμηριωμένα: shared SerialPassQueue SPoT (νέο API+αρχείο — S230-revert/S232) · ενοποίηση με habit `_habitChain` (ίδιος λόγος) · `AppDuration` (UI-κλίμακα) · `AppErrors` (background) · νέο test (0 Isar-harness, σύμβαση S193/S194).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · device εκκρεμεί (cold `Refresh queued→started→done id=1` + `created N total` · resume-debounce `id=2` · bell-save · unarchive/restore · 0 ERR).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · **device ✅ (17/10/2026, pid 15562):** cold `queued→started→done id=1` + `created 0` · resume-debounce `id=2` (2.0s) · bell-save `id=3` (`Root 2019: created 14 new children`, ~1.7s — UI path) · unarchive-415 `id=4` (57ms) → `rescheduleForItem rebaked=0 failed=0` → `HabitService.pass id=3` (sequential — το habit top-up έτρεξε κανονικά μετά το refresh) → `UNARCHIVE rescheduled` · 0 app-ERR/WRN/FAILED/FATAL σε όλο το run — **S245 CLOSED.**
 
 **Backups:** `backups/refresh_hardening/` (dart.pre + oldsessions.pre, BASE `ff7a24a`).
 
