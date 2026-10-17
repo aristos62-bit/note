@@ -2884,7 +2884,7 @@
 
 **supernote.md/DESIGN.md:** καμία αρχιτεκτονική αλλαγή (ίδιο layer/service — precedent S244/S234)· μόνο factual sync test-count `178/178 → 217/217` στο supernote.md (2 σημεία).
 
-## Session 246 — 17/10/2026 (SerialPassQueue SPoT — εξαγωγή των 2 ουρών)
+## Session 246 — 17/10/2026 (SerialPassQueue SPoT — εξαγωγή των 2 ουρών — CLOSED)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** ενεργοποίηση του parked «shared SPoT» — Επιλογή Α (S244:2863/S245:2879), εγκρίθηκε: εξαγωγή του διπλότυπου μηχανισμού των 2 ουρών (habit S212/S244 + scheduler S245) σε κοινό SPoT· «shared» = κοινός **κώδικας**, ΠΟΤΕ κοινή **ουρά** (2 ξεχωριστά instances — leçon S230→S232). 1 νέο core αρχείο + barrel + 2 services + 1 νέο test. `repair-timeout` παραμένει parked (εκτός scope).
 
@@ -2898,7 +2898,7 @@
 
 **Tests:** νέο `test/serial_pass_queue_test.dart` (6: σειρά/FIFO · NEVER-THROW+συνέχεια αλυσίδας · timeout fail-open + onTimeout×1 · χωρίς-timeout · parity TimeoutException από το task · independence 2 instances) → suite **217→223/223**. Σημείωση: τα `ERR | … FAILED` lines του test-run (tests 2/3/5) είναι το σκόπιμο never-throw logging — όχι αποτυχίες.
 
-**Επαλήθευση:** `flutter test` **223/223** · `analyze` clean · device εκκρεμεί (αναμονή byte-identical logs στα 4 σημεία S244/S245: cold topUp/scheduleAll · resume guard-skip · bell-save · unarchive· 0 ERR).
+**Επαλήθευση:** `flutter test` **223/223** · `analyze` clean · **device ✅ (17/10/2026, pid 21016, adb logcat):** cold `refresh id=1` + `scheduleAll DONE db=44 baked=42 skipped=2` (invariant ✓) + `HabitService.pass id=1` (created=0) · resume-debounce `2.0s` → `refresh id=2` + guard-skip `pass id=2` · bell-save habit-443 `pass id=3` (`_scheduleReminders` DAILY → ~22 one-shots· path χωρίς refresh — `updateItem/rescheduleForItem`) · unarchive-232 `refresh id=3` (76ms) → `rescheduleForItem rebaked=2` → `pass id=4` (sequential) → `UNARCHIVE rescheduled` · 0 app-ERR/FAILED/FATAL σε όλο το run — **S246 CLOSED.**
 
 **Backups:** `backups/s246_serial_queue/` (6 `.pre`: habit_service, reminder_scheduler, core.dart, supernote.md, DESIGN.md, oldsessions.md· BASE `13963ea`).
 
