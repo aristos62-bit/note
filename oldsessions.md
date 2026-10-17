@@ -2926,3 +2926,19 @@
 **Backups:** `backups/design_retired/` — `DESIGN.md` (`9F60EB96`) + `AGENTS.md.pre` (`5635ABD6`) + `supernote.md.pre` (`C4A0A86A`), `.pre2` (`9567220A`), `.pre3` (`80177583`)· BASE `b269932`.
 
 **supernote.md:** ενημερώθηκε (ενοποίηση — κανόνας 8)· **DESIGN.md:** ΑΠΟΣΥΡΘΗΚΕ (διαγράφηκε· αντίγραφο: `backups/design_retired/DESIGN.md`).
+
+## Session 248 — 17/10/2026 (repair-timeout: `SerialPassQueue` στο `repairLegacyHabitRows`)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** ενεργοποίηση του parked «repair-timeout» (S246) — το repair ήταν το τελευταίο pass χωρίς δίχτυ: ένα κόλλημα στο cold start «πάγωνε» σιωπηλά το `await topUpHabitReminders()` του postFrame (main `:255-256`), αόρατο στα logs. Επιλογή Α (εγκρίθηκε): δικό του instance του SPoT — ΠΟΤΕ κοινό chain με `_passQueue` (το impl καλεί `syncScheduleWithRecurrence` → `_passQueue.run`: self-wait trap). 1 lib αρχείο (3 σημεία, net +14), 0 νέα imports/APIs/tests.
+
+**Υλοποίηση (`habit_service.dart`, 1209→1223):**
+- `:656-662` νέο `_repairQueue = SerialPassQueue(label: 'HabitService.repair')` — default 60s fail-open, ΧΩΡΙΣ `onTimeout` (δεν υπάρχει guard-state — parity με scheduler-refresh S245).
+- `:755-763` head → `repairLegacyHabitRows() => _repairQueue.run(_repairLegacyHabitRowsImpl)` + `_repairLegacyHabitRowsImpl()`· σώμα byte-identical (εσωτερικό catch/`DebugConfig.error` διατηρήθηκε· never-throw και πριν).
+- `:525` (Δ5) «βλ. DESIGN.md Session 61» → «βλ. supernote.md S61» (στο S247:⑦ είχε ακυρωθεί — τώρα εγκρίθηκε ρητά μετά την απόσυρση του DESIGN.md).
+- Απορρίφθηκαν τεκμηριωμένα: Β standalone timeout (νέο 60s literal — anti-S246) · Γ wrap στο `_passQueue` (self-wait) · Γ-refined refactor (`_passQueue` + impl-detail: zombie interleave, false-timeout, επιφάνεια UI-μονοπατιών) · Δ unawaited repair (σπάει τη σειρά repair→topUp του A6) · inline timeout nets στο main · PERF#9/Stopwatch. Fail-open: μετά από timeout το impl συνεχίζει από πίσω (δεν ακυρώνεται Isar/OS work — σύγκλιση, όπως S244/S245).
+
+**Επαλήθευση:** `flutter test` → **223/223** (0 νέα tests — σύμβαση S193/S194: 0 Isar-harness) · `flutter analyze --no-pub` → `No issues found!` (46.1s). Device ΔΕΝ εκτελέστηκε σε αυτό το session (δεν ζητήθηκε — idle-path αλλαγή): αναμενόμενα `HabitService.repair queued/started/done id=1` στο cold start (ids per-process, πριν το `pass id=1`)· σε wedge `FAILED id=N` + το top-up προχωρά.
+
+**Backups:** `backups/repair_timeout/` (habit_service.pre `6BF39292` + supernote.pre `2E6C925C` + oldsessions.pre `6F14DB5E`, BASE `f8914a2`).
+
+**supernote.md:** ενημερώθηκε (αρχιτεκτονική — `:251` 3 instances + S248 · `:451` repair: δικό του pass).
