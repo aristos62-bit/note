@@ -2867,3 +2867,19 @@
 **Backups:** `backups/s212_hardening/` (dart.pre + oldsessions.pre, BASE `34e87dc`).
 
 **supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο layer/service, όχι αρχιτεκτονική — precedent S234).
+
+## Session 245 — 17/10/2026 (Scheduler-chain hardening — mirror S244)
+
+**Scope (2+4 ανεστάλησαν, edit-tool only):** scheduler-chain timeout — το δίδυμο του S244 (`_refreshChain` `reminder_scheduler.dart:223-231`· θεωρητικός κίνδυνος wedge — καμία σφήνα δεν είχε παρατηρηθεί εδώ). 1 αρχείο lib, 0 νέα imports/APIs/tests.
+
+**Υλοποίηση (`reminder_scheduler.dart`, ~+17):**
+- `refreshRecurringReminders`: pass-id counter + μόνιμα `queued/started/done` (`DebugConfig.notif`, ids μόνο) + `_refreshRecurringRemindersImpl().timeout(60s)` (fail-open — δεν ακυρώνει Isar/OS work) + catch → `DebugConfig.error FAILED` (χωρίς reset-κλάδο — το refresh δεν έχει guard-state τύπου `_lastTopUp`) + NEVER-THROW σύμβαση (η αλυσίδα μένει ζωντανή· οι 9 καλούντες προχωρούν — verified ένας-ένας, αρκετοί χωρίς δικό τους try, π.χ. `toggleArchive:323-327`).
+- `dart:async` **ήδη** εισαγμένο (`:10`) — 0 νέα imports.
+- Νέα ευρήματα τελικού ελέγχου: (α) το impl έχει ήδη εσωτερικό try-catch (`:488-491`) → ήδη never-throw στην πράξη· η αλλαγή προσθέτει μόνο το δίχτυ κατά hang. (β) Πλάγια διόρθωση: σε unarchive/restore το `refresh` προηγείται του `topUpHabitReminders(force:true)` — ένα hang του refresh μπλόκαρε για πάντα και το habit top-up (τώρα ≤60s). (γ) Residual risk zombie-overlap (>60s ενεργό pass παράλληλα με επόμενο) — μετριασμένος από υπάρχοντα dedup guards (`existingChild:428-438`, `futureChildren:352-398`), ίδιος συμβιβασμός με S244.
+- Απορρίφθηκαν τεκμηριωμένα: shared SerialPassQueue SPoT (νέο API+αρχείο — S230-revert/S232) · ενοποίηση με habit `_habitChain` (ίδιος λόγος) · `AppDuration` (UI-κλίμακα) · `AppErrors` (background) · νέο test (0 Isar-harness, σύμβαση S193/S194).
+
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** · device εκκρεμεί (cold `Refresh queued→started→done id=1` + `created N total` · resume-debounce `id=2` · bell-save · unarchive/restore · 0 ERR).
+
+**Backups:** `backups/refresh_hardening/` (dart.pre + oldsessions.pre, BASE `ff7a24a`).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο layer/service, όχι αρχιτεκτονική — precedent S244/S234).

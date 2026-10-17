@@ -222,10 +222,27 @@ class ReminderScheduler {
 
   // A6: σειριοποίηση — δύο ταυτόχρονες εκτελέσεις (startup/resume/
   // ReminderSection/archive) μπορούσαν να δημιουργήσουν διπλά παιδιά.
+  // Hardening (καθρέφτης S244): timeout 60s/pass (fail-open — δεν ακυρώνει
+  // Isar/OS work σε εξέλιξη) + μόνιμα queued/started/done logs.
+  // Σύμβαση: NEVER-THROW (όλα logάρονται εδώ· η αλυσίδα μένει ζωντανή·
+  // οι 9 καλούντες προχωρούν — verified ένας-ένας, κανένας δεν εξαρτάται
+  // από throw).
+  static const _refreshPassTimeout = Duration(seconds: 60);
+  int _refreshPassSeq = 0;
   Future<void> _refreshChain = Future<void>.value();
 
   Future<void> refreshRecurringReminders() {
-    final next = _refreshChain.then((_) => _refreshRecurringRemindersImpl());
+    final passId = ++_refreshPassSeq;
+    DebugConfig.notif('ReminderScheduler.refresh queued id=$passId');
+    final next = _refreshChain.then((_) async {
+      DebugConfig.notif('ReminderScheduler.refresh started id=$passId');
+      try {
+        await _refreshRecurringRemindersImpl().timeout(_refreshPassTimeout);
+        DebugConfig.notif('ReminderScheduler.refresh done id=$passId');
+      } catch (e, stack) {
+        DebugConfig.error('ReminderScheduler.refresh FAILED id=$passId', e, stack);
+      }
+    });
     _refreshChain = next.catchError((_) {});
     return next;
   }
