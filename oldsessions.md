@@ -2882,4 +2882,4 @@
 
 **Backups:** `backups/refresh_hardening/` (dart.pre + oldsessions.pre, BASE `ff7a24a`).
 
-**supernote.md/DESIGN.md:** καμία αλλαγή (ίδιο layer/service, όχι αρχιτεκτονική — precedent S244/S234).
+**supernote.md/DESIGN.md:** καμία αρχιτεκτονική αλλαγή (ίδιο layer/service — precedent S244/S234)· μόνο factual sync test-count `178/178 → 217/217` στο supernote.md (2 σημεία).
