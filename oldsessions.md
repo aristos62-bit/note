@@ -2964,7 +2964,7 @@
 
 **Επόμενο session (φρέσκο — επιλογή χρήστη από την §8):** P1 ① delete↔topUp race · ② `_TrashScreenState` crash · ③ postFrame δίχτυα (`purge`/`scheduleAll`) · P2: a11y device pass · grid auto-height.
 
-## Session 250 — 17/10/2026 (P1#1: race delete-χρήστη ↔ topUp — σειριοποίηση· device ⏳)
+## Session 250 — 17/10/2026 (P1#1: race delete-χρήστη ↔ topUp — σειριοποίηση· device ✅)
 
 **Scope (2+4 ανεστάλησαν, edit-tool only):** P1#1 από `code_refactor.md` §8 — η διαγραφή συνήθειας (detail + permanent) μπορούσε να μείνει μισή: το wipe των reminder rows έτρεχε στο UI (`habit_detail:137`, εκτός ουράς) την ώρα που το topUp έτρεχε μέσα στην `_passQueue` → race (device S234: 218 σβησμένα/22 έμειναν + το topUp ξανάφτιαχνε μέρος). Επιλογή: σειριοποίηση wipe+item-delete στο ΙΔΙΟ pass (όχι back-guard/flip/κοινή ουρά). 3 lib αρχεία, 0 νέα public APIs/imports/tests.
 
@@ -2976,9 +2976,18 @@
 - Απορρίφθηκαν τεκμηριωμένα: back-guard (κρατά το παράθυρο — wipe+soft-delete πρέπει αδιαίρετα)· flip σειράς (δεν φράζει in-flight topUp + αλλάζει τη σειρά S53 του permanentDelete)· αλλαγή keep-rows σε list/back (εκτός scope — by design)· κοινή ουρά μεταξύ services (leçon S230→S232)· screen-orchestration (widget-ref νεκρό μετά το await → σιωπηλή αποτυχία item-delete — το `deleteHabit` σε notifier χρησιμοποιεί provider-ref).
 - Residuals (αποδεκτά/documented): FIFO αναμονή UX (η διαγραφή περιμένει in-flight topUp — δευτερόλεπτα)· zombie-overlap σε timeout (P5#15)· restore-during-delete human-timing· OS-bake races scheduleAll/reschedule (καθαρίζονται στο cold start).
 
-**Επαλήθευση:** baseline + post: `flutter analyze` → **No issues found!** (50.3s/5.3s) · `flutter test` → **223/223** ×2 (χωρίς κόλλημα, ~18s — 0 νέα tests, σύμβαση S193/S194) · greps: 0 `ReminderScheduler` στο habit_detail, νέα symbols μόνο στα 3 σημεία· όρια: item_provider 499 ≤500. **Device acceptance εκκρεμεί (μετά το push):** σειρά `pass started → deleteHabitReminders: habitId → deleted N rows → ItemNotifier.deleteItem … reminders=0 → pass done`· rows=0 (όχι 218/22)· permanent: `hardDelete … found 0 reminder(s)`· restore/regen + regressions note/task/list/archived/cold-start.
+**Επαλήθευση:** baseline + post: `flutter analyze` → **No issues found!** (50.3s/5.3s) · `flutter test` → **223/223** ×2 (χωρίς κόλλημα, ~18s — 0 νέα tests, σύμβαση S193/S194) · greps: 0 `ReminderScheduler` στο habit_detail, νέα symbols μόνο στα 3 σημεία· όρια: item_provider 499 ≤500. **Device acceptance ✅ (17/10/2026 — βλ. «Device verification» παρακάτω):** σειρά `pass started → deleteHabitReminders: habitId → deleted N rows → ItemNotifier.deleteItem … reminders=0 → pass done`· rows=0 (όχι 218/22)· permanent: `hardDelete … found 0 reminder(s)`· restore/regen OK (60 rows).
 
-**Backups:** `backups/delete_topup_race/` (habit_service.pre `1673DFA0` + item_provider.pre `89676451` + habit_detail_screen.pre `4B65FD72` + oldsessions.pre `045DF71B` + code_refactor.pre `9E1D3E46`, BASE `e9c9a6b`).
+**Device verification ✅ (17/10/2026 — in-place `adb install -r`, 0 uninstall, 0 αλλαγές ρυθμίσεων):** συσκευή `NFT8KF4LD6XWOF7D` (debug build 18:58 — επιβεβαιώθηκε ότι περιέχει τα S250 strings στο `kernel_blob.bin`). Logs: `run_log_s250_t{1,2,2b,3,4,5}.txt` (tag `flutter`, πρόθεμα `🔔 NTF |`). Συνήθεια δοκιμής: 443.
+- **T1** ζεστή διαγραφή (60 rows): pass id=3 → `deleted 60 rows itemId=443` → `ItemNotifier.deleteItem id=443 reminders=0` → `pass done` — 0 ERR.
+- **T2/T2b** διαγραφή μετά/πάνω σε κρύα εκκίνηση (×2): 60→0 στο ίδιο pass (id=2), 0 ERR. *Χωρίς πραγματικό overlap:* το startup topUp είχε `needTopUp=0` → κράτησε **25ms** (T2b: η διαγραφή έπεσε +255ms μετά το startup pass).
+- **T5 🎯 race S234 (αναπαραγωγή):** επαναφορά → αλλαγή Επανάληψης (βαρύ `_scheduleReminders`: wipe+create 60 rows) → διαγραφή **ενώ έτρεχε** → `pass queued id=5` (19:12:29.159) ενώ έτρεχε `id=4` (`done` 19:12:30.326) → FIFO αναμονή → `deleted 60 rows` (και οι νέες) → `reminders=0`. **Απόδειξη ότι ο race κλείνει** (παλιά οι rows του id=4 έμεναν ορφανές).
+- **T4** επαναφορά από κάδο: pass id=4 → `topUp created=60` + `restoreItem: id=443 → rescheduled` (συμμετρία delete↔restore).
+- **T3** οριστική διαγραφή (κάδος): habit-routing `permanentDelete` → pass id=6: `deleteHabitReminders` → `hardDelete` (afterRows, ΜΕΣΑ στο pass) → `found 0 reminder(s)` → `permanentDelete done` — 0 ERR.
+- **Coverage:** και τα 3 νέα σημεία (deleteHabit · permanentDelete routing · FIFO pass) εκτελέστηκαν στη συσκευή. Το guard `deleted/missing, SKIP` μένει **defensive/non-reachable**: ο repair σαρώνει `getByWorkspace(type: habit)` με default `includeDeleted=false` → δεν φτάνει σε διαγραμμένη συνήθεια. Στο T3 το `deleted 0 rows` λείπει σωστά (`if (all.isEmpty) return;` στο `deleteAllRemindersForItem`).
+- **0** `ERR/FAILED/FATAL` σε όλα τα runs.
+
+**Backups:** `backups/delete_topup_race/` (habit_service.pre `1673DFA0` + item_provider.pre `89676451` + habit_detail_screen.pre `4B65FD72` + oldsessions.pre `045DF71B` + code_refactor.pre `9E1D3E46`, BASE `e9c9a6b`) · `backups/s250_device_verify/` (oldsessions.pre `B5882D45` + code_refactor.pre `9C062961`, BASE `e39c654`).
 
 **supernote.md:** καμία αλλαγή (ίδια layers/ουρές — κανένα νέο SPoT· precedent S245/S246/S248).
 
