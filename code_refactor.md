@@ -104,9 +104,10 @@
 - ✅ CLOSED 13/10/2026 (S184) — padLeft· device ✅.
 - ✅ REVIEWED 13/10/2026 — shared stream watches (0 extra queries)· no-change.
 
-### 3.8 Παλιό §3 — Ποιότητα (ΔΕΝ επανελέγχθηκε σε αυτό το audit)
-> Διατηρείται για να μη χαθεί· επανέλεγχος πριν από Φ4c-46.
-`if(!mounted)return` χωρίς κενό· `use_build_context_synchronously`· `select((v)=>v)` no-op· `✓` αντί Icon· `day/month/year` χειροκίνητα αντί intl· `DateTime.now()` σε build· `O(n²) block_editor:105`· `BlockTileWidget Stateful χωρίς state:165`· delete πάντα ορατό· `autofocus` σε inline editor· `showArchived` χωρίς φίλτρο (`item_list:211`)· `archivedItems/pastReminders` providers σε UI (`settings:28,39`)→μεταφορά· `FutureBuilder per-row (settings:548)`→batch· `ValueKey entries accentColor (274)`· `_ToggleButton` διπλό· `types` arrays τριπλά με ίδιο emoji `📅`· `take(10)` magic· stats αγνοούν journal/appointment· `_green 0xFF4CAF50 ×2`· `Colors.white/black` hardcoded· main init/web hardcoded `0xFF1E1E2E`· `trash:250` error χωρίς retry· touch 16-22px.
+### 3.8 Παλιό §3 — Ποιότητα (ανανεώθηκε 17/10/2026 — έλεγχος parked)
+> Ο παλιός κατάλογος «ΔΕΝ επανελέγχθηκε»· ο έλεγχος 17/10/2026 (grep στον τρέχοντα κώδικα) έκλεισε ό,τι υλοποιήθηκε στο μεταξύ — παραμένουν μόνο τα μη επιβεβαιωμένα.
+**✅ CLOSED 17/10/2026 (spot-verified):** `select((v)=>v)` no-op (0 hits)· `_green 0xFF4CAF50` ×2 (0 hits — tokens S169)· `_ToggleButton` → κοινό `ViewModeToggle` (Φ4a-10)· `autofocus` inline editor → focusNode (`task_detail:1098`)· `showArchived` φίλτρο (`includeArchived: showArchived` — `item_provider:37,104`, `task_provider:32`)· providers μεταφορά (`archivedItemsProvider` → `item_provider:403`· `pastRemindersProvider` 0 hits)· `FutureBuilder per-row` → batch 1 query (`settings:460`)· `trash:250` retry (`EmptyState.error` `:245-250`)· `use_build_context_synchronously` (analyze clean)· `ValueKey entries` (S189).
+**🟡 Ανοιχτά/χωρίς επαλήθευση:** `take(10)` magic (`item_provider:443`)· `if(!mounted)return` χωρίς κενό· `✓` αντί Icon· `day/month/year` αντί intl· `DateTime.now()` σε build· `O(n²) block_editor`· `BlockTileWidget Stateful` (`block_editor_widget:146-170`)· delete πάντα ορατό· `types` arrays με ίδιο `📅` (`folder_create_sheet:28,33`)· stats journal/appointment (δεν βρέθηκε ενεργό stats screen)· `Colors.white/black`· main `0xFF1E1E2E` ×2 (ρητά accepted — §3.6:92)· touch 16-22px (→ ⏳ a11y pass §3.6:98).
 
 ## 4. Βήματα υλοποίησης (αριθμημένα, για εύκολη αναίρεση)
 
@@ -154,3 +155,7 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 1. ✅ CLOSED 13/10/2026 (device OK) — `note_detail_screen.dart` AppBar 6 actions: compact density + 20px + `titleSpacing: 0`, κανένα overflow στη συσκευή· ενοποιημένο DetailAppBar parked.
 2. ✅ CLOSED 13/10/2026 (fixed S99 + device OK) — `habit_detail_screen`: `Container` → `Material` (ίδια χρώματα/radius/border).
 3. 🔜 Snooze UI + notification actions (μελλοντική ανάπτυξη, απόφαση 14/10/2026) — το `ReminderNotifier.snooze` δουλεύει (S52: pending + OS reschedule) αλλά δεν έχει κουμπί/μενού πουθενά· το `markSent` επίσης 0 callers (σκόπιμα κρατείται για μελλοντικό OS fire-callback — μην το σβήσεις). Εύρημα 14/10/2026: οι ειδοποιήσεις δεν έχουν action buttons (Αναβολή 10′ / Έγινε) — το `_details()` (`notification_service.dart:325-343`) δεν ορίζει Android `actions` ούτε iOS category, το `_onTap` αγνοεί `actionId`, το `_onBackgroundTap` είναι no-op. Θέλει spec (κουμπί σε ReminderSection; actions; iOS categories) + σχεδίαση background-tap (εκεί δεν υπάρχει Isar) + λειτουργικό τεστ + device matrix.
+
+4. 🔴 S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): delete-χρήστη ταυτόχρονα με topUp → μερική διαγραφή (218 σβησμένα/22 έμειναν, topUp ξανάφτιαχνε) — χρειάζεται σειριοποίηση/back-guard· `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187).
+5. 🔴 postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) χωρίς timeout (repair/topUp/refresh καλύφθηκαν S244-S248 — εκτός scope τότε).
+6. 🟡 Grid auto-height (παλιό «parked Φ4c, για όλα μαζί») — αραιές κάρτες με fixed extents· πλήρης ανοσία μόνο με auto-height (πηγές oldsessions ~`:938,998,1246`).

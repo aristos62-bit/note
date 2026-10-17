@@ -2520,7 +2520,7 @@
 - `main`: +1 γραμμή στο resume (μετά το topUp).
 - Singles (bell/snooze/reschedule/refresh-standalone/topUp-immediate) ψήνουν πάντα — το budget αφορά ΜΟΝΟ το `scheduleAll`.
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (15/10, `run_log.txt`, 12568 γρ., 0 ERR/FATAL/overflow):** no-regression (`truncated=false`, `baked=db−1`) · **trip:** db=757→889, `BUDGET cut` + warning ×2, `baked=450`/`os=450`/`truncated=true` αμφότερα (deterministic· μοναδικά WRN τα σχεδιασμένα) · loop ~18s/450 (O(n²) plugin — ο λόγος του cap) · day-rollover: code-verified (θέλει αύριο για device).
+**Επαλήθευση:** `analyze` clean · `flutter test` → **215/215** · **device ✅ (15/10, `run_log.txt`, 12568 γρ., 0 ERR/FATAL/overflow):** no-regression (`truncated=false`, `baked=db−1`) · **trip:** db=757→889, `BUDGET cut` + warning ×2, `baked=450`/`os=450`/`truncated=true` αμφότερα (deterministic· μοναδικά WRN τα σχεδιασμένα) · loop ~18s/450 (O(n²) plugin — ο λόγος του cap) · day-rollover: code-verified (θέλει αύριο για device) → ✅ καλύφθηκε: ο μηχανισμός ξαναχτίστηκε (S236 έντιμοι counters· S242 incremental) και το day-rollover επαληθεύτηκε device (S243 Τ2, day+1 — `truncated=true`, invariant ✓, 0 ERR· έλεγχος parked 17/10/2026).
 
 **Backups:** `backups/perf_m3/` (5 files.pre, SHA πριν τα edits).
 
@@ -2790,7 +2790,7 @@
 - **Μ3-test:** extend υπάρχοντος (`osAlarmLimit` android+iOS via override+teardown).
 - **Μ4:** `_osCount/_truncated` (0 queries) + header-card (`DB/OS/limit` + περικοπή) · Windows-branch (S202 reuse).
 
-**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** (+2 νέα) · **device trip ✅ (15/10/2026, pid 19583, `run_log_m3.txt`):** `DONE db=527 baked=450 failed=0 skipped=0 cut=77 truncated=true os=450` (invariant `450+0+0+77=527` ✓) + `BUDGET cut` warning · **M4 ✅ (user verdict):** header `OS: 450/450` + «Περικοπή ενεργή — οι μακρινές μπαίνουν σταδιακά» (μετά από refresh ↻)· day-rollover + no-regression εκκρεμεί.
+**Επαλήθευση:** `analyze` clean · `flutter test` → **217/217** (+2 νέα) · **device trip ✅ (15/10/2026, pid 19583, `run_log_m3.txt`):** `DONE db=527 baked=450 failed=0 skipped=0 cut=77 truncated=true os=450` (invariant `450+0+0+77=527` ✓) + `BUDGET cut` warning · **M4 ✅ (user verdict):** header `OS: 450/450` + «Περικοπή ενεργή — οι μακρινές μπαίνουν σταδιακά» (μετά από refresh ↻)· day-rollover + no-regression ✅ ΚΑΛΥΦΘΗΚΕ (έλεγχος parked 17/10/2026 — S243 Τ2 day+1 με τον incremental S242: `truncated=true`, invariant ✓, 0 ERR).
 
 **Backups:** `backups/m3_budget/` (4 dart.pre + test.pre + DESIGN.pre + oldsessions.pre + BASE_HEAD `d55498d` — revert point).
 
@@ -2850,7 +2850,7 @@
 
 **Επόμενο session (ανοιχτά, 17/10/2026):**
 - S212-chain hardening (προτάθηκε, ΔΕΝ εγκρίθηκε υλοποίηση): timeout στα passes της `_queuedHabitPass` (σφήνα-για-πάντα → ηχηρό σφάλμα + ζωντανή αλυσίδα via `catchError`) + μόνιμα diagnostic logs (`pass queued/started`, `guard-skip`). Trigger του πρώτου wedge άγνωστο — το fix το καθιστά ακίνδυνο χωρίς να το κυνηγάει.
-- Συσκευή 9593c01e: ημερομηνία χειροκίνητη (αλλαγές +1/+1 για Τ2) — επαναφορά σε ΑΥΤΟΜΑΤΗ πριν κανονική χρήση.
+- ~~Συσκευή 9593c01e: ημερομηνία χειροκίνητη (αλλαγές +1/+1 για Τ2) — επαναφορά σε ΑΥΤΟΜΑΤΗ πριν κανονική χρήση.~~ — ✅ ΕΚΛΕΙΣΕ (user, 17/10/2026): επαναφέρθηκε στην ΑΥΤΟΜΑΤΗ (device-side ενέργεια, 0 κώδικα — έλεγχος parked).
 - Καθαρότητα: `lib/` committed (Β2.1 στο `97d1c86`)· temp-20 revert + debug-removal επαληθευμένα (`git diff lib/` κενό)· uncommitted μόνο build-artifacts (InstallerOutput exe, macos registrant).
 
 ## Session 244 — 16/10/2026 (S212-chain hardening — CLOSED)
