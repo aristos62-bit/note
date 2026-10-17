@@ -1,5 +1,4 @@
 // lib/services/habit_service.dart
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../helpers/super_note_helper.dart';
@@ -466,7 +465,7 @@ class HabitService {
       DebugConfig.db('🕒 Disabling reminders for habit $habitId');
       await props.delete(habitId, 'reminder_time');
       await props.delete(habitId, 'reminder_times');
-      await _queuedHabitPass(() => _clearHabitGenerated(habitId));
+      await _passQueue.run(() => _clearHabitGenerated(habitId));
     } else {
       DebugConfig.db(
           '🕒 Setting reminder for habit $habitId at ${time.hour}:${time.minute}');
@@ -647,29 +646,15 @@ class HabitService {
   /// υποκείμενο Isar/OS work) + μόνιμα queued/started/done logs.
   /// Σύμβαση ουράς: NEVER-THROW (όλα logάρονται εδώ· η αλυσίδα μένει
   /// ζωντανή· οι καλούντες προχωρούν — το resume-rebake δεν σκιπάρεται).
-  static const _habitPassTimeout = Duration(seconds: 60);
-  int _habitPassSeq = 0;
-  Future<void> _habitChain = Future<void>.value();
-
-  Future<void> _queuedHabitPass(Future<void> Function() task) {
-    final passId = ++_habitPassSeq;
-    DebugConfig.notif('HabitService.pass queued id=$passId');
-    final next = _habitChain.then((_) async {
-      DebugConfig.notif('HabitService.pass started id=$passId');
-      try {
-        await task().timeout(_habitPassTimeout);
-        DebugConfig.notif('HabitService.pass done id=$passId');
-      } catch (e, stack) {
-        if (e is TimeoutException) _lastTopUp = null; // retry, όχι guard-skip
-        DebugConfig.error('HabitService.pass FAILED id=$passId', e, stack);
-      }
-    });
-    _habitChain = next.catchError((_) {});
-    return next;
-  }
+  /// S246: η ουρά εξήχθη στο SPoT `SerialPassQueue` (core/utils) — ίδια
+  /// logs/timeout/συμπεριφορά· το timeout-reset της φρουράς → `onTimeout`.
+  final SerialPassQueue _passQueue = SerialPassQueue(
+    label: 'HabitService.pass',
+    onTimeout: () => _lastTopUp = null, // retry, όχι guard-skip
+  );
 
   Future<void> topUpHabitReminders({bool force = false}) =>
-      _queuedHabitPass(() => _topUpHabitRemindersImpl(force: force));
+      _passQueue.run(() => _topUpHabitRemindersImpl(force: force));
 
   Future<void> _topUpHabitRemindersImpl({bool force = false}) async {
     try {
@@ -840,7 +825,7 @@ class HabitService {
 
   Future<void> _scheduleReminders(
       int habitId, List<TimeOfDay> times, Recurrence recurrence) =>
-      _queuedHabitPass(
+      _passQueue.run(
           () => _scheduleRemindersImpl(habitId, times, recurrence));
 
   Future<void> _scheduleRemindersImpl(

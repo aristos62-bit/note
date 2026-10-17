@@ -227,25 +227,13 @@ class ReminderScheduler {
   // Σύμβαση: NEVER-THROW (όλα logάρονται εδώ· η αλυσίδα μένει ζωντανή·
   // οι 9 καλούντες προχωρούν — verified ένας-ένας, κανένας δεν εξαρτάται
   // από throw).
-  static const _refreshPassTimeout = Duration(seconds: 60);
-  int _refreshPassSeq = 0;
-  Future<void> _refreshChain = Future<void>.value();
+  // S246: η ουρά εξήχθη στο SPoT `SerialPassQueue` (core/utils) — ίδια
+  // logs/timeout/συμπεριφορά.
+  final SerialPassQueue _refreshQueue =
+      SerialPassQueue(label: 'ReminderScheduler.refresh');
 
-  Future<void> refreshRecurringReminders() {
-    final passId = ++_refreshPassSeq;
-    DebugConfig.notif('ReminderScheduler.refresh queued id=$passId');
-    final next = _refreshChain.then((_) async {
-      DebugConfig.notif('ReminderScheduler.refresh started id=$passId');
-      try {
-        await _refreshRecurringRemindersImpl().timeout(_refreshPassTimeout);
-        DebugConfig.notif('ReminderScheduler.refresh done id=$passId');
-      } catch (e, stack) {
-        DebugConfig.error('ReminderScheduler.refresh FAILED id=$passId', e, stack);
-      }
-    });
-    _refreshChain = next.catchError((_) {});
-    return next;
-  }
+  Future<void> refreshRecurringReminders() =>
+      _refreshQueue.run(_refreshRecurringRemindersImpl);
 
   Future<void> _refreshRecurringRemindersImpl() async {
     try {
