@@ -39,7 +39,7 @@
 
 ## 2. Χάρτης splits <500
 
-`settings 2816→6` (screen/tiles/dialogs/import/pin/colors)· `habit_detail 1874→5`· `entries 1776→list/detail/fields`· `contact_detail 1480→3`· `task_detail 1303→3`· `home 1253→3`· `event 916→2`· `journal_detail 914→2`· `appointment_detail 942→2`· `calendar 798→2`· `collection_detail 860→2`· `collections 673→2`· `search 695→2`· `folder_browser 768→2`· `trash 501→2` (οριακό)· `embedded 545→2`· `home_folder_view 570→2`.
+`settings 2816→6` (screen/tiles/dialogs/import/pin/colors)· `habit_detail 1874→5`· `entries 1776→list/detail/fields`· `contact_detail 1480→3`· `task_detail 1303→3`· `home 1253→3`· `event 916→2`· `journal_detail 914→2`· `appointment_detail 942→2`· `calendar 798→2`· `collection_detail 860→2`· `collections 673→2`· `search 695→2`· `folder_browser 768→2`· `trash 498` ✅ <500 (S251 — 0 ανάγκη split)· `embedded 545→2`· `home_folder_view 570→2`.
 
 ## 3. Κατάλογος bugs — ΕΠΑΛΗΘΕΥΜΕΝΟΣ (audit εναντίον τρέχοντος κώδικα)
 
@@ -156,38 +156,40 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 2. ✅ CLOSED 13/10/2026 (fixed S99 + device OK) — `habit_detail_screen`: `Container` → `Material` (ίδια χρώματα/radius/border).
 3. 🔜 Snooze UI + notification actions (μελλοντική ανάπτυξη, απόφαση 14/10/2026) — το `ReminderNotifier.snooze` δουλεύει (S52: pending + OS reschedule) αλλά δεν έχει κουμπί/μενού πουθενά· το `markSent` επίσης 0 callers (σκόπιμα κρατείται για μελλοντικό OS fire-callback — μην το σβήσεις). Εύρημα 14/10/2026: οι ειδοποιήσεις δεν έχουν action buttons (Αναβολή 10′ / Έγινε) — το `_details()` (`notification_service.dart:325-343`) δεν ορίζει Android `actions` ούτε iOS category, το `_onTap` αγνοεί `actionId`, το `_onBackgroundTap` είναι no-op. Θέλει spec (κουμπί σε ReminderSection; actions; iOS categories) + σχεδίαση background-tap (εκεί δεν υπάρχει Isar) + λειτουργικό τεστ + device matrix.
 
-4. S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): ✅ CLOSED 17/10/2026 (S250 — κώδικας + device ✅): race delete-χρήστη ↔ topUp → μερική διαγραφή (218/22) — σειριοποίηση wipe+soft/hard delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· 🔴 ανοιχτό: `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187).
-5. 🔴 postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) χωρίς timeout (repair/topUp/refresh καλύφθηκαν S244-S248 — εκτός scope τότε).
-6. 🟡 Grid auto-height (παλιό «parked Φ4c, για όλα μαζί») — αραιές κάρτες με fixed extents· πλήρης ανοσία μόνο με auto-height (πηγές oldsessions ~`:938,998,1246`).
+4. S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): ✅ CLOSED 17/10/2026 (S250 — κώδικας + device ✅): race delete-χρήστη ↔ topUp → μερική διαγραφή (218/22) — σειριοποίηση wipe+soft/hard delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· ✅ CLOSED 17/10/2026 (S251 — κώδικας + device ✅): `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187) — βλ. §8 P1#2.
+5. 🟠 Parked (S251): `settings_screen.dart` ×8 ίδια κλάση crash (setState-after-await χωρίς `mounted` guard), όλα `setModal`: reminders (`:501,:520`) · archived (`:1005,:1018,:1035,:1051`) · contacts (`:1757,:1769`). Ίδιο pattern με §8 P1#2 (`if (!mounted) return;`) — μικρό κόστος.
+6. 🔴 postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) χωρίς timeout (repair/topUp/refresh καλύφθηκαν S244-S248 — εκτός scope τότε).
+7. 🟡 Grid auto-height (παλιό «parked Φ4c, για όλα μαζί») — αραιές κάρτες με fixed extents· πλήρης ανοσία μόνο με auto-height (πηγές oldsessions ~`:938,998,1246`).
 
 ## 8. Κατάταξη ανοιχτών εκκρεμοτήτων (17/10/2026 — έλεγχος parked)
 
 > Πλήρης ιεραρχημένη λίστα όλων των ανοιχτών (P1→P5) — συγκεντρώνει §3.x/§7, supernote.md και oldsessions S229-S248. Δεν περιλαμβάνει ό,τι έκλεισε στον έλεγχο 17/10/2026 (9593c01e· day-rollover S229/S236).
-> Σύνολο 17→16 (P1#1 race ✅ CLOSED 17/10/2026 — S250): 2 κρίσιμες · 2 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
+> Σύνολο 16→16 (P1#2 ✅ CLOSED 17/10/2026 — S251· +1 νέο P2 settings): 1 κρίσιμη · 3 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
 
 ### 🔴 P1 — Κρίσιμες για σωστή λειτουργία (δικό τους session)
 1. ✅ CLOSED 17/10/2026 (S250 — κώδικας + device ✅) — **Race: delete-χρήστη ↔ topUp → μερική διαγραφή** (§7.4 · S234): σειριοποίηση wipe+item-delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· analyze clean + test 223/223· device matrix T1-T5+T3 OK (race αναπαράχθηκε & κλείνει με FIFO — oldsessions S250) · καταγραφή: oldsessions S250.
-2. **`_TrashScreenState` setState-after-dispose crash** (§7.4 · S234) — crash στην οθόνη κάδου (κλάση S85/S187)· fix-pattern `mounted` guards υπάρχει. Κόστος: μικρό (1 αρχείο).
-3. **postFrame δίχτυα: `purge` (`main:239`) + `scheduleAll` (`main:246`)** (§7.5) — τα 2 τελευταία βήματα χωρίς timeout· όλα τα αδέρφια θωρακίστηκαν S244-S248· το `scheduleAll` το βαρύτερο (loop ~18s/450, O(n²) plugin) → σιωπηλή καθυστέρηση/κόλλημα εκκίνησης. Κόστος: μικρό (pattern έτοιμο).
+2. ✅ CLOSED 17/10/2026 (S251 — κώδικας + device ✅) — **`_TrashScreenState` setState-after-dispose crash** (§7.4 · S234): 5/5 ακάλυπτες async ουρές → guarded tail `_clearSelectionAndRefresh()` (`if (!mounted) return;`) + capture `notifier` πριν το πρώτο await (4 σημεία) + tear-offs/αφαίρεση άχρηστων `allItems`· 1 αρχείο (`trash_screen.dart` 497→498, <500)· analyze clean + test 223/223· device **before-repro ✅** (`run_log_s251_t0c_pre.txt`: `setState() called after dispose(): _TrashScreenState` — `_clearSelection:62` ← `_restoreSingle:104`) → **after ✅ 0 crash** (`run_log_s251_t3c_post.txt`: pop 2.3s μετά την έναρξη, tail ~4.9s μετά το pop — 0 ERR/WRN). Καταγραφή: oldsessions S251.
+3. **postFrame δίχτυα: `purge` (`main:239`) + `scheduleAll` (`main:246`)** (§7.6) — τα 2 τελευταία βήματα χωρίς timeout· όλα τα αδέρφια θωρακίστηκαν S244-S248· το `scheduleAll` το βαρύτερο (loop ~18s/450, O(n²) plugin) → σιωπηλή καθυστέρηση/κόλλημα εκκίνησης. Κόστος: μικρό (pattern έτοιμο).
 
 ### 🟠 P2 — Σημαντικές (ποιότητα/αξιοπιστία)
 4. **a11y device pass** (§3.6:98 ⏳ · oldsessions ~`:882-892`) — ο κώδικας Semantics/48px γράφτηκε, επαλήθευση συσκευής ποτέ (TalkBack/48px/no-PII/flicker + touch 16-22px). Κόστος: 1 device pass (0 κώδικα εκτός ευρημάτων).
-5. **Grid auto-height (αντοχή max fontScale)** (§7.6 · πηγές ~`:938,998,1246`) — με max fontScale + 3 πεδία (~153px) τα fixed κελιά οριακά → περικοπές/whitespace· λύση «για όλα τα grids μαζί». Κόστος: 1 session.
+5. **Settings ×8 setState-after-await χωρίς guard** (§7.5 · S251) — ίδια κλάση crash με P1#2, σε `setModal` (reminders/archived/contacts). Fix-pattern έτοιμο. Κόστος: μικρό (1 αρχείο).
+6. **Grid auto-height (αντοχή max fontScale)** (§7.7 · πηγές ~`:938,998,1246`) — με max fontScale + 3 πεδία (~153px) τα fixed κελιά οριακά → περικοπές/whitespace· λύση «για όλα τα grids μαζί». Κόστος: 1 session.
 
 ### 🟡 P3 — Feature/βελτιώσεις (αποφασισμένες «μελλοντικές»)
-6. **Snooze UI + notification actions** (§7.3 🔜) — μηχανισμός έτοιμος, χωρίς κουμπί/actions (απόφαση 14/10)· θέλει spec πρώτα. Κόστος: μεγάλο.
-7. **Β2.3 title/body σύγκριση** (S242) — καθαρά optimization (μειώνει rebakes)· self-heal καλύπτει. Κόστος: μικρό-μεσαίο.
-8. **Ενοποιημένο DetailAppBar** (§7.1) — hygiene, μηδενικός λειτουργικός αντίκτυπος. Κόστος: μεσαίο.
+7. **Snooze UI + notification actions** (§7.3 🔜) — μηχανισμός έτοιμος, χωρίς κουμπί/actions (απόφαση 14/10)· θέλει spec πρώτα. Κόστος: μεγάλο.
+8. **Β2.3 title/body σύγκριση** (S242) — καθαρά optimization (μειώνει rebakes)· self-heal καλύπτει. Κόστος: μικρό-μεσαίο.
+9. **Ενοποιημένο DetailAppBar** (§7.1) — hygiene, μηδενικός λειτουργικός αντίκτυπος. Κόστος: μεσαίο.
 
 ### ⚪ P4 — Micros/καθαριότητα (batch, μη λειτουργικά)
-9. `take(10)` magic (`item_provider:443`).
-10. §3.8 εκκρεμή χωρίς επαλήθευση: `if(!mounted)return` κενό · `✓` αντί `Icon` · `day/month/year` αντί intl · `DateTime.now()` σε build · `O(n²) block_editor` · `BlockTileWidget Stateful` (`:146-170`) · delete πάντα ορατό · `types` `📅` (`folder_create_sheet:28,33`) · stats journal/appointment (ασαφές) · `Colors.white/black`.
-11. Stale scaffolding TODOs ×7 σε `models/` (`// TODO: Σελίδα προς Ανάπτυξη`) — απόφαση: διαγραφή ή υλοποίηση.
-12. Accepted-by-design (0 κώδικα): `collection_detail` dialog-ctrls (§3.5:85) · main `0xFF1E1E2E` ×2 (§3.6:92).
+10. `take(10)` magic (`item_provider:443`).
+11. §3.8 εκκρεμή χωρίς επαλήθευση: `if(!mounted)return` κενό · `✓` αντί `Icon` · `day/month/year` αντί intl · `DateTime.now()` σε build · `O(n²) block_editor` · `BlockTileWidget Stateful` (`:146-170`) · delete πάντα ορατό · `types` `📅` (`folder_create_sheet:28,33`) · stats journal/appointment (ασαφές) · `Colors.white/black`.
+12. Stale scaffolding TODOs ×7 σε `models/` (`// TODO: Σελίδα προς Ανάπτυξη`) — απόφαση: διαγραφή ή υλοποίηση.
+13. Accepted-by-design (0 κώδικα): `collection_detail` dialog-ctrls (§3.5:85) · main `0xFF1E1E2E` ×2 (§3.6:92).
 
 ### 💤 P5 — By-design / ασαφή / πιθανόν obsolete (καμία ενέργεια)
-13. iOS parked ×2 (supernote `:474,493`) — Android-first.
-14. 6-actions overflow (note_detail) — watch-only.
-15. Zombie-overlap residual (S245) — αποδεκτός συμβιβασμός (dedup guards).
-16. Αρχαίες σημειώσεις S~92 (oldsessions `:801`): SnackBar-orphan · stats/search-project — πιθανόν obsolete.
-17. «reorder/dots/counts — θέλουν spec» (παλιό a11y session) — ασαφές.
+14. iOS parked ×2 (supernote `:474,493`) — Android-first.
+15. 6-actions overflow (note_detail) — watch-only.
+16. Zombie-overlap residual (S245) — αποδεκτός συμβιβασμός (dedup guards).
+17. Αρχαίες σημειώσεις S~92 (oldsessions `:801`): SnackBar-orphan · stats/search-project — πιθανόν obsolete.
+18. «reorder/dots/counts — θέλουν spec» (παλιό a11y session) — ασαφές.

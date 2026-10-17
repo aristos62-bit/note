@@ -2994,3 +2994,30 @@
 **code_refactor.md:** §7.4:④ race ✅ CLOSED (μένει 🔴 μόνο το `_TrashScreenState` crash)· §8 P1#1 ✅ CLOSED (σύνολο 17→16).
 
 **Επόμενο session (φρέσκο — επιλογή χρήστη από την §8):** P1 ② `_TrashScreenState` crash · ③ postFrame δίχτυα (`purge`/`scheduleAll`) · P2: a11y device pass · grid auto-height.
+
+## Session 251 — 17/10/2026 (P1#2: `_TrashScreenState` setState-after-dispose crash — κώδικας + before/after device ✅)
+
+**Scope (κανόνες 2+4 ανεσταλμένοι από τον χρήστη, edit-tool only):** P1#2 από `code_refactor.md` §8 — crash κλάσης S85/S187 (`setState()` μετά από await σε unmounted State, οθόνη Κάδου), εύρημα S234. 1 αρχείο (`trash_screen.dart`), 0 νέα public APIs/strings/imports/tests.
+
+**Αλλαγές (`trash_screen.dart` 497→498, R1 <500 ✅):**
+- Νέα `_clearSelectionAndRefresh()` (`:67-72`): `if (!mounted) return; _clearSelection(); ref.invalidate(trashedItemsStreamProvider);` — κοινό guarded tail μετά από await.
+- **5/5** ακάλυπτες async ουρές → guarded tail: `_restoreSelected:87` · `_permanentDeleteSelected:102` · `_restoreSingle:107` · `_permanentDeleteSingle:119` · άδειασμα κάδου `:187`.
+- Capture `final notifier = ref.read(itemNotifierProvider.notifier);` **πριν** το πρώτο await ×4: 2 batch (`:84`,`:100`) + `_permanentDeleteSingle` (`:119`) + άδειασμα (`:184`) — κανένα `ref.read` μετά από await.
+- Inline `_selectedIds.toList()` στο `for` (απορρόφηση `idsToRestore/idsToDelete`), tear-offs `onPressed: _restoreSelected`/`_permanentDeleteSelected` (`:165`,`:170`), αφαίρεση άχρηστων παραμέτρων `allItems`.
+- 5 νόμιμα `_clearSelection()` που έμειναν (sync — χωρίς await πριν): `:40` (debounce timer, cancelled στο dispose) · `:131` (folder change) · `:242` (RefreshIndicator) · `:249` (retry) + το εσωτερικό του helper.
+- Λειτουργική μοναδική διαφορά: όταν η οθόνη έχει unmounted, το UI tail **σκιπάρεται** (0 crash)· το DB/notifier work ολοκληρώνεται κανονικά (το `ref.invalidate` περιττό όταν unmounted — Isar watch).
+
+**Αποτέλεσμα:** `flutter analyze --no-pub` → **No issues found!** (4.2s) · `flutter test` → **223/223** (0 νέα tests, 0 σπασμένα — 0 hits `Trash|trash` στο `test/**`) · γραμμές **498** (το split §2 `trash` δεν χρειάζεται πλέον).
+
+**Device before/after ✅ (17/10/2026 — in-place `adb install -r` app-debug, 0 uninstall, 0 μόνιμες αλλαγές δεδομένων πέραν των test items):**
+- **Before (αδιόρθωτο build):** **T0a** (single restore, 1 στοιχείο χωρίς συνήθειες) **δεν** αναπαρήχθη — `restoreItem` 11ms vs back στα +382ms (χρειάζεται op > back+300ms = `AppDuration.page`). **T0c** με 1 δοκιμαστική συνήθεια (2 ώρες/ημέρα → 180 rows): **crash αναπαράχθηκε** → `run_log_s251_t0c_pre.txt`: `Unhandled Exception: setState() called after dispose(): _TrashScreenState#7592f (lifecycle state: defunct, not mounted)` — stack `_clearSelection (trash_screen.dart:62)` ← `_restoreSingle (trash_screen.dart:104)`· pop 19:52:10.465 / crash 19:52:16.091 / `topUp created=180 took=6930ms`.
+- **After (διορθωμένο build):** **T4** = κανονική επαναφορά (χωρίς back) ✅ ολοκληρώθηκε (`created=180 took=6636ms` + `restoreItem → rescheduled`) · **T3c** = επαναφορά + αμέσως back (ίδιο προφίλ με T0c: pop στα +2.3s, tail στα +4.9s μετά το pop) → **0 crash** (`run_log_s251_t3c_post.txt`) · **T5** = οριστική διαγραφή + αμέσως back ✅ (καθαρισμός habit 443) · **batch** = 3 items → ομαδική οριστική διαγραφή (444/445/446) με pop στη μέση ✅ ολοκληρώθηκαν και τα 3.
+- **44441 γραμμές logcat: 0** `setState() called after dispose` / `EXCEPTION CAUGHT` / `FATAL EXCEPTION` / `Cannot use ref` / `E/flutter` · 0 `ERR |` · 0 `WRN |`. Test data καθαρίστηκε (443-446 οριστικά διαγραμμένα).
+
+**Backups:** `backups/p1_2_trash_crash/` (trash_screen.pre `50511BC2` + code_refactor.pre `3ED1ED20` + oldsessions.pre `E4C19F34` + BASE_HEAD `84325c2` + GIT_STATUS.pre) · logs `run_log_s251_t0_pre.txt` / `run_log_s251_t0c_pre.txt` / `run_log_s251_t3c_post.txt`.
+
+**supernote.md:** καμία αλλαγή (0 αλλαγή layers/ουρών/API — guarded tail, όχι αρχιτεκτονική).
+
+**code_refactor.md:** §2 `trash 501→2` → `trash 498 ✅ <500` (split περιττό) · §7.4 ✅ CLOSED + νέο parked §7.5 (settings ×8 `setModal` setState-after-await) + renumber §7.6/§7.7 · §8 P1#2 ✅ CLOSED (σύνολο 16→16· +1 νέο P2 settings → 1 κρίσιμη · 3 σημαντικές).
+
+**Επόμενο session (επιλογή χρήστη από την §8):** P1 ③ postFrame δίχτυα (`purge`/`scheduleAll`) · P2: settings ×8 `setModal` guards · a11y device pass · grid auto-height.
