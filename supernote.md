@@ -248,7 +248,7 @@ lib/
 - **Code generation**: Isar models + annotations παράγουν `*.g.dart` (εξαιρούνται από τον analyzer στο `analysis_options.yaml`).
 - **Soft delete**: `Item.deletedAt` — ποτέ hard delete στην κανονική ροή (hard delete υπάρχει μόνο για τον κάδο).
 - **Sync-ready**: `Item.isDirty`, `Item.localVersion`, `Item.serverVersion`, `Item.syncedAt`.
-- **Σειριοποίηση passes** (S246): `SerialPassQueue` — κοινός κώδικας, **ΠΟΤΕ κοινή ουρά** (2 ξεχωριστά instances: `HabitService.pass`, `ReminderScheduler.refresh`).
+- **Σειριοποίηση passes** (S246/S248): `SerialPassQueue` — κοινός κώδικας, **ΠΟΤΕ κοινή ουρά** (3 ξεχωριστά instances: `HabitService.pass`, `HabitService.repair`, `ReminderScheduler.refresh`).
 
 ### Κανόνες ανάπτυξης (R1–R6)
 
@@ -448,7 +448,7 @@ final db = SuperNoteHelper.instance;
 - Streak calculation: `_calculateStreak()`, `_countCompletedPeriods()`
 - Period awareness: respects recurrence type (daily/weekly/monthly/yearly)
 - Scheduling ownership (S61): habits έχουν δικό τους scheduling — ώρες (`reminder_time(s)`) → one-shots 60d· καμπάνα (`ReminderSection`) απενεργοποιημένη σε detail+list· `refreshRecurringReminders` σκιπάρει habits
-- `generatedTitle` = «Υπενθύμιση συνήθειας» (διαχωρισμός από bell τίτλο)· `syncScheduleWithRecurrence`· `topUpHabitReminders` (10min guard, opt-in, postFrame)· `repairLegacyHabitRows` (idempotent)· selective wipe
+- `generatedTitle` = «Υπενθύμιση συνήθειας» (διαχωρισμός από bell τίτλο)· `syncScheduleWithRecurrence`· `topUpHabitReminders` (10min guard, opt-in, postFrame)· `repairLegacyHabitRows` (idempotent · δικό του pass — S248)· selective wipe
 - Ώρες weekly/monthly (S62): `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις)
 
 ### ContactImportService (`lib/services/contact_import_service.dart`)

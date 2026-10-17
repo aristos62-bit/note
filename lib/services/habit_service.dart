@@ -522,7 +522,7 @@ class HabitService {
   }
 
   // ──────────────────────────────────────────────────────────
-  // HABIT SCHEDULING — native ownership (βλ. DESIGN.md Session 61)
+  // HABIT SCHEDULING — native ownership (βλ. supernote.md S61)
   // Αγγίζονται ΜΟΝΟ habit-generated rows (title == generatedTitle)·
   // τα generic bell rows (title 'Υπενθύμιση') δεν διαγράφονται ποτέ.
   // ──────────────────────────────────────────────────────────
@@ -653,6 +653,14 @@ class HabitService {
     onTimeout: () => _lastTopUp = null, // retry, όχι guard-skip
   );
 
+  /// S248: one-shot repair pass (cold start) — ΔΙΚΟ του instance του SPoT.
+  /// ΠΟΤΕ κοινό chain με `_passQueue`: το impl καλεί
+  /// `syncScheduleWithRecurrence` → `_passQueue.run` (self-wait trap).
+  /// Χωρίς onTimeout (χωρίς guard) — 60s fail-open + μόνιμα logs.
+  final SerialPassQueue _repairQueue = SerialPassQueue(
+    label: 'HabitService.repair',
+  );
+
   Future<void> topUpHabitReminders({bool force = false}) =>
       _passQueue.run(() => _topUpHabitRemindersImpl(force: force));
 
@@ -746,7 +754,13 @@ class HabitService {
 
   /// One-shot repair προ-51 ψευδο-roots (rrule + parent null σε habits).
   /// Idempotent: χωρίς ψευδο-roots κάνει τίποτα.
-  Future<void> repairLegacyHabitRows() async {
+  ///
+  /// S248: ο δημόσιος δρόμος περνά από το `_repairQueue` (SPoT) — fail-open
+  /// 60s + μόνιμα queued/started/done/FAILED logs.
+  Future<void> repairLegacyHabitRows() =>
+      _repairQueue.run(_repairLegacyHabitRowsImpl);
+
+  Future<void> _repairLegacyHabitRowsImpl() async {
     try {
       final helper = SuperNoteHelper.instance;
       var repaired = 0;
