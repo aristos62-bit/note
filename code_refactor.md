@@ -158,18 +158,20 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 
 4. S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): ✅ CLOSED 17/10/2026 (S250 — κώδικας + device ✅): race delete-χρήστη ↔ topUp → μερική διαγραφή (218/22) — σειριοποίηση wipe+soft/hard delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· ✅ CLOSED 17/10/2026 (S251 — κώδικας + device ✅): `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187) — βλ. §8 P1#2.
 5. 🟠 Parked (S251): `settings_screen.dart` ×8 ίδια κλάση crash (setState-after-await χωρίς `mounted` guard), όλα `setModal`: reminders (`:501,:520`) · archived (`:1005,:1018,:1035,:1051`) · contacts (`:1757,:1769`). Ίδιο pattern με §8 P1#2 (`if (!mounted) return;`) — μικρό κόστος.
-6. 🔴 postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) χωρίς timeout (repair/topUp/refresh καλύφθηκαν S244-S248 — εκτός scope τότε).
+6. ✅ CLOSED 17/10/2026 (S252 — κώδικας ✅· analyze clean + test 223/223) — postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) → SPoT `SerialPassQueue` per-concern instances (`ReminderScheduler.bake`, `ReminderScheduler.purge`, fail-open 60s, NEVER-THROW)· 0 αλλαγές `main`· βλ. §8 P1#3.
 7. 🟡 Grid auto-height (παλιό «parked Φ4c, για όλα μαζί») — αραιές κάρτες με fixed extents· πλήρης ανοσία μόνο με auto-height (πηγές oldsessions ~`:938,998,1246`).
+
+8. ⚪ Micros (P4, docs-only — S252 re-check): **F2** `settings_provider:87` — OFF path `cancelAll()` bypass την ουρά (προϋπάρχον race, self-heal)· **F3** `main:210` `settings.get()` + `main:224` `requestPermission()` — awaited postFrame χωρίς δίχτυ (πρότυπο `.timeout(5s)` υπάρχει ήδη: `main:376/402`)· **F4** `item_provider` `rescheduleForItem` ×6 (`:199/203/214/275/337/341`) — awaited UI flows χωρίς timeout (S234 residual).
 
 ## 8. Κατάταξη ανοιχτών εκκρεμοτήτων (17/10/2026 — έλεγχος parked)
 
 > Πλήρης ιεραρχημένη λίστα όλων των ανοιχτών (P1→P5) — συγκεντρώνει §3.x/§7, supernote.md και oldsessions S229-S248. Δεν περιλαμβάνει ό,τι έκλεισε στον έλεγχο 17/10/2026 (9593c01e· day-rollover S229/S236).
-> Σύνολο 16→16 (P1#2 ✅ CLOSED 17/10/2026 — S251· +1 νέο P2 settings): 1 κρίσιμη · 3 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
+> Σύνολο 16→15 (P1#3 ✅ CLOSED 17/10/2026 — S252): 0 κρίσιμες · 3 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
 
 ### 🔴 P1 — Κρίσιμες για σωστή λειτουργία (δικό τους session)
 1. ✅ CLOSED 17/10/2026 (S250 — κώδικας + device ✅) — **Race: delete-χρήστη ↔ topUp → μερική διαγραφή** (§7.4 · S234): σειριοποίηση wipe+item-delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· analyze clean + test 223/223· device matrix T1-T5+T3 OK (race αναπαράχθηκε & κλείνει με FIFO — oldsessions S250) · καταγραφή: oldsessions S250.
 2. ✅ CLOSED 17/10/2026 (S251 — κώδικας + device ✅) — **`_TrashScreenState` setState-after-dispose crash** (§7.4 · S234): 5/5 ακάλυπτες async ουρές → guarded tail `_clearSelectionAndRefresh()` (`if (!mounted) return;`) + capture `notifier` πριν το πρώτο await (4 σημεία) + tear-offs/αφαίρεση άχρηστων `allItems`· 1 αρχείο (`trash_screen.dart` 497→498, <500)· analyze clean + test 223/223· device **before-repro ✅** (`run_log_s251_t0c_pre.txt`: `setState() called after dispose(): _TrashScreenState` — `_clearSelection:62` ← `_restoreSingle:104`) → **after ✅ 0 crash** (`run_log_s251_t3c_post.txt`: pop 2.3s μετά την έναρξη, tail ~4.9s μετά το pop — 0 ERR/WRN). Καταγραφή: oldsessions S251.
-3. **postFrame δίχτυα: `purge` (`main:239`) + `scheduleAll` (`main:246`)** (§7.6) — τα 2 τελευταία βήματα χωρίς timeout· όλα τα αδέρφια θωρακίστηκαν S244-S248· το `scheduleAll` το βαρύτερο (loop ~18s/450, O(n²) plugin) → σιωπηλή καθυστέρηση/κόλλημα εκκίνησης. Κόστος: μικρό (pattern έτοιμο).
+3. ✅ CLOSED 17/10/2026 (S252 — κώδικας ✅ + analyze/test ✅) — **postFrame δίχτυα: `purge` (`main:239`) + `scheduleAll` (`main:246`)** (§7.6): 2 SPoT instances (`ReminderScheduler.bake`/`.purge`, fail-open 60s, NEVER-THROW, per-pass — ΠΟΤΕ κοινή ουρά)· 1 αρχείο (`reminder_scheduler.dart` 862→883), 0 αλλαγές `main`/APIs/imports/tests· bonus: καλύπτει και τα `cancelAll()`/`pendingNotificationRequests()` της ίδιας μεθόδου (supernote §Error Handling, S252). Micros F2/F3/F4 → §7.8. Device: matrix T1-T5 έτοιμο (εκτέλεση χρήστη· oldsessions S252).
 
 ### 🟠 P2 — Σημαντικές (ποιότητα/αξιοπιστία)
 4. **a11y device pass** (§3.6:98 ⏳ · oldsessions ~`:882-892`) — ο κώδικας Semantics/48px γράφτηκε, επαλήθευση συσκευής ποτέ (TalkBack/48px/no-PII/flicker + touch 16-22px). Κόστος: 1 device pass (0 κώδικα εκτός ευρημάτων).
@@ -182,6 +184,7 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 9. **Ενοποιημένο DetailAppBar** (§7.1) — hygiene, μηδενικός λειτουργικός αντίκτυπος. Κόστος: μεσαίο.
 
 ### ⚪ P4 — Micros/καθαριότητα (batch, μη λειτουργικά)
+> S252 (re-check): νέα micros → §7.8 — F2 (OFF `cancelAll` bypass ουράς) · F3 (`main:210/224` χωρίς δίχτυ) · F4 (`rescheduleForItem` ×6 χωρίς timeout).
 10. `take(10)` magic (`item_provider:443`).
 11. §3.8 εκκρεμή χωρίς επαλήθευση: `if(!mounted)return` κενό · `✓` αντί `Icon` · `day/month/year` αντί intl · `DateTime.now()` σε build · `O(n²) block_editor` · `BlockTileWidget Stateful` (`:146-170`) · delete πάντα ορατό · `types` `📅` (`folder_create_sheet:28,33`) · stats journal/appointment (ασαφές) · `Colors.white/black`.
 12. Stale scaffolding TODOs ×7 σε `models/` (`// TODO: Σελίδα προς Ανάπτυξη`) — απόφαση: διαγραφή ή υλοποίηση.
