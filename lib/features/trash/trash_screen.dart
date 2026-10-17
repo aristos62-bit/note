@@ -64,7 +64,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     });
   }
 
-  Future<void> _restoreSelected(List<Item> allItems) async {
+  /// Guard μετά από await: καθαρισμός επιλογής + refresh ΜΟΝΟ αν mounted (S234).
+  void _clearSelectionAndRefresh() {
+    if (!mounted) return;
+    _clearSelection();
+    ref.invalidate(trashedItemsStreamProvider);
+  }
+
+  Future<void> _restoreSelected() async {
     if (_selectedIds.isEmpty) return;
     final confirm = await ConfirmDialog.show(
       context,
@@ -73,16 +80,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       confirmLabel: 'Επαναφορά',
     );
     if (!confirm) return;
-
-    final idsToRestore = _selectedIds.toList();
-    for (final id in idsToRestore) {
-      await ref.read(itemNotifierProvider.notifier).restoreItem(id);
+    final notifier = ref.read(itemNotifierProvider.notifier);
+    for (final id in _selectedIds.toList()) {
+      await notifier.restoreItem(id);
     }
-    _clearSelection();
-    ref.invalidate(trashedItemsStreamProvider);
+    _clearSelectionAndRefresh();
   }
 
-  Future<void> _permanentDeleteSelected(List<Item> allItems) async {
+  Future<void> _permanentDeleteSelected() async {
     if (_selectedIds.isEmpty) return;
     final confirm = await ConfirmDialog.delete(
       context,
@@ -90,19 +95,16 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       subtitle: 'Θα διαγραφούν οριστικά ${_selectedIds.length} στοιχεία.',
     );
     if (!confirm) return;
-
-    final idsToDelete = _selectedIds.toList();
-    for (final id in idsToDelete) {
-      await ref.read(itemNotifierProvider.notifier).permanentDelete(id);
+    final notifier = ref.read(itemNotifierProvider.notifier);
+    for (final id in _selectedIds.toList()) {
+      await notifier.permanentDelete(id);
     }
-    _clearSelection();
-    ref.invalidate(trashedItemsStreamProvider);
+    _clearSelectionAndRefresh();
   }
 
   Future<void> _restoreSingle(Item item) async {
     await ref.read(itemNotifierProvider.notifier).restoreItem(item.id);
-    _clearSelection();
-    ref.invalidate(trashedItemsStreamProvider);
+    _clearSelectionAndRefresh();
   }
 
   Future<void> _permanentDeleteSingle(Item item) async {
@@ -112,9 +114,9 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       subtitle: 'Η ενέργεια δεν μπορεί να αναιρεθεί.',
     );
     if (!confirm) return;
-    await ref.read(itemNotifierProvider.notifier).permanentDelete(item.id);
-    _clearSelection();
-    ref.invalidate(trashedItemsStreamProvider);
+    final notifier = ref.read(itemNotifierProvider.notifier);
+    await notifier.permanentDelete(item.id);
+    _clearSelectionAndRefresh();
   }
 
   @override
@@ -158,12 +160,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
             IconButton(
               icon: Icon(Icons.restore_rounded, color: context.cSuccess),
               tooltip: 'Επαναφορά επιλεγμένων',
-              onPressed: () => _restoreSelected(trashedAsync.valueOrNull ?? []),
+              onPressed: _restoreSelected,
             ),
             IconButton(
               icon: Icon(Icons.delete_forever_rounded, color: context.cError),
               tooltip: 'Οριστική διαγραφή επιλεγμένων',
-              onPressed: () => _permanentDeleteSelected(trashedAsync.valueOrNull ?? []),
+              onPressed: _permanentDeleteSelected,
             ),
           ],
           // Empty trash (always visible)
@@ -177,13 +179,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                 subtitle: 'Όλα τα στοιχεία θα διαγραφούν οριστικά.',
               );
               if (!confirm) return;
+              final notifier = ref.read(itemNotifierProvider.notifier);
               final trashed = trashedAsync.valueOrNull ?? [];
               for (final item in trashed) {
-                await ref.read(itemNotifierProvider.notifier)
-                    .permanentDelete(item.id);
+                await notifier.permanentDelete(item.id);
               }
-              _clearSelection();
-              ref.invalidate(trashedItemsStreamProvider);
+              _clearSelectionAndRefresh();
             },
           ),
         ],
