@@ -2942,3 +2942,24 @@
 **Backups:** `backups/repair_timeout/` (habit_service.pre `6BF39292` + supernote.pre `2E6C925C` + oldsessions.pre `6F14DB5E`, BASE `f8914a2`).
 
 **supernote.md:** ενημερώθηκε (αρχιτεκτονική — `:251` 3 instances + S248 · `:451` repair: δικό του pass).
+
+## Session 249 — 17/10/2026 (Έλεγχος parked items — κλείσιμο stale καταγραφών + §8 κατάταξη P1→P5)
+
+**Scope (edit-tool only — 0 αλλαγές κώδικα, 0 tests/analyze λόγω docs-only):** εντοπισμός «parked» καταγραφών που είχαν ήδη υλοποιηθεί/κλείσει αλλά συνέχιζαν να φαίνονται ανοιχτές (αίτημα χρήστη· αφορμή: συσκευή 9593c01e — η επαναφορά ημερομηνίας είχε ήδη γίνει). Έλεγχος (read-only): `code_refactor.md` (markers 🟡/⏳/🔜 + §3.8), `supernote.md` (parked ×2 iOS), oldsessions S229→S248 + grep spot-checks στον τρέχοντα κώδικα (και TODO/FIXME ×7 models).
+
+**Ευρήματα-κλειδιά:** 9593c01e ✅ done (μόνο εκεί φαινόταν ανοιχτό — κανένα κλείσιμο πουθενά)· S229/S236 day-rollover «εκκρεμεί/θέλει αύριο» → καλύφθηκε από S243 Τ2· §3.8: 10+ items ήδη υλοποιημένα (select((v)=>v)· _green 0xFF4CAF50· _ToggleButton→ViewModeToggle· autofocus→focusNode· showArchived φίλτρο· providers μεταφορά· settings FutureBuilder batch· trash retry· use_build_context_synchronously)· πραγματικά ανοιχτά = 17 (καταγεγραμμένα στην §8)· τα εκτός-tracker ευρήματα (S234 findings, postFrame δίχτυα, grid auto-height) καταχωρήθηκαν στην §7.
+
+**Υλοποίηση (5 σημεία, 2 αρχεία md):**
+- `oldsessions.md:2853` — 9593c01e: strikethrough + `✅ ΕΚΛΕΙΣΕ (user, 17/10/2026)` (device-side, 0 κώδικα).
+- `oldsessions.md:2523` (S229) + `:2793` (S236) — day-rollover σημειώσεις → `✅ καλύφθηκε` (S236 έντιμοι counters· S242 incremental· S243 Τ2 device).
+- `code_refactor.md §3.8` — ανανεώθηκε: `✅ CLOSED (spot-verified)` vs `🟡 εκκρεμή/χωρίς επαλήθευση`.
+- `code_refactor.md §7` — +items 4-6 (S234 findings · postFrame δίχτυα purge/scheduleAll · grid auto-height).
+- `code_refactor.md §8 (νέο)` — «Κατάταξη ανοιχτών εκκρεμοτήτων» P1→P5 (17 items· βλ. παρακάτω).
+
+**Επαλήθευση:** re-read όλων των σημείων μετά τα edits · `git diff` = μόνο 2 md (0 κώδικα) · 2 commits pushed: `5884c9b` (closure notes + §3.8/§7 refresh) · `0a7ebd4` (§8) — main σε sync με origin.
+
+**Backups:** `backups/parked_audit/` (oldsessions.pre `16C5E34A` + code_refactor.pre `9E99C83A`, BASE `be7d834`) · `backups/open_items_list/` (code_refactor.pre `5BC54432`, BASE `5884c9b`) · `backups/close_s249/` (oldsessions.pre `ED9DED0D`, BASE `0a7ebd4`).
+
+**supernote.md/DESIGN.md:** καμία αλλαγή (docs-only).
+
+**Επόμενο session (φρέσκο — επιλογή χρήστη από την §8):** P1 ① delete↔topUp race · ② `_TrashScreenState` crash · ③ postFrame δίχτυα (`purge`/`scheduleAll`) · P2: a11y device pass · grid auto-height.
