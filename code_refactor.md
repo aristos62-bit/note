@@ -156,17 +156,17 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 2. ✅ CLOSED 13/10/2026 (fixed S99 + device OK) — `habit_detail_screen`: `Container` → `Material` (ίδια χρώματα/radius/border).
 3. 🔜 Snooze UI + notification actions (μελλοντική ανάπτυξη, απόφαση 14/10/2026) — το `ReminderNotifier.snooze` δουλεύει (S52: pending + OS reschedule) αλλά δεν έχει κουμπί/μενού πουθενά· το `markSent` επίσης 0 callers (σκόπιμα κρατείται για μελλοντικό OS fire-callback — μην το σβήσεις). Εύρημα 14/10/2026: οι ειδοποιήσεις δεν έχουν action buttons (Αναβολή 10′ / Έγινε) — το `_details()` (`notification_service.dart:325-343`) δεν ορίζει Android `actions` ούτε iOS category, το `_onTap` αγνοεί `actionId`, το `_onBackgroundTap` είναι no-op. Θέλει spec (κουμπί σε ReminderSection; actions; iOS categories) + σχεδίαση background-tap (εκεί δεν υπάρχει Isar) + λειτουργικό τεστ + device matrix.
 
-4. 🔴 S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): delete-χρήστη ταυτόχρονα με topUp → μερική διαγραφή (218 σβησμένα/22 έμειναν, topUp ξανάφτιαχνε) — χρειάζεται σειριοποίηση/back-guard· `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187).
+4. S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): ✅ CLOSED 17/10/2026 (S250 — κώδικας· device ⏳): race delete-χρήστη ↔ topUp → μερική διαγραφή (218/22) — σειριοποίηση wipe+soft/hard delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· 🔴 ανοιχτό: `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187).
 5. 🔴 postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) χωρίς timeout (repair/topUp/refresh καλύφθηκαν S244-S248 — εκτός scope τότε).
 6. 🟡 Grid auto-height (παλιό «parked Φ4c, για όλα μαζί») — αραιές κάρτες με fixed extents· πλήρης ανοσία μόνο με auto-height (πηγές oldsessions ~`:938,998,1246`).
 
 ## 8. Κατάταξη ανοιχτών εκκρεμοτήτων (17/10/2026 — έλεγχος parked)
 
 > Πλήρης ιεραρχημένη λίστα όλων των ανοιχτών (P1→P5) — συγκεντρώνει §3.x/§7, supernote.md και oldsessions S229-S248. Δεν περιλαμβάνει ό,τι έκλεισε στον έλεγχο 17/10/2026 (9593c01e· day-rollover S229/S236).
-> Σύνολο 17: 3 κρίσιμες · 2 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
+> Σύνολο 17→16 (P1#1 race ✅ CLOSED 17/10/2026 — S250): 2 κρίσιμες · 2 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
 
 ### 🔴 P1 — Κρίσιμες για σωστή λειτουργία (δικό τους session)
-1. **Race: delete-χρήστη ↔ topUp → μερική διαγραφή** (§7.4 · S234) — διαγραφή μπορεί να μείνει μισή (218 σβησμένα/22 έμειναν) και το topUp ξαναφτιάχνει μέρος· ακεραιότητα δεδομένων + σιωπηλή αποτυχία. Χρειάζεται σειριοποίηση ή back-guard. Κόστος: 1 session (design+fix+device).
+1. ✅ CLOSED 17/10/2026 (S250 — κώδικας· device ⏳) — **Race: delete-χρήστη ↔ topUp → μερική διαγραφή** (§7.4 · S234): σειριοποίηση wipe+item-delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· analyze clean + test 223/223· καταγραφή: oldsessions S250.
 2. **`_TrashScreenState` setState-after-dispose crash** (§7.4 · S234) — crash στην οθόνη κάδου (κλάση S85/S187)· fix-pattern `mounted` guards υπάρχει. Κόστος: μικρό (1 αρχείο).
 3. **postFrame δίχτυα: `purge` (`main:239`) + `scheduleAll` (`main:246`)** (§7.5) — τα 2 τελευταία βήματα χωρίς timeout· όλα τα αδέρφια θωρακίστηκαν S244-S248· το `scheduleAll` το βαρύτερο (loop ~18s/450, O(n²) plugin) → σιωπηλή καθυστέρηση/κόλλημα εκκίνησης. Κόστος: μικρό (pattern έτοιμο).
 

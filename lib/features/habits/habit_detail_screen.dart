@@ -6,7 +6,6 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/habit_service.dart';
-import '../../services/reminder_scheduler.dart';
 import '../../shared/widgets/widgets.dart';
 
 // ════════════════════════════════════════════════════════════════
@@ -134,9 +133,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
     final ok =
         await ConfirmDialog.delete(context, title: 'Διαγραφή συνήθειας;');
     if (!ok || !mounted) return;
-    await ReminderScheduler.instance.deleteAllRemindersForItem(widget.itemId);
-    if (!mounted) return;
-    await ref.read(itemNotifierProvider.notifier).deleteItem(widget.itemId);
+    await ref.read(itemNotifierProvider.notifier).deleteHabit(widget.itemId);
     safePop();
   }
 

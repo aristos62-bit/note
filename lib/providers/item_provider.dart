@@ -240,6 +240,16 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     }
   }
 
+  /// P1#1 (S250): serialized διαγραφή — wipe + soft delete στο ίδιο pass (S234).
+  Future<void> deleteHabit(int id) async {
+    try {
+      await HabitService.instance
+          .deleteHabitReminders(id, afterRows: () => deleteItem(id));
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.deleteHabit', e, s);
+    }
+  }
+
   /// D1/F1: εφαρμόζει [action] στις knowledge εγγραφές της συλλογής [id] (αν project).
   /// includeDeleted=true → και soft-deleted (restore/permanent). Εγγραφές πρώτα (interrupt-safe).
   Future<void> _cascadeCollectionEntries(int id, Future<void> Function(int) action, {bool includeDeleted = false, String logTag = 'deleteItem'}) async {
@@ -280,11 +290,18 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       for (final r in reminders) {
         DebugConfig.notif('  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name}');
       }
-      if (reminders.isNotEmpty) {
-        DebugConfig.notif('permanentDelete: calling deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
-        await ReminderScheduler.instance.deleteAllRemindersForItem(id);
+      final item = await ref.read(dbProvider).items.getById(id);
+      if (item?.type == ItemType.habit) {
+        // P1#1 (S250): habit — wipe + hard delete στο ίδιο pass (S234 race).
+        await HabitService.instance.deleteHabitReminders(id,
+            afterRows: () => ref.read(dbProvider).items.hardDelete(id));
+      } else {
+        if (reminders.isNotEmpty) {
+          DebugConfig.notif('permanentDelete: calling deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
+          await ReminderScheduler.instance.deleteAllRemindersForItem(id);
+        }
+        await ref.read(dbProvider).items.hardDelete(id);
       }
-      await ref.read(dbProvider).items.hardDelete(id);
       ref.invalidateSelf();
       DebugConfig.db('ItemNotifier.permanentDelete done id=$id');
     } catch (e, s) {
