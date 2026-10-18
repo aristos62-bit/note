@@ -10,6 +10,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
+import 'selection_list_dialog.dart';
 import 'settings_contacts_dialogs.dart';
 
 /// Κύρια ροή import: permission → fetch → contact selection → field selection → folder picker → import → summary
@@ -170,170 +171,77 @@ Future<void> showImportedContactsDialog(BuildContext context, WidgetRef ref) asy
 
   if (!context.mounted) return;
 
-  List<Item> mutableItems = List.from(items);
-  final selectedIds = <int>{};
+  DebugConfig.nav('Settings: open imported contacts');
 
-  await showDialog(
+  await showSelectionListDialog<Item>(
     context: context,
-    useRootNavigator: true,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setModal) {
-        final allSelected = mutableItems.isNotEmpty &&
-            selectedIds.length == mutableItems.length;
-
-        Future<void> deleteSelected(Set<int> ids) async {
-          await ContactImportService.instance.deleteImported(ids);
-          if (!ctx.mounted) return; // S253: το dialog έκλεισε κατά το await
-          setModal(() {
-            mutableItems.removeWhere((i) => ids.contains(i.id));
-            selectedIds.clear();
-          });
-          ref.invalidate(itemNotifierProvider);
-          if (mutableItems.isEmpty && ctx.mounted) {
-            Navigator.of(ctx, rootNavigator: true).pop();
-          }
-        }
-
-        Future<void> deleteSingle(Item item) async {
-          await ContactImportService.instance.deleteImported({item.id});
-          if (!ctx.mounted) return; // S253: το dialog έκλεισε κατά το await
-          setModal(() {
-            selectedIds.remove(item.id);
-            mutableItems.remove(item);
-          });
-          ref.invalidate(itemNotifierProvider);
-          if (mutableItems.isEmpty && ctx.mounted) {
-            Navigator.of(ctx, rootNavigator: true).pop();
-          }
-        }
-
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.person_remove_rounded),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: Text(
-                  'Εισαγμένες Επαφές (${mutableItems.length})',
-                  style: ctx.titleMd,
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CheckboxListTile(
-                  value: allSelected,
-                  tristate: false,
-                  onChanged: (v) {
-                    setModal(() {
-                      if (v == true) {
-                        selectedIds.addAll(mutableItems.map((i) => i.id));
-                      } else {
-                        selectedIds.clear();
-                      }
-                    });
-                  },
-                  title: Text(
-                    allSelected ? 'Αποεπιλογή όλων' : 'Επιλογή όλων',
-                    style: ctx.bodyMd.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: Spacing.xs),
-                ),
-                const Divider(height: 1),
-                Flexible(
-                  child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(ctx).size.height * 0.5,
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: mutableItems.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final item = mutableItems[i];
-                      final isSelected = selectedIds.contains(item.id);
-                      return CheckboxListTile(
-                        value: isSelected,
-                        onChanged: (selected) {
-                          setModal(() {
-                            if (selected == true) {
-                              selectedIds.add(item.id);
-                            } else {
-                              selectedIds.remove(item.id);
-                            }
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: const EdgeInsets.only(
-                          left: Spacing.xs, right: Spacing.xs,
-                        ),
-                        title: Text(
-                          item.title ?? '(χωρίς τίτλο)',
-                          style: ctx.bodyMd,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        secondary: IconButton(
-                          icon: Icon(Icons.delete_outline,
-                              color: ctx.cError, size: 20),
-                          tooltip: 'Διαγραφή',
-                          onPressed: () => deleteSingle(item),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
-              child: const Text('Κλείσιμο'),
-            ),
-            if (selectedIds.isNotEmpty)
-              FilledButton.tonal(
-                onPressed: () async {
-                  final confirm = await ConfirmDialog.show(
-                    ctx,
-                    title: 'Διαγραφή επιλεγμένων;',
-                    subtitle:
-                        'Θα διαγραφούν ${selectedIds.length} επαφές.',
-                    confirmLabel: 'Διαγραφή',
-                  );
-                  if (confirm != true) return;
-                  await deleteSelected(Set.from(selectedIds));
-                },
-                child: Text('Επιλεγμένες (${selectedIds.length})'),
-              ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: ctx.cError,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                final confirm = await ConfirmDialog.show(
-                  ctx,
-                  title: 'Διαγραφή όλων;',
-                  subtitle:
-                      'Θα διαγραφούν όλες οι ${mutableItems.length} εισαγμένες επαφές.',
-                  confirmLabel: 'Ναι, διαγραφή όλων',
-                );
-                if (confirm != true) return;
-                await deleteSelected(mutableItems.map((i) => i.id).toSet());
-              },
-              child: const Text('Διαγραφή όλων'),
-            ),
-          ],
+    icon: Icons.person_remove_rounded,
+    title: (n) => 'Εισαγμένες Επαφές ($n)',
+    items: items,
+    idOf: (item) => item.id,
+    rowTitle: (ctx, item) => Text(
+      item.title ?? '(χωρίς τίτλο)',
+      style: ctx.bodyMd,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    ),
+    rowSecondary: (ctx, item, controller) => IconButton(
+      icon: Icon(Icons.delete_outline, color: ctx.cError, size: 20),
+      tooltip: 'Διαγραφή',
+      onPressed: () async {
+        await ContactImportService.instance.deleteImported({item.id});
+        controller.remove(
+          {item.id},
+          onApplied: () => ref.invalidate(itemNotifierProvider),
         );
       },
     ),
+    actions: (ctx, controller) {
+      final count = controller.selectedCount;
+      return [
+        if (count > 0)
+          FilledButton.tonal(
+            onPressed: () async {
+              final confirm = await ConfirmDialog.delete(
+                ctx,
+                title: 'Διαγραφή επιλεγμένων;',
+                subtitle: 'Θα διαγραφούν $count επαφές.',
+                confirmLabel: 'Διαγραφή',
+              );
+              if (!confirm) return;
+              final ids = controller.selected;
+              await ContactImportService.instance.deleteImported(ids);
+              controller.remove(
+                ids,
+                onApplied: () => ref.invalidate(itemNotifierProvider),
+              );
+            },
+            child: Text('Επιλεγμένες ($count)'),
+          ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: ctx.cError,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () async {
+            final confirm = await ConfirmDialog.delete(
+              ctx,
+              title: 'Διαγραφή όλων;',
+              subtitle:
+                  'Θα διαγραφούν όλες οι ${controller.items.length} εισαγμένες επαφές.',
+              confirmLabel: 'Ναι, διαγραφή όλων',
+            );
+            if (!confirm) return;
+            final ids = controller.items.map((i) => i.id).toSet();
+            await ContactImportService.instance.deleteImported(ids);
+            controller.remove(
+              ids,
+              onApplied: () => ref.invalidate(itemNotifierProvider),
+            );
+          },
+          child: const Text('Διαγραφή όλων'),
+        ),
+      ];
+    },
   );
 }
