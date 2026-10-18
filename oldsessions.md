@@ -3068,7 +3068,18 @@
 
 **Έλεγχοι:** `flutter analyze` clean (×3) · `flutter test` **223/223** (×2) · `flutter build apk --debug` ✅ · integrity check (normalized line-multiset παλιού vs 9 νέων): **0 χαμένες γραμμές περιεχομένου** — μόνες διαφορές A10/A11 + `super.key`.
 
-**Device:** ⏳ **pending** — `adb install -r` → `INSTALL_FAILED_USER_RESTRICTED` (MIUI: «Εγκατάσταση μέσω USB» + επιβεβαίωση). Τα B1-B4 (back-gesture στα dialogs · PIN · restore archived) **δεν** εκτελέστηκαν.
+**Device ✅ (M2007J20CG · Android 12 — 18/10/2026):** install OK (χειροκίνητη έγκριση MIUI).
+- **B1 Παρελθούσες:** back **εν μέσω** διαγραφής 9 rows — start `51.124` → didPop `51.234` (2/9) → τελευταίο cancel `51.608` → **0 crash**, Settings έμεινε.
+- **B2a restore single:** unarchive `29.717` → didPop `29.787` → `UNARCHIVE … rescheduled` `29.985` → 0 crash, 2→1.
+- **B2b bulk restore:** confirm `58.043` → DB `58.090` → didPop `58.172` → done `58.404` → 0 crash, 1→0, **κανένα διπλό pop**.
+- **B3 επαφές:** confirm `45.449` → didPop `45.500` (6 soft deletes) → 0 crash → «Δεν υπάρχουν εισαγμένες επαφές».
+- **B4/A9 λάθος PIN:** εμφανίζεται σωστά `AppErrors.pinWrong`, 0 crash. Lock επανήλθε **OFF**.
+- **F11:** file `24.038` → validate `24.049` → `zip VALID 24.266` → pop `24.293` (μία φορά) → Settings έμεινε· back → confirm `result: null` (καμία αλλαγή δεδομένων). Race window 217ms — μη αναπαραγώγιμο μέσω adb.
+- **fontScale 140%:** 0 RenderFlex overflow (tiles + color-picker sheet) → επανήλθε 100%.
+- **Cold start:** startup `+4297ms`, topUp `14ms`, **0 ERR/FATAL/Exception**.
+- Δεδομένα δοκιμής: 9 ληγμένες υπενθυμίσεις διαγράφηκαν· 6 επαφές → Κάδος (ανακτήσιμες)· 2 αρχειοθετημένα επαναφέρθηκαν.
+- Screenshots/dumps: `backups/p2_settings_guards/`.
+- **Νέο cosmetic (P4):** «Μέγεθος γραμματοσειράς» σπάει σε «γραμματοσειρά / ς» (Slider περιορίζει τη στήλη) — προϋπάρχον, σε 100% και 140%.
 
 **Backups:** `backups/p2_settings_guards/` (settings_screen.pre + oldsessions.pre + supernote.pre + code_refactor.pre + BASE_HEAD `1d0679d`).
 
