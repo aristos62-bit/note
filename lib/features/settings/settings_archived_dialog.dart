@@ -1,6 +1,7 @@
 // lib/features/settings/settings_archived_dialog.dart
 //
 // S253 (P2): διάλογος αρχειοθετημένων (split από settings_screen.dart).
+// S254 (F16): λεπτός wrapper πάνω στο κοινό SelectionListDialog.
 //
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
+import 'selection_list_dialog.dart';
 
 Future<void> showArchivedItemsDialog(BuildContext context, WidgetRef ref) async {
   final List<Item> items;
@@ -32,261 +34,129 @@ Future<void> showArchivedItemsDialog(BuildContext context, WidgetRef ref) async 
     return;
   }
 
-  List<Item> mutableItems = List.from(items);
-  final selectedIds = <int>{};
   DebugConfig.nav('Settings: open archived');
 
-  await showDialog(
+  // S251: capture notifier πριν το πρώτο await του dialog.
+  final notifier = ref.read(itemNotifierProvider.notifier);
+
+  await showSelectionListDialog<Item>(
     context: context,
-    useRootNavigator: true,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setModal) {
-        final allSelected =
-            mutableItems.isNotEmpty &&
-                selectedIds.length == mutableItems.length;
-
-        // ── Βοηθητική: επαναφορά ενός item ────────────────────
-        Future<void> restoreSingle(Item item) async {
-          // #2: επαναφορά μέσω SPoT → unarchive + reschedule OS reminders.
-          await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, true);
-          if (!ctx.mounted) return; // S253: το dialog έκλεισε κατά το await
-          setModal(() {
-            selectedIds.remove(item.id);
-            mutableItems.remove(item);
-          });
-          if (mutableItems.isEmpty && ctx.mounted) {
-            Navigator.of(ctx, rootNavigator: true).pop();
-          }
-        }
-
-        // ── Βοηθητική: soft delete ενός item ──────────────────
-        Future<void> deleteSingle(Item item) async {
-          // #2: διαγραφή μέσω SPoT deleteItem → cascade reminders + cancel OS.
-          await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-          if (!ctx.mounted) return; // S253: το dialog έκλεισε κατά το await
-          setModal(() {
-            selectedIds.remove(item.id);
-            mutableItems.remove(item);
-          });
-          ref.invalidate(archivedItemsProvider);
-          if (mutableItems.isEmpty && ctx.mounted) {
-            Navigator.of(ctx, rootNavigator: true).pop();
-          }
-        }
-
-        // ── Βοηθητική: bulk επαναφορά ─────────────────────────
-        Future<void> restoreSelected(Set<int> ids) async {
-          final toRestore = mutableItems.where((i) => ids.contains(i.id)).toList();
-          for (final item in toRestore) {
-            // #2: επαναφορά μέσω SPoT → unarchive + reschedule OS reminders.
-            await ref.read(itemNotifierProvider.notifier).toggleArchive(item.id, true);
-          }
-          if (!ctx.mounted) return; // S253: το dialog έκλεισε κατά το await
-          setModal(() {
-            mutableItems.removeWhere((i) => ids.contains(i.id));
-            selectedIds.clear();
-          });
-          if (mutableItems.isEmpty && ctx.mounted) {
-            Navigator.of(ctx, rootNavigator: true).pop();
-          }
-        }
-
-        // ── Βοηθητική: bulk soft delete ───────────────────────
-        Future<void> deleteSelected(Set<int> ids) async {
-          final toDelete = mutableItems.where((i) => ids.contains(i.id)).toList();
-          for (final item in toDelete) {
-            // #2: διαγραφή μέσω SPoT deleteItem → cascade reminders + cancel OS.
-            await ref.read(itemNotifierProvider.notifier).deleteItem(item.id);
-          }
-          if (!ctx.mounted) return; // S253: το dialog έκλεισε κατά το await
-          setModal(() {
-            mutableItems.removeWhere((i) => ids.contains(i.id));
-            selectedIds.clear();
-          });
-          ref.invalidate(archivedItemsProvider);
-          if (mutableItems.isEmpty && ctx.mounted) {
-            Navigator.of(ctx, rootNavigator: true).pop();
-          }
-        }
-
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.archive_rounded, color: ctx.cPrimary),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: Text(
-                  'Αρχειοθετημένα (${mutableItems.length})',
-                  style: ctx.titleMd,
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── "Επιλογή όλων" header ───────────────────────
-                CheckboxListTile(
-                  value: allSelected,
-                  tristate: false,
-                  onChanged: (v) {
-                    setModal(() {
-                      if (v == true) {
-                        selectedIds.addAll(mutableItems.map((i) => i.id));
-                      } else {
-                        selectedIds.clear();
-                      }
-                    });
-                  },
-                  title: Text(
-                    allSelected ? 'Αποεπιλογή όλων' : 'Επιλογή όλων',
-                    style: ctx.bodyMd.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: Spacing.xs),
-                ),
-                const Divider(height: 1),
-                // ── Λίστα αρχειοθετημένων ──────────────────────
-                Flexible(
-                  child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(ctx).size.height * 0.5,
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: mutableItems.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final item = mutableItems[i];
-                      final isSelected = selectedIds.contains(item.id);
-                      return CheckboxListTile(
-                        value: isSelected,
-                        onChanged: (selected) {
-                          setModal(() {
-                            if (selected == true) {
-                              selectedIds.add(item.id);
-                            } else {
-                              selectedIds.remove(item.id);
-                            }
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: const EdgeInsets.only(
-                          left: Spacing.xs,
-                          right: Spacing.xs,
-                        ),
-                        title: Text(
-                          item.title ?? '(χωρίς τίτλο)',
-                          style: ctx.bodyMd,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Row(
-                          children: [
-                            Icon(
-                              ItemTypeIcon.iconDataFor(item.type),
-                              size: 12,
-                              color: ctx.cText2,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                ItemTypeIcon.labelFor(item.type),
-                                style: ctx.bodySm.withColor(ctx.cText2),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            Flexible(
-                              child: Text(
-                                AppDateUtils.formatDateTime(
-                                    item.updatedAt ?? item.createdAt),
-                                style: ctx.bodySm.withColor(ctx.cText2),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        // Δύο κουμπιά: επαναφορά + διαγραφή
-                        secondary: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.unarchive_rounded,
-                                color: ctx.cPrimary,
-                                size: 20,
-                              ),
-                              tooltip: 'Επαναφορά',
-                              onPressed: () => restoreSingle(item),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: ctx.cError,
-                                size: 20,
-                              ),
-                              tooltip: 'Μετακίνηση στον κάδο',
-                              onPressed: () => deleteSingle(item),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            // Κλείσιμο
-            TextButton(
-              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
-              child: const Text('Κλείσιμο'),
-            ),
-
-            // Bulk actions — εμφανίζονται μόνο αν υπάρχει επιλογή
-            if (selectedIds.isNotEmpty) ...[
-              FilledButton.tonal(
-                onPressed: () async {
-                  final confirm = await ConfirmDialog.show(
-                    ctx,
-                    title: 'Επαναφορά επιλεγμένων;',
-                    subtitle:
-                    'Τα ${selectedIds.length} επιλεγμένα στοιχεία θα επαναφερθούν.',
-                    confirmLabel: 'Επαναφορά',
-                  );
-                  if (confirm != true) return;
-                  await restoreSelected(Set.from(selectedIds));
-                },
-                child: Text('Επαναφορά (${selectedIds.length})'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: ctx.cError,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () async {
-                  final confirm = await ConfirmDialog.show(
-                    ctx,
-                    title: 'Διαγραφή επιλεγμένων;',
-                    subtitle:
-                    'Τα ${selectedIds.length} στοιχεία θα μεταφερθούν στον κάδο ανακύκλωσης.',
-                    confirmLabel: 'Διαγραφή',
-                  );
-                  if (confirm != true) return;
-                  await deleteSelected(Set.from(selectedIds));
-                },
-                child: Text('Διαγραφή (${selectedIds.length})'),
-              ),
-            ],
-          ],
-        );
-      },
+    icon: Icons.archive_rounded,
+    iconColor: context.cPrimary,
+    title: (n) => 'Αρχειοθετημένα ($n)',
+    items: items,
+    idOf: (item) => item.id,
+    rowTitle: (ctx, item) => Text(
+      item.title ?? '(χωρίς τίτλο)',
+      style: ctx.bodyMd,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     ),
+    rowSubtitle: (ctx, item) => Row(
+      children: [
+        Icon(
+          ItemTypeIcon.iconDataFor(item.type),
+          size: 12,
+          color: ctx.cText2,
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            ItemTypeIcon.labelFor(item.type),
+            style: ctx.bodySm.withColor(ctx.cText2),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: Spacing.sm),
+        Flexible(
+          child: Text(
+            AppDateUtils.formatDateTime(item.updatedAt ?? item.createdAt),
+            style: ctx.bodySm.withColor(ctx.cText2),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    ),
+    // Δύο κουμπιά: επαναφορά + διαγραφή
+    rowSecondary: (ctx, item, controller) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(Icons.unarchive_rounded, color: ctx.cPrimary, size: 20),
+          tooltip: 'Επαναφορά',
+          onPressed: () async {
+            // #2: επαναφορά μέσω SPoT → unarchive + reschedule OS reminders.
+            await notifier.toggleArchive(item.id, true);
+            // S253: το toggleArchive invalidates εσωτερικά το provider.
+            controller.remove({item.id});
+          },
+        ),
+        IconButton(
+          icon: Icon(Icons.delete_outline, color: ctx.cError, size: 20),
+          tooltip: 'Μετακίνηση στον κάδο',
+          onPressed: () async {
+            // #2: διαγραφή μέσω SPoT deleteItem → cascade reminders + cancel OS.
+            await notifier.deleteItem(item.id);
+            controller.remove(
+              {item.id},
+              onApplied: () => ref.invalidate(archivedItemsProvider),
+            );
+          },
+        ),
+      ],
+    ),
+    actions: (ctx, controller) {
+      final count = controller.selectedCount;
+      // Bulk actions — εμφανίζονται μόνο αν υπάρχει επιλογή
+      if (count == 0) return const [];
+      return [
+        FilledButton.tonal(
+          onPressed: () async {
+            final confirm = await ConfirmDialog.show(
+              ctx,
+              title: 'Επαναφορά επιλεγμένων;',
+              subtitle: 'Τα $count επιλεγμένα στοιχεία θα επαναφερθούν.',
+              confirmLabel: 'Επαναφορά',
+            );
+            if (!confirm) return;
+            final ids = controller.selected;
+            // #2: επαναφορά μέσω SPoT → unarchive + reschedule OS reminders.
+            for (final item
+                in controller.items.where((i) => ids.contains(i.id))) {
+              await notifier.toggleArchive(item.id, true);
+            }
+            controller.remove(ids);
+          },
+          child: Text('Επαναφορά ($count)'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: ctx.cError,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () async {
+            final confirm = await ConfirmDialog.delete(
+              ctx,
+              title: 'Διαγραφή επιλεγμένων;',
+              subtitle:
+                  'Τα $count στοιχεία θα μεταφερθούν στον κάδο ανακύκλωσης.',
+              confirmLabel: 'Διαγραφή',
+            );
+            if (!confirm) return;
+            final ids = controller.selected;
+            // #2: διαγραφή μέσω SPoT deleteItem → cascade reminders + cancel OS.
+            for (final item
+                in controller.items.where((i) => ids.contains(i.id))) {
+              await notifier.deleteItem(item.id);
+            }
+            controller.remove(
+              ids,
+              onApplied: () => ref.invalidate(archivedItemsProvider),
+            );
+          },
+          child: Text('Διαγραφή ($count)'),
+        ),
+      ];
+    },
   );
 }
