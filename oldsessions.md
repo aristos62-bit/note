@@ -3200,12 +3200,40 @@
 
 **Έλεγχοι:** `flutter analyze` clean (~4.6s) · `flutter test` **230/230** (229 + 1 νέο)· το νέο test επαληθεύει «**ακριβώς ένα pop**» μέσω `NavigatorObserver` + ότι το από-κάτω route μένει + `takeException() == null`.
 
-**Ειλικρινή όρια:** (1) Το test είναι **contract/guard**, **όχι** red-on-old repro: με `contacts: []` το `importContacts` επιστρέφει αμέσως (`contact_import_service.dart:111`) και το route απομακρύνεται τόσο γρήγορα (εντός push-animation) ώστε δεν υπάρχει ντετερμινιστικό παράθυρο· ταυτόχρονα το `_page` του route είναι **cached** (`routes.dart:1085-1089,1228`) ⇒ theme-rebuild **δεν** ξανατρέχει το `State.build`. (2) Device test **εκκρεμεί** (T1 κανονική ροή · T2 back εν μέσω import) — δεν έγινε καμία δήλωση device-επαλήθευσης.
+**Ειλικρινή όρια:** (1) Το test είναι **contract/guard**, **όχι** red-on-old repro: με `contacts: []` το `importContacts` επιστρέφει αμέσως (`contact_import_service.dart:111`) και το route απομακρύνεται τόσο γρήγορα (εντός push-animation) ώστε δεν υπάρχει ντετερμινιστικό παράθυρο· ταυτόχρονα το `_page` του route είναι **cached** (`routes.dart:1085-1089,1228`) ⇒ theme-rebuild **δεν** ξανατρέχει το `State.build`. (2) Device test: **έγινε** — βλ. «Device test T1» παρακάτω (T1 **PASS**, T2 παραλείφθηκε τεκμηριωμένα λόγω παραθύρου 313 ms).
 
 **supernote.md:** **καμία** αλλαγή (κανόνας #8 — δεν άλλαξε αρχιτεκτονική· το δέντρο αρχείων μένει ίδιο). ⚠️ Ο μετρητής tests στο `supernote.md` γράφει ακόμη **229/229** ενώ το suite είναι **230/230** — δεν ενημερώθηκε σκόπιμα (status, όχι αρχιτεκτονική).
 
 **Backups:** `backups/s256_f9_dialog_pop/` (5 αρχεία + `BASE_HEAD.txt` = `9660f6b` + `BASE_STATUS.txt`, hash-επαληθευμένα byte-identical).
 
+### Device test T1 — 18/10/2026 (debug build, M2007J20CG)
+
+**Build που δοκιμάστηκε:** το εγκατεστημένο debug APK (χτίστηκε 22:43:15) είναι **μετά** το edit (22:33:23) και `flags=[DEBUGGABLE…]` + `run-as` OK ⇒ **περιέχει το F9**. Οριστική απόδειξη: το log `Settings: import done` υπάρχει **μόνο** στον νέο κώδικα και εμφανίστηκε στο runtime. **Κανένα install/uninstall** (όχι MIUI prompt, όχι αλλαγή δεδομένων μέσω adb).
+
+**Δεδομένα (κανόνας 12):** ο χρήστης επέλεξε «υπάρχουσες επαφές». Το recon (`Εισαγμένες Επαφές (10)`) έδειξε ότι μόνο **10/126** είναι ήδη εισαγμένες ⇒ το προεπιλεγμένο «Εισαγωγή (126)» θα δημιουργούσε ~116 items → **σταμάτησα** και ζήτησα απόφαση· ο χρήστης ενέκρινε **3 νέες** (`11831`, `5827 Europhone Banking`, `Αθανασία Γαλάνη`) + διαγραφή μετά.
+
+**T1 (κανονική ροή) = PASS.** Ρυθμίσεις → Εισαγωγή επαφών → 3 επαφές → 9 πεδία (defaults) → φάκελος «Γενικά». Logcat (buffer καθαρισμένο πριν):
+```
+22:52:36.672  NAV | Router didPush: null                                   ← progress dialog
+22:52:36.768  DB  | ContactImport dedup sets: titles=11 phones=18
+22:52:36.985  NAV | Settings: import done imported=3 skipped=0 errors=0    ← ΑΚΡΙΒΩΣ 1×
+22:52:36.988  NAV | Router didPop: null                                    ← ΑΚΡΙΒΩΣ 1 pop
+22:52:36.991  NAV | Router didPush: null                                   ← σύνοψη
+22:53:07.667  NAV | Router didPop: null                                    ← OK χρήστη (καμία άλλη pop)
+```
+- Σύνοψη: **Εισήχθησαν 3 · Παραλείφθηκαν 0 · Σφάλματα 0**.
+- Μετά το OK **μένουν οι Ρυθμίσεις** (όχι Αρχική) ⇒ το 2ο pop του παλιού κώδικα **δεν** συμβαίνει · `t14_progress.png` δείχνει τον διάλογο με τις Ρυθμίσεις από πίσω.
+- **0** exceptions/assertions/`_debugLocked` σε **όλο** το session (59 γραμμές log).
+- Καθαρισμός: διαγραφή των 3 **μέσω UI** ⇒ `Εισαγμένες Επαφές (10)` = αρχικό ✅. ⚠️ `deleteImported` = **soft delete** (`contact_import_service.dart:210`) ⇒ τα 3 είναι στον **Κάδο** («πριν 1 λ.») μαζί με 2 **προϋπάρχοντα** (`fse`,`test`, «πριν 55 λ.»)· ο χρήστης επέλεξε **να μείνουν** (κανένα «Άδειασμα κάδου»).
+
+**T2 (back εν μέσω import) = παραλείφθηκε τεκμηριωμένα.** Το import των 3 κράτησε **313 ms** (36.672→36.985) ⇒ `keyevent 4` μέσω adb δεν μπαίνει αξιόπιστα στο παράθυρο. Δεν δηλώνεται κάλυψη.
+
+**Δικά μου λάθη (καταγεγραμμένα):** (1) tap με **παλιές** συντεταγμένες `(540,1433)` έπεσε μέσα στον **ήδη ανοιχτό** διάλογο «Εισαγμένες Επαφές» (επέλεξε 2 γραμμές) — **καμία διαγραφή**: απαιτείται 2η επιβεβαίωση, το log δεν έχει **κανένα** delete/restore/unarchive και ο Κάδος δείχνει μόνο προϋπάρχοντα + τα 3 μου. (2) tap για «Βάση» έπεσε στο κουμπί **«Φωτεινό»** → `Settings: theme=light`· **επαναφέρθηκε σε «Σύστημα»** (αρχική τιμή, βεβαιωμένη από screenshot πριν το λάθος) — log `Settings: theme=system`. **Μάθημα:** έλεγχος συντεταγμένων **πριν** κάθε tap όταν αλλάζει η διάταξη (τα expansion tiles μετακινούν τα tiles).
+
+**Δικλείδες:** `stay_on_while_plugged_in` 0→2→**0** (επαληθευμένο) · **κανένα uninstall** · καμία αλλαγή δεδομένων/ρυθμίσεων μέσω adb · σε κάθε απροσδόκητο **σταμάτησα** και ζήτησα απόφαση.
+
+**Τεκμήρια:** `backups/s256_f9_dialog_pop/` — `t14_progress.png` (χρυσό), `t15_after_ok.png`, `t23_trash.png`, `log_t1.txt`, `log_full.txt`, `dump_full.ps1`, dumps `t0..t24`, `oldsessions.md.pre_device_test` (backup).
+
 **Επόμενο session — ιεράρχηση:** 1. **F18** (stale `pastPendingRemindersProvider`) · 2. **F17** (cosmetic «γραμματοσειρά / ς») · 3. **F13b** (bulk-delete) · 4. bucket (P2 a11y device pass · grid auto-height · micros F2/F3/F4/F9c).
 
-**Handles για το επόμενο session:** `SettingsImportProgressDialogState` = **1** μόνο pop-σημείο (`_popOnce`)· **μη** ξαναφέρεις pop μέσα στο `build` (ούτε `Future.microtask`/`addPostFrameCallback`). Σε νέο progress dialog: `SafeDialogBody` + `_popOnce` pattern + `try/catch` net. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Logs: `Settings: import done imported=… skipped=… errors=…` · `Settings: import contacts failed`.
+**Handles για το επόμενο session:** `SettingsImportProgressDialogState` = **1** μόνο pop-σημείο (`_popOnce`)· **μη** ξαναφέρεις pop μέσα στο `build` (ούτε `Future.microtask`/`addPostFrameCallback`). Σε νέο progress dialog: `SafeDialogBody` + `_popOnce` pattern + `try/catch` net. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Logs: `Settings: import done imported=… skipped=… errors=…` · `Settings: import contacts failed`. **Device test T1 ✅ 18/10/2026** (debug build· 1× import done, 1× pop, Ρυθμίσεις μένουν· T2 παραλείφθηκε — παράθυρο 313 ms).
