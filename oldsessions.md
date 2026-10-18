@@ -3115,7 +3115,7 @@
 
 **Έλεγχοι:** `flutter analyze` clean (πριν ΚΑΙ μετά) · `flutter test` **229/229** (223 baseline + **6 νέα** στο `test/selection_list_dialog_test.dart`) · 0 test αγγίζει τα 3 dialogs (grep).
 
-**Device:** ⏳ εκκρεμεί (T1-T11 — select-all/per-row/bulk/auto-pop/back εν μέσω delete/fontScale 140%/ConfirmDialog νέο icon).
+**Device (adb, 18/10/2026):** ✅ ολοκληρώθηκε — λεπτομέρειες & μάθημα στο τέλος του κεφαλαίου («Device test (adb) — αποτελέσματα & μάθημα»).
 
 **Backups:** `backups/p2_settings_f16/` (3 `.pre` + oldsessions.pre + supernote.pre + code_refactor.pre + BASE_HEAD `b2907be`).
 
@@ -3124,10 +3124,19 @@
 **code_refactor.md:** §8 P4 note → S254 (F16 ✅ / F16b ✅ / F10 keep+διόρθωση / F13 = **1 σημείο** πλέον).
 
 **Επόμενο session (S255):**
-1. **Device pass F16** (T1-T11) — αν δεν έγινε.
-2. **F13** — bulk-restore loop του archived wrapper (πλέον **1 σημείο**).
-3. **F17** — wrap «γραμματοσειρά / ς» (cosmetic, ~5′).
-4. **F9** — microtask-pop μέσα σε `build` (`SettingsImportProgressDialogState`).
-5. **Μετά:** P2 a11y device pass · grid auto-height · παλιά micros F2/F3/F4 (§7.8).
+1. **F13** — bulk-restore loop του archived wrapper (πλέον **1 σημείο**).
+2. **F17** — wrap «γραμματοσειρά / ς» (cosmetic, ~5′).
+3. **F9** — microtask-pop μέσα σε `build` (`SettingsImportProgressDialogState`).
+4. **Μετά:** P2 a11y device pass · grid auto-height · παλιά micros F2/F3/F4 (§7.8).
 
 **Handles για το επόμενο session:** `lib/features/settings/` = **10** αρχεία (public symbols + direct imports· `settings.dart` barrel export **μόνο** `settings_screen.dart` — σκόπιμα). Το κοινό shell = `lib/features/settings/selection_list_dialog.dart` (`SelectionListController.remove` = το **μοναδικό** σημείο με guard). Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Backups: `backups/p2_settings_f16/`.
+
+### Device test (adb) — αποτελέσματα & μάθημα
+- F16: και τα 3 dialogs ✅ (άνοιγμα/τίτλος, select-all, per-row, bulk, auto-pop,
+  invalidate). F16b ✅ ×3. Cold start: 0 ERR/exceptions.
+- Εύρημα: `pastPendingRemindersProvider` (non-autoDispose FutureProvider) επέστρεφε
+  stale κενή λίστα εντός session — μόνο cold start την ανανέωσε. Υποψήφιο F-item.
+- **ΜΑΘΗΜΑ (κανόνας 12):** πριν από device test ζητάμε από τον χρήστη να φτιάξει τα
+  δεδομένα στην εφαρμογή· δεν τα φτιάχνουμε με adb.
+- Τεχνική που δούλεψε (για μελλοντικά): `uiautomator dump` → Flutter semantics →
+  ακριβείς συντεταγμένες (script: `backups/p2_settings_f16/dump_ui.ps1`).
