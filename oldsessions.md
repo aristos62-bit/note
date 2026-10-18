@@ -3123,11 +3123,12 @@
 
 **code_refactor.md:** §8 P4 note → S254 (F16 ✅ / F16b ✅ / F10 keep+διόρθωση / F13 = **1 σημείο** πλέον).
 
-**Επόμενο session (S255):**
-1. **F13** — bulk-restore loop του archived wrapper (πλέον **1 σημείο**).
-2. **F17** — wrap «γραμματοσειρά / ς» (cosmetic, ~5′).
-3. **F9** — microtask-pop μέσα σε `build` (`SettingsImportProgressDialogState`).
-4. **Μετά:** P2 a11y device pass · grid auto-height · παλιά micros F2/F3/F4 (§7.8).
+**Επόμενο session (S255) — ιεράρχηση: σοβαρότερο πρώτο:**
+1. **F13** — *υψηλή (perf/UX)*: bulk-restore loop του archived wrapper — N× `toggleArchive` ⇒ N× `topUpHabitReminders(force:true)` (S250: `created=180 took=6930ms` ≈ **7s πάγωμα**). Πλέον **1 σημείο**.
+2. **F9** — *υψηλή (correctness)*: microtask-pop μέσα σε `build` (`SettingsImportProgressDialogState.build`) → κίνδυνος exception / pop κατά το build.
+3. **F18** — *μέτρια (correctness/stale data — **νέο, από device pass S254**)*: `pastPendingRemindersProvider` (`reminder_provider.dart:30`, non-autoDispose `FutureProvider`) κρατά cached τιμή → ληγμένη υπενθύμιση **δεν** εμφανίζεται στο dialog εντός session (μόνο cold start· S254: `batch 1/1` μόνο μετά από restart). Fix: `ref.invalidate` στο άνοιγμα ή `autoDispose`.
+4. **F17** — *χαμηλή (cosmetic)*: wrap «γραμματοσειρά / ς» (Slider στενεύει τη στήλη, 100%+140%).
+5. **Μετά (bucket):** P2 a11y device pass · grid auto-height · παλιά micros F2/F3/F4 (§7.8).
 
 **Handles για το επόμενο session:** `lib/features/settings/` = **10** αρχεία (public symbols + direct imports· `settings.dart` barrel export **μόνο** `settings_screen.dart` — σκόπιμα). Το κοινό shell = `lib/features/settings/selection_list_dialog.dart` (`SelectionListController.remove` = το **μοναδικό** σημείο με guard). Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Backups: `backups/p2_settings_f16/`.
 
