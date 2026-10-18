@@ -3236,4 +3236,6 @@
 
 **Επόμενο session — ιεράρχηση:** 1. **F18** (stale `pastPendingRemindersProvider`) · 2. **F17** (cosmetic «γραμματοσειρά / ς») · 3. **F13b** (bulk-delete) · 4. bucket (P2 a11y device pass · grid auto-height · micros F2/F3/F4/F9c).
 
+**Κατάσταση κλεισίματος S256 (18/10/2026):** ✅ **κλειστό** — κώδικας F9 = `5b05033` (pushed) · docs (device test + λίστα εκκρεμοτήτων) = `cc356d0` + το commit κλεισίματος (pushed). Δεν εκκρεμεί τίποτα για το F9 (T1 ✅ · T2 παραλείφθηκε τεκμηριωμένα). Τρέχουσα λίστα εκκρεμοτήτων: `code_refactor.md` §8 P4 note (18/10/2026) → **F18 → F17 → F13b → bucket → P3/P5**.
+
 **Handles για το επόμενο session:** `SettingsImportProgressDialogState` = **1** μόνο pop-σημείο (`_popOnce`)· **μη** ξαναφέρεις pop μέσα στο `build` (ούτε `Future.microtask`/`addPostFrameCallback`). Σε νέο progress dialog: `SafeDialogBody` + `_popOnce` pattern + `try/catch` net. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Logs: `Settings: import done imported=… skipped=… errors=…` · `Settings: import contacts failed`. **Device test T1 ✅ 18/10/2026** (debug build· 1× import done, 1× pop, Ρυθμίσεις μένουν· T2 παραλείφθηκε — παράθυρο 313 ms).
