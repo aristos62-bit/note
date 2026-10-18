@@ -3087,4 +3087,12 @@
 
 **code_refactor.md:** §2 `settings 2947→9` · §7.5#5 ✅ CLOSED · §8 P2#5 ✅ CLOSED (σύνολο **16→14**) · §8 P4 + F9/F10/F13/F16.
 
-**Επόμενο session:** P2 a11y device pass · grid auto-height · (P4 micros F2/F3/F4/F9/F10/F13/F16).
+**Επόμενο session (S254 — προτεραιότητα: τα ευρήματα ΤΟΥ S253, πριν τα παλιά):**
+1. **F16** — ενοποίηση 3 list dialogs (reminders / archived / imported): 3×~200 γρ. σχεδόν ίδιου κώδικα (select-all, rows, bulk actions). Ένα reusable widget ⇒ τα 9 guards συντηρούνται σε **ένα** σημείο.
+2. **F13** — `restoreSelected`: N× `toggleArchive` ⇒ N× `topUpHabitReminders(force:true)` (S250: `created=180 took=6930ms`). Batch/μία κλήση στο τέλος.
+3. **F17** — «Μέγεθος γραμματοσειράς» wrap «γραμματοσειρά / ς» (Slider στενεύει τη στήλη). Cosmetic, ~5′.
+4. **F10** — `ref.invalidate(archivedItemsProvider)` στα delete paths: stale-cache **μόνο** (streams καλύπτουν τις λίστες)· απόφαση αν χρειάζεται.
+5. **F9** — microtask-pop μέσα σε `build` (`SettingsImportProgressDialogState`) → postFrame/`addPostFrameCallback`.
+6. **Μετά:** P2 a11y device pass · grid auto-height · παλιά micros F2/F3/F4 (§7.8).
+
+**Handles για το επόμενο session:** `lib/features/settings/` = 9 αρχεία (public symbols + direct imports· `settings.dart` barrel export **μόνο** `settings_screen.dart` — σκόπιμα). Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Backups: `backups/p2_settings_guards/`.
