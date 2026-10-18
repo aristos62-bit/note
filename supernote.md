@@ -197,8 +197,16 @@ lib/
 │   │   ├── search.dart           — Barrel
 │   │   └── search_screen.dart    — Full-text search UI
 │   ├── settings/
-│   │   ├── settings.dart         — Barrel
-│   │   └── settings_screen.dart  — All settings (theme, colors, data)
+│   │   ├── settings.dart                  — Barrel
+│   │   ├── settings_screen.dart           — Screen + System/DB groups (S253)
+│   │   ├── settings_tiles.dart            — Switch/Action/Info/theme/lock/backup tiles
+│   │   ├── settings_colors.dart           — Item-type colors + color picker sheet
+│   │   ├── settings_backup.dart           — Export / import / wipe
+│   │   ├── settings_pin_dialogs.dart      — App-lock PIN dialogs + validation
+│   │   ├── settings_reminders_dialog.dart — Past reminders dialog
+│   │   ├── settings_archived_dialog.dart  — Archived items dialog
+│   │   ├── settings_contacts_dialogs.dart — Contact import dialogs + progress
+│   │   └── settings_contacts_flow.dart    — Contact import flow + imported list
 │   └── trash/
 │       └── trash_screen.dart     — Soft-deleted items
 └── shared/

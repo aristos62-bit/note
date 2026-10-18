@@ -3051,3 +3051,29 @@
 **code_refactor.md:** §7.6 ✅ CLOSED + νέο **§7.8** (micros F2/F3/F4) · §8 P1#3 ✅ CLOSED (σύνολο **16→15**· 0 κρίσιμες) + §8 P4 note (νέα micros).
 
 **Επόμενο session (επιλογή χρήστη από την §8):** P2: settings ×8 `setModal` guards · a11y device pass · grid auto-height · (⚪ P4 §7.8 micros F2/F3/F4).
+
+## Session 253 - 18/10/2026 (P2: Settings ×9 `setModal` guards + F6/F11 + split 9 αρχεία)
+
+**Scope (αναστολή 2+4 εγκεκριμένη · edit-tool only):** §8 P2#5 (§7.5) — **9** σημεία (όχι 8): reminders (`:501,:520`) · archived (`:1005,:1018,:1035,:1051`) · contacts (`:1757,:1769`) · PIN (`:2110`). Στάδιο Α: guards + A10 + A11 + A12. Στάδιο Β: split 2947→9 αρχεία.
+
+**Αποφάσεις (SPoT-first):**
+- Guard `if (!ctx.mounted) return;` **πριν** το `setModal`· τα `ref.invalidate` έμειναν στη θέση τους (S251 parity — μετακίνηση θα άγγιζε disposed `ref`).
+- `ReminderScheduler.deleteReminderThread` **απορρίφθηκε** ως reuse: σβήνει όλο το thread (root+children) → θα έσβηνε σιωπηλά την επανάληψη (A1 σχόλιο `super_note_helper.dart:1190-1202`) → per-row delete + σχόλιο (A12).
+- `SafeDialogBody` όχι στα 3 list-dialogs (το ίδιο το αρχείο λέει «Flexible, ΟΧΙ αυτό»).
+- A10: λάθος label `:970` (archived διάβαζε «past reminders») → `'Settings archived items load'`.
+- A11 (F11): `loadingOpen` flag + `navigator` captured πριν το await → system back στο loading dialog **δεν** ποπάρει πλέον το Settings. Η ιδέα με `loadingCtx`+`mounted` απορρίφθηκε (κρεμούσε το dialog αν το validation τελείωνε πριν το πρώτο frame).
+- Split: public symbol + direct import (**0 `part`**)· `Settings*` renames· 9 αρχεία.
+
+**Αποτέλεσμα (γρ.):** `settings_screen` 439 · `settings_tiles` 484 · `settings_colors` 356 · `settings_backup` 291 · `settings_pin_dialogs` 183 · `settings_reminders_dialog` 265 · `settings_archived_dialog` 292 · `settings_contacts_dialogs` 377 · `settings_contacts_flow` 339 — **όλα <500**.
+
+**Έλεγχοι:** `flutter analyze` clean (×3) · `flutter test` **223/223** (×2) · `flutter build apk --debug` ✅ · integrity check (normalized line-multiset παλιού vs 9 νέων): **0 χαμένες γραμμές περιεχομένου** — μόνες διαφορές A10/A11 + `super.key`.
+
+**Device:** ⏳ **pending** — `adb install -r` → `INSTALL_FAILED_USER_RESTRICTED` (MIUI: «Εγκατάσταση μέσω USB» + επιβεβαίωση). Τα B1-B4 (back-gesture στα dialogs · PIN · restore archived) **δεν** εκτελέστηκαν.
+
+**Backups:** `backups/p2_settings_guards/` (settings_screen.pre + oldsessions.pre + supernote.pre + code_refactor.pre + BASE_HEAD `1d0679d`).
+
+**supernote.md:** ✅ δέντρο `settings/` → 9 αρχεία.
+
+**code_refactor.md:** §2 `settings 2947→9` · §7.5#5 ✅ CLOSED · §8 P2#5 ✅ CLOSED (σύνολο **16→14**) · §8 P4 + F9/F10/F13/F16.
+
+**Επόμενο session:** P2 a11y device pass · grid auto-height · (P4 micros F2/F3/F4/F9/F10/F13/F16).
