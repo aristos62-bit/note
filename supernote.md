@@ -14,7 +14,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 223/223 🟢 (`flutter test`) |
+| Test suite | 229/229 🟢 (`flutter test`) |
 
 ---
 
@@ -121,6 +121,7 @@ lib/
 │   ├── workspace_provider.dart   — Workspaces, activeWorkspaceId
 │   ├── folder_provider.dart      — Folders stream, selectedFolderId
 │   ├── item_provider.dart        — Items CRUD, streams, filters
+│   ├── items_query_provider.dart — Folder/trash streams, folder view, collection counts (S255 split από item_provider)
 │   ├── pinned_provider.dart      — Pinned/Favorites streams (split από item_provider)
 │   ├── block_provider.dart       — ItemBlocks CRUD, streams
 │   ├── property_provider.dart    — ItemProperties CRUD
@@ -945,7 +946,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (223/223 🟢) |
+| `flutter test` | Πλήρες suite (229/229 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

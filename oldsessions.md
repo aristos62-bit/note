@@ -3141,3 +3141,36 @@
   δεδομένα στην εφαρμογή· δεν τα φτιάχνουμε με adb.
 - Τεχνική που δούλεψε (για μελλοντικά): `uiautomator dump` → Flutter semantics →
   ακριβείς συντεταγμένες (script: `backups/p2_settings_f16/dump_ui.ps1`).
+
+---
+
+## Session 255 — 18/10/2026 (F13: bulk-restore perf στα «Αρχειοθετημένα» — `ItemNotifier.unarchiveMany`)
+
+**Scope (αναστολή 2+4 εγκεκριμένη · edit-tool only):** §8 P4 **F13** μόνο (F13b/F9/F18/F17 εκτός): bulk-restore loop στο `settings_archived_dialog.dart` = N× `toggleArchive` ⇒ N× `refreshRecurringReminders` + N× `topUpHabitReminders(force:true)` (S250: `created=180 took=6930ms` ≈ **7s πάγωμα**).
+
+**Αποφάσεις (SPoT-first):**
+- **A1 (εγκρίθηκε):** νέα `ItemNotifier.unarchiveMany(List<int> ids)` — orchestration **υπαρχουσών** κλήσεων, **0 νέα λογική**: loop `updateItem(id, archived:false)` + `rescheduleForItem(id)` → **1×** `refreshRecurringReminders()` → **1×** `topUpHabitReminders(force:true)` → `finally` **1×** `ref.invalidate(archivedItemsProvider)`. NEVER-THROW (το dialog συνεχίζει σε `controller.remove`). Ισοδυναμία: τα 2 global passes είναι idempotent ⇒ **ίδιο τελικό state** με το N×· διαφορές μόνο σε ενδιάμεσες (αόρατες) καταστάσεις + reopen-during-batch (αποδεκτό).
+- **Split S2 (cycle-free):** μετακίνηση read/derived providers σε **νέο** `lib/providers/items_query_provider.dart` (R1: `item_provider.dart` 499 γρ.): `itemsByFolderStreamProvider`, `trashedItemsStreamProvider`, `FolderViewData`, `folderViewDataProvider`, `collectionEntriesCountProvider`. **Παραμένει** στο `item_provider.dart` ο `archivedItemsProvider` (το invalidate-άρει ο `toggleArchive`/`unarchiveMany`) ⇒ **καμία κυκλική** εισαγωγή (`items_query_provider` → `item_provider` μονόδρομα, μόνο για `itemsStreamProvider`). Barrel `providers.dart` +1 export ⇒ **μηδενική** αλλαγή σε features/imports.
+- Απορρίφθηκαν: A2/A6 (απαιτούν private `_cascadeCollectionEntries` ⇒ scope **F13b**) · A7 (debounced) · A8 (`scheduleAll(incremental)` — αλλάζει semantics) · A5 (1 writeTxn) · M1 (batch-resolve schedule mode) · S1 (contiguous 399-499 ⇒ κύκλος) · A1c (R1 του split: 502 γρ.).
+- **Log tag `S255/F13`** (όχι `PERF#n` — αυτό είναι η σειρά S224).
+
+**Αποτέλεσμα (γρ.):** `item_provider` 499→**432** · `items_query_provider` **103 (ΝΕΟ)** · `providers.dart` 23→**24** · `settings_archived_dialog` 162→**160**. Bulk restore: **N×3 → 3** global/heavy κλήσεις (ανά item μένει μόνο το δικό του `rescheduleForItem`).
+
+**Έλεγχοι:** `flutter analyze` clean (πριν ΚΑΙ μετά το split, ~4.3s) · `flutter test` **229/229** (ίδιο σύνολο — **0** tests άγγιζαν τα μετακινούμενα σύμβολα) · grep: **κανένα** αρχείο δεν κάνει direct import `item_provider.dart` (όλα μέσω barrel `providers.dart:11`) · τα 90 μετακινημένα γρ. είναι **byte-identical** (έλεγχος indentation γραμμή-γραμμή).
+
+**Device test (adb, `9593c01e`):** ⏳ εκκρεμεί — πλάνο: **T0** baseline στο τρέχον build → install → **T1** με 4 αρχειοθετημένα (1 συνήθεια με opt-in ώρες + 2 στοιχεία με μελλοντική one-shot + 1 με εβδομαδιαία recurring). Αναμενόμενο: **1×** `S255/F13 unarchiveMany: n=4 → 1× refresh + 1× topUp took=…ms` + **0** `_scheduleOne: ARCHIVED, SKIP` για τα 4 ids. Δεδομένα τα φτιάχνει ο χρήστης στην εφαρμογή (κανόνας 12).
+
+**Backups:** `backups/p2_f13_bulk_unarchive/` (6 `.pre` + BASE_HEAD `66dea84`).
+
+**supernote.md:** ✅ νέο αρχείο στο δέντρο `providers/` (18 αρχεία) + test count 223→**229**.
+
+**code_refactor.md:** ✅ §8 P4 → S255 note (F13 ✅ CLOSED / **F13b νέο**) · διόρθωση stale ref (`take(10)`: `item_provider:443` → `items_query_provider:64`).
+
+**Επόμενο session — ιεράρχηση (σοβαρότερο πρώτο):**
+1. **F9** — *υψηλή (correctness)*: microtask-pop μέσα σε `build` (`SettingsImportProgressDialogState.build`) → κίνδυνος exception/pop κατά το build.
+2. **F18** — *μέτρια (stale data)*: `pastPendingRemindersProvider` (`reminder_provider.dart:30`, non-autoDispose `FutureProvider`) → ληγμένη υπενθύμιση δεν εμφανίζεται στο dialog εντός session (μόνο cold start). Fix: `ref.invalidate` στο άνοιγμα ή `autoDispose`.
+3. **F17** — *χαμηλή (cosmetic)*: wrap «Μέγεθος γραμματοσειράς» → «γραμματοσειρά / ς» (Slider στενεύει τη στήλη, 100%+140%).
+4. **F13b** — bulk-delete αντίστοιχο του F13 (μετά το F13, ίδιο pattern).
+5. **Μετά (bucket):** P2 a11y device pass · grid auto-height · παλιά micros F2/F3/F4 (§7.8).
+
+**Handles για το επόμενο session:** `lib/providers/` = **18** αρχεία· εισαγωγή **μόνο** μέσω barrel `providers.dart` (κανένα direct import `item_provider.dart`)· device M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Logs: `ItemNotifier.unarchiveMany n=… ids=…` → `S255/F13 unarchiveMany: n=… → 1× refresh + 1× topUp took=…ms`.
