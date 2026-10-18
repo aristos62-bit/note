@@ -206,7 +206,8 @@ lib/
 │   │   ├── settings_reminders_dialog.dart — Past reminders dialog
 │   │   ├── settings_archived_dialog.dart  — Archived items dialog
 │   │   ├── settings_contacts_dialogs.dart — Contact import dialogs + progress
-│   │   └── settings_contacts_flow.dart    — Contact import flow + imported list
+│   │   ├── settings_contacts_flow.dart    — Contact import flow + imported list
+│   │   └── selection_list_dialog.dart     — Shared selection-list dialog shell (S254)
 │   └── trash/
 │       └── trash_screen.dart     — Soft-deleted items
 └── shared/
