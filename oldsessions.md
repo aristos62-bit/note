@@ -3158,7 +3158,12 @@
 
 **Έλεγχοι:** `flutter analyze` clean (πριν ΚΑΙ μετά το split, ~4.3s) · `flutter test` **229/229** (ίδιο σύνολο — **0** tests άγγιζαν τα μετακινούμενα σύμβολα) · grep: **κανένα** αρχείο δεν κάνει direct import `item_provider.dart` (όλα μέσω barrel `providers.dart:11`) · τα 90 μετακινημένα γρ. είναι **byte-identical** (έλεγχος indentation γραμμή-γραμμή).
 
-**Device test (adb, `9593c01e`):** ⏳ εκκρεμεί — πλάνο: **T0** baseline στο τρέχον build → install → **T1** με 4 αρχειοθετημένα (1 συνήθεια με opt-in ώρες + 2 στοιχεία με μελλοντική one-shot + 1 με εβδομαδιαία recurring). Αναμενόμενο: **1×** `S255/F13 unarchiveMany: n=4 → 1× refresh + 1× topUp took=…ms` + **0** `_scheduleOne: ARCHIVED, SKIP` για τα 4 ids. Δεδομένα τα φτιάχνει ο χρήστης στην εφαρμογή (κανόνας 12).
+**Device test (adb, `9593c01e`, 18/10/2026):** ✅ ολοκληρώθηκε με bulk **6** items (υπήρχαν και παλαιότερα αρχειοθετημένα, όχι μόνο τα 4 του πλάνου). Δεδομένα από τον χρήστη στην εφαρμογή (κανόνας 12)· τα taps έγιναν μέσω adb με **ρητή εντολή** του χρήστη (helper `backups/p2_f13_bulk_unarchive/dump_ui.ps1` — `uiautomator dump` → `label @@ cx,cy`).
+- `S255/F13 unarchiveMany: n=6 → 1× refresh + 1× topUp took=1636ms` · `rescheduleForItem` **×6** (`rebaked` 0/**52**/1/5/1/1 = 60 OS alarms· `skipped=0 failed=0`) · `ReminderScheduler.refresh queued id=4` **×1** + `refreshRecurringReminders: started` **×1** (≈1057ms, 12 recurring roots, created 0) · `HabitService.pass queued id=4` **×1** + `topUp: done scanned=1 needTopUp=0 created=0` (41ms).
+- **0** `_scheduleOne: ARCHIVED, SKIP` ✅ · **0** ERR/Exception/failed/skipped ✅ · μετά το restore: «Δεν υπάρχουν αρχειοθετημένα στοιχεία.» ⇒ **6/6** επαναφέρθηκαν.
+- Παλιά συμπεριφορά (loop) = **12** global passes (6× refresh + 6× topUp) ⇒ ~7-10s πάγωμα· τώρα **2** passes / **1.6s**. Δομική απόδειξη: τα 2 global passes εμφανίζονται **μία** φορά στο log (η `unarchiveMany` τα καλεί 1×· το loop τα καλούσε N×).
+- ⚠️ Δεν πάρθηκε καθαρό **T0** baseline: η συσκευή είχε **ήδη** το νέο build (install/hot-restart μετά το commit) — απόφαση χρήστη: **αρκεί το T1** (δομική + λειτουργική απόδειξη).
+- Τεκμήρια: `backups/p2_f13_bulk_unarchive/` → `run_log_s255_t1_bulk6.txt` · `t1_archived_after.png` · dumps (`t0_ui`, `t0_settings`, `t0_settings_base`, `t0_dialog`, `t0_selected`, `t0_confirm`, `t1_after`, `t1_archived_after`).
 
 **Backups:** `backups/p2_f13_bulk_unarchive/` (6 `.pre` + BASE_HEAD `66dea84`).
 
