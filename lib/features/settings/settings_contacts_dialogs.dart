@@ -221,7 +221,7 @@ class SettingsImportProgressDialogState extends State<SettingsImportProgressDial
   ImportProgress _progress = const ImportProgress(
     current: 0, total: 0, status: 'Προετοιμασία...',
   );
-  ImportResult? _result;
+  bool _popped = false;
 
   @override
   void initState() {
@@ -229,54 +229,79 @@ class SettingsImportProgressDialogState extends State<SettingsImportProgressDial
     _startImport();
   }
 
+  /// S256/F9: κλείνει το dialog ΜΙΑ φορά.
+  ///
+  /// Το pop ΔΕΝ γίνεται πλέον μέσα στο `build`: ένα rebuild κατά τη διάρκεια
+  /// του pop-animation (media/theme/parent) ξανα-έτρεχε το `build` και
+  /// ζητούσε 2ο pop → έκλεινε και το από-κάτω route (οι Ρυθμίσεις).
+  /// Pattern parity με S254 `_popOnce` (`selection_list_dialog.dart`).
+  ///
+  /// Οι callers έχουν ήδη ελέγξει `mounted` (= δεν το έκλεισε ο χρήστης με
+  /// back)· εδώ προστίθεται `isCurrent` (= το route δεν είναι ήδη σε
+  /// pop-animation — F11-class, S253).
+  void _popOnce(ImportResult? result) {
+    if (_popped) return;
+    _popped = true;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    Navigator.of(context, rootNavigator: true).pop(result);
+  }
+
   Future<void> _startImport() async {
-    final result = await ContactImportService.instance.importContacts(
-      contacts: widget.contacts,
-      fields: widget.fields,
-      workspaceId: widget.workspaceId,
-      folderId: widget.folderId,
-      onProgress: (p) {
-        if (mounted) setState(() => _progress = p);
-      },
-    );
-    if (mounted) {
-      setState(() => _result = result);
+    try {
+      final result = await ContactImportService.instance.importContacts(
+        contacts: widget.contacts,
+        fields: widget.fields,
+        workspaceId: widget.workspaceId,
+        folderId: widget.folderId,
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
+      );
+      DebugConfig.nav('Settings: import done imported=${result.imported} '
+          'skipped=${result.skipped} errors=${result.errors}');
+      if (!mounted) return;
+      _popOnce(result);
+    } catch (e) {
+      // S256/F9b: χωρίς αυτό το δίχτυο το παράθυρο έμενε ανοιχτό χωρίς
+      // ενημέρωση. Ίδια SPoTs/μοτίβο με τη ροή (settings_contacts_flow.dart).
+      DebugConfig.error('Settings: import contacts failed', e);
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      _popOnce(null);
+      messenger.showSnackBar(
+        const SnackBar(content: Text(AppErrors.contactsImportFailed)),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_result != null) {
-      final navigator = Navigator.of(context, rootNavigator: true);
-      Future.microtask(() {
-        navigator.pop(_result);
-      });
-      return const SizedBox.shrink();
-    }
-
     return AlertDialog(
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Εισαγωγή επαφών...'),
-          const SizedBox(height: Spacing.md),
-          LinearProgressIndicator(
-            value: _progress.total > 0 ? _progress.fraction : null,
-          ),
-          const SizedBox(height: Spacing.sm),
-          if (_progress.contactName.isNotEmpty)
-            Text(
-              _progress.contactName,
-              style: context.bodySm.withColor(context.cText2),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      content: SafeDialogBody(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Εισαγωγή επαφών...'),
+            const SizedBox(height: Spacing.md),
+            LinearProgressIndicator(
+              value: _progress.total > 0 ? _progress.fraction : null,
             ),
-          if (_progress.total > 0)
-            Text(
-              '${_progress.current} / ${_progress.total}',
-              style: context.labelSm.withColor(context.cText2),
-            ),
-        ],
+            const SizedBox(height: Spacing.sm),
+            if (_progress.contactName.isNotEmpty)
+              Text(
+                _progress.contactName,
+                style: context.bodySm.withColor(context.cText2),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            if (_progress.total > 0)
+              Text(
+                '${_progress.current} / ${_progress.total}',
+                style: context.labelSm.withColor(context.cText2),
+              ),
+          ],
+        ),
       ),
     );
   }

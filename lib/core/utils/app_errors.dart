@@ -71,6 +71,7 @@ class AppErrors {
   static const contactsNoneFound = 'Δεν βρέθηκαν επαφές στο κινητό';
   static const contactsLoadFailed = 'Σφάλμα φόρτωσης επαφών';
   static const contactsNoneImported = 'Δεν υπάρχουν εισαγμένες επαφές';
+  static const contactsImportFailed = 'Σφάλμα εισαγωγής επαφών';
 
   // ── Loading / lists ──────────────────────────────────────────
   static const loadFailed = 'Σφάλμα φόρτωσης';

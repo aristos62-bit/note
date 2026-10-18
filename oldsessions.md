@@ -3179,3 +3179,33 @@
 5. **Μετά (bucket):** P2 a11y device pass · grid auto-height · παλιά micros F2/F3/F4 (§7.8).
 
 **Handles για το επόμενο session:** `lib/providers/` = **18** αρχεία· εισαγωγή **μόνο** μέσω barrel `providers.dart` (κανένα direct import `item_provider.dart`)· device M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Logs: `ItemNotifier.unarchiveMany n=… ids=…` → `S255/F13 unarchiveMany: n=… → 1× refresh + 1× topUp took=…ms`.
+
+---
+
+## Session 256 — 18/10/2026 (F9: pop εκτός `build` στο progress dialog εισαγωγής επαφών)
+
+**Scope (αναστολή 2+4 εγκεκριμένη · edit-tool only):** §8 P4 **F9** μόνο. Πριν την υλοποίηση έγιναν **3 κύκλοι** πρότασης (v1→v2→v3) με **πλήρεις** αναγνώσεις (όχι grep-only) + αποδείξεις από τον SDK· ο χρήστης ενέκρινε όλα τα σημεία.
+
+**Πρόβλημα:** `SettingsImportProgressDialogState.build` έκανε `Future.microtask(navigator.pop)` όταν `_result != null` — pop **μέσα** στο build. Ένα rebuild στο pop-window (media/theme/parent) ξανα-έτρεχε το build → **2ο pop** → έκλεινε και το από-κάτω route (οι Ρυθμίσεις). Επιπλέον **κανένα error net**: αποτυχία import = παράθυρο «κολλημένο» χωρίς μήνυμα.
+
+**Αποφάσεις (SPoT-first):**
+- **A:** `build` **pure**· νέο `_popOnce(ImportResult?)` (S254 parity: `_popped` flag + `route.isCurrent` + root pop) καλείται από το `_startImport` **μετά** το await. `mounted` (callers) = «δεν το έκλεισε ο χρήστης»· `isCurrent` = «δεν είναι ήδη σε pop-animation».
+- **B:** `SafeDialogBody` γύρω από το `Column` (S109 SPoT). Απόδειξη ανάγκης: `dialog.dart:916-922` — με `scrollable:false` το content μπαίνει σε **σκέτο `Flexible`** (καθόλου scroll). `safe_dialog.dart:18-20` = σκέτο `SingleChildScrollView` **χωρίς padding** ⇒ **μηδενική** οπτική αλλαγή. Απορρίφθηκε `AlertDialog(scrollable:true)` (υπάρχει ×4: PIN ×2 + wipe ×1 — όχι parity αρχείου).
+- **C:** νέα `AppErrors.contactsImportFailed` = `'Σφάλμα εισαγωγής επαφών'` (2ο αρχείο· εγκρίθηκε).
+- **D:** F9c placeholders **όχι τώρα** → §7.8 micro.
+- **E:** νέο pure widget test.
+- Απορρίφθηκαν: `addPostFrameCallback`+flag (κρατά side-effect + άδειο frame)· `PopScope`/`isDraggingProvider` (back-blocking — παγιδεύει τον χρήστη)· `DetailScreenMixin.safePop()` (λάθος base class + **χωρίς** `isCurrent`)· `ctx.mounted`-only pattern (S253 PIN — αδύναμο για μεγάλο async παράθυρο)· ενοποίηση των 2 loading dialogs· κοινός pop helper.
+
+**Αποτέλεσμα (γρ.):** `settings_contacts_dialogs.dart` 377→**402** · `app_errors.dart` 96→**97** · `test/settings_import_progress_dialog_test.dart` **83 (ΝΕΟ)**. **0 νέα imports** (`SafeDialogBody`/`AppErrors`/`DebugConfig` ήδη διαθέσιμα). Το `_result` αφαιρέθηκε (4/4 χρήσεις εντός του αντικατασταθέντος block).
+
+**Έλεγχοι:** `flutter analyze` clean (~4.6s) · `flutter test` **230/230** (229 + 1 νέο)· το νέο test επαληθεύει «**ακριβώς ένα pop**» μέσω `NavigatorObserver` + ότι το από-κάτω route μένει + `takeException() == null`.
+
+**Ειλικρινή όρια:** (1) Το test είναι **contract/guard**, **όχι** red-on-old repro: με `contacts: []` το `importContacts` επιστρέφει αμέσως (`contact_import_service.dart:111`) και το route απομακρύνεται τόσο γρήγορα (εντός push-animation) ώστε δεν υπάρχει ντετερμινιστικό παράθυρο· ταυτόχρονα το `_page` του route είναι **cached** (`routes.dart:1085-1089,1228`) ⇒ theme-rebuild **δεν** ξανατρέχει το `State.build`. (2) Device test **εκκρεμεί** (T1 κανονική ροή · T2 back εν μέσω import) — δεν έγινε καμία δήλωση device-επαλήθευσης.
+
+**supernote.md:** **καμία** αλλαγή (κανόνας #8 — δεν άλλαξε αρχιτεκτονική· το δέντρο αρχείων μένει ίδιο). ⚠️ Ο μετρητής tests στο `supernote.md` γράφει ακόμη **229/229** ενώ το suite είναι **230/230** — δεν ενημερώθηκε σκόπιμα (status, όχι αρχιτεκτονική).
+
+**Backups:** `backups/s256_f9_dialog_pop/` (5 αρχεία + `BASE_HEAD.txt` = `9660f6b` + `BASE_STATUS.txt`, hash-επαληθευμένα byte-identical).
+
+**Επόμενο session — ιεράρχηση:** 1. **F18** (stale `pastPendingRemindersProvider`) · 2. **F17** (cosmetic «γραμματοσειρά / ς») · 3. **F13b** (bulk-delete) · 4. bucket (P2 a11y device pass · grid auto-height · micros F2/F3/F4/F9c).
+
+**Handles για το επόμενο session:** `SettingsImportProgressDialogState` = **1** μόνο pop-σημείο (`_popOnce`)· **μη** ξαναφέρεις pop μέσα στο `build` (ούτε `Future.microtask`/`addPostFrameCallback`). Σε νέο progress dialog: `SafeDialogBody` + `_popOnce` pattern + `try/catch` net. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Logs: `Settings: import done imported=… skipped=… errors=…` · `Settings: import contacts failed`.
