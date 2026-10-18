@@ -347,6 +347,29 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     ref.invalidate(archivedItemsProvider);
   }
 
+  /// S255 (F13): bulk unarchive — αντί για N × (reschedule + 2 global passes),
+  /// 1 × global pass. Σειρά: write+reschedule ανά item → 1× refresh recurring
+  /// (τα global passes σκιπάρουν archived) → 1× topUp habits. NEVER-THROW.
+  Future<void> unarchiveMany(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final sw = Stopwatch()..start();
+    DebugConfig.db('ItemNotifier.unarchiveMany n=${ids.length} ids=$ids');
+    try {
+      for (final id in ids) {
+        await updateItem(id, archived: false);
+        await ReminderScheduler.instance.rescheduleForItem(id);
+      }
+      await ReminderScheduler.instance.refreshRecurringReminders();
+      await HabitService.instance.topUpHabitReminders(force: true);
+      DebugConfig.notif(
+          'S255/F13 unarchiveMany: n=${ids.length} → 1× refresh + 1× topUp took=${sw.elapsedMilliseconds}ms');
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.unarchiveMany', e, s);
+    } finally {
+      ref.invalidate(archivedItemsProvider);
+    }
+  }
+
   /// Μετακίνηση item σε άλλο φάκελο
   Future<void> moveToFolder(int itemId, int? newFolderId) async {
     try {
@@ -396,25 +419,6 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
 final itemNotifierProvider =
 AsyncNotifierProvider<ItemNotifier, List<Item>>(ItemNotifier.new);
 
-// ─────────────────────────────────────────────────────────────────
-// Real-time items ανά folder (για home folder view)
-// ─────────────────────────────────────────────────────────────────
-
-/// Stream items ενός folder — real-time
-final itemsByFolderStreamProvider =
-StreamProvider.family<List<Item>, int>((ref, folderId) {
-  final db = ref.watch(dbProvider);
-  return db.items.watchByFolder(folderId);
-});
-
-/// Stream με όλα τα soft‑deleted items του active workspace
-final trashedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return Stream.value(const []);
-  return db.items.watchDeletedByWorkspace(wsId);
-});
-
 // ── Provider για αρχειοθετημένα items ──────────────────────────
 // (Φ4a βήμα 18: μεταφέρθηκε από settings_screen — DB via dbProvider)
 final archivedItemsProvider = FutureProvider<List<Item>>((ref) async {
@@ -425,75 +429,4 @@ final archivedItemsProvider = FutureProvider<List<Item>>((ref) async {
     includeArchived: true,
   );
   return all.where((i) => i.archived && i.deletedAt == null).toList();
-});
-
-// ─────────────────────────────────────────────────────────────────
-// Combined data για HomeFolderView (αντικαθιστά 4 ξεχωριστά providers)
-// ─────────────────────────────────────────────────────────────────
-
-class FolderViewData {
-  final Map<ItemType, int> stats;
-  final List<Item> pinned;
-  final List<Item> favorites;
-  final List<Item> recent;
-
-  FolderViewData({
-    required this.stats,
-    required this.pinned,
-    required this.favorites,
-    required this.recent,
-  });
-}
-
-/// Ένας provider — 1 rebuild αντί για 4
-final folderViewDataProvider =
-    StreamProvider.family<FolderViewData, int>((ref, folderId) async* {
-  FolderViewData compute(List<Item> items) {
-    final stats = <ItemType, int>{};
-    for (final type in ItemType.values) {
-      stats[type] = items.where((i) => i.type == type && i.deletedAt == null).length;
-    }
-    final pinned = items.where((i) => i.pinned && i.deletedAt == null).toList();
-    final favorites = items.where((i) => i.favorite && i.deletedAt == null).toList();
-    final active = items.where((i) => !i.archived && i.deletedAt == null).toList();
-    active.sort((a, b) => (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt));
-    final recent = active.take(10).toList();
-    return FolderViewData(stats: stats, pinned: pinned, favorites: favorites, recent: recent);
-  }
-
-  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
-    data: (items) async* {
-      yield compute(items);
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
-});
-
-// ── Collection entry counts (Φ4a βήμα 18: από collections_screen,
-//    Stream-single-yield → Future — recompute-on-watch ident)
-final collectionEntriesCountProvider = FutureProvider<Map<int, int>>((ref) async {
-  final itemsAsync = ref.watch(itemsStreamProvider);
-  final entries = itemsAsync.valueOrNull
-      ?.where((i) => i.type == ItemType.knowledge)
-      .toList() ??
-      [];
-
-  if (entries.isEmpty) {
-    return {};
-  }
-
-  // Ένα lightweight DB call αντί για N
-  final entryIds = entries.map((e) => e.id).toList();
-  DebugConfig.db('collectionEntriesCountProvider: entries=${entryIds.length}');
-  final collectionIdMap = await ref.watch(dbProvider).properties
-      .getCollectionIds(entryIds);
-  DebugConfig.db('collectionEntriesCountProvider: found ${collectionIdMap.length} pairs');
-
-  final Map<int, int> counts = {};
-  for (final colIdStr in collectionIdMap.values) {
-    final colId = int.tryParse(colIdStr);
-    if (colId != null) counts[colId] = (counts[colId] ?? 0) + 1;
-  }
-  return counts;
 });

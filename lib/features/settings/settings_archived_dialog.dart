@@ -120,11 +120,9 @@ Future<void> showArchivedItemsDialog(BuildContext context, WidgetRef ref) async 
             );
             if (!confirm) return;
             final ids = controller.selected;
-            // #2: επαναφορά μέσω SPoT → unarchive + reschedule OS reminders.
-            for (final item
-                in controller.items.where((i) => ids.contains(i.id))) {
-              await notifier.toggleArchive(item.id, true);
-            }
+            // S255 (F13): bulk unarchive μέσω SPoT — 1× global reminder pass
+            // για όλα τα επιλεγμένα (αντί για 2 global passes ανά item).
+            await notifier.unarchiveMany(ids.toList());
             controller.remove(ids);
           },
           child: Text('Επαναφορά ($count)'),
