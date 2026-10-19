@@ -32,6 +32,8 @@ class FolderItemsList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ReorderableItemList(
       items: items,
+      gridItemExtent: 100,
+      gridItemExtentMax: 108,
       onReorder: onReorder,
       onReorderStart: onReorderStart,
       onReorderEnd: onReorderEnd,
@@ -82,29 +84,18 @@ class FolderItemsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.responsiveHPadding,
-        Spacing.sm,
-        context.responsiveHPadding,
-        80,
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: context.gridColumns,
-        mainAxisSpacing: Spacing.sm,
-        crossAxisSpacing: Spacing.sm,
-        mainAxisExtent: 100,
-      ),
-      itemCount: items.length,
-      itemBuilder: (_, i) => Consumer(
+    return ResponsiveItemList<Item>(
+      items: items,
+      itemKey: (it, i) => ValueKey<int>(it.id),
+      itemBuilder: (_, item) => Consumer(
         builder: (_, ref, __) {
-          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(items[i].type));
+          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
           return ItemCard(
-            item: items[i],
+            item: item,
             compact: true,
             customBackgroundColor: overrideColor,
-            onTap: () => onTap(items[i]),
-            onShare: onShare != null ? () => onShare!(items[i]) : null,
+            onTap: () => onTap(item),
+            onShare: onShare != null ? () => onShare!(item) : null,
           );
         },
       ),

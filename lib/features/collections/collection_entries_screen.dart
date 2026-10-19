@@ -497,6 +497,7 @@ class _FilteredEntriesList extends ConsumerWidget {
     return ReorderableItemList(
       items: entries,
       gridItemExtent: 140,
+      gridItemExtentMax: 160,
       onReorder: (oldIndex, newIndex) {
         if (oldIndex == newIndex) return;
         final full = ref.read(itemsStreamProvider).valueOrNull ?? const [];

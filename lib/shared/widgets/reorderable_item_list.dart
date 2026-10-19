@@ -9,6 +9,10 @@ class ReorderableItemList extends StatelessWidget {
   final Widget Function(BuildContext context, Item item, int index) itemBuilder;
   final void Function(int oldIndex, int newIndex) onReorder;
   final double gridItemExtent;
+
+  /// Ανώτατο extent στο text scale 1.4 (auto-height). null → ίσο με gridItemExtent.
+  final double? gridItemExtentMax;
+
   final bool shrinkWrap;
   final ScrollPhysics? physics;
 
@@ -22,6 +26,7 @@ class ReorderableItemList extends StatelessWidget {
     required this.itemBuilder,
     required this.onReorder,
     this.gridItemExtent = 100,
+    this.gridItemExtentMax,
     this.shrinkWrap = false,
     this.physics,
     this.onReorderStart,   // ← ΝΕΟ
@@ -99,7 +104,10 @@ class ReorderableItemList extends StatelessWidget {
               crossAxisCount: cols,
               mainAxisSpacing: Spacing.sm,
               crossAxisSpacing: Spacing.sm,
-              mainAxisExtent: gridItemExtent,
+              mainAxisExtent: context.autoGridItemExtent(
+                base: gridItemExtent,
+                max: gridItemExtentMax ?? gridItemExtent,
+              ),
             ),
             itemBuilder: (ctx, i) {
               final item = items[i];

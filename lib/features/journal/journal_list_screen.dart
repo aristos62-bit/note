@@ -267,22 +267,15 @@ class _JournalListTablet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cols = context.gridColumns;
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.sm, context.responsiveHPadding, 80),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        mainAxisSpacing: Spacing.sm,
-        crossAxisSpacing: Spacing.sm,
-        mainAxisExtent: 160,
-      ),
-      itemCount: entriesWithDate.length,
-      itemBuilder: (_, i) => _DraggableJournalCard(
-        item: entriesWithDate[i].entry,
-        displayDate: entriesWithDate[i].displayDate,
+    return ResponsiveItemList<_EntryWithDate>(
+      items: entriesWithDate,
+      itemKey: (e, i) => ValueKey<int>(e.entry.id),
+      itemBuilder: (_, ewd) => _DraggableJournalCard(
+        item: ewd.entry,
+        displayDate: ewd.displayDate,
         onTap: onTap,
         onDelete: onDelete,
-        onShare: onShare != null ? () => onShare!(entriesWithDate[i].entry) : null,
+        onShare: onShare != null ? () => onShare!(ewd.entry) : null,
       ),
     );
   }

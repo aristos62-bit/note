@@ -104,6 +104,21 @@ extension ResponsiveContextX on BuildContext {
   /// Αριθμός στηλών για item grid
   int get gridColumns => responsive(mobile: 1, tablet: 2, desktop: 3);
 
+  // ── Grid item extent (auto-height βάσει text scale) ───────────
+
+  /// Πραγματικό text scale της συσκευής από το global [TextScaler]
+  /// (main.dart: `TextScaler.linear(fontScale)`).
+  /// ΔΕΝ είναι το breakpoint [textScale] (1.0/1.05/1.1).
+  double get gridTextScale {
+    final s = MediaQuery.textScalerOf(this).scale(14.0) / 14.0;
+    return (s.isFinite && s > 0) ? s : 1.0;
+  }
+
+  /// Extent grid cell: παρεμβολή [base]→[max] όσο το text scale
+  /// πάει 1.0→1.4. Στο ≤1.0 → [base], στο ≥1.4 → [max].
+  double autoGridItemExtent({required double base, required double max}) =>
+      autoGridItemExtentFor(base, max, gridTextScale);
+
   /// Αριθμός στηλών για compact grid (πχ tags, chips)
   int get chipColumns => responsive(mobile: 2, tablet: 3, desktop: 4);
 
@@ -119,6 +134,14 @@ extension ResponsiveContextX on BuildContext {
 
   /// Χρησιμοποίησε bottom nav σε mobile
   bool get useBottomNav => isMobile;
+}
+
+/// Παρεμβολή [base]→[max] όσο το text scale μεγαλώνει (1.0→1.4).
+/// ≤1.0 → [base] · ≥1.4 → [max] · max<=base → [base] (χωρίς συρρίκνωση).
+double autoGridItemExtentFor(double base, double max, double textScale) {
+  if (max <= base) return base;
+  final t = ((textScale - 1.0) / 0.4).clamp(0.0, 1.0);
+  return base + (max - base) * t;
 }
 
 // ════════════════════════════════════════════════════════════════

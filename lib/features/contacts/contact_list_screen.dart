@@ -225,20 +225,23 @@ class _ContactListMobile extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(context.responsiveHPadding, Spacing.md, context.responsiveHPadding, Spacing.xs),
               child: Text(letter, style: context.labelMd.withColor(context.cText2)),
             ),
-            ...group.map((item) => Consumer(
-              builder: (_, ref, __) {
-                final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
-                return _DraggableContactTile(
-                  contact: item,
-                  phone: contactProps[item.id]?.phone,
-                  email: contactProps[item.id]?.email,
-                  photo: contactProps[item.id]?.photo,
-                  onTap: onTap,
-                  onDelete: onDelete,
-                  onShare: onShare != null ? () => onShare!(item) : null,
-                  cardBackgroundColor: overrideColor,
-                );
-              },
+            ...group.map((item) => Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
+              child: Consumer(
+                builder: (_, ref, __) {
+                  final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+                  return _DraggableContactTile(
+                    contact: item,
+                    phone: contactProps[item.id]?.phone,
+                    email: contactProps[item.id]?.email,
+                    photo: contactProps[item.id]?.photo,
+                    onTap: onTap,
+                    onDelete: onDelete,
+                    onShare: onShare != null ? () => onShare!(item) : null,
+                    cardBackgroundColor: overrideColor,
+                  );
+                },
+              ),
             )),
           ],
         );
@@ -261,26 +264,20 @@ class _ContactGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.sm),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: context.gridColumns,
-        mainAxisSpacing: Spacing.sm,
-        crossAxisSpacing: Spacing.sm,
-        mainAxisExtent: 90,
-      ),
-      itemCount: contacts.length,
-      itemBuilder: (_, i) => Consumer(
+    return ResponsiveItemList<Item>(
+      items: contacts,
+      itemKey: (c, i) => ValueKey<int>(c.id),
+      itemBuilder: (_, item) => Consumer(
         builder: (_, ref, __) {
-          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(contacts[i].type));
+          final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
           return _DraggableContactTile(
-            contact: contacts[i],
-            phone: contactProps[contacts[i].id]?.phone,
-            email: contactProps[contacts[i].id]?.email,
-            photo: contactProps[contacts[i].id]?.photo,
+            contact: item,
+            phone: contactProps[item.id]?.phone,
+            email: contactProps[item.id]?.email,
+            photo: contactProps[item.id]?.photo,
             onTap: onTap,
             onDelete: onDelete,
-            onShare: onShare != null ? () => onShare!(contacts[i]) : null,
+            onShare: onShare != null ? () => onShare!(item) : null,
             cardBackgroundColor: overrideColor,
           );
         },
@@ -325,7 +322,7 @@ class _DraggableContactTile extends StatelessWidget {
     final accentColor = ItemColorHelper.iconColorForType(ItemType.contact, context);
 
     final tile = Container(
-      margin: EdgeInsets.symmetric(horizontal: context.responsiveHPadding, vertical: Spacing.xs / 2),
+      margin: const EdgeInsets.symmetric(vertical: Spacing.xs / 2),
       padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
       decoration: BoxDecoration(
         color: backgroundColor,

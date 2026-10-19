@@ -222,62 +222,70 @@ class _CollectionsReorderableGrid extends ConsumerWidget {
     final cols = context.gridColumns == 1
         ? 3
         : (context.gridColumns == 2 ? 4 : 6);
+    final hPad = context.responsiveHPadding;
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(
-            context.responsiveHPadding,
-            Spacing.md,
-            context.responsiveHPadding,
-            80,
-          ),
-          sliver: SliverReorderableGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols,
-              mainAxisSpacing: Spacing.md,
-              crossAxisSpacing: Spacing.md,
-              childAspectRatio: 1,
-            ),
-            itemCount: collections.length,
-            onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
-            itemDragEnable: (i) => _canDrag(collections[i]),
-            autoScroll: false,
-            itemBuilder: (ctx, i) {
-              final item = collections[i];
-              final canDrag = _canDrag(item);
-              return Stack(
-                key: ValueKey(item.id),
-                clipBehavior: Clip.none,
-                children: [
-                  _DraggableCollectionCard(
-                    item: item,
-                    onTap: () => onTap(item),
-                    onEdit: () => onEdit(item),
-                    onDelete: () => onDelete(item),
-                    onShare: onShare != null ? () => onShare!(item) : null,
-                  ),
-                  if (canDrag)
-                    Positioned(
-                      right: 2, bottom: 2,
-                      child: ReorderableGridDragStartListener(
-                        index: i, enabled: true,
-                        child: RotatedBox(
-                          quarterTurns: 1,
-                          child: Icon(
-                            Icons.drag_handle_rounded,
-                            size: 28,
-                            color: context.cText2.withValues(alpha: 1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth =
+            (constraints.maxWidth - 2 * hPad - Spacing.md * (cols - 1)) / cols;
+        // Square στο 1.0· auto-height (έως 102) όσο μεγαλώνει το text scale.
+        // Σταθερό extent (ΟΧΙ IntrinsicHeight): το card έχει LayoutBuilder.
+        final extent = context.autoGridItemExtent(
+          base: cellWidth,
+          max: cellWidth < 102.0 ? 102.0 : cellWidth,
+        );
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(hPad, Spacing.md, hPad, 80),
+              sliver: SliverReorderableGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  mainAxisSpacing: Spacing.md,
+                  crossAxisSpacing: Spacing.md,
+                  mainAxisExtent: extent,
+                ),
+                itemCount: collections.length,
+                onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
+                itemDragEnable: (i) => _canDrag(collections[i]),
+                autoScroll: false,
+                itemBuilder: (ctx, i) {
+                  final item = collections[i];
+                  final canDrag = _canDrag(item);
+                  return Stack(
+                    key: ValueKey(item.id),
+                    clipBehavior: Clip.none,
+                    children: [
+                      _DraggableCollectionCard(
+                        item: item,
+                        onTap: () => onTap(item),
+                        onEdit: () => onEdit(item),
+                        onDelete: () => onDelete(item),
+                        onShare: onShare != null ? () => onShare!(item) : null,
+                      ),
+                      if (canDrag)
+                        Positioned(
+                          right: 2, bottom: 2,
+                          child: ReorderableGridDragStartListener(
+                            index: i, enabled: true,
+                            child: RotatedBox(
+                              quarterTurns: 1,
+                              child: Icon(
+                                Icons.drag_handle_rounded,
+                                size: 28,
+                                color: context.cText2.withValues(alpha: 1),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -362,6 +370,8 @@ class _DraggableCollectionCard extends ConsumerWidget {
             Text(
               '${counts[item.id] ?? 0} εγγραφές',
               style: context.labelSm.copyWith(color: secondaryForeground),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

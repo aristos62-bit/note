@@ -234,6 +234,8 @@ class _ItemListBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ReorderableItemList(
       items: items,
+      gridItemExtent: 100,
+      gridItemExtentMax: 108,
       onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,
       onReorderEnd:   () => ref.read(isDraggingProvider.notifier).state = false,
