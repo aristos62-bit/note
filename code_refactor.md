@@ -95,7 +95,7 @@
 - ✅ CLOSED 14/10/2026 (S221, device ✅) — 8 αρχεία → «αρχειοθετημένων», grep `συμπιεσμένων` = 0 σε `lib/`.
 - ✅ CLOSED 13/10/2026 (S178) — ξαναγραφή από context· grep `�` = 0.
 - ✅ CLOSED 14/10/2026 (S222, Επιλογή Β, device ✅) — const `_LoadingList` ×5 αρχεία + key-cleanup (`unused_element_parameter`).
-- ⏳ **a11y (48px/Semantics)** — ξεχωριστό device pass.
+- ⏸️ **PARKED 19/10/2026 — a11y (48px/Semantics/font-scale)** · πλήρες σχέδιο: `a11y.md` (audit `bd6f82a`) · refresh protocol πριν την υλοποίηση (`a11y.md` §0.1).
 
 ### 3.7 🆕 Νέα ευρήματα (audit)
 - ✅ `_createEventWithIcon` catch ΧΩΡΙΣ SnackBar (OPEN parity, βλ. 3.6)· παλιό dead branch GONE· identical-pair ✅ MERGED (S218, βλ. 3.6).
@@ -159,11 +159,13 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 4. S234 findings (device 15/10/2026 — προϋπάρχοντα, όχι S234· πηγή oldsessions S234): ✅ CLOSED 17/10/2026 (S250 — κώδικας + device ✅): race delete-χρήστη ↔ topUp → μερική διαγραφή (218/22) — σειριοποίηση wipe+soft/hard delete στο ίδιο pass της `_passQueue` + deleted-guard `_scheduleRemindersImpl` + routing `permanentDelete`· ✅ CLOSED 17/10/2026 (S251 — κώδικας + device ✅): `_TrashScreenState` setState-after-dispose crash (κλάση S85/S187) — βλ. §8 P1#2.
 5. ✅ CLOSED 18/10/2026 (S253 — κώδικας ✅· analyze clean + test 223/223 + build apk ✅): `settings_screen.dart` **9** (όχι 8) ίδια κλάση crash (setState-after-await χωρίς `mounted` guard), όλα `setModal`: reminders (`:501,:520`) · archived (`:1005,:1018,:1035,:1051`) · contacts (`:1757,:1769`) · PIN (`:2110`). Fix: `if (!ctx.mounted) return;` **πριν** το `setModal`, τα `ref.invalidate` μένουν μετά (S251 parity — καμία μετακίνηση, για να μη ρισκάρουμε disposed `ref`). Bonus: A10 λάθος log label (`:970` archived έγραφε «past reminders»), A11 F11 (loading dialog: `loadingOpen` flag + `navigator` captured πριν το await — το back δεν κλείνει πλέον το Settings), A12 σχόλιο γιατί per-row delete (ΟΧΙ `deleteReminderThread` — θα έσβηνε το root rrule). Split 2947→9 αρχεία (<500, max 484). Βλ. §8 P2#5. Device ✅ B1-B4 (back mid-await: didPop εν μέσω delete/restore → 0 crash).
 6. ✅ CLOSED 17/10/2026 (S252 — κώδικας ✅· analyze clean + test 223/223 + device ✅ T1-T5) — postFrame δίχτυα: `purgeKnowledgeReminders` (`main:239`) + `scheduleAll` (`main:246`) → SPoT `SerialPassQueue` per-concern instances (`ReminderScheduler.bake`, `ReminderScheduler.purge`, fail-open 60s, NEVER-THROW)· 0 αλλαγές `main`· βλ. §8 P1#3.
-7. 🟡 Grid auto-height (παλιό «parked Φ4c, για όλα μαζί») — αραιές κάρτες με fixed extents· πλήρης ανοσία μόνο με auto-height (πηγές oldsessions ~`:938,998,1246`).
+7. ✅ CLOSED 19/10/2026 (S261 — κώδικας ✅· analyze clean + test 245/245) — Grid auto-height (παλιό «parked Φ4c, για όλα μαζί»): αραιές κάρτες με fixed extents → λύθηκε με true auto-height + adaptive extents (πηγές oldsessions ~`:938,998,1246`· βλ. §9#2/S261). Εκκρεμεί device matrix.
 
 8. ⚪ Micros (P4, docs-only — S252 re-check): **F2** `settings_provider:87` — OFF path `cancelAll()` bypass την ουρά (προϋπάρχον race, self-heal)· **F3** `main:210` `settings.get()` + `main:224` `requestPermission()` — awaited postFrame χωρίς δίχτυ (πρότυπο `.timeout(5s)` υπάρχει ήδη: `main:376/402`)· **F4** `item_provider` `rescheduleForItem` ×6 (`:199/203/214/275/337/341`) — awaited UI flows χωρίς timeout (S234 residual). **F9c (S256):** `ImportProgress.status` (set 3×, ποτέ rendered) + `ImportResult.totalProcessed` (0 callers) — νεκρά placeholders (θα απαιτούσαν UI αλλαγή στο progress dialog). **✅ CLOSED 19/10/2026 (S258 — αφαίρεση):** 0 readers ⇒ **behavior-neutral** (ίδιο rendered UI)· `contact_import_service.dart` 401→**395** · `settings_contacts_dialogs.dart` 402→**400**· analyze clean + test **230/230**· commit `c2d4893`.
 
 ## 8. Κατάταξη ανοιχτών εκκρεμοτήτων (17/10/2026 — έλεγχος parked)
+
+> ⚠️ **Η ενεργή ιεράρχηση είναι η §9 (19/10/2026).** Η §8 μένει ως ιστορικό/deferred· σε διαφωνία υπερισχύει η §9.
 
 > Πλήρης ιεραρχημένη λίστα όλων των ανοιχτών (P1→P5) — συγκεντρώνει §3.x/§7, supernote.md και oldsessions S229-S248. Δεν περιλαμβάνει ό,τι έκλεισε στον έλεγχο 17/10/2026 (9593c01e· day-rollover S229/S236).
 > Σύνολο 16→14 (P1#3 ✅ CLOSED 17/10/2026 — S252· P2#5 ✅ CLOSED 18/10/2026 — S253): 0 κρίσιμες · 2 σημαντικές · 3 βελτιώσεις · 4 micro-groups · 5 by-design/ασαφή.
@@ -174,9 +176,9 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 3. ✅ CLOSED 17/10/2026 (S252 — κώδικας ✅ + analyze/test ✅) — **postFrame δίχτυα: `purge` (`main:239`) + `scheduleAll` (`main:246`)** (§7.6): 2 SPoT instances (`ReminderScheduler.bake`/`.purge`, fail-open 60s, NEVER-THROW, per-pass — ΠΟΤΕ κοινή ουρά)· 1 αρχείο (`reminder_scheduler.dart` 862→883), 0 αλλαγές `main`/APIs/imports/tests· bonus: καλύπτει και τα `cancelAll()`/`pendingNotificationRequests()` της ίδιας μεθόδου (supernote §Error Handling, S252). Micros F2/F3/F4 → §7.8. Device ✅ T1-T5 (M2007J20CG/Android 12 — oldsessions S252).
 
 ### 🟠 P2 — Σημαντικές (ποιότητα/αξιοπιστία)
-4. **a11y device pass** (§3.6:98 ⏳ · oldsessions ~`:882-892`) — ο κώδικας Semantics/48px γράφτηκε, επαλήθευση συσκευής ποτέ (TalkBack/48px/no-PII/flicker + touch 16-22px). Κόστος: 1 device pass (0 κώδικα εκτός ευρημάτων).
+4. ⏸️ **PARKED 19/10/2026 — a11y pass** (§3.6:98 · πλήρες σχέδιο `a11y.md` · audit `bd6f82a`) — Semantics/48px/font-scale/PII· πριν την υλοποίηση: refresh protocol `a11y.md` §0.1 (baseline, diff από `bd6f82a`, device audit C1–C22, επανεξέταση D1–D6). Απόφαση χρήστη: μελλοντική υλοποίηση.
 5. ✅ CLOSED 18/10/2026 (S253 — κώδικας ✅· analyze clean + test 223/223 + build apk ✅ + **device ✅ B1-B4**) — **Settings ×9 setState-after-await χωρίς guard** (§7.5 · S251): 9 guards `if (!ctx.mounted) return;` πριν κάθε `setModal` (reminders ×2 · archived ×4 · contacts ×2 · PIN ×1)· F6 λάθος log label ✅· F11 loading-dialog ✅· split 2947→9 (<500 γρ.)· device: back **εν μέσω** delete/restore (didPop `51.234`/`29.787`/`58.172`/`45.500`) → **0 crash**, Settings παρέμεινε· PIN λάθος → σωστό error· cold start 0 ERR (βλ. oldsessions S253).
-6. **Grid auto-height (αντοχή max fontScale)** (§7.7 · πηγές ~`:938,998,1246`) — με max fontScale + 3 πεδία (~153px) τα fixed κελιά οριακά → περικοπές/whitespace· λύση «για όλα τα grids μαζί». Κόστος: 1 session.
+6. ✅ CLOSED 19/10/2026 (S261 — κώδικας ✅· analyze clean + test 245/245) — **Grid auto-height (αντοχή max fontScale)** (§7.7 · πηγές ~`:938,998,1246`): true auto-height στα μη-reorderable grids + uniform adaptive extent στα reorderable + adaptive square (home/collections)· helper `autoGridItemExtent*` στο `responsive.dart`· 16 αρχεία `lib/`· εκκρεμεί device matrix (βλ. §9#2/S261).
 
 ### 🟡 P3 — Feature/βελτιώσεις (αποφασισμένες «μελλοντικές»)
 7. **Snooze UI + notification actions** (§7.3 🔜) — μηχανισμός έτοιμος, χωρίς κουμπί/actions (απόφαση 14/10)· θέλει spec πρώτα. Κόστος: μεγάλο.
@@ -208,3 +210,130 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 16. Zombie-overlap residual (S245) — αποδεκτός συμβιβασμός (dedup guards).
 17. Αρχαίες σημειώσεις S~92 (oldsessions `:801`): SnackBar-orphan · stats/search-project — πιθανόν obsolete.
 18. «reorder/dots/counts — θέλουν spec» (παλιό a11y session) — ασαφές.
+
+---
+
+## 9. 📌 Τρέχουσα ιεράρχηση — 19/10/2026 (canonical)
+
+> Ενιαία λίστα όλων των ανοιχτών. Η §8 μένει ως ιστορικό/deferred· σε διαφωνία υπερισχύει η §9.
+> **#1 = ⏸️ PARKED** (a11y) — βλ. `a11y.md` §0.1. Δεν αφαιρείται/αναριθμείται· τα #2–#22 κρατούν τη σειρά τους.
+> **#2 = ✅ CLOSED S261** (κώδικας + analyze/test ✅· εκκρεμεί **device matrix** 100%/140%). **Επόμενο εκτελέσιμο: #4 F13b.**
+
+### 🟠 P2 — Σοβαρότερα ανοιχτά (3)
+
+1. ⏸️ **PARKED 19/10/2026 — a11y device pass**
+   - **Πού:** `code_refactor.md:98`, §8#4 · πλήρες σχέδιο `a11y.md`.
+   - **Τι ισχύει στον κώδικα:** μόνο 3 `Semantics(` σε όλο το `lib/` + 89 `tooltip:` — το «ο κώδικας Semantics γράφτηκε» είναι υπερβολή· γράφτηκαν στοχευμένα (ώρες, month-cells, heatmap, badges — S97), όχι συστηματικά.
+   - **Τι λείπει:** TalkBack pass, 48dp hit-targets, no-PII στα semantics, flicker, touch 16–22px (§3.8).
+   - **Κόστος:** αρχικά 1 device pass (0 κώδικα εκτός ευρημάτων). **Μετά το audit 19/10/2026:** το `a11y.md` προτείνει και κώδικα (semantics/48dp/font-scale/PII) — το κόστος θα επαναξιολογηθεί στο refresh `a11y.md` §0.1.
+   - **Ρίσκο:** μηδέν κώδικα τώρα· μεγάλο device-time όταν ξεπαγώσει.
+   - **Κανόνας 12:** πριν το test, ρητή λίστα δεδομένων (π.χ. 1 συνήθεια με 2 μέρες, 1 συλλογή με 2 εγγραφές, 1 επαφή με τηλέφωνο).
+
+2. ✅ **CLOSED 19/10/2026 (S261 — κώδικας ✅· analyze clean + test 245/245 ✅)** — **Grid auto-height**
+   - **Πού:** §8#6, §7.7· πηγές `oldsessions` ~`:938,998,1246`· καταγραφή oldsessions **S261**.
+   - **Τι έγινε:** *hybrid* — true auto-height (`ResponsiveItemList` rewrite: γραμμές `IntrinsicHeight`+`Row(stretch)`) στα μη-reorderable grids (journal/contacts/trash/search/folder) + uniform adaptive `mainAxisExtent` (`gridItemExtentMax`) στα reorderable + adaptive square (home/collections). Νέος helper `gridTextScale`/`autoGridItemExtent`/`autoGridItemExtentFor` στο `responsive.dart` (παρεμβολή base→max στο fontScale 1.0→1.4). 16 αρχεία `lib/` · 0 νέες εξαρτήσεις/widgets · `ItemCardBuilder` byte-identical. Micro-fixes 1.4: trash header + habits `displayText` → ellipsis.
+   - **Γιατί όχι IntrinsicHeight στα collections:** το card έχει `LayoutBuilder` (`collections_screen:371`) που πετάει στα intrinsics → σταθερό adaptive extent.
+   - **Εκκρεμεί:** **device matrix** 100%/140%, portrait/landscape (κανόνας 12: ρητή λίστα δεδομένων πριν το test).
+   - **Ρίσκο που διαχειρίστηκε:** layout regression σε όλες τις λίστες → backup `backups/grid_auto_height/` + helper-based ένα grid τη φορά + 9 νέα tests (extent math, no-overflow 1.4, ίσο ύψος γραμμής).
+
+3. 🆕 **Outer-context Theme lookup hardening pass** (S129/S133 class)
+   - **Πού (επιβεβαιωμένα σημεία):** `task_detail_screen.dart:780,784,785,790` (status) και `:842-853` (priority) μέσα σε `showSafeSheet` builder· `settings_tiles.dart:195-199` (size picker) και `:282-291` (folder picker, και outer `Navigator.pop`)· `collection_detail_screen.dart:802` (icon picker)· `settings_colors.dart:101` (outer pop).
+   - **Τι:** το sheet διαβάζει `context.*` από το outer element. Αν το route της detail-οθόνης απενεργοποιηθεί/reassemble με ανοιχτό sheet → debug assertion (release-safe). Ίδια κλάση με S129/S133, που είχαν κλείσει μόνο τα 2 σημεία τους.
+   - **Γιατί δεν ήταν στη λίστα:** το S133 το είχε γράψει «parked ξεχωριστό hardening-pass» και δεν μπήκε ποτέ στο §8.
+   - **Κόστος:** 1 μικρό session (αντικατάσταση `context.` → `sheetCtx.`/`innerCtx.`, 0 layout αλλαγή).
+   - **Ρίσκο:** χαμηλό, αλλά θέλει device reassemble test ανά sheet.
+
+### 🟡 P3 — Βελτιώσεις / features (6)
+
+4. **F13b — bulk-delete perf**
+   - **Πού:** `trash_screen.dart:90-102` → loop `permanentDelete(id)`· `item_provider.dart:285-310` (per item: cascade, scheduler, hardDelete, invalidateSelf).
+   - **Τι:** N× self-invalidate + N× scheduler passes. Το F13 (unarchive) έκλεισε S255· το delete έμεινε γιατί `_cascadeCollectionEntries` είναι private.
+   - **Κόστος:** μεσαίο (νέο `permanentDeleteMany`).
+   - **Ρίσκο:** υψηλό — αγγίζει S250 race (habit wipe/hard-delete ordering) + attachments cleanup. Θέλει ίδιο NEVER-THROW/finally pattern.
+
+5. **Snooze UI + notification actions**
+   - **Πού:** §7.3 🔜. Μηχανισμός έτοιμος, 0 UI, `markSent` 0 callers (σκόπιμα).
+   - **Κόστος:** μεγάλο· θέλει spec πρώτα (κουμπί, actions, iOS categories, background-tap χωρίς Isar).
+
+6. 🆕 **Notification-permission status + persistent OFF hint** (S205 follow-ups)
+   - **Πού:** `reminder_section.dart:202-210` — ελέγχει μόνο `settings.notificationsEnabled` και δείχνει SnackBar στο save. Δεν υπάρχει `areNotificationsEnabled`/permission-status API (`notification_service.dart` έχει μόνο `requestPermission`).
+   - **Τι λείπει:** (α) query OS permission ώστε το UI να ξέρει αν είναι κλειστές οι ειδοποιήσεις, (β) μόνιμη γραμμή-hint αντί μόνο SnackBar.
+   - **Κόστος:** μικρό-μεσαίο (νέο service API + stream-watch).
+   - **Γιατί δεν ήταν στη λίστα:** γράφτηκε ως «follow-up» στο S205 και δεν καταχωρήθηκε ποτέ.
+
+7. 🆕 **Attachments: add-button σε note/event + badge στην κάρτα**
+   - **Πού:** `attachments_strip.dart:5` — ρητά «ΜΟΝΟ προβολή/άνοιγμα/διαγραφή — το add ζει στα collection entries»· `item_card.dart` 0 attachment badge.
+   - **Προέλευση:** S136 «Εκτός: add-button (follow-up), card-badge (parked)».
+   - **Κόστος:** μικρό-μεσαίο (reuse `AttachmentService`/picker).
+   - **Σημείωση:** είναι feature gap χωρίς απόφαση — μπορεί να μείνει σκόπιμα εκτός.
+
+8. **B2.3 — title/body σύγκριση πριν το rebake**
+   - **Πού:** §8#8, S242. Καθαρά optimization· self-heal καλύπτει. Κόστος μικρό-μεσαίο.
+
+9. **Ενοποιημένο DetailAppBar**
+   - **Πού:** §7.1, §8#9. Hygiene, 0 λειτουργικός αντίκτυπος. Κόστος μεσαίο.
+
+### ⚪ P4 — Micros / καθαριότητα (batch)
+
+10. **F19 — dead providers**
+    - **Επιβεβαίωση:** `pendingRemindersProvider` (`reminder_provider.dart:13`) = 0 watches/reads (μόνο 4 invalidates στο ίδιο αρχείο `:60,84,94,104` + 1 στο `reminder_section.dart:114`)· `pendingRemindersStreamProvider` (`:18`) = 0 references παντού.
+    - **Προσοχή:** δεν αρκεί «σβήσιμο 2 γραμμών» — πρέπει να φύγουν και τα 5 invalidates, αλλιώς analyze error. Αγγίζει `supernote.md:597-598` ⇒ θέλει απόφαση.
+
+11. **F2 — OFF path `cancelAll()` bypass ουράς**
+    - **Πού:** `settings_provider.dart:81-92` (το `cancelAll` στο `:87`). Υπάρχει try/catch, αλλά όχι `SerialPassQueue`. Προϋπάρχον race, self-heal.
+
+12. **F3 — main χωρίς timeout**
+    - **Πού:** `main.dart:210` (`settings.get()`) και `:224` (`requestPermission()`). Έχουν try/catch αλλά όχι `.timeout` (το pattern υπάρχει ήδη `:376/402`).
+
+13. **F4 — `rescheduleForItem` χωρίς timeout — διόρθωση: ×5, όχι ×6**
+    - **Πού:** `item_provider.dart:203,214,275,341,360`. Το §7.8 γράφει `:199/203/214/275/337/341` — τα `:199/:337` είναι `cancelAllForItem`, όχι `reschedule`. Το `:360` (νέο `unarchiveMany`, S255) λείπει από το doc.
+
+14. **§3.8 — τα πραγματικά υπόλοιπα (spot-verified 19/10/2026)**
+    - `Text('✓')` → `habit_detail_screen.dart:731` ✅ υπάρχει.
+    - `types` με ίδιο `📅` → `folder_create_sheet.dart:28,33` ✅.
+    - `BlockTileWidget Stateful` → `block_editor_widget.dart:146` ✅.
+    - `O(n²) block_editor`, delete πάντα ορατό, `day/month/year` αντί intl, `DateTime.now()` σε build, `if(!mounted)return` style → παραμένουν (χαμηλή αξία).
+    - `Colors.white/black` → πολλά (κυρίως σωστά: on-color σε χρωματιστές επιφάνειες)· θέλει per-case, όχι wholesale.
+    - stats journal/appointment → δεν υπάρχει stats screen ⇒ πιθανόν obsolete.
+    - touch 16–22px → πάει στο #1 (a11y pass).
+
+15. 🆕 **`take(10)` ×2 + διπλότυπη λογική**
+    - `items_query_provider.dart:64` και `home_folder_view.dart:143` (ίδιο φίλτρο `deletedAt == null && !archived` + magic 10). Το §3.8 δείχνει παλιό path (`item_provider:443`).
+
+16. 🆕 **`firstDate: DateTime(2000)` ×3**
+    - `reminder_section.dart:237`, `appointment_detail_screen.dart:463`, `journal_detail_screen.dart:561`. Αποκλείει ημερομηνίες <2000 (π.χ. παλιά ραντεβού/ημερολόγιο). S206 «parked».
+
+17. **Stale TODOs ×7**
+    - `models/{attachment,device,app_settings,item_tag,tag,user,workspace}.dart:2` → `// TODO: Σελίδα προς Ανάπτυξη`. Απόφαση: διαγραφή ή υλοποίηση.
+
+18. 🆕 **Doc-drift `supernote.md` (χρειάζεται άδεια — κανόνας 8)**
+    - `:879-890` Error Handling: λέει «Unprotected attachment_service» και «User-facing error messages: None» — αναληθές (υπάρχουν try/catch και `AppErrors`).
+    - `:896-905` Performance: «No autoDispose» — υπάρχουν 7 autoDispose· `_FontScaleTile` — έχει μετονομαστεί/μεταφερθεί σε `SettingsFontScaleTile` (`settings_tiles.dart:323`).
+    - `:584-586` Habit Providers: λείπει `dayTickProvider` (`habit_provider.dart:16`).
+    - `:17` test counter 229 vs 236 = σκόπιμα stale (S260 το δηλώνει ρητά) ⇒ δεν είναι εκκρεμότητα.
+    - `:597-598` → εξαρτάται από F19.
+
+19. 🆕 **Εσωτερικές ασυνέπειες `code_refactor.md`**
+    - `:188` λέει F9 ανοιχτό, `:192` λέει ✅ CLOSED S256.
+    - F4 ×6 vs πραγματικό ×5 (#13).
+    - §3.8:110 path `item_provider:443` → σωστό `items_query_provider:64`.
+    - §8 αρίθμηση: 4 → 10 (λείπουν 5–9, έκλεισαν) — μπερδεύει.
+
+20. 🆕 **G-track (S120) — απόφαση κλεισίματος**
+    - «tokens/copy/limits, ξεχωριστά» από S120. Τα tokens έκλεισαν S169· limits υπάρχουν (`maxAttachmentSizeMB`). Πιθανόν obsolete — θέλει ρητό κλείσιμο για να μη στοιχειώνει.
+
+21. 🆕 **«grid-mode guard gap» (S148) — ανύπαρκτο στο tracker**
+    - Γράφτηκε «πακέτο» στο S148 και δεν ξαναεμφανίστηκε. Πρέπει να ελεγχθεί αν είναι stale ή πραγματικό κενό guard στο reorder με grid mode.
+
+22. **(προαιρετικό) Contact-dialog chrome 7.3px**
+    - S123: debug-only, αποδεκτό από εσένα, release-safe. Μόνο για πληρότητα — όχι ενέργεια.
+
+### 💤 P5 — By-design / ασαφή (καμία ενέργεια)
+
+- iOS parked ×2 (`supernote.md:474,493`).
+- 6-actions overflow (`note_detail`) — watch-only.
+- Zombie-overlap residual (S245) — αποδεκτό.
+- Αρχαίες S~92 σημειώσεις (SnackBar-orphan, stats/search-project) — πιθανόν obsolete.
+- «reorder/dots/counts — θέλουν spec» — ασαφές.
+- 🆕 display-inDays DST cosmetic (S206) — μόνο εμφάνιση.
+- 🆕 `custom:184` «απρόσιτο» (S206) — δεν επιβεβαιώνεται· και τα 5 custom cases είναι προσβάσιμα ⇒ μάλλον stale, θέλει διαγραφή σημείωσης.

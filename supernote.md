@@ -6,15 +6,15 @@
 |---|---|
 | Όνομα | super_note (SuperNote) |
 | Version | 1.0.4+2 |
-| Flutter | 3.41.9 (stable) |
-| Dart | 3.11.5 |
+| Flutter | 3.47.7 (stable) |
+| Dart | 3.13.5 |
 | GitHub | https://github.com/aristos62-bit/note |
 | Τοπικό path | `C:\Users\Vaggelis\Flutter Projects\super_note` |
 | IDE | Android Studio Panda 4 \| 2025.3.4 Patch 1 |
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 229/229 🟢 (`flutter test`) |
+| Test suite | 245/245 🟢 (`flutter test`) |
 
 ---
 
@@ -89,7 +89,7 @@ lib/
 │       ├── date_utils.dart       — Date formatting (relative, due, journal, grouping)
 │       ├── debug_config.dart     — Log categories (startup, db, nav, provider, notif, error)
 │       ├── string_utils.dart     — String operations
-│       ├── responsive.dart       — ResponsiveLayout, breakpoints
+│       ├── responsive.dart       — ResponsiveLayout, breakpoints, autoGridItemExtent (S261)
 │       ├── transitions.dart      — AppTransitions (fade, slideRight, slideUp)
 │       ├── recurrence_utils.dart — Recurrence UI helpers
 │       ├── reminder_picker.dart  — Reminder time picker
@@ -736,9 +736,15 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Wrapped in `DraggableItemWrapper` for drag-to-folder
 
 ### ResponsiveItemList (`lib/shared/widgets/responsive_item_list.dart`)
-- Adapts: list on mobile, grid on tablet/desktop
-- `ItemCardBuilder` callback — passes `customBackgroundColor` via provider
-- DragTarget integration for folder drop
+- **True auto-height** (S261): list on mobile (1 col), grid on tablet/desktop (2–3 cols) χτισμένο από **γραμμές `SliverList`** — κάθε γραμμή `IntrinsicHeight` + `Row(stretch)` + `Expanded` κελιά ⇒ τα κελιά μιας γραμμής παίρνουν **ίσο, φυσικό ύψος** περιεχομένου (αντοχή σε max fontScale 1.4, χωρίς fixed extents).
+- Props: `items`, `itemBuilder`, `horizontalPadding`, `bottomInset` (80), `minRowHeight` (48), `itemKey`.
+- `ItemCardBuilder` (στο ίδιο αρχείο) — `ConsumerWidget` που περνά `customBackgroundColor` από provider· drag-to-folder μέσω `DraggableItemWrapper`.
+- ⚠️ **Όριο:** ΟΧΙ `LayoutBuilder`/scrollable/`Stack` μέσα στα cards (τα intrinsics σπάνε) — γι' αυτό τα collections χρησιμοποιούν σταθερό adaptive extent.
+
+### Grid extents (S261 — `responsive.dart` + `ReorderableItemList`)
+- Helper: `context.gridTextScale` (πραγματικό `MediaQuery.textScalerOf`), `context.autoGridItemExtent({base, max})`, top-level `autoGridItemExtentFor(base, max, textScale)` = **παρεμβολή base→max** στο textScale 1.0→1.4 (clamp).
+- **Reorderable grids** (`ReorderableItemList`): uniform `mainAxisExtent` = `autoGridItemExtent(base: gridItemExtent, max: gridItemExtentMax)` — το `gridItemExtentMax` (null ⇒ base) δίνει «αέρα» στο 1.4 (tasks 94→116 · entries 140→160 · folder view 100→104 · item lists 100→108).
+- **Adaptive square** (home `_ReorderableGrid`, collections): `base = cellWidth` (square στο 1.0), `max = max(cellWidth, 144/102)` — καμία αλλαγή στο 1.0, αυξάνει μόνο με τη γραμματοσειρά.
 
 ### DraggableItemWrapper
 - `LongPressDraggable<int>` with 400ms delay
