@@ -218,9 +218,7 @@ class SettingsImportProgressDialog extends StatefulWidget {
 }
 
 class SettingsImportProgressDialogState extends State<SettingsImportProgressDialog> {
-  ImportProgress _progress = const ImportProgress(
-    current: 0, total: 0, status: 'Προετοιμασία...',
-  );
+  ImportProgress _progress = const ImportProgress(current: 0, total: 0);
   bool _popped = false;
 
   @override
