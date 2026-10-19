@@ -3428,3 +3428,30 @@
 **Κατάσταση κλεισίματος S259 (19/10/2026):** ✅ **κλειστό** — F17 ✅ CLOSED (κώδικας `a707933` · 4 νέα tests + **red-on-old 4/4** · **device pass T5 ✅** portrait+landscape · επαναφορά αρχικής τιμής). Δεν εκκρεμεί τίποτα από αυτό το session.
 
 **Επόμενο session — ιεράρχηση (σοβαρότερο πρώτο):** 1. **F13b** (perf: bulk-delete — private `_cascadeCollectionEntries`) · 2. **F19** (dead providers — αγγίζει `supernote.md:597-598` ⇒ απόφαση) · 3. bucket (P2#4 a11y device pass · P2#6 grid auto-height · micros F2/F3/F4 §7.8) · 4. P3/P5 (Snooze UI θέλει spec) · B2.3 · DetailAppBar · stale TODOs ×7.
+
+---
+
+## Session 260 - 19/10/2026 (προαιρετικό test F18: 2 tests **χωρίς** Isar — pure Riverpod + dialog, red-on-old ✅)
+
+**Σκοπός:** κάλυψη με tests του F18 fix (`0f289d9`): `ref.invalidate(pastPendingRemindersProvider)` στο άνοιγμα του dialog (`settings_reminders_dialog.dart` γρ.39 — F18 ✅ CLOSED S257). Η note S257 τεκμηρίωνε «0 νέα tests — καμία υποδομή provider+Isar στο `test/`». Επιλογή χρήστη (Q): **«B + A (2 tests, 236)»** έναντι «μόνο B» / «μόνο A» / «C: καμία ενέργεια».
+
+**Εύρημα που ακυρώνει το «θέλει Isar» (αποδεδειγμένο, όχι υπόθεση):**
+- Ο δίαυλος τίτλων `dbProvider.items.getByIds(...)` (γρ.64-74) είναι **σε `try/catch`** (by design: «missing items ως πριν»). Με ανενεργό `SuperNoteHelper.instance` το `AssertionError` (`super_note_helper.dart:41`) **πιάνεται**, `itemTitles` μένει κενό και οι rows εμφανίζονται ως «Άγνωστο στοιχείο» ⇒ **0 Isar**. Τα logs το δείχνουν ρητά: `❌ ERR | Settings past reminders batch → Failed assertion: … '_instance != null'` και το test **περνά**.
+- Τα `ctx.bodyMd/cText2/cError` είναι **pure static** (`TypographyUI.bodyMedium(brightness)` / `ColorsUI.getError(brightness)` — `ui_tokens.dart:358-402`) ⇒ αρκεί **bare `MaterialApp`**, κανένα theme-extension lookup.
+- `AppDateUtils.formatDateTime` → `DateFormat('d MMM yyyy','el')` + `DateFormat('HH:mm','el')` ⇒ απαιτεί **`initializeDateFormatting()`** (parity με `main.dart:22`) στο `setUpAll`, αλλιώς `LocaleDataException` (τα weekdays/months είναι hardcoded const).
+
+**Τι γράφτηκε:** νέο `test/f18_past_pending_invalidate_test.dart` (122 γρ., 2 tests, **0 αλλαγή σε `lib/`**):
+1. **[pure Riverpod]** `ProviderContainer` + `pastPendingRemindersProvider.overrideWith` (counter): 2 reads ⇒ `computes=1` (cached / non-autoDispose) με **stale** περιεχόμενο (1 αντί 2) · μετά `container.invalidate` ⇒ `computes=2` + φρέσκια λίστα (2). **Guard:** αν ο provider γίνει `autoDispose`, το test **πέφτει** ⇒ θωρακίζεται η υπόθεση πάνω στην οποία στηρίζεται το fix.
+2. **[widget]** host `Consumer` με κουμπί → `showPastRemindersDialog(context, ref)`· override: 1 ληγμένη στον 1ο υπολογισμό, 2 στον 2ο (σενάριο F18: ληγμένη που «ωρίμασε» **εντός session χωρίς DB write**) ⇒ 1ο άνοιγμα «Παρελθούσες Υπενθυμίσεις **(1)**» → κλείσιμο («Άκυρο») → 2ο άνοιγμα **«(2)»**.
+
+**Red-on-old ✅ αποδειγμένο:** προσωρινή αφαίρεση της `ref.invalidate` (γρ.39, με `.pre` + SHA256) ⇒ `flutter test` = **`+1 -1`**: το (2) πέφτει με *«Found 0 widgets with text Παρελθούσες Υπενθυμίσεις (2)»* (έδειξε stale «(1)»), το (1) μένει πράσινο. Επαναφορά **byte-identical** (`E93A0C84…5BF60D`, `git status` **0 modified** για το app file).
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** (4.3 s) · `flutter test` → **236/236** (234 + 2) σε ~17 s · **0** αλλαγές σε app code / deps / UI.
+
+**⚠️ Handle (στο header του test):** το widget test εξαρτάται από το `try/catch` των γρ.64-74· αν αφαιρεθεί (ή γίνει `on IsarError`), πέφτει για **άλλο** λόγο. Εναλλακτική τότε: `dbProvider.overrideWith` με fake (`implements SuperNoteHelper` + `noSuchMethod`).
+
+**Backups:** `backups/s260_f18_provider_test/` — `settings_reminders_dialog.dart.pre` (μόνο για το probe), `code_refactor.md.pre`, `oldsessions.md.pre`, `BASE_HEAD.txt` (=`09e3451`), `BASE_STATUS_lib.txt`.
+
+**Git:** test = `9d61b13` · docs = **αυτό το commit** (πρώτα το test ώστε το docs να αναφέρει το hash του — ίδιο μοτίβο με S259). `supernote.md` **άθικτο** (κανόνας #8 — ο μετρητής tests στο `supernote.md:17` παραμένει σκόπιμα stale).
+
+**Επόμενο session — ιεράρχηση:** αμετάβλητη από S259: 1. F13b · 2. F19 · 3. bucket (P2#4 a11y device pass · P2#6 grid auto-height · micros F2/F3/F4) · 4. P3/P5 · B2.3 · DetailAppBar · stale TODOs ×7. (Το **προαιρετικό** test του F18 **έκλεισε** εδώ — δεν μένει εκκρεμότητα.)
