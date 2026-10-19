@@ -3459,3 +3459,36 @@
 **Εκκρεμότητα συσκευής (δεδομένα δοκιμών) — ✅ ΚΛΕΙΣΤΗ (19/10/2026):** ο χρήστης **καθάρισε** ό,τι χρειαζόταν στη συσκευή και **κρατά σκόπιμα** ό,τι έμεινε (δικά του δεδομένα) ⇒ **κανένα** εκκρεμές cleanup. Αφορούσε: επαφή «11831» (S256 γρ.3213 · S258 γρ.3343) · Σημείωση «new test» (itemId **456**) + υπενθύμιση **id=2200** (S257 γρ.3276). Τα 3 σημεία σημειώθηκαν `✅ ΚΛΕΙΣΤΗ S260` (κανόνας 12: καμία άλλη ενέργεια στη συσκευή, τα υπόλοιπα δεδομένα **αμετάβλητα**).
 
 **Κατάσταση κλεισίματος S260 (19/10/2026):** ✅ **κλειστό** — test F18 (`9d61b13`: 2 tests, red-on-old αποδεδειγμένο) + docs (`1149178` + αυτό) · εκκρεμότητα συσκευής **κλεισμένη** · **0** εκκρεμότητες από αυτό το session. Το επόμενο session ξεκινά από την ιεράρχηση παραπάνω (1. **F13b**).
+
+## Session 261 — 19/10/2026 (P2#6 «Grid auto-height»: true auto-height + adaptive extents)
+
+**Σκοπός:** κλείσιμο του **#2 Grid auto-height** (§7.7 · §8 P2#6 · πηγές S~938/998/1246). Πρόβλημα: στα fixed `mainAxisExtent`/`childAspectRatio: 1` κελιά, σε **max fontScale (1.4)** το περιεχόμενο ξεπερνά το ύψος ⇒ περικοπές/overflow. Ο χρήστης **ανέστειλε τον κανόνα #4** («ένα βήμα τη φορά») για αυτό το session και ενέκρινε **ολόκληρη** την τελική πρόταση (Q1–Q3 = A/A/A): *hybrid* — **true auto-height** στα μη-reorderable grids, **uniform adaptive extent** στα reorderable, **adaptive square** σε home/collections. Εφαρμογή **MONO με edit-tool** (όχι PowerShell) για προστασία των Ελληνικών.
+
+**Αρχιτεκτονική απόφαση (τι και γιατί):**
+- **Helper στο `responsive.dart`** (χωρίς νέο import/αρχείο): extension members `gridTextScale` (πραγματικό `MediaQuery.textScalerOf` — **ΟΧΙ** το breakpoint `textScale` 1.0/1.05/1.1) + `autoGridItemExtent({base, max})`, και top-level `autoGridItemExtentFor(base, max, textScale)` = γραμμική παρεμβολή base→max στο textScale 1.0→1.4 (clamp· `max<=base ⇒ base`). Έτσι το ύψος κελιού **αυξάνεται** μόνο όταν μεγαλώνει η γραμματοσειρά (παγκόσμιο `TextScaler.linear(fontScale)` από `main.dart`, slider 0.8–1.4).
+- **`ResponsiveItemList<T>` = rewrite σε true auto-height** (0 callers πριν ⇒ μηδενικό ρίσκο regression): lazy `SliverList` από **γραμμές**· κάθε γραμμή `IntrinsicHeight` + `ConstrainedBox(minHeight:48)` + `Row(crossAxisAlignment: stretch)` με `Expanded` κελιά ⇒ τα κελιά μιας γραμμής παίρνουν **ίσο, φυσικό (auto) ύψος** περιεχομένου. Νέες παράμετροι `horizontalPadding/bottomInset/minRowHeight/itemKey`. Ο `ItemCardBuilder` παρέμεινε **byte-identical**. Mobile branch (1 col) παραμένει απλή λίστα.
+- **`ReorderableItemList`:** νέο `double? gridItemExtentMax` (null → ίσο με `gridItemExtent`)· το `mainAxisExtent` υπολογίζεται πλέον `context.autoGridItemExtent(base: gridItemExtent, max: gridItemExtentMax ?? gridItemExtent)` ⇒ **uniform** ύψος (απαραίτητο για ομοιόμορφο drag/drop του `reorderable_grid`, που περνά τον `gridDelegate` σε πραγματικό Flutter `SliverGrid`).
+- **Collections: ΥΠΟΧΡΕΩΤΙΚΑ σταθερό (adaptive) extent** — ΟΧΙ `IntrinsicHeight`: το `_DraggableCollectionCard` περιέχει `LayoutBuilder` (`collections_screen:371`) και το `LayoutBuilder` **πετάει** στα intrinsics (`layout_builder.dart:474-483`). Άρα `base = cellWidth` (square) και `max = max(cellWidth, 102)`.
+- **Home `_ReorderableGrid` + `_LoadingSkeleton`:** `childAspectRatio: 1` → `mainAxisExtent` = `autoGridItemExtent(base: cellWidth, max: max(cellWidth, 144))` (base = square, ώστε **καμία** αλλαγή στο 1.0).
+- **Mobile `ListView`** (journal/contacts/trash/search) **αμετάβλητα** (defaults).
+
+**Υλοποίηση (16 αρχεία `lib/` + 1 νέο test — καμία νέα εξάρτηση/widget):**
+1. `core/utils/responsive.dart` — `gridTextScale`, `autoGridItemExtent` (μέσα στο extension, μετά το `gridColumns`) + top-level `autoGridItemExtentFor` (μετά το κλείσιμο του extension).
+2. `shared/widgets/responsive_item_list.dart` — rewrite `ResponsiveItemList` (γραμμές/`IntrinsicHeight`/`Row(stretch)`); `ItemCardBuilder` άθικτο.
+3. `shared/widgets/reorderable_item_list.dart` — `gridItemExtentMax` + `mainAxisExtent` από τον helper (7 call sites επωφελούνται).
+4–8. **Reorderable extents (uniform adaptive):** `tasks` 94→**max 116** · `collection_entries` 140→**160** · `home_folder_view` 100→**104** · `item_list_screen` 100→**108** · `item_list_embedded` 100→**108** · `folder_browser_items.FolderItemsList` 100→**108**.
+9–14. **Auto-height grids (→ `ResponsiveItemList`):** `journal_list_screen` (tablet 160) · `contacts` (`_ContactGrid` 90, **+** διπλό H-padding fix: αφαίρεση H-margin από το tile & προσθήκη H-pad στην mobile λίστα) · `trash` (130) · `search` (`_ResultsGrid` 140) · `folder_browser_items.FolderItemsGrid` (100).
+15. `home_screen.dart` — `_ReorderableGrid` + `_LoadingSkeleton` (adaptive square).
+16. `collections_screen.dart` — grid `childAspectRatio:1` → adaptive extent (base square, max ≥102) · count text `maxLines:1`+ellipsis.
+17. **Micro-fixes 1.4:** `trash` header `Spacer`→`Expanded`(ellipsis,end) · `habits` `displayText` → `Expanded`(ellipsis,end) — αντικατέστησαν overflow στο 1.4.
+18. **Νέο `test/responsive_grid_extent_test.dart`** (5 unit + 4 widget): helper clamp/παρεμβολή + `ResponsiveItemList` χωρίς overflow σε 1.4 για 1/2/3 στήλες + **ίσο ύψος** κελιών ίδιας γραμμής.
+
+**Επαλήθευση:** `flutter analyze --no-pub` → **No issues found** (4.1 s) · `flutter test` → **245/245** (236 + 9) ✅ · `flutter test test/responsive_grid_extent_test.dart` → 9/9. (Το `flutter analyze` εντόπισε & διορθώθηκαν: λανθασμένη κλήση `autoGridItemExtent` ως top-level αντί extension `context.…`, και `ValueKey<String>` → `ValueKey<int>` στο search.)
+
+**⚠️ Handle:** τα auto-height grids **δεν** πρέπει να αποκτήσουν `LayoutBuilder`/scrollable/`Stack` μέσα στα cards (τα intrinsics σπάνε) — γι' αυτό εξαιρέθηκαν τα collections. Αν αλλάξει η δομή κάποιου card, ελέγξτε πρώτα intrinsics compatibility.
+
+**Backups:** `backups/grid_auto_height/` — 19 flattened αρχεία (.pre) για όλα τα `lib/` αρχεία που άλλαξαν + `supernote.md`/`code_refactor.md`/`oldsessions.md`.
+
+**Docs:** `supernote.md` ενημερώθηκε (αρχιτεκτονική: νέος helper + rewritten `ResponsiveItemList` + auto-height πολιτική) · `code_refactor.md` §7.7/§8-P2#6 → **✅ CLOSED S261**.
+
+**Επόμενο:** παραμένει η προτεραιοποίηση S259/S260 — 1. **F13b** · 2. F19 · 3. υπόλοιπο bucket (P2#4 a11y device pass · micros F2/F3/F4) · 4. P3/P5 · B2.3 · DetailAppBar · stale TODOs ×7. **Εκκρεμεί device pass** του grid auto-height (fontScale 1.4 σε tablet/mobile: journal, contacts, trash, search, home, collections, tasks, entries, habits) — ζητείται ρητή λίστα δεδομένων πριν (κανόνας 12).
