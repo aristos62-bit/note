@@ -3336,7 +3336,33 @@
 
 **Backups:** `backups/s258_f9c_deadcode/` — 6 `.pre` (hash-επαληθευμένα byte-identical) + `BASE_HEAD.txt` (= `9af938f`) + `BASE_STATUS.txt` + τα 3 scratch tests (`f9_before_repro_test.dart`, `f9_before_repro_diag_test.dart`, `f9_before_repro_diag2_test.dart`) + `.pre` του test.
 
-**Κατάσταση κλεισίματος S258 (19/10/2026):** ✅ **κλειστό** — F9 επιβεβαιωμένα κλειστό (S256· T1 ✅) · **F9c ✅ CLOSED** (αφαίρεση) · micro `// Fetch` ✅ · doc-fix ✅. Δεν εκκρεμεί τίποτα από αυτό το session. **Git:** κώδικας = `c2d4893`.
+### Smoke test S258 — 19/10/2026 (debug build, M2007J20CG `9593c01e`) = **PASS ✅**
+
+**Build που δοκιμάστηκε:** η εγκατεστημένη έκδοση (`lastUpdateTime` **19/10 11:55:54**) είναι **μετά** το APK build (11:55:44) και **μετά** το commit `c2d4893` (11:51:11) ⇒ **περιέχει το F9c**. **Κανένα** install/uninstall (χωρίς MIUI prompt), **καμία** αλλαγή δεδομένων μέσω adb.
+
+**Δεδομένα (κανόνας 12):** ο χρήστης ζήτησε το smoke test και **ανέθεσε** την επιλογή («πάρε όποια επαφή θέλεις») ⇒ εισήχθη **1** επαφή (η 1η της λίστας: «11831») — ελάχιστο δυνατό αποτύπωμα (διαγράφεται: Ρυθμίσεις → Βάση → «Εισαγμένες επαφές» → κάδος στη γραμμή). ⚠️ Ο διάλογος επιλογής προ-επιλέγει **και τις 127** επαφές («Εισαγωγή (127)») ⇒ χρειάστηκε **Αποεπιλογή** πριν την επιλογή (S256 parity).
+> Η συσκευή ήταν σε **landscape** (tablet layout 2400×1080) — τα bounds του `uiautomator` ταιριάζουν σε αυτό το frame.
+
+**Ροή:** Ρυθμίσεις (gear) → Σύστημα (expand) → «Εισαγωγή επαφών» → Αποεπιλογή → 1 επαφή → πεδία defaults (9) → φάκελος «Γενικά» → import → summary (**1/0/0**) → OK.
+
+**Τεκμήρια** (`backups/s258_f9c_deadcode/smoke/log_smoke_s258.txt`, 22 γρ.· **1 process** pid 20109, κανένα restart):
+```
+12:06:42.926 Router didPush   ← progress dialog (έναρξη)
+12:06:43.016 DB | ContactImport dedup sets: titles=11 phones=18
+12:06:43.084 NAV | Settings: import done imported=1 skipped=0 errors=0   ← ΑΚΡΙΒΩΣ 1×
+12:06:43.086 Router didPop    ← ΑΚΡΙΒΩΣ 1 pop (160 ms μετά το push)
+12:06:43.088 Router didPush   ← summary dialog
+12:07:10.010 Router didPop    ← OK του summary
+12:07:10.021 ResponsiveLayout: tablet   ← πίσω στις ΡΥΘΜΙΣΕΙΣ
+```
+- **Pops 1:1** ανά dialog (5 dialogs → 5 pops, **κανένα** διπλό pop)· μετά το OK η οθόνη είναι **Ρυθμίσεις** (όχι Αρχική) ⇒ το σύμπτωμα F9 (double-pop) **δεν** εκδηλώνεται ✅.
+- **0** ERR/Exception/overflow/setState-after-dispose (grep σε όλο το log) ✅.
+- **Όριο:** progress window **160 ms** (1 επαφή, vs 313 ms/3 επαφές στο S256) ⇒ μη αξιόπιστο οπτικό screenshot του dialog· το τεκμήριο είναι το log (`didPush` → `import done` → `didPop`).
+- **Δικλείδες:** `stay_on_while_plugged_in` 0→7→**0** (επαληθευμένο) · `screen_off_timeout` αμετάβλητο (2147483647) · **καμία** αλλαγή δεδομένων/ρυθμίσεων μέσω adb (μόνο taps + ανάγνωση logs) · η εφαρμογή ζωντανή στο τέλος.
+- **Περιστατικό (καταγεγραμμένο):** 2η είσοδος στη ροή κατά λάθος (tap σε tile μετά από μετακίνηση layout λόγω expand/collapse) → **ακυρώθηκε** με «Άκυρο»· επαληθευμένο `import done` count = **1** (κανένα επιπλέον item).
+- **Τεκμήρια:** `smoke/log_smoke_s258.txt` · `smoke/log_evidence_s258.txt` · dumps `s0…s13` + screenshots (`s0_home`, `s2_system`, `s4_contact_select`, `s6_sel1`, `s11_after`).
+
+**Κατάσταση κλεισίματος S258 (19/10/2026):** ✅ **κλειστό** — F9 επιβεβαιωμένα κλειστό (S256· T1 ✅) · **F9c ✅ CLOSED** (αφαίρεση) · micro `// Fetch` ✅ · doc-fix ✅ · **smoke test συσκευής ✅ PASS** (19/10/2026, βλ. «Smoke test S258»). Δεν εκκρεμεί τίποτα από αυτό το session. **Git:** κώδικας = `c2d4893`.
 
 **Handles για το επόμενο session:** (1) Το «pop μέσα σε `build`» **δεν** αναπαράγεται σε widget test — **μην** ξοδέψεις χρόνο σε red-on-old γι' αυτή την κλάση (η απόδειξη έρχεται από device/logs — S256 T1). (2) Πριν αφαιρέσεις «νεκρά placeholders» έλεγξε **3** πράγματα: readers (grep), codegen (`@collection`/`part`), tests. (3) **EOL check μετά από edit-tool** — τα αρχεία είναι **mixed**: `lib/features/settings/*.dart` = **LF**, `lib/services/*.dart` = **CRLF** (μέτρα CR/LF/CRLF πριν↔μετά· το edit-tool τα διατηρεί).
 
