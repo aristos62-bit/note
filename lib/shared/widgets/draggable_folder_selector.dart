@@ -19,6 +19,10 @@ class DraggableFolderSelector extends ConsumerStatefulWidget {
 class _DraggableFolderSelectorState
     extends ConsumerState<DraggableFolderSelector> {
   int? _dragOverFolderId;
+  // Ξεχωρίζει «drag πάνω στο Όλοι (folderId == null)» από «καθόλου drag»:
+  // χωρίς αυτό, το `_dragOverFolderId == null` δίνει είτε ψεύτικο μόνιμο
+  // highlight στο «Όλοι» είτε καθόλου highlight όταν γίνεται drag πάνω του.
+  bool _isDragActive = false;
 
   // Ύψος chip: 58 (1.0) → 66 (1.4). Label slot 16 → 24dp
   // (labelMd @1.4 = 22.34dp) ⇒ δεν κόβεται.
@@ -92,13 +96,18 @@ class _DraggableFolderSelectorState
     required bool isSelected,
     required ValueChanged<int?> selectFolder,
   }) {
-    final isDragOver = _dragOverFolderId == folderId;
+    // _isDragActive: το «Όλοι» έχει folderId == null, οπότε χρειάζεται flag
+    // για να ξεχωρίζει το «drag πάνω του» από το «καθόλου drag».
+    final isDragOver = _isDragActive && _dragOverFolderId == folderId;
     final chipHeight = _chipHeight(context);
     return DragTarget<int>(
       onWillAcceptWithDetails: (details) {
         DebugConfig.db(
             '📁 Drop target: folder $label, will accept item ${details.data}');
-        setState(() => _dragOverFolderId = folderId);
+        setState(() {
+          _dragOverFolderId = folderId;
+          _isDragActive = true;
+        });
         return true;
       },
       onAcceptWithDetails: (details) async {
@@ -115,16 +124,24 @@ class _DraggableFolderSelectorState
             ),
           );
         }
-        setState(() => _dragOverFolderId = null);
+        setState(() {
+          _dragOverFolderId = null;
+          _isDragActive = false;
+        });
       },
       onLeave: (_) {
-        setState(() => _dragOverFolderId = null);
+        setState(() {
+          _dragOverFolderId = null;
+          _isDragActive = false;
+        });
       },
       builder: (context, candidateData, rejectedData) {
         return GestureDetector(
           onTap: () => selectFolder(folderId),
           child: Container(
-            width: 80,
+            // minWidth: 80dp στο 100%, αλλά μεγαλώνει όταν το label δεν χωράει
+            // (π.χ. «Διάφορα» @140%) → χωρίς οριζόντιο ellipsis στο 140%.
+            constraints: const BoxConstraints(minWidth: 80),
             height: chipHeight,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             decoration: BoxDecoration(

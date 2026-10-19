@@ -3525,3 +3525,34 @@
 **Docs:** `supernote.md` (map `:92` · Grid extents + νέο §Short viewport · DraggableFolderSelector · HomeScreen — διορθώθηκε και το stale «Folder selector (DraggableFolderSelector)» → `FolderChipSelector`) · `code_refactor.md` §9 #2 (device pass S262 + τα 2 ευρήματα/διορθώσεις) · αυτό το κεφάλαιο.
 
 **Επόμενο:** **device re-verify** (ρητή λίστα δεδομένων — κανόνας 12) → μετά #4 F13b. Πιθανό **B-Π2b** (κρύψιμο και του label «Φάκελοι» σε κοντό viewport) μόνο αν φανεί ανάγκη στο re-verify.
+
+### S262-b — Device pass @140% + drag & drop (ίδιο session, μετά το commit `dbddc67`)
+
+**Νέα μόνιμη οδηγία χρήστη:** να μη μένουν **pre-existing/εκτός-scope** προβλήματα άλυτα — αν είναι εύκολα διορθώσιμα → διορθώνονται· αν θέλουν σχεδιασμό → ενημέρωση + εκκρεμότητα. Επίσης **άδεια για drag & drop** στη συσκευή (μετακίνηση item, κανόνας 12).
+
+**Επαλήθευση A/B (M2007J20CG, 1080×2400, in-app font scale):**
+- **A:** Home chips @100% & @140% (portrait/landscape) → labels **πλήρη**· `DraggableFolderSelector` log `chipH=66.0 scale=1.40` ✓ (κάθετο κόψιμο εξαφανισμένο).
+- **B:** landscape @100% (greeting κρυφό, stats+toggle+2-col grid) και @140% με φάκελο «Γενικά» (`h=187.6` → stats ορατά) → **0 overflow** (το 4.4px δεν αναπαράγεται)· portrait @140% κανονικό.
+- 0 `FATAL/EXCEPTION` · δεδομένα άθικτα · επαναφορά font **1.0**, rotation **auto (1/0)**.
+
+**Ευρήματα & ενέργειες (όλα τα pre-existing):**
+1. ⋮ menu `RIGHT OVERFLOWED BY 77.7 PIXELS` @140% (Flutter `PopupMenu` cap **280 dp** + `Row>Text` χωρίς `Flexible`) → **fix σε 7 οθόνες** (`task_list`, `item_list`, `habit_list`, `journal_list`, `collection_entries`, `collections`, `contact_list`): `Flexible(child: Text(...))`.
+2. `DraggableFolderSelector` «Διάφορα» → «Διάφο…» @140% (σταθερό `width: 80`) → `constraints: BoxConstraints(minWidth: 80)`.
+3. `task_detail_screen._PropRow` «Προτεραιότητ/α» mid-word wrap @140% (`SizedBox(width: 110)`) → `ConstrainedBox(110..160)` + `Padding(right: 8)` (χωρίς το padding: «ΠροτεραιότηταΚαμία»).
+4. **Bonus:** «Όλοι» chip μόνιμο ψεύτικο drag-over (border 2dp + 30% tint όταν `folderId`/`_dragOverFolderId` και τα δύο `null`) → το προφανές `folderId != null &&` **έσπασε το hover highlight** (το «Όλοι» έχει `folderId == null`) ⇒ τελική λύση **`_isDragActive` flag**. Επαληθεύτηκε στο device: hover → tinted bg + 2dp border, μετά το cancel → καθαρό.
+5. Bottom nav @140% → **by-design** (10 items, οριζόντιο scroll + chevron) — καμία αλλαγή.
+
+**Drag & drop (device):** `input motionevent DOWN → hold 1.2 s → MOVE×3 → UP` (το `input draganddrop` διαβάζεται ως scroll και **δεν** ενεργοποιεί `LongPressDraggable`). «Λούτσα Το Do» (item 144) Γενικά → **Διάφορα** (`DROP ACCEPTED`, counter 1/3 → 1/2) → πίσω **Γενικά** (1/3) ✓· hover-cancel χωρίς drop → καμία αλλαγή δεδομένων.
+
+**Μαθήματα:**
+- **Ποτέ `Set-Content -NoNewline`** με array από PowerShell: ένωσε όλες τις γραμμές σε μία και πρόσθεσε BOM ⇒ το Dart αρχείο έγινε ένα σχόλιο και ο analyzer έλεγε «No issues» (ψευδώς). Ανιχνεύτηκε με έλεγχο first bytes (`EF BB BF`) + line count και επαναφέρθηκε από `backups/s262_fixes/folder_chip_height_test.dart.pre`. **Μόνο edit-tool για source αρχεία (κανόνας 2).**
+- Το `PopupMenu` του Flutter είναι **πάντα** ≤280 dp — long labels @140% χρειάζονται `Flexible` (2 γραμμές), όχι μεγαλύτερο menu.
+- Σε chip με `folderId == null` (το «Όλοι»), το `null == null` δίνει **πάντα** drag-over → χρειάζεται ξεχωριστό flag, όχι null-check.
+
+**Αλλαγές:** 9 `lib/` + `test/folder_chip_height_test.dart`. **Έλεγχοι:** `flutter analyze --no-pub` → No issues · `flutter test` → **259/259** (255 + 2 A1b + 2 A1c).
+
+**Backups:** `backups/s262_fixes/` — 10 `lib/` + 1 test + 2 docs (`.pre`) + `BASE_HEAD.txt`.
+
+**Docs:** `code_refactor.md` §S262-b (ευρήματα/fixes + εκκρεμότητες) · αυτό το κεφάλαιο. (`supernote.md` όχι — καμία αλλαγή αρχιτεκτονικής.)
+
+**Επόμενο (νέο session):** 1. **Calendar AppBar title @140%** («Οκτώβριος» → «Οκτώβρ…») — θέλει σχεδιαστική απόφαση. 2. Optional refactor: ενοποίηση των 7 menu labels. 3. **B-Π2b** (κρύψιμο label «Φάκελοι») μόνο αν χρειαστεί. 4. Προτεραιοποίηση S259/S260 → **F13b** κ.λπ.
