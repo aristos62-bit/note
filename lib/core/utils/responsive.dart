@@ -39,6 +39,11 @@ class Breakpoints {
   static const double tablet  = 1024;
   // desktop = > 1024
 
+  /// Ύψος κάτω από το οποίο το viewport θεωρείται «κοντό»
+  /// (τηλέφωνο σε landscape: 320–448 dp · tablet landscape ≥ 600 dp).
+  /// Σε κοντό viewport κρύβονται διακοσμητικά headers (greeting Αρχικής).
+  static const double shortScreenHeight = 480;
+
   static ScreenSize of(double width) {
     if (width < mobile)  return ScreenSize.mobile;
     if (width < tablet)  return ScreenSize.tablet;
@@ -62,6 +67,10 @@ extension ResponsiveContextX on BuildContext {
   bool get isTablet  => screenSize == ScreenSize.tablet;
   bool get isDesktop => screenSize == ScreenSize.desktop;
   bool get isWide    => !isMobile; // tablet ή desktop
+
+  /// Κοντό viewport (π.χ. τηλέφωνο σε landscape ή split-screen).
+  /// Χρήση: κρύψιμο διακοσμητικών headers (greeting Αρχικής) για χώρο στο περιεχόμενο.
+  bool get isShortScreen => screenHeight < Breakpoints.shortScreenHeight;
 
   /// Επιστρέφει τιμή ανάλογα με το breakpoint.
   /// Αν tablet/desktop δεν οριστεί, χρησιμοποιεί το αμέσως μικρότερο.

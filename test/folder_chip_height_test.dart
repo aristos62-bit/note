@@ -1,0 +1,163 @@
+// test/folder_chip_height_test.dart
+//
+// S262 (A): τα folder chips δεν κόβουν το label σε μεγάλο text scale.
+// - A1 DraggableFolderSelector: ύψος 58 (1.0) → 66 (1.4) + maxLines 1
+// - A2 FolderChipSelector (_FolderChip): ύψος 56 (1.0) → 64 (1.4),
+//   emoji ακλιμάκωτο (pattern Icon 18dp του Draggable) + maxLines 1
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:super_note/models/models.dart';
+import 'package:super_note/providers/providers.dart';
+import 'package:super_note/shared/widgets/draggable_folder_selector.dart';
+import 'package:super_note/shared/widgets/folder_selector.dart';
+
+Folder _folder(int id, String name) {
+  return Folder()
+    ..id = id
+    ..name = name
+    ..workspaceId = 1
+    ..icon = '📁';
+}
+
+Widget _scaled({required double textScale, required Widget child}) {
+  return MaterialApp(
+    builder: (context, c) => MediaQuery(
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(textScale)),
+      child: c!,
+    ),
+    home: Scaffold(body: child),
+  );
+}
+
+Future<void> _pumpDraggable(WidgetTester tester, double textScale) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        foldersStreamProvider
+            .overrideWith((ref) => Stream.value([_folder(1, 'Γενικά')])),
+      ],
+      child: _scaled(
+        textScale: textScale,
+        child: const Align(
+          alignment: Alignment.topLeft,
+          child: DraggableFolderSelector(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpHomeChips(WidgetTester tester, double textScale) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      child: _scaled(
+        textScale: textScale,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: FolderChipSelector(
+            folders: [_folder(1, 'Γενικά')],
+            selectedFolderId: null,
+            onSelect: (_) {},
+            onFolderLongPress: (_) {},
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+/// Το πλησιέστερο «chip» κουτί πάνω από το label
+/// (Container του A1 · Container/AnimatedContainer του A2).
+Size _chipSize(WidgetTester tester, String label) {
+  final chip = find
+      .ancestor(
+        of: find.text(label),
+        matching: find.byWidgetPredicate(
+          (w) => w is Container || w is AnimatedContainer,
+        ),
+      )
+      .first;
+  return tester.getSize(chip);
+}
+
+/// Το label δεν κόβεται: ύψος μέσα στο chip == ύψος ίδιου Text χωρίς όριο.
+/// (Αν το slot του chip είναι μικρότερο, το Text συρρικνώνεται σε ύψος.)
+Future<void> _expectLabelNotClipped(
+  WidgetTester tester,
+  String label,
+  double textScale,
+) async {
+  final inChip = tester.getSize(find.text(label)).height;
+  final style = tester.widget<Text>(find.text(label)).style!;
+
+  await tester.pumpWidget(
+    _scaled(
+      textScale: textScale,
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Text(
+          label,
+          style: style,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    ),
+  );
+  final free = tester.getSize(find.text(label)).height;
+
+  expect(
+    inChip,
+    closeTo(free, 0.01),
+    reason: 'Το label του chip κόβεται (συρρικνώνεται σε ύψος)',
+  );
+}
+
+void main() {
+  group('A1 DraggableFolderSelector — ύψος chip', () {
+    testWidgets('58 στο text scale 1.0', (tester) async {
+      await _pumpDraggable(tester, 1.0);
+      expect(_chipSize(tester, 'Όλοι').height, 58);
+      await _expectLabelNotClipped(tester, 'Όλοι', 1.0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('66 στο 1.4 — label σε 1 γραμμή (χωρίς κόψιμο)', (tester) async {
+      await _pumpDraggable(tester, 1.4);
+      expect(_chipSize(tester, 'Όλοι').height, 66);
+      await _expectLabelNotClipped(tester, 'Όλοι', 1.4);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('A2 FolderChipSelector (home) — ύψος chip', () {
+    testWidgets('56 στο text scale 1.0', (tester) async {
+      await _pumpHomeChips(tester, 1.0);
+      expect(_chipSize(tester, 'Όλοι').height, 56);
+      await _expectLabelNotClipped(tester, 'Όλοι', 1.0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('64 στο 1.4 — label σε 1 γραμμή, χωρίς overflow',
+        (tester) async {
+      await _pumpHomeChips(tester, 1.4);
+      expect(_chipSize(tester, 'Όλοι').height, 64);
+      await _expectLabelNotClipped(tester, 'Όλοι', 1.4);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('emoji ακλιμάκωτο: ίδιο ύψος σε 1.0 και 1.4', (tester) async {
+      await _pumpHomeChips(tester, 1.0);
+      final at10 = tester.getSize(find.text('📂')).height;
+      await _pumpHomeChips(tester, 1.4);
+      final at14 = tester.getSize(find.text('📂')).height;
+      expect(at10, closeTo(18, 0.01)); // σταθερό line box 18dp
+      // Αν το emoji ακολουθούσε το text scale θα ήταν ×1.4 → αποτυγχάνει
+      expect(at14, closeTo(at10, 0.01));
+    });
+  });
+}

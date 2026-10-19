@@ -32,9 +32,22 @@ class HomeFolderView extends ConsumerStatefulWidget {
   ConsumerState<HomeFolderView> createState() => _HomeFolderViewState();
 }
 
+// Ύψη fixed headers του folder view.
+const double _folderStatsBlockHeight = 48; // top 8 + row 36 + bottom 4
+const double _folderToggleHeight     = 52; // margin 8 + padding 8 + circle 36
+
+/// Δείχνουμε τα stats μόνο όταν χωράνε μαζί με το toggle.
+/// Safety net για πολύ κοντά viewports (split-screen / desktop window).
+/// Strict `>`: στο ίσο ύψος η λίστα θα είχε 0 dp.
+bool shouldShowFolderStats(double maxHeight) {
+  if (!maxHeight.isFinite) return true;
+  return maxHeight > _folderStatsBlockHeight + _folderToggleHeight;
+}
+
 class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Folder get folder => widget.folder;
   FolderViewMode _viewMode = FolderViewMode.recent;
+  bool? _lastShowStats; // μόνο για log (αποφυγή spam ανά frame)
 
   void _showCreateMenu(BuildContext context) async {
     final type =
@@ -70,55 +83,70 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
 
     return PopScope(
       canPop: !isDragging,
-      child: Stack(
-        children: [
-          // Column αντί CustomScrollView → επιτρέπει ReorderableItemList με Expanded
-          Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Κοντό viewport: κρύβουμε τα stats ώστε να μη βγει RenderFlex
+          // overflow (stats 48 + toggle 52 = 100 > διαθέσιμο ύψος).
+          final showStats = shouldShowFolderStats(constraints.maxHeight);
+          if (_lastShowStats != showStats) {
+            _lastShowStats = showStats;
+            DebugConfig.print(
+              '📐 HomeFolderView: showStats=$showStats '
+              'h=${constraints.maxHeight.toStringAsFixed(1)}',
+            );
+          }
+          return Stack(
             children: [
-              // Stats — fixed header
-              folderData.when(
-                loading: () => _StatsRowSkeleton(),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (data) => _FolderStatsRow(stats: data.stats),
+              // Column αντί CustomScrollView → επιτρέπει ReorderableItemList με Expanded
+              Column(
+                children: [
+                  // Stats — fixed header (κρύβεται σε κοντό viewport)
+                  if (showStats)
+                    folderData.when(
+                      loading: () => _StatsRowSkeleton(),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (data) => _FolderStatsRow(stats: data.stats),
+                    ),
+                  // ViewMode toggle — fixed header
+                  _FolderViewModeToggle(
+                    current: _viewMode,
+                    onChanged: (mode) {
+                      DebugConfig.nav('HomeFolderView: mode changed to $mode');
+                      if (mode == FolderViewMode.all) {
+                        Navigator.of(context).push(AppTransitions.slideRoute(
+                            FolderBrowserScreen(folder: folder)));
+                      } else {
+                        setState(() => _viewMode = mode);
+                      }
+                    },
+                  ),
+                  // Scrollable list — Expanded παίρνει το υπόλοιπο ύψος
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        ref.invalidate(itemsByFolderStreamProvider(folder.id));
+                        ref.invalidate(folderViewDataProvider(folder.id));
+                      },
+                      child: _buildContent(context, allItems),
+                    ),
+                  ),
+                ],
               ),
-              // ViewMode toggle — fixed header
-              _FolderViewModeToggle(
-                current: _viewMode,
-                onChanged: (mode) {
-                  DebugConfig.nav('HomeFolderView: mode changed to $mode');
-                  if (mode == FolderViewMode.all) {
-                    Navigator.of(context).push(AppTransitions.slideRoute(
-                        FolderBrowserScreen(folder: folder)));
-                  } else {
-                    setState(() => _viewMode = mode);
-                  }
-                },
-              ),
-              // Scrollable list — Expanded παίρνει το υπόλοιπο ύψος
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(itemsByFolderStreamProvider(folder.id));
-                    ref.invalidate(folderViewDataProvider(folder.id));
-                  },
-                  child: _buildContent(context, allItems),
+              // FAB πάνω από τη λίστα
+              Positioned(
+                right: Spacing.md,
+                bottom: Spacing.lg,
+                child: FloatingActionButton(
+                  onPressed: () => _showCreateMenu(context),
+                  backgroundColor: folderColor,
+                  foregroundColor: Colors.white,
+                  tooltip: 'Νέο στοιχείο',
+                  child: const Icon(Icons.add_rounded),
                 ),
               ),
             ],
-          ),
-          // FAB πάνω από τη λίστα
-          Positioned(
-            right: Spacing.md,
-            bottom: Spacing.lg,
-            child: FloatingActionButton(
-              onPressed: () => _showCreateMenu(context),
-              backgroundColor: folderColor,
-              foregroundColor: Colors.white,
-              tooltip: 'Νέο στοιχείο',
-              child: const Icon(Icons.add_rounded),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
