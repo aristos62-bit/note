@@ -338,3 +338,19 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 - «reorder/dots/counts — θέλουν spec» — ασαφές.
 - 🆕 display-inDays DST cosmetic (S206) — μόνο εμφάνιση.
 - 🆕 `custom:184` «απρόσιτο» (S206) — δεν επιβεβαιώνεται· και τα 5 custom cases είναι προσβάσιμα ⇒ μάλλον stale, θέλει διαγραφή σημείωσης.
+
+### 🆕 S262-b — Font-scale 140% sweep (device) — fixes ✅ CLOSED + εκκρεμότητες
+
+Device pass (M2007J20CG) σε **fontScale 1.4** μετά τα A/B του S262 → 4 ευρήματα· τα 3+1 διορθώθηκαν, 1 by-design.
+
+1. ✅ **CLOSED — `PopupMenuItem` overflow @140%** (`RIGHT OVERFLOWED BY 77.7 PIXELS`): το `PopupMenu` του Flutter έχει πλαφόν πλάτους **280 dp** (`_kMenuMaxWidth`)· `Row > Text` χωρίς `Flexible` ⇒ overflow σε **7 οθόνες** (`task_list`, `item_list`, `habit_list`, `journal_list`, `collection_entries`, `collections`, `contact_list`) → `Flexible(child: Text(...))` (τυλίγεται σε 2 γραμμές· στο 1.0 ίδια εμφάνιση).
+2. ✅ **CLOSED — «Διάφορα» → «Διάφο…» @140%** (`DraggableFolderSelector`: σταθερό `width: 80`) → `BoxConstraints(minWidth: 80)` (ίδιο @1.0· φαρδαίνει μόνο όταν δεν χωράει το label).
+3. ✅ **CLOSED — mid-word wrap «Προτεραιότητ/α» @140%** (`task_detail_screen._PropRow`: `SizedBox(width: 110)`) → `ConstrainedBox(min 110 / max 160)` + `Padding(right: 8)` (χωρίς το padding το label «κολλούσε» στο value: «ΠροτεραιότηταΚαμία»).
+4. ✅ **CLOSED — «Όλοι» chip ψεύτικο drag-over** (`_dragOverFolderId == folderId` με δύο `null` ⇒ μόνιμο border 2 dp + 30% tint): το προφανές fix `folderId != null &&` **έσπασε** το hover feedback (το «Όλοι» έχει `folderId == null`) → τελική λύση: ξεχωριστό flag `_isDragActive` (set/clear σε will-accept / leave / accept).
+5. 💤 **By-design:** bottom nav @140% (10 destinations → οριζόντιο scroll + chevron indicator) — καμία αλλαγή.
+
+**Εκκρεμότητες (για νέο session):**
+- 🆕 **Calendar AppBar title @140%:** «Οκτώβριος» → «Οκτώβρ…» — θέλει **σχεδιαστική απόφαση** («Οκτ ’26» / 2 γραμμές / μικρότερα κουμπιά).
+- (προαιρετικό refactor) ενοποίηση των 7 πανομοιότυπων «Εμφάνιση/Απόκρυψη αρχειοθετημένων» labels σε ένα shared widget.
+
+**Tests:** `test/folder_chip_height_test.dart` **9** (A1b πλάτος ×2 · A1c drag-over ×2) · suite **259/259** · analyze clean.

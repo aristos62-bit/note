@@ -723,10 +723,15 @@ class _PropRow extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: context.cText2),
           const SizedBox(width: Spacing.sm),
-          SizedBox(
-            width: 110,
-            child: Text(label,
-                style: context.bodyMd.withColor(context.cText2)),
+          // minWidth 110 (όπως πριν), αλλά μεγαλώνει έως 160 όταν το label
+          // δεν χωράει στο 140% (π.χ. «Προτεραιότητα») → χωρίς mid-word wrap.
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 110, maxWidth: 160),
+            child: Padding(
+              padding: const EdgeInsets.only(right: Spacing.sm),
+              child: Text(label,
+                  style: context.bodyMd.withColor(context.cText2)),
+            ),
           ),
           Expanded(child: child),
         ],

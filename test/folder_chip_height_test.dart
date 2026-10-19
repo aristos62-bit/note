@@ -2,8 +2,13 @@
 //
 // S262 (A): τα folder chips δεν κόβουν το label σε μεγάλο text scale.
 // - A1 DraggableFolderSelector: ύψος 58 (1.0) → 66 (1.4) + maxLines 1
+// - A1b DraggableFolderSelector: min πλάτος 80dp (φαρδαίνει @1.4, χωρίς ellipsis)
+// - A1c DraggableFolderSelector: «Όλοι» — ψεύτικο vs πραγματικό drag-over
 // - A2 FolderChipSelector (_FolderChip): ύψος 56 (1.0) → 64 (1.4),
 //   emoji ακλιμάκωτο (pattern Icon 18dp του Draggable) + maxLines 1
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,12 +36,17 @@ Widget _scaled({required double textScale, required Widget child}) {
   );
 }
 
-Future<void> _pumpDraggable(WidgetTester tester, double textScale) async {
+Future<void> _pumpDraggable(
+  WidgetTester tester,
+  double textScale, {
+  List<Folder>? folders,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        foldersStreamProvider
-            .overrideWith((ref) => Stream.value([_folder(1, 'Γενικά')])),
+        foldersStreamProvider.overrideWith(
+          (ref) => Stream.value(folders ?? [_folder(1, 'Γενικά')]),
+        ),
       ],
       child: _scaled(
         textScale: textScale,
@@ -131,6 +141,124 @@ void main() {
       expect(_chipSize(tester, 'Όλοι').height, 66);
       await _expectLabelNotClipped(tester, 'Όλοι', 1.4);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('A1b DraggableFolderSelector — πλάτος chip (min 80, όχι ellipsis)', () {
+    /// Το label δεν έχει οριζόντιο ellipsis: πλάτος == πλάτος ελεύθερου Text.
+    Future<void> expectLabelNotEllipsized(
+      WidgetTester tester,
+      String label,
+      double textScale,
+    ) async {
+      final inChip = tester.getSize(find.text(label)).width;
+      final style = tester.widget<Text>(find.text(label)).style!;
+
+      await tester.pumpWidget(
+        _scaled(
+          textScale: textScale,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Text(
+              label,
+              style: style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      );
+      final free = tester.getSize(find.text(label)).width;
+
+      expect(inChip, closeTo(free, 0.01),
+          reason: 'Το label του chip έχει οριζόντιο ellipsis (κόβεται)');
+    }
+
+    testWidgets('min 80dp στο 1.0 (ίδια εμφάνιση με πριν όταν χωράει)',
+        (tester) async {
+      await _pumpDraggable(tester, 1.0);
+      // Το πλάτος = max(80, label + padding 8 + border 2) — ποτέ μικρότερο από πριν.
+      final textW = tester.getSize(find.text('Γενικά')).width;
+      expect(_chipSize(tester, 'Γενικά').width,
+          closeTo(math.max(80, textW + 10), 0.01));
+      await expectLabelNotEllipsized(tester, 'Γενικά', 1.0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('1.4: το chip φαρδαίνει ώστε το label να μη γίνεται «Διάφο…»',
+        (tester) async {
+      await _pumpDraggable(
+        tester,
+        1.4,
+        folders: [_folder(2, 'Διάφορα')],
+      );
+      expect(_chipSize(tester, 'Διάφορα').width, greaterThan(80));
+      await expectLabelNotEllipsized(tester, 'Διάφορα', 1.4);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('A1c DraggableFolderSelector — «Όλοι» chip: ψεύτικο vs πραγματικό drag-over', () {
+    Border chipBorder(WidgetTester tester, String label) {
+      final chip = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.text(label),
+              matching: find.byWidgetPredicate((w) => w is Container),
+            )
+            .first,
+      );
+      return (chip.decoration as BoxDecoration).border as Border;
+    }
+
+    testWidgets('border 1dp όταν δεν γίνεται drag (folderId=null, dragOver=null)',
+        (tester) async {
+      await _pumpDraggable(tester, 1.0);
+      expect(chipBorder(tester, 'Όλοι').top.width, 1,
+          reason: 'Το «Όλοι» δείχνει ψεύτικο drag-over border 2dp');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('drag πάνω στο «Όλοι» → border 2dp (το highlight δουλεύει)',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            foldersStreamProvider
+                .overrideWith((ref) => Stream.value([_folder(1, 'Γενικά')])),
+          ],
+          child: _scaled(
+            textScale: 1.0,
+            child: const Align(
+              alignment: Alignment.topLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LongPressDraggable<int>(
+                    data: 99,
+                    feedback: Material(child: Text('drag')),
+                    child: Text('drag me'),
+                  ),
+                  DraggableFolderSelector(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gesture =
+          await tester.startGesture(tester.getCenter(find.text('drag me')));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await gesture.moveTo(tester.getCenter(find.text('Όλοι')));
+      await tester.pump();
+
+      expect(chipBorder(tester, 'Όλοι').top.width, 2,
+          reason: 'Χάθηκε το drag-over highlight του «Όλοι»');
+
+      await gesture.cancel(); // όχι drop: δεν θέλουμε DB στο test
+      await tester.pumpAndSettle();
     });
   });
 
