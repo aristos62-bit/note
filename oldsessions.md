@@ -3239,3 +3239,50 @@
 **Κατάσταση κλεισίματος S256 (18/10/2026):** ✅ **κλειστό** — κώδικας F9 = `5b05033` (pushed) · docs (device test + λίστα εκκρεμοτήτων) = `cc356d0` + το commit κλεισίματος (pushed). Δεν εκκρεμεί τίποτα για το F9 (T1 ✅ · T2 παραλείφθηκε τεκμηριωμένα). Τρέχουσα λίστα εκκρεμοτήτων: `code_refactor.md` §8 P4 note (18/10/2026) → **F18 → F17 → F13b → bucket → P3/P5**.
 
 **Handles για το επόμενο session:** `SettingsImportProgressDialogState` = **1** μόνο pop-σημείο (`_popOnce`)· **μη** ξαναφέρεις pop μέσα στο `build` (ούτε `Future.microtask`/`addPostFrameCallback`). Σε νέο progress dialog: `SafeDialogBody` + `_popOnce` pattern + `try/catch` net. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Logs: `Settings: import done imported=… skipped=… errors=…` · `Settings: import contacts failed`. **Device test T1 ✅ 18/10/2026** (debug build· 1× import done, 1× pop, Ρυθμίσεις μένουν· T2 παραλείφθηκε — παράθυρο 313 ms).
+
+---
+
+## Session 257 — 19/10/2026 (F18: φρέσκια λίστα «Παρελθουσών» — `ref.invalidate` στο άνοιγμα)
+
+**Scope (αναστολή 2+4 εγκεκριμένη · edit-tool only):** §8 **F18** μόνο. Η πρόταση πέρασε από **1 κύκλο επανελέγχου** (v1 → v2) μετά από αίτημα του χρήστη («έλεγξε για λειτουργίες που υπάρχουν ήδη / παρανοήσεις»)· η τελική λύση **δεν δημιουργεί τίποτα νέο** — επεκτείνει υπάρχοντα μηχανισμό.
+
+**Πρόβλημα:** `pastPendingRemindersProvider` (`lib/providers/reminder_provider.dart:30`, non-autoDispose `FutureProvider`) = `getPastPending()` = pending με `triggerAt < now` **και** `rrule == null` (`super_note_helper.dart:1190`). Το σύνολο είναι **χρονικά εξαρτημένο χωρίς DB write**: ένα one-shot γίνεται «παρελθόν» μόνο επειδή περνά η ώρα (το `markSent` έχει **0 callers** — FLN χωρίς fire-callback, §7.3). Ο provider δεν έχει εξάρτηση που αλλάζει (`dbProvider` σταθερό) ⇒ η τιμή μένει **cached σε όλη τη ζωή του process**. Άρα: άνοιγμα dialog (cache `[]`) → λήξη υπενθύμισης εντός session → επανάνοιγμα = **άδειο**· μόνο **cold start** τη δείχνει (device evidence S254: `batch 1/1` μετά από restart).
+
+**Τι επανέλεγξα (νέα στοιχεία που άλλαξαν τη σύσταση):**
+- **Ο μηχανισμός ΥΠΑΡΧΕΙ ήδη** στο ίδιο flow: `_deleteReminders` → `onApplied: () => ref.invalidate(pastPendingRemindersProvider)` (`settings_reminders_dialog.dart:29`). Άρα F18 = **λείπει ένα trigger** (το άνοιγμα), όχι μηχανισμός.
+- **Μοναδικός consumer** (grep) = το dialog, με `ref.read` (χωρίς widget listener) ⇒ invalidate ασφαλές/φθηνό.
+- **Καμία invalidation αλλού** (ούτε σε `create/snooze/delete/markSent`, ούτε στο `cleanupOldPending`).
+- `pendingRemindersStreamProvider` = **άλλο σύνολο** (μελλοντικό `now..now+370d`) **και** δεν εκπέμπει όταν απλώς περνά η ώρα (χωρίς DB write) ⇒ δεν λύνει το F18.
+- `archivedItemsProvider` dialog = ίδιο σχήμα **χωρίς** το bug: οι μεταβολές του γίνονται με writes που invalidate-άρουν (`item_provider.dart:347,369`).
+- `cleanupOldPending` τρέχει σε cold start (`super_note_helper.dart:105`) + resume (`reminder_scheduler.dart:274`) — writer, αλλά δεν καλύπτει «άνοιγμα→λήξη→άνοιγμα».
+- Το codebase χρησιμοποιεί **μόνο** `ref.invalidate` (0× `ref.refresh`) ⇒ idiom-consistent.
+
+**Απόφαση (SPoT-first, 1 γραμμή):** `ref.invalidate(pastPendingRemindersProvider);` **πριν** το `ref.read(...future)` στο `showPastRemindersDialog` — ίδιος μηχανισμός, ένα trigger ακόμη. **Απορρίφθηκαν:** `autoDispose` (κόντρα στη σύμβαση «no autoDispose»· εύθραυστο lifecycle με `ref.read` χωρίς listener· ακυρώνει το `:29`), χρήση `pendingRemindersStreamProvider` (λάθος σύνολο + time-stale), απευθείας `getPastPending()` στο UI (παραβιάζει R0 «καμία DB στο UI»), `dayTickProvider` (ημερήσια κοκκώδηση — όχι εντός ημέρας), invalidate μέσα στο `refreshRecurringReminders` (δεν καλύπτει χωρίς refresh).
+
+**Αποτέλεσμα (γρ.):** `settings_reminders_dialog.dart` 162→**167** (5 προσθήκες: 1 γραμμή κώδικα + 4 σχόλιο). **0 νέα imports · 0 νέα API · καμία αλλαγή σε provider/δομή.**
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** (72.9s, περιλαμβάνει `pub get`) · `flutter test` → **All tests passed 230/230** (~18s). Η αλλαγή έγινε **μόνο με edit-tool** (τα Ελληνικά/emoji σχόλια σώα· backup hash-επαληθευμένο byte-identical).
+
+**Ειλικρινή όρια:** (1) **Δεν** προστέθηκε test: το `test/` δεν έχει **καμία** υποδομή provider+Isar (0 αναφορές σε `pastPending`/`getPending`) και η συμπεριφορά είναι time-based (δεν υπάρχει ντετερμινιστικό red-on-old χωρίς mock χρόνου). (2) **Device test ΔΕΝ έγινε** αυτό το session (δεν περιλαμβανόταν στο εγκεκριμένο pipeline) — το repro παραμένει ανοιχτό (βλ. παρακάτω).
+
+**supernote.md:** **καμία** αλλαγή (κανόνας #8 — δεν άλλαξε αρχιτεκτονική· ίδιο δέντρο, ίδιοι providers). ⚠️ Ο μετρητής tests παραμένει **229/229** (status, όχι αρχιτεκτονική· το suite είναι **230/230** από S256).
+
+**Backups:** `backups/f18_past_pending_invalidate/` — `settings_reminders_dialog.dart` (hash-επαληθευμένο), `oldsessions.md.pre`, `supernote.md.pre`, `BASE_HEAD.txt` (= `b87e3e7`), `BASE_STATUS.txt`.
+
+### Ανοιχτό device repro — ΔΕΝ εκτελέστηκε
+
+Repro με **ένα process** (κανόνας 12 — τα δεδομένα τα φτιάχνει ο χρήστης):
+1. Ρυθμίσεις → Βάση → «Παρελθούσες υπενθυμίσεις» → άδειο (cache `[]`).
+2. Σε μια σημείωση: υπενθύμιση **+2 λεπτά** (μέλλον — επιτρέπεται, S205).
+3. Κρατάς την εφαρμογή **ανοιχτή ~3 λεπτά** (χωρίς restart/kill).
+4. Ξανά «Παρελθούσες»: **πριν** = άδειο (bug) · **μετά** = 1 row.
+5. Per-row delete + «Διαγραφή όλων» + επανάνοιγμα → σωστά · logcat `-s flutter` → 0 ERR.
+Σημ.: δεν χρειάζεται να χτυπήσει η ειδοποίηση — αρκεί `triggerAt < now`.
+
+**Νέο εύρημα (F19, καταγράφεται — ΔΕΝ υλοποιήθηκε):** `pendingRemindersProvider` (`reminder_provider.dart:13`) = **0 readers** (invalidate-άρεται σε 5 σημεία) και `pendingRemindersStreamProvider` (`:18`) = **0 readers, 0 invalidates** → dead providers. Η αφαίρεση αγγίζει τη λίστα providers στο `supernote.md:597-598` (αρχιτεκτονική → κανόνας #8) ⇒ θέλει δικό του finding + ρητή εντολή.
+
+**Επόμενο session — ιεράρχηση (σοβαρότερο πρώτο):** 1. **F17** (cosmetic: wrap «Μέγεθος γραμματοσειράς» → «γραμματοσειρά / ς») · 2. **F13b** (perf: bulk-delete αντίστοιχο του F13 — το `_cascadeCollectionEntries` είναι private ⇒ μεγαλύτερο scope) · 3. **F19** (dead providers — απόφαση/καθαρισμός) · 4. ανοιχτό device repro **F18** · bucket (P2 a11y device pass · P2#6 grid auto-height · micros F2/F3/F4/F9c §7.8) · 5. P3/P5 Snooze UI (§7.3, θέλει spec) · B2.3 · DetailAppBar · stale TODOs ×7 (§8#12).
+
+**Κατάσταση κλεισίματος S257 (19/10/2026):** ✅ **κλειστό** σε κώδικα/analyze/tests — κώδικας F18 = `0f289d9` — εκκρεμεί **μόνο** το device repro (πάνω), που δεν ήταν στο εγκεκριμένο pipeline.
+
+**Handles για το επόμενο session:** μοτίβο «χρονικά εξαρτημένος + non-autoDispose `FutureProvider`» → **invalidate στο άνοιγμα** (precedent S147/S233· το codebase λέει **μόνο** `ref.invalidate`, κανένα `ref.refresh`). **Μη** βάλεις `autoDispose` σε provider που διαβάζεται με `ref.read` χωρίς listener. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Log `Settings past reminders batch: N/M` γράφεται **μόνο** όταν ο provider γυρίσει non-empty (δεν υπάρχει log στο early-return).
