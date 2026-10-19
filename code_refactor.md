@@ -217,7 +217,7 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
 
 > Ενιαία λίστα όλων των ανοιχτών. Η §8 μένει ως ιστορικό/deferred· σε διαφωνία υπερισχύει η §9.
 > **#1 = ⏸️ PARKED** (a11y) — βλ. `a11y.md` §0.1. Δεν αφαιρείται/αναριθμείται· τα #2–#22 κρατούν τη σειρά τους.
-> **#2 = ✅ CLOSED S261** (κώδικας + analyze/test ✅· εκκρεμεί **device matrix** 100%/140%). **Επόμενο εκτελέσιμο: #4 F13b.**
+> **#2 = ✅ CLOSED S261 · device pass S262 → 2 ευρήματα (A chips · B landscape overflow) ✅ διορθώθηκαν S262** (κώδικας + analyze/test **255/255** ✅· εκκρεμεί **re-verify** 100%/140%). **Επόμενο εκτελέσιμο: #4 F13b.**
 
 ### 🟠 P2 — Σοβαρότερα ανοιχτά (3)
 
@@ -234,6 +234,7 @@ Extract-files (όχι folders)· ελληνικά μόνο· `_debug=false` με
    - **Τι έγινε:** *hybrid* — true auto-height (`ResponsiveItemList` rewrite: γραμμές `IntrinsicHeight`+`Row(stretch)`) στα μη-reorderable grids (journal/contacts/trash/search/folder) + uniform adaptive `mainAxisExtent` (`gridItemExtentMax`) στα reorderable + adaptive square (home/collections). Νέος helper `gridTextScale`/`autoGridItemExtent`/`autoGridItemExtentFor` στο `responsive.dart` (παρεμβολή base→max στο fontScale 1.0→1.4). 16 αρχεία `lib/` · 0 νέες εξαρτήσεις/widgets · `ItemCardBuilder` byte-identical. Micro-fixes 1.4: trash header + habits `displayText` → ellipsis.
    - **Γιατί όχι IntrinsicHeight στα collections:** το card έχει `LayoutBuilder` (`collections_screen:371`) που πετάει στα intrinsics → σταθερό adaptive extent.
    - **Εκκρεμεί:** **device matrix** 100%/140%, portrait/landscape (κανόνας 12: ρητή λίστα δεδομένων πριν το test).
+   - **Device pass S262 (19/10/2026 — M2007J20CG):** grids OK σε 100%/140%· βρέθηκαν 2 νέα ευρήματα → **A** κομμένα labels στα folder chips στο 140% (fixed ύψη 56/58) και **B** RenderFlex overflow **4.4 px** στο home landscape (392.7 dp: greeting 100 + stats 48 + toggle 52 > διαθέσιμο). **Διορθώθηκαν S262:** adaptive chips 58→66 / 56→64 + `maxLines: 1` + padding 4 & emoji `height: 1.0` (το padding+border έτρωγαν το slot του label) · `Breakpoints.shortScreenHeight` + `context.isShortScreen` (greeting κρύβεται <480 dp) · `shouldShowFolderStats` safety net. Νέα tests: `folder_chip_height_test.dart` (5) + `home_short_viewport_test.dart` (4) + 1 στο `responsive_grid_extent_test.dart` = **255/255**. **Εκκρεμεί re-verify** (κανόνας 12).
    - **Ρίσκο που διαχειρίστηκε:** layout regression σε όλες τις λίστες → backup `backups/grid_auto_height/` + helper-based ένα grid τη φορά + 9 νέα tests (extent math, no-overflow 1.4, ίσο ύψος γραμμής).
 
 3. 🆕 **Outer-context Theme lookup hardening pass** (S129/S133 class)

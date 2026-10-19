@@ -179,12 +179,15 @@ class _FolderChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 56 (1.0) → 64 (1.4). Το emoji ΔΕΝ κλιμακώνεται (pattern Icon 18dp του
+    // DraggableFolderSelector) ⇒ label slot 22 → 30dp (labelSm @1.4 = 22.33).
+    final chipHeight = context.autoGridItemExtent(base: 56, max: 64);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: AppDuration.fast,
         width: 80,
-        height: 56,
+        height: chipHeight,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
@@ -211,8 +214,13 @@ class _FolderChip extends StatelessWidget {
                 children: [
                   Text(
                     icon,
+                    textScaler: TextScaler.noScaling,
                     style: TextStyle(
                       fontSize: 18,
+                      // Σταθερό line box 18dp (= Icon 18dp του Draggable) —
+                      // αλλιώς το emoji ύψος εξαρτάται από τη γραμματοσειρά
+                      // και τρώει το slot του label.
+                      height: 1.0,
                       color: isSelected ? Colors.white : color,
                     ),
                   ),
@@ -226,7 +234,7 @@ class _FolderChip extends StatelessWidget {
                             ? FontWeight.w600
                             : FontWeight.normal,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                     ),

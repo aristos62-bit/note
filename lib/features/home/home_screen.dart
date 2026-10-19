@@ -73,8 +73,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // AppBar
           const _HomeAppBar(),
 
-          // Greeting
-          SliverToBoxAdapter(child: _GreetingSection()),
+          // Greeting — κρύβεται σε κοντό viewport (landscape κινητού): +100dp
+          // στο folder view (stats + toggle + κάρτα). Portrait/tablet ανέπαφα.
+          if (!context.isShortScreen)
+            SliverToBoxAdapter(child: _GreetingSection()),
 
           // Folder Selector (μόνο folders, χωρίς items)
           SliverToBoxAdapter(

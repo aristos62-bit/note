@@ -108,4 +108,29 @@ void main() {
       expect(first.width, second.width);
     });
   });
+
+  // S262 (B-Π2): κοντό viewport → κρύψιμο greeting Αρχικής
+  group('isShortScreen', () {
+    Future<bool> shortAt(WidgetTester tester, double height) async {
+      late bool result;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(size: Size(400, height)),
+          child: Builder(builder: (context) {
+            result = context.isShortScreen;
+            return const SizedBox.shrink();
+          }),
+        ),
+      );
+      return result;
+    }
+
+    testWidgets('strict < shortScreenHeight (480)', (tester) async {
+      expect(Breakpoints.shortScreenHeight, 480);
+      expect(await shortAt(tester, 392), isTrue); // landscape κινητού
+      expect(await shortAt(tester, 479.9), isTrue);
+      expect(await shortAt(tester, 480), isFalse); // όριο → όχι short
+      expect(await shortAt(tester, 872.7), isFalse); // portrait κινητού
+    });
+  });
 }

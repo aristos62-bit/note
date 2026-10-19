@@ -20,6 +20,13 @@ class _DraggableFolderSelectorState
     extends ConsumerState<DraggableFolderSelector> {
   int? _dragOverFolderId;
 
+  // Ύψος chip: 58 (1.0) → 66 (1.4). Label slot 16 → 24dp
+  // (labelMd @1.4 = 22.34dp) ⇒ δεν κόβεται.
+  static const double _chipBase = 58;
+  static const double _chipMax = 66;
+  double _chipHeight(BuildContext c) =>
+      c.autoGridItemExtent(base: _chipBase, max: _chipMax);
+
   /// Αλλαγή επιλεγμένου φακέλου — guard αποφεύγει διπλά events
   void _selectFolder(int? id) {
     if (ref.read(selectedFolderIdProvider) == id) return; // ίδια τιμή: skip
@@ -35,6 +42,11 @@ class _DraggableFolderSelectorState
 
     // Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
+
+    DebugConfig.print(
+      '📁 DraggableFolderSelector: chipH=${_chipHeight(context).toStringAsFixed(1)} '
+      'scale=${context.gridTextScale.toStringAsFixed(2)}',
+    );
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -81,6 +93,7 @@ class _DraggableFolderSelectorState
     required ValueChanged<int?> selectFolder,
   }) {
     final isDragOver = _dragOverFolderId == folderId;
+    final chipHeight = _chipHeight(context);
     return DragTarget<int>(
       onWillAcceptWithDetails: (details) {
         DebugConfig.db(
@@ -112,8 +125,8 @@ class _DraggableFolderSelectorState
           onTap: () => selectFolder(folderId),
           child: Container(
             width: 80,
-            height: 58,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            height: chipHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             decoration: BoxDecoration(
               color: isSelected
                   ? color
@@ -144,7 +157,7 @@ class _DraggableFolderSelectorState
                       fontWeight:
                       isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
                   ),

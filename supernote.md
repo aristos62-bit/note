@@ -89,7 +89,7 @@ lib/
 │       ├── date_utils.dart       — Date formatting (relative, due, journal, grouping)
 │       ├── debug_config.dart     — Log categories (startup, db, nav, provider, notif, error)
 │       ├── string_utils.dart     — String operations
-│       ├── responsive.dart       — ResponsiveLayout, breakpoints, autoGridItemExtent (S261)
+│       ├── responsive.dart       — ResponsiveLayout, breakpoints (+shortScreenHeight S262), autoGridItemExtent (S261)
 │       ├── transitions.dart      — AppTransitions (fade, slideRight, slideUp)
 │       ├── recurrence_utils.dart — Recurrence UI helpers
 │       ├── reminder_picker.dart  — Reminder time picker
@@ -745,6 +745,11 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Helper: `context.gridTextScale` (πραγματικό `MediaQuery.textScalerOf`), `context.autoGridItemExtent({base, max})`, top-level `autoGridItemExtentFor(base, max, textScale)` = **παρεμβολή base→max** στο textScale 1.0→1.4 (clamp).
 - **Reorderable grids** (`ReorderableItemList`): uniform `mainAxisExtent` = `autoGridItemExtent(base: gridItemExtent, max: gridItemExtentMax)` — το `gridItemExtentMax` (null ⇒ base) δίνει «αέρα» στο 1.4 (tasks 94→116 · entries 140→160 · folder view 100→104 · item lists 100→108).
 - **Adaptive square** (home `_ReorderableGrid`, collections): `base = cellWidth` (square στο 1.0), `max = max(cellWidth, 144/102)` — καμία αλλαγή στο 1.0, αυξάνει μόνο με τη γραμματοσειρά.
+- **Folder chips (S262):** adaptive ύψος από τον ίδιο helper — `DraggableFolderSelector` **58→66** · home `_FolderChip` **56→64** · `maxLines: 1` στο label. Σταθερό εσωτερικό `padding` vertical **4** (A1) ώστε padding+border να μη τρώνε το slot του label. Το home emoji είναι **ακλιμάκωτο**: `TextScaler.noScaling` + `height: 1.0` = σταθερό line box **18dp** (ισοδύναμο με `Icon(size: 18)` του Draggable) — αλλιώς το ύψος του emoji εξαρτάται από τη γραμματοσειρά της συσκευής και πεινάει το label.
+
+### Short viewport (S262 — `responsive.dart`)
+- `Breakpoints.shortScreenHeight = 480` + `context.isShortScreen` (strict `<` του `screenHeight`). Σε κοντό viewport (τηλέφωνο landscape 320–448 dp· tablet landscape ≥600 παραμένει «ψηλό», portrait ≥568) κρύβονται **διακοσμητικά** headers για χώρο στο περιεχόμενο: greeting `HomeScreen` (+100 dp).
+- Safety net για πολύ κοντά viewports (split-screen / desktop window): top-level `shouldShowFolderStats(maxHeight)` (`home_folder_view.dart`, strict `> stats 48 + toggle 52 = 100`)· `LayoutBuilder` στο `build` κρύβει τη Stats row αντί για RenderFlex overflow.
 
 ### DraggableItemWrapper
 - `LongPressDraggable<int>` with 400ms delay
@@ -756,6 +761,8 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - `DragTarget<int>` — accepts item drops for folder reassignment
 - Visual feedback (border color change) on drag over
 - Updates `selectedFolderIdProvider`
+- Ύψος chip **adaptive** (S262): `autoGridItemExtent(base: 58, max: 66)` + vertical `padding: 4` + label `maxLines: 1` ⇒ δεν κόβεται στο 140%
+- Debug log: `📁 DraggableFolderSelector: chipH=… scale=…` (μία φορά ανά build)
 
 ### BlockEditorWidget
 - Rich text editor for notes: text, headings, checklists, bullet/numbered lists, quote, code
@@ -784,11 +791,12 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 ## Features — Screen Overview
 
 ### HomeScreen (`/`)
-- Greeting, pinned items, favorites, recent items
-- Folder selector (DraggableFolderSelector) at top
+- Greeting (**κρύβεται σε κοντό viewport** — `context.isShortScreen`, S262), pinned items, favorites, recent items
+- Folder selector = **`FolderChipSelector`** (`folder_selector.dart`) — ΟΧΙ `DraggableFolderSelector` (αυτό είναι σε calendar/collections/contacts/habits/journal/tasks/item lists)· chips **56→64** adaptive (S262)
 - `FolderViewData` provider for composite data
 - `_PinnedFavoritesSection` — isolated ConsumerStatefulWidget
 - `_SquareItemCard`, `_FolderItemCard` — specialized cards
+- `HomeFolderView` (σε `SliverFillRemaining`): stats 48 + toggle 52 = fixed headers, λίστα σε `Expanded`· σε `maxHeight ≤ 100` τα stats κρύβονται (`shouldShowFolderStats`, S262)
 
 ### NoteListScreen (`/notes`) + NoteDetailScreen (`/notes/:id`)
 - Full block editor (BlockEditorWidget) with multiple block types

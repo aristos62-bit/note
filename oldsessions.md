@@ -3492,3 +3492,36 @@
 **Docs:** `supernote.md` ενημερώθηκε (αρχιτεκτονική: νέος helper + rewritten `ResponsiveItemList` + auto-height πολιτική) · `code_refactor.md` §7.7/§8-P2#6 → **✅ CLOSED S261**.
 
 **Επόμενο:** παραμένει η προτεραιοποίηση S259/S260 — 1. **F13b** · 2. F19 · 3. υπόλοιπο bucket (P2#4 a11y device pass · micros F2/F3/F4) · 4. P3/P5 · B2.3 · DetailAppBar · stale TODOs ×7. **Εκκρεμεί device pass** του grid auto-height (fontScale 1.4 σε tablet/mobile: journal, contacts, trash, search, home, collections, tasks, entries, habits) — ζητείται ρητή λίστα δεδομένων πριν (κανόνας 12).
+
+## Session 262 — 19/10/2026 (device pass S261 → A: folder chips 140% · B: home landscape overflow)
+
+**Σκοπός:** device test του S261 (grid auto-height) → **2 ευρήματα** από screenshots: **A** κομμένα/εξαφανισμένα labels στα folder chips στο fontScale 140% (Draggable 58 dp & home 56 dp fixed ύψη) · **B** `BOTTOM OVERFLOWED BY 4.4 PIXELS` στο home landscape (392.7 dp: greeting 100 + stats 48 + toggle 52 > διαθέσιμο 95.6 στο 1.4). Ο χρήστης ενέκρινε **ολόκληρη** την τελική πρόταση (A1+A2+B-Π1+B-Π2) και **ανέστειλε τον κανόνα #4**· εφαρμογή **MONO με edit-tool** (όχι PowerShell) για προστασία των Ελληνικών.
+
+**Αποφάσεις (και γιατί):**
+- **A1 `DraggableFolderSelector`:** chip `autoGridItemExtent(base: 58, max: 66)` (ίδιος helper S261) + label `maxLines: 1`. **Προσθήκη πέραν της πρότασης:** vertical `padding: 8 → 4` — μετρήθηκε ότι `padding + border` τρώνε το slot του label (66 − 16 − 2 − 18 icon − 8 gap = **22** < 22.34 @1.4 ⇒ συρρίκνωση 0.34 dp)· με padding 4 το slot γίνεται **30** και **καμία οπτική αλλαγή** (το `Column` είναι κεντραρισμένο, το chip δεν ψηλώνει).
+- **A2 home `_FolderChip` (`folder_selector.dart`):** chip **56→64** + `maxLines: 1` + emoji **`TextScaler.noScaling`**. **Προσθήκη:** `height: 1.0` στο emoji style ⇒ **σταθερό line box 18 dp** (ισοδύναμο με `Icon(size: 18)` του Draggable)· χωρίς αυτό το ύψος του emoji εξαρτάται από τη γραμματοσειρά (test font **26**, Android ≈21.6) και το slot του label γίνεται μη-ντετερμινιστικό.
+- **B-Π1:** top-level `shouldShowFolderStats(maxHeight)` (strict `> 48+52=100`) + `LayoutBuilder` στο `build` του `HomeFolderView` ⇒ σε κοντό viewport τα stats κρύβονται αντί για overflow (safety net για split-screen / desktop window).
+- **B-Π2:** `Breakpoints.shortScreenHeight = 480` + `context.isShortScreen` (reuse του αχρησιμοποίητου `screenHeight` + του SPoT `Breakpoints` — καθαρά προσθετικό) · `HomeScreen`: `if (!context.isShortScreen) SliverToBoxAdapter(child: _GreetingSection())` ⇒ **+100 dp** στο folder view σε τηλέφωνο landscape· portrait (≥568) & tablet landscape (≥600) ανέπαφα.
+- **Απορρίφθηκαν:** κρύψιμο και του label «Φάκελοι» (+28 dp, χάνεται δομή, μη ανάλογο κέρδος) · ενοποίηση των 2 chip widgets (διαφορετικά APIs: emoji vs `Icon`, providers vs callbacks) · νέα tokens/strings/widgets.
+
+**Υλοποίηση (5 `lib/` + 2 νέα tests + 1 επέκταση + docs):**
+1. `core/utils/responsive.dart` — `Breakpoints.shortScreenHeight = 480` + `bool get isShortScreen`.
+2. `shared/widgets/draggable_folder_selector.dart` — `_chipBase/_chipMax` + `_chipHeight(context)`, `height: chipHeight`, vertical `padding: 4`, `maxLines: 1`, debug log `📁 DraggableFolderSelector: chipH=… scale=…`.
+3. `shared/widgets/folder_selector.dart` — `chipHeight = autoGridItemExtent(56, 64)`, emoji `noScaling` + `height: 1.0`, `maxLines: 1`.
+4. `features/home/home_folder_view.dart` — `_folderStatsBlockHeight = 48` / `_folderToggleHeight = 52`, `shouldShowFolderStats`, `_lastShowStats` (log μόνο σε αλλαγή), `PopScope > LayoutBuilder > Stack` + `if (showStats)`.
+5. `features/home/home_screen.dart` — greeting υπό `!context.isShortScreen`.
+6. Νέα tests: `test/folder_chip_height_test.dart` (**5**) — ύψη 58/66 & 56/64 + **όχι κόψιμο** (σύγκριση ύψους μέσα στο chip vs ίδιο Text χωρίς ύψος-όριο) + emoji 18 dp σε 1.0/1.4 · `test/home_short_viewport_test.dart` (**4**) — όρια helper, 80 dp (stats κρυφά), 200 dp (stats ορατά), HomeScreen 872×392 (greeting κρυφό) · **+1** στο `test/responsive_grid_extent_test.dart` (`isShortScreen` strict `<`).
+
+**Επαλήθευση:** `flutter analyze --no-pub` → **No issues found** · `flutter test` → **255/255** (245 baseline + 10 νέα) ✅ · baseline πριν τις αλλαγές **245/245** ✅.
+
+**Μαθήματα (τι κόστισε χρόνο):**
+- Στο test font το «ελεύθερο» `Text` δίνει **22 dp** μονόγραμμο· το `getMaxIntrinsicHeight` έδινε 22 ενώ το πραγματικό layout 20 ⇒ ο σωστός έλεγχος κόψιματος είναι **σύγκριση με ίδιο Text χωρίς ύψος-όριο**, όχι intrinsics.
+- Σε `Container` με `decoration.border`, το border προστίθεται στο **padding** ⇒ μικραίνει το slot του label κατά `width` ανά πλευρά.
+- Το ύψος του emoji `Text` είναι **font-dependent** (18–26 dp για `fontSize: 18`) — γι' αυτό χρειάστηκε `height: 1.0`.
+- **Προϋπάρχον, δεν διορθώθηκε (εκτός scope):** στο `DraggableFolderSelector` το chip «Όλοι» υπολογίζει `isDragOver = (_dragOverFolderId == folderId)` με **και τα δύο `null`** ⇒ μόνιμο border **2 dp** (και 30% background όταν δεν είναι selected). Fix 1 γραμμής (`folderId != null &&`) αν αποφασιστεί.
+
+**Backups:** `backups/s262_a_b/` — 5 `lib/` + 3 docs (`.pre`) + `BASE_HEAD.txt`/`BASE_STATUS.txt`/`HASHES.txt` (8/8 ταυτόσημα).
+
+**Docs:** `supernote.md` (map `:92` · Grid extents + νέο §Short viewport · DraggableFolderSelector · HomeScreen — διορθώθηκε και το stale «Folder selector (DraggableFolderSelector)» → `FolderChipSelector`) · `code_refactor.md` §9 #2 (device pass S262 + τα 2 ευρήματα/διορθώσεις) · αυτό το κεφάλαιο.
+
+**Επόμενο:** **device re-verify** (ρητή λίστα δεδομένων — κανόνας 12) → μετά #4 F13b. Πιθανό **B-Π2b** (κρύψιμο και του label «Φάκελοι» σε κοντό viewport) μόνο αν φανεί ανάγκη στο re-verify.
