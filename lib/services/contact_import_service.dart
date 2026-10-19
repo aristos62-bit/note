@@ -36,13 +36,11 @@ class ImportProgress {
   final int current;
   final int total;
   final String contactName;
-  final String status;
 
   const ImportProgress({
     required this.current,
     required this.total,
     this.contactName = '',
-    this.status = '',
   });
 
   double get fraction => total > 0 ? current / total : 0.0;
@@ -60,8 +58,6 @@ class ImportResult {
     this.errors = 0,
     this.errorDetails = const [],
   });
-
-  int get totalProcessed => imported + skipped + errors;
 }
 
 class ContactImportService {
@@ -152,7 +148,6 @@ class ContactImportService {
         current: i,
         total: contacts.length,
         contactName: displayName,
-        status: 'Επεξεργασία...',
       ));
 
       try {
@@ -174,7 +169,6 @@ class ContactImportService {
     onProgress?.call(ImportProgress(
       current: contacts.length,
       total: contacts.length,
-      status: 'Ολοκληρώθηκε',
     ));
 
     return ImportResult(

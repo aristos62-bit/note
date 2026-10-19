@@ -28,7 +28,6 @@ Future<void> importContactsFromDevice(BuildContext context, WidgetRef ref) async
   if (!context.mounted) return;
 
   // Fetch
-  // Fetch
   final List<Contact> contacts;
   try {
     contacts = await ContactImportService.instance.fetchContacts();
