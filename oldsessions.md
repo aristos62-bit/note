@@ -3396,8 +3396,35 @@
 
 **Backups:** `backups/s259_f17_fontscale_wrap/` — `settings_tiles.dart.pre` (SHA256 `F3D7E659…4F14DA`, byte-identical) + `code_refactor.md.pre` + `oldsessions.md.pre` + `BASE_HEAD.txt` (= `41c2f56`) + `BASE_STATUS.txt`.
 
-**Git:** κώδικας = `a707933` (+ docs commit του session). ⚠️ Τα **2** προϋπάρχοντα modified (`InstallerOutput/SuperNoteSetup.exe`, `macos/Flutter/GeneratedPluginRegistrant.swift`) **δεν** μπήκαν στο commit.
+**Git:** κώδικας+test = `a707933` · docs κλεισίματος = `f9744bd` · docs device pass T5 = το commit αυτής της ενότητας. ⚠️ Τα **2** προϋπάρχοντα modified (`InstallerOutput/SuperNoteSetup.exe`, `macos/Flutter/GeneratedPluginRegistrant.swift`) **δεν** μπήκαν σε κανένα commit.
 
-**Εκκρεμεί — device pass T5 (οπτικό· κριτήριο = screenshot):** 100% & 140% × portrait & landscape · drag σε όλο το εύρος · kill/relaunch persist · **επαναφορά** αρχικής τιμής · **0** ERR/overflow · **χωρίς** δεδομένα (κανόνας 12 — μόνο taps/screenshots, S253 parity `ui_fs2/ui_fs3.xml`).
+### Device pass T5 — 19/10/2026 (M2007J20CG `9593c01e`, portrait + landscape) = **PASS ✅**
 
-**Handles για το επόμενο session:** (1) Το «σπάσιμο μέσα στη λέξη από sibling σε `Row`» **αναπαράγεται πιστά** σε widget test — **αντίθετα** με το F9. (2) Όταν ένα invariant αφορά **διαθέσιμο πλάτος**, μέτρησέ το με **πρόχειρο `Text` probe + `SingleChildScrollView`** (ίδιο style/scale path) αντί για `TextPainter` με χειροκίνητο style: **ανεξάρτητο** από τη γραμματοσειρά. (3) `RenderParagraph.constraints.maxWidth` = φθηνή και **ακριβής** πηγή για «τι πλάτος πήρε το κείμενο».
+**Build που δοκιμάστηκε:** `com.example.super_note` 1.0.4 (`versionName 1.0.4+2`) — `lastUpdateTime` **19/10 13:04:44** = 11 s μετά το APK build (13:04:33) και **μετά** το commit `a707933` (13:03:17) ⇒ **περιέχει το F17**. 1 process (pid **27685**)· kill/relaunch → pid **30058**. Καμία εγκατάσταση/uninstall (χωρίς MIUI prompt).
+
+**Μετρήσεις (uiautomator dumps, px @ density 2.75):**
+
+| Κατάσταση | tile bounds | ύψος tile | τίτλος | thumb cx |
+|---|---|---|---|---|
+| Portrait 100% | `[88,1565][992,1862]` → 904 px = content **816 px = 296.7 dp** | **297** | **1 γραμμή** | **428** |
+| Portrait 140% | `[88,1708][992,2044]` | **336** | **1 γραμμή** | 877 (max) |
+| Landscape 100% | `[556,330][1270,627]` → 714 px = content **626 px = 227.6 dp** | **297** | **1 γραμμή** | 832 |
+| Landscape 140% | `[556,466][1270,879]` | **413** | **2 γραμμές — wrap στο ΚΕΝΟ** («Μέγεθος» / «γραμματοσειράς») | — |
+| Landscape 80% | `[556,283][1270,561]` | 278 | 1 γραμμή | 671 (min) |
+
+- **Η αριθμητική κλείνει ακριβώς** (μέτρηση, όχι εκτίμηση): ύψος = padding 44 + τίτλος (**55** @100% / **77** @140%) + % (44 / 61) + `SizedBox(8dp)` 22 + Slider 48dp 132 ⇒ **297** / **336** ✓ — αν ο τίτλος έσπαγε σε 3 γραμμές θα ήταν **407** ⇒ **αποδεικνύεται 1 γραμμή**.
+- **Landscape = tablet layout 2-col:** το διαθέσιμο content είναι **227.6 dp** (*διόρθωση* της εκτίμησης της πρότασης που έλεγε 328.3). Στο 140% η πλήρης φράση θέλει ~242 dp > 227.6 ⇒ **2 γραμμές στο κενό**· η λέξη «γραμματοσειράς» θέλει ~169 dp ≤ 227.6 ⇒ **καμία τομή μέσα στη λέξη** ✅ (ο στόχος του F17).
+- **Thumb @100% = 428 px** (πρόβλεψη 620→~426) — επιβεβαιωμένο σε 4 τιμές: **671** @80% · **428** @100% portrait · **832** @100% landscape · **877** @140% ⇒ thumb-anchored ✓.
+- **Log (`DebugConfig.provider`):** `fontScale=1.1→1.2→1.3→1.4` (drag δεξιά) · `1.0` (tap t=1/3) · `0.9→0.8` (drag αριστερά) · `0.9→1.0` · `1.3→1.4` · `1.0` (επαναφορά) ⇒ **όλο το εύρος 0.8–1.4**, με τις **ίδιες διακριτές τιμές** (και `1.2999999999999998` = ίδιο double) ⇒ **ίδια DB δεδομένα** ✅.
+- **Persist ✅:** `am force-stop` + relaunch → **140%** (tile 336 px, thumb 877) και το app-wide scale εφαρμόστηκε στο cold start.
+- **Επαναφορά ✅:** tap στο t=1/3 → **100%**, tile **297 px**, thumb **428** = **ακριβώς** η αρχική κατάσταση (αρχική τιμή ήταν 100%).
+- **0** `E/flutter` · `W/flutter` · RenderFlex-overflow · unhandled exception σε **όλο** το session ✅.
+- **Δικλείδες:** `accelerometer_rotation` 1→(0 για το rotation)→**1** · `user_rotation` 0→**0** · `stay_on_while_plugged_in` **0** · `screen_off_timeout` **2147483647** — όλα στο baseline ✓ · **καμία** αλλαγή **δεδομένων** (μόνο taps/swipes + dumps/screenshots· 0 νέα items/επαφές — κανόνας 12).
+- **Out-of-scope (καταγεγραμμένο):** `W System.err: org.json.JSONException: No value for surya` (13:14:45.902, **1×** στο cold start) = **MIUI/Java layer** (device codename «surya») — **άσχετο** με το Flutter layout.
+- **Τεκμήρια:** `backups/s259_f17_fontscale_wrap/device/` — helper `grab.ps1` + 12 dumps (`.xml`/`.txt`: `s0_home` … `s15_restored_100`) + screenshots (`.png`).
+
+**Handles για το επόμενο session:** (1) Το «σπάσιμο μέσα στη λέξη από sibling σε `Row`» **αναπαράγεται πιστά** σε widget test — **αντίθετα** με το F9. (2) Όταν ένα invariant αφορά **διαθέσιμο πλάτος**, μέτρησέ το με **πρόχειρο `Text` probe + `SingleChildScrollView`** (ίδιο style/scale path) αντί για `TextPainter` με χειροκίνητο style: **ανεξάρτητο** από τη γραμματοσειρά. (3) `RenderParagraph.constraints.maxWidth` = φθηνή και **ακριβής** πηγή για «τι πλάτος πήρε το κείμενο». (4) ⚠️ Το content πλάτος των Ρυθμίσεων **αλλάζει ανά layout**: portrait **296.7 dp** (κάρτα) vs landscape **tablet 2-col 227.6 dp** (στήλη) — μην υποθέτεις **ένα** νούμερο για όλα τα orientations (η εκτίμηση 328.3 της πρότασης ήταν λάθος· μετρήθηκε 227.6).
+
+**Κατάσταση κλεισίματος S259 (19/10/2026):** ✅ **κλειστό** — F17 ✅ CLOSED (κώδικας `a707933` · 4 νέα tests + **red-on-old 4/4** · **device pass T5 ✅** portrait+landscape · επαναφορά αρχικής τιμής). Δεν εκκρεμεί τίποτα από αυτό το session.
+
+**Επόμενο session — ιεράρχηση (σοβαρότερο πρώτο):** 1. **F13b** (perf: bulk-delete — private `_cascadeCollectionEntries`) · 2. **F19** (dead providers — αγγίζει `supernote.md:597-598` ⇒ απόφαση) · 3. bucket (P2#4 a11y device pass · P2#6 grid auto-height · micros F2/F3/F4 §7.8) · 4. P3/P5 (Snooze UI θέλει spec) · B2.3 · DetailAppBar · stale TODOs ×7.
