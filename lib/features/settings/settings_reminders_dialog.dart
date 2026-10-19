@@ -32,6 +32,11 @@ Future<void> _deleteReminders(
 
 Future<void> showPastRemindersDialog(BuildContext context, WidgetRef ref) async {
   // Φόρτωση απευθείας — τοπική DB, χωρίς loading dialog
+  // S257 (F18): η λίστα είναι χρονικά εξαρτημένη (triggerAt < now) αλλά ο
+  // provider ΔΕΝ είναι autoDispose → ληγμένα που «ωριμάζουν» εντός session
+  // (χωρίς DB write) δεν φαίνονται μέχρι cold start. Ίδιος μηχανισμός με το
+  // onApplied στη _deleteReminders (γρ. 29), ένα trigger ακόμη: το άνοιγμα.
+  ref.invalidate(pastPendingRemindersProvider);
   final List<Reminder> reminders;
   try {
     reminders = await ref.read(pastPendingRemindersProvider.future);
