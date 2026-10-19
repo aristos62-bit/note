@@ -3263,26 +3263,49 @@
 
 **Έλεγχοι:** `flutter analyze` → **No issues found** (72.9s, περιλαμβάνει `pub get`) · `flutter test` → **All tests passed 230/230** (~18s). Η αλλαγή έγινε **μόνο με edit-tool** (τα Ελληνικά/emoji σχόλια σώα· backup hash-επαληθευμένο byte-identical).
 
-**Ειλικρινή όρια:** (1) **Δεν** προστέθηκε test: το `test/` δεν έχει **καμία** υποδομή provider+Isar (0 αναφορές σε `pastPending`/`getPending`) και η συμπεριφορά είναι time-based (δεν υπάρχει ντετερμινιστικό red-on-old χωρίς mock χρόνου). (2) **Device test ΔΕΝ έγινε** αυτό το session (δεν περιλαμβανόταν στο εγκεκριμένο pipeline) — το repro παραμένει ανοιχτό (βλ. παρακάτω).
+**Ειλικρινή όρια:** (1) **Δεν** προστέθηκε test: το `test/` δεν έχει **καμία** υποδομή provider+Isar (0 αναφορές σε `pastPending`/`getPending`) και η συμπεριφορά είναι time-based (δεν υπάρχει ντετερμινιστικό red-on-old χωρίς mock χρόνου). (2) **Device test ✅ ΕΓΙΝΕ** (19/10/2026, μετά το κλείσιμο κώδικα) — **PASS**, βλ. «Device test S257» παρακάτω.
 
 **supernote.md:** **καμία** αλλαγή (κανόνας #8 — δεν άλλαξε αρχιτεκτονική· ίδιο δέντρο, ίδιοι providers). ⚠️ Ο μετρητής tests παραμένει **229/229** (status, όχι αρχιτεκτονική· το suite είναι **230/230** από S256).
 
 **Backups:** `backups/f18_past_pending_invalidate/` — `settings_reminders_dialog.dart` (hash-επαληθευμένο), `oldsessions.md.pre`, `supernote.md.pre`, `BASE_HEAD.txt` (= `b87e3e7`), `BASE_STATUS.txt`.
 
-### Ανοιχτό device repro — ΔΕΝ εκτελέστηκε
+### Device test S257 — 19/10/2026 (debug build, M2007J20CG `9593c01e`) = **PASS ✅**
 
-Repro με **ένα process** (κανόνας 12 — τα δεδομένα τα φτιάχνει ο χρήστης):
-1. Ρυθμίσεις → Βάση → «Παρελθούσες υπενθυμίσεις» → άδειο (cache `[]`).
-2. Σε μια σημείωση: υπενθύμιση **+2 λεπτά** (μέλλον — επιτρέπεται, S205).
-3. Κρατάς την εφαρμογή **ανοιχτή ~3 λεπτά** (χωρίς restart/kill).
-4. Ξανά «Παρελθούσες»: **πριν** = άδειο (bug) · **μετά** = 1 row.
-5. Per-row delete + «Διαγραφή όλων» + επανάνοιγμα → σωστά · logcat `-s flutter` → 0 ERR.
-Σημ.: δεν χρειάζεται να χτυπήσει η ειδοποίηση — αρκεί `triggerAt < now`.
+**Build που δοκιμάστηκε:** debug APK χτισμένο **10:56:45** (ίδιο package/υπογραφή ⇒ **κανένα** install από μένα, κανένα MIUI prompt, **καμία** αλλαγή δεδομένων μέσω adb)· εγκατάσταση από τον χρήστη 10:56:56, εκκίνηση ~10:57:02. Απόδειξη ότι περιέχει το F18: edit πηγής **10:48:20** < commit 10:52:56 < APK 10:56:45. **Ένα** process σε όλο το τεστ (pid **15084**· 1× `STARTUP`· 1× `beginning of main`).
+
+**Δεδομένα (κανόνας 12):** ο χρήστης άνοιξε το dialog και δημιούργησε Σημείωση «new test» (itemId **456**) με υπενθύμιση **μία φορά** σε +2′.
+
+**Ροή & τεκμήρια** (`adb logcat -s flutter -v time` → `backups/f18_past_pending_invalidate/log_device_s257.txt`):
+```
+10:58:56.014 DB  | Settings past reminders batch: 7/10   ← 1ο άνοιγμα («ΠΡΙΝ»· dialog «(8)»)
+10:58:56.015 NAV | Settings: open past reminders
+11:00:20.429 NTF | ReminderSection._saveReminder: created reminder id=2200,
+                   trigger=2026-10-19 11:01:00.000, status=pending
+11:00:20.430 NTF | ReminderScheduler.scheduleReminder: id=2200, trigger=…11:01:00
+11:00:20.462 NTF | NotificationService.schedule: zonedSchedule OK id=2200 (exactAllowWhileIdle)
+11:01:33.855     | [LIFECYCLE] state=AppLifecycleState.resumed   ← ο χρήστης είχε βγει/γυρίσει
+11:01:35.902 NTF | refreshRecurringReminders: started — GAP 0h 3m
+11:01:36.103 NTF | refreshRecurringReminders: created 0 new child reminders total
+11:01:38.227 DB  | Settings past reminders batch: 8/11   ← 2ο άνοιγμα («ΜΕΤΑ»· dialog «(9)»· +38s μετά τη λήξη)
+11:01:38.228 NAV | Settings: open past reminders
+```
+- **Οπτικό (χρήστης):** ΠΡΙΝ **(8)** → ΜΕΤΑ **(9)** ✅.
+- **Logs (provider):** `reminders` **10 → 11** (το `batch` τυπώνει `itemTitles/reminders`) ⇒ το 2ο άνοιγμα **ξανα-εκτέλεσε** το query και συμπεριέλαβε τη ληγμένη id=2200.
+- **Timing έγκυρο:** η υπενθύμιση έγινε past (11:01:00) **μετά** το 1ο άνοιγμα (10:58:56) και **πριν** το 2ο (11:01:38). Το 1ο άνοιγμα έγινε **πριν** καν δημιουργηθεί η id=2200 (11:00:20) ⇒ δεν μπορούσε να την περιέχει.
+- **Αποκλείστηκαν άλλες αιτίες του +1:** (α) το `refreshRecurringReminders` στο resume **μόνο** διαβάζει/καθαρίζει — `created 0 new child reminders`, και το `cleanupOldPending` μόνο **διαγράφει** (άρα μπορεί μόνο να μειώσει το πλήθος)· (β) **κανένα** άλλο invalidate (0× `markSent`· 0× `PRV` για τον provider)· (γ) **κανένα** restart (pid σταθερό, 1× `STARTUP`) ⇒ η cached τιμή (10) ίσχυε ακόμη στο 2ο άνοιγμα.
+- **Χωρίς** το fix, το 2ο άνοιγμα θα επέστρεφε την cached 10 ⇒ «(8)» ξανά ⇒ **red-on-old λογικά εξασφαλισμένο**.
+- **0** ERR/exceptions σε όλο το session (213 γραμμές log).
+
+**Δικλείδες:** `stay_on_while_plugged_in` 0→7→**0** (επαληθευμένο)· `screen_off_timeout` αμετάβλητο (max)· **κανένα uninstall/install από μένα**· **καμία** αλλαγή δεδομένων/ρυθμίσεων εφαρμογής μέσω adb (μόνο ανάγνωση logs + το system display setting)· η εφαρμογή ζωντανή στο τέλος (pid 15084).
+
+**Δικό μου λάθος (καταγεγραμμένο):** για τον τερματισμό της καταγραφής έκανα `taskkill /IM adb.exe`, που γκρέμισε και τον adb server· επανήλθε με `adb kill-server` + `adb start-server` — **καμία** επίπτωση σε συσκευή/δεδομένα.
+
+**Τεκμήρια:** `backups/f18_past_pending_invalidate/log_device_s257.txt` (πλήρες, 213 γραμμές) · `log_evidence_s257.txt` (τα key lines) · `BASE_HEAD.txt`, `BASE_STATUS.txt`.
 
 **Νέο εύρημα (F19, καταγράφεται — ΔΕΝ υλοποιήθηκε):** `pendingRemindersProvider` (`reminder_provider.dart:13`) = **0 readers** (invalidate-άρεται σε 5 σημεία) και `pendingRemindersStreamProvider` (`:18`) = **0 readers, 0 invalidates** → dead providers. Η αφαίρεση αγγίζει τη λίστα providers στο `supernote.md:597-598` (αρχιτεκτονική → κανόνας #8) ⇒ θέλει δικό του finding + ρητή εντολή.
 
-**Επόμενο session — ιεράρχηση (σοβαρότερο πρώτο):** 1. **F17** (cosmetic: wrap «Μέγεθος γραμματοσειράς» → «γραμματοσειρά / ς») · 2. **F13b** (perf: bulk-delete αντίστοιχο του F13 — το `_cascadeCollectionEntries` είναι private ⇒ μεγαλύτερο scope) · 3. **F19** (dead providers — απόφαση/καθαρισμός) · 4. ανοιχτό device repro **F18** · bucket (P2 a11y device pass · P2#6 grid auto-height · micros F2/F3/F4/F9c §7.8) · 5. P3/P5 Snooze UI (§7.3, θέλει spec) · B2.3 · DetailAppBar · stale TODOs ×7 (§8#12).
+**Επόμενο session — ιεράρχηση (σοβαρότερο πρώτο):** 1. **F17** (cosmetic: wrap «Μέγεθος γραμματοσειράς» → «γραμματοσειρά / ς») · 2. **F13b** (perf: bulk-delete αντίστοιχο του F13 — το `_cascadeCollectionEntries` είναι private ⇒ μεγαλύτερο scope) · 3. **F19** (dead providers — απόφαση/καθαρισμός) · 4. bucket (P2 a11y device pass · P2#6 grid auto-height · micros F2/F3/F4/F9c §7.8) · 5. P3/P5 Snooze UI (§7.3, θέλει spec) · B2.3 · DetailAppBar · stale TODOs ×7 (§8#12).
 
-**Κατάσταση κλεισίματος S257 (19/10/2026):** ✅ **κλειστό** σε κώδικα/analyze/tests — κώδικας F18 = `0f289d9` — εκκρεμεί **μόνο** το device repro (πάνω), που δεν ήταν στο εγκεκριμένο pipeline.
+**Κατάσταση κλεισίματος S257 (19/10/2026):** ✅ **κλειστό** — κώδικας F18 = `0f289d9` (pushed) · docs (κεφάλαιο + §8 + νέα λίστα) = `a58abfe` (pushed) · **device test PASS ✅** (19/10/2026) + docs device test (τούτο το commit). Δεν εκκρεμεί τίποτα για το F18.
 
-**Handles για το επόμενο session:** μοτίβο «χρονικά εξαρτημένος + non-autoDispose `FutureProvider`» → **invalidate στο άνοιγμα** (precedent S147/S233· το codebase λέει **μόνο** `ref.invalidate`, κανένα `ref.refresh`). **Μη** βάλεις `autoDispose` σε provider που διαβάζεται με `ref.read` χωρίς listener. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Log `Settings past reminders batch: N/M` γράφεται **μόνο** όταν ο provider γυρίσει non-empty (δεν υπάρχει log στο early-return).
+**Handles για το επόμενο session:** μοτίβο «χρονικά εξαρτημένος + non-autoDispose `FutureProvider`» → **invalidate στο άνοιγμα** (precedent S147/S233· το codebase λέει **μόνο** `ref.invalidate`, κανένα `ref.refresh`). **Μη** βάλεις `autoDispose` σε provider που διαβάζεται με `ref.read` χωρίς listener. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Log `Settings past reminders batch: N/M` γράφεται **μόνο** όταν ο provider γυρίσει non-empty (δεν υπάρχει log στο early-return). **Device test S257 ✅ PASS** (19/10/2026 — debug build του `0f289d9`· 1 process pid 15084· ΠΡΙΝ dialog «(8)»/provider **10** → ΜΕΤΑ «(9)»/provider **11**· 0 ERR).
