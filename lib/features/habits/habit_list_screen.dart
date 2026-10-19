@@ -393,10 +393,15 @@ class _DraggableHabitCard extends ConsumerWidget {
                   color: secondaryForeground,
                   textColor: foregroundColor,
                 ),
-                const Spacer(),
-                Text(
-                  displayText,
-                  style: context.labelSm.copyWith(color: accentColor),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: Text(
+                    displayText,
+                    style: context.labelSm.copyWith(color: accentColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                  ),
                 ),
               ],
             ),

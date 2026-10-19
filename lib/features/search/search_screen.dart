@@ -451,24 +451,13 @@ class _ResultsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cols = context.gridColumns;
-
-    return GridView.builder(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveHPadding,
-        vertical:   Spacing.sm,
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:   cols,
-        mainAxisSpacing:  Spacing.sm,
-        crossAxisSpacing: Spacing.sm,
-        mainAxisExtent:   140,
-      ),
-      itemCount: results.length,
-      itemBuilder: (_, i) => _SearchResultCard(
-        result: results[i],
+    return ResponsiveItemList<SearchResult>(
+      items: results,
+      itemKey: (r, i) => ValueKey<int>(r.item.id),
+      itemBuilder: (_, r) => _SearchResultCard(
+        result: r,
         query:  query,
-        onTap:  () => onTap(results[i]),
+        onTap:  () => onTap(r),
       ),
     );
   }

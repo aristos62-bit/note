@@ -452,6 +452,8 @@ class _EmbeddedItemListBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ReorderableItemList(
       items: items,
+      gridItemExtent: 100,
+      gridItemExtentMax: 108,
       onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
       // ── ΝΕΟ: κλειδώνει back gesture κατά το reorder drag ──
       onReorderStart: () => ref.read(isDraggingProvider.notifier).state = true,

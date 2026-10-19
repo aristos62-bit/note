@@ -369,6 +369,7 @@ class _TaskListBody extends ConsumerWidget {
       child: ReorderableItemList(
         items: items.map((td) => td.task).toList(),
         gridItemExtent: 94,
+        gridItemExtentMax: 116,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         onReorder: (oldIndex, newIndex) =>

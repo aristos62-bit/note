@@ -155,6 +155,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
     return ReorderableItemList(
       items: items,
       gridItemExtent: 100,
+      gridItemExtentMax: 104,
       onReorder: (oldIdx, newIdx) {
         if (oldIdx == newIdx) return;
         final merged = ReorderUtils.moveAndMerge(full: allItems, filtered: items, oldIndex: oldIdx, newIndex: newIdx, debugLabel: 'folder_view');

@@ -688,34 +688,45 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
     const  spacing = Spacing.sm; // 8.0
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-      child: ReorderableGridView.builder(
-        padding: const EdgeInsets.only(bottom: 80),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          mainAxisSpacing: spacing,
-          crossAxisSpacing: spacing,
-          childAspectRatio: 1.0,
-        ),
-        onReorder: _handleReorder,
-          itemBuilder: (context, index) {
-            final item = _items[index];
-            final folder = widget.folders.where((f) => f.id == item.folderId).firstOrNull;
-            final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
-            return Container(
-              key: ValueKey(item.id),
-              child: _SquareItemCard(
-                item: item,
-                folder: folder,
-                cardBackgroundColor: overrideColor,
-                onTap: () => widget.onOpenItem(item),
-                onShare: () => ShareService.shareItem(context, item.id),
-              ),
-            );
-          },
-          itemCount: _items.length,
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cellWidth =
+              (constraints.maxWidth - spacing * (crossAxisCount - 1)) / crossAxisCount;
+          // Square στο 1.0· auto-height (έως 144) όσο μεγαλώνει το text scale.
+          final extent = context.autoGridItemExtent(
+            base: cellWidth,
+            max: cellWidth < 144.0 ? 144.0 : cellWidth,
+          );
+          return ReorderableGridView.builder(
+            padding: const EdgeInsets.only(bottom: 80),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: spacing,
+              crossAxisSpacing: spacing,
+              mainAxisExtent: extent,
+            ),
+            onReorder: _handleReorder,
+            itemBuilder: (context, index) {
+              final item = _items[index];
+              final folder = widget.folders.where((f) => f.id == item.folderId).firstOrNull;
+              final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+              return Container(
+                key: ValueKey(item.id),
+                child: _SquareItemCard(
+                  item: item,
+                  folder: folder,
+                  cardBackgroundColor: overrideColor,
+                  onTap: () => widget.onOpenItem(item),
+                  onShare: () => ShareService.shareItem(context, item.id),
+                ),
+              );
+            },
+            itemCount: _items.length,
+          );
+        },
+      ),
     );
   }
 }
@@ -746,22 +757,33 @@ class _LoadingSkeleton extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Spacing.sm),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              mainAxisSpacing: Spacing.sm,
-              crossAxisSpacing: Spacing.sm,
-              childAspectRatio: 1.0,
-            ),
-            itemCount: crossAxisCount * 2,
-            itemBuilder: (_, __) => Container(
-              decoration: BoxDecoration(
-                color: placeholderColor,
-                borderRadius: AppRadius.cardBR,
-              ),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cellWidth =
+                  (constraints.maxWidth - Spacing.sm * (crossAxisCount - 1)) /
+                      crossAxisCount;
+              final extent = context.autoGridItemExtent(
+                base: cellWidth,
+                max: cellWidth < 144.0 ? 144.0 : cellWidth,
+              );
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: Spacing.sm,
+                  crossAxisSpacing: Spacing.sm,
+                  mainAxisExtent: extent,
+                ),
+                itemCount: crossAxisCount * 2,
+                itemBuilder: (_, __) => Container(
+                  decoration: BoxDecoration(
+                    color: placeholderColor,
+                    borderRadius: AppRadius.cardBR,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

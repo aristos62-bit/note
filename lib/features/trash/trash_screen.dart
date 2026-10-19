@@ -276,24 +276,15 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                       ),
                     );
                   } else {
-                    return GridView.builder(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.responsiveHPadding,
-                        vertical: Spacing.sm,
-                      ),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: context.gridColumns,
-                        mainAxisSpacing: Spacing.sm,
-                        crossAxisSpacing: Spacing.sm,
-                        mainAxisExtent: 130, // λίγο μεγαλύτερο για checkbox
-                      ),
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) => _TrashCard(
-                        item: filtered[i],
-                        selected: _selectedIds.contains(filtered[i].id),
-                        onToggleSelect: () => _toggleSelection(filtered[i].id),
-                        onRestore: () => _restoreSingle(filtered[i]),
-                        onDelete: () => _permanentDeleteSingle(filtered[i]),
+                    return ResponsiveItemList<Item>(
+                      items: filtered,
+                      itemKey: (it, i) => ValueKey<int>(it.id),
+                      itemBuilder: (_, item) => _TrashCard(
+                        item: item,
+                        selected: _selectedIds.contains(item.id),
+                        onToggleSelect: () => _toggleSelection(item.id),
+                        onRestore: () => _restoreSingle(item),
+                        onDelete: () => _permanentDeleteSingle(item),
                       ),
                     );
                   }
@@ -454,11 +445,18 @@ class _TrashCard extends StatelessWidget {
                     Text(
                       ItemTypeIcon.labelFor(item.type),
                       style: context.labelSm.withColor(color),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
-                    Text(
-                      'Διαγράφηκε ${deletedDate.relative}',
-                      style: context.labelSm.withColor(context.cDisabled),
+                    const SizedBox(width: Spacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Διαγράφηκε ${deletedDate.relative}',
+                        style: context.labelSm.withColor(context.cDisabled),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                      ),
                     ),
                   ],
                 ),
