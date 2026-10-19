@@ -329,17 +329,12 @@ class SettingsFontScaleTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef r) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Μέγεθος γραμματοσειράς', style: context.bodyMd),
-                Text('${(current * 100).round()}%', style: context.bodySm.withColor(context.cText2)),
-              ],
-            ),
-          ),
+          Text('Μέγεθος γραμματοσειράς', style: context.bodyMd),
+          Text('${(current * 100).round()}%', style: context.bodySm.withColor(context.cText2)),
+          const SizedBox(height: Spacing.sm),
           Slider(
             value: current,
             min: 0.8,
