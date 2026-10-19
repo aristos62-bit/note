@@ -3309,3 +3309,35 @@
 **Κατάσταση κλεισίματος S257 (19/10/2026):** ✅ **κλειστό** — κώδικας F18 = `0f289d9` (pushed) · docs (κεφάλαιο + §8 + νέα λίστα) = `a58abfe` (pushed) · **device test PASS ✅** (19/10/2026) + docs device test (τούτο το commit). Δεν εκκρεμεί τίποτα για το F18.
 
 **Handles για το επόμενο session:** μοτίβο «χρονικά εξαρτημένος + non-autoDispose `FutureProvider`» → **invalidate στο άνοιγμα** (precedent S147/S233· το codebase λέει **μόνο** `ref.invalidate`, κανένα `ref.refresh`). **Μη** βάλεις `autoDispose` σε provider που διαβάζεται με `ref.read` χωρίς listener. Device: M2007J20CG `9593c01e`· install απαιτεί χειροκίνητη έγκριση MIUI· logcat `-s flutter`. Log `Settings past reminders batch: N/M` γράφεται **μόνο** όταν ο provider γυρίσει non-empty (δεν υπάρχει log στο early-return). **Device test S257 ✅ PASS** (19/10/2026 — debug build του `0f289d9`· 1 process pid 15084· ΠΡΙΝ dialog «(8)»/provider **10** → ΜΕΤΑ «(9)»/provider **11**· 0 ERR).
+
+---
+
+## Session 258 — 19/10/2026 (F9c: αφαίρεση 2 νεκρών μελών · F9: red-on-old **μη εφικτό**, τεκμηριωμένα)
+
+**Scope (αναστολή 2+4 εγκεκριμένη · edit-tool only):** §7.8 **F9c** (micro) + micro `// Fetch` + doc-fix του stale F9 στην §8 P4. Η πρόταση πέρασε **3 κύκλους** (v1→v2→v3) με **πλήρεις** αναγνώσεις (όχι grep-only) + αποδείξεις από τον SDK· ο χρήστης ενέκρινε **όλα** τα σημεία («ολόκληρη την πρόταση»).
+
+**Πριν από κάθε edit — τι ΔΕΝ έγινε:** το **F9 είναι ΚΛΕΙΣΤΟ** (S256/`5b05033`) και **δεν** ξαναϋλοποιήθηκε (θα ήταν regression). Εξηγήθηκε γιατί φαινόταν ανοιχτό: το κείμενο «F9 … υψηλή (correctness)» είναι byte-identical με τις **ιστορικές** λίστες S253/S255 (`oldsessions.md:3128,3175`) και με τη **stale** γραμμή `code_refactor.md:188` (η `:192` έλεγε ήδη ✅ CLOSED S256). Μόνο πραγματικά ανοιχτό στην οικογένεια: **F9c**.
+
+**Απόφαση F9c = Β (αφαίρεση), όχι Α (ενεργοποίηση):** `ImportProgress.status` (γράφεται 3×: `contact_import_service.dart:151,177` + dialog init `:221`· **0 readers**) + `ImportResult.totalProcessed` (`:64`· **0 callers**). Γιατί Β: **0 readers** ⇒ behavior-neutral· κάθε «φάση» που θα ανακοίνωνε το `status` είναι **ήδη ορατή** μέσω όνομα+`n/total` (ή sub-frame «Ολοκληρώθηκε» **αμέσως πριν** το return) ⇒ όφελος Α ≈ 0 με κόστος UI· Γ (τίποτα) θα άφηνε **τεκμηριωμένη νεκρή οσμή χωρίς σχεδιασμένο σκοπό** (σε αντίθεση με το `markSent`, που είναι documented intentional hook).
+
+**Αποτέλεσμα (γρ.):** `contact_import_service.dart` 401→**395** · `settings_contacts_dialogs.dart` 402→**400** · `settings_contacts_flow.dart` 247→**246** (διπλότυπο `// Fetch` ×2 → 1). **Hot points:** 3 κατασκευές `ImportProgress` (2 service + 1 dialog) — **όλες** ενημερώθηκαν· **0** αλλαγές σε barrels/imports/APIs.
+
+**Behavior-neutral — γιατί (audit, με στοιχεία):** readers των αφαιρεθέντων = **0** (τα μόνα reads του `_progress` είναι `total/fraction/contactName/current`· `totalProcessed` 0 callers) ⇒ **byte-identical rendered UI**· plain κλάσεις (`0 × @collection|part` ⇒ **0 codegen**, ουδεμία επίδραση σε Isar schema/migration/δεδομένα)· **0 tests** τα αγγίζουν (`import_dedup_test` χρησιμοποιεί μόνο `isDuplicate`)· `services.dart:15` barrel **αμετάβλητο**· μοναδικός caller του import = το progress dialog (`:252`)· άλλα συστήματα (backup `BackupImportResult`, reminders/habits/trash/notifications) **0 κοινά σύμβολα**.
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** (43.4s) · `flutter test` → **All tests passed 230/230** (17s· **0** αλλαγές/προσθήκες tests) · **EOL integrity επαληθευμένη byte-level** (CR/LF/CRLF counts πριν↔μετά): τα LF αρχεία (`settings/*.dart`) έμειναν **LF** (400/246), το CRLF (`services/*.dart`) έμεινε **CRLF** (394) — τα Ελληνικά σώα.
+
+**Δ1b — απόπειρα αναβάθμισης του F9 test σε red-on-old: ΑΠΟΡΡΙΦΘΗΚΕ, με μετρήσεις.** Ο SDK δίνει το trigger: η σελίδα του route είναι **cached** (`routes.dart:1085-1089`, `_page ??=` `:1228` — «*buildPage gets called once*») και ακυρώνεται **μόνο** από `_forceRebuildPage()` (`:1141`) ⇐ `ModalRoute.changedExternalState()` (`:2234-2239`) ⇐ `NavigatorState.didChangeDependencies()` (`navigator.dart:3957-3965`) / `didUpdateWidget()` (`:4083-4087`). Δοκιμάστηκαν **4 triggers** σε scratch test με τον **παλιό** class inlined (`backups/s258_f9c_deadcode/`): (1) 2ο `pumpWidget` ίδιου δέντρου, (2) theme, (3) `MediaQuery`, (4) `HeroControllerScope.controller` (ο Navigator εξαρτάται από αυτό — `navigator.dart:3959`).
+**Αποτέλεσμα και στα 4: `pageBuilds=1`, `stateBuilds=2`, `pops=1`** ⇒ η σελίδα **δεν** ξαναχτίστηκε ποτέ μετά το pop ⇒ ο παλιός κώδικας **δεν** μπορεί να κάνει 2ο pop στο περιβάλλον του widget test ⇒ το test **παραμένει contract/guard** και η σημείωση S256 είναι **ακριβής**. Καμία αλλαγή στο `test/` (επαναφορά **byte-identical**, hash `E436A8E686AE`).
+> **Δικό μου λάθος που διορθώθηκε:** η v2 της πρότασης είχε **υποθέσει** red-on-old (υπερ-διόρθωση)· ανακλήθηκε με τις μετρήσεις — «μέτρα πριν γράψεις μηχανισμό».
+
+**code_refactor.md:** §7.8 F9c → ✅ CLOSED S258 · §8 P4 stale F9 → ✅ CLOSED S256 + S258 evidence (4 triggers) · νέα S258 note · «Τρέχουσα λίστα» → F9c εκτός + νέο Git baseline.
+
+**supernote.md:** **καμία** αλλαγή (κανόνας #8 — 0 αλλαγή αρχιτεκτονικής· ίδιο δέντρο/APIs). ⚠️ Ο μετρητής tests στο αρχείο παραμένει **229/229** — γνωστό/σκόπιμο από S256 (status, όχι αρχιτεκτονική· το suite είναι **230/230**).
+
+**Backups:** `backups/s258_f9c_deadcode/` — 6 `.pre` (hash-επαληθευμένα byte-identical) + `BASE_HEAD.txt` (= `9af938f`) + `BASE_STATUS.txt` + τα 3 scratch tests (`f9_before_repro_test.dart`, `f9_before_repro_diag_test.dart`, `f9_before_repro_diag2_test.dart`) + `.pre` του test.
+
+**Κατάσταση κλεισίματος S258 (19/10/2026):** ✅ **κλειστό** — F9 επιβεβαιωμένα κλειστό (S256· T1 ✅) · **F9c ✅ CLOSED** (αφαίρεση) · micro `// Fetch` ✅ · doc-fix ✅. Δεν εκκρεμεί τίποτα από αυτό το session. **Git:** κώδικας = `c2d4893`.
+
+**Handles για το επόμενο session:** (1) Το «pop μέσα σε `build`» **δεν** αναπαράγεται σε widget test — **μην** ξοδέψεις χρόνο σε red-on-old γι' αυτή την κλάση (η απόδειξη έρχεται από device/logs — S256 T1). (2) Πριν αφαιρέσεις «νεκρά placeholders» έλεγξε **3** πράγματα: readers (grep), codegen (`@collection`/`part`), tests. (3) **EOL check μετά από edit-tool** — τα αρχεία είναι **mixed**: `lib/features/settings/*.dart` = **LF**, `lib/services/*.dart` = **CRLF** (μέτρα CR/LF/CRLF πριν↔μετά· το edit-tool τα διατηρεί).
+
+**Επόμενο session — ιεράρχηση (σοβαρότερο πρώτο):** 1. **F17** (cosmetic: wrap «Μέγεθος γραμματοσειράς») · 2. **F13b** (perf: bulk-delete — private `_cascadeCollectionEntries`) · 3. **F19** (dead providers — αγγίζει `supernote.md:597-598` ⇒ απόφαση) · 4. bucket (P2#4 a11y device pass · P2#6 grid auto-height · micros F2/F3/F4 §7.8) · 5. P3/P5 (Snooze UI θέλει spec) · B2.3 · DetailAppBar · stale TODOs ×7.
