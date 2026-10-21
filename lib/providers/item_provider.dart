@@ -227,13 +227,13 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     try {
       final db = ref.read(dbProvider);
       await _cascadeCollectionEntries(id, deleteItem);
-      final reminders = await db.reminders.getForItem(id);
-      DebugConfig.db('ItemNotifier.deleteItem id=$id reminders=${reminders.length}');
-      if (reminders.isNotEmpty) {
-        DebugConfig.notif('deleteItem: cancelling OS for $id — rows kept for restore (symmetric with archive)');
-        await ReminderScheduler.instance.cancelAllForItem(id);
-      }
+      // Delete order: DB soft-delete πρώτα, μετά unconditional OS cancel.
+      // Το cancelAllForItem σαρώνει και rows + OS payload ghosts, ακόμη κι
+      // αν το item δεν έχει πλέον reminders rows.
       await db.items.softDelete(id);
+      DebugConfig.notif(
+          'deleteItem: id=$id soft-deleted → cancelling OS (rows kept for restore)');
+      await ReminderScheduler.instance.cancelAllForItem(id);
       ref.invalidateSelf();
     } catch (e, s) {
       DebugConfig.error('ItemNotifier.deleteItem', e, s);
@@ -296,10 +296,11 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
         await HabitService.instance.deleteHabitReminders(id,
             afterRows: () => ref.read(dbProvider).items.hardDelete(id));
       } else {
-        if (reminders.isNotEmpty) {
-          DebugConfig.notif('permanentDelete: calling deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
-          await ReminderScheduler.instance.deleteAllRemindersForItem(id);
-        }
+        // N4: unconditional — ακόμη κι αν δεν βρέθηκαν DB rows, σάρωσε OS
+        // ghosts με payload==itemId πριν το hard delete.
+        DebugConfig.notif(
+            'permanentDelete: deleteAllRemindersForItem($id) — cascade delete + cancel notifications');
+        await ReminderScheduler.instance.deleteAllRemindersForItem(id);
         await ref.read(dbProvider).items.hardDelete(id);
       }
       ref.invalidateSelf();

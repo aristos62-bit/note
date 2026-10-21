@@ -1,8 +1,9 @@
 // lib/services/reminder_scheduler.dart
 import '../helpers/super_note_helper.dart';
-import '../helpers/item_color_helper.dart';
 import '../models/models.dart';
 import 'notification_service.dart';
+import 'reminder_bake_plan.dart';
+import 'reminder_text.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
@@ -12,6 +13,20 @@ import 'dart:async';
 /// Έκβαση ενός OS-bake (skipped ≠ failed: τα skips δεν μετράνε ως αποτυχίες).
 /// kept: incremental sync — το alarm υπάρχει ήδη στο OS, δεν ξαναψήθηκε.
 enum ScheduleOutcome { baked, skipped, failed, kept }
+
+class _BakeExecutionResult {
+  const _BakeExecutionResult({
+    required this.baked,
+    required this.failed,
+    required this.skipped,
+    required this.cancelled,
+  });
+
+  final int baked;
+  final int failed;
+  final int skipped;
+  final int cancelled;
+}
 
 class ReminderScheduler {
   ReminderScheduler._internal();
@@ -60,7 +75,7 @@ class ReminderScheduler {
         _osWindowTruncated = false;
         // B3: επιβεβαίωση ότι άδειασε όντως το OS (scheduled cache).
         final osLeft = (await NotificationService.instance
-            .getPendingNotifications())
+                .getPendingNotifications())
             .length;
         DebugConfig.notif(
             'ReminderScheduler.scheduleAll: OFF -> cancelAll done, os=$osLeft');
@@ -75,26 +90,27 @@ class ReminderScheduler {
 
       // Incremental: current = ids που ήδη υπάρχουν στο OS. Άδειο (πραγματικά
       // ή λόγω σφάλματος του getPendingNotifications, που επιστρέφει []) →
-      // πέφτουμε στο πλήρες flow. Το stale κρατά ό,τι δεν επιβεβαιώθηκε.
-      Set<int>? keepIds;
-      Set<int>? stale;
-      if (incremental) {
-        final current = (await NotificationService.instance
-                .getPendingNotifications())
-            .map((p) => p.id)
-            .toSet();
-        if (current.isEmpty) {
+      // πέφτουμε στο πλήρες flow.
+      var effectiveIncremental = incremental;
+      var osById = <int, OsReminderSnapshot>{};
+      if (effectiveIncremental) {
+        osById = await _readOsSnapshots();
+        if (osById.isEmpty) {
           DebugConfig.notif(
               'ReminderScheduler.scheduleAll: INCREMENTAL → OS empty, full flow');
-        } else {
-          keepIds = current;
-          stale = Set<int>.of(current);
+          effectiveIncremental = false;
         }
       }
-      if (keepIds == null) {
+      if (!effectiveIncremental) {
         await NotificationService.instance.cancelAll();
         DebugConfig.notif(
             'ReminderScheduler.scheduleAll: cancelAll done (PERF#9 ${totalSw.elapsedMilliseconds}ms)');
+        osById = await _readOsSnapshots();
+        if (osById.isNotEmpty) {
+          DebugConfig.warning(
+              'scheduleAll: cancelAll left ${osById.length} OS alarms — falling back to incremental reconciliation');
+          effectiveIncremental = true;
+        }
       }
 
       var pending = await SuperNoteHelper.instance.reminders.getPending();
@@ -102,118 +118,123 @@ class ReminderScheduler {
           pending.where((r) => r.rrule == null || r.rrule!.isEmpty).toList();
       DebugConfig.notif(
           'ReminderScheduler.scheduleAll: found ${pending.length} pending reminders (after filtering recurring roots)');
-      for (final r in pending) {
-        DebugConfig.notif(
-            '  pending: id=${r.id} trigger=${r.triggerAt} status=${r.status.name} itemId=${r.itemId}');
-      }
 
-      // Incremental: ghosts (στο OS αλλά όχι στο DB-pending) φεύγουν ΠΡΙΝ τα
-      // bakes, για να ελευθερωθούν slots (όριο AlarmManager 500).
-      var cancelled = 0;
-      if (stale != null) {
-        final pendingIds = pending.map((r) => r.id).toSet();
-        for (final id in stale.where((id) => !pendingIds.contains(id)).toList()) {
-          await NotificationService.instance.cancel(id);
-          stale.remove(id);
-          cancelled++;
-        }
-      }
+      final itemsById = await _buildItemsMap(pending);
+      final plan = buildReminderBakePlan(
+        rows: pending,
+        items: itemsById,
+        osById: osById,
+        limit: NotificationService.osAlarmLimit,
+        now: DateTime.now(),
+        incremental: effectiveIncremental,
+        cancelableOsIds:
+            effectiveIncremental ? osById.keys.toSet() : const <int>{},
+      );
 
-      final loopSw = Stopwatch()..start(); // PERF#9 (S224)
-      var done = 0; // PERF#9 (S224)
-      var baked = 0;
-      var kept = 0;
-      var failed = 0;
-      var skipped = 0;
-      var truncated = false;
-      var chunkStartMs = 0; // PERF#9 (S224)
       // M1: 1 resolve για όλο το batch (αντί για 1/alarm) — singles αλλού per-call.
       final batchMode =
           await NotificationService.instance.resolveScheduleMode();
-      // M3 budget: oldest-first (το getPending είναι sortByTriggerAt) + stop
-      // στο λειτουργικό όριο — deterministic αντί για σιωπηλή απώλεια iOS.
-      // Χωρίς παράθυρο ημερών: καθαρό count-cap κατά triggerAt σειρά.
-      // Στο όριο μετράνε baked + kept (και τα δύο καταλαμβάνουν OS slot).
-      final limit = NotificationService.osAlarmLimit;
-      for (final reminder in pending) {
-        if (baked + kept >= limit) {
-          truncated = true;
-          DebugConfig.warning(
-              'scheduleAll: BUDGET cut at ${baked + kept}/$limit of ${pending.length} — oldest-first kept');
-          break;
-        }
-        // E15-F2 (C3): φραγή — αν οι ειδοποιήσεις έκλεισαν στη μέση του loop,
-        // σταμάτα αμέσως (το _scheduleOne έχει δικό του guard, αλλά έτσι
-        // γλιτώνουμε έως 450 περιττά reads/κλήσεις).
-        if (done > 0 && done % 20 == 0) {
-          final stillEnabled = (await SuperNoteHelper.instance.settings.get())
-              .notificationsEnabled;
-          if (!stillEnabled) {
-            DebugConfig.warning(
-                'scheduleAll: OFF mid-loop at $done/${pending.length} - aborting bake');
-            break;
-          }
-        }
-        final scheduledItem =
-            await SuperNoteHelper.instance.items.getById(reminder.itemId);
-        DebugConfig.notif(
-            '  scheduleAll: scheduling id=${reminder.id} itemId=${reminder.itemId} archived=${scheduledItem?.archived}');
-        final outcome = await _scheduleOne(
-          reminder,
-          sound: settings.soundEnabled,
-          vibration: settings.vibrationEnabled,
-          mode: batchMode,
-          keepIds: keepIds,
-        );
-        if (outcome == ScheduleOutcome.baked) {
-          baked++;
-          stale?.remove(reminder.id);
-        } else if (outcome == ScheduleOutcome.kept) {
-          kept++;
-          stale?.remove(reminder.id);
-        } else if (outcome == ScheduleOutcome.failed) {
-          failed++;
-        } else {
-          skipped++;
-          // Skipped αλλά υπάρχει στο OS (archived/done/past ενώ ψήθηκε παλιά) → cancel.
-          if (stale != null && stale.remove(reminder.id)) {
-            await NotificationService.instance.cancel(reminder.id);
-            cancelled++;
-          }
-        }
-        done++; // PERF#9 (S224)
-        if (done % 50 == 0) {
-          // PERF#9 (S224): αν ο χρόνος ανά 50άδα μεγαλώνει → O(n²) στο plugin
-          final nowMs = loopSw.elapsedMilliseconds;
-          DebugConfig.notif(
-              'PERF#9 scheduleAll: $done/${pending.length} — τελευταία 50 σε ${nowMs - chunkStartMs}ms');
-          chunkStartMs = nowMs;
-        }
-      }
+      final loopSw = Stopwatch()..start(); // PERF#9 (S224)
+      final result = await _runBakePlan(
+        plan,
+        sound: settings.soundEnabled,
+        vibration: settings.vibrationEnabled,
+        mode: batchMode,
+      );
       loopSw.stop(); // PERF#9 (S224)
-      // Incremental: ό,τι έμεινε στο stale (πέρα από το budget cut, ή failed)
-      // δεν ανήκει στο desired σύνολο → cancel.
-      if (stale != null) {
-        for (final id in stale.toList()) {
-          await NotificationService.instance.cancel(id);
-          cancelled++;
-        }
-        DebugConfig.notif(
-            'PERF#9 scheduleAll: INCREMENTAL cancel=$cancelled bake=$baked keep=$kept');
-      }
+
       final osCount = // PERF#9 (S224)
           (await NotificationService.instance.getPendingNotifications()).length;
-      final cut = pending.length - done;
-      _osWindowTruncated = truncated;
+      final cut = plan.desiredCount -
+          plan.keepIds.length -
+          plan.schedule.length;
+      _osWindowTruncated = plan.truncated;
       _lastFullBakeDay = DateTime.now().startOfDay;
       DebugConfig.notif(
-          'PERF#9 scheduleAll: DONE db=${pending.length} baked=$baked kept=$kept failed=$failed skipped=$skipped cut=$cut truncated=$truncated os=$osCount '
+          'PERF#9 scheduleAll: DONE db=${pending.length} desired=${plan.desiredCount} '
+          'baked=${result.baked} kept=${plan.keepIds.length} failed=${result.failed} '
+          'skipped=${plan.skippedCount + result.skipped} cancelled=${result.cancelled} '
+          'cut=$cut truncated=${plan.truncated} os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
           'avg=${pending.isEmpty ? 0 : (loopSw.elapsedMilliseconds / pending.length).toStringAsFixed(1)}ms/alarm');
+      if (plan.truncated) {
+        DebugConfig.warning(
+            'scheduleAll: BUDGET cut — desired=${plan.desiredCount} schedule=${plan.schedule.length} keep=${plan.keepIds.length} limit=${NotificationService.osAlarmLimit}');
+      }
       DebugConfig.notif('ReminderScheduler.scheduleAll: DONE');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.scheduleAll', e, stack);
     }
+  }
+
+  Future<Map<int, OsReminderSnapshot>> _readOsSnapshots() async {
+    final pending = await NotificationService.instance.getPendingNotifications();
+    return {
+      for (final p in pending)
+        p.id: OsReminderSnapshot(
+          id: p.id,
+          title: p.title,
+          body: p.body,
+          payload: p.payload,
+        ),
+    };
+  }
+
+  Future<Map<int, Item?>> _buildItemsMap(Iterable<Reminder> rows) async {
+    final out = <int, Item?>{};
+    for (final r in rows) {
+      if (out.containsKey(r.itemId)) continue;
+      out[r.itemId] =
+          await SuperNoteHelper.instance.items.getById(r.itemId);
+    }
+    return out;
+  }
+
+  Future<_BakeExecutionResult> _runBakePlan(
+    ReminderBakePlan plan, {
+    required bool sound,
+    required bool vibration,
+    required AndroidScheduleMode mode,
+  }) async {
+    var cancelled = 0;
+    for (final id in plan.cancelIds) {
+      try {
+        await NotificationService.instance.cancel(id);
+        cancelled++;
+      } catch (e, stack) {
+        DebugConfig.error(
+            'ReminderScheduler._runBakePlan cancel id=$id', e, stack);
+      }
+    }
+    var baked = 0;
+    var failed = 0;
+    var skipped = 0;
+    for (final reminder in plan.schedule) {
+      final outcome = await _scheduleOne(
+        reminder,
+        sound: sound,
+        vibration: vibration,
+        mode: mode,
+      );
+      if (outcome == ScheduleOutcome.baked) {
+        baked++;
+      } else if (outcome == ScheduleOutcome.failed) {
+        failed++;
+      } else {
+        skipped++;
+        // Αν το row έγινε orphan/archived/done ή χάθηκε μετά το planning,
+        // καθάρισε τυχόν παλιό OS alarm του id. (Τα keeps δεν φτάνουν εδώ.)
+        if (outcome == ScheduleOutcome.skipped) {
+          await _cancelReminderIdsImpl([reminder.id]);
+        }
+      }
+    }
+    return _BakeExecutionResult(
+      baked: baked,
+      failed: failed,
+      skipped: skipped,
+      cancelled: cancelled,
+    );
   }
 
   /// Resume re-bake ΜΟΝΟ αν κόπηκε budget ΚΑΙ άλλαξε η μέρα (≤1 βαρύ
@@ -299,11 +320,14 @@ class ReminderScheduler {
       // Καθαρισμός fired παλιών one-shots (>7 ημερών) — το FLN δεν δίνει
       // fire-callback και το markSent δεν καλείται πουθενά, οπότε χωρίς
       // αυτό θα συσσωρεύονταν μέχρι το επόμενο cold-start init.
-      final cleaned =
+      final cleanedIds =
           await SuperNoteHelper.instance.reminders.cleanupOldPending();
-      if (cleaned > 0) {
+      if (cleanedIds.isNotEmpty) {
+        // DB-first cleanup επιστρέφει ids: καθάρισε και τα αντίστοιχα OS alarms
+        // (αλλιώς μένουν ghosts στο AlarmManager/cache).
+        await cancelReminderIds(cleanedIds);
         DebugConfig.notif(
-            'refreshRecurringReminders: cleaned $cleaned old past reminders');
+            'refreshRecurringReminders: cleaned ${cleanedIds.length} old past reminders + OS cancel');
       }
 
       // ΜΟΝΟ ρίζες: έχουν rrule και parentReminderId == null
@@ -320,34 +344,46 @@ class ReminderScheduler {
       DebugConfig.notif(
           'refreshRecurringReminders: all ${allRecurring.length} recurring roots:');
       final filtered = <Reminder>[];
+      final itemByRootId = <int, Item?>{};
       for (final r in allRecurring) {
         final item = await SuperNoteHelper.instance.items.getById(r.itemId);
+        itemByRootId[r.id] = item;
         DebugConfig.notif(
           '  root id=${r.id} itemId=${r.itemId} trigger=${r.triggerAt} rrule="${r.rrule}" type=${item?.type.name ?? 'null'} title="${item?.title ?? 'null'}"',
         );
-        if (item != null && item.type == ItemType.habit) {
+        // E37: orphan root δεν αναγεννά παιδιά ούτε ψήνει OS alarms.
+        if (item == null) {
+          DebugConfig.warning(
+              'refreshRecurringReminders: skipping orphan root id=${r.id} itemId=${r.itemId}');
+          continue;
+        }
+        if (item.type == ItemType.habit) {
           DebugConfig.notif(
               'refreshRecurringReminders: skipping habit root id=${r.id}');
           continue;
         }
         // #2: Τα αρχειοθετημένα items δεν ξαναγεμίζουν recurring παιδιά.
-        if (item != null && item.archived) {
+        if (item.archived) {
           DebugConfig.notif(
               'refreshRecurringReminders: skipping archived root id=${r.id}');
           continue;
         }
         // Κάδος: συμμετρικά με archive — κρατημένες rows, καμία αναγέννηση.
-        if (item != null && item.isDeleted) {
+        if (item.isDeleted) {
           DebugConfig.notif(
               'refreshRecurringReminders: skipping deleted root id=${r.id}');
           continue;
         }
         // A2: ούτε τα done/cancelled (το item είναι ήδη fetched — 0 έξτρα query).
-        if (item != null &&
-            (item.status == ItemStatus.done ||
-                item.status == ItemStatus.cancelled)) {
+        if (item.status == ItemStatus.done ||
+            item.status == ItemStatus.cancelled) {
           DebugConfig.notif(
               'refreshRecurringReminders: skipping ${item.status.name} root id=${r.id}');
+          continue;
+        }
+        if (r.status != ReminderStatus.pending) {
+          DebugConfig.notif(
+              'refreshRecurringReminders: skipping ${r.status.name} root id=${r.id}');
           continue;
         }
         filtered.add(r);
@@ -357,6 +393,9 @@ class ReminderScheduler {
           'Found ${allRecurring.length} recurring root reminders');
       final now = DateTime.now();
       int createdTotal = 0;
+      // N2/E35: ένα μόνο batch στο τέλος (μία ανάγνωση OS cache + ένα plan),
+      // αντί για scheduleReminders ανά root — αλλιώς 100 roots = 100 OS reads.
+      final pendingToSchedule = <Reminder>[];
 
       for (final root in filtered) {
         final rrule = root.rrule!;
@@ -378,60 +417,77 @@ class ReminderScheduler {
             : 5;
 
         // 1. Έλεγξε αν ο root έχει ήδη παιδιά στο μέλλον (ενεργό batch)
+        final rootItem = itemByRootId[root.id];
         final futureChildren = await SuperNoteHelper.instance.isar.reminders
             .filter()
             .parentReminderIdEqualTo(root.id)
             .triggerAtGreaterThan(now, include: true)
             .findAll();
+        // Μόνο pending rows συμμετέχουν σε batch/OS repair.
+        final futurePending = futureChildren
+            .where((c) => c.status == ReminderStatus.pending)
+            .toList();
 
         DebugConfig.notif(
-          'Root ${root.id}: futureChildren count=${futureChildren.length} after filtering parentReminderId=${root.id}',
+          'Root ${root.id}: futureChildren count=${futureChildren.length} pending=${futurePending.length} after filtering parentReminderId=${root.id}',
         );
-        for (final fc in futureChildren) {
+        for (final fc in futurePending) {
           DebugConfig.notif(
             '  child id=${fc.id} trigger=${fc.triggerAt} status=${fc.status.name}',
           );
         }
 
-        if (futureChildren.isNotEmpty) {
+        if (futurePending.isNotEmpty) {
           // ✅ Έλεγχος αν τα παιδιά έχουν σωστή ώρα (ίδια με το root trigger).
           // Εξαιρούνται τα snoozed (snoozeUntil != null) — η μετατοπισμένη
           // ώρα τους είναι σκόπιμη και δεν πρέπει να διαγράφονται.
-          final wrongTimeChildren = futureChildren
+          final wrongTimeChildren = futurePending
               .where((child) =>
                   child.snoozeUntil == null &&
                   (child.triggerAt.hour != root.triggerAt.hour ||
                       child.triggerAt.minute != root.triggerAt.minute))
               .toList();
 
-          // Υπάρχουν παιδιά με λάθος ώρα → διέγραψε τα
+          // Υπάρχουν παιδιά με λάθος ώρα → DB delete πρώτα, OS cancel μετά.
           if (wrongTimeChildren.isNotEmpty) {
+            final wrongIds = wrongTimeChildren.map((c) => c.id).toList();
             DebugConfig.notif(
-              'Root ${root.id}: found ${wrongTimeChildren.length} children with wrong trigger time, cleaning up',
+              'Root ${root.id}: found ${wrongIds.length} children with wrong trigger time, cleaning up',
             );
             for (final wrongChild in wrongTimeChildren) {
               DebugConfig.notif(
                 '  Deleting wrong child id=${wrongChild.id} trigger=${wrongChild.triggerAt} (expected hour=${root.triggerAt.hour}:${root.triggerAt.minute})',
               );
-              await NotificationService.instance.cancel(wrongChild.id);
+            }
+            try {
               await SuperNoteHelper.instance.isar.writeTxn(() async {
                 await SuperNoteHelper.instance.isar.reminders
-                    .delete(wrongChild.id);
+                    .deleteAll(wrongIds);
               });
+            } catch (e, stack) {
+              DebugConfig.error(
+                  'refreshRecurringReminders wrong-time DB delete root=${root.id}',
+                  e,
+                  stack);
+            } finally {
+              await cancelReminderIds(wrongIds);
             }
+            futurePending.removeWhere((c) => wrongIds.contains(c.id));
           }
 
           // ✅ Skip μόνο αν έχουμε ΑΡΚΕΤΑ σωστά παιδιά (>= batchSize - 1)
-          // Αν έχουμε λιγότερα → top-up batch
-          final correctChildren = futureChildren
+          // Αν έχουμε λιγότερα → top-up batch.
+          // Πριν το skip, κάνε batch repair των υπαρχόντων OS alarms.
+          final correctChildren = futurePending
               .where((child) =>
-          child.triggerAt.hour == root.triggerAt.hour &&
-              child.triggerAt.minute == root.triggerAt.minute)
+                  child.triggerAt.hour == root.triggerAt.hour &&
+                  child.triggerAt.minute == root.triggerAt.minute)
               .toList();
 
           if (correctChildren.length >= batchSize - 1) {
+            pendingToSchedule.addAll(futurePending);
             DebugConfig.notif(
-              'Root ${root.id}: has ${correctChildren.length} correct children (>= ${batchSize - 1}), skipping',
+              'Root ${root.id}: has ${correctChildren.length} correct children (>= ${batchSize - 1}), skipping creation (queued for batch OS repair)',
             );
             continue;
           }
@@ -481,12 +537,15 @@ class ReminderScheduler {
             continue;
           }
 
+          // E10: το παιδί παίρνει το ίδιο live/DB text με το root, ώστε
+          // contact birthday να έχει σωστό title ΚΑΙ body από τη γέννησή του.
+          final childText = resolveReminderNotificationText(root, rootItem);
           final child = Reminder()
             ..itemId = root.itemId
             ..triggerAt = occ
             ..rrule = null // τα παιδιά είναι one-shot
-            ..title = root.title
-            ..body = root.body
+            ..title = childText.title
+            ..body = childText.body
             ..status = ReminderStatus.pending
             ..parentReminderId = root.id
             ..createdAt = DateTime.now();
@@ -495,19 +554,21 @@ class ReminderScheduler {
             await SuperNoteHelper.instance.isar.reminders.put(child);
           });
 
-          await scheduleReminder(child);
           createdForRoot++;
           createdTotal++;
           DebugConfig.notif(
               'Created child reminder ${child.id} for root ${root.id} at $occ');
         }
 
-        // 🔍 DEBUG: runway — πότε εξαντλείται το τρέχον batch παιδιών
+        // N2/E35: ένα batch scheduler για ΟΛΑ τα μελλοντικά pending παιδιά
+        // (υπάρχοντα + νέα), με keep/replacement/budget — όχι 1 bake/child.
         final allFutureChildrenNow = await SuperNoteHelper.instance.isar.reminders
             .filter()
             .parentReminderIdEqualTo(root.id)
             .triggerAtGreaterThan(now, include: true)
             .findAll();
+        pendingToSchedule.addAll(allFutureChildrenNow
+            .where((c) => c.status == ReminderStatus.pending));
         if (allFutureChildrenNow.isNotEmpty) {
           final maxTrigger = allFutureChildrenNow
               .map((c) => c.triggerAt)
@@ -527,8 +588,12 @@ class ReminderScheduler {
             'Root ${root.id}: created $createdForRoot new children in this batch');
       }
 
+      if (pendingToSchedule.isNotEmpty) {
+        await scheduleReminders(pendingToSchedule);
+      }
       DebugConfig.notif(
-          'refreshRecurringReminders: created $createdTotal new child reminders total');
+          'refreshRecurringReminders: created $createdTotal new child reminders total '
+          '(scheduled batch=${pendingToSchedule.length})');
     } catch (e, stack) {
       DebugConfig.error(
           'ReminderScheduler.refreshRecurringReminders', e, stack);
@@ -563,28 +628,47 @@ class ReminderScheduler {
   // Cascade διαγραφή νήματος (ρίζα + όλα τα παιδιά)
   // ─────────────────────────────────────────────────────────
 
-  Future<void> deleteReminderThread(int reminderId) async {
+  Future<void> deleteReminderThread(int reminderId) =>
+      _bakeQueue.run(() => _deleteReminderThreadImpl(reminderId));
+
+  Future<void> _deleteReminderThreadImpl(int reminderId) async {
     try {
       DebugConfig.notif('ReminderScheduler.deleteReminderThread: id=$reminderId');
       final reminder =
-      await SuperNoteHelper.instance.isar.reminders.get(reminderId);
-      if (reminder == null) return;
-      final rootId = reminder.parentReminderId ?? reminder.id;
+          await SuperNoteHelper.instance.isar.reminders.get(reminderId);
+      // Unconditional wipe (N4): ακόμη κι αν η row λείπει, καθάρισε το OS id.
+      final rootId = reminder?.parentReminderId ?? reminder?.id ?? reminderId;
 
       final children = await SuperNoteHelper.instance.isar.reminders
           .filter()
           .parentReminderIdEqualTo(rootId)
           .findAll();
 
-      final allIds = [rootId, ...children.map((c) => c.id)];
+      final allIds = <int>{
+        reminderId,
+        rootId,
+        ...children.map((c) => c.id),
+      }.toList();
 
-      for (final id in allIds) {
-        await NotificationService.instance.cancel(id);
+      // Delete order: DB πρώτα, OS cancel μετά — ακόμη κι αν το DB delete
+      // αποτύχει, το finally καθαρίζει τα alarms (κανένα ghost).
+      try {
+        await SuperNoteHelper.instance.isar.writeTxn(() async {
+          await SuperNoteHelper.instance.isar.reminders.deleteAll(allIds);
+        });
+      } catch (e, stack) {
+        DebugConfig.error(
+            'ReminderScheduler.deleteReminderThread DB id=$reminderId', e, stack);
+      } finally {
+        for (final id in allIds) {
+          try {
+            await NotificationService.instance.cancel(id);
+          } catch (e, stack) {
+            DebugConfig.error(
+                'ReminderScheduler.deleteReminderThread cancel id=$id', e, stack);
+          }
+        }
       }
-
-      await SuperNoteHelper.instance.isar.writeTxn(() async {
-        await SuperNoteHelper.instance.isar.reminders.deleteAll(allIds);
-      });
 
       DebugConfig.notif('deleteReminderThread: deleted thread with ids $allIds');
     } catch (e, stack) {
@@ -592,7 +676,10 @@ class ReminderScheduler {
     }
   }
 
-  Future<void> deleteAllRemindersForItem(int itemId) async {
+  Future<void> deleteAllRemindersForItem(int itemId) =>
+      _bakeQueue.run(() => _deleteAllRemindersForItemImpl(itemId));
+
+  Future<void> _deleteAllRemindersForItemImpl(int itemId) async {
     try {
       DebugConfig.notif(
           'ReminderScheduler.deleteAllRemindersForItem: itemId=$itemId');
@@ -600,18 +687,31 @@ class ReminderScheduler {
           .filter()
           .itemIdEqualTo(itemId)
           .findAll();
-      if (all.isEmpty) return;
-      // H4α: ένα batch αντί για thread-delete ανά row (μια συνήθεια έχει
-      // ~180 rows → 180 queries/transactions). Τα παιδιά έχουν ίδιο itemId.
-      final ids = [for (final r in all) r.id];
-      for (final id in ids) {
-        await NotificationService.instance.cancel(id);
+      // H4α: ένα batch αντί για thread-delete ανά row. Το OS scan καλύπτει
+      // και ghosts που δεν έχουν πλέον DB row.
+      final ids = <int>{for (final r in all) r.id};
+      final os = await _readOsSnapshots();
+      ids.addAll(os.values
+          .where((o) => o.payload == itemId.toString())
+          .map((o) => o.id));
+
+      try {
+        if (ids.isNotEmpty) {
+          await SuperNoteHelper.instance.isar.writeTxn(() async {
+            await SuperNoteHelper.instance.isar.reminders
+                .deleteAll(all.map((r) => r.id).toList());
+          });
+        }
+      } catch (e, stack) {
+        DebugConfig.error(
+            'ReminderScheduler.deleteAllRemindersForItem DB itemId=$itemId',
+            e,
+            stack);
+      } finally {
+        await _cancelReminderIdsImpl(ids);
       }
-      await SuperNoteHelper.instance.isar.writeTxn(() async {
-        await SuperNoteHelper.instance.isar.reminders.deleteAll(ids);
-      });
       DebugConfig.notif(
-          'deleteAllRemindersForItem: deleted ${ids.length} rows itemId=$itemId');
+          'deleteAllRemindersForItem: deleted ${all.length} rows, cancelled ${ids.length} OS ids itemId=$itemId');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.deleteAllRemindersForItem', e, stack);
     }
@@ -657,28 +757,95 @@ class ReminderScheduler {
   // Υπάρχουσες μέθοδοι (όπως τις είχες)
   // ─────────────────────────────────────────────────────────
 
-  Future<void> scheduleReminder(Reminder reminder) async {
+  Future<void> scheduleReminder(Reminder reminder) =>
+      _bakeQueue.run(() => _scheduleReminderImpl(reminder));
+
+  /// Batch scheduling για refresh/top-up/repair: keep υπάρχοντα σωστά alarms,
+  /// αντικατέστησε μόνο stale text, πρόσθεσε νέα ΜΟΝΟ στα ελεύθερα slots.
+  Future<void> scheduleReminders(Iterable<Reminder> reminders) =>
+      _bakeQueue.run(() => _scheduleRemindersImpl(reminders));
+
+  /// Snooze/trigger change: cancel + fresh schedule στο ΙΔΙΟ pass της
+  /// _bakeQueue, ώστε να μη μπει άλλο bake ανάμεσα.
+  Future<void> rescheduleReminder(Reminder reminder) =>
+      _bakeQueue.run(() => _rescheduleReminderImpl(reminder));
+
+  Future<void> _rescheduleReminderImpl(Reminder reminder) async {
+    await _cancelReminderIdsImpl([reminder.id]);
+    await _scheduleReminderImpl(reminder);
+  }
+
+  Future<void> _scheduleReminderImpl(Reminder reminder) async {
     try {
+      if (!NotificationService.isSupportedPlatform) return;
       DebugConfig.notif(
           'ReminderScheduler.scheduleReminder: id=${reminder.id}, trigger=${reminder.triggerAt}, status=${reminder.status.name}');
       final settings = await SuperNoteHelper.instance.settings.get();
       if (!settings.notificationsEnabled) return;
-      if (reminder.triggerAt.isBefore(DateTime.now())) {
-        DebugConfig.notif('scheduleReminder: trigger in past, skipping');
+      final fresh =
+          await SuperNoteHelper.instance.reminders.getById(reminder.id);
+      if (fresh == null || fresh.status != ReminderStatus.pending) {
+        DebugConfig.notif('scheduleReminder: fresh row missing/non-pending');
         return;
       }
-      if (reminder.status != ReminderStatus.pending) {
-        DebugConfig.notif(
-            'scheduleReminder: status is ${reminder.status.name}, skipping');
+      final os = await _readOsSnapshots();
+      if (!os.containsKey(fresh.id) &&
+          os.length >= NotificationService.osAlarmLimit) {
+        _osWindowTruncated = true;
+        DebugConfig.warning(
+            'scheduleReminder: OS budget full (${os.length}/${NotificationService.osAlarmLimit}) — keeping existing alarms, id=${fresh.id}');
         return;
       }
-      await _scheduleOne(
-        reminder,
+      final outcome = await _scheduleOne(
+        fresh,
         sound: settings.soundEnabled,
         vibration: settings.vibrationEnabled,
       );
+      if (outcome == ScheduleOutcome.skipped) {
+        // Orphan/archived/done/past row: μην αφήσεις παλιό alarm στο OS.
+        await _cancelReminderIdsImpl([fresh.id]);
+      }
+      DebugConfig.notif(
+          'scheduleReminder: id=${fresh.id} outcome=${outcome.name}');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.scheduleReminder', e, stack);
+    }
+  }
+
+  Future<void> _scheduleRemindersImpl(Iterable<Reminder> reminders) async {
+    try {
+      if (!NotificationService.isSupportedPlatform) return;
+      final settings = await SuperNoteHelper.instance.settings.get();
+      if (!settings.notificationsEnabled) return;
+      final rows = reminders.toList();
+      if (rows.isEmpty) return;
+
+      final os = await _readOsSnapshots();
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: await _buildItemsMap(rows),
+        osById: os,
+        limit: NotificationService.osAlarmLimit,
+        now: DateTime.now(),
+        incremental: true,
+        // Καμία stale ακύρωση εδώ: το batch δεν είναι υπεύθυνο για ghosts
+        // άλλων rows· το scheduleAll/rescheduleForItem το κάνει scoped.
+        cancelableOsIds: const <int>{},
+      );
+      final mode = await NotificationService.instance.resolveScheduleMode();
+      final result = await _runBakePlan(
+        plan,
+        sound: settings.soundEnabled,
+        vibration: settings.vibrationEnabled,
+        mode: mode,
+      );
+      if (plan.truncated) _osWindowTruncated = true;
+      DebugConfig.notif(
+          'scheduleReminders: rows=${rows.length} desired=${plan.desiredCount} '
+          'baked=${result.baked} kept=${plan.keepIds.length} failed=${result.failed} '
+          'skipped=${plan.skippedCount + result.skipped} truncated=${plan.truncated}');
+    } catch (e, stack) {
+      DebugConfig.error('ReminderScheduler.scheduleReminders', e, stack);
     }
   }
 
@@ -693,58 +860,139 @@ class ReminderScheduler {
 
   Future<void> _rescheduleForItemImpl(int itemId) async {
     try {
+      final item = await SuperNoteHelper.instance.items.getById(itemId);
+      final reminders =
+          await SuperNoteHelper.instance.reminders.getForItem(itemId);
+
+      // E10 sync: γράψε πρώτα το νέο live text στη DB (root + children), ώστε
+      // η αποθηκευμένη κατάσταση να συμφωνεί με αυτό που θα ψηθεί.
+      if (item != null) {
+        final changed = <Reminder>[];
+        final now = DateTime.now();
+        for (final r in reminders) {
+          final text = syncableReminderNotificationText(r, item);
+          if (text != null) {
+            r.title = text.title;
+            r.body = text.body;
+            r.updatedAt = now;
+            changed.add(r);
+          }
+        }
+        if (changed.isNotEmpty) {
+          await SuperNoteHelper.instance.isar.writeTxn(() async {
+            await SuperNoteHelper.instance.isar.reminders.putAll(changed);
+          });
+        }
+      }
+
+      if (item == null) {
+        DebugConfig.warning(
+            'rescheduleForItem: item=$itemId missing — cancelling ghost alarms');
+        await _cancelAllForItemImpl(itemId);
+        return;
+      }
       if (!NotificationService.isSupportedPlatform) return;
       final settings = await SuperNoteHelper.instance.settings.get();
       if (!settings.notificationsEnabled) return;
-      final reminders =
-          await SuperNoteHelper.instance.reminders.getForItem(itemId);
+
+      final os = await _readOsSnapshots();
+      final reminderIds = reminders.map((r) => r.id).toSet();
+      final cancelable = os.values
+          .where((o) =>
+              o.payload == itemId.toString() || reminderIds.contains(o.id))
+          .map((o) => o.id)
+          .toSet();
+      final plan = buildReminderBakePlan(
+        rows: reminders,
+        items: {itemId: item},
+        osById: os,
+        limit: NotificationService.osAlarmLimit,
+        now: DateTime.now(),
+        incremental: true,
+        cancelableOsIds: cancelable,
+        forceSchedule: true,
+      );
       final mode = await NotificationService.instance.resolveScheduleMode();
-      var rebaked = 0;
-      var failed = 0;
-      var skipped = 0;
-      for (final r in reminders) {
-        if (r.status != ReminderStatus.pending) continue;
-        if (r.rrule != null && r.rrule!.isNotEmpty) continue;
-        final outcome = await _scheduleOne(
-          r,
-          sound: settings.soundEnabled,
-          vibration: settings.vibrationEnabled,
-          mode: mode,
-        );
-        if (outcome == ScheduleOutcome.baked) {
-          rebaked++;
-        } else if (outcome == ScheduleOutcome.failed) {
-          failed++;
-        } else {
-          skipped++;
-        }
-      }
+      final result = await _runBakePlan(
+        plan,
+        sound: settings.soundEnabled,
+        vibration: settings.vibrationEnabled,
+        mode: mode,
+      );
+      if (plan.truncated) _osWindowTruncated = true;
       DebugConfig.notif(
-          'rescheduleForItem: itemId=$itemId rebaked=$rebaked failed=$failed skipped=$skipped');
+          'rescheduleForItem: itemId=$itemId rebaked=${result.baked} '
+          'kept=${plan.keepIds.length} failed=${result.failed} '
+          'skipped=${plan.skippedCount + result.skipped} '
+          'cancelled=${result.cancelled} truncated=${plan.truncated}');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.rescheduleForItem', e, stack);
     }
   }
 
-  Future<void> cancelReminder(int reminderId) async {
-    try {
-      DebugConfig.notif('ReminderScheduler.cancelReminder: id=$reminderId');
-      await NotificationService.instance.cancel(reminderId);
-    } catch (e, stack) {
-      DebugConfig.error('ReminderScheduler.cancelReminder', e, stack);
+  Future<void> cancelReminder(int reminderId) =>
+      _bakeQueue.run(() => _cancelReminderIdsImpl([reminderId]));
+
+  Future<void> cancelReminderIds(Iterable<int> ids) =>
+      _bakeQueue.run(() => _cancelReminderIdsImpl(ids));
+
+  Future<void> _cancelReminderIdsImpl(Iterable<int> ids) async {
+    for (final id in ids.toSet()) {
+      try {
+        DebugConfig.notif('ReminderScheduler.cancelReminder: id=$id');
+        await NotificationService.instance.cancel(id);
+      } catch (e, stack) {
+        DebugConfig.error('ReminderScheduler.cancelReminder id=$id', e, stack);
+      }
     }
   }
 
-  Future<void> cancelAllForItem(int itemId) async {
+  Future<void> cancelAllForItem(int itemId) =>
+      _bakeQueue.run(() => _cancelAllForItemImpl(itemId));
+
+  Future<void> _cancelAllForItemImpl(int itemId) async {
     try {
       DebugConfig.notif('ReminderScheduler.cancelAllForItem: itemId=$itemId');
       final reminders =
-      await SuperNoteHelper.instance.reminders.getForItem(itemId);
-      for (final r in reminders) {
-        await NotificationService.instance.cancel(r.id);
-      }
+          await SuperNoteHelper.instance.reminders.getForItem(itemId);
+      final ids = <int>{for (final r in reminders) r.id};
+      // Unconditional wipe: ακόμη κι αν λείπουν rows, σάρωσε τα OS ghosts
+      // που δηλώνουν αυτό το item στο payload.
+      final os = await _readOsSnapshots();
+      ids.addAll(os.values
+          .where((o) => o.payload == itemId.toString())
+          .map((o) => o.id));
+      await _cancelReminderIdsImpl(ids);
+      DebugConfig.notif(
+          'cancelAllForItem: itemId=$itemId cancelled=${ids.length}');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.cancelAllForItem', e, stack);
+    }
+  }
+
+  /// Per-row delete (π.χ. παρελθούσες υπενθυμίσεις): DB πρώτα, μετά cancel.
+  /// Δεν αγγίζει root/thread — αυτό είναι ευθύνη του deleteReminderThread.
+  Future<void> deleteSingleReminder(int reminderId) =>
+      _bakeQueue.run(() => _deleteSingleReminderImpl(reminderId));
+
+  Future<void> _deleteSingleReminderImpl(int reminderId) async {
+    try {
+      try {
+        await SuperNoteHelper.instance.isar.writeTxn(() async {
+          await SuperNoteHelper.instance.isar.reminders.delete(reminderId);
+        });
+      } catch (e, stack) {
+        DebugConfig.error(
+            'ReminderScheduler.deleteSingleReminder DB id=$reminderId',
+            e,
+            stack);
+      } finally {
+        await _cancelReminderIdsImpl([reminderId]);
+      }
+      DebugConfig.notif(
+          'deleteSingleReminder: deleted+cancelled id=$reminderId');
+    } catch (e, stack) {
+      DebugConfig.error('ReminderScheduler.deleteSingleReminder', e, stack);
     }
   }
 
@@ -753,98 +1001,101 @@ class ReminderScheduler {
     bool sound = true,
     bool vibration = true,
     AndroidScheduleMode? mode, // batch-override· null = resolve per-call (ως πριν)
-    Set<int>? keepIds, // incremental sync: ids ήδη στο OS → kept, χωρίς bake
   }) async {
-    final now = DateTime.now();
-    if (reminder.triggerAt.isBefore(now)) {
-      DebugConfig.notif(
-          'ReminderScheduler._scheduleOne: SKIP - trigger in past');
-      return ScheduleOutcome.skipped;
-    }
-
-    final item =
-        await SuperNoteHelper.instance.items.getById(reminder.itemId);
-    String title = reminder.title ?? 'SuperNote';
-    String body = reminder.body ?? 'Έχεις μια υπενθύμιση';
-
-    if (reminder.title == null && item != null) {
-      title = item.icon != null
-          ? '${item.icon} ${item.title ?? 'Χωρίς τίτλο'}'
-          : item.title ?? 'Χωρίς τίτλο';
-    } else if ((reminder.title == 'Υπενθύμιση' ||
-            ItemColorHelper.isBirthdayEvent(item)) &&
-        item?.title?.isNotEmpty == true) {
-      // Generic bell + γενέθλια (S156 SPoT predicate, όπως το resync) →
-      // ζωντανός τίτλος: το resync σώζει body=όνομα, το schedule το
-      // ξαναδιαβάζει (ίδια σύμβαση)· habits (δικοί τους τίτλοι) snapshot.
-      body = item!.title!;
-      DebugConfig.notif('ReminderScheduler._scheduleOne: live-body used');
-    }
-    DebugConfig.notif(
-        '_scheduleOne: itemId=${reminder.itemId} archived=${item?.archived} title=${AppStringUtils.redact(item?.title)}');
-    // #2: Τα αρχειοθετημένα items ΔΕΝ προγραμματίζουν OS reminders (archive = σίγαση).
-    if (item?.archived == true) {
-      DebugConfig.notif(
-          'ReminderScheduler._scheduleOne: ARCHIVED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
-      return ScheduleOutcome.skipped;
-    }
-    // Κάδος: συμμετρικά με archive — οι rows κρατιούνται για το restore,
-    // το OS μένει σιωπηλό (χωρίς αυτό το scheduleAll/reboot θα τα ξυπνούσε).
-    if (item?.isDeleted == true) {
-      DebugConfig.notif(
-          'ReminderScheduler._scheduleOne: DELETED, SKIP id=${reminder.id} itemId=${reminder.itemId}');
-      return ScheduleOutcome.skipped;
-    }
-    // A2: ολοκληρωμένο/ακυρωμένο δεν χτυπά (ίδια σημασιολογία με archive·
-    // το item είναι ήδη fetched για το live-body — 0 έξτρα query).
-    final st = item?.status;
-    if (st == ItemStatus.done || st == ItemStatus.cancelled) {
-      DebugConfig.notif(
-          'ReminderScheduler._scheduleOne: ${st?.name}, SKIP id=${reminder.id} itemId=${reminder.itemId}');
-      return ScheduleOutcome.skipped;
-    }
-    // Incremental sync: τα guards πέρασαν, το alarm υπάρχει ήδη στο OS → keep.
-    if (keepIds != null && keepIds.contains(reminder.id)) {
-      DebugConfig.notif(
-          'ReminderScheduler._scheduleOne: KEPT id=${reminder.id} (already in OS)');
-      return ScheduleOutcome.kept;
-    }
-    // E15-F2 (C): το mode λύνεται ΠΡΙΝ το fresh enabled read, ώστε μετά το
-    // read να μην υπάρχει await μέχρι το platform call. Έτσι ένα OFF
-    // (cancelAll) δεν μπορεί να μπει ανάμεσα και να αφήσει ghost alarm.
-    final resolvedMode =
-        mode ?? await NotificationService.instance.resolveScheduleMode();
-    // Fresh guard: το settings του batch είναι snapshot πριν το loop· αν ο
-    // χρήστης κλείσει τις ειδοποιήσεις στη μέση, σταματάμε αμέσως.
-    final enabledNow = (await SuperNoteHelper.instance.settings.get())
-        .notificationsEnabled;
-    if (!enabledNow) {
-      DebugConfig.notif(
-          'ReminderScheduler._scheduleOne: OFF, SKIP id=${reminder.id}');
-      return ScheduleOutcome.skipped;
-    }
     try {
-      final ok = await NotificationService.instance.schedule(
-        id: reminder.id,
-        title: title,
-        body: body,
-        scheduledAt: reminder.triggerAt,
-        payload: reminder.itemId.toString(),
-        sound: sound,
-        vibration: vibration,
-        mode: resolvedMode,
-      );
-      if (!ok) {
+      // E36: πάντα fresh DB row — το batch snapshot μπορεί να είναι stale μετά
+      // από snooze/delete που περίμενε στην ουρά.
+      final fresh =
+          await SuperNoteHelper.instance.reminders.getById(reminder.id);
+      if (fresh == null) {
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: row ${reminder.id} missing, SKIP');
+        return ScheduleOutcome.skipped;
+      }
+      if (fresh.status != ReminderStatus.pending) {
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: status=${fresh.status.name}, SKIP id=${fresh.id}');
+        return ScheduleOutcome.skipped;
+      }
+      if (fresh.triggerAt.isBefore(DateTime.now())) {
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: trigger in past, SKIP id=${fresh.id}');
+        return ScheduleOutcome.skipped;
+      }
+
+      final item =
+          await SuperNoteHelper.instance.items.getById(fresh.itemId);
+      // E37 orphan guard: χωρίς item δεν υπάρχει έγκυρος προορισμός.
+      if (item == null) {
         DebugConfig.warning(
-            'ReminderScheduler._scheduleOne: FAILED id=${reminder.id} (OS rejected — rows kept)');
+            'ReminderScheduler._scheduleOne: ORPHAN, SKIP id=${fresh.id} itemId=${fresh.itemId}');
+        return ScheduleOutcome.skipped;
+      }
+      if (item.archived) {
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: ARCHIVED, SKIP id=${fresh.id} itemId=${fresh.itemId}');
+        return ScheduleOutcome.skipped;
+      }
+      // Κάδος: συμμετρικά με archive — οι rows κρατιούνται για το restore,
+      // το OS μένει σιωπηλό (χωρίς αυτό το scheduleAll/reboot θα τα ξυπνούσε).
+      if (item.isDeleted) {
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: DELETED, SKIP id=${fresh.id} itemId=${fresh.itemId}');
+        return ScheduleOutcome.skipped;
+      }
+      // A2: ολοκληρωμένο/ακυρωμένο δεν χτυπά.
+      final st = item.status;
+      if (st == ItemStatus.done || st == ItemStatus.cancelled) {
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: ${st.name}, SKIP id=${fresh.id} itemId=${fresh.itemId}');
+        return ScheduleOutcome.skipped;
+      }
+
+      final text = resolveReminderNotificationText(fresh, item);
+      DebugConfig.notif(
+          '_scheduleOne: itemId=${fresh.itemId} archived=${item.archived} title=${AppStringUtils.redact(item.title)}');
+
+      // E15-F2 (C): το mode λύνεται ΠΡΙΝ το fresh enabled read, ώστε μετά το
+      // read να μην υπάρχει await μέχρι το platform call. Έτσι ένα OFF
+      // (cancelAll) δεν μπορεί να μπει ανάμεσα και να αφήσει ghost alarm.
+      final resolvedMode =
+          mode ?? await NotificationService.instance.resolveScheduleMode();
+      final enabledNow = (await SuperNoteHelper.instance.settings.get())
+          .notificationsEnabled;
+      if (!enabledNow) {
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: OFF, SKIP id=${fresh.id}');
+        return ScheduleOutcome.skipped;
+      }
+      try {
+        final ok = await NotificationService.instance.schedule(
+          id: fresh.id,
+          title: text.title,
+          body: text.body,
+          scheduledAt: fresh.triggerAt,
+          payload: fresh.itemId.toString(),
+          sound: sound,
+          vibration: vibration,
+          mode: resolvedMode,
+        );
+        if (!ok) {
+          DebugConfig.warning(
+              'ReminderScheduler._scheduleOne: FAILED id=${fresh.id} (OS rejected — rows kept)');
+          return ScheduleOutcome.failed;
+        }
+        DebugConfig.notif(
+            'ReminderScheduler._scheduleOne: ✅ SUCCESS id=${fresh.id}');
+        return ScheduleOutcome.baked;
+      } catch (e, stack) {
+        DebugConfig.error(
+            'ReminderScheduler._scheduleOne: ❌ EXCEPTION id=${fresh.id}',
+            e,
+            stack);
         return ScheduleOutcome.failed;
       }
-      DebugConfig.notif(
-          'ReminderScheduler._scheduleOne: ✅ SUCCESS id=${reminder.id}');
-      return ScheduleOutcome.baked;
     } catch (e, stack) {
       DebugConfig.error(
-          'ReminderScheduler._scheduleOne: ❌ EXCEPTION id=${reminder.id}',
+          'ReminderScheduler._scheduleOne: ❌ OUTER id=${reminder.id}',
           e,
           stack);
       return ScheduleOutcome.failed;

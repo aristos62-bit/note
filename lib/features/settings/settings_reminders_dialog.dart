@@ -21,8 +21,8 @@ Future<void> _deleteReminders(
 ) async {
   final idSet = ids.toSet();
   for (final r in controller.items.where((r) => idSet.contains(r.id))) {
-    await ReminderScheduler.instance.cancelReminder(r.id);
-    await ref.read(dbProvider).reminders.delete(r.id);
+    // DB πρώτα, μετά OS cancel — στο ίδιο _bakeQueue pass.
+    await ReminderScheduler.instance.deleteSingleReminder(r.id);
   }
   controller.remove(
     idSet,

@@ -77,8 +77,8 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
         DebugConfig.warning(
             'ReminderNotifier.snooze: root id=$reminderId skipped (anchor)');
       } else {
-        await ReminderScheduler.instance.cancelReminder(reminderId);
-        await ReminderScheduler.instance.scheduleReminder(row);
+        // DB snooze πρώτα· cancel+schedule στο ίδιο _bakeQueue pass.
+        await ReminderScheduler.instance.rescheduleReminder(row);
       }
       ref.invalidateSelf();
       ref.invalidate(pendingRemindersProvider);
@@ -89,7 +89,8 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
 
   Future<void> delete(int reminderId) async {
     try {
-      await ref.read(dbProvider).reminders.delete(reminderId);
+      // DB delete πρώτα, μετά unconditional OS cancel (ίδιο queue pass).
+      await ReminderScheduler.instance.deleteSingleReminder(reminderId);
       ref.invalidateSelf();
       ref.invalidate(pendingRemindersProvider);
     } catch (e, s) {
