@@ -52,7 +52,24 @@ class ReminderScheduler {
       final settings = await SuperNoteHelper.instance.settings.get();
       DebugConfig.notif(
           'ReminderScheduler.scheduleAll: notificationsEnabled=${settings.notificationsEnabled}');
-      if (!settings.notificationsEnabled) return;
+      // E15-F2: OFF = durable cancel (tray + AlarmManager alarms + boot cache).
+      // Το cancelAll σβήνει και το cache του boot receiver -> reboot/update δεν
+      // ανασταίνει alarms. Μένει μέσα στην _bakeQueue: ποτέ παράλληλο με bake.
+      if (!settings.notificationsEnabled) {
+        await NotificationService.instance.cancelAll();
+        _osWindowTruncated = false;
+        // B3: επιβεβαίωση ότι άδειασε όντως το OS (scheduled cache).
+        final osLeft = (await NotificationService.instance
+            .getPendingNotifications())
+            .length;
+        DebugConfig.notif(
+            'ReminderScheduler.scheduleAll: OFF -> cancelAll done, os=$osLeft');
+        if (osLeft > 0) {
+          DebugConfig.warning(
+              'scheduleAll: OFF but $osLeft OS alarms still pending - cancelAll did not clear all');
+        }
+        return;
+      }
 
       final totalSw = Stopwatch()..start(); // PERF#9 (S224)
 
@@ -124,6 +141,18 @@ class ReminderScheduler {
           DebugConfig.warning(
               'scheduleAll: BUDGET cut at ${baked + kept}/$limit of ${pending.length} — oldest-first kept');
           break;
+        }
+        // E15-F2 (C3): φραγή — αν οι ειδοποιήσεις έκλεισαν στη μέση του loop,
+        // σταμάτα αμέσως (το _scheduleOne έχει δικό του guard, αλλά έτσι
+        // γλιτώνουμε έως 450 περιττά reads/κλήσεις).
+        if (done > 0 && done % 20 == 0) {
+          final stillEnabled = (await SuperNoteHelper.instance.settings.get())
+              .notificationsEnabled;
+          if (!stillEnabled) {
+            DebugConfig.warning(
+                'scheduleAll: OFF mid-loop at $done/${pending.length} - aborting bake');
+            break;
+          }
         }
         final scheduledItem =
             await SuperNoteHelper.instance.items.getById(reminder.itemId);
@@ -772,6 +801,20 @@ class ReminderScheduler {
           'ReminderScheduler._scheduleOne: KEPT id=${reminder.id} (already in OS)');
       return ScheduleOutcome.kept;
     }
+    // E15-F2 (C): το mode λύνεται ΠΡΙΝ το fresh enabled read, ώστε μετά το
+    // read να μην υπάρχει await μέχρι το platform call. Έτσι ένα OFF
+    // (cancelAll) δεν μπορεί να μπει ανάμεσα και να αφήσει ghost alarm.
+    final resolvedMode =
+        mode ?? await NotificationService.instance.resolveScheduleMode();
+    // Fresh guard: το settings του batch είναι snapshot πριν το loop· αν ο
+    // χρήστης κλείσει τις ειδοποιήσεις στη μέση, σταματάμε αμέσως.
+    final enabledNow = (await SuperNoteHelper.instance.settings.get())
+        .notificationsEnabled;
+    if (!enabledNow) {
+      DebugConfig.notif(
+          'ReminderScheduler._scheduleOne: OFF, SKIP id=${reminder.id}');
+      return ScheduleOutcome.skipped;
+    }
     try {
       final ok = await NotificationService.instance.schedule(
         id: reminder.id,
@@ -781,7 +824,7 @@ class ReminderScheduler {
         payload: reminder.itemId.toString(),
         sound: sound,
         vibration: vibration,
-        mode: mode,
+        mode: resolvedMode,
       );
       if (!ok) {
         DebugConfig.warning(
