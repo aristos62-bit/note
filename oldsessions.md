@@ -1,5 +1,7 @@
 # SuperNote — Development History
 
+> **⚠️ ΕΝΕΡΓΕΣ ΕΚΚΡΕΜΟΤΗΤΕΣ (21/10/2026):** **ΜΟΝΟ** στο **`error_list.md`** — μοναδική πηγή, όπου προστίθενται και ενημερώνονται. Το παρόν αρχείο είναι **ιστορικό**: οι λίστες «Επόμενο session» των παλιών κεφαλαίων είναι αρχειακές, **δεν** ενημερώνονται και **δεν** πρέπει να ακολουθούνται ως ενεργές.
+
 ## Session 1 — 21-05-2026 (App initialization hardening)
 - try-catch + `_InitErrorApp` fallback screen αν αποτύχει η DB init
 - Memory leak fix: `removeObserver` + `container.dispose()` στο detached
@@ -3556,3 +3558,28 @@
 **Docs:** `code_refactor.md` §S262-b (ευρήματα/fixes + εκκρεμότητες) · αυτό το κεφάλαιο. (`supernote.md` όχι — καμία αλλαγή αρχιτεκτονικής.)
 
 **Επόμενο (νέο session):** 1. **Calendar AppBar title @140%** («Οκτώβριος» → «Οκτώβρ…») — θέλει σχεδιαστική απόφαση. 2. Optional refactor: ενοποίηση των 7 menu labels. 3. **B-Π2b** (κρύψιμο label «Φάκελοι») μόνο αν χρειαστεί. 4. Προτεραιοποίηση S259/S260 → **F13b** κ.λπ.
+
+## Session 270 — 21/10/2026 (O1: scheduler correctness — E10/E34–E37)
+
+> Ιστορικό κεφάλαιο. Οι ενεργές εκκρεμότητες και το device verification μένουν **μόνο** στο `error_list.md` (SOP), όχι εδώ.
+
+**Σκοπός:** αξιόπιστο scheduling/ακύρωση reminders — σωστό κείμενο, DB-first delete, καμία race cancel/delete, budget σε κάθε bake, orphan/habit guards. Δεν προστέθηκε νέα κοινή ουρά· διατηρήθηκαν τα όρια/timeouts και το `_bakeQueue` pattern των E15/E17.
+
+**Τι άλλαξε (κώδικας commit `c2dc8f2`):**
+1. **Νέα pure modules:** `reminder_text.dart` — ενιαίος resolver title/body (generic «Υπενθύμιση», event birthday body, contact birthday title+body, habit «Υπενθύμιση: <όνομα>», live title όταν `title == null`)· `reminder_bake_plan.dart` — oldest-first planner με keep μόνο σε ίδιο resolved text, replacements χωρίς νέο slot, νέα μόνο σε ελεύθερα slots, scoped stale cancel, `forceSchedule` και `truncated`.
+2. **`ReminderScheduler`:** `scheduleAll(incremental)`, `scheduleReminders(batch)`, `scheduleReminder`, `rescheduleReminder`, `rescheduleForItem`, `cancelReminderIds`, `cancelAllForItem`, `deleteSingleReminder`, `deleteReminderThread`, `deleteAllRemindersForItem`· όλα τα cancel/delete μέσω `_bakeQueue`· DB-first delete + `finally` OS cancel· unconditional wipe με scan `payload == itemId`· `_scheduleOne` φρέσκα row/item/settings guards (orphan, archived, κάδος, done/cancelled, past).
+3. **Refresh/top-up:** ένα batch στο τέλος κάθε pass αντί για `scheduleReminders` ανά root/habit (μία ανάγνωση OS cache, κοινό budget)· `cleanupOldPending` επιστρέφει IDs και ο scheduler κάνει OS cancel· wrong-time children DB delete πρώτα, μετά cancel.
+4. **`HabitService`:** `generatedTitle` από `habitGeneratedTitle`· `_clearHabitGenerated` σβήνει μόνο τα habit-generated rows (DB πρώτα) και δεν αγγίζει generic bell rows· `setReminderTime` καθαρίζει το legacy `reminder_times`· topUp/repair με archived/done/deleted guards.
+5. **Providers/UI:** `ItemProvider` soft/permanent delete με DB πρώτα και unconditional cancel· `ReminderProvider` snooze/delete στο ίδιο queue pass· settings past-reminders per-row delete μέσω scheduler.
+
+**Έλεγχοι:** `flutter analyze --no-pub` → **No issues found**· `flutter test` → **275/275** (48 αρχεία, +16 νέα tests σε `test/reminder_text_test.dart` + `test/reminder_bake_plan_test.dart`). **Δεν έγινε device verification** — τα E10/E34–E37 παραμένουν ανοιχτά στο `error_list.md` μέχρι το device pass.
+
+**Backups:** `backups/O1_reminder_hardening_2026-10-21/` — 12 source αρχεία + 3 docs (`.md`) πριν από τις αλλαγές.
+
+**Μαθήματα:**
+- Το `PendingNotificationRequest` δεν εκθέτει trigger time· αλλαγή ώρας δεν ανιχνεύεται με text compare. Γι' αυτό τα snooze/trigger changes περνούν από `rescheduleReminder` (cancel + fresh schedule) και οι αλλαγές περιόδου δημιουργούν νέα IDs.
+- Το batch repair πρέπει να είναι **ένα** per pass· per-root/per-habit `getPendingNotifications()` είναι κρυφό κόστος (100 roots = 100 OS reads).
+- Το DB-first delete δεν αρκεί μόνο του: χρειάζεται `finally` OS cancel και scan του payload για ghosts που δεν έχουν πλέον DB row.
+- Τα replacements δεν καταναλώνουν νέο slot· μόνο τα πραγματικά νέα rows κόβονται στο `osAlarmLimit`.
+
+**Docs:** `supernote.md` — directory map + `ReminderScheduler`/`ReminderText`/`ReminderBakePlan`/`HabitService` αρχιτεκτονική. Το `error_list.md` έχει το progress row και τις κάρτες. Το παρόν κεφάλαιο είναι ιστορικό.

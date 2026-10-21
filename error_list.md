@@ -44,9 +44,9 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `2ec6185` (S266 — E30) | `git log` |
+| Git HEAD | `c2dc8f2` (S270 — O1) | `git log` |
 | `flutter analyze` | **No issues found** | run 21/10/2026 |
-| `flutter test` | **259/259** (46 αρχεία test) | run 21/10/2026 |
+| `flutter test` | **275/275** (48 αρχεία test) | run 21/10/2026 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 38.100 | μετρήθηκε |
 | Αρχεία >500 γραμμές (R1) | **18** | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
@@ -55,7 +55,7 @@
 | `catch (_) {}` | **21** (R4 παράβαση) | grep |
 | `debugPrint`/`print` εκτός `DebugConfig` | 0 | grep |
 
-⚠️ **Γνωστό doc-drift:** `supernote.md:17` γράφει 245/245, πραγματικό **259/259**. Δεν διορθώνεται τώρα (status ≠ αρχιτεκτονική) — θα διορθωθεί στο τελικό sync (E26).
+⚠️ **Γνωστό doc-drift:** `supernote.md:19` γράφει 245/245, πραγματικό **275/275**. Δεν διορθώνεται τώρα (status ≠ αρχιτεκτονική) — θα διορθωθεί στο τελικό sync (E26).
 
 ### 0.1 Δεύτερος έλεγχος (21/10/2026) — τι διορθώθηκε στη λίστα
 1. **`E24` «grid-mode guard gap» → ακυρώθηκε ως bug.** Έλεγξα το SDK (`reorderable_list.dart:82-83,129-131`: το `onReorderItem` διορθώνει το `newIndex`) **και** το package (`reorderable_grid.dart:652-663,573-577`: δίνει index κελιού-στόχου). Και τα δύο ταιριάζουν με το `removeAt+insert` του `moveAndMerge` ⇒ **όχι off-by-one**. Μένει μόνο προαιρετικό device spot-check.
@@ -209,7 +209,8 @@
 - **Θέλει απόφαση** (feature gap, μπορεί να μείνει σκόπιμα εκτός).
 
 ### E10 — B2.3: title/body σύγκριση πριν το rebake
-- **Απόδειξη:** το incremental `keepIds` βασίζεται **μόνο σε ids** που υπάρχουν στο OS (`reminder_scheduler.dart:62-76` → `:769-773`). Δεν συγκρίνεται title/body ⇒ κρατιέται παλιό κείμενο μέχρι το επόμενο rebake.
+- **Απόδειξη (αρχικό audit):** το incremental `keepIds` βασίζεται **μόνο σε ids** που υπάρχουν στο OS (`reminder_scheduler.dart:62-76` → `:769-773`). Δεν συγκρίνεται title/body ⇒ κρατιέται παλιό κείμενο μέχρι το επόμενο rebake.
+- **S270 (υλοποίηση, commit `c2dc8f2`):** `reminder_text.dart` = ενιαίο resolver· `reminder_bake_plan.dart` = keep **μόνο** όταν OS title/body == resolved, αλλιώς replacement· το `rescheduleForItem` κάνει DB text sync root+children πριν το bake. **Εκκρεμεί device verification.**
 - **Καθαρό optimization** (self-heal καλύπτει). **Κόστος:** μικρό-μεσαίο.
 
 ### E11 — Ενοποιημένο DetailAppBar
@@ -266,7 +267,7 @@
 - «tokens/copy/limits, ξεχωριστά». Tokens ✅ S169· limits υπάρχουν (`maxAttachmentSizeMB`). Πιθανόν **obsolete** — θέλει ρητό κλείσιμο για να μη στοιχειώνει.
 
 ### E25 — Doc-drift / ασυνέπειες παλιών docs
-- `supernote.md`: **Error Handling** (`:891-905`): «Unprotected attachment_service» / «User-facing messages: None» = **αναληθή** (υπάρχουν try/catch + `AppErrors`). **Performance** (`:908-919`): «No autoDispose» = **6 autoDispose**. Λείπει `dayTickProvider` (`habit_provider.dart:16`) από τη λίστα Habit Providers. `:17` γράφει 245/245 = **259/259**.
+- `supernote.md`: **Error Handling** (`:891-905`): «Unprotected attachment_service» / «User-facing messages: None» = **αναληθή** (υπάρχουν try/catch + `AppErrors`). **Performance** (`:908-919`): «No autoDispose» = **6 autoDispose**. Λείπει `dayTickProvider` (`habit_provider.dart:16`) από τη λίστα Habit Providers. `:19` γράφει 245/245 = **275/275**.
 - `code_refactor.md`: `:188` (F9 ανοιχτό) vs `:192` (✅ CLOSED) · F4 ×6 vs ×5 · `§3.8:110` λάθος path (`item_provider:443` → `items_query_provider:64` / `home_folder_view:171`) · §8 αρίθμηση 4→10.
 - **Κλείνει μαζί με το E26** (δεν διορθώνονται ένα-ένα τώρα).
 
@@ -295,29 +296,33 @@
 - **Logs:** `backups/s267_e29_wipe_cancel/run_log_e29_restore_fail1.txt` + `dumpsys_e29_restore_fail1.txt`.
 
 ### E34 — Race: cancel/delete εκτός `_bakeQueue` (E17-residual)
-- **Πού:** `reminder_scheduler.dart:595-618` (`deleteAllRemindersForItem` — direct cancel loop, χωρίς ουρά) · `:738-749` (`cancelAllForItem`) — σε αντίθεση με `rescheduleForItem:691-692` (στην `_bakeQueue`).
+- **Πού (αρχικό audit):** `reminder_scheduler.dart:595-618` (`deleteAllRemindersForItem` — direct cancel loop, χωρίς ουρά) · `:738-749` (`cancelAllForItem`) — σε αντίθεση με `rescheduleForItem:691-692` (στην `_bakeQueue`).
 - **Απόδειξη (21/10/2026):** Καλείται από `item_provider` (done/archive/delete). TOCTOU με `_scheduleOne:765-827`: τα guards (`archived/done/status` `:786-805`) διαβάζονται πριν τα awaits `:815-825` → cancel/delete στο παράθυρο δεν σταματά το εκκρεμές bake → **ghost alarm** (self-heal στο επόμενο full bake).
+- **S270 (υλοποίηση, commit `c2dc8f2`):** `cancelReminderIds`, `cancelAllForItem`, `deleteSingleReminder`, `deleteReminderThread`, `deleteAllRemindersForItem` περνούν από την `_bakeQueue`· DB-first delete + `finally` cancel· `_scheduleOne` φρέσκα row/item/settings guards· OS payload scan για ghosts. **Εκκρεμεί device race test.**
 - **Γιατί P1:** Αστάθεια/race → ειδοποίηση για muted/διεγραμμένο item — ίδια κλάση με E17.
 - **Κόστος/Ρίσκο:** Μικρό (ίδιο pattern με E17: wrap στην κοινή ουρά)· ρίσκο: το cancel θα περιμένει ενεργό pass — να κριθεί στην πρόταση.
 - **Fix/Acceptance:** cancel/delete μέσω `_bakeQueue` → device race: archive/delete κατά ενεργό `scheduleAll` → 0 ghost alarms + συνεπές `dumpsys`.
 
 ### E35 — `osAlarmLimit` μόνο στο `scheduleAll` (E17-residual)
-- **Πού:** `reminder_scheduler.dart:137-143` (budget cut μόνο στο `scheduleAll`) · `_rescheduleForItemImpl:694-727` (loop χωρίς count-cap) · `notification_service.dart:81-89` (`osAlarmLimit`: iOS/macOS 60, Android 450).
+- **Πού (αρχικό audit):** `reminder_scheduler.dart:137-143` (budget cut μόνο στο `scheduleAll`) · `_rescheduleForItemImpl:694-727` (loop χωρίς count-cap) · `notification_service.dart:81-89` (`osAlarmLimit`: iOS/macOS 60, Android 450).
 - **Απόδειξη (21/10/2026):** Το reschedule ψήνει όλα τα pending του item χωρίς όριο → σε iOS/macOS μπορεί να ξεπεράσει το OS όριο (64) → σιωπηλή απώλεια (παλαιότερα alarms).
+- **S270 (υλοποίηση, commit `c2dc8f2`):** `buildReminderBakePlan` = oldest-first, κανένα eviction valid alarm, replacements χωρίς νέο slot, `truncated` day-rebake· εφαρμόζεται σε `scheduleAll`/`scheduleReminders`/`rescheduleForItem`/refresh/topUp/single. **Εκκρεμεί device (iOS/macOS counts).**
 - **Γιατί P2:** Πλατφόρμα-specific (iOS/macOS)· Android (450/500) πρακτικά απίθανο.
 - **Κόστος/Ρίσκο:** Μικρό-μεσαίο (απόφαση: cap/truncate ή re-budget μετά το reschedule)· ρίσκο: λάθος σειρά eviction.
 - **Fix/Acceptance:** Απόφαση πολιτικής + unit tests (platform fake)· Android device: counts αμετάβλητα.
 
 ### E36 — Habit snapshot title (E17-residual)
-- **Πού:** `reminder_scheduler.dart:770-782` — live τίτλος μόνο για `title == null` / generic «Υπενθύμιση» / γενέθλια (`:774-781`)· habits κρατούν **snapshot** του row (`:779` σχόλιο).
+- **Πού (αρχικό audit):** `reminder_scheduler.dart:770-782` — live τίτλος μόνο για `title == null` / generic «Υπενθύμιση» / γενέθλια (`:774-781`)· habits κρατούν **snapshot** του row (`:779` σχόλιο).
 - **Απόδειξη (21/10/2026):** Μετονομασία συνήθειας → η pending ειδοποίηση κρατά παλιό τίτλο μέχρι το επόμενο rebuild row/`scheduleAll`.
+- **S270 (υλοποίηση, commit `c2dc8f2`):** `habitGeneratedTitle` + `resolveReminderNotificationText` δίνουν live body «Υπενθύμιση: <όνομα>» με σταθερό title· `rescheduleForItem` syncάρει και τη DB. **Εκκρεμεί device rename.**
 - **Γιατί P2:** Λάθος κείμενο ειδοποίησης (οικογένεια E10) — περιορισμένο στα habits.
 - **Κόστος/Ρίσκο:** Μικρό (απόφαση: live τίτλος και για habits ή sync των rows στο rename)· ρίσκο: body/χρόνοι habits.
 - **Fix/Acceptance:** Rename habit → νέος τίτλος στο επόμενο pass (device) + test.
 
 ### E37 — Orphan guard στο `_scheduleOne` (E17-residual)
-- **Πού:** `reminder_scheduler.dart:765-766` (`item` fetch) + guards `:786-805` όλα `item?.…` ⇒ `item == null` (ορφανή row) **περνά** στο schedule.
+- **Πού (αρχικό audit):** `reminder_scheduler.dart:765-766` (`item` fetch) + guards `:786-805` όλα `item?.…` ⇒ `item == null` (ορφανή row) **περνά** στο schedule.
 - **Απόδειξη (21/10/2026):** Orphans καθαρίζονται μόνο από `_purgeKnowledgeRemindersImpl` (postFrame startup, `:620-623`) — κανένας runtime guard· bake με snapshot title/body.
+- **S270 (υλοποίηση, commit `c2dc8f2`):** `_scheduleOne` επιστρέφει `skipped` σε `item == null` και το `_runBakePlan` καθαρίζει τυχόν stale OS id· ο planner φιλτράρει orphans. **Εκκρεμεί device/test.**
 - **Γιατί P2:** Σπάνιο path (απαιτεί αποτυχημένο delete/sync gap) αλλά ghost alarm για ανύπαρκτο item.
 - **Κόστος/Ρίσκο:** Μικρό (skip `item == null` — προαιρ. + stale cancel)· ρίσκο χαμηλό.
 - **Fix/Acceptance:** Test με row χωρίς item → `skipped`, 0 schedule.
@@ -370,6 +375,7 @@
 | 21/10/2026 | E17 | **Υλοποίηση (κοινή `_bakeQueue`):** `rescheduleForItem` → `_bakeQueue.run(() => _rescheduleForItemImpl(itemId))` — ίδια ουρά με `scheduleAll`, batch `resolveScheduleMode()` 1×/pass· backup `backups/s268_e17_reschedule_bake_queue/`. | `reminder_scheduler.dart:689-725` · analyze clean · test **259/259** (`6a75a57`) |
 | 21/10/2026 | E17 | **Device T1–T6 (POCO X3):** 5/5 call sites `rebaked=1` (rename/done→active/archive/unarchive/restore/delete)· bulk ×2 FIFO `id=14→15` + 1× refresh/topUp (365ms)· cold start `bake id=1` (`baked=171 failed=0 skipped=57`) → rename `bake id=2`, `dumpsys` 171→171, 0 parallel passes. | logcat 18:23–18:33 · `dumpsys alarm` · `backups/s268_e17_reschedule_bake_queue/device_logs/` |
 | 21/10/2026 | E34–E37 | **Νέα ευρήματα από E17 residuals** (έγκριση χρήστη): E34 = cancel/delete εκτός ουράς (P1) · E35 = `osAlarmLimit` μόνο στο `scheduleAll` · E36 = habit snapshot title · E37 = orphan guard (`item == null`). **timeout zombie → P4** (S245 — καμία νέα κάρτα). Νέα **§6**: ομαδοποίηση Ο1–Ο7 (1 ομάδα = 1 πρόταση + 1 fix). §1: P1 **5** · P2 **14** · P3 **10** (renumber 1..29). | `reminder_scheduler.dart:595-618,738-749,137-143,770-782,765-805` · `notification_service.dart:81-89` · `serial_pass_queue.dart:18-20` · backup `backups/s269_e17_residuals_grouping/` |
+| 21/10/2026 | E10, E34–E37 | **Ο1 υλοποίηση (S270, commit `c2dc8f2`):** pure text resolver + bake planner· global budget/oldest-first/replacements χωρίς slot· DB-first delete order + unconditional OS payload scan· cancel/delete APIs στην `_bakeQueue`· fresh row/item/settings guards· batch refresh + habit topUp (ένα OS read ανά pass)· habit live body/title· `cleanupOldPending` επιστρέφει IDs για OS cancel. **Εκκρεμεί device verification — καμία κάρτα δεν κλείνει ακόμη.** | analyze clean · test **275/275** (48 files, +16) · `reminder_text.dart:1-85` · `reminder_bake_plan.dart:1-151` · backup `backups/O1_reminder_hardening_2026-10-21/` |
 
 ---
 
@@ -392,7 +398,7 @@
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
-| **Ο1 — Scheduler correctness** | E10 + E34 + E35 + E36 + E37 (προαιρ. E08, E14) | `reminder_scheduler.dart` + `notification_service.dart` + tests (race/rename) | E35–E37 από E10/E34 |
+| **Ο1 — Scheduler correctness** ✅ Υλοποιήθηκε S270 (`c2dc8f2`) — **εκκρεμεί device** | E10 + E34 + E35 + E36 + E37 (προαιρ. E08, E14) | `reminder_scheduler.dart` + `reminder_text.dart` + `reminder_bake_plan.dart` + `habit_service.dart` + providers/settings + 16 tests | E35–E37 από E10/E34 |
 | **Ο2 — Lifecycle (startup/resume/restore)** | E16 + E33 + E18-μέρος | `main.dart` (μία επίσκεψη) + debounce `reminder_scheduler` + `backup_service` + `super_note_helper` + `backup_archive` + cold-start/restore tests | E18: 14 sites (backup_service ×13 + backup_archive) |
 | **Ο3 — Mass-delete pipeline** | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` (+bulk reminder call αν χρειαστεί) | — |
 | **Ο4 — UI consolidation/hardening** | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
