@@ -685,13 +685,20 @@ class ReminderScheduler {
   /// Ξαναψήνει τα OS alarms ενός item με ζωντανό τίτλο (μετά από μετονομασία).
   /// Μόνο pending one-shots/παιδιά (όχι recurring roots — όπως το scheduleAll)·
   /// τα guards του _scheduleOne (past/archived/done) ισχύουν από κάτω.
-  Future<void> rescheduleForItem(int itemId) async {
+  ///
+  /// E17: ίδιο `_bakeQueue` με `scheduleAll` — ποτέ παράλληλο bake
+  /// στο OS cache· fail-open 60s + NEVER-THROW (ο καλών δεν παγώνει).
+  Future<void> rescheduleForItem(int itemId) =>
+      _bakeQueue.run(() => _rescheduleForItemImpl(itemId));
+
+  Future<void> _rescheduleForItemImpl(int itemId) async {
     try {
       if (!NotificationService.isSupportedPlatform) return;
       final settings = await SuperNoteHelper.instance.settings.get();
       if (!settings.notificationsEnabled) return;
       final reminders =
           await SuperNoteHelper.instance.reminders.getForItem(itemId);
+      final mode = await NotificationService.instance.resolveScheduleMode();
       var rebaked = 0;
       var failed = 0;
       var skipped = 0;
@@ -702,6 +709,7 @@ class ReminderScheduler {
           r,
           sound: settings.soundEnabled,
           vibration: settings.vibrationEnabled,
+          mode: mode,
         );
         if (outcome == ScheduleOutcome.baked) {
           rebaked++;
