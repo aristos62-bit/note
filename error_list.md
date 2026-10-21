@@ -31,6 +31,7 @@
 > 13. **§4:** 1 γραμμή ανά βήμα (υλοποίηση · device · νέα ευρήματα) με πραγματικά line refs/logs — όχι «ίσως/κάποτε».
 > 14. **§0:** αλλάζει **μόνο** αν άλλαξε μέτρηση (analyze/tests/HEAD/αρχεία >500), με ημερομηνία.
 > 15. `flutter analyze` (docs-only αλλαγή: προαιρετικό αλλά γίνεται) → **commit + push** με το ID στο message.
+> 16. **Νέα ευρήματα από fix:** πρώτα εξετάζεται αν εντάσσονται σε **υπάρχουσα ομάδα** της §6 (1 ομάδα = 1 πρόταση + 1 fix)· μόνο αν δεν ταιριάζουν, ανοίγει **νέο ID** `E<n>` (επόμενο ελεύθερο, ποτέ reuse) με κατηγορία + κάρτα — πάντα με OK χρήστη.
 >
 > **Παράδειγμα αναφοράς — E15 (21/10/2026):** §1 `(6)`→`(7)` (E15 έξω, E29+E30 μέσα) · §2 E15→`✅ CLOSED` + E29/E30 πριν την E26 · §3 1 bullet · §4 3 γραμμές · commit `9bb4567`.
 > **Απαγορεύεται:** παράλληλες λίστες · ενημέρωση `supernote.md`/`oldsessions.md` όσο ζει αυτό το αρχείο · κλείσιμο χωρίς απόδειξη · commit χωρίς push.
@@ -72,7 +73,7 @@
 > **P3 = ΜΕΛΛΟΝΤΙΚΕΣ ΠΡΟΣΘΗΚΕΣ – ΑΝΑΒΑΘΜΙΣΕΙΣ** → νέα features + δομική καθαριότητα.
 > **P4 = By-design/αποδεκτά** → καμία ενέργεια. *Κανένα επιβεβαιωμένο crash ή απώλεια δεδομένων.*
 
-### 🔴 P1 — Σφάλματα (4)
+### 🔴 P1 — Σφάλματα (5)
 
 | # | ID | Θέμα | Γιατί είναι P1 (απόδειξη) |
 |---|---|---|---|
@@ -80,40 +81,44 @@
 | 2 | `E18` | **`catch (_) {}` ×21** (R4) | Κρύβει σφάλματα (backup/attachments/habits) → αόρατες αποτυχίες |
 | 3 | `E04` | **Outer-context theme lookup** (κλάση S129/S133) | Crash-class: debug assertion, ρίσκο σε release/reassemble |
 | 4 | `E10` | **B2.3** — title/body χωρίς σύγκριση πριν το rebake | Ειδοποίηση με παλιό/λάθος κείμενο μέχρι το επόμενο rebake |
+| 5 | `E34` | **Race: cancel/delete εκτός `_bakeQueue`** (E17-residual) | Muted/διεγραμμένο item μπορεί να χτυπήσει (ghost alarm) — αστάθεια στο OS cache |
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (11)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (14)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
-| 5 | `E05` | **F13b** — bulk-delete perf (`permanentDeleteMany`) | Πάγωμα ~7s σε μαζική διαγραφή (N× invalidate + passes) |
-| 6 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 7 | `E02` | **Calendar AppBar title @140%** | Κόβεται το «Οκτώβριος 2026» — θέλει σχεδιαστική απόφαση |
-| 8 | `E27` | **Grid reorder χωρίς autoScroll** | Δεν φτάνεις μακρινούς στόχους σε μεγάλο grid |
-| 9 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
-| 10 | `E28` | **12× raw `showModalBottomSheet`** (SPoT bypass) | Θωράκιση landscape/keyboard (όχι αποδεδειγμένο bug) |
-| 11 | `E19` | **`take(10)` ×2 + διπλότυπη λογική φίλτρου** | Λάθος/διπλά αποτελέσματα σε άκρες |
-| 12 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
-| 13 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
-| 14 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
-| 15 | `E33` | **Restore race** — 2s debounced refresh vs `_atomicRestoreZip` close | Γρήγορο import μετά το file picker → restore FAILED + rollback FAILED (`MdbxError 11`)· κενή DB/force-stop (workaround 15s) |
+| 6 | `E05` | **F13b** — bulk-delete perf (`permanentDeleteMany`) | Πάγωμα ~7s σε μαζική διαγραφή (N× invalidate + passes) |
+| 7 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
+| 8 | `E02` | **Calendar AppBar title @140%** | Κόβεται το «Οκτώβριος 2026» — θέλει σχεδιαστική απόφαση |
+| 9 | `E27` | **Grid reorder χωρίς autoScroll** | Δεν φτάνεις μακρινούς στόχους σε μεγάλο grid |
+| 10 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
+| 11 | `E28` | **12× raw `showModalBottomSheet`** (SPoT bypass) | Θωράκιση landscape/keyboard (όχι αποδεδειγμένο bug) |
+| 12 | `E19` | **`take(10)` ×2 + διπλότυπη λογική φίλτρου** | Λάθος/διπλά αποτελέσματα σε άκρες |
+| 13 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
+| 14 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 15 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
+| 16 | `E33` | **Restore race** — 2s debounced refresh vs `_atomicRestoreZip` close | Γρήγορο import μετά το file picker → restore FAILED + rollback FAILED (`MdbxError 11`)· κενή DB/force-stop (workaround 15s) |
+| 17 | `E35` | **`osAlarmLimit` μόνο στο `scheduleAll`** (E17-residual) | iOS/macOS: το reschedule δεν έχει count-cap → σιωπηλή απώλεια παλιών alarms |
+| 18 | `E36` | **Habit snapshot title** (E17-residual) | Μετονομασία συνήθειας → παλιός τίτλος στην ειδοποίηση μέχρι το rebuild |
+| 19 | `E37` | **Orphan guard στο `_scheduleOne`** (E17-residual) | Row χωρίς item ψήνεται → ghost alarm για ανύπαρκτο item |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (10)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
-| 16 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 17 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
-| 18 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
-| 19 | `E12` | **8× «Εμφάνιση/Απόκρυψη αρχειοθετημένων»** → shared widget | Καθαριότητα |
-| 20 | `E06` | **R1: 18 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 21 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(μόνο αν φανεί στο E03)* |
-| 22 | `E14` | **F19** — dead providers (`pendingReminders*`) | Καθαριότητα |
-| 23 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
-| 24 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
-| 25 | `E25` | **Doc-drift παλιών docs** | Συντήρηση (κλείνει με E26) |
+| 20 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
+| 21 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
+| 22 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
+| 23 | `E12` | **8× «Εμφάνιση/Απόκρυψη αρχειοθετημένων»** → shared widget | Καθαριότητα |
+| 24 | `E06` | **R1: 18 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 25 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(μόνο αν φανεί στο E03)* |
+| 26 | `E14` | **F19** — dead providers (`pendingReminders*`) | Καθαριότητα |
+| 27 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
+| 28 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
+| 29 | `E25` | **Doc-drift παλιών docs** | Συντήρηση (κλείνει με E26) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
-- iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό).
+- iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό).
 
 **Κλειστό κατά τον 2ο έλεγχο**
 - `E24` «grid-mode guard gap» → **stale / όχι bug** (SDK + package source)· βλ. §3.
@@ -289,6 +294,34 @@
 - **Fix (χωριστό βήμα):** cancel/await του debounced refresh πριν το close ή `isRestoring` flag/queue· robust rollback με retry/backoff + καθαρό restart message· test με injectable timer.
 - **Logs:** `backups/s267_e29_wipe_cancel/run_log_e29_restore_fail1.txt` + `dumpsys_e29_restore_fail1.txt`.
 
+### E34 — Race: cancel/delete εκτός `_bakeQueue` (E17-residual)
+- **Πού:** `reminder_scheduler.dart:595-618` (`deleteAllRemindersForItem` — direct cancel loop, χωρίς ουρά) · `:738-749` (`cancelAllForItem`) — σε αντίθεση με `rescheduleForItem:691-692` (στην `_bakeQueue`).
+- **Απόδειξη (21/10/2026):** Καλείται από `item_provider` (done/archive/delete). TOCTOU με `_scheduleOne:765-827`: τα guards (`archived/done/status` `:786-805`) διαβάζονται πριν τα awaits `:815-825` → cancel/delete στο παράθυρο δεν σταματά το εκκρεμές bake → **ghost alarm** (self-heal στο επόμενο full bake).
+- **Γιατί P1:** Αστάθεια/race → ειδοποίηση για muted/διεγραμμένο item — ίδια κλάση με E17.
+- **Κόστος/Ρίσκο:** Μικρό (ίδιο pattern με E17: wrap στην κοινή ουρά)· ρίσκο: το cancel θα περιμένει ενεργό pass — να κριθεί στην πρόταση.
+- **Fix/Acceptance:** cancel/delete μέσω `_bakeQueue` → device race: archive/delete κατά ενεργό `scheduleAll` → 0 ghost alarms + συνεπές `dumpsys`.
+
+### E35 — `osAlarmLimit` μόνο στο `scheduleAll` (E17-residual)
+- **Πού:** `reminder_scheduler.dart:137-143` (budget cut μόνο στο `scheduleAll`) · `_rescheduleForItemImpl:694-727` (loop χωρίς count-cap) · `notification_service.dart:81-89` (`osAlarmLimit`: iOS/macOS 60, Android 450).
+- **Απόδειξη (21/10/2026):** Το reschedule ψήνει όλα τα pending του item χωρίς όριο → σε iOS/macOS μπορεί να ξεπεράσει το OS όριο (64) → σιωπηλή απώλεια (παλαιότερα alarms).
+- **Γιατί P2:** Πλατφόρμα-specific (iOS/macOS)· Android (450/500) πρακτικά απίθανο.
+- **Κόστος/Ρίσκο:** Μικρό-μεσαίο (απόφαση: cap/truncate ή re-budget μετά το reschedule)· ρίσκο: λάθος σειρά eviction.
+- **Fix/Acceptance:** Απόφαση πολιτικής + unit tests (platform fake)· Android device: counts αμετάβλητα.
+
+### E36 — Habit snapshot title (E17-residual)
+- **Πού:** `reminder_scheduler.dart:770-782` — live τίτλος μόνο για `title == null` / generic «Υπενθύμιση» / γενέθλια (`:774-781`)· habits κρατούν **snapshot** του row (`:779` σχόλιο).
+- **Απόδειξη (21/10/2026):** Μετονομασία συνήθειας → η pending ειδοποίηση κρατά παλιό τίτλο μέχρι το επόμενο rebuild row/`scheduleAll`.
+- **Γιατί P2:** Λάθος κείμενο ειδοποίησης (οικογένεια E10) — περιορισμένο στα habits.
+- **Κόστος/Ρίσκο:** Μικρό (απόφαση: live τίτλος και για habits ή sync των rows στο rename)· ρίσκο: body/χρόνοι habits.
+- **Fix/Acceptance:** Rename habit → νέος τίτλος στο επόμενο pass (device) + test.
+
+### E37 — Orphan guard στο `_scheduleOne` (E17-residual)
+- **Πού:** `reminder_scheduler.dart:765-766` (`item` fetch) + guards `:786-805` όλα `item?.…` ⇒ `item == null` (ορφανή row) **περνά** στο schedule.
+- **Απόδειξη (21/10/2026):** Orphans καθαρίζονται μόνο από `_purgeKnowledgeRemindersImpl` (postFrame startup, `:620-623`) — κανένας runtime guard· bake με snapshot title/body.
+- **Γιατί P2:** Σπάνιο path (απαιτεί αποτυχημένο delete/sync gap) αλλά ghost alarm για ανύπαρκτο item.
+- **Κόστος/Ρίσκο:** Μικρό (skip `item == null` — προαιρ. + stale cancel)· ρίσκο χαμηλό.
+- **Fix/Acceptance:** Test με row χωρίς item → `skipped`, 0 schedule.
+
 ### E26 — Τελικό κλείσιμο
 1. `oldsessions.md`: 1 κεφάλαιο «Φ5 — error_list sweep» (τι έκλεισε, ημερομηνίες, hashes, device tests).
 2. `code_refactor.md`: διαγραφή/αντικατάσταση §3/§7/§8/§9 με παραπομπή στο κεφάλαιο του `oldsessions.md` (καμία διπλή λίστα).
@@ -336,6 +369,7 @@
 | 21/10/2026 | E33 | **Άνοιγμα κάρτας P2** (έγκριση χρήστη): restore race + rollback failure· §1 P2 **11**, §2 κάρτα E33. | `run_log_e29_restore_fail1.txt` · `backup_service.dart:568-671` |
 | 21/10/2026 | E17 | **Υλοποίηση (κοινή `_bakeQueue`):** `rescheduleForItem` → `_bakeQueue.run(() => _rescheduleForItemImpl(itemId))` — ίδια ουρά με `scheduleAll`, batch `resolveScheduleMode()` 1×/pass· backup `backups/s268_e17_reschedule_bake_queue/`. | `reminder_scheduler.dart:689-725` · analyze clean · test **259/259** (`6a75a57`) |
 | 21/10/2026 | E17 | **Device T1–T6 (POCO X3):** 5/5 call sites `rebaked=1` (rename/done→active/archive/unarchive/restore/delete)· bulk ×2 FIFO `id=14→15` + 1× refresh/topUp (365ms)· cold start `bake id=1` (`baked=171 failed=0 skipped=57`) → rename `bake id=2`, `dumpsys` 171→171, 0 parallel passes. | logcat 18:23–18:33 · `dumpsys alarm` · `backups/s268_e17_reschedule_bake_queue/device_logs/` |
+| 21/10/2026 | E34–E37 | **Νέα ευρήματα από E17 residuals** (έγκριση χρήστη): E34 = cancel/delete εκτός ουράς (P1) · E35 = `osAlarmLimit` μόνο στο `scheduleAll` · E36 = habit snapshot title · E37 = orphan guard (`item == null`). **timeout zombie → P4** (S245 — καμία νέα κάρτα). Νέα **§6**: ομαδοποίηση Ο1–Ο7 (1 ομάδα = 1 πρόταση + 1 fix). §1: P1 **5** · P2 **14** · P3 **10** (renumber 1..29). | `reminder_scheduler.dart:595-618,738-749,137-143,770-782,765-805` · `notification_service.dart:81-89` · `serial_pass_queue.dart:18-20` · backup `backups/s269_e17_residuals_grouping/` |
 
 ---
 
@@ -348,3 +382,22 @@
 | `oldsessions.md` | ιστορικό + «επόμενο session» | **μόνο ιστορικό**· νέο κεφάλαιο στο E26 |
 | `error_list.md` | — | **η μοναδική πηγή** μέχρι το E26, μετά διαγράφεται |
 | `AGENTS.md` | κανόνες 6/9/10 | ✅ **ενημερώθηκε 21/10/2026**: 6 = διάβασε `error_list.md` + ιστορικό · 9 = πρόοδος/εκκρεμότητες **ΜΟΝΟ** στο `error_list.md` · 10 = το 1-κεφάλαιο-ανά-φάση ισχύει για το τελικό sync |
+
+---
+
+## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
+
+> Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
+> Προτεινόμενη σειρά: **Ο1 → Ο2 → Ο4 → Ο6 → Ο5 → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+
+| Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
+|---|---|---|---|
+| **Ο1 — Scheduler correctness** | E10 + E34 + E35 + E36 + E37 (προαιρ. E08, E14) | `reminder_scheduler.dart` + `notification_service.dart` + tests (race/rename) | E35–E37 από E10/E34 |
+| **Ο2 — Lifecycle (startup/resume/restore)** | E16 + E33 + E18-μέρος | `main.dart` (μία επίσκεψη) + debounce `reminder_scheduler` + `backup_service` + `super_note_helper` + `backup_archive` + cold-start/restore tests | E18: 14 sites (backup_service ×13 + backup_archive) |
+| **Ο3 — Mass-delete pipeline** | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` (+bulk reminder call αν χρειαστεί) | — |
+| **Ο4 — UI consolidation/hardening** | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
+| **Ο5 — Grid + verify** | E27 + E03 | `reorderable_item_list` + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 |
+| **Ο6 — Cleanup & visibility sweep** | E18 (→0) + E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
+| **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
+
+**Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
