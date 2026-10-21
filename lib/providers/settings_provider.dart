@@ -81,11 +81,12 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> toggleNotifications(bool enabled) async {
     try {
       await updateSettings((s) => s.notificationsEnabled = enabled);
-      if (enabled) {
-        await ReminderScheduler.instance.scheduleAll();
-      } else {
-        await NotificationService.instance.cancelAll();
-      }
+      // E15-F2: ένα μόνο μονοπάτι και για ON και για OFF. Το scheduleAll
+      // τρέχει μέσα στη _bakeQueue (serial) και διαβάζει το committed setting:
+      //  - ON  -> πλήρες bake
+      //  - OFF -> cancelAll (durable) + os= log
+      // Έτσι το OFF δεν μπορεί να τρέξει παράλληλα/μπροστά από ενεργό bake.
+      await ReminderScheduler.instance.scheduleAll();
     } catch (e, s) {
       DebugConfig.error('SettingsNotifier.toggleNotifications', e, s);
     }
