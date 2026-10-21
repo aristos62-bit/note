@@ -5,6 +5,7 @@ import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
 import '../core/core.dart';
 import 'reminder_scheduler.dart';
+import 'reminder_text.dart';
 import 'notification_service.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -477,6 +478,9 @@ class HabitService {
         value: timeStr,
         type: PropertyType.text,
       );
+      // N1: το legacy μονό δεν πρέπει να συνυπάρχει με λίστα — αλλιώς το
+      // topUp ενώνει και τις δύο πηγές και επαναφέρει παλιά ώρα.
+      await props.delete(habitId, 'reminder_times');
       final allProps = await _getAllProps(habitId);
       final recurrence = Recurrence.fromProperties(allProps);
       await _scheduleReminders(habitId, [time], recurrence);
@@ -528,7 +532,7 @@ class HabitService {
   // ──────────────────────────────────────────────────────────
 
   /// Τίτλος όλων των habit-generated one-shots (διαχωρισμός από bell rows).
-  static const String generatedTitle = 'Υπενθύμιση συνήθειας';
+  static const String generatedTitle = habitGeneratedTitle;
 
   /// Ορίζοντας προ-δημιουργίας occurrences.
   static const int horizonDays = 60;
@@ -582,26 +586,47 @@ class HabitService {
     return out;
   }
 
-  /// Σβήνει ΜΟΝΟ habit-generated rows (OS cancel + DB) και
+  /// Σβήνει ΜΟΝΟ habit-generated rows (DB πρώτα, μετά OS cancel) και
   /// ξαναπρογραμματίζει τυχόν grandfathered bell rows (έμειναν χωρίς OS).
+  /// N3: ΠΟΤΕ cancelAllForItem — δεν αγγίζουμε generic bell rows.
   Future<void> _clearHabitGenerated(int habitId) async {
     try {
-      await ReminderScheduler.instance.cancelAllForItem(habitId);
       final old =
           await SuperNoteHelper.instance.reminders.getForItem(habitId);
-      for (final r in old) {
-        if (r.title == generatedTitle) {
-          await SuperNoteHelper.instance.reminders.delete(r.id);
+      final generated =
+          old.where((r) => r.title == generatedTitle).toList();
+      final generatedIds = generated.map((r) => r.id).toList();
+      var deletedFromDb = false;
+      if (generatedIds.isNotEmpty) {
+        try {
+          await SuperNoteHelper.instance.isar.writeTxn(() async {
+            await SuperNoteHelper.instance.isar.reminders
+                .deleteAll(generatedIds);
+          });
+          deletedFromDb = true;
+        } catch (e, stack) {
+          DebugConfig.error('_clearHabitGenerated DB delete', e, stack);
+        } finally {
+          await ReminderScheduler.instance.cancelReminderIds(generatedIds);
         }
       }
+
       final rest =
           await SuperNoteHelper.instance.reminders.getForItem(habitId);
       final now = DateTime.now();
-      for (final r in rest) {
-        if (r.status == ReminderStatus.pending && r.triggerAt.isAfter(now)) {
-          await ReminderScheduler.instance.scheduleReminder(r);
-        }
+      // Αν το DB delete απέτυχε, μην ξαναψήσεις τα generated rows που μόλις
+      // ακυρώθηκαν στο OS — θα ξαναγεννούσαν το πρόβλημα.
+      final pending = rest
+          .where((r) =>
+              r.status == ReminderStatus.pending &&
+              r.triggerAt.isAfter(now) &&
+              (deletedFromDb || r.title != generatedTitle))
+          .toList();
+      if (pending.isNotEmpty) {
+        await ReminderScheduler.instance.scheduleReminders(pending);
       }
+      DebugConfig.notif(
+          '_clearHabitGenerated: habitId=$habitId generated=${generatedIds.length} restoredBell=${pending.length} dbDeleted=$deletedFromDb');
     } catch (e, stack) {
       DebugConfig.error('_clearHabitGenerated', e, stack);
     }
@@ -693,6 +718,9 @@ class HabitService {
       var created = 0;
       var habits = 0;
       var scanned = 0;
+      // N2/E35: ένα batch στο τέλος για ΟΛΑ τα habits — μία ανάγνωση OS cache,
+      // ένα plan και κοινό budget, αντί για scheduleReminders ανά habit.
+      final pendingToSchedule = <Reminder>[];
 
       final workspaces = await helper.workspaces.getAll();
       for (final ws in workspaces) {
@@ -700,6 +728,16 @@ class HabitService {
         final items = await helper.items
             .getByWorkspace(ws.id, type: ItemType.habit);
         for (final habit in items) {
+          // Defense-in-depth: ακόμη κι αν το query επιστρέψει archived/deleted,
+          // μην αναγεννήσεις reminders (archive/κάδος = σίγαση).
+          if (habit.archived ||
+              habit.isDeleted ||
+              habit.status == ItemStatus.done ||
+              habit.status == ItemStatus.cancelled) {
+            DebugConfig.notif(
+                'HabitService.topUp: skipping archived/deleted/done habit=${habit.id}');
+            continue;
+          }
           final allProps = await _getAllProps(habit.id);
           if ((allProps['reminder_time'] ?? '').isEmpty &&
               (allProps['reminder_times'] ?? '').isEmpty) {
@@ -732,9 +770,21 @@ class HabitService {
           final missing = planTopUp(futureTriggers,
               _computeOccurrences(recurrence, times, now, end));
           scanned++;
-          if (missing.isEmpty) continue;
+          final futurePending = existing
+              .where((r) =>
+                  r.status == ReminderStatus.pending &&
+                  r.triggerAt.isAfter(now))
+              .toList();
+          if (missing.isEmpty) {
+            // N2: ακόμη και χωρίς νέες rows, κάνε repair των υπαρχόντων OS
+            // alarms (π.χ. μετά από reboot/force-stop ή rename) — στο κοινό
+            // batch του τέλους, όχι ένα OS read εδώ.
+            pendingToSchedule.addAll(futurePending);
+            continue;
+          }
           habits++;
           final title = habit.title ?? 'Συνήθεια';
+          final createdRows = <Reminder>[];
           for (final occ in missing) {
             final reminder = await helper.reminders.create(
               itemId: habit.id,
@@ -743,13 +793,19 @@ class HabitService {
               title: generatedTitle,
               body: 'Υπενθύμιση: $title',
             );
-            await ReminderScheduler.instance.scheduleReminder(reminder);
+            createdRows.add(reminder);
             created++;
           }
+          pendingToSchedule.addAll(futurePending);
+          pendingToSchedule.addAll(createdRows);
         }
       }
+      if (pendingToSchedule.isNotEmpty) {
+        await ReminderScheduler.instance.scheduleReminders(pendingToSchedule);
+      }
       DebugConfig.notif(
-          'HabitService.topUp: done scanned=$scanned needTopUp=$habits created=$created');
+          'HabitService.topUp: done scanned=$scanned needTopUp=$habits created=$created '
+          'scheduledBatch=${pendingToSchedule.length}');
       // H3 debug: πόσα alarms υπάρχουν πραγματικά στο OS (Android ~500/app,
       // iOS 64) — αν πλησιάζει το όριο, μείωσε το horizonDays.
       final osPending =
@@ -860,15 +916,21 @@ class HabitService {
     final now = DateTime.now();
     final end = now.add(const Duration(days: horizonDays));
     final item = await SuperNoteHelper.instance.items.getById(habitId);
-    if (item == null || item.isDeleted) {
+    if (item == null ||
+        item.isDeleted ||
+        item.archived ||
+        item.status == ItemStatus.done ||
+        item.status == ItemStatus.cancelled) {
       // P1#1 (S250): pass μετά τη διαγραφή (π.χ. repair→sync) — skip (S234).
+      // E37/N: archived/done δεν αναγεννούν OS alarms.
       DebugConfig.notif(
-          'HabitService._scheduleReminders: deleted/missing, SKIP habitId=$habitId');
+          'HabitService._scheduleReminders: missing/deleted/archived/done, SKIP habitId=$habitId');
       return;
     }
     final title = item.title ?? 'Συνήθεια';
     DebugConfig.notif('HabitService._scheduleReminders: habitId=$habitId times=${times.length} recurrence=${recurrenceToRRULE(recurrence)} → one-shot occurrences');
 
+    final createdRows = <Reminder>[];
     for (final occ in _computeOccurrences(recurrence, times, now, end)) {
       final reminder = await SuperNoteHelper.instance.reminders.create(
         itemId: habitId,
@@ -879,7 +941,11 @@ class HabitService {
         title: generatedTitle,
         body: 'Υπενθύμιση: $title',
       );
-      await ReminderScheduler.instance.scheduleReminder(reminder);
+      createdRows.add(reminder);
+    }
+    // N2/E35: ένα batch bake για όλες τις νέες rows, με budget — όχι N calls.
+    if (createdRows.isNotEmpty) {
+      await ReminderScheduler.instance.scheduleReminders(createdRows);
     }
   }
 

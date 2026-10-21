@@ -1172,18 +1172,26 @@ class ReminderRepository {
       await _isar.reminders.delete(id);
     });
   }
-  Future<int> cleanupOldPending({Duration maxAge = const Duration(days: 7)}) async {
+  /// Επιστρέφει τα ids που διαγράφηκαν, ώστε ο scheduler να καθαρίσει και
+  /// τα αντίστοιχα OS alarms (όχι μόνο DB rows).
+  Future<List<int>> cleanupOldPending(
+      {Duration maxAge = const Duration(days: 7)}) async {
     final cutoff = DateTime.now().subtract(maxAge);
     // ✅ Εξαιρούμε τα root recurring reminders (έχουν rrule != null)
     // γιατί το triggerAt τους είναι παλιό αλλά χρειάζονται ως "anchor"
     // για τη δημιουργία των child reminders.
     return _isar.writeTxn(() async {
-      return await _isar.reminders
+      final rows = await _isar.reminders
           .filter()
           .statusEqualTo(ReminderStatus.pending)
           .triggerAtLessThan(cutoff)
-          .rruleIsNull()  // ← ΜΟΝΟ non-recurring (one-shot) που έχουν περάσει
-          .deleteAll();
+          .rruleIsNull() // ← ΜΟΝΟ non-recurring (one-shot) που έχουν περάσει
+          .findAll();
+      final ids = [for (final r in rows) r.id];
+      if (ids.isNotEmpty) {
+        await _isar.reminders.deleteAll(ids);
+      }
+      return ids;
     });
   }
 
