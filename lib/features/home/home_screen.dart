@@ -692,6 +692,12 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
       padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          // E30: ίδιο guard με το skeleton — μηδενικό/άπειρο πλάτος δεν έχει
+          // νόημα να σχεδιαστεί (και θα έσπαγε το mainAxisExtent).
+          if (!constraints.hasBoundedWidth ||
+              constraints.maxWidth <= spacing * (crossAxisCount - 1)) {
+            return const SizedBox.shrink();
+          }
           final cellWidth =
               (constraints.maxWidth - spacing * (crossAxisCount - 1)) / crossAxisCount;
           // Square στο 1.0· auto-height (έως 144) όσο μεγαλώνει το text scale.
@@ -761,6 +767,13 @@ class _LoadingSkeleton extends StatelessWidget {
           const SizedBox(height: Spacing.sm),
           LayoutBuilder(
             builder: (context, constraints) {
+              // E30: σε warm-up frame / μηδενικό πλάτος το cellWidth γίνεται
+              // αρνητικό -> mainAxisExtent < 0 (debug assertion). Δεν υπάρχει
+              // τίποτα να σχεδιαστεί με τόσο μικρό (ή άπειρο) πλάτος.
+              if (!constraints.hasBoundedWidth ||
+                  constraints.maxWidth <= Spacing.sm * (crossAxisCount - 1)) {
+                return const SizedBox.shrink();
+              }
               final cellWidth =
                   (constraints.maxWidth - Spacing.sm * (crossAxisCount - 1)) /
                       crossAxisCount;

@@ -72,7 +72,7 @@
 > **P3 = ΜΕΛΛΟΝΤΙΚΕΣ ΠΡΟΣΘΗΚΕΣ – ΑΝΑΒΑΘΜΙΣΕΙΣ** → νέα features + δομική καθαριότητα.
 > **P4 = By-design/αποδεκτά** → καμία ενέργεια. *Κανένα επιβεβαιωμένο crash ή απώλεια δεδομένων.*
 
-### 🔴 P1 — Σφάλματα (7)
+### 🔴 P1 — Σφάλματα (6)
 
 | # | ID | Θέμα | Γιατί είναι P1 (απόδειξη) |
 |---|---|---|---|
@@ -82,7 +82,6 @@
 | 4 | `E18` | **`catch (_) {}` ×21** (R4) | Κρύβει σφάλματα (backup/attachments/habits) → αόρατες αποτυχίες |
 | 5 | `E04` | **Outer-context theme lookup** (κλάση S129/S133) | Crash-class: debug assertion, ρίσκο σε release/reassemble |
 | 6 | `E10` | **B2.3** — title/body χωρίς σύγκριση πριν το rebake | Ειδοποίηση με παλιό/λάθος κείμενο μέχρι το επόμενο rebake |
-| 7 | `E30` | **`mainAxisExtent<0` στο `_LoadingSkeleton`** | `cellWidth` αρνητικό όταν `constraints.maxWidth≈0` (warm-up frame) → debug assertion / λάθος layout (`home_screen.dart:762-779`) |
 
 ### 🟠 P2 — Βελτιώσεις λειτουργιών (10)
 
@@ -283,11 +282,8 @@
 - **Γιατί P1:** ορατά λάθος συμπεριφορά (όχι data loss).
 - **Fix (χωριστό βήμα):** `await NotificationService.instance.cancelAll();` πριν/μετά το κλείσιμο της DB + `DebugConfig.notif` με `os=` για επιβεβαίωση.
 
-### E30 — `mainAxisExtent` αρνητικό στο `_LoadingSkeleton` (νέο, 21/10/2026)
-- **Απόδειξη (device, debug assertion):** `Failed assertion: mainAxisExtent == null || mainAxisExtent >= 0` από `home_screen.dart:762-779` (warm-up frame· εμφανίστηκε στο console του `flutter run`, όχι στο logcat).
-- **Αιτία:** `cellWidth = (maxWidth - sm*(n-1))/n` → αρνητικό όταν `constraints.maxWidth < sm*(n-1)` (π.χ. 0 στο πρώτο frame).
-- **Ίδιο pattern:** `home_screen.dart:698` (το πραγματικό grid) — ελέγξτε τον ίδιο κίνδυνο.
-- **Fix:** early return όταν `constraints.maxWidth <= 0` (ή clamp `cellWidth` σε ≥0) + ίδιο guard στο `:698`.
+### E30 — ✅ CLOSED 21/10/2026 (grid extent guards) — βλ. §3
+- **Υλοποίηση:** guard `!hasBoundedWidth || maxWidth <= spacing*(n-1)` σε 3 σημεία: `home_screen.dart:694` (grid), `:767` (skeleton), `collections_screen.dart:236`· device-verified (βλ. §3 + Progress log).
 
 ### E26 — Τελικό κλείσιμο
 1. `oldsessions.md`: 1 κεφάλαιο «Φ5 — error_list sweep» (τι έκλεισε, ημερομηνίες, hashes, device tests).
@@ -306,6 +302,7 @@
 - **Providers/lifecycle:** S170, S171, S179, S181 (`getByIds`), S182 (PIN state), S187, S189, S191.
 - **Scheduler:** S194 (done/cancelled σίγαση), S196 (DTSTART/DST), S198, S199, S201, S206, S212, S215, S244–S246 (`SerialPassQueue`), S248, S250 race, S252 (postFrame δίχτυα).
 - **`E15` — CLOSED 21/10/2026 (device-verified, F2 OFF path):** OFF πλέον μόνο μέσω `_bakeQueue` (A: `toggleNotifications` = 1 κλήση `scheduleAll()` για ON/OFF)· OFF branch = `cancelAll()` + `_osWindowTruncated=false` + `os=` log + warning (B/B3)· `_scheduleOne` λύνει mode **πριν** το fresh enabled guard (C)· φραγή κάθε 20 alarms (C3). Device (POCO X3, 101 reminders): ON `os=45`/`dumpsys=45` → OFF `os=0`/`dumpsys=0` (132ms) → reboot 0 → ON `os=46` → **race**: `queued id=14` μέσα σε ενεργό bake + `WRN OFF mid-loop at 100/101` + `cancelAll` μετά → `dumpsys=0` → ήχος/δόνηση ×4 bakes `os=46` → πραγματική ειδοποίηση χτύπησε + tap → `NoteDetail 415`.
+- **`E30` — CLOSED 21/10/2026 (device-verified, grid extents):** `cellWidth` αρνητικό σε warm-up frame (`maxWidth≈0`) → `mainAxisExtent<0`. Guard `!hasBoundedWidth || maxWidth <= spacing*(n-1)` → `SizedBox.shrink()` σε **3** σημεία: `home_screen.dart:694` (grid), `:767` (skeleton), `collections_screen.dart:236`. Device (POCO X3, `flutter run`-attached cold start 14:01:59, pid 14755): κανένα `mainAxisExtent`/`EXCEPTION`/`E/flutter` στο logcat της ίδιας διεργασίας — όπου φαίνονται κανονικά τα app `debugPrint` (`STARTUP +5795ms`, `HabitService.topUp: os=45`). analyze clean · test **259/259**.
 - **Settings:** S253 (9 guards + split 9 αρχεία), S254 (`selection_list_dialog`), S255 (F13 `unarchiveMany`), S256 (F9 pop), S257 (F18 fresh list), S258 (F9c dead members), S259 (F17 slider), S260 (F18 tests), S262-b (popup overflow ×7, chip minWidth, `_PropRow`, «Όλοι» drag flag).
 - **Grid:** S261 (auto-height) + S262/S262-b fixes → μένει μόνο **E03 re-verify**.
 - **`E24` «grid-mode guard gap» — CLOSED 21/10/2026 (stale, όχι bug):** `onReorderItem` του SDK διορθώνει ήδη το `newIndex` (`reorderable_list.dart:82-83,129-131`) · το `SliverReorderableGrid` δίνει index κελιού-στόχου (`reorderable_grid.dart:573-577,652-663`) · και τα δύο ταιριάζουν με `removeAt+insert` του `moveAndMerge` (`reorder_utils.dart:26-29`) ⇒ κανένα off-by-one. (Προαιρετικό device spot-check σε tablet grid.)
@@ -326,6 +323,7 @@
 | 21/10/2026 | E15 | **Device T1–T7 (POCO X3, 101 reminders):** ON `os=45`=`dumpsys` → OFF `os=0`=`dumpsys` (132ms) → νέα υπενθύμιση με OFF = κανένα alarm → reboot 0 → ON `os=46` → **race**: `queued id=14` μέσα σε ενεργό bake + `WRN OFF mid-loop at 100/101` + cancelAll μετά → `dumpsys=0` → ήχος/δόνηση ×4 `os=46` → ειδοποίηση χτύπησε & tap → `NoteDetail 415`. | logcat 13:04–13:33 · `dumpsys alarm` |
 | 21/10/2026 | E29, E30 | **Νέα ευρήματα:** (E29) `clearAllData` χωρίς `cancelAll` → παλιά alarms μετά το wipe· (E30) `mainAxisExtent<0` στο `_LoadingSkeleton` (debug assertion σε warm-up frame, `home_screen.dart:762-779`). | `settings_backup.dart:161-291` · `home_screen.dart:762-779,698` |
 | 21/10/2026 | — | **SOP ενημέρωσης** στο `error_list.md` (η ροή του E15 ως πρότυπο: Α πριν το edit · Β ένα βήμα · Γ device 2 πηγές · Δ §1/§2/§3/§4/§0) + «πρώτο που διαβάζω». | `error_list.md:9-36` · backup `backups/s265_sop_error_list/` |
+| 21/10/2026 | E30 | **Fix (3 βήματα):** guard `mainAxisExtent` σε `home_screen.dart:694,767` + `collections_screen.dart:236` → `SizedBox.shrink()` όταν `!hasBoundedWidth || maxWidth <= spacing*(n-1)`· backup `backups/s266_e30_grid_extent/`. **Device:** cold start μέσω ενεργού `flutter run` (pid 14755, 14:01:59) — κανένα assertion στο logcat της ίδιας διεργασίας. | analyze clean · test **259/259** · logcat 14:01–14:02 · `error_list.md` §1 `(7)`→`(6)` |
 
 ---
 
