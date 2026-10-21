@@ -233,6 +233,12 @@ class _CollectionsReorderableGrid extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // E30: ίδιος guard — μηδενικό/άπειρο πλάτος δίνει αρνητικό cellWidth
+        // και σπάει το mainAxisExtent.
+        if (!constraints.hasBoundedWidth ||
+            constraints.maxWidth <= 2 * hPad + Spacing.md * (cols - 1)) {
+          return const SizedBox.shrink();
+        }
         final cellWidth =
             (constraints.maxWidth - 2 * hPad - Spacing.md * (cols - 1)) / cols;
         // Square στο 1.0· auto-height (έως 102) όσο μεγαλώνει το text scale.
