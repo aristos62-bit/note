@@ -1,5 +1,7 @@
 # SuperNote — Πλήρης Τεκμηρίωση Εφαρμογής
 
+> **⚠️ ΕΚΚΡΕΜΟΤΗΤΕΣ & ΠΡΟΟΔΟΣ (21/10/2026):** τηρούνται **ΜΟΝΟ** στο **`error_list.md`** — μοναδική πηγή. Το παρόν αρχείο περιέχει **μόνο αρχιτεκτονική**· τυχόν status/lists εδώ (Error Handling, Performance Notes, test counter κ.λπ.) είναι **ενδεικτικά και πιθανόν stale** — δεν αποτελούν tracker και **δεν** ενημερώνονται για εκκρεμότητες.
+
 ## Στοιχεία Έργου
 
 | Πεδίο | Τιμή |
@@ -136,6 +138,8 @@ lib/
 │   ├── services.dart             — Barrel export
 │   ├── notification_service.dart — flutter_local_notifications init
 │   ├── reminder_scheduler.dart   — Schedule/cancel platform notifications
+│   ├── reminder_text.dart        — Pure title/body resolver (E10)
+│   ├── reminder_bake_plan.dart   — Pure OS bake planner (E10/E35)
 │   ├── migration_service.dart    — Schema versioning + migrations
 │   ├── search_service.dart       — Full-text search
 │   ├── habit_service.dart        — Habit stats, streak, progress
@@ -435,19 +439,23 @@ final db = SuperNoteHelper.instance;
 - `syncChannel(vibration)` — delete+recreate καναλιού· μόνο στο toggle, ποτέ στο init· ήχος OFF μέσω `silent` (S58)
 
 ### ReminderScheduler (`lib/services/reminder_scheduler.dart`)
-- `scheduleAll()` — schedule all pending reminders
-- `scheduleReminder(Reminder)` — single reminder scheduling
-- `cancelAllForItem(int itemId)` — cancel all for an item
-- `refreshRecurringReminders()` — re-schedule recurring reminders
-- `rescheduleForItem(int id)` — single-item OS reschedule (unarchive/restore/reactivate — S234)
-- `debouncedRefreshRecurringReminders()` — with debounce for app resume
-- One-shot κανόνας (S51): κάθε προγραμματισμένη εμφάνιση = one-shot (`rrule:null`)· roots (`rrule!=null`, `parent==null`) μόνο anchors για refresh· habits = δικά τους one-shots (η recurrence ζει στα props)
-- Σίγαση semantics: archived (S143) · done/cancelled (S194) · κάδος (S213) — `_scheduleOne` + refresh σκιπάρουν· τα rows **μένουν**, φεύγουν μόνο τα OS alarms· επιστροφή σε ενεργό → reschedule
-- Snooze (S52): status μένει `pending`, `triggerAt` = οδηγός· OS reschedule στο provider (`cancelReminder`+`scheduleReminder`)· εξαίρεση από wrong-time cleanup
-- `permanentDelete` (S53): `deleteAllRemindersForItem` **πριν** το `hardDelete` — σειρά υποχρεωτική (τα OS ids χάνονται μετά τη DB διαγραφή)
-- Bake accounting (S234): `ScheduleOutcome {baked, skipped, failed, kept}` — `kept` = incremental sync (alarm ήδη στο OS)· SUCCESS log μόνο σε `baked`
-- Budget (S236): `osAlarmLimit` — iOS/macOS 60 · Android 450, oldest-first· `truncated` flag (in-memory) + day-rebake στο resume· singles εκτός budget
-- Interval>1 (S54): weekly/monthly/yearly σέβονται το διάστημα — scheduler anchor = root· tests `recurrence_weekly_test.dart`
+- `scheduleAll({incremental})` — full/incremental bake· `scheduleReminders(Iterable<Reminder>)` — batch (refresh/top-up/repair)· `scheduleReminder`, `rescheduleReminder` (snooze/trigger change), `rescheduleForItem` (rename/status/archive/restore).
+- Cancel/delete API: `cancelReminderIds`, `cancelAllForItem`, `deleteSingleReminder`, `deleteReminderThread`, `deleteAllRemindersForItem`, `refreshRecurringReminders`, `debouncedRefreshRecurringReminders`.
+- Text SPoT (`reminder_text.dart`): generic «Υπενθύμιση» → live body· event birthday → live body· contact birthday → live title+body· habit generated → σταθερό title + «Υπενθύμιση: <όνομα>»· `title == null` → live title από item.
+- Planner (`reminder_bake_plan.dart`): oldest-first· keep μόνο όταν OS title/body == resolved· replacements δεν παίρνουν νέο slot· νέα rows μόνο σε ελεύθερα slots· scoped stale cancel· `forceSchedule` για item-wide rebake· `truncated`.
+- Race/queue (E17/E34): cancel/delete/schedule mutations μέσω `_bakeQueue`· DB-first delete + `finally` OS cancel· unconditional wipe με scan `payload == itemId`· `_scheduleOne` φρέσκα row/item/settings guards (orphan, archived, κάδος, done/cancelled, past).
+- One-shot κανόνας (S51): κάθε προγραμματισμένη εμφάνιση = one-shot (`rrule:null`)· roots (`rrule!=null`, `parent==null`) μόνο anchors για refresh· habits = δικά τους one-shots (η recurrence ζει στα props).
+- Σίγαση semantics: archived (S143) · done/cancelled (S194) · κάδος (S213) — `_scheduleOne` + refresh σκιπάρουν· τα rows **μένουν**, φεύγουν μόνο τα OS alarms· επιστροφή σε ενεργό → reschedule.
+- Snooze (S52): status μένει `pending`, `triggerAt` = οδηγός· DB snooze πρώτα, μετά `rescheduleReminder` (cancel + fresh schedule στο ίδιο queue pass)· εξαίρεση από wrong-time cleanup.
+- `permanentDelete` (S53): `deleteAllRemindersForItem` **πριν** το `hardDelete` — DB rows + OS cancel + payload ghosts.
+- Bake accounting (S234): `ScheduleOutcome {baked, skipped, failed, kept}`· το keep αποφασίζεται πλέον στον planner (ίδιο text), το `_scheduleOne` επιστρέφει baked/skipped/failed· SUCCESS log μόνο σε `baked`.
+- Budget (S236/E35): `osAlarmLimit` — iOS/macOS 60 · Android 450, oldest-first· εφαρμόζεται σε scheduleAll, batch, rescheduleForItem, refresh/topUp και single· `truncated` flag + day-rebake στο resume.
+- Interval>1 (S54): weekly/monthly/yearly σέβονται το διάστημα — scheduler anchor = root· tests `recurrence_weekly_test.dart`.
+
+### ReminderText / ReminderBakePlan (`lib/services/reminder_text.dart`, `reminder_bake_plan.dart`)
+- Pure συμβόλαια χωρίς Isar/plugin: δέχονται `Reminder`/`Item`/OS snapshots και επιστρέφουν text ή απόφαση bake.
+- Το `ReminderText` χρησιμοποιείται και από τον scheduler και από το `rescheduleForItem` για DB text sync root+children, ώστε DB και OS να συμφωνούν.
+- Το `ReminderBakePlan` δεν εκτελεί τίποτα· ο scheduler κάνει πρώτα cancel των stale IDs και μετά schedule των replacements/new rows.
 
 ### HabitService (`lib/services/habit_service.dart`)
 - `getStats(int habitId)` → `HabitStats` (streak, bestStreak, completedCount, dailyProgress, progressPercent, todayTimeProgress)
@@ -457,9 +465,10 @@ final db = SuperNoteHelper.instance;
 - `setGoal()`, `setUnit()`, `setRecurrence()`, `setReminderTime()`, `setReminderTimes()`
 - Streak calculation: `_calculateStreak()`, `_countCompletedPeriods()`
 - Period awareness: respects recurrence type (daily/weekly/monthly/yearly)
-- Scheduling ownership (S61): habits έχουν δικό τους scheduling — ώρες (`reminder_time(s)`) → one-shots 60d· καμπάνα (`ReminderSection`) απενεργοποιημένη σε detail+list· `refreshRecurringReminders` σκιπάρει habits
-- `generatedTitle` = «Υπενθύμιση συνήθειας» (διαχωρισμός από bell τίτλο)· `syncScheduleWithRecurrence`· `topUpHabitReminders` (10min guard, opt-in, postFrame)· `repairLegacyHabitRows` (idempotent · δικό του pass — S248)· selective wipe
-- Ώρες weekly/monthly (S62): `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις)
+- Scheduling ownership (S61): habits έχουν δικό τους scheduling — ώρες (`reminder_time(s)`) → one-shots 60d· καμπάνα (`ReminderSection`) απενεργοποιημένη σε detail+list· `refreshRecurringReminders` σκιπάρει habits.
+- `generatedTitle = habitGeneratedTitle` = «Υπενθύμιση συνήθειας» (κοινό literal με `ReminderText`, διαχωρισμός από bell τίτλο)· `syncScheduleWithRecurrence`· `topUpHabitReminders` (10min guard, opt-in, postFrame, **ένα batch** για όλα τα habits)· `repairLegacyHabitRows` (idempotent · δικό του pass — S248).
+- Selective wipe (S270): `_clearHabitGenerated` σβήνει **μόνο** habit-generated rows (DB πρώτα, μετά OS ids)· ποτέ `cancelAllForItem`· `setReminderTime` καθαρίζει το legacy `reminder_times`· topUp/repair σκιπάρουν archived/deleted/done/cancelled.
+- Ώρες weekly/monthly (S62): `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις).
 
 ### ContactImportService (`lib/services/contact_import_service.dart`)
 - `requestPermission()` — FlutterContacts permission
