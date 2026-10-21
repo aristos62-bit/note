@@ -250,11 +250,21 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
     await SuperNoteHelper.instance.close();
 
     final isarDir = await getApplicationDocumentsDirectory();
-    final isarFile = File('${isarDir.path}/super_note_db.isar');
+    final isarFile = File('${isarDir.path}/${BackupService.dbFileName}');
     if (await isarFile.exists()) {
       await isarFile.delete();
       DebugConfig.db('Isar database file deleted');
     }
+
+    // E29: durable καθαρισμός OS alarms/tray μετά τη διαγραφή της DB.
+    // Reuse του υπάρχοντος primitive (E15-F2): tray + AlarmManager + boot
+    // cache. Το Isar.close() περιμένει τα active async txns
+    // (isar_common.dart:181) → μετά το close() δεν ξεκινά νέο schedule· ό,τι
+    // πρόλαβε έχει ήδη σταλεί στο channel πριν από αυτό το cancelAll.
+    await NotificationService.instance.cancelAll();
+    final osCache =
+        (await NotificationService.instance.getPendingNotifications()).length;
+    DebugConfig.notif('clearAllData: cancelAll done, osCache=$osCache');
 
     // Δεν κάνουμε SuperNoteHelper.init() εδώ – θα γίνει μετά την επανεκκίνηση
     // Εμφανίζουμε dialog και κλείνουμε την εφαρμογή
