@@ -167,23 +167,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     final title = _titleCtrl.text.trim().isEmpty
         ? 'Εργασία'
         : _titleCtrl.text.trim();
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: ReminderSection(
-          itemId:           widget.itemId,
-          itemTitle:        title,
-          defaultStartTime: null,
-        ),
-      ),
+    await showReminderSheet(
+      context,
+      itemId: widget.itemId,
+      itemTitle: title,
     );
   }
 
@@ -779,29 +766,29 @@ class _StatusSelector extends StatelessWidget {
       context,
       builder: (sheetCtx) => SafeSheet(
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: Spacing.sm),
-          Text('Κατάσταση', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: Spacing.xs),
-          ..._opts.map((o) => ListTile(
-            leading: Icon(o.$3,
-                color: o.$1 == current ? context.cPrimary : context.cText2),
-            title: Text(o.$2, style: context.bodyMd.copyWith(
-              fontWeight:
-              o.$1 == current ? FontWeight.w600 : FontWeight.normal,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: Spacing.sm),
+            Text('Κατάσταση', style: sheetCtx.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: Spacing.xs),
+            ..._opts.map((o) => ListTile(
+              leading: Icon(o.$3,
+                  color: o.$1 == current ? sheetCtx.cPrimary : sheetCtx.cText2),
+              title: Text(o.$2, style: sheetCtx.bodyMd.copyWith(
+                fontWeight:
+                o.$1 == current ? FontWeight.w600 : FontWeight.normal,
+              )),
+              trailing: o.$1 == current
+                  ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary)
+                  : null,
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                onSelect(o.$1);
+              },
             )),
-            trailing: o.$1 == current
-                ? Icon(Icons.check_rounded, color: context.cPrimary)
-                : null,
-            onTap: () {
-              Navigator.pop(sheetCtx);
-              onSelect(o.$1);
-            },
-          )),
-          const SizedBox(height: Spacing.md),
-        ],
-      ),
+            const SizedBox(height: Spacing.md),
+          ],
+        ),
       ),
     );
   }
@@ -841,30 +828,30 @@ class _PrioritySelector extends StatelessWidget {
       context,
       builder: (sheetCtx) => SafeSheet(
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: Spacing.sm),
-          Text('Προτεραιότητα', style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: Spacing.xs),
-          ..._opts.map((p) => ListTile(
-            leading: p == ItemPriority.none
-                ? Icon(Icons.remove_rounded, color: context.cText2)
-                : Icon(PriorityBadge.iconFor(p),
-                color: context.priorityColor(p)),
-            title: p == ItemPriority.none
-                ? Text('Καμία', style: context.bodyMd)
-                : PriorityBadge(priority: p),
-            trailing: p == current
-                ? Icon(Icons.check_rounded, color: context.cPrimary)
-                : null,
-            onTap: () {
-              Navigator.pop(sheetCtx);
-              onSelect(p);
-            },
-          )),
-          const SizedBox(height: Spacing.md),
-        ],
-      ),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: Spacing.sm),
+            Text('Προτεραιότητα', style: sheetCtx.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: Spacing.xs),
+            ..._opts.map((p) => ListTile(
+              leading: p == ItemPriority.none
+                  ? Icon(Icons.remove_rounded, color: sheetCtx.cText2)
+                  : Icon(PriorityBadge.iconFor(p),
+                  color: sheetCtx.priorityColor(p)),
+              title: p == ItemPriority.none
+                  ? Text('Καμία', style: sheetCtx.bodyMd)
+                  : PriorityBadge(priority: p),
+              trailing: p == current
+                  ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary)
+                  : null,
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                onSelect(p);
+              },
+            )),
+            const SizedBox(height: Spacing.md),
+          ],
+        ),
       ),
     );
   }

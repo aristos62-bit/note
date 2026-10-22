@@ -1554,47 +1554,48 @@ class _HabitSettings extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: context.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: Spacing.md),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: keyboardType,
-              decoration: InputDecoration(
-                hintText: title,
-                filled: true,
-                fillColor: ColorsUI.getSurface(context.brightness),
-                border: OutlineInputBorder(
-                  borderRadius: AppRadius.inputBR,
-                  borderSide:
-                      BorderSide(color: ColorsUI.getBorder(context.brightness)),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: sheetCtx.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: Spacing.md),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: keyboardType,
+                decoration: InputDecoration(
+                  hintText: title,
+                  filled: true,
+                  fillColor: ColorsUI.getSurface(sheetCtx.brightness),
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.inputBR,
+                    borderSide:
+                        BorderSide(color: ColorsUI.getBorder(sheetCtx.brightness)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: Spacing.md),
-            Row(children: [
-              Expanded(
-                  child: OutlinedButton(
-                      onPressed: () => Navigator.pop(sheetCtx),
-                      child: const Text('Άκυρο'))),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () async {
-                    final nav = Navigator.of(sheetCtx);
-                    await onSave(ctrl.text.trim());
-                    nav.pop();
-                  },
-                  child: const Text('Αποθήκευση'),
+              const SizedBox(height: Spacing.md),
+              Row(children: [
+                Expanded(
+                    child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetCtx),
+                        child: const Text('Άκυρο'))),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () async {
+                      final nav = Navigator.of(sheetCtx);
+                      await onSave(ctrl.text.trim());
+                      if (!sheetCtx.mounted) return;
+                      nav.pop();
+                    },
+                    child: const Text('Αποθήκευση'),
+                  ),
                 ),
-              ),
-            ]),
-            const SizedBox(height: Spacing.md),
-          ],
-        ),
+              ]),
+              const SizedBox(height: Spacing.md),
+            ],
+          ),
         ),
       ),
     );

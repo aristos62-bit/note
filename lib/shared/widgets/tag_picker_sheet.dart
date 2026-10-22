@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../providers/providers.dart';
-import 'sheet_handle.dart';
+import 'safe_sheet.dart';
 import 'tag_chip.dart';
 
 class TagPickerSheet extends ConsumerStatefulWidget {
@@ -33,6 +33,7 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
     await ref
         .read(tagNotifierProvider.notifier)
         .addToItem(widget.itemId, tag.id);
+    if (!mounted) return;
     _ctrl.clear();
   }
 
@@ -43,20 +44,14 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
     final itemTagIds =
         itemTagsAsync.valueOrNull?.map((t) => t.id).toSet() ?? {};
 
-    return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: SingleChildScrollView(
-          child: Column(
+    return SafeSheet(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: SheetHandle(),
-            ),
-            const SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.sm),
             Text('Προσθήκη Tag', style: context.titleSm),
             const SizedBox(height: Spacing.md),
             TextField(
@@ -77,32 +72,30 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
               error: (_, __) => const SizedBox.shrink(),
               data: (tags) {
                 final available =
-                tags.where((t) => !itemTagIds.contains(t.id)).toList();
+                    tags.where((t) => !itemTagIds.contains(t.id)).toList();
                 if (available.isEmpty) return const SizedBox.shrink();
                 return Wrap(
                   spacing: Spacing.xs,
                   runSpacing: Spacing.xs,
                   children: available
                       .map((t) => TagChip(
-                    name: t.name,
-                    color: t.color,
-                    onTap: () async {
-                      final nav = Navigator.of(context);
-                      await ref
-                          .read(tagNotifierProvider.notifier)
-                          .addToItem(widget.itemId, t.id);
-                      nav.pop();
-                    },
-                  ))
+                            name: t.name,
+                            color: t.color,
+                            onTap: () async {
+                              final nav = Navigator.of(context);
+                              await ref
+                                  .read(tagNotifierProvider.notifier)
+                                  .addToItem(widget.itemId, t.id);
+                              if (!mounted) return;
+                              nav.pop();
+                            },
+                          ))
                       .toList(),
                 );
               },
             ),
-            SizedBox(
-              height: MediaQuery.of(context).padding.bottom + Spacing.sm,
-            ),
+            const SizedBox(height: Spacing.md),
           ],
-          ),
         ),
       ),
     );
@@ -111,16 +104,9 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
 
 // Helper function για εύκολη χρήση
 void showTagPickerSheet(BuildContext context, int itemId) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: ColorsUI.getSurface(context.brightness),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(AppRadius.bottomSheet),
-        topRight: Radius.circular(AppRadius.bottomSheet),
-      ),
-    ),
-    builder: (_) => TagPickerSheet(itemId: itemId),
+  showSafeSheet<void>(
+    context,
+    scrollControlled: true,
+    child: TagPickerSheet(itemId: itemId),
   );
 }

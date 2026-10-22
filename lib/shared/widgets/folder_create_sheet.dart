@@ -18,7 +18,7 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
-import 'sheet_handle.dart';
+import 'safe_sheet.dart';
 
 /// Κοινή λίστα τύπων δημιουργίας (byte-identical με την home-λίστα,
 /// που ήταν η πλήρης — ο browser έχανε το appointment).
@@ -45,57 +45,33 @@ class FolderCreateSheet extends StatelessWidget {
     required String folderName,
   }) {
     DebugConfig.nav('FolderCreateSheet.show folder="$folderName"');
-    return showModalBottomSheet<ItemType?>(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => FolderCreateSheet(folderName: folderName),
+    return showSafeSheet<ItemType?>(
+      context,
+      child: FolderCreateSheet(folderName: folderName),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return SafeSheet(
+      title: 'Νέο στοιχείο σε "$folderName"',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SheetHandle(
-            margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.lg, vertical: Spacing.xs),
-            child: Text('Νέο στοιχείο σε "$folderName"',
-                style: context.titleSm),
-          ),
           const Divider(),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...kFolderCreateTypes.map((t) => ListTile(
-                        leading:
-                            Text(t.$2, style: const TextStyle(fontSize: 22)),
-                        title: Text(t.$3, style: context.bodyMd),
-                        trailing: Icon(Icons.chevron_right_rounded,
-                            size: 18, color: context.cDisabled),
-                        onTap: () {
-                          DebugConfig.nav(
-                              'FolderCreateSheet select=${t.$1.name}');
-                          Navigator.pop(context, t.$1);
-                        },
-                      )),
-                  const SizedBox(height: Spacing.sm),
-                ],
-              ),
-            ),
-          ),
+          ...kFolderCreateTypes.map((t) => ListTile(
+                leading:
+                    Text(t.$2, style: const TextStyle(fontSize: 22)),
+                title: Text(t.$3, style: context.bodyMd),
+                trailing: Icon(Icons.chevron_right_rounded,
+                    size: 18, color: context.cDisabled),
+                onTap: () {
+                  DebugConfig.nav(
+                      'FolderCreateSheet select=${t.$1.name}');
+                  Navigator.pop(context, t.$1);
+                },
+              )),
+          const SizedBox(height: Spacing.sm),
         ],
       ),
     );

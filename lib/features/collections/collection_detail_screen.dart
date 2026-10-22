@@ -209,243 +209,236 @@ class _CollectionDetailScreenState
       activePresets.add('Έγγραφα');
     }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + Spacing.md,
-            left:  Spacing.lg, right: Spacing.lg, top: Spacing.md,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(existing == null ? 'Νέο Πεδίο' : 'Επεξεργασία Πεδίου',
-                  style: context.titleMd),
-              const SizedBox(height: Spacing.md),
-
-              // Label
-              TextField(
-                controller: labelCtrl,
-                autofocus:  true,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: 'Όνομα πεδίου',
-                  filled:    true,
-                  fillColor: ColorsUI.getSurface(context.brightness),
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.inputBR,
-                    borderSide: BorderSide(
-                        color: ColorsUI.getBorder(context.brightness)),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: Spacing.md),
-
-              // Type
-              Text('Τύπος πεδίου',
-                  style: context.labelMd.withColor(context.cText2)),
-              const SizedBox(height: Spacing.xs),
-              Wrap(
-                spacing: Spacing.xs,
-                runSpacing: Spacing.xs,
-                children: FieldType.values.map((t) {
-                  final isActive = t == selectedType;
-                  return GestureDetector(
-                    onTap: () => setModal(() => selectedType = t),
-                    child: AnimatedContainer(
-                      duration: AppDuration.fast,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: Spacing.sm, vertical: Spacing.xs),
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? context.cPrimary.withValues(alpha: 0.12)
-                            : ColorsUI.getSurface(context.brightness),
-                        borderRadius: BorderRadius.circular(AppRadius.badge),
-                        border: Border.all(
-                          color: isActive
-                              ? context.cPrimary
-                              : ColorsUI.getBorder(context.brightness),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(FieldDef(key: '', label: '',
-                              type: t).icon, size: 14,
-                              color: isActive
-                                  ? context.cPrimary : context.cText2),
-                          const SizedBox(width: 4),
-                          Text(FieldDef(key: '', label: '',
-                              type: t).typeName,
-                              style: context.labelSm.withColor(
-                                  isActive ? context.cPrimary
-                                      : context.cText2)),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              // Options for select
-              if (selectedType == FieldType.select) ...[
+    showSafeSheet<void>(
+      context,
+      scrollControlled: true,
+      builder: (_) => SafeSheet(
+        child: StatefulBuilder(
+          builder: (innerCtx, setModal) => Padding(
+            padding: const EdgeInsets.fromLTRB(
+                Spacing.lg, Spacing.sm, Spacing.lg, Spacing.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(existing == null ? 'Νέο Πεδίο' : 'Επεξεργασία Πεδίου',
+                    style: innerCtx.titleMd),
                 const SizedBox(height: Spacing.md),
+
+                // Label
                 TextField(
-                  controller: optionsCtrl,
+                  controller: labelCtrl,
+                  autofocus:  true,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: 'Επιλογές (χωρισμένες με κόμμα)',
-                    hintText:  'Rock, Jazz, Classical',
+                    labelText: 'Όνομα πεδίου',
                     filled:    true,
-                    fillColor: ColorsUI.getSurface(context.brightness),
+                    fillColor: ColorsUI.getSurface(innerCtx.brightness),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.inputBR,
                       borderSide: BorderSide(
-                          color: ColorsUI.getBorder(context.brightness)),
+                          color: ColorsUI.getBorder(innerCtx.brightness)),
                     ),
                   ),
                 ),
-              ],
 
-              // Extensions for attachment
-              if (selectedType == FieldType.attachment) ...[
                 const SizedBox(height: Spacing.md),
-                Text('Επιτρεπόμενοι τύποι αρχείων',
-                    style: context.labelMd.withColor(context.cText2)),
+
+                // Type
+                Text('Τύπος πεδίου',
+                    style: innerCtx.labelMd.withColor(innerCtx.cText2)),
                 const SizedBox(height: Spacing.xs),
                 Wrap(
                   spacing: Spacing.xs,
-                  children: [
-                    FilterChip(
-                      label: const Text('Εικόνες'),
-                      selected: activePresets.contains('Εικόνες'),
-                      onSelected: (sel) {
-                        _togglePresetExts(
-                          sel, 'Εικόνες', FieldDef.imagesExt,
-                          activePresets, extensionsCtrl);
-                        setModal(() {});
-                      },
-                    ),
-                    FilterChip(
-                      label: const Text('Έγγραφα'),
-                      selected: activePresets.contains('Έγγραφα'),
-                      onSelected: (sel) {
-                        _togglePresetExts(
-                          sel, 'Έγγραφα', FieldDef.documentsExt,
-                          activePresets, extensionsCtrl);
-                        setModal(() {});
-                      },
-                    ),
-                  ],
+                  runSpacing: Spacing.xs,
+                  children: FieldType.values.map((t) {
+                    final isActive = t == selectedType;
+                    return GestureDetector(
+                      onTap: () => setModal(() => selectedType = t),
+                      child: AnimatedContainer(
+                        duration: AppDuration.fast,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.sm, vertical: Spacing.xs),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? innerCtx.cPrimary.withValues(alpha: 0.12)
+                              : ColorsUI.getSurface(innerCtx.brightness),
+                          borderRadius: BorderRadius.circular(AppRadius.badge),
+                          border: Border.all(
+                            color: isActive
+                                ? innerCtx.cPrimary
+                                : ColorsUI.getBorder(innerCtx.brightness),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(FieldDef(key: '', label: '',
+                                type: t).icon, size: 14,
+                                color: isActive
+                                    ? innerCtx.cPrimary : innerCtx.cText2),
+                            const SizedBox(width: 4),
+                            Text(FieldDef(key: '', label: '',
+                                type: t).typeName,
+                                style: innerCtx.labelSm.withColor(
+                                    isActive ? innerCtx.cPrimary
+                                        : innerCtx.cText2)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-                const SizedBox(height: Spacing.sm),
-                TextField(
-                  controller: extensionsCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Επεκτάσεις (χωρισμένες με κόμμα)',
-                    hintText:  'κενό = όλοι οι τύποι',
-                    filled:    true,
-                    fillColor: ColorsUI.getSurface(context.brightness),
-                    border: OutlineInputBorder(
-                      borderRadius: AppRadius.inputBR,
-                      borderSide: BorderSide(
-                          color: ColorsUI.getBorder(context.brightness)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: Spacing.sm),
-                TextField(
-                  controller: maxFilesCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Μέγιστος αριθμός αρχείων',
-                    hintText: '1 έως 10',
-                    filled:    true,
-                    fillColor: ColorsUI.getSurface(context.brightness),
-                    border: OutlineInputBorder(
-                      borderRadius: AppRadius.inputBR,
-                      borderSide: BorderSide(
-                          color: ColorsUI.getBorder(context.brightness)),
-                    ),
-                  ),
-                ),
-              ],
 
-              const SizedBox(height: Spacing.lg),
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Άκυρο'),
+                // Options for select
+                if (selectedType == FieldType.select) ...[
+                  const SizedBox(height: Spacing.md),
+                  TextField(
+                    controller: optionsCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Επιλογές (χωρισμένες με κόμμα)',
+                      hintText:  'Rock, Jazz, Classical',
+                      filled:    true,
+                      fillColor: ColorsUI.getSurface(innerCtx.brightness),
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadius.inputBR,
+                        borderSide: BorderSide(
+                            color: ColorsUI.getBorder(innerCtx.brightness)),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: Spacing.sm),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () {
-                      final label = labelCtrl.text.trim();
-                      if (label.isEmpty) return;
-                      String key = label
-                          .toLowerCase()
-                          .replaceAll(' ', '_')
-                          .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-                      if (key.isEmpty) key = 'field_${DateTime.now().millisecondsSinceEpoch}';
-                      // Avoid duplicate keys
-                      while (_fields.any((f) => f.key == key)) {
-                        key = '${key}_${DateTime.now().millisecondsSinceEpoch}';
-                      }
-                      final options = selectedType == FieldType.select
-                          ? optionsCtrl.text
-                          .split(',')
-                          .map((s) => s.trim())
-                          .where((s) => s.isNotEmpty)
-                          .toList()
-                          : <String>[];
-                      final extensions = selectedType == FieldType.attachment
-                          ? extensionsCtrl.text
-                          .split(',')
-                          .map((s) => s.trim().toLowerCase())
-                          .where((s) => s.isNotEmpty)
-                          .toList()
-                          : <String>[];
-                      final maxFiles = selectedType == FieldType.attachment
-                          ? (int.tryParse(maxFilesCtrl.text.trim()) ?? 1).clamp(1, 10)
-                          : 0;
-                      if (selectedType == FieldType.attachment) {
-                        DebugConfig.db('maxFiles: "${maxFilesCtrl.text}" clamped → $maxFiles');
-                      }
-                      final field = FieldDef(
-                          key:     index >= 0
-                              ? _fields[index].key : key,
-                          label:   label,
-                          type:    selectedType,
-                          options: options,
-                          allowedExtensions: extensions,
-                          maxFiles: maxFiles);
-                      setState(() {
-                        if (index >= 0) {
-                          _fields[index] = field;
-                        } else {
-                          _fields.add(field);
+                ],
+
+                // Extensions for attachment
+                if (selectedType == FieldType.attachment) ...[
+                  const SizedBox(height: Spacing.md),
+                  Text('Επιτρεπόμενοι τύποι αρχείων',
+                      style: innerCtx.labelMd.withColor(innerCtx.cText2)),
+                  const SizedBox(height: Spacing.xs),
+                  Wrap(
+                    spacing: Spacing.xs,
+                    children: [
+                      FilterChip(
+                        label: const Text('Εικόνες'),
+                        selected: activePresets.contains('Εικόνες'),
+                        onSelected: (sel) {
+                          _togglePresetExts(
+                            sel, 'Εικόνες', FieldDef.imagesExt,
+                            activePresets, extensionsCtrl);
+                          setModal(() {});
+                        },
+                      ),
+                      FilterChip(
+                        label: const Text('Έγγραφα'),
+                        selected: activePresets.contains('Έγγραφα'),
+                        onSelected: (sel) {
+                          _togglePresetExts(
+                            sel, 'Έγγραφα', FieldDef.documentsExt,
+                            activePresets, extensionsCtrl);
+                          setModal(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  TextField(
+                    controller: extensionsCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Επεκτάσεις (χωρισμένες με κόμμα)',
+                      hintText:  'κενό = όλοι οι τύποι',
+                      filled:    true,
+                      fillColor: ColorsUI.getSurface(innerCtx.brightness),
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadius.inputBR,
+                        borderSide: BorderSide(
+                            color: ColorsUI.getBorder(innerCtx.brightness)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  TextField(
+                    controller: maxFilesCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Μέγιστος αριθμός αρχείων',
+                      hintText: '1 έως 10',
+                      filled:    true,
+                      fillColor: ColorsUI.getSurface(innerCtx.brightness),
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadius.inputBR,
+                        borderSide: BorderSide(
+                            color: ColorsUI.getBorder(innerCtx.brightness)),
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: Spacing.lg),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(innerCtx),
+                      child: const Text('Άκυρο'),
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        final label = labelCtrl.text.trim();
+                        if (label.isEmpty) return;
+                        String key = label
+                            .toLowerCase()
+                            .replaceAll(' ', '_')
+                            .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+                        if (key.isEmpty) key = 'field_${DateTime.now().millisecondsSinceEpoch}';
+                        // Avoid duplicate keys
+                        while (_fields.any((f) => f.key == key)) {
+                          key = '${key}_${DateTime.now().millisecondsSinceEpoch}';
                         }
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text('Αποθήκευση'),
+                        final options = selectedType == FieldType.select
+                            ? optionsCtrl.text
+                            .split(',')
+                            .map((s) => s.trim())
+                            .where((s) => s.isNotEmpty)
+                            .toList()
+                            : <String>[];
+                        final extensions = selectedType == FieldType.attachment
+                            ? extensionsCtrl.text
+                            .split(',')
+                            .map((s) => s.trim().toLowerCase())
+                            .where((s) => s.isNotEmpty)
+                            .toList()
+                            : <String>[];
+                        final maxFiles = selectedType == FieldType.attachment
+                            ? (int.tryParse(maxFilesCtrl.text.trim()) ?? 1).clamp(1, 10)
+                            : 0;
+                        if (selectedType == FieldType.attachment) {
+                          DebugConfig.db('maxFiles: "${maxFilesCtrl.text}" clamped → $maxFiles');
+                        }
+                        final field = FieldDef(
+                            key:     index >= 0
+                                ? _fields[index].key : key,
+                            label:   label,
+                            type:    selectedType,
+                            options: options,
+                            allowedExtensions: extensions,
+                            maxFiles: maxFiles);
+                        setState(() {
+                          if (index >= 0) {
+                            _fields[index] = field;
+                          } else {
+                            _fields.add(field);
+                          }
+                        });
+                        Navigator.pop(innerCtx);
+                      },
+                      child: const Text('Αποθήκευση'),
+                    ),
                   ),
-                ),
-              ]),
-            ],
+                ]),
+              ],
+            ),
           ),
         ),
       ),
@@ -784,53 +777,49 @@ class _CollectionDetailScreenState
   }
 
   void _pickIcon(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft:  Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Επιλογή εικονιδίου', style: context.titleSm),
-            const SizedBox(height: Spacing.md),
-            Wrap(
-              spacing: Spacing.md, runSpacing: Spacing.md,
-              children: _kIcons.map((emoji) => GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _icon = emoji;
-                    _hasChanges = true;
-                  });
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  width: 52, height: 52,
-                  decoration: BoxDecoration(
-                    color: _icon == emoji
-                        ? context.cPrimary.withValues(alpha: 0.12)
-                        : ColorsUI.getSurface(context.brightness),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(
+    showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SafeSheet(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+              Spacing.lg, 0, Spacing.lg, Spacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Επιλογή εικονιδίου', style: sheetCtx.titleSm),
+              const SizedBox(height: Spacing.md),
+              Wrap(
+                spacing: Spacing.md, runSpacing: Spacing.md,
+                children: _kIcons.map((emoji) => GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _icon = emoji;
+                      _hasChanges = true;
+                    });
+                    Navigator.pop(sheetCtx);
+                  },
+                  child: Container(
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(
                       color: _icon == emoji
-                          ? context.cPrimary
-                          : ColorsUI.getBorder(context.brightness),
+                          ? sheetCtx.cPrimary.withValues(alpha: 0.12)
+                          : ColorsUI.getSurface(sheetCtx.brightness),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(
+                        color: _icon == emoji
+                            ? sheetCtx.cPrimary
+                            : ColorsUI.getBorder(sheetCtx.brightness),
+                      ),
                     ),
+                    child: Center(child: Text(emoji,
+                        style: const TextStyle(fontSize: 26))),
                   ),
-                  child: Center(child: Text(emoji,
-                      style: const TextStyle(fontSize: 26))),
-                ),
-              )).toList(),
-            ),
-            const SizedBox(height: Spacing.sm),
-          ],
+                )).toList(),
+              ),
+              const SizedBox(height: Spacing.sm),
+            ],
+          ),
         ),
       ),
     );

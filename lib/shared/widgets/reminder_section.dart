@@ -8,6 +8,7 @@ import '../../models/models.dart';
 import '../../services/reminder_scheduler.dart';
 import '../../services/notification_service.dart';
 import 'reminder_recurrence_picker.dart';
+import 'safe_sheet.dart';
 
 // ---------------------------------------------------------------------
 // Main Widget
@@ -377,4 +378,29 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       ],
     );
   }
+}
+
+/// Ανοίγει το ReminderSection σε κοινό SafeSheet shell.
+///
+/// Χρησιμοποιείται από 6 detail screens ώστε να μην επαναλαμβάνεται
+/// raw `showModalBottomSheet` με διαφορετικό SafeArea/scroll behavior.
+Future<void> showReminderSheet(
+  BuildContext context, {
+  required int itemId,
+  required String itemTitle,
+  DateTime? defaultStartTime,
+}) {
+  return showSafeSheet<void>(
+    context,
+    child: SafeSheet(
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: ReminderSection(
+          itemId: itemId,
+          itemTitle: itemTitle,
+          defaultStartTime: defaultStartTime,
+        ),
+      ),
+    ),
+  );
 }

@@ -44,4 +44,15 @@ void main() {
     final sunday = DateTime(2026, 10, 11); // Κυριακή
     expect(AppDateUtils.weekdayNames[sunday.weekday - 1], 'Κυρ');
   });
+
+  test('formatMonth compact', () {
+    expect(
+      AppDateUtils.formatMonth(DateTime(2026, 10, 1), compact: true),
+      'Οκτ ’26',
+    );
+    expect(
+      AppDateUtils.formatMonth(DateTime(2025, 1, 1), compact: true),
+      'Ιαν ’25',
+    );
+  });
 }

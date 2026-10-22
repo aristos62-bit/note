@@ -197,15 +197,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
 
   AppBar _buildAppBar(
       BuildContext context, WidgetRef ref, DateTime focusedMonth) {
-    const months = AppDateUtils.monthFullNames;
-
     return AppBar(
       backgroundColor: context.cBg,
       elevation: 0,
       scrolledUnderElevation: 1,
       title: Text(
-        '${months[focusedMonth.month - 1]} ${focusedMonth.year}',
+        AppDateUtils.formatMonth(focusedMonth, compact: true),
         style: context.titleLg,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
       actions: [
         IconButton(
@@ -251,29 +251,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     );
   }
 
-  Widget _buildArchivedToggle(WidgetRef ref) {
-    final showArchived = ref.watch(showArchivedProvider);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
-      child: Row(
-        children: [
-          const Spacer(),
-          TextButton.icon(
-            icon: Icon(
-              showArchived
-                  ? Icons.unarchive_rounded
-                  : Icons.archive_rounded,
-              size: 18,
-            ),
-            label: Text(
-              showArchived ? 'Απόκρυψη αρχειοθετημένων' : 'Εμφάνιση αρχειοθετημένων',
-              style: context.labelSm,
-            ),
-            onPressed: () {
-              ref.read(showArchivedProvider.notifier).state = !showArchived;
-            },
-          ),
-        ],
+  Widget _buildArchivedToggle() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: Spacing.sm),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: ArchivedInlineButton(),
       ),
     );
   }
@@ -313,7 +296,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
         ),
         const Divider(height: 1),
         _DayHeader(day: selectedDay),
-        _buildArchivedToggle(ref),
+        _buildArchivedToggle(),
         Flexible(
           fit: FlexFit.tight,
           child: ItemListEmbedded(
@@ -365,7 +348,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           child: Column(
             children: [
               _DayHeader(day: selectedDay),
-              _buildArchivedToggle(ref),
+              _buildArchivedToggle(),
               Flexible(
                 fit: FlexFit.tight,
                 child: ItemListEmbedded(
@@ -394,29 +377,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
   Future<void> _showCreationMenu(
       BuildContext context, WidgetRef ref, DateTime selectedDay) async {
     final isDark = context.brightness == Brightness.dark;
-    final type = await showModalBottomSheet<_EventCreationType>(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeArea(
+    final type = await showSafeSheet<_EventCreationType>(
+      context,
+      builder: (sheetCtx) => SafeSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Center(
-              child: SheetHandle(
-                margin: EdgeInsets.only(top: Spacing.md, bottom: Spacing.sm),
-              ),
-            ),
             Padding(
               padding: const EdgeInsets.symmetric(
                   horizontal: Spacing.lg, vertical: Spacing.sm),
               child: Row(
-                children: [Text('Νέο συμβάν', style: context.titleMd)],
+                children: [Text('Νέο συμβάν', style: sheetCtx.titleMd)],
               ),
             ),
             const Divider(height: 1),
@@ -426,24 +397,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
               iconColor: isDark ? Colors.indigo.shade200 : Colors.indigo.shade600,
               title: 'Συμβάν',
               subtitle: 'Προγραμματισμένο γεγονός',
-              onTap: () => Navigator.pop(context, _EventCreationType.event),
+              onTap: () => Navigator.pop(sheetCtx, _EventCreationType.event),
             ),
             _EventTypeOption(
               icon: Icons.cake_rounded,
-              iconBgColor: ItemColorHelper.birthdayBackground(context),
+              iconBgColor: ItemColorHelper.birthdayBackground(sheetCtx),
               iconColor: isDark ? Colors.pink.shade200 : Colors.pink.shade600,
               title: 'Γενέθλια',
               subtitle: 'Υπενθύμιση γενεθλίων',
-              onTap: () => Navigator.pop(context, _EventCreationType.birthday),
+              onTap: () => Navigator.pop(sheetCtx, _EventCreationType.birthday),
             ),
             _EventTypeOption(
               icon: Icons.star_rounded,
-              iconBgColor: ItemColorHelper.specialDayBackground(context),
+              iconBgColor: ItemColorHelper.specialDayBackground(sheetCtx),
               iconColor: isDark ? Colors.amber.shade200 : Colors.amber.shade700,
               title: 'Ειδική Ημέρα',
               subtitle: 'Σημαντική ημερομηνία',
               onTap: () =>
-                  Navigator.pop(context, _EventCreationType.specialDay),
+                  Navigator.pop(sheetCtx, _EventCreationType.specialDay),
             ),
             const SizedBox(height: Spacing.sm),
           ],
