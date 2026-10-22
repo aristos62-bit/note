@@ -44,9 +44,9 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `a3216f2` (O2 — lifecycle) | `git log` |
+| Git HEAD | `92fdcc6` (O4 — UI consolidation) | `git log` |
 | `flutter analyze` | **No issues found** | run 22/10/2026 |
-| `flutter test` | **286/286** (49 αρχεία test) | run 22/10/2026 |
+| `flutter test` | **287/287** (49 αρχεία test) | run 22/10/2026 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 39.371 | μετρήθηκε |
 | Αρχεία >500 γραμμές (R1) | **19** (`main.dart` 511) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
@@ -55,7 +55,7 @@
 | `catch (_) {}` | **7** (14/21 έκλεισαν στην Ο2) | grep |
 | `debugPrint`/`print` εκτός `DebugConfig` | 0 | grep |
 
-⚠️ **Γνωστό doc-drift:** `supernote.md:19` γράφει 245/245, πραγματικό **286/286**. Δεν διορθώνεται τώρα (status ≠ αρχιτεκτονική) — θα διορθωθεί στο τελικό sync (E26).
+⚠️ **Γνωστό doc-drift:** `supernote.md:19` γράφει 245/245, πραγματικό **287/287**. Δεν διορθώνεται τώρα (status ≠ αρχιτεκτονική) — θα διορθωθεί στο τελικό sync (E26).
 
 ### 0.1 Δεύτερος έλεγχος (21/10/2026) — τι διορθώθηκε στη λίστα
 1. **`E24` «grid-mode guard gap» → ακυρώθηκε ως bug.** Έλεγξα το SDK (`reorderable_list.dart:82-83,129-131`: το `onReorderItem` διορθώνει το `newIndex`) **και** το package (`reorderable_grid.dart:652-663,573-577`: δίνει index κελιού-στόχου). Και τα δύο ταιριάζουν με το `removeAt+insert` του `moveAndMerge` ⇒ **όχι off-by-one**. Μένει μόνο προαιρετικό device spot-check.
@@ -89,7 +89,7 @@
 | 5 | `E02` | **Calendar AppBar title @140%** | Κόβεται το «Οκτώβριος 2026» — θέλει σχεδιαστική απόφαση |
 | 6 | `E27` | **Grid reorder χωρίς autoScroll** | Δεν φτάνεις μακρινούς στόχους σε μεγάλο grid |
 | 7 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
-| 8 | `E28` | **12× raw `showModalBottomSheet`** (SPoT bypass) | Θωράκιση landscape/keyboard (όχι αποδεδειγμένο bug) |
+| 8 | `E28` | **15× raw `showModalBottomSheet`** (SPoT bypass) | Θωράκιση landscape/keyboard (όχι αποδεδειγμένο bug) |
 | 9 | `E19` | **`take(10)` ×2 + διπλότυπη λογική φίλτρου** | Λάθος/διπλά αποτελέσματα σε άκρες |
 | 10 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
 | 11 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
@@ -134,6 +134,8 @@
 - **Πού:** `calendar_screen.dart:198-209` — `title: Text('${months[focusedMonth.month - 1]} ${focusedMonth.year}', style: context.titleLg)` χωρίς `maxLines`/ellipsis/`Flexible`.
 - **Σύμπτωμα (device S262-b):** «Οκτώβριος» → «Οκτώβρ…» @140%.
 - **Επιλογές:** (α) σύντομο format «Οκτ ’26» · (β) 2 γραμμές · (γ) μικρότερο `titleLg`/κουμπιά. **Απαιτείται απόφαση χρήστη.**
+- **Υλοποίηση (22/10/2026, `92fdcc6`):** επιλέχθηκε το (α) — `AppDateUtils.formatMonth(..., compact: true)` → «Οκτ ’26» + `maxLines: 1`/ellipsis στο calendar AppBar· unit test στο `weekday_labels_test.dart`.
+- **Κατάσταση:** κώδικας ✅ · **εκκρεμεί device** (100%/140%, portrait/landscape).
 - **Αποδοχή:** πλήρες/κόσμιο label σε 100% & 140%, portrait/landscape, 0 overflow.
 
 ### E03 — Device re-verify grid auto-height (#2)
@@ -150,6 +152,8 @@
   - `settings_colors.dart:101-102` (outer `context` μέσα σε `onSelected`).
 - **Τι:** debug assertion (release-safe) αν το route της detail-οθόνης αποενεργοποιηθεί/reassemble με ανοιχτό sheet.
 - **Fix:** `context.` → `sheetCtx.`/`ctx.` (0 layout αλλαγή). **Κόστος:** 1 μικρό session. **Ρίσκο:** χαμηλό· θέλει device reassemble test ανά sheet.
+- **Υλοποίηση (22/10/2026, `92fdcc6`):** `sheetCtx`/`innerCtx` σε task status/priority, settings size/folder, collection field/icon, settings colors, contact photo, calendar creation, habit text editor· όλα τα `Navigator.pop` με sheet context.
+- **Κατάσταση:** κώδικας ✅ · **εκκρεμεί device reassemble** με ανοιχτό sheet.
 - **Αποδοχή:** reassemble με ανοιχτό sheet → 0 assertions.
 
 ### E05 — F13b: bulk-delete perf
@@ -213,6 +217,8 @@
 ### E12 — 8× label «Εμφάνιση/Απόκρυψη αρχειοθετημένων»
 - **Σημεία (8, όχι 7 — το calendar έλειπε από το doc):** `item_list_screen.dart:150` · `habit_list_screen.dart:190` · `task_list_screen.dart:270` · `contact_list_screen.dart:160` · `collection_entries_screen.dart:254` · `collections_screen.dart:117` · `journal_list_screen.dart:200` · `calendar_screen.dart:269`.
 - **Πρόταση:** 1 shared widget (label+icon+onPressed). **Κόστος:** μικρό.
+- **Υλοποίηση (22/10/2026, `92fdcc6`):** `ArchivedMenuButton` για τα 7 AppBar menus + `ArchivedInlineButton` (`Align`, όχι `Row+Spacer`) για το calendar· flexible label για 140% στα menus.
+- **Κατάσταση:** κώδικας ✅ · αναμονή ομαδικού κλεισίματος Ο4.
 
 ### E13 — B-Π2b (υπό συνθήκη)
 - Κρύψιμο του label «Φάκελοι» σε κοντό viewport **μόνο αν** φανεί ανάγκη στο E03.
@@ -270,10 +276,12 @@
 - **Συνέπεια:** σε grid (tablet/desktop) με λίστα μεγαλύτερη από την οθόνη, το drag δεν κυλάει αυτόματα → δύσκολη μετακίνηση σε απόσταση.
 - **Κόστος:** μικρό (1 flag + device test). **Ρίσκο:** χαμηλό (autoScroll του package είναι 14ms steps).
 
-### E28 — 12× raw `showModalBottomSheet` (SPoT bypass)
-- **Πού (επαληθευμένα, χωρίς `SafeSheet` στο builder):** `appointment_detail:537` · `task_detail:170` · `tag_picker_sheet:114` *(isScrollControlled)* · `settings_tiles:264` (folder picker) · `settings_colors:88` · `note_detail:120` · `contact_detail:436,1041` · `collection_detail:212` *(isScrollControlled)* `,787` · `journal_detail:176` · `event_detail:308`.
+### E28 — 15× raw `showModalBottomSheet` (SPoT bypass)
+- **Πού (αρχικός έλεγχος 12, τελικά 15 μετά τον έλεγχο των settings/calendar/contact):** `appointment_detail:537` · `task_detail:170` · `tag_picker_sheet:114` *(isScrollControlled)* · `settings_tiles:176,264` (size/folder picker) · `settings_colors:88` · `note_detail:120` · `contact_detail:436,1041` · `collection_detail:212` *(isScrollControlled)* `,787` · `journal_detail:176` · `event_detail:308` · `calendar_screen:375`.
 - **Γιατί μετράει:** το S109 SPoT (`showSafeSheet`/`SafeSheet`) υπάρχει για scroll/keyboard/landscape ασφάλεια (κλάση S103–S108). **Δεν** αποδείχθηκε overflow σε αυτά τα 12 — είναι **SPoT bypass** προς έλεγχο, όχι επιβεβαιωμένο bug.
 - **Κόστος:** μικρό-μεσαίο (1 site/session + device landscape). **Ρίσκο:** χαμηλό (οπτική ισοδυναμία).
+- **Υλοποίηση (22/10/2026, `92fdcc6`):** 15 sites σε `SafeSheet`/`showSafeSheet` (6 reminder sheets + FolderCreate + TagPicker + settings size/folder/colors + collection field/icon + contact photo + calendar creation). Απομένουν **3** σκόπιμα raw: `safe_sheet.dart:50` (ο canonical wrapper), `confirm_dialog.dart:129`, `appointment_detail_screen.dart:391` (item picker).
+- **Κατάσταση:** κώδικας ✅ · `grep showModalBottomSheet` = 3 exceptions · δεν έγινε device landscape pass.
 
 ### E29 — ✅ CLOSED 21/10/2026 (wipe cancelAll)
 - **Υλοποίηση:** `settings_backup.dart:250-267` — `BackupService.dbFileName` + `await NotificationService.instance.cancelAll()` **μετά** το `close()`/delete της DB + `DebugConfig.notif('clearAllData: cancelAll done, osCache=…')`.
@@ -370,6 +378,7 @@
 | 22/10/2026 | — | **fix4 ακυρώθηκε (απόφαση χρήστη):** rotation παραμένει **5**· το `step_B13_4_fix4` δεν εφαρμόστηκε. | `backup_service.dart:86` |
 | 22/10/2026 | E33 | **fix5:** `Wipe: cache directory deleted` + `Wipe: deleted .migration_safety`· reopen cache **0** entries · `.migration_safety` **1** νέο· attachments/leftovers absent. | `t3_fix5_wipe_logcat.txt` · `settings_backup.dart:492-516` |
 | 22/10/2026 | — | **Verification Ο2:** analyze clean · test **286/286** (49 files) · `catch (_) {}` **7**. | run 22/10/2026 |
+| 22/10/2026 | E04, E28, E12, E02 | **Ο4 υλοποίηση (S271, commit `92fdcc6`):** 15 raw sheets → `SafeSheet`/`showSafeSheet`· E04 sheet-context hardening (task status/priority, settings, collection, contact, calendar, habit)· E12 `ArchivedMenuButton`/`ArchivedInlineButton` (7 menus + calendar)· E02 compact «Οκτ ’26» + unit test. **Device verification εκκρεμεί (E02/E04).** | analyze clean · test **287/287** (49 files, +1) · `showModalBottomSheet` = 3 exceptions · `settings_tiles.dart` 452 γραμμές · backup `backups/o4_sheets_2026-10-22/` |
 
 ---
 
@@ -395,7 +404,7 @@
 | **Ο1 — Scheduler correctness** ✅ CLOSED 21/10/2026 (S270 `c2dc8f2` + device/test) | E10 + E34 + E35 + E36 + E37 (προαιρ. E08, E14) | `reminder_scheduler.dart` + `reminder_text.dart` + `reminder_bake_plan.dart` + `habit_service.dart` + providers/settings + 16 tests | E35–E37 από E10/E34 |
 | **Ο2 — Lifecycle (startup/resume/restore)** ✅ CLOSED 22/10/2026 (device-verified) | E16 + E33 + E18-μέρος | `main.dart` + debounce `reminder_scheduler` + `backup_service` + `super_note_helper` + `backup_archive` + cold-start/restore tests | E18: 14/21 sites (υπόλοιπα 7 → Ο6) |
 | **Ο3 — Mass-delete pipeline** | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` (+bulk reminder call αν χρειαστεί) | — |
-| **Ο4 — UI consolidation/hardening** | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
+| **Ο4 — UI consolidation/hardening** — κώδικας ✅ 22/10/2026 (S271 `92fdcc6`) · **device pending (E02/E04)** | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
 | **Ο5 — Grid + verify** | E27 + E03 | `reorderable_item_list` + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 |
 | **Ο6 — Cleanup & visibility sweep** | E18 (→0) + E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
