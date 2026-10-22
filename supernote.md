@@ -263,6 +263,7 @@ lib/
 - **Soft delete**: `Item.deletedAt` — ποτέ hard delete στην κανονική ροή (hard delete υπάρχει μόνο για τον κάδο).
 - **Sync-ready**: `Item.isDirty`, `Item.localVersion`, `Item.serverVersion`, `Item.syncedAt`.
 - **Σειριοποίηση passes** (S246/S248/S252): `SerialPassQueue` — κοινός κώδικας, **ΠΟΤΕ κοινή ουρά** (5 ξεχωριστά instances: `HabitService.pass`, `HabitService.repair`, `ReminderScheduler.refresh`, `ReminderScheduler.bake`, `ReminderScheduler.purge`).
+- **Maintenance gates** (E33): `pauseForMaintenance()` σταματά νέα passes και σκιπάρει όσα περίμεναν· `waitForIdle(maxWait)` περιμένει τα **πραγματικά** in-flight (όχι μόνο το fail-open timeout)· `resumeAfterMaintenance()` ανοίγει ξανά μόνο σε abort πριν από close της DB.
 
 ### Κανόνες ανάπτυξης (R1–R6)
 
@@ -393,6 +394,8 @@ none(0), low(1), medium(2), high(3), urgent(4)
 await SuperNoteHelper.init();  // στο main()
 final db = SuperNoteHelper.instance;
 ```
+- Το singleton δημοσιεύεται **μόνο** μετά από migration/defaults/cleanup· σε αποτυχία κλείνει το μισο-ανοιγμένο Isar και κάνει rethrow (B4).
+- `close()` είναι idempotent και καθαρίζει **πάντα** το singleton — ακόμη κι αν το `Isar.close()` αποτύχει — ώστε retry/rollback μετά από restore/wipe να μην κρατούν stale instance.
 
 ### Sub-repositories
 | Repository | Key Methods | Stream Methods |
@@ -451,6 +454,7 @@ final db = SuperNoteHelper.instance;
 - Bake accounting (S234): `ScheduleOutcome {baked, skipped, failed, kept}`· το keep αποφασίζεται πλέον στον planner (ίδιο text), το `_scheduleOne` επιστρέφει baked/skipped/failed· SUCCESS log μόνο σε `baked`.
 - Budget (S236/E35): `osAlarmLimit` — iOS/macOS 60 · Android 450, oldest-first· εφαρμόζεται σε scheduleAll, batch, rescheduleForItem, refresh/topUp και single· `truncated` flag + day-rebake στο resume.
 - Interval>1 (S54): weekly/monthly/yearly σέβονται το διάστημα — scheduler anchor = root· tests `recurrence_weekly_test.dart`.
+- Maintenance (E33): `pauseForMaintenance()` κλείνει τα 3 queues και ακυρώνει το εκκρεμές debounce refresh· `drainForMaintenance(65s)` περιμένει πραγματικά in-flight· `resumeAfterMaintenance(rearmRefresh:true)` επανα-οπλίζει **μία** φορά το refresh μόνο σε abort πριν το close.
 
 ### ReminderText / ReminderBakePlan (`lib/services/reminder_text.dart`, `reminder_bake_plan.dart`)
 - Pure συμβόλαια χωρίς Isar/plugin: δέχονται `Reminder`/`Item`/OS snapshots και επιστρέφουν text ή απόφαση bake.
@@ -469,6 +473,7 @@ final db = SuperNoteHelper.instance;
 - `generatedTitle = habitGeneratedTitle` = «Υπενθύμιση συνήθειας» (κοινό literal με `ReminderText`, διαχωρισμός από bell τίτλο)· `syncScheduleWithRecurrence`· `topUpHabitReminders` (10min guard, opt-in, postFrame, **ένα batch** για όλα τα habits)· `repairLegacyHabitRows` (idempotent · δικό του pass — S248).
 - Selective wipe (S270): `_clearHabitGenerated` σβήνει **μόνο** habit-generated rows (DB πρώτα, μετά OS ids)· ποτέ `cancelAllForItem`· `setReminderTime` καθαρίζει το legacy `reminder_times`· topUp/repair σκιπάρουν archived/deleted/done/cancelled.
 - Ώρες weekly/monthly (S62): `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις).
+- Maintenance (E33): `pauseForMaintenance()` / `drainForMaintenance(65s)` / `resumeAfterMaintenance()` για pass+repair· χωρίς forced rearm — το idempotent topUp ξανατρέχει στο επόμενο resume/cold start.
 
 ### ContactImportService (`lib/services/contact_import_service.dart`)
 - `requestPermission()` — FlutterContacts permission
@@ -486,9 +491,11 @@ final db = SuperNoteHelper.instance;
 - Internal: copies to `attachments/` subdirectory in app documents
 
 ### BackupService (`lib/services/backup_service.dart`)
-- `exportToDevice()` / `exportWithShare()` — zip (DB + attachments) via `BackupArchive`
-- `import({fromPath})` — validate + atomic restore (zip ή legacy `.isar`)
-- `autoBackup()` — zip στο background (pause, 1/24ωρο, rotation 5) + `listAutoBackups()`
+- `exportToDevice()` / `exportWithShare()` — zip (DB + attachments) μέσω `BackupArchive`· το DB snapshot γίνεται με `Isar.copyToFile` (consistent/compacted), όχι απευθείας από το live `.isar`.
+- `import({fromPath})` — `validateBackupFile()` + atomic restore (zip ή legacy `.isar`)· το validation ανοίγει το **πραγματικό** `super_note_db` του backup (trial Isar instance), όχι νέα κενή DB· εξάγει **μόνο** το DB entry (`extractBackupZipDbOnly`, χωρίς attachments) και απαιτεί `AppSettings(1)` (το trial `Isar.open` δημιουργεί σιωπηλά κενή DB σε άκυρο αρχείο).
+- `autoBackup()` — zip στο background (pause, 1/24ωρο, rotation 5) + `listAutoBackups()`· όταν maintenance είναι ενεργό, σκιπάρεται.
+- `beginDbMaintenance()` / `endDbMaintenance({rearmRefresh})` — E33 orchestration: pause+drain scheduler/habit queues και in-flight autoBackup/export έως 65s· epoch guard ώστε autoBackup που ξεκίνησε πριν το restore να μην γράψει `lastAutoBackupAt` σε DB που αλλάζει.
+- `_atomicRestoreDb()` — unified restore: extract/copy εκτός maintenance → drain → safety DB με `copyToFile` → `SuperNoteHelper.close()` → αντικατάσταση DB/attachments → re-init. Μετά το close **δεν** γίνεται resume· success ή failure → `BackupImportResult.restartRequired = true` (best-effort rollback μόνο μετά το close).
 - `AppSettings.autoBackupEnabled/lastAutoBackupAt` · schema v3 (additive, no-op migration)
 - Android: `allowBackup=false` (S174) — επίσημη οδός backup = in-app zip export (το cloud auto-backup αντέγραφε DB + attachments + PIN hash· iOS parked)
 
@@ -858,7 +865,9 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Font scale slider
 - Default view, language
 - Notification toggles
-- Data management: backup export/import
+- Data management: backup export/import + full wipe
+- Full wipe (E33/B13): DB + live `attachments/` + restore leftovers (`_pre_restore_*`) + app cache (`SuperNoteBackups`/`file_picker`/`_backup_zipval_*`) + `.migration_safety`· το migration ξαναφτιάχνει 1 snapshot στο restart.
+- Restore/wipe UX (E33): barrier dialog (`PopScope(canPop:false)`)· success ή failure μετά το close → restart dialog + `exit(0)`· failure πριν το close → snackbar και η εφαρμογή συνεχίζει· export κατά maintenance → `AppErrors.backupBusy`.
 - Per-type card color picker (two-level: 19 Material color families → 10 shades)
 - Visible types filtered: note, task, event, contact, habit, journal, appointment (hidden: goal, bookmark, finance, checklist, knowledge)
 
@@ -945,6 +954,8 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 7. **Grid responsive breakpoints**: mobile < 600, tablet 600-1024, desktop 1024+
 8. **Color overrides**: `itemTypeCardColorOverrideProvider` used inside `itemBuilder` for per-card granularity
 9. **Notification cold start**: `main()` checks `NotificationService.instance.getLaunchPayload()`, defers navigation after `runApp`
+10. **Lifecycle sequencing (E16/B10/B11)**: `_AppLifecycleObserver` αυξάνει `_lifecycleSeq` σε κάθε event· κάθε async continuation ελέγχει `_isStale(seq, state)` μετά από await και πριν από side effects (lock, auto-backup, refresh, topUp, rebake). Startup calls έχουν timeouts: launch payload 3s · `settings.get()` 5s (pre-runApp + postFrame) · `requestPermission()` 5s.
+11. **Restore/wipe restart semantics (E33)**: μετά το `SuperNoteHelper.close()` δεν ξανα-ανοίγει η DB στο ίδιο process· η UI δείχνει restart dialog και καλεί `exit(0)`. Πριν το close, abort → `endDbMaintenance()` + snackbar.
 
 ---
 
