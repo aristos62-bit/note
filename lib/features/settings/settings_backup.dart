@@ -15,6 +15,11 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
   DebugConfig.db('Settings: export backup');
   final messenger = ScaffoldMessenger.of(context);
 
+  if (BackupService.instance.isMaintenanceActive) {
+    _showBusySnackBar(context, messenger);
+    return;
+  }
+
   final choice = await showDialog<String>(
     context: context,
     useRootNavigator: true,
@@ -39,6 +44,11 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
   );
   if (choice == null || !context.mounted) return;
 
+  if (BackupService.instance.isMaintenanceActive) {
+    _showBusySnackBar(context, messenger);
+    return;
+  }
+
   final BackupExportResult result;
   if (choice == 'device') {
     result = await BackupService.instance.exportToDevice();
@@ -49,9 +59,8 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   if (result.cancelled) return;
   if (result.success) {
-    final msg = result.path != null
-        ? AppErrors.exportSaved
-        : AppErrors.exportOk;
+    final msg =
+        result.path != null ? AppErrors.exportSaved : AppErrors.exportOk;
     messenger.showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: context.cSuccess,
@@ -63,6 +72,16 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
       backgroundColor: context.cError,
     ));
   }
+}
+
+void _showBusySnackBar(
+  BuildContext context,
+  ScaffoldMessengerState messenger,
+) {
+  messenger.showSnackBar(SnackBar(
+    content: const Text(AppErrors.backupBusy),
+    backgroundColor: context.cError,
+  ));
 }
 
 Future<void> importBackup(BuildContext context, WidgetRef ref,
@@ -110,7 +129,7 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
   }
 
   if (!validation.valid || !context.mounted) {
-    if (!context.mounted)return;
+    if (!context.mounted) return;
     messenger.showSnackBar(SnackBar(
       content: Text(validation.reason ?? AppErrors.backupInvalid),
       backgroundColor: context.cError,
@@ -130,28 +149,86 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
   );
   if (!confirm || !context.mounted) return;
 
-  // 5. Atomic restore
+  // 5. Atomic restore — barrier dialog ώστε να μη γίνει write όσο κλείνει η DB.
+  final restoreNavigator = Navigator.of(context, rootNavigator: true);
+  var restoreDialogOpen = true;
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: Spacing.md),
+            Expanded(child: Text('Επαναφορά αντιγράφου ασφαλείας...')),
+          ],
+        ),
+      ),
+    ),
+  ).whenComplete(() => restoreDialogOpen = false);
+
   final result = await BackupService.instance.restoreBackup(srcPath);
-  if (!context.mounted) return;
+
+  if (restoreDialogOpen) {
+    restoreNavigator.pop();
+  }
+
+  if (!context.mounted) {
+    if (result.success || result.restartRequired) exit(0);
+    return;
+  }
 
   if (result.success) {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Επιτυχής εισαγωγή'),
-        content: const Text('Η εφαρμογή θα τερματιστεί τώρα.\n\n'
-            'Παρακαλώ ανοίξτε την ξανά για να συνεχίσετε.'),
-        actions: [
-          TextButton(onPressed: () => exit(0), child: const Text('OK')),
-        ],
-      ),
+    await _showRestartDialog(
+      context,
+      title: 'Επιτυχής εισαγωγή',
+      message: 'Η εφαρμογή θα τερματιστεί τώρα.\n\n'
+          'Παρακαλώ ανοίξτε την ξανά για να συνεχίσετε.',
+    );
+  } else if (result.restartRequired) {
+    await _showRestartDialog(
+      context,
+      title: 'Η επαναφορά δεν ολοκληρώθηκε',
+      message: '${result.error ?? AppErrors.restoreFailed}\n\n'
+          'Η εφαρμογή θα τερματιστεί για να μη συνεχίσει με '
+          'μισο-επαναφερμένη βάση.\n'
+          'Παρακαλώ ανοίξτε την ξανά.',
     );
   } else {
     messenger.showSnackBar(SnackBar(
       content: Text(result.error ?? AppErrors.restoreFailed),
       backgroundColor: context.cError,
     ));
+  }
+}
+
+/// Δείχνει restart dialog και τερματίζει ΠΑΝΤΑ την εφαρμογή.
+/// Χρησιμοποιείται μετά από restore που άγγιξε τη DB (success ή failure).
+Future<void> _showRestartDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) async {
+  if (!context.mounted) exit(0);
+  try {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    exit(0);
   }
 }
 
@@ -163,7 +240,8 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
   final confirm = await ConfirmDialog.delete(
     context,
     title: 'Διαγραφή όλων των δεδομένων',
-    subtitle: 'Όλες οι σημειώσεις, εργασίες, συνήθειες και ρυθμίσεις θα διαγραφούν ΟΡΙΣΤΙΚΑ.\n\nΑυτή η ενέργεια ΔΕΝ μπορεί να αναιρεθεί.',
+    subtitle:
+        'Όλες οι σημειώσεις, εργασίες, συνήθειες και ρυθμίσεις θα διαγραφούν ΟΡΙΣΤΙΚΑ.\n\nΑυτή η ενέργεια ΔΕΝ μπορεί να αναιρεθεί.',
     confirmLabel: 'Συνέχεια',
   );
   if (!confirm || !context.mounted) return;
@@ -219,7 +297,7 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
             onSubmitted: (_) => Navigator.pop(ctx, controller.text),
           ),
         ],
-        ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, null),
@@ -233,7 +311,8 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
     ),
   );
 
-  if (confirmationText == null || confirmationText.trim().toUpperCase() != wipePhrase) {
+  if (confirmationText == null ||
+      confirmationText.trim().toUpperCase() != wipePhrase) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppErrors.wipeConfirmMismatch)),
@@ -246,7 +325,46 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   DebugConfig.db('Settings: starting full database wipe');
 
+  final messenger = ScaffoldMessenger.of(context);
+  final wipeNavigator = Navigator.of(context, rootNavigator: true);
+  var wipeDialogOpen = true;
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: Spacing.md),
+            Expanded(child: Text('Διαγραφή δεδομένων...')),
+          ],
+        ),
+      ),
+    ),
+  ).whenComplete(() => wipeDialogOpen = false);
+
+  var maintenanceOwned = false;
+  var dbTouched = false;
   try {
+    // E33: gates + drain πριν κλείσει η DB. Αποτυχία → abort ΧΩΡΙΣ close.
+    final bool drained;
+    try {
+      drained = await BackupService.instance.beginDbMaintenance();
+    } catch (e) {
+      BackupService.instance.endDbMaintenance();
+      rethrow;
+    }
+    if (!drained) {
+      if (wipeDialogOpen) wipeNavigator.pop();
+      if (context.mounted) _showBusySnackBar(context, messenger);
+      return;
+    }
+    maintenanceOwned = true;
+
+    // Από εδώ και πέρα κάθε αποτυχία → restart.
+    dbTouched = true;
     await SuperNoteHelper.instance.close();
 
     final isarDir = await getApplicationDocumentsDirectory();
@@ -255,6 +373,16 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
       await isarFile.delete();
       DebugConfig.db('Isar database file deleted');
     }
+
+    // E33 cleanup: leftovers από restore/rollback.
+    await _deleteRestoreLeftovers(isarDir);
+
+    // T3: live attachments — ορφανά μετά τη διαγραφή της DB.
+    await _deleteLiveAttachments(isarDir);
+
+    // T3/A: πλήρες wipe — app-owned cache artifacts + migration snapshots.
+    await _deleteCacheArtifacts();
+    await _deleteMigrationSafety(isarDir);
 
     // E29: durable καθαρισμός OS alarms/tray μετά τη διαγραφή της DB.
     // Reuse του υπάρχοντος primitive (E15-F2): tray + AlarmManager + boot
@@ -266,36 +394,123 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
         (await NotificationService.instance.getPendingNotifications()).length;
     DebugConfig.notif('clearAllData: cancelAll done, osCache=$osCache');
 
-    // Δεν κάνουμε SuperNoteHelper.init() εδώ – θα γίνει μετά την επανεκκίνηση
-    // Εμφανίζουμε dialog και κλείνουμε την εφαρμογή
-    if (context.mounted) {
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Επιτυχής διαγραφή'),
-          content: const Text('Όλα τα δεδομένα διαγράφηκαν.\n\nΗ εφαρμογή θα τερματιστεί. Παρακαλώ ανοίξτε την ξανά.'),
-          actions: [
-            TextButton(
-              onPressed: () => exit(0),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      // Αν το context δεν είναι mounted, φεύγουμε κατευθείαν
-      exit(0);
-    }
+    // Δεν κάνουμε SuperNoteHelper.init() εδώ – θα γίνει μετά την επανεκκίνηση.
+    if (wipeDialogOpen) wipeNavigator.pop();
+    if (!context.mounted) exit(0);
+    await _showRestartDialog(
+      context,
+      title: 'Επιτυχής διαγραφή',
+      message: 'Όλα τα δεδομένα διαγράφηκαν.\n\n'
+          'Η εφαρμογή θα τερματιστεί. Παρακαλώ ανοίξτε την ξανά.',
+    );
   } catch (e) {
     DebugConfig.error('Clear all data failed', e);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+    if (wipeDialogOpen) wipeNavigator.pop();
+
+    if (!dbTouched) {
+      // Abort πριν το close — η DB είναι άθικτη, άνοιξε τα gates.
+      if (maintenanceOwned) {
+        BackupService.instance.endDbMaintenance();
+      }
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(
           content: const Text(AppErrors.wipeFailed),
           backgroundColor: context.cError,
-        ),
+        ));
+      }
+    } else {
+      // Μετά το close — restart, χωρίς resume των gates.
+      if (!context.mounted) exit(0);
+      await _showRestartDialog(
+        context,
+        title: 'Η διαγραφή δεν ολοκληρώθηκε',
+        message: '${AppErrors.wipeFailed}\n\n'
+            'Η εφαρμογή θα τερματιστεί για να μη συνεχίσει με '
+            'κλειστή ή μερικώς διαγραμμένη βάση.\n'
+            'Παρακαλώ ανοίξτε την ξανά.',
       );
     }
+  }
+}
+
+/// Best-effort καθαρισμός αρχείων που μπορεί να άφησε restore/rollback.
+/// Δεν αποτυγχάνει το wipe αν κάποιο delete αποτύχει.
+Future<void> _deleteRestoreLeftovers(Directory dir) async {
+  final safety = File('${dir.path}/_pre_restore_backup.isar');
+  final swap = File('${dir.path}/_restore_swap.isar');
+  final attSafety = Directory('${dir.path}/_pre_restore_attachments');
+
+  try {
+    if (await safety.exists()) {
+      await safety.delete();
+      DebugConfig.db('Wipe: deleted _pre_restore_backup.isar');
+    }
+  } catch (e) {
+    DebugConfig.warning('Wipe: cleanup _pre_restore_backup.isar failed: $e');
+  }
+
+  try {
+    if (await swap.exists()) {
+      await swap.delete();
+      DebugConfig.db('Wipe: deleted _restore_swap.isar');
+    }
+  } catch (e) {
+    DebugConfig.warning('Wipe: cleanup _restore_swap.isar failed: $e');
+  }
+
+  try {
+    if (await attSafety.exists()) {
+      await attSafety.delete(recursive: true);
+      DebugConfig.db('Wipe: deleted _pre_restore_attachments');
+    }
+  } catch (e) {
+    DebugConfig.warning('Wipe: cleanup _pre_restore_attachments failed: $e');
+  }
+}
+
+/// Best-effort καθαρισμός των live attachments μετά τη διαγραφή της DB.
+/// Τα αρχεία είναι πλέον ορφανά· ο φάκελος ξαναδημιουργείται on-demand
+/// (AttachmentService._getAttachmentsDir). Δεν αποτυγχάνει το wipe αν
+/// κάποιο delete αποτύχει.
+Future<void> _deleteLiveAttachments(Directory dir) async {
+  final attDir =
+  Directory('${dir.path}/${AttachmentService.attachmentsDirName}');
+  try {
+    if (await attDir.exists()) {
+      await attDir.delete(recursive: true);
+      DebugConfig.db('Wipe: deleted live attachments directory');
+    }
+  } catch (e) {
+    DebugConfig.warning('Wipe: cleanup live attachments failed: $e');
+  }
+}
+
+/// Best-effort καθαρισμός των app-owned cache artifacts μετά τη διαγραφή της
+/// DB: auto backups (SuperNoteBackups), file_picker αντίγραφα, παλιά
+/// validation temps κ.λπ. Ο temp φάκελος ξαναδημιουργείται ώστε να μην
+/// λείπει μέχρι το restart.
+Future<void> _deleteCacheArtifacts() async {
+  try {
+    final cacheDir = await getTemporaryDirectory();
+    if (await cacheDir.exists()) {
+      await cacheDir.delete(recursive: true);
+      DebugConfig.db('Wipe: cache directory deleted');
+    }
+    await cacheDir.create(recursive: true);
+  } catch (e) {
+    DebugConfig.warning('Wipe: cleanup cache failed: $e');
+  }
+}
+
+/// Best-effort καθαρισμός των stale migration safety snapshots (docs dir).
+Future<void> _deleteMigrationSafety(Directory dir) async {
+  final safetyDir = Directory('${dir.path}/.migration_safety');
+  try {
+    if (await safetyDir.exists()) {
+      await safetyDir.delete(recursive: true);
+      DebugConfig.db('Wipe: deleted .migration_safety');
+    }
+  } catch (e) {
+    DebugConfig.warning('Wipe: cleanup .migration_safety failed: $e');
   }
 }

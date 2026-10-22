@@ -23,7 +23,10 @@ void main() async {
   DebugConfig.startup('App started');
 
   // ✅ Cold start: έλεγχος πριν το init() αν το app ξεκίνησε από notification
-  final coldStartPayload = await NotificationService.instance.getLaunchPayload();
+  // F1: ποτέ block το startup αν το plugin δεν απαντήσει.
+  final coldStartPayload = await NotificationService.instance
+      .getLaunchPayload()
+      .timeout(const Duration(seconds: 3), onTimeout: () => null);
   if (coldStartPayload != null) {
     DebugConfig.notif('Cold start notification payload: $coldStartPayload');
   }
@@ -121,7 +124,9 @@ void main() async {
 
   // Pre-runApp lock: το καρέ-1 να είναι ήδη PIN (όχι Αρχική-μετά-PIN).
   try {
-    final lockSettings = await SuperNoteHelper.instance.settings.get();
+    final lockSettings = await SuperNoteHelper.instance.settings
+        .get()
+        .timeout(const Duration(seconds: 5));
     if (lockSettings.appLockEnabled) {
       AppLockService.instance.lock();
       container.read(appLockStateProvider.notifier).state = true;
@@ -207,7 +212,9 @@ void main() async {
 
     try {
       DebugConfig.nav('postFrame: appLock check start...');
-      final settings = await SuperNoteHelper.instance.settings.get();
+      final settings = await SuperNoteHelper.instance.settings
+          .get()
+          .timeout(const Duration(seconds: 5));
       if (settings.appLockEnabled && !AppLockService.instance.isLocked) {
         AppLockService.instance.lock();
         container.read(appLockStateProvider.notifier).state = true;
@@ -220,8 +227,9 @@ void main() async {
 
     // ── Βαρύ μπλοκ scheduling (ίδια σειρά με πριν, αλλά ΤΕΛΕΥΤΑΙΟ) ──
     try {
-      final hasPermission =
-          await NotificationService.instance.requestPermission();
+      final hasPermission = await NotificationService.instance
+          .requestPermission()
+          .timeout(const Duration(seconds: 5));
       DebugConfig.startup('Notifications requestPermission -> $hasPermission');
     } catch (e, stack) {
       DebugConfig.error('requestPermission failed', e, stack);
@@ -346,14 +354,25 @@ Locale? _localeFromLanguage(AppLanguage lang) {
 class _AppLifecycleObserver extends WidgetsBindingObserver {
   final ProviderContainer container;
   bool _disposed = false;
+  int _lifecycleSeq = 0;
   Timer? _lockTimer;
   DateTime? _lastLifecycleEvent; // 🔍 DEBUG: για εντοπισμό γρήγορων resumed/paused κύκλων
   DateTime? _pausedAt; // L1: ώρα paused — fallback αν το OS παγώσει τον timer.
 
   _AppLifecycleObserver(this.container);
 
+  /// true αν ένα νεότερο lifecycle event έχει ήδη ξεκινήσει.
+  bool _isStale(int seq, AppLifecycleState state) {
+    if (seq == _lifecycleSeq) return false;
+    DebugConfig.print(
+        '🔔 [LIFECYCLE] stale $state seq=$seq current=$_lifecycleSeq — skipped');
+    return true;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
+    // B11: κάθε event ακυρώνει ό,τι async δουλειά ξεκίνησε πριν από αυτό.
+    final seq = ++_lifecycleSeq;
     try {
       final now = DateTime.now();
       if (_lastLifecycleEvent != null) {
@@ -374,6 +393,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         final settings = await SuperNoteHelper.instance.settings
             .get()
             .timeout(const Duration(seconds: 5));
+        if (_isStale(seq, state)) return;
         // Auto-backup (fire-and-forget — δεν μπλοκάρει το pause).
         unawaited(BackupService.instance.autoBackup());
         if (settings.appLockEnabled) {
@@ -400,6 +420,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
           final settings = await SuperNoteHelper.instance.settings
               .get()
               .timeout(const Duration(seconds: 5));
+          if (_isStale(seq, state)) return;
           if (settings.appLockEnabled &&
               AppLockService.shouldLockOnResume(
                   _pausedAt, DateTime.now(), settings.appLockTimeoutSeconds)) {
@@ -410,6 +431,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         } catch (e, stack) {
           DebugConfig.error('AppLock resume-check', e, stack);
         }
+        if (_isStale(seq, state)) return;
         _pausedAt = null;
         // Habit stats: αν άλλαξε η ημερολογιακή μέρα όσο ήταν στο
         // παρασκήνιο → ενημέρωση του dayTick ώστε να γίνει recompute.
@@ -422,8 +444,10 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         DebugConfig.startup(
             'App resumed — debounced refreshing recurring reminders');
         await ReminderScheduler.instance.debouncedRefreshRecurringReminders();
+        if (_isStale(seq, state)) return;
         // Habit top-up (own 10min guard μέσα στη μέθοδο).
         await HabitService.instance.topUpHabitReminders();
+        if (_isStale(seq, state)) return;
         // Budget re-bake (M3): μόνο αν κόπηκε + άλλαξε μέρα (≤1 βαρύ resume/μέρα).
         await ReminderScheduler.instance.rebakeIfTruncatedAndDayChanged();
       }

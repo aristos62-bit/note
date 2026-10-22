@@ -72,45 +72,73 @@ class SuperNoteHelper {
 
     final dir = directory ?? (await getApplicationDocumentsDirectory()).path;
 
-    final isar = await Isar.open(
-      [
-        ItemSchema,
-        ItemBlockSchema,
-        ItemPropertySchema,
-        TagSchema,
-        ItemTagSchema,
-        RelationSchema,
-        ReminderSchema,
-        FolderSchema,
-        WorkspaceSchema,
-        AttachmentSchema,
-        UserSchema,
-        DeviceSchema,
-        AppSettingsSchema,
-      ],
-      directory: dir,
-      name: 'super_note_db',
-      inspector: kDebugMode,
-    );
+    Isar? openedIsar;
+    try {
+      final isar = await Isar.open(
+        [
+          ItemSchema,
+          ItemBlockSchema,
+          ItemPropertySchema,
+          TagSchema,
+          ItemTagSchema,
+          RelationSchema,
+          ReminderSchema,
+          FolderSchema,
+          WorkspaceSchema,
+          AttachmentSchema,
+          UserSchema,
+          DeviceSchema,
+          AppSettingsSchema,
+        ],
+        directory: dir,
+        name: 'super_note_db',
+        inspector: kDebugMode,
+      );
+      openedIsar = isar;
 
-    _instance = SuperNoteHelper._internal(isar);
+      // B4: το singleton αποκτά _instance ΜΟΝΟ μετά την πλήρη αρχικοποίηση —
+      // αποτυχία σε migration/defaults/cleanup δεν αφήνει μισο-έτοιμο instance.
+      final instance = SuperNoteHelper._internal(isar);
 
-    // Schema migration — ελέγχει version και τρέχει migrations αν χρειαστεί
-    await MigrationService.ensureSchemaVersion(isar);
+      // Schema migration — ελέγχει version και τρέχει migrations αν χρειαστεί
+      await MigrationService.ensureSchemaVersion(isar);
 
-    // Δημιουργία default workspace αν δεν υπάρχει
-    await _instance!._ensureDefaults();
+      // Δημιουργία default workspace αν δεν υπάρχει
+      await instance._ensureDefaults();
 
-    // Καθαρισμός παλιών pending reminders (π.χ. > 7 ημερών)
-    await _instance!.reminders.cleanupOldPending();
+      // Καθαρισμός παλιών pending reminders (π.χ. > 7 ημερών)
+      await instance.reminders.cleanupOldPending();
 
-    return _instance!;
+      _instance = instance;
+      return instance;
+    } catch (_) {
+      // B4: κλείσε το μισο-ανοιγμένο Isar πριν το rethrow — αλλιώς το
+      // rollback/retry δεν μπορεί να ξανα-ανοίξει το ίδιο αρχείο (Mdbx 11).
+      final opened = openedIsar;
+      if (opened != null) {
+        try {
+          await opened.close();
+        } catch (e) {
+          DebugConfig.warning('SuperNoteHelper.init: close after failure: $e');
+        }
+      }
+      rethrow;
+    }
   }
 
-  /// Κλείσιμο DB (για testing ή app lifecycle)
+  /// Κλείσιμο DB (για testing ή app lifecycle).
+  /// B4: idempotent + πάντα καθαρίζει το singleton (ακόμη κι αν το close
+  /// αποτύχει), ώστε retry/rollback να μην κρατούν stale instance.
   Future<void> close() async {
-    await _isar.close();
-    _instance = null;
+    if (!_isar.isOpen) {
+      _instance = null;
+      return;
+    }
+    try {
+      await _isar.close();
+    } finally {
+      _instance = null;
+    }
   }
 
   /// Δημιουργία default data αν η DB είναι κενή
@@ -1176,6 +1204,13 @@ class ReminderRepository {
   /// τα αντίστοιχα OS alarms (όχι μόνο DB rows).
   Future<List<int>> cleanupOldPending(
       {Duration maxAge = const Duration(days: 7)}) async {
+    // B4/E33 defense-in-depth: αν κάποια κλήση φτάσει εδώ με κλειστό Isar
+    // (π.χ. close κατά το restore), σκίπαρε αντί να ρίξεις — ο cold start
+    // ξανατρέχει το cleanup.
+    if (!_isar.isOpen) {
+      DebugConfig.warning('ReminderRepo.cleanupOldPending: DB closed — skipped');
+      return const <int>[];
+    }
     final cutoff = DateTime.now().subtract(maxAge);
     // ✅ Εξαιρούμε τα root recurring reminders (έχουν rrule != null)
     // γιατί το triggerAt τους είναι παλιό αλλά χρειάζονται ως "anchor"

@@ -10,6 +10,7 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/utils/debug_config.dart';
@@ -32,16 +33,33 @@ class BackupArchive {
   }
 
   /// Δημιουργεί το zip (streaming, αρχείο-προς-αρχείο).
+  ///
+  /// Αν δοθεί [snapshotIsar], πρώτα παίρνει compacted, consistent snapshot της
+  /// βάσης με `Isar.copyToFile` και zipάρει αυτό — όχι το live `.isar`.
   /// Επιστρέφει το μέγεθος του zip σε bytes.
   static Future<int> createBackupZip({
     required String dbPath,
     required Directory attachmentsDir,
     required String destZipPath,
+    Isar? snapshotIsar,
   }) async {
+    String? snapshotPath;
+    var sourceDbPath = dbPath;
     final encoder = ZipFileEncoder();
     try {
+      if (snapshotIsar != null) {
+        if (!snapshotIsar.isOpen) {
+          throw StateError('Isar is closed — cannot create snapshot');
+        }
+        snapshotPath = '$destZipPath.'
+            '${DateTime.now().microsecondsSinceEpoch}.snapshot.isar';
+        await snapshotIsar.copyToFile(snapshotPath);
+        sourceDbPath = snapshotPath;
+        DebugConfig.db('BackupArchive.create: snapshot '
+            '${await File(snapshotPath).length()} bytes');
+      }
       encoder.open(destZipPath);
-      await encoder.addFile(File(dbPath), dbEntryName);
+      await encoder.addFile(File(sourceDbPath), dbEntryName);
       var count = 0;
       if (await attachmentsDir.exists()) {
         await for (final e in attachmentsDir.list()) {
@@ -60,8 +78,21 @@ class BackupArchive {
       DebugConfig.error('BackupArchive.create', e, stack);
       try {
         await encoder.close();
-      } catch (_) {}
+      } catch (closeError) {
+        DebugConfig.warning(
+            'BackupArchive.create: encoder close failed: $closeError');
+      }
       rethrow;
+    } finally {
+      if (snapshotPath != null) {
+        try {
+          final snapshot = File(snapshotPath);
+          if (await snapshot.exists()) await snapshot.delete();
+        } catch (e) {
+          DebugConfig.warning(
+              'BackupArchive.create: snapshot cleanup failed: $e');
+        }
+      }
     }
   }
 
@@ -83,6 +114,29 @@ class BackupArchive {
       return names;
     } catch (e, stack) {
       DebugConfig.error('BackupArchive.extract', e, stack);
+      rethrow;
+    }
+  }
+  /// Εξάγει μόνο το DB entry για validation — χωρίς attachments.
+  /// Επιστρέφει όλα τα ονόματα entries (για τον έλεγχο παρουσίας DB).
+  static Future<List<String>> extractBackupZipDbOnly(
+      String zipPath, String outDir) async {
+    try {
+      final bytes = await File(zipPath).readAsBytes();
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final names = <String>[];
+      for (final f in archive.files) {
+        if (!f.isDirectory) names.add(f.name);
+      }
+      final db = archive.findFile(dbEntryName);
+      if (db != null && !db.isDirectory) {
+        await File(p.join(outDir, dbEntryName)).writeAsBytes(db.content);
+      }
+      DebugConfig.db(
+          'BackupArchive.extractDbOnly: entries=${names.length} out=$outDir');
+      return names;
+    } catch (e, stack) {
+      DebugConfig.error('BackupArchive.extractDbOnly', e, stack);
       rethrow;
     }
   }

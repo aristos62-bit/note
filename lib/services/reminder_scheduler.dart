@@ -43,6 +43,14 @@ class ReminderScheduler {
   Timer? _refreshTimer;
   DateTime? _lastRefreshRun; // 🔍 DEBUG: για μέτρηση του κενού μεταξύ refresh
 
+  /// B2/E33: maintenance gate για restore/wipe — όσο true, τα passes και
+  /// των 3 ουρών (bake/refresh/purge) σκιπάρονται μέσω των queue gates.
+  bool _maintenance = false;
+
+  /// F6: υπήρχε εκκρεμές/σκιπαρισμένο debounce refresh στο pause —
+  /// ξανα-οπλίζεται ΜΙΑ φορά στο abort (resume).
+  bool _refreshWasPending = false;
+
   // P1#3 (S252): δίχτυο για το βαρύτερο postFrame βήμα (main:246). Ίδιο SPoT
   // instance-per-concern με το `_refreshQueue` (S246) — ΠΟΤΕ κοινή ουρά
   // (μάθημα S230→S232). Fail-open 60s + NEVER-THROW: ένα κόλλημα δεν παγώνει
@@ -264,8 +272,16 @@ class ReminderScheduler {
       {Duration delay = const Duration(seconds: 2)}) async {
     DebugConfig.notif(
         'ReminderScheduler.debouncedRefreshRecurringReminders: called, delay=$delay');
+    if (_maintenance) {
+      // F6: όχι timer ενόσω τρέχει restore/wipe — rearm στο abort.
+      _refreshWasPending = true;
+      DebugConfig.notif(
+          'ReminderScheduler.debouncedRefreshRecurringReminders: maintenance — deferred');
+      return;
+    }
     _refreshTimer?.cancel();
     _refreshTimer = Timer(delay, () async {
+      _refreshTimer = null;
       try {
         DebugConfig.notif(
             'ReminderScheduler.debouncedRefreshRecurringReminders: executing actual refresh');
@@ -750,6 +766,63 @@ class ReminderScheduler {
           'purgeKnowledgeReminders: scanned=${all.length} purged=$purged');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.purgeKnowledgeReminders', e, stack);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Maintenance gate (B2/E33) — restore/wipe orchestration
+  // ─────────────────────────────────────────────────────────
+
+  /// Κλείνει τα gates και των 3 ουρών ΠΡΙΝ το drain (E33).
+  /// Ακυρώνει το εκκρεμές debounce refresh· rearm ΜΟΝΟ στο abort (F6).
+  void pauseForMaintenance() {
+    if (_maintenance) return;
+    _maintenance = true;
+    final timer = _refreshTimer;
+    _refreshTimer = null;
+    if (timer != null) {
+      timer.cancel();
+      _refreshWasPending = true;
+    }
+    _bakeQueue.pauseForMaintenance();
+    _refreshQueue.pauseForMaintenance();
+    _purgeQueue.pauseForMaintenance();
+    DebugConfig.notif('ReminderScheduler.maintenance: paused');
+  }
+
+  /// Περιμένει τα πραγματικά in-flight passes και των 3 ουρών (παράλληλα).
+  /// false = δεν καθάρισαν εντός [maxWait] → ο caller κάνει abort ΧΩΡΙΣ close.
+  Future<bool> drainForMaintenance(Duration maxWait) async {
+    final results = await Future.wait([
+      _bakeQueue.waitForIdle(maxWait),
+      _refreshQueue.waitForIdle(maxWait),
+      _purgeQueue.waitForIdle(maxWait),
+    ]);
+    final ok = results.every((idle) => idle);
+    if (!ok) {
+      DebugConfig.warning(
+          'ReminderScheduler.maintenance: drain TIMEOUT '
+              '(bake=${_bakeQueue.inFlightCount} '
+              'refresh=${_refreshQueue.inFlightCount} '
+              'purge=${_purgeQueue.inFlightCount})');
+    }
+    return ok;
+  }
+
+  /// Ανοίγει τα gates. Στο abort ([rearmRefresh] true) ξανα-οπλίζει ΜΙΑ
+  /// φορά το debounce refresh αν είχε ακυρωθεί/αναβληθεί λόγω pause (F6).
+  void resumeAfterMaintenance({bool rearmRefresh = true}) {
+    if (!_maintenance) return;
+    _maintenance = false;
+    _bakeQueue.resumeAfterMaintenance();
+    _refreshQueue.resumeAfterMaintenance();
+    _purgeQueue.resumeAfterMaintenance();
+    DebugConfig.notif('ReminderScheduler.maintenance: resumed');
+    if (_refreshWasPending) {
+      _refreshWasPending = false;
+      if (rearmRefresh) {
+        unawaited(debouncedRefreshRecurringReminders());
+      }
     }
   }
 
