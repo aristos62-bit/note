@@ -904,6 +904,51 @@ class HabitService {
     }
   }
 
+  // ─────────────────────────────────────────────────────────
+  // Maintenance gate (B3/E33) — restore/wipe orchestration
+  // ─────────────────────────────────────────────────────────
+
+  /// B3/E33: maintenance gate για restore/wipe — όσο true, τα passes και
+  /// των 2 ουρών (pass/repair) σκιπάρονται μέσω των queue gates.
+  bool _maintenance = false;
+
+  /// Κλείνει τα gates και των 2 ουρών ΠΡΙΝ το drain (E33).
+  void pauseForMaintenance() {
+    if (_maintenance) return;
+    _maintenance = true;
+    _passQueue.pauseForMaintenance();
+    _repairQueue.pauseForMaintenance();
+    DebugConfig.notif('HabitService.maintenance: paused');
+  }
+
+  /// Περιμένει τα πραγματικά in-flight passes (παράλληλα).
+  /// false = δεν καθάρισαν εντός [maxWait] → ο caller κάνει abort ΧΩΡΙΣ close.
+  Future<bool> drainForMaintenance(Duration maxWait) async {
+    final results = await Future.wait([
+      _passQueue.waitForIdle(maxWait),
+      _repairQueue.waitForIdle(maxWait),
+    ]);
+    final ok = results.every((idle) => idle);
+    if (!ok) {
+      DebugConfig.warning(
+          'HabitService.maintenance: drain TIMEOUT '
+              '(pass=${_passQueue.inFlightCount} '
+              'repair=${_repairQueue.inFlightCount})');
+    }
+    return ok;
+  }
+
+  /// Ανοίγει τα gates (μόνο σε abort). Το topUp είναι idempotent/additive
+  /// και ξανατρέχει στο επόμενο lifecycle resume/cold start — δεν κάνουμε
+  /// forced rearm εδώ (καμία επίπτωση αν ένα pass σκιπαρίστηκε).
+  void resumeAfterMaintenance() {
+    if (!_maintenance) return;
+    _maintenance = false;
+    _passQueue.resumeAfterMaintenance();
+    _repairQueue.resumeAfterMaintenance();
+    DebugConfig.notif('HabitService.maintenance: resumed');
+  }
+
   Future<void> _scheduleReminders(
       int habitId, List<TimeOfDay> times, Recurrence recurrence) =>
       _passQueue.run(

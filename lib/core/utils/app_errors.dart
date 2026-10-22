@@ -61,6 +61,8 @@ class AppErrors {
   static const backupNotFound = 'Το αρχείο backup δεν βρέθηκε';
   static const backupInvalid = 'Μη έγκυρο αρχείο backup';
   static const restoreFailed = 'Σφάλμα επαναφοράς';
+  static const backupBusy =
+      'Η εφαρμογή είναι απασχολημένη — δοκίμασε ξανά';
   static const wipeFailed = 'Σφάλμα κατά τη διαγραφή';
   static const wipeConfirmMismatch =
       'Η φράση επιβεβαίωσης δεν είναι σωστή. Η διαγραφή ακυρώθηκε.';
