@@ -3583,3 +3583,30 @@
 - Τα replacements δεν καταναλώνουν νέο slot· μόνο τα πραγματικά νέα rows κόβονται στο `osAlarmLimit`.
 
 **Docs:** `supernote.md` — directory map + `ReminderScheduler`/`ReminderText`/`ReminderBakePlan`/`HabitService` αρχιτεκτονική. Το `error_list.md` έχει το progress row και τις κάρτες. Το παρόν κεφάλαιο είναι ιστορικό.
+
+## Session 271 — 22/10/2026 (O4: UI consolidation/hardening — E04/E28/E12/E02)
+
+> Ιστορικό κεφάλαιο. Οι ενεργές εκκρεμότητες και το device verification μένουν **μόνο** στο `error_list.md` (SOP), όχι εδώ.
+
+**Σκοπός:** ένα πέρασμα σε sheets/οθόνες για το Ο4 — κοινό `SafeSheet` παντού, ασφαλή sheet contexts, shared archive toggle και σύντομος calendar τίτλος. Χωρίς νέο αρχείο στο `lib/` και χωρίς αλλαγή του API του `SafeSheet`/`showSafeSheet`.
+
+**Τι άλλαξε (κώδικας commit `92fdcc6`):**
+1. **E28 — 15 raw `showModalBottomSheet` → `SafeSheet`/`showSafeSheet`:** 6 reminder sheets (appointment/task/note/contact/journal/event) μέσω νέου `showReminderSheet` · `FolderCreateSheet` · `TagPickerSheet` (`scrollControlled`) · settings size/folder pickers · settings color picker · collection field editor/icon picker · contact photo options · calendar creation menu. Απομένουν **3** σκόπιμα raw: `safe_sheet.dart:50` (ο canonical wrapper), `confirm_dialog.dart:129`, `appointment_detail_screen.dart:391` (item picker).
+2. **E04 — sheet-context hardening:** `sheetCtx`/`innerCtx` για theme/colors/`Navigator.pop` σε task status/priority, settings size/folder, collection field/icon, settings colors, contact photo, calendar creation και habit text editor. Καμία αλλαγή layout.
+3. **E12 — shared archive toggle:** `ArchivedMenuButton` στο `archive_helper.dart` για 7 AppBar menus (`item_list`, tasks, habits, journal, contacts, collections, collection entries) + `ArchivedInlineButton` για το calendar. Το inline χρησιμοποιεί `Align` αντί `Row + Spacer` (το `Row` έσπαγε με 197px overflow σε 320dp/1.4).
+4. **E02 — compact calendar title:** `AppDateUtils.formatMonth(..., compact: true)` → «Οκτ ’26» + `maxLines: 1`/ellipsis στο AppBar. Νέο unit test στο `weekday_labels_test.dart`.
+5. **Καθαριότητα:** mounted guards σε TagPicker (`_addTag`/tap) και habit save· `settings_tiles.dart` παρέμεινε **452** γραμμές (<500).
+
+**Έλεγχοι:** `flutter analyze --no-pub` → **No issues found**· `flutter test --no-pub --reporter compact` → **287/287** (49 αρχεία, +1 test). `grep showModalBottomSheet` → μόνο τα 3 exceptions. **Δεν έγινε device/ADB test** — E02/E04 παραμένουν ανοιχτά στο `error_list.md` μέχρι το device pass.
+
+**Backups:** `backups/o4_sheets_2026-10-22/` — 24 source/test αρχεία + 3 docs πριν από τις αλλαγές (27 συνολικά).
+
+**Μαθήματα:**
+- Το `SafeSheet` είναι ήδη scrollable (`Flexible > SingleChildScrollView`)· η μετάβαση δεν χρειάζεται εξωτερικό `SingleChildScrollView` και το `viewInsets` καλύπτεται από το shell.
+- Σε sheet builder, το `context` του caller μπορεί να αποενεργοποιηθεί όσο το sheet είναι ανοιχτό· μόνο το `sheetCtx`/`innerCtx` είναι ασφαλές για theme lookup και pop.
+- Το `Row + Spacer` με long label + `TextButton.icon` δημιουργεί overflow σε στενό πλάτος· `Align` + `maxLines`/ellipsis είναι σταθερότερο.
+- Για τον compact μήνα χρησιμοποιήθηκε η υπάρχουσα ελληνική λίστα `monthNames` (όχι `DateFormat('MMM')`) ώστε να μείνει ντετερμινιστικό το test.
+
+**Docs:** `error_list.md` — baseline/test counter, κάρτες E02/E04/E12/E28, Ο4 group row και progress row. `supernote.md` **δεν άλλαξε** (καμία αρχιτεκτονική αλλαγή· μόνο υλοποίηση μέσα σε υπάρχοντα αρχεία). Το παρόν κεφάλαιο είναι ιστορικό.
+
+**Επόμενο:** device verification E02/E04 με ρητή λίστα δεδομένων (κανόνας 12) — 100%/140%, portrait/landscape, reassemble με ανοιχτό sheet· μετά κλείσιμο Ο4. Ακολουθεί Ο6 (cleanup sweep) και Ο5 (grid + E03).
