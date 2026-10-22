@@ -534,20 +534,11 @@ class _AppointmentDetailScreenState
   Future<void> _showReminderDialog() async {
     final startDateTime = _getStartDateTime();
     final title = _titleCtrl.text.trim().isEmpty ? 'Ραντεβού' : _titleCtrl.text.trim();
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: ReminderSection(
-          itemId: widget.itemId,
-          itemTitle: title,
-          defaultStartTime: startDateTime,
-        ),
-      ),
+    await showReminderSheet(
+      context,
+      itemId: widget.itemId,
+      itemTitle: title,
+      defaultStartTime: startDateTime,
     );
   }
 

@@ -178,33 +178,8 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
     elevation: 0,
     scrolledUnderElevation: 1,
     title: const Text('Ημερολόγιο'),
-    actions: [
-      PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert_rounded),
-        onSelected: (value) {
-          if (value == 'archived') {
-            ref.read(showArchivedProvider.notifier).state =
-                !ref.read(showArchivedProvider);
-          }
-        },
-        itemBuilder: (_) => [
-          PopupMenuItem(
-            value: 'archived',
-            child: Row(children: [
-              const Icon(Icons.archive_rounded, size: 18),
-              const SizedBox(width: Spacing.sm),
-              // Flexible: το label δεν χωράει μονούς στο 140% (menu max 280dp)
-              Flexible(
-                child: Text(
-                  ref.watch(showArchivedProvider)
-                      ? 'Απόκρυψη αρχειοθετημένων'
-                      : 'Εμφάνιση αρχειοθετημένων',
-                ),
-              ),
-            ]),
-          ),
-        ],
-      ),
+    actions: const [
+      ArchivedMenuButton(),
     ],
   );
 

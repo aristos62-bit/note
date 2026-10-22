@@ -166,35 +166,10 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
     elevation: 0,
     scrolledUnderElevation: 1,
     title: const Text('Συνήθειες'),
-    actions: [
+    actions: const [
       // Καμπάνα OFF: νεκρό κουμπί (μόνο log) — οι συνήθειες έχουν
       // native scheduling από το detail (Ώρες εκτέλεσης).
-      PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert_rounded),
-        onSelected: (value) {
-          if (value == 'archived') {
-            ref.read(showArchivedProvider.notifier).state =
-                !ref.read(showArchivedProvider);
-          }
-        },
-        itemBuilder: (_) => [
-          PopupMenuItem(
-            value: 'archived',
-            child: Row(children: [
-              const Icon(Icons.archive_rounded, size: 18),
-              const SizedBox(width: Spacing.sm),
-              // Flexible: το label δεν χωράει μονούς στο 140% (menu max 280dp)
-              Flexible(
-                child: Text(
-                  ref.watch(showArchivedProvider)
-                      ? 'Απόκρυψη αρχειοθετημένων'
-                      : 'Εμφάνιση αρχειοθετημένων',
-                ),
-              ),
-            ]),
-          ),
-        ],
-      ),
+      ArchivedMenuButton(),
     ],
   );
 }

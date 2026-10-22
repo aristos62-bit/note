@@ -78,3 +78,76 @@ Future<void> handleArchive({
     if (showPopOnArchive) Navigator.of(context).pop();
   }
 }
+
+/// State-dependent archive toggle για AppBar menus.
+///
+/// Single source of truth για το label/icon/onPressed που επαναλαμβανόταν
+/// σε 7 list screens. Το `Flexible` κρατά το label μέσα στο menu πλάτος.
+class ArchivedMenuButton extends ConsumerWidget {
+  const ArchivedMenuButton({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showArchived = ref.watch(showArchivedProvider);
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (value) {
+        if (value == 'archived') {
+          ref.read(showArchivedProvider.notifier).state =
+              !ref.read(showArchivedProvider);
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'archived',
+          child: Row(children: [
+            Icon(
+              showArchived ? Icons.unarchive_rounded : Icons.archive_rounded,
+              size: 18,
+            ),
+            const SizedBox(width: Spacing.sm),
+            Flexible(
+              child: Text(
+                showArchived
+                    ? 'Απόκρυψη αρχειοθετημένων'
+                    : 'Εμφάνιση αρχειοθετημένων',
+              ),
+            ),
+          ]),
+        ),
+      ],
+    );
+  }
+}
+
+/// State-dependent inline archive toggle για το calendar.
+///
+/// Ο caller το τοποθετεί σε bounded πλάτος (π.χ. `Align`), ώστε το
+/// εσωτερικό `Flexible` του `TextButton.icon` να μην παίρνει unbounded
+/// constraints.
+class ArchivedInlineButton extends ConsumerWidget {
+  const ArchivedInlineButton({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showArchived = ref.watch(showArchivedProvider);
+    return TextButton.icon(
+      onPressed: () {
+        ref.read(showArchivedProvider.notifier).state =
+            !ref.read(showArchivedProvider);
+      },
+      icon: Icon(
+        showArchived ? Icons.unarchive_rounded : Icons.archive_rounded,
+        size: 18,
+      ),
+      label: Text(
+        showArchived
+            ? 'Απόκρυψη αρχειοθετημένων'
+            : 'Εμφάνιση αρχειοθετημένων',
+        style: context.labelSm,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}

@@ -433,23 +433,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
   Future<void> _showReminderDialog() async {
     final title =
         _nameCtrl.text.trim().isEmpty ? 'Επαφή' : _nameCtrl.text.trim();
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: ReminderSection(
-          itemId: widget.itemId,
-          itemTitle: title,
-          defaultStartTime: null,
-        ),
-      ),
+    await showReminderSheet(
+      context,
+      itemId: widget.itemId,
+      itemTitle: title,
     );
   }
 
@@ -1038,36 +1025,26 @@ class _ContactBody extends ConsumerWidget {
   }
 
   void _showPhotoOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeArea(
+    showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SafeSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SheetHandle(
-              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-            ),
             ListTile(
               leading: const Icon(Icons.camera_alt_rounded),
               title: const Text('Λήψη φωτογραφίας'),
-              onTap: () { Navigator.pop(context); onPickCamera(); },
+              onTap: () { Navigator.pop(sheetCtx); onPickCamera(); },
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_rounded),
               title: const Text('Επιλογή από gallery'),
-              onTap: () { Navigator.pop(context); onPickGallery(); },
+              onTap: () { Navigator.pop(sheetCtx); onPickGallery(); },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline_rounded, color: context.cError),
-              title: Text('Διαγραφή φωτογραφίας', style: TextStyle(color: context.cError)),
-              onTap: () { Navigator.pop(context); onDeletePhoto(); },
+              leading: Icon(Icons.delete_outline_rounded, color: sheetCtx.cError),
+              title: Text('Διαγραφή φωτογραφίας', style: TextStyle(color: sheetCtx.cError)),
+              onTap: () { Navigator.pop(sheetCtx); onDeletePhoto(); },
             ),
             const SizedBox(height: Spacing.sm),
           ],

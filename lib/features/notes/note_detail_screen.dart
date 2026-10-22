@@ -117,23 +117,10 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   // --- Εμφάνιση bottom sheet με ReminderSection ---
   Future<void> _showReminderDialog() async {
     final title = _titleCtrl.text.trim().isEmpty ? 'Σημείωση' : _titleCtrl.text.trim();
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: ReminderSection(
-          itemId: widget.itemId,
-          itemTitle: title,
-          defaultStartTime: null,
-        ),
-      ),
+    await showReminderSheet(
+      context,
+      itemId: widget.itemId,
+      itemTitle: title,
     );
   }
 

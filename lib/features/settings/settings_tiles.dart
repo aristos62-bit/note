@@ -173,42 +173,35 @@ class SettingsMaxAttachmentSizeTile extends StatelessWidget {
     final current = settings.maxAttachmentSizeMB;
     final options = [1, 5, 10, 20, 50, 100, 0];
     DebugConfig.nav('Settings: open size picker');
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
+    showSafeSheet<void>(
+      context,
       builder: (ctx) => SafeSheet(
         title: 'Ορισμός μέγιστου μεγέθους συνημμένου',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ...options.map((mb) {
-            final isActive = current == mb;
-            return ListTile(
-              leading: Icon(
-                isActive ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                color: isActive ? context.cPrimary : context.cText2,
-              ),
-              title: Text(
-                mb == 0 ? 'Χωρίς όριο' : '$mb MB',
-                style: context.bodyMd,
-              ),
-              onTap: () {
-                DebugConfig.provider('Settings: maxAttachmentSizeMB=$mb');
-                ref.read(settingsNotifierProvider.notifier).updateSettings((s) => s.maxAttachmentSizeMB = mb);
-                Navigator.pop(ctx);
-              },
-            );
-          }),
-          const SizedBox(height: Spacing.md),
-        ],
+              final isActive = current == mb;
+              return ListTile(
+                leading: Icon(
+                  isActive ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                  color: isActive ? ctx.cPrimary : ctx.cText2,
+                ),
+                title: Text(
+                  mb == 0 ? 'Χωρίς όριο' : '$mb MB',
+                  style: ctx.bodyMd,
+                ),
+                onTap: () {
+                  DebugConfig.provider('Settings: maxAttachmentSizeMB=$mb');
+                  ref.read(settingsNotifierProvider.notifier).updateSettings((s) => s.maxAttachmentSizeMB = mb);
+                  Navigator.pop(ctx);
+                },
+              );
+            }),
+            const SizedBox(height: Spacing.md),
+          ],
         ),
-        ),
+      ),
     );
   }
 }
@@ -259,59 +252,39 @@ class SettingsPreferredFolderTile extends ConsumerWidget {
   void _showPicker(BuildContext context, WidgetRef ref) {
     final foldersAsync = ref.read(foldersStreamProvider);
     final folders = foldersAsync.valueOrNull ?? [];
+    final selectable = folders.where((f) => !f.isSystem).toList();
     final currentId = settings.preferredFolderId;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SafeArea(
+    showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SafeSheet(
+        title: 'Επιλογή προεπιλεγμένου φακέλου',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SheetHandle(
-              margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
-              child: Text('Επιλογή προεπιλεγμένου φακέλου', style: context.titleSm),
-            ),
-            const SizedBox(height: Spacing.sm),
             ListTile(
-              leading: Icon(Icons.home_rounded, color: context.cText2),
+              leading: Icon(Icons.home_rounded, color: sheetCtx.cText2),
               title: const Text('Αυτόματος (Γενικά)'),
-              trailing: currentId == null ? Icon(Icons.check_rounded, color: context.cPrimary) : null,
+              trailing: currentId == null ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary) : null,
               onTap: () {
                 ref.read(settingsNotifierProvider.notifier).setPreferredFolder(null);
-                Navigator.pop(context);
+                Navigator.pop(sheetCtx);
               },
             ),
             const Divider(height: 1),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: folders.where((f) => !f.isSystem).length,
-                itemBuilder: (_, i) {
-                  final folder = folders.where((f) => !f.isSystem).toList()[i];
-                  final isSelected = folder.id == currentId;
-                  return ListTile(
-                    leading: Text(folder.icon ?? '📁', style: const TextStyle(fontSize: 18)),
-                    title: Text(folder.name, style: context.bodyMd),
-                    trailing: isSelected ? Icon(Icons.check_rounded, color: context.cPrimary) : null,
-                    onTap: () {
-                      ref.read(settingsNotifierProvider.notifier).setPreferredFolder(folder.id);
-                      Navigator.pop(context);
-                      DebugConfig.provider('Settings: set preferred folder id=${folder.id}');
-                    },
-                  );
+            ...selectable.map((folder) {
+              final isSelected = folder.id == currentId;
+              return ListTile(
+                leading: Text(folder.icon ?? '📁', style: const TextStyle(fontSize: 18)),
+                title: Text(folder.name, style: sheetCtx.bodyMd),
+                trailing: isSelected ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary) : null,
+                onTap: () {
+                  ref.read(settingsNotifierProvider.notifier).setPreferredFolder(folder.id);
+                  Navigator.pop(sheetCtx);
+                  DebugConfig.provider('Settings: set preferred folder id=${folder.id}');
                 },
-              ),
-            ),
+              );
+            }),
             const SizedBox(height: Spacing.md),
           ],
         ),

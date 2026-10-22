@@ -85,20 +85,13 @@ class SettingsItemTypeColorsTile extends ConsumerWidget {
   }
 
   void _showColorPicker(BuildContext context, ItemType type, String? currentHex) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.bottomSheet),
-          topRight: Radius.circular(AppRadius.bottomSheet),
-        ),
-      ),
-      builder: (_) => SettingsColorPickerSheet(
+    showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SettingsColorPickerSheet(
         type: type,
         currentHex: currentHex,
         onSelected: (hex) {
-          Navigator.pop(context);
+          Navigator.pop(sheetCtx);
           ref.read(settingsNotifierProvider.notifier).setItemTypeColor(type, hex);
         },
       ),
@@ -205,125 +198,68 @@ class SettingsColorPickerSheetState extends State<SettingsColorPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: Spacing.sm),
-            const SheetHandle(),
-            const SizedBox(height: Spacing.sm),
-            Row(
-              children: [
-                const SizedBox(width: Spacing.md),
-                Icon(ItemTypeIcon.iconDataFor(widget.type), size: 18, color: context.cText),
-                const SizedBox(width: Spacing.sm),
-                Text('Χρώμα — ${ItemTypeIcon.labelFor(widget.type)}', style: context.titleSm),
-              ],
-            ),
-            const SizedBox(height: Spacing.sm),
-            Divider(height: 1, color: context.cDivider),
-            const SizedBox(height: Spacing.sm),
-            // Προεπιλογή
-            ListTile(
-              leading: Container(
-                width: 28, height: 28,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: context.cBorder, width: 2),
-                ),
-                child: Icon(Icons.close_rounded, size: 14, color: context.cText2),
+    return SafeSheet(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const SizedBox(width: Spacing.md),
+              Icon(ItemTypeIcon.iconDataFor(widget.type), size: 18, color: context.cText),
+              const SizedBox(width: Spacing.sm),
+              Text('Χρώμα — ${ItemTypeIcon.labelFor(widget.type)}', style: context.titleSm),
+            ],
+          ),
+          const SizedBox(height: Spacing.sm),
+          Divider(height: 1, color: context.cDivider),
+          const SizedBox(height: Spacing.sm),
+          // Προεπιλογή
+          ListTile(
+            leading: Container(
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: context.cBorder, width: 2),
               ),
-              title: Text('Προεπιλογή', style: context.bodyMd),
-              trailing: widget.currentHex == null ? Icon(Icons.check, size: 18, color: context.cPrimary) : null,
-              onTap: () => widget.onSelected(null),
+              child: Icon(Icons.close_rounded, size: 14, color: context.cText2),
             ),
-            const Divider(height: 1),
-            const SizedBox(height: Spacing.sm),
-            // Οικογένειες χρωμάτων
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-              child: Text('Οικογένεια', style: context.labelSm.withColor(context.cText2)),
-            ),
-            const SizedBox(height: Spacing.sm),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 0.85,
-                ),
-                itemCount: _colorFamilies.length,
-                itemBuilder: (_, i) {
-                  final family = _colorFamilies[i];
-                  final isSelected = _selectedFamily == family;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedFamily = isSelected ? null : family),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: family.shade500,
-                            borderRadius: BorderRadius.circular(8),
-                            border: isSelected
-                                ? Border.all(color: Colors.white, width: 2.5)
-                                : null,
-                          ),
-                          child: isSelected
-                              ? const Icon(Icons.check, color: Colors.white, size: 16)
-                              : null,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _familyLabel(family),
-                          style: context.bodySm.withColor(context.cText2),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  );
-                },
+            title: Text('Προεπιλογή', style: context.bodyMd),
+            trailing: widget.currentHex == null ? Icon(Icons.check, size: 18, color: context.cPrimary) : null,
+            onTap: () => widget.onSelected(null),
+          ),
+          const Divider(height: 1),
+          const SizedBox(height: Spacing.sm),
+          // Οικογένειες χρωμάτων
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+            child: Text('Οικογένεια', style: context.labelSm.withColor(context.cText2)),
+          ),
+          const SizedBox(height: Spacing.sm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 6,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.85,
               ),
-            ),
-            // Αποχρώσεις επιλεγμένης οικογένειας
-            if (_selectedFamily != null) ...[
-              const SizedBox(height: Spacing.sm),
-              const Divider(height: 1),
-              const SizedBox(height: Spacing.sm),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                child: Text('Αποχρώσεις', style: context.labelSm.withColor(context.cText2)),
-              ),
-              const SizedBox(height: Spacing.sm),
-              Padding(
-                padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md, bottom: Spacing.sm),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5,
-                    mainAxisSpacing: 6,
-                    crossAxisSpacing: 6,
-                  ),
-                  itemCount: _shadesOf(_selectedFamily!).length,
-                  itemBuilder: (_, i) {
-                    final color = _shadesOf(_selectedFamily!)[i];
-                    final hex = _colorToHex(color);
-                    final isSelected = hex == widget.currentHex;
-                    return GestureDetector(
-                      onTap: () => widget.onSelected(hex),
-                      child: Container(
+              itemCount: _colorFamilies.length,
+              itemBuilder: (_, i) {
+                final family = _colorFamilies[i];
+                final isSelected = _selectedFamily == family;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedFamily = isSelected ? null : family),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        height: 32,
                         decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(6),
+                          color: family.shade500,
+                          borderRadius: BorderRadius.circular(8),
                           border: isSelected
                               ? Border.all(color: Colors.white, width: 2.5)
                               : null,
@@ -332,13 +268,65 @@ class SettingsColorPickerSheetState extends State<SettingsColorPickerSheet> {
                             ? const Icon(Icons.check, color: Colors.white, size: 16)
                             : null,
                       ),
-                    );
-                  },
+                      const SizedBox(height: 2),
+                      Text(
+                        _familyLabel(family),
+                        style: context.bodySm.withColor(context.cText2),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          // Αποχρώσεις επιλεγμένης οικογένειας
+          if (_selectedFamily != null) ...[
+            const SizedBox(height: Spacing.sm),
+            const Divider(height: 1),
+            const SizedBox(height: Spacing.sm),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: Text('Αποχρώσεις', style: context.labelSm.withColor(context.cText2)),
+            ),
+            const SizedBox(height: Spacing.sm),
+            Padding(
+              padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md, bottom: Spacing.sm),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
                 ),
+                itemCount: _shadesOf(_selectedFamily!).length,
+                itemBuilder: (_, i) {
+                  final color = _shadesOf(_selectedFamily!)[i];
+                  final hex = _colorToHex(color);
+                  final isSelected = hex == widget.currentHex;
+                  return GestureDetector(
+                    onTap: () => widget.onSelected(hex),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(6),
+                        border: isSelected
+                            ? Border.all(color: Colors.white, width: 2.5)
+                            : null,
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check, color: Colors.white, size: 16)
+                          : null,
+                    ),
+                  );
+                },
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

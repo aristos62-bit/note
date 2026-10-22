@@ -153,11 +153,16 @@ class AppDateUtils {
       weekdayInitials[date.weekday - 1];
 
   // ─────────────────────────────────────────────────────────────
-  // FINANCE — "Μάρτιος 2025"
+  // FINANCE — "Μάρτιος 2025" / compact "Μαρ ’25"
   // ─────────────────────────────────────────────────────────────
 
-  static String formatMonth(DateTime date) =>
-      DateFormat('MMMM yyyy', 'el').format(date);
+  static String formatMonth(DateTime date, {bool compact = false}) {
+    if (compact) {
+      final yy = (date.year % 100).toString().padLeft(2, '0');
+      return '${monthNames[date.month - 1]} ’$yy';
+    }
+    return DateFormat('MMMM yyyy', 'el').format(date);
+  }
 
   // ─────────────────────────────────────────────────────────────
   // GROUPING — group items by date for list headers
