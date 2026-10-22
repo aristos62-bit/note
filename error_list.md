@@ -44,7 +44,7 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `f28f25c` (S270 — O1 docs) | `git log` |
+| Git HEAD | `a3216f2` (O2 — lifecycle) | `git log` |
 | `flutter analyze` | **No issues found** | run 22/10/2026 |
 | `flutter test` | **286/286** (49 αρχεία test) | run 22/10/2026 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 39.371 | μετρήθηκε |
