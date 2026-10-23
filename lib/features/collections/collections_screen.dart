@@ -1,13 +1,12 @@
 // lib/features/collections/collections_screen.dart
 //
 // Αρχική σελίδα Συλλογών — εμφανίζει όλες τις συλλογές του χρήστη.
-// ✅ Folder‑based: FAB μόνο όταν επιλεγεί φάκελος
+// ✅ Folder-based: FAB πάντα ορατό (picker όταν «Όλοι») — S272/E38
 // ✅ Responsive: grid mobile / grid tablet
 // ✅ Dark mode
 // ✅ DebugConfig
 // ✅ Χρήση ItemColorHelper για background & contrast
-// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
-// ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
+// ✅ Καθολική επιλογή φακέλου (null = «Όλοι») — S272/E38
 // ✅ ViewMode toggle
 // ✅ Drag & drop support (DraggableFolderSelector, draggable cards)
 //
@@ -34,17 +33,16 @@ class CollectionsScreen extends ConsumerStatefulWidget {
   ConsumerState<CollectionsScreen> createState() => _CollectionsScreenState();
 }
 
-class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
-    with FolderAutoSelectMixin {
+class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
 
   Future<void> _createCollection() async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
-    if (selectedFolderId == null) return;
-    DebugConfig.nav('Collections: create in folder id=$selectedFolderId');
+    final folderId = await resolveFolderForNewItem(context, ref);
+    if (folderId == null || !mounted) return;
+    DebugConfig.nav('Collections: create in folder id=$folderId');
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.project,
       // title: 'Νέα Συλλογή',
-      folderId: selectedFolderId,
+      folderId: folderId,
     );
     if (item == null || !mounted) return;
     ref.invalidate(itemNotifierProvider);
@@ -76,14 +74,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
   Widget build(BuildContext context) {
     DebugConfig.provider('CollectionsScreen build');
     final allAsync = ref.watch(itemsStreamProvider);
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider);
-
-    tryAutoSelectFolder(
-      foldersAsync: foldersAsync,
-      settingsAsync: settingsAsync,
-      debugLabel: 'CollectionsScreen',
-    );
 
     // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
@@ -99,13 +89,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen>
           ArchivedMenuButton(),
         ],
       ),
-      floatingActionButton: selectedFolderId != null
-          ? FloatingActionButton(
+      // S272 (E38): πάντα ορατό — σε «Όλοι» ανοίγει picker φακέλου.
+      floatingActionButton: FloatingActionButton(
         onPressed: _createCollection,
         tooltip: 'Νέα Συλλογή',
         child: const Icon(Icons.add_rounded),
-      )
-          : null,
+      ),
       body: Column(
         children: [
           const DraggableFolderSelector(),

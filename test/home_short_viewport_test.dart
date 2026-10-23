@@ -97,7 +97,7 @@ void main() {
           overrides: [
             foldersStreamProvider
                 .overrideWith((ref) => Stream.value([_folder()])),
-            homeSelectedFolderProvider.overrideWith((ref) => 1),
+            selectedFolderIdProvider.overrideWith((ref) => 1),
             ..._overrides(1),
           ],
           child: const MaterialApp(home: HomeScreen()),

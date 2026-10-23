@@ -5,8 +5,7 @@
 // ✅ Dark mode: ColorsUI + context extensions + ItemColorHelper
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
-// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
-// ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
+// ✅ Καθολική επιλογή φακέλου (null = «Όλοι») — S272/E38
 //
 //
 import 'package:flutter/material.dart';
@@ -27,18 +26,17 @@ class HabitListScreen extends ConsumerStatefulWidget {
   ConsumerState<HabitListScreen> createState() => _HabitListScreenState();
 }
 
-class _HabitListScreenState extends ConsumerState<HabitListScreen>
-    with FolderAutoSelectMixin {
+class _HabitListScreenState extends ConsumerState<HabitListScreen> {
   bool _creating = false;
 
   Future<void> _createHabit() async {
     if (_creating) return;
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
-    if (selectedFolderId == null) return;
+    final folderId = await resolveFolderForNewItem(context, ref);
+    if (folderId == null || !mounted) return;
     setState(() => _creating = true);
     try {
       final notifier = ref.read(itemNotifierProvider.notifier);
-      final item = await notifier.create(type: ItemType.habit, folderId: selectedFolderId);
+      final item = await notifier.create(type: ItemType.habit, folderId: folderId);
       if (item == null || !mounted) return;
       await Navigator.of(context).push(
         AppTransitions.slideRoute(HabitDetailScreen(itemId: item.id, isNew: true)),
@@ -71,17 +69,9 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
   @override
   Widget build(BuildContext context) {
     final habitsAsync = ref.watch(itemsStreamProvider);
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider);
 
     // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
-
-    tryAutoSelectFolder(
-      foldersAsync: foldersAsync,
-      settingsAsync: settingsAsync,
-      debugLabel: 'HabitList',
-    );
 
     final isDragging = ref.watch(isDraggingProvider);
 
@@ -90,7 +80,8 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen>
       child: Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: selectedFolderId != null && !_creating
+      // S272 (E38): πάντα ορατό (εκτός δημιουργίας) — σε «Όλοι» ανοίγει picker.
+      floatingActionButton: !_creating
           ? FloatingActionButton(
         onPressed: _createHabit,
         tooltip: 'Νέα συνήθεια',

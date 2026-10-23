@@ -3610,3 +3610,32 @@
 **Docs:** `error_list.md` — baseline/test counter, κάρτες E02/E04/E12/E28, Ο4 group row και progress row. `supernote.md` **δεν άλλαξε** (καμία αρχιτεκτονική αλλαγή· μόνο υλοποίηση μέσα σε υπάρχοντα αρχεία). Το παρόν κεφάλαιο είναι ιστορικό.
 
 **Επόμενο:** device verification E02/E04 με ρητή λίστα δεδομένων (κανόνας 12) — 100%/140%, portrait/landscape, reassemble με ανοιχτό sheet· μετά κλείσιμο Ο4. Ακολουθεί Ο6 (cleanup sweep) και Ο5 (grid + E03).
+
+## Session 272 — 23/10/2026 (E38/Ο8: καθολική επιλογή φακέλου)
+
+> Ιστορικό κεφάλαιο. Οι ενεργές εκκρεμότητες και το device verification μένουν **μόνο** στο `error_list.md` (SOP), όχι εδώ.
+
+**Σκοπός:** μία και μόνη κατάσταση επιλογής φακέλου για Home + 7 λίστες (Σημειώσεις, Εργασίες, Συνήθειες, Ημερολόγιο-λίστα, Επαφές, Συλλογές, Ραντεβού) + Ημερολόγιο — εκκίνηση πάντα σε «Όλοι», χωρίς προεπιλεγμένο φάκελο, με «+» ορατό παντού.
+
+**Τι άλλαξε:**
+1. **Ένα state:** `selectedFolderIdProvider` (`folder_provider.dart`) είναι η μοναδική πηγή· `null` = «Όλοι». Διαγράφηκε το `homeSelectedFolderProvider` (`ui_provider.dart`) και όλες οι αναφορές του (Home, router reset, test overrides).
+2. **Κεντρικό deselect:** το `FolderNotifier.delete` καθαρίζει την επιλογή αν διαγράφηκε ο επιλεγμένος φάκελος — αφαιρέθηκαν τα χειροκίνητα reset σε Home/router.
+3. **Κοινός picker:** νέο `lib/shared/widgets/folder_picker_dialog.dart` με `showFolderPickerDialog` (timeout 5s, χωρίς preselect) + `resolveFolderForNewItem` (έγκυρη επιλογή → απευθείας· «Όλοι» → picker χωρίς αλλαγή της κοινής επιλογής). Η εισαγωγή επαφών χρησιμοποιεί πλέον τον ίδιο διάλογο.
+4. **FAB unconditional:** Home (νέος φάκελος μόνο σε «Όλοι»), 7 λίστες και Ημερολόγιο· habits/journal κρατούν το `_creating` guard. Το Ημερολόγιο ζητά **πρώτα τύπο** (συμβάν/γενέθλια/ειδική μέρα) και μετά φάκελο.
+5. **Ημερολόγιο:** το πλέγμα μήνα φιλτράρει events **και** γενέθλια επαφών με τον επιλεγμένο φάκελο (ακριβής φάκελος, όχι υποφάκελοι).
+6. **Καθαρισμός:** αφαιρέθηκαν `FolderAutoSelectMixin` + export, startup folder seed (`main.dart`), `preferredFolderId` UI (`SettingsPreferredFolderTile`), `preferredFolderIdProvider`/`setPreferredFolder`, και το preferred branch του share intent. Το πεδίο `preferredFolderId` μένει στο Isar schema ως legacy.
+7. **Tests:** νέο `test/folder_picker_resolve_test.dart` (έγκυρη επιλογή χωρίς διάλογο · «Όλοι» → picker → id · stale επιλογή → καθαρισμός + picker).
+
+**Έλεγχοι:** `flutter analyze` → **No issues found**· πλήρες `flutter test -j 1 --reporter compact` → **290/290** (50 αρχεία, +3 tests).
+
+**Backups:** `backups/s272_e38_folder_picker/` — 23 αρχεία (κώδικας/tests/docs) + `BASE_HEAD.txt` (`82cdc77`), 24 συνολικά.
+
+**Μαθήματα:**
+- Το `foldersStreamProvider` είναι warm σε όλες τις οθόνες-στόχους μέσω `DraggableFolderSelector`· ο picker διαβάζει `foldersProvider.future` μόνο ως fallback με timeout.
+- Σε widget tests το stream πρέπει να είναι warm πριν το tap, αλλιώς το `valueOrNull` είναι `null` (το ίδιο ισχύει και για το stale check).
+- `ref` μετά από `await` σε unmounted widget → `StateError`· ο helper διαβάζει πριν το await και οι callers ελέγχουν `mounted`/`context.mounted`.
+- Η «ακριβής» επιλογή φακέλου σημαίνει `item.folderId == selectedFolderId` — πουθενά υποφάκελοι.
+
+**Docs:** `error_list.md` — baseline/test counter, κάρτα E38 (CLOSED), bullet §3, progress rows, Ο8 group + σειρά. `supernote.md` — ενημέρωση αρχιτεκτονικής (μία καθολική επιλογή, αφαίρεση mixin/seed/preferred, νέο picker, legacy πεδίο). Το παρόν κεφάλαιο είναι ιστορικό.
+
+**Επόμενο:** device verification E38 με ρητή λίστα δεδομένων (κανόνας 12) — «Όλοι» σε κάθε οθόνη, «+» → picker, δημιουργία σε επιλεγμένο φάκελο, φίλτρο μήνα Ημερολογίου, διαγραφή επιλεγμένου φακέλου.

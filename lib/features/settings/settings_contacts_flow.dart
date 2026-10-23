@@ -87,58 +87,6 @@ Future<void> importContactsFromDevice(BuildContext context, WidgetRef ref) async
   }
 }
 
-/// Διάλογος επιλογής φακέλου για την εισαγωγή επαφών
-Future<int?> showFolderPickerDialog(BuildContext context, WidgetRef ref) async {
-  final folders = await ref.read(foldersProvider.future);
-  if (!context.mounted) return null;
-
-  // Αν υπάρχει preferredFolderId από ρυθμίσεις, το προ-επιλέγουμε
-  final preferredId = ref.read(settingsNotifierProvider).valueOrNull?.preferredFolderId;
-
-  return showDialog<int?>(
-    context: context,
-    useRootNavigator: true,
-    builder: (ctx) => AlertDialog(
-      title: const Row(
-        children: [
-          Icon(Icons.folder_rounded),
-          SizedBox(width: Spacing.sm),
-          Expanded(child: Text('Επιλογή φακέλου')),
-        ],
-      ),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            if (folders.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(Spacing.md),
-                child: Text('Δεν υπάρχουν φάκελοι. Δημιουργήστε έναν πρώτα.'),
-              )
-            else
-              ...folders.map((folder) => ListTile(
-                leading: Text(folder.icon ?? '📁', style: const TextStyle(fontSize: 20)),
-                title: Text(folder.name),
-                selected: folder.id == preferredId,
-                trailing: folder.id == preferredId
-                    ? Icon(Icons.check, color: context.cPrimary)
-                    : null,
-                onTap: () => Navigator.pop(ctx, folder.id),
-              )),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, null),
-          child: const Text('Ακύρωση'),
-        ),
-      ],
-    ),
-  );
-}
-
 /// Διάλογος διαχείρισης εισαγμένων επαφών
 Future<void> showImportedContactsDialog(BuildContext context, WidgetRef ref) async {
   final List<int> importedIds;

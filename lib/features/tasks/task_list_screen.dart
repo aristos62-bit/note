@@ -6,8 +6,8 @@
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ View mode toggle (pinned/favorites/all)
 // ✅ Fix: φίλτρα status/priority δεν χάνουν τη λίστα
-// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
-// ✅ Περιμένει τα settings πριν επιλέξει φάκελο
+// ✅ Καθολική επιλογή φακέλου (null = «Όλοι») — S272/E38
+// ✅ FAB με picker φακέλου όταν «Όλοι»
 // ✅ Search, tags (όπως το ItemListScreen)
 // ✅ Fix: κλείδωμα pop κατά το drag (αποφυγή ανεπιθύμητου back gesture)
 // ✅ Progress bar ανά κάρτα εργασίας (υποεργασίες, overdue, done)
@@ -37,8 +37,7 @@ class TaskListScreen extends ConsumerStatefulWidget {
   ConsumerState<TaskListScreen> createState() => _TaskListScreenState();
 }
 
-class _TaskListScreenState extends ConsumerState<TaskListScreen>
-    with FolderAutoSelectMixin {
+class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   @override
   void initState() {
@@ -50,12 +49,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   }
 
   Future<void> _createTask() async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
-    DebugConfig.nav('TaskList: create task in folder id=$selectedFolderId');
+    final folderId = await resolveFolderForNewItem(context, ref);
+    if (folderId == null || !mounted) return;
+    DebugConfig.nav('TaskList: create task in folder id=$folderId');
 
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type:     ItemType.task,
-      folderId: selectedFolderId,
+      folderId: folderId,
     );
 
     if (item == null || !mounted) return;
@@ -116,25 +116,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     final itemsAsync     = ref.watch(tasksWithDetailsProvider);
     final statusFilter   = ref.watch(_statusFilterProvider);
     final priorityFilter = ref.watch(_priorityFilterProvider);
-    final foldersAsync   = ref.watch(foldersStreamProvider);
-    final settingsAsync  = ref.watch(settingsNotifierProvider);
     final isDragging     = ref.watch(isDraggingProvider);
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
-
-    tryAutoSelectFolder(
-      foldersAsync: foldersAsync,
-      settingsAsync: settingsAsync,
-      debugLabel: 'TaskList',
-    );
 
     return PopScope(
       canPop: !isDragging,
       child: Scaffold(
         backgroundColor: context.cBg,
         appBar: _buildAppBar(),
-        floatingActionButton: selectedFolderId == null
-            ? null
-            : FloatingActionButton(
+        // S272 (E38): πάντα ορατό — σε «Όλοι» ανοίγει picker φακέλου.
+        floatingActionButton: FloatingActionButton(
           onPressed: _createTask,
           tooltip:   'Νέα εργασία',
           child:     const Icon(Icons.add_rounded),

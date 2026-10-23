@@ -1,9 +1,8 @@
 // lib/shared/screens/item_list_screen.dart
 //
 // Γενική οθόνη λίστας για οποιονδήποτε τύπο Item.
-// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
-// ✅ Περιμένει την τιμή των ρυθμίσεων πριν επιλέξει φάκελο
-// ✅ FAB δημιουργίας
+// ✅ Καθολική επιλογή φακέλου (null = «Όλοι») — S272/E38
+// ✅ FAB δημιουργίας (picker όταν «Όλοι»)
 // ✅ Responsive: list mobile / grid tablet+desktop
 // ✅ Dark mode + DebugConfig
 // ✅ Fix: κλείδωμα pop κατά το drag (αποφυγή ανεπιθύμητου back gesture)
@@ -40,19 +39,13 @@ class ItemListScreen extends ConsumerStatefulWidget {
   ConsumerState<ItemListScreen> createState() => _ItemListScreenState();
 }
 
-class _ItemListScreenState extends ConsumerState<ItemListScreen>
-    with FolderAutoSelectMixin {
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
+class _ItemListScreenState extends ConsumerState<ItemListScreen> {
 
   Future<void> _createItem() async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
-    if (selectedFolderId == null) return;
+    final folderId = await resolveFolderForNewItem(context, ref);
+    if (folderId == null || !mounted) return;
     final notifier = ref.read(itemNotifierProvider.notifier);
-    final item = await notifier.create(type: widget.itemType, folderId: selectedFolderId);
+    final item = await notifier.create(type: widget.itemType, folderId: folderId);
     if (item == null || !mounted) return;
     Navigator.of(context).push(
       AppTransitions.slideRoute(widget.detailScreenBuilder(context, item, isNew: true)),
@@ -109,18 +102,10 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
   @override
   Widget build(BuildContext context) {
     final itemsAsync = ref.watch(itemsStreamProvider);
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider);
     final isDragging = ref.watch(isDraggingProvider);
 
     // 🆕 Διαβάζουμε τον επιλεγμένο φάκελο από τον κεντρικό provider
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
-
-    tryAutoSelectFolder(
-      foldersAsync: foldersAsync,
-      settingsAsync: settingsAsync,
-      debugLabel: 'ItemList',
-    );
 
     return PopScope(
       canPop: !isDragging,
@@ -132,15 +117,13 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen>
             ArchivedMenuButton(),
           ],
         ),
-        // ΜΕΤΑ:
+        // S272 (E38): πάντα ορατό — σε «Όλοι» ανοίγει picker φακέλου.
         floatingActionButton: widget.floatingActionButtonOverride ??
-            (selectedFolderId != null
-                ? FloatingActionButton(
+            FloatingActionButton(
               onPressed: _createItem,
               tooltip: 'Νέο',
               child: const Icon(Icons.add_rounded),
-            )
-                : null),
+            ),
         body: Column(
           children: [
             const DraggableFolderSelector(),

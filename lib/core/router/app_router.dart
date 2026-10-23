@@ -37,7 +37,6 @@ import '../../features/appointments/appointments.dart';
 import '../../shared/widgets/shared_intent_sheet.dart';
 import '../../models/models.dart';
 import 'package:flutter/gestures.dart';
-import '../../providers/providers.dart';
 
 // ── Route paths ────────────────────────────────────────────────
 
@@ -379,9 +378,6 @@ class _AppShell extends ConsumerWidget {
     final path = _navItems[index].path;
     DebugConfig.nav('Shell nav → $path');
     context.go(path);
-    if (path == AppRoutes.home) {
-      ref.read(homeSelectedFolderProvider.notifier).state = null;
-    }
   }
 
   @override

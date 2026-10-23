@@ -121,7 +121,7 @@ lib/
 │   ├── providers.dart            — Barrel export
 │   ├── db_provider.dart          — SuperNoteHelper instance
 │   ├── workspace_provider.dart   — Workspaces, activeWorkspaceId
-│   ├── folder_provider.dart      — Folders stream, selectedFolderId
+│   ├── folder_provider.dart      — Folders stream, καθολική επιλογή φακέλου (null = «Όλοι»)
 │   ├── item_provider.dart        — Items CRUD, streams, filters
 │   ├── items_query_provider.dart — Folder/trash streams, folder view, collection counts (S255 split από item_provider)
 │   ├── pinned_provider.dart      — Pinned/Favorites streams (split από item_provider)
@@ -217,8 +217,7 @@ lib/
 │       └── trash_screen.dart     — Soft-deleted items
 └── shared/
     ├── mixins/
-    │   ├── detail_screen_mixin.dart — Central mixin for all detail screens
-    │   └── folder_auto_select_mixin.dart — Auto-select folder on screen load
+    │   └── detail_screen_mixin.dart — Central mixin for all detail screens
     └── widgets/
         ├── widgets.dart          — Barrel export
         ├── item_card.dart        — Unified card widget for all item types
@@ -233,6 +232,7 @@ lib/
         ├── empty_state.dart       — Empty/error/search state widgets
         ├── confirm_dialog.dart    — Responsive confirm dialog/sheet
         ├── folder_selector.dart   — Folder picker
+        ├── folder_picker_dialog.dart — Shared picker + resolveFolderForNewItem (S272, E38)
         ├── item_type_icon.dart    — Icon per ItemType
         ├── priority_badge.dart    — Priority indicator
         ├── tag_chip.dart          — Tag display chip
@@ -347,6 +347,10 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - Tree hierarchy: `parentFolderId`, `workspaceId`, `sortOrder`
 - `isSystem` flag — protected from deletion (default "Γενικά" folder)
 - Stream: `foldersStreamProvider`
+- **Καθολική επιλογή (S272/E38):** `selectedFolderIdProvider` (null = «Όλοι»)
+  — μία πηγή για Home, 7 λίστες και Ημερολόγιο. Εκκίνηση πάντα σε «Όλοι»
+  (χωρίς seed/preferred). Ακριβής φάκελος, όχι υποφάκελοι. Αν διαγραφεί ο
+  επιλεγμένος, το `FolderNotifier.delete` κάνει κεντρικό deselect.
 
 ### Workspace
 - Multi-workspace support, `isDefault`, `sortOrder`
@@ -381,7 +385,8 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - Font scale, default view, archived/deleted visibility
 - Notifications toggle, sound, vibration
 - Sync settings (syncEnabled, wifiOnly, interval)
-- `defaultWorkspaceId`, `preferredFolderId`
+- `defaultWorkspaceId`
+- `preferredFolderId` — legacy πεδίο Isar (δεν χρησιμοποιείται από S272/E38)
 - `itemTypeColorsJson` — JSON map `{"typeName":"#RRGGBB"}` for per-type card colors
 - `hasCompletedOnboarding`
 
@@ -542,7 +547,7 @@ foldersStreamProvider → StreamProvider<List<Folder>>         // root folders, 
 subFoldersStreamProvider → StreamProvider.family<List<Folder>, int>  // children
 foldersProvider → FutureProvider<List<Folder>>
 folderByIdProvider → StreamProvider.family<Folder?, int>
-selectedFolderIdProvider → StateProvider<int?>               // shared state
+selectedFolderIdProvider → StateProvider<int?>               // καθολική επιλογή· null = «Όλοι»
 folderNotifierProvider → AsyncNotifierProvider<FolderNotifier, List<Folder>>
 ```
 
@@ -630,13 +635,12 @@ settingsProvider → FutureProvider<AppSettings>
 settingsNotifierProvider → AsyncNotifierProvider<SettingsNotifier, AppSettings>
 appThemeProvider → Provider<AppTheme>
 onboardingCompleteProvider → Provider<bool>
-preferredFolderIdProvider → Provider<int?>
 itemTypeCardColorOverrideProvider → Provider.family<Color?, ItemType>
 ```
 
 ### UI State Providers
 ```
-homeSelectedFolderProvider → StateProvider<int?>
+selectedFolderIdProvider → StateProvider<int?>               // null = «Όλοι» (καθολικό)
 listViewModeProvider → StateProvider<ListViewMode>           // pinned / favorites / all
 isDraggingProvider → StateProvider<bool>                     // blocks back gesture during drag
 ```
@@ -684,7 +688,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Mobile: scrollable bottom nav with 10 items (Αρχική, Σημειώσεις, Εργασίες, Συνήθειες, Συμβάντα, Ημερολόγιο, Επαφές, Συλλογές, Ραντεβού, Ρυθμίσεις)
 - Tablet: `NavigationRail` (scrollable if needed)
 - Route path matching for active tab
-- Home tap resets `homeSelectedFolderProvider`
+- Η επιλογή φακέλου δεν επαναφέρεται σε navigation· μένει κοινή μέχρι ο χρήστης να διαλέξει «Όλοι» ή άλλο φάκελο
 
 ### Page Transitions
 - `AppTransitions.fade(state, child)` — standard navigation
@@ -735,10 +739,11 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - `executeSaveOrDelete(saveFn, deleteFn?)` — for back button: empty+new → delete
 - `safePop()`, `showSnackBar()`, `showConfirm()`
 
-### FolderAutoSelectMixin
-- `tryAutoSelectFolder()` — runs in build(): auto-selects folder from settings or system folder
-- `onUserSelectFolder()` — marks explicit user selection, updates `selectedFolderIdProvider`
-- `userExplicitlySelected` flag — prevents override after user choice
+### FolderAutoSelectMixin — αφαιρέθηκε (S272/E38)
+- Η αυτόματη επιλογή φακέλου και το `preferredFolderId` καταργήθηκαν· η
+  εφαρμογή ξεκινά σε «Όλοι» και η επιλογή γίνεται μόνο από τον χρήστη
+  (`selectedFolderIdProvider`). Ο picker νέων items ζει στο
+  `folder_picker_dialog.dart` (`resolveFolderForNewItem`).
 
 ---
 
@@ -949,7 +954,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 2. **Soft delete**: NEVER hard delete Items — use `Item.deletedAt`. Hard delete available but not used in normal flow
 3. **Provider invalidation**: CRUD methods use `ref.invalidateSelf()` at the end
 4. **Detail screen lifecycle**: DetailScreenMixin handles save/delete/new-empty-item disposal
-5. **Folder-based filtering**: `selectedFolderIdProvider` is shared state read by `itemsByFolderStreamProvider`
+5. **Folder-based filtering**: `selectedFolderIdProvider` είναι η **μοναδική** κοινή κατάσταση επιλογής (null = «Όλοι»)· Home, 7 λίστες και Ημερολόγιο διαβάζουν από εκεί. Σε «Όλοι» το FAB ανοίγει `folder_picker_dialog` χωρίς να αλλάζει την κοινή επιλογή.
 6. **Drag & drop**: `DraggableItemWrapper` + `DraggableFolderSelector` for item → folder moves
 7. **Grid responsive breakpoints**: mobile < 600, tablet 600-1024, desktop 1024+
 8. **Color overrides**: `itemTypeCardColorOverrideProvider` used inside `itemBuilder` for per-card granularity

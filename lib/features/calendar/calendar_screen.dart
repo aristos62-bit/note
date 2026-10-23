@@ -20,8 +20,20 @@ enum _DayMarkerType { birthday, specialDay, event }
 final _monthEventsProvider =
     FutureProvider.family<Map<DateTime, List<Item>>, DateTime>(
         (ref, month) async {
+  final selectedFolderId = ref.watch(selectedFolderIdProvider);
   final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
-  final events = allItems.where((i) => i.type == ItemType.event).toList();
+  // S272 (E38): «Όλοι» = null → όλα· αλλιώς μόνο τα items του ακριβούς φακέλου
+  // (όχι υποφάκελοι). Ισχύει και για το πλέγμα μήνα (events + γενέθλια).
+  final events = allItems
+      .where((i) =>
+          i.type == ItemType.event &&
+          (selectedFolderId == null || i.folderId == selectedFolderId))
+      .toList();
+  final contacts = allItems
+      .where((i) =>
+          i.type == ItemType.contact &&
+          (selectedFolderId == null || i.folderId == selectedFolderId))
+      .toList();
   final result = <DateTime, List<Item>>{};
 
   for (final event in events) {
@@ -64,7 +76,6 @@ final _monthEventsProvider =
 
   // Γενέθλια επαφών (display-only, ίδιο Item — tap ανοίγει την επαφή).
   // Batch props (1 query, όχι N+1 όπως τα events).
-  final contacts = allItems.where((i) => i.type == ItemType.contact).toList();
   if (contacts.isNotEmpty) {
     final propsMap = await ref
         .read(dbProvider)
@@ -140,8 +151,7 @@ class CalendarScreen extends ConsumerStatefulWidget {
   ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends ConsumerState<CalendarScreen>
-    with FolderAutoSelectMixin {
+class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   final GlobalKey<ItemListEmbeddedState> _listKey = GlobalKey();
 
   @override
@@ -149,9 +159,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     final focusedMonth = ref.watch(_focusedMonthProvider);
     final selectedDay = ref.watch(_selectedDayProvider);
     final monthAsync = ref.watch(_monthEventsProvider(focusedMonth));
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider);
-    final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
     // Day-scope: ids των events της επιλεγμένης μέρας (0 νέα queries).
     // Κενό set = άδεια μέρα (ΟΧΙ null — το null σημαίνει «χωρίς φίλτρο»).
@@ -161,22 +168,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
         : (dayMap[selectedDay]?.map((e) => e.id).toSet() ?? <int>{});
     final dayLoading = monthAsync.isLoading;
 
-    tryAutoSelectFolder(
-      foldersAsync: foldersAsync,
-      settingsAsync: settingsAsync,
-      debugLabel: 'CalendarList',
-    );
-
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(context, ref, focusedMonth),
-      floatingActionButton: selectedFolderId != null
-          ? FloatingActionButton(
-              onPressed: () => _showCreationMenu(context, ref, selectedDay),
-              tooltip: 'Νέο συμβάν',
-              child: const Icon(Icons.add_rounded),
-            )
-          : null,
+      // S272 (E38): πάντα ορατό — σε «Όλοι» ο picker επιλέγει φάκελο.
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCreationMenu(context, ref, selectedDay),
+        tooltip: 'Νέο συμβάν',
+        child: const Icon(Icons.add_rounded),
+      ),
       body: Column(
         children: [
           const DraggableFolderSelector(),
@@ -423,23 +423,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     );
 
     if (type == null || !context.mounted) return;
+
+    // S272 (E38): πρώτα τύπος, μετά φάκελος. Σε «Όλοι» ο picker επιλέγει
+    // φάκελο χωρίς να αλλάζει η κοινή επιλογή της εφαρμογής.
+    final folderId = await resolveFolderForNewItem(context, ref);
+    if (folderId == null || !context.mounted) return;
+
     switch (type) {
       case _EventCreationType.event:
-        await _createEvent(context, ref, selectedDay);
+        await _createEvent(context, ref, selectedDay, folderId);
       case _EventCreationType.birthday:
-        await _createBirthdayEvent(context, ref, selectedDay);
+        await _createBirthdayEvent(context, ref, selectedDay, folderId);
       case _EventCreationType.specialDay:
-        await _createEventWithIcon(context, ref, selectedDay, ItemColorHelper.kSpecialDayIcon);
+        await _createEventWithIcon(
+            context, ref, selectedDay, folderId, ItemColorHelper.kSpecialDayIcon);
     }
   }
 
-  Future<void> _createEvent(
-      BuildContext context, WidgetRef ref, DateTime selectedDay) async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
+  Future<void> _createEvent(BuildContext context, WidgetRef ref,
+      DateTime selectedDay, int folderId) async {
     try {
       final item = await ref.read(itemNotifierProvider.notifier).create(
             type: ItemType.event,
-            folderId: selectedFolderId,
+            folderId: folderId,
           );
       if (item == null || !context.mounted) return;
       final startTime =
@@ -464,13 +470,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
   }
 
 
-  Future<void> _createBirthdayEvent(
-      BuildContext context, WidgetRef ref, DateTime selectedDay) async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
+  Future<void> _createBirthdayEvent(BuildContext context, WidgetRef ref,
+      DateTime selectedDay, int folderId) async {
     try {
       final item = await ref.read(itemNotifierProvider.notifier).create(
             type: ItemType.event,
-            folderId: selectedFolderId,
+            folderId: folderId,
             icon: ItemColorHelper.kBirthdayIcon,
           );
       if (item == null || !context.mounted) return;
@@ -512,12 +517,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
   }
 
   Future<void> _createEventWithIcon(BuildContext context, WidgetRef ref,
-      DateTime selectedDay, String icon) async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
+      DateTime selectedDay, int folderId, String icon) async {
     try {
       final item = await ref.read(itemNotifierProvider.notifier).create(
             type: ItemType.event,
-            folderId: selectedFolderId,
+            folderId: folderId,
             icon: icon,
           );
       if (item == null || !context.mounted) return;

@@ -151,42 +151,10 @@ void main() async {
     DebugConfig.startup('postFrame ENTER');
     // Πρώτα τα «ελαφριά»/UI-κρίσιμα βήματα· το βαρύ scheduling είναι ΤΕΛΕΥΤΑΙΟ
     // (scheduleAll ~1.5s/177 alarms, ~20s/450 — μετρημένο PERF#9) ώστε να μη
-    // καθυστερεί folder-seed / SharedIntent / πλοήγηση από πάτημα ειδοποίησης.
-    try {
-      // Folder seed (Φ4c-6): προεπιλογή ΜΙΑ φορά στο startup για αποφυγή
-      // του null→«Όλοι» flicker — το FolderAutoSelectMixin μένει ως fallback.
-      // Direct repo (όχι foldersProvider.future — κρεμάει σε cold start,
-      // το S237 το αποκάλυψε· το stream μένει για τα widgets).
-      final wsId = container.read(activeWorkspaceIdProvider);
-      if (wsId == null) {
-        DebugConfig.nav('postFrame: seed skipped (no active workspace)');
-      } else {
-        DebugConfig.nav('postFrame: seed await folders...');
-        late final List<Folder> folders;
-        try {
-          folders = await SuperNoteHelper.instance.folders
-              .getByWorkspace(wsId)
-              .timeout(const Duration(seconds: 5));
-          DebugConfig.nav('postFrame: seed folders ok count=${folders.length}');
-        } on TimeoutException {
-          DebugConfig.warning('postFrame: seed folders TIMEOUT — skipped');
-          folders = [];
-        }
-        if (container.read(selectedFolderIdProvider) == null && folders.isNotEmpty) {
-          final preferred =
-              container.read(settingsNotifierProvider).valueOrNull?.preferredFolderId;
-          final target = (preferred != null && folders.any((f) => f.id == preferred))
-              ? preferred
-              : folders.firstWhere((f) => f.isSystem, orElse: () => folders.first).id;
-          container.read(selectedFolderIdProvider.notifier).state = target;
-          DebugConfig.nav('Startup seed folder id=$target (preferredId=$preferred)');
-        } else {
-          DebugConfig.nav('postFrame: seed skipped (already selected or empty)');
-        }
-      }
-    } catch (e, stack) {
-      DebugConfig.error('folder seed failed', e, stack);
-    }
+    // καθυστερεί το SharedIntent / πλοήγηση από πάτημα ειδοποίησης.
+    //
+    // S272 (E38): δεν γίνεται πλέον folder seed — η εφαρμογή ξεκινά πάντα σε
+    // «Όλοι» (selectedFolderIdProvider = null) σε Home + 7 λίστες + Ημερολόγιο.
 
     try {
       DebugConfig.nav('postFrame: SharedIntent init start...');

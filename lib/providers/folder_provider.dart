@@ -37,7 +37,8 @@ final folderByIdProvider =
 });
 
 // ─── 🆕 ΚΕΝΤΡΙΚΟ PROVIDER ΓΙΑ ΤΟ ΕΠΙΛΕΓΜΕΝΟ FOLDER ──────────────────
-/// Το id του φακέλου που έχει επιλέξει ο χρήστης ή έχει προεπιλεγεί.
+/// Το id του φακέλου που έχει επιλέξει ο χρήστης.
+/// null = «Όλοι» (default εκκίνησης) · int = ακριβής φάκελος (όχι υποφάκελοι).
 /// Όλες οι οθόνες και ο DraggableFolderSelector διαβάζουν από εδώ.
 final selectedFolderIdProvider = StateProvider<int?>((ref) => null);
 
@@ -105,6 +106,14 @@ class FolderNotifier extends AsyncNotifier<List<Folder>> {
 
       // Δεν έχει περιεχόμενο – προχώρα στη διαγραφή
       await db.folders.delete(id);
+
+      // S272 (E38): αν διαγράφηκε ο επιλεγμένος φάκελος, καθάρισε την
+      // καθολική επιλογή — αλλιώς μένει stale σε Home + 7 λίστες + Ημερολόγιο.
+      if (ref.read(selectedFolderIdProvider) == id) {
+        ref.read(selectedFolderIdProvider.notifier).state = null;
+        DebugConfig.nav('FolderNotifier.delete: deselected id=$id');
+      }
+
       ref.invalidateSelf();
       ref.invalidate(foldersStreamProvider);
       ref.invalidate(foldersProvider);
