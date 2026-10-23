@@ -212,17 +212,14 @@ class SharedIntentService {
     }
   }
 
-  /// preferredFolderId → system "Γενικά" → πρώτο root → null.
-  /// (ίδια λογική με FolderAutoSelectMixin — headless).
+  /// system "Γενικά" → πρώτο root → null.
+  ///
+  /// S272 (E38): δεν λαμβάνεται πλέον υπόψη `preferredFolderId` — η εφαρμογή
+  /// ξεκινά σε «Όλοι» και το share intent χρειάζεται πάντα συγκεκριμένο φάκελο.
   Future<int?> _resolveFolder(SuperNoteHelper helper, int wsId) async {
     try {
-      final settings = await helper.settings.get();
       final folders = await helper.folders.getByWorkspace(wsId);
       if (folders.isEmpty) return null;
-      final preferred = settings.preferredFolderId;
-      if (preferred != null && folders.any((f) => f.id == preferred)) {
-        return preferred;
-      }
       for (final f in folders) {
         if (f.isSystem) return f.id;
       }

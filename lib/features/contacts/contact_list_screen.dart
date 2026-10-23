@@ -19,15 +19,14 @@ class ContactListScreen extends ConsumerStatefulWidget {
   ConsumerState<ContactListScreen> createState() => _ContactListScreenState();
 }
 
-class _ContactListScreenState extends ConsumerState<ContactListScreen>
-    with FolderAutoSelectMixin {
+class _ContactListScreenState extends ConsumerState<ContactListScreen> {
 
   Future<void> _createContact() async {
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
-    if (selectedFolderId == null) return;
+    final folderId = await resolveFolderForNewItem(context, ref);
+    if (folderId == null || !mounted) return;
     final item = await ref.read(itemNotifierProvider.notifier).create(
       type: ItemType.contact,
-      folderId: selectedFolderId,
+      folderId: folderId,
     );
     if (item == null || !mounted) return;
     Navigator.of(context).push(
@@ -54,28 +53,19 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
   @override
   Widget build(BuildContext context) {
     final allAsync = ref.watch(itemsStreamProvider);
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider);
 
     // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
-    tryAutoSelectFolder(
-      foldersAsync: foldersAsync,
-      settingsAsync: settingsAsync,
-      debugLabel: 'ContactList',
-    );
-
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: selectedFolderId != null
-          ? FloatingActionButton(
+      // S272 (E38): πάντα ορατό — σε «Όλοι» ανοίγει picker φακέλου.
+      floatingActionButton: FloatingActionButton(
         onPressed: _createContact,
         tooltip: 'Νέα επαφή',
         child: const Icon(Icons.add_rounded),
-      )
-          : null,
+      ),
       body: Column(
         children: [
           const DraggableFolderSelector(),

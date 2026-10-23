@@ -1,13 +1,12 @@
 // lib/features/journal/journal_list_screen.dart
 //
 // Λίστα ημερολογίου — ομαδοποιημένη κατά ημερομηνία.
-// ✅ Folder-based: FAB μόνο όταν επιλεγεί φάκελος
+// ✅ Folder-based: FAB πάντα ορατό (picker όταν «Όλοι») — S272/E38
 // ✅ Responsive: list mobile / grid tablet+desktop
 // ✅ Dark mode: ColorsUI + context extensions + ItemColorHelper
 // ✅ DebugConfig: nav, db, provider logs
 // ✅ ViewMode toggle (pinned/favorites/all) ενσωματωμένο
-// ✅ Αυτόματη επιλογή φακέλου βάσει ρυθμίσεων (προεπιλεγμένος ή "Γενικά")
-// ✅ Περιμένει τα settings πριν επιλέξει φάκελο (διορθωμένο)
+// ✅ Καθολική επιλογή φακέλου (null = «Όλοι») — S272/E38
 //
 //
 import 'package:flutter/material.dart';
@@ -57,19 +56,18 @@ class JournalListScreen extends ConsumerStatefulWidget {
   ConsumerState<JournalListScreen> createState() => _JournalListScreenState();
 }
 
-class _JournalListScreenState extends ConsumerState<JournalListScreen>
-    with FolderAutoSelectMixin {
+class _JournalListScreenState extends ConsumerState<JournalListScreen> {
   bool _creating = false;
 
   Future<void> _createEntry() async {
     if (_creating) return;
-    final selectedFolderId = ref.read(selectedFolderIdProvider);
-    if (selectedFolderId == null) return;
+    final folderId = await resolveFolderForNewItem(context, ref);
+    if (folderId == null || !mounted) return;
     setState(() => _creating = true);
     try {
       final item = await ref.read(itemNotifierProvider.notifier).create(
         type: ItemType.journal,
-        folderId: selectedFolderId,
+        folderId: folderId,
       );
       if (item == null || !mounted) return;
       await Navigator.of(context).push(AppTransitions.slideRoute(
@@ -94,22 +92,15 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen>
   Widget build(BuildContext context) {
     final entriesAsync = ref.watch(itemsStreamProvider);
     final datesMap = ref.watch(journalDatesProvider).valueOrNull ?? {};
-    final foldersAsync = ref.watch(foldersStreamProvider);
-    final settingsAsync = ref.watch(settingsNotifierProvider);
 
     // 🆕 Διαβάζουμε το επιλεγμένο folder από τον κεντρικό provider
     final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
-    tryAutoSelectFolder(
-      foldersAsync: foldersAsync,
-      settingsAsync: settingsAsync,
-      debugLabel: 'JournalList',
-    );
-
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(),
-      floatingActionButton: selectedFolderId != null && !_creating ? _buildFab() : null,
+      // S272 (E38): πάντα ορατό (εκτός δημιουργίας) — σε «Όλοι» ανοίγει picker.
+      floatingActionButton: !_creating ? _buildFab() : null,
       body: Column(
         children: [
           const DraggableFolderSelector(),

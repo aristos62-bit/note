@@ -55,7 +55,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     // Διαβάζουμε την επιλογή από τον provider
-    final selectedFolderId = ref.watch(homeSelectedFolderProvider);
+    final selectedFolderId = ref.watch(selectedFolderIdProvider);
 
     return Scaffold(
       backgroundColor: context.cBg,
@@ -98,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   folders: folders,
                   selectedFolderId: selectedFolderId,
                   onSelect: (id) {
-                    ref.read(homeSelectedFolderProvider.notifier).state = id;
+                    ref.read(selectedFolderIdProvider.notifier).state = id;
                   },
                   onFolderLongPress: (folder) {
                     // Διαβάζουμε τα items ΜΟΝΟ την ώρα του long press
@@ -141,7 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── Folder content ───────────────────────────────────────────
 
   Widget _buildFolderContent(BuildContext context, List<Folder> folders) {
-    final selectedId = ref.watch(homeSelectedFolderProvider);
+    final selectedId = ref.watch(selectedFolderIdProvider);
     final folder = folders.where((f) => f.id == selectedId).firstOrNull;
     if (folder == null) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
@@ -233,11 +233,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final ok = await future;
     if (!ok || !mounted) return;
     DebugConfig.db('Home deleteFolder id=${folder.id}');
+    // S272 (E38): το deselect γίνεται κεντρικά στο FolderNotifier.delete.
     await ref.read(folderNotifierProvider.notifier).delete(folder.id);
-    // Deselect αν ήταν επιλεγμένος
-    if (ref.read(homeSelectedFolderProvider) == folder.id) {
-      ref.read(homeSelectedFolderProvider.notifier).state = null;
-    }
   }
 
   // ── Show folder options (long press on tab) ───────────────────

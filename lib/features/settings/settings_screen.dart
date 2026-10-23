@@ -132,8 +132,6 @@ class _SystemGroupState extends State<_SystemGroup> {
         children: [
           _buildCard(SettingsThemeTile(current: widget.settings.theme, ref: widget.ref)),
           const SizedBox(height: Spacing.sm),
-          _buildCard(SettingsPreferredFolderTile(settings: widget.settings, ref: widget.ref)),
-          const SizedBox(height: Spacing.sm),
           _buildCard(SettingsMaxAttachmentSizeTile(settings: widget.settings, ref: widget.ref)),
           const SizedBox(height: Spacing.sm),
           _buildCard(SettingsActionTile(

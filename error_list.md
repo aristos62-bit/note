@@ -44,9 +44,9 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `92fdcc6` (O4 — UI consolidation) | `git log` |
-| `flutter analyze` | **No issues found** | run 22/10/2026 |
-| `flutter test` | **287/287** (49 αρχεία test) | run 22/10/2026 |
+| Git HEAD | `82cdc77` + S272 (E38) | `git log` |
+| `flutter analyze` | **No issues found** | run 23/10/2026 |
+| `flutter test` | **290/290** (50 αρχεία test) | run 23/10/2026 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 39.371 | μετρήθηκε |
 | Αρχεία >500 γραμμές (R1) | **19** (`main.dart` 511) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
@@ -303,6 +303,12 @@
 ### E37 — ✅ CLOSED 21/10/2026 (test-verified, E17-residual)
 - **Test:** `test/reminder_bake_plan_test.dart:147-167` — `archived/done/orphan rows are skipped`: 3 rows (incl. orphan `itemId=3` χωρίς item) → `skippedCount=3`, `schedule` κενό· δεν υπάρχει UI path για orphan. `flutter test` 275/275.
 
+### E38 — ✅ CLOSED 23/10/2026 (analyze+tests, S272)
+- **Πού:** `selectedFolderIdProvider` (`folder_provider.dart`) · Home + 7 λίστες + Ημερολόγιο · `shared/widgets/folder_picker_dialog.dart` · `main.dart` · `settings_tiles/settings_screen/settings_provider` · `shared_intent_service.dart`.
+- **Πρόβλημα:** διπλό state (`homeSelectedFolderProvider` + `selectedFolderIdProvider`) + `FolderAutoSelectMixin` + startup seed + `preferredFolderId` ⇒ απρόβλεπτη προεπιλογή· FAB κρυφό σε «Όλοι»· picker μόνο στην εισαγωγή επαφών.
+- **Υλοποίηση:** ένα state (null = «Όλοι», εκκίνηση πάντα «Όλοι»), κεντρικό deselect στο `FolderNotifier.delete`, κοινό `showFolderPickerDialog` + `resolveFolderForNewItem` (δεν αλλάζει την κοινή επιλογή), FAB πάντα ορατό (Home/7 λίστες/Ημερολόγιο — type-first), φίλτρο μήνα σε events + γενέθλια επαφών, αφαίρεση mixin/seed/preferred UI+provider+μέθοδος+share branch.
+- **Απόδειξη:** analyze clean · **290/290** (50 files, +3 `test/folder_picker_resolve_test.dart`) · backup `backups/s272_e38_folder_picker/` (24 αρχεία · BASE_HEAD `82cdc77`).
+
 ### E26 — Τελικό κλείσιμο
 1. `oldsessions.md`: 1 κεφάλαιο «Φ5 — error_list sweep» (τι έκλεισε, ημερομηνίες, hashes, device tests).
 2. `code_refactor.md`: διαγραφή/αντικατάσταση §3/§7/§8/§9 με παραπομπή στο κεφάλαιο του `oldsessions.md` (καμία διπλή λίστα).
@@ -313,7 +319,9 @@
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S262-b.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S272.
+
+- **`E38` — CLOSED 23/10/2026 (analyze+tests, S272):** μία καθολική επιλογή φακέλου (`selectedFolderIdProvider`, null = «Όλοι») σε Home + 7 λίστες + Ημερολόγιο· κοινός picker νέων items (`folder_picker_dialog.dart`)· κεντρικό deselect στη διαγραφή· αφαίρεση auto-select mixin/seed/preferred folder. analyze clean · test **290/290**.
 
 - **Cascades/lifecycle:** S141 (collections cascade), S142 (κάδος συμμετρικός), S143 (archive = σίγαση), S148 (reorder subset→full), S213 (κάδος restore).
 - **Routing/theming:** S156 (birthday), S169 (tokens), S172 (`AppTransitions`), S178 (mojibake), S180 (`safePop`), S183 (event 1 AppBar), S176 (`$isNew`).
@@ -381,6 +389,8 @@
 | 22/10/2026 | E02, E04, E28, E12 | **Ο4 device pass (POCO X3, debug):** E02 ✅ 100%/140%, portrait/landscape, 0 overflow· E28 spot: status/priority/reminder/folder/size/contact photo portrait 100% χωρίς overflow· E12: archive menu + calendar inline ορατά· **E04: τα sheets ανοίγουν/κλείνουν, αλλά reassemble με ανοιχτό sheet ΔΕΝ επιβεβαιώθηκε** (hot-reload attempt χωρίς reload). | screenshots/logs `backups/o4_sheets_2026-10-22/device_logs/` · `flutter_run_o4.log` · logcat |
 | 22/10/2026 | E04 | **Reassemble verified (POCO X3, debug):** status sheet ανοιχτό → `ext.flutter.reassemble` μέσω VM service (pid 30972) → sheet παρέμεινε ανοιχτό, **0 Flutter assertions/overflow**· μόνο MIUI theme-config noise. | `e04_reassemble_pass.png` · `e04_reassemble.log` · `e04_reassemble_errors.txt` |
 | 22/10/2026 | E28, E12 | **Full 140%/landscape pass (user-confirmed):** 15 SafeSheet sites + 7 archive menus/calendar inline toggle, χωρίς overflow/κόψιμο· κανένα Flutter error. | χειροκίνητος έλεγχος χρήστη · screenshots `backups/o4_sheets_2026-10-22/device_logs/` |
+| 23/10/2026 | E38 | **S272 υλοποίηση:** ενοποίηση επιλογής φακέλου σε `selectedFolderIdProvider` (null = «Όλοι», εκκίνηση πάντα «Όλοι»), αφαίρεση `homeSelectedFolderProvider`/`FolderAutoSelectMixin`/startup seed/`preferredFolderId` UI, κεντρικό deselect, κοινό `folder_picker_dialog`, FAB unconditional σε Home + 7 λίστες + Ημερολόγιο, type-first + φίλτρο μήνα (events + γενέθλια) στο Ημερολόγιο. | backup `backups/s272_e38_folder_picker/` · analyze clean |
+| 23/10/2026 | E38 | **Verify:** πλήρες `flutter test -j 1` **290/290** (50 files) · νέο `test/folder_picker_resolve_test.dart` (έγκυρη επιλογή / picker σε «Όλοι» / stale επιλογή). | run 23/10/2026 |
 
 ---
 
@@ -399,7 +409,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 → Ο6 → Ο5 → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 → Ο5 → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -407,6 +417,7 @@
 | **Ο2 — Lifecycle (startup/resume/restore)** ✅ CLOSED 22/10/2026 (device-verified) | E16 + E33 + E18-μέρος | `main.dart` + debounce `reminder_scheduler` + `backup_service` + `super_note_helper` + `backup_archive` + cold-start/restore tests | E18: 14/21 sites (υπόλοιπα 7 → Ο6) |
 | **Ο3 — Mass-delete pipeline** | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` (+bulk reminder call αν χρειαστεί) | — |
 | **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
+| **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
 | **Ο5 — Grid + verify** | E27 + E03 | `reorderable_item_list` + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 |
 | **Ο6 — Cleanup & visibility sweep** | E18 (→0) + E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
