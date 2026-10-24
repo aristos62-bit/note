@@ -3559,6 +3559,40 @@
 
 **Επόμενο (νέο session):** 1. **Calendar AppBar title @140%** («Οκτώβριος» → «Οκτώβρ…») — θέλει σχεδιαστική απόφαση. 2. Optional refactor: ενοποίηση των 7 menu labels. 3. **B-Π2b** (κρύψιμο label «Φάκελοι») μόνο αν χρειαστεί. 4. Προτεραιοποίηση S259/S260 → **F13b** κ.λπ.
 
+## Sessions 263–269 — 21–22/10/2026 (Φ5 sweep: E15/E16/E17/E29/E30/E33 — αναδρομικό κεφάλαιο)
+
+> **Γιατί γράφτηκε τώρα (24/10/2026, S273):** τα S263–S269 δεν είχαν δικό τους κεφάλαιο — η πρόοδος ζούσε **μόνο** στο `error_list.md`, το οποίο θα διαγραφεί στο E26. Συγκεντρώνονται εδώ από τις κάρτες/§3/§4 και τα backups. Ιστορικό — ενεργά θέματα μόνο στο `error_list.md`.
+
+**E15 — OFF path μόνο μέσω `_bakeQueue` (21/10, backup `s264_e15_f2/`)**
+- A: το toggle ON/OFF = **μία** κλήση `scheduleAll()` · B/B3: OFF branch `cancelAll()` + `_osWindowTruncated=false` + `os=` log + warning · C: το `_scheduleOne` λύνει mode **πριν** το fresh enabled guard · C3: φραγή κάθε 20 alarms.
+- Device (POCO X3, 101 reminders): ON `os=45`/`dumpsys=45` → OFF `os=0`/`dumpsys=0` (132ms) → reboot 0 → ON `os=46` → **race test**: `queued id=14` μέσα σε ενεργό bake + `WRN OFF mid-loop at 100/101` + `cancelAll` → `dumpsys=0` → ήχος/δόνηση ×4 bakes `os=46` → πραγματική ειδοποίηση + tap → `NoteDetail 415`.
+
+**E16 — Startup timeouts (22/10)**
+- `main.dart:29` launch payload 3s · `:129` pre-runApp `settings.get()` 5s · `:217` postFrame settings 5s · `:232` `requestPermission()` 5s.
+- Cold start/restore logs χωρίς timeout/block · analyze clean · **286/286**.
+
+**E17 — κοινό `_bakeQueue` στο `rescheduleForItem` (21/10, backup `s268_e17_reschedule_bake_queue/`)**
+- `rescheduleForItem` → `_bakeQueue.run(() => _rescheduleForItemImpl(itemId))` (ίδια ουρά με `scheduleAll`) ⇒ ποτέ παράλληλα bake passes.
+- Device: 5/5 call sites `rebaked=1` (rename/done→active/archive/unarchive/restore/delete) · bulk ×2 FIFO `id=14→15` (1× refresh + 1× topUp 365ms) · cold start bake `id=1` `baked=171 failed=0` → rename `id=2`, `dumpsys` 171→171.
+- Residuals E34–E37 → S270 (O1).
+
+**E29 — Wipe: `cancelAll` μετά το close/delete (21/10, backup `s267_e29_wipe_cancel/`)**
+- `settings_backup.dart:250-267`: `BackupService.dbFileName` + `await NotificationService.instance.cancelAll()` μετά το `close()`/delete + `DebugConfig.notif('clearAllData: cancelAll done, osCache=…')`.
+- Device: T1 wipe 45 alarms → `osCache=0`/`dumpsys=0`/tray 0 · T2 reopen empty 0 · T3 restore 45 · T4 wipe 0 · T4b ενεργό tray (id=1, ίδιο PID) → 0 · final restore 100→45, DB 5MB.
+
+**E30 — Grid extent guards (21/10, backup `s266_e30_grid_extent/`)**
+- `cellWidth` αρνητικό σε warm-up frame (`maxWidth≈0`) → `mainAxisExtent<0`. Guard `!hasBoundedWidth || maxWidth <= spacing*(n-1)` → `SizedBox.shrink()` σε 3 σημεία: `home_screen.dart:694`, `:767`, `collections_screen.dart:236`.
+- Device (POCO X3, cold start 14:01:59, pid 14755): 0 `mainAxisExtent`/`EXCEPTION`/`E/flutter` στο ίδιο process · **259/259**.
+
+**E33 — Restore race + full wipe (22/10, backup `O2_lifecycle_2026-10-22/`)**
+- Maintenance gates: `SerialPassQueue.pauseForMaintenance/waitForIdle/resumeAfterMaintenance` · scheduler debounce deferred · habit pass+repair · `BackupService.beginDbMaintenance()` pause+drain **65s** + epoch guard + in-flight export/autoBackup · `_atomicRestoreDb()` safety `copyToFile` → `close()` → replace DB/attachments → re-init (`restartRequired`) · barrier/restart dialogs + `exit(0)` (`settings_backup.dart:330-433`) · idempotent `close()`.
+- Findings B13: trial `Isar.open` δημιουργεί σιωπηλά κενή DB σε άκυρο αρχείο → απαιτείται `AppSettings(1)` (`backup_service.dart:589-599`) · validation εξάγει **μόνο** το DB entry (`extractBackupZipDbOnly`) · wipe διαγράφει live `attachments/` + cache + `.migration_safety` · migration ξαναφτιάχνει 1 snapshot στο restart.
+- Device: T1 restore `entries=8`/`moved=7`/`restartRequired=true`/`exit(0)` · T2 truncated zip → «δεν περιέχει βάση» · T2b bad DB → «λείπει AppSettings(1)» · T3 wipe `drain OK`/`osCache=0` · fix3 attachments absent · fix5 cache 0/`.migration_safety`=1.
+
+**Μαθήματα:**
+- Κλειστό P1 χωρίς κεφάλαιο = ιστορικό που χάνεται με τη διαγραφή του `error_list.md`· γράφεται **αμέσως**.
+- Device pass = **2 ανεξάρτητες πηγές** (app log + `dumpsys`), όπως σε E15/E29/E34.
+
 ## Session 270 — 21/10/2026 (O1: scheduler correctness — E10/E34–E37)
 
 > Ιστορικό κεφάλαιο. Οι ενεργές εκκρεμότητες και το device verification μένουν **μόνο** στο `error_list.md` (SOP), όχι εδώ.
@@ -3573,6 +3607,8 @@
 5. **Providers/UI:** `ItemProvider` soft/permanent delete με DB πρώτα και unconditional cancel· `ReminderProvider` snooze/delete στο ίδιο queue pass· settings past-reminders per-row delete μέσω scheduler.
 
 **Έλεγχοι:** `flutter analyze --no-pub` → **No issues found**· `flutter test` → **275/275** (48 αρχεία, +16 νέα tests σε `test/reminder_text_test.dart` + `test/reminder_bake_plan_test.dart`). **Δεν έγινε device verification** — τα E10/E34–E37 παραμένουν ανοιχτά στο `error_list.md` μέχρι το device pass.
+
+**Κλεισίματα O1 (21/10, device/test — αναδρομική σημείωση S273):** **E34** race cancel/delete — archive κατά ενεργό 120-row bake (`id=10` → `bake queued id=11`), `ARCHIVED, SKIP` ×52, `cancelAllForItem cancelled=120`, 0 ghosts στις 08:20/10:20 · **E35** budget `166/450` + limit/oldest-first/no-eviction tests · **E36** rename `rebaked=120 kept=0` + live body «Υπενθύμιση: E17 HABIT 01» · **E37** orphan/done/archived rows skipped (test). Λεπτομέρειες: `error_list.md` §3 + `backups/O1_reminder_hardening_2026-10-21/device_logs/`.
 
 **Backups:** `backups/O1_reminder_hardening_2026-10-21/` — 12 source αρχεία + 3 docs (`.md`) πριν από τις αλλαγές.
 
