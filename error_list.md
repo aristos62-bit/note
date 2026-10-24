@@ -44,7 +44,7 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `c2f57c0` + S273 docs sync | `git log` |
+| Git HEAD | `48edd5f` + S273 final docs sync | `git log` |
 | `flutter analyze` | **No issues found** | run 24/10/2026 |
 | `flutter test` | **294/294** (50 αρχεία test) | run 24/10/2026 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 42.607 | μετρήθηκε |
@@ -90,7 +90,7 @@
 | 7 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 | 8 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (10)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (9)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
@@ -102,8 +102,7 @@
 | 14 | `E14` | **F19** — dead providers (`pendingReminders*`) | Καθαριότητα |
 | 15 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
 | 16 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
-| 17 | `E25` | **Doc-drift παλιών docs** | Συντήρηση (κλείνει με E26) |
-| 18 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 17 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό).
@@ -262,12 +261,8 @@
 ### E23 — G-track (S120): απόφαση κλεισίματος
 - «tokens/copy/limits, ξεχωριστά». Tokens ✅ S169· limits υπάρχουν (`maxAttachmentSizeMB`). Πιθανόν **obsolete** — θέλει ρητό κλείσιμο για να μη στοιχειώνει.
 
-### E25 — Doc-drift / ασυνέπειες παλιών docs
-- `supernote.md`: **Error Handling** (`:891-905`): «Unprotected attachment_service» / «User-facing messages: None» = **αναληθή** (υπάρχουν try/catch + `AppErrors`). **Performance** (`:908-919`): «No autoDispose» = **6 autoDispose**. Λείπει `dayTickProvider` (`habit_provider.dart:16`) από τη λίστα Habit Providers. `:19` γράφει 245/245 = **275/275**.
-- `code_refactor.md`: `:188` (F9 ανοιχτό) vs `:192` (✅ CLOSED) · F4 ×6 vs ×5 · `§3.8:110` λάθος path (`item_provider:443` → `items_query_provider:64` / `home_folder_view:171`) · §8 αρίθμηση 4→10.
-- **Μερική διόρθωση (S273, 24/10/2026):** το `supernote.md` **διορθώθηκε** (test counter 294/294 · Error Handling/Performance αληθή · tree +4 αρχεία · `dayTickProvider` · ShareService) — βλ. §0/§4.
-- **Απομένει:** `code_refactor.md` — έχει πλέον banner «ΠΑΓΩΜΕΝΟ ΩΣ ΠΡΟΣ ΤΙΣ ΕΚΚΡΕΜΟΤΗΤΕΣ» (edit χρήστη)· τα §3/§7/§8/§9 μένουν **ιστορικά** και συγχρονίζονται μόνο στο **E26**.
-- **Κλείνει μαζί με το E26** (δεν ξαναγράφονται ένα-ένα τώρα).
+### E25 — ✅ CLOSED 24/10/2026 (S273, docs sync όπως στο τελικό κλείσιμο)
+- `supernote.md`: test counter **294/294**, Error Handling/Performance **αληθή**, tree **+4 αρχεία**, `dayTickProvider`, ShareService (E39 pointer) · `code_refactor.md`: §3/§7/§8/§9 → **παραπομπή** (κανόνας 9), πλήρες αντίγραφο `backups/s273_docs_sync/` · `oldsessions.md`: κεφάλαιο **S273** · `a11y.md`/`README.md` ευθυγραμμισμένα. Λεπτομέρειες: §3/§4 + `oldsessions.md` S273.
 
 ### E27 — Grid reorder χωρίς autoScroll
 - **Πού:** `reorderable_item_list.dart:137` — `autoScroll: false` στο `SliverReorderableGrid`.
@@ -329,16 +324,19 @@
 - **Κατάσταση:** **OPEN — θέλει spec/απόφαση πριν από κώδικα** (δεν έχει υλοποιηθεί τίποτα).
 
 ### E26 — Τελικό κλείσιμο
-1. `oldsessions.md`: 1 κεφάλαιο «Φ5 — error_list sweep» (τι έκλεισε, ημερομηνίες, hashes, device tests).
-2. `code_refactor.md`: διαγραφή/αντικατάσταση §3/§7/§8/§9 με παραπομπή στο κεφάλαιο του `oldsessions.md` (καμία διπλή λίστα).
-3. `supernote.md`: μόνο αρχιτεκτονικές αλλαγές (π.χ. νέα APIs) + test counter.
-4. Διαγραφή `error_list.md`.
+> **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
+1. ✅ `oldsessions.md`: κεφάλαιο **S273** (Φ5 partial: E18, device pass, E39, docs, commits).
+2. ✅ `code_refactor.md`: §3/§7/§8/§9 → παραπομπή (κανόνας 9 — καμία διπλή λίστα).
+3. ✅ `supernote.md`: μόνο αληθή/αρχιτεκτονικά + test counter **294/294**.
+4. ⏳ Διαγραφή `error_list.md` — **μόνο** όταν κλείσουν P2/P3 (+ τελικό sync του S273 κεφαλαίου).
 
 ---
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S272.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S273.
+
+- **`E25` — CLOSED 24/10/2026 (S273, docs sync):** `supernote.md` (294/294, Error Handling/Performance αληθή, tree +4 αρχεία, `dayTickProvider`, ShareService) · `code_refactor.md` §3/§7/§8/§9 → παραπομπή (κανόνας 9) · `oldsessions.md` κεφάλαιο S273 · `a11y.md`/`README.md` ευθυγραμμισμένα. Backup `backups/s273_docs_sync/`.
 
 - **`E38` — CLOSED 23/10/2026 (analyze+tests, S272):** μία καθολική επιλογή φακέλου (`selectedFolderIdProvider`, null = «Όλοι») σε Home + 7 λίστες + Ημερολόγιο· κοινός picker νέων items (`folder_picker_dialog.dart`)· κεντρικό deselect στη διαγραφή· αφαίρεση auto-select mixin/seed/preferred folder. analyze clean · test **290/290**.
 
@@ -416,7 +414,8 @@
 | 24/10/2026 | E18 | **Verify:** `catch (_) {}` = **0** · analyze clean · test **294/294** (+4 tolerant-parsing tests). | run 24/10/2026 · `test/habit_topup_test.dart` |
 | 24/10/2026 | E18 | **Device pass (POCO X3, debug):** cold start `topUp: done scanned=4 … scheduledBatch=275` · `OS pending=315` · 151ms · **0** `parse failed` / **0** `ERR`. T1 ειδοποίηση · T2 progress+persistence · T5 share entry (Yahoo Mail: τίτλος+πεδία+📎) · T6 add/open/delete — όλα OK. | logcat 18:26–18:41 (`scanned=4`) · Yahoo Mail |
 | 24/10/2026 | E39 | **Καταγραφή (απόφαση χρήστη):** ενιαία κοινοποίηση τίτλου+πεδίων+συνημμένων για **όλα** τα items (όχι μόνο συλλογές) — θέλει spec πριν από κώδικα. | `share_service.dart:12,71-101,346-374` · device spot (Yahoo ✅ / άλλος ❌) |
-| 24/10/2026 | docs | **Sync όλων των `.md` με τον κώδικα (S273):** `supernote.md` → 294/294, Error Handling/Performance αληθή, tree +4 αρχεία, `dayTickProvider`/`appInfo`/`appLock`, ShareService+E39· `oldsessions.md` → banner «ιστορικό έως S272, ενεργά στο error_list»· `a11y.md` → pointer σε error_list· `README.md` → πραγματική περιγραφή· `code_refactor.md` → έτοιμο banner «ΠΑΓΩΜΕΝΟ» (χωρίς άλλη αλλαγή). | analyze clean · test **294/294** · grep `catch (_) {}`=0 · 3.655 γραμμές lib/155 αρχεία (χωρίς g.dart) |
+| 24/10/2026 | docs | **Sync όλων των `.md` με τον κώδικα (S273):** `supernote.md` → 294/294, Error Handling/Performance αληθή, tree +4 αρχεία, `dayTickProvider`/`appInfo`/`appLock`, ShareService+E39· `oldsessions.md` → banner «ιστορικό έως S272, ενεργά στο error_list»· `a11y.md` → pointer σε error_list· `README.md` → πραγματική περιγραφή· `code_refactor.md` → έτοιμο banner «ΠΑΓΩΜΕΝΟ» (χωρίς άλλη αλλαγή). | analyze clean · test **294/294** · grep `catch (_) {}`=0 · 42.653 γραμμές lib/155 αρχεία (χωρίς g.dart) |
+| 24/10/2026 | E25 | **CLOSED (E26 βήματα 1–3 «σαν τελικό κλείσιμο»):** `oldsessions.md` κεφάλαιο **S273** (E18 + device + E39 + docs) · `code_refactor.md` §3/§7/§8/§9 → **παραπομπή** (αρχειοθετήθηκαν, αντίγραφο σε `backups/s273_docs_sync/`) · `supernote.md` αληθή + test counter · `a11y.md`/`README.md` sync. | P3 10→9 · E26: 1–3 ✅, 4 ⏳ (μετά P2/P3) |
 
 ---
 
@@ -424,9 +423,9 @@
 
 | Αρχείο | Πριν | Τώρα |
 |---|---|---|
-| `code_refactor.md` §3/§7/§8/§9 | λίστες/status | **παγώνουν** (δεν συντηρούνται) — μόνο ιστορικό· καθαρίζονται στο E26 |
-| `supernote.md` | αρχιτεκτονική + status | **μόνο αρχιτεκτονική** (κανόνας 8) |
-| `oldsessions.md` | ιστορικό + «επόμενο session» | **μόνο ιστορικό**· νέο κεφάλαιο στο E26 |
+| `code_refactor.md` §3/§7/§8/§9 | λίστες/status | ✅ **αρχειοθετήθηκαν 24/10/2026 (S273)** — παραπομπή σε `oldsessions.md`/`error_list.md` (κανόνας 9) |
+| `supernote.md` | αρχιτεκτονική + status | ✅ **μόνο αρχιτεκτονική** (κανόνας 8) — αληθή facts 24/10/2026 |
+| `oldsessions.md` | ιστορικό + «επόμενο session» | ✅ **μόνο ιστορικό** — κεφάλαιο **S273** (24/10/2026), ενεργά μόνο στο `error_list.md` |
 | `error_list.md` | — | **η μοναδική πηγή** μέχρι το E26, μετά διαγράφεται |
 | `AGENTS.md` | κανόνες 6/9/10 | ✅ **ενημερώθηκε 21/10/2026**: 6 = διάβασε `error_list.md` + ιστορικό · 9 = πρόοδος/εκκρεμότητες **ΜΟΝΟ** στο `error_list.md` · 10 = το 1-κεφάλαιο-ανά-φάση ισχύει για το τελικό sync |
 
