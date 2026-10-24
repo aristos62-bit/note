@@ -3639,3 +3639,43 @@
 **Docs:** `error_list.md` — baseline/test counter, κάρτα E38 (CLOSED), bullet §3, progress rows, Ο8 group + σειρά. `supernote.md` — ενημέρωση αρχιτεκτονικής (μία καθολική επιλογή, αφαίρεση mixin/seed/preferred, νέο picker, legacy πεδίο). Το παρόν κεφάλαιο είναι ιστορικό.
 
 **Επόμενο:** device verification E38 με ρητή λίστα δεδομένων (κανόνας 12) — «Όλοι» σε κάθε οθόνη, «+» → picker, δημιουργία σε επιλεγμένο φάκελο, φίλτρο μήνα Ημερολογίου, διαγραφή επιλεγμένου φακέλου.
+
+## Session 273 — 24/10/2026 (Φ5 partial: P1 sweep CLOSED — E18 + final docs sync)
+
+> Στόχος: κλείσιμο του **τελευταίου P1** (7 άδεια `catch (_) {}` → ορατό logging), device verification, και συγχρονισμός **όλων** των `.md` στη λογική του τελικού κλεισίματος (E26 βήματα 1–3) — ενώ το `error_list.md` μένει **ενεργό** για P2/P3.
+
+**E18 — 0 άδεια catch:**
+1. `recurrence.dart:91,115,130` → `DebugConfig.warning` (monthly legacy `catch (_)` στο `:102` μένει σκόπιμα — `int.tryParse` fallback).
+2. `attachment_service.dart:127` → `DebugConfig.error` + stack (orphan cleanup).
+3. `share_service.dart:433` → `DebugConfig.warning`.
+4. `habit_service.dart:124,155,766` → `DebugConfig.warning`.
+5. `habit_service.dart:754-767` (`topUp`) → guard `reminder_times.isNotEmpty` πριν το `jsonDecode` (απέφευγε `FormatException` σε κάθε legacy habit με 1 ώρα).
+6. Tests: +4 tolerant-parsing στο `test/habit_topup_test.dart` (**290 → 294/294**).
+
+**Device pass (POCO X3, debug, 24/10/2026):**
+- cold start `topUp: done scanned=4 needTopUp=0 created=0 scheduledBatch=275` · `OS pending=315` · 151ms · **0** `parse failed` / **0** ERR.
+- T1 ειδοποίηση ✅ · T2 `x/3 ώρες` + persistence ✅ · T5 share entry ✅ · T6 add/open/delete ✅.
+- `WRN RACE RISK` (`main.dart:349-353`) = προϋπάρχοντα (S50), όχι E18.
+
+**Share — διάγνωση (όχι bug):** `share_plus 12.0.2` στέλνει `EXTRA_TEXT` + αρχείο (`Share.kt:108-113`)· **Yahoo Mail** εμφανίζει τίτλο+πεδία+📎. Προορισμοί που αγνοούν `EXTRA_TEXT` όταν υπάρχει αρχείο = περιορισμός **προορισμού**. Το πραγματικό κενό (συλλογή = μόνο τίτλος, item-level attachments δεν μοιράζονται, τύποι με `default` = μόνο τίτλος) καταγράφηκε ως **E39** (OPEN — θέλει spec): ενιαία συμπεριφορά για **όλα** τα items, όχι μόνο συλλογές.
+
+**Docs sync (E26 βήματα 1–3 — χωρίς διαγραφή tracker):**
+- `supernote.md`: test counter **294/294** · Error Handling/Performance αληθή · tree **+4 αρχεία** (`lock_screen`, `reminder_diagnostics_screen`, `app_info_provider`, `app_lock_provider`) · `dayTickProvider` · ShareService (E39 pointer).
+- `code_refactor.md`: §3/§7/§8/§9 → **παραπομπή** (κανόνας 9, καμία διπλή λίστα)· πλήρες αντίγραφο `backups/s273_docs_sync/`.
+- `oldsessions.md`: το παρόν κεφάλαιο + banner «ενεργά στο `error_list.md`».
+- `a11y.md`: pointer σε `error_list.md` (E01 PARKED) · `README.md`: πραγματική περιγραφή + χάρτης docs.
+- `E25` → **CLOSED** (doc-drift).
+
+**Απόδειξη:** analyze clean · test **294/294** (50 αρχεία) · `catch (_) {}` = **0** · 155 αρχεία / 42.653 γραμμές (χωρίς `*.g.dart`) · 20 αρχεία >500 (`main.dart` 519).
+
+**Backups:** `backups/s273_e18_catch/` · `backups/s273_docs_sync/`.
+
+**Commits:** `4919999` (E18 κώδικας+docs) · `30c4fa6` (device pass docs) · `c2f57c0` (E39 tracker) · `48edd5f` (docs sync + user WIP pre-P2) · τελικό sync: βλ. `git log`.
+
+**Μαθήματα:**
+- Κενό `catch (_) {}` = σιωπή· μόνο `DebugConfig.warning/error` (όχι rename του `_`).
+- `jsonDecode('')` → `FormatException`· `catch (e)` πιάνει και `TypeError`.
+- Το share text+files εξαρτάται από τον προορισμό· δεν θεωρείται bug της εφαρμογής χωρίς απόδειξη σε **2** προορισμούς.
+- Το sync docs γίνεται **χωρίς** νέο κεφάλαιο προόδου όσο ζει το `error_list.md`· το παρόν γράφτηκε κατ' εξαίρεση (εντολή χρήστη) ως «τελικό κλείσιμο» της φάσης.
+
+**Επόμενο:** **P2** — E05 (bulk-delete perf), E08 (notification permission), E27 (grid autoscroll), E22 (§3.8 υπολειπόμενα)· μετά P3 (E19/E21/E14/E23, E39 με spec).
