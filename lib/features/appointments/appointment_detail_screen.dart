@@ -391,7 +391,7 @@ class _AppointmentDetailScreenState
     final selected = await showModalBottomSheet<Item>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
+      backgroundColor: ColorsUI.getModalSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.bottomSheet), topRight: Radius.circular(AppRadius.bottomSheet)),
       ),

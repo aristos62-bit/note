@@ -142,7 +142,7 @@ class _FolderFormDialogState extends State<FolderFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: ColorsUI.getSurface(context.brightness),
+      backgroundColor: ColorsUI.getModalSurface(context.brightness),
       title: Text(widget.title),
       content: SingleChildScrollView(
         child: Column(

@@ -40,6 +40,13 @@ class AppErrors {
   static String movedToFolder(String label) =>
       'Μετακινήθηκε στον φάκελο "$label"';
 
+  // ── Delete (ConfirmDialog.delete) ────────────────────────────
+  /// Προεπιλογή: soft delete → το item πάει στον Κάδο Ανακύκλωσης.
+  static const deleteReversible =
+      'Η ενέργεια μπορεί να αναιρεθεί από τον κάδο ανακύκλωσης.';
+  /// Οριστική διαγραφή (χωρίς restore): φάκελος, permanentDelete.
+  static const deleteIrreversible = 'Η ενέργεια δεν μπορεί να αναιρεθεί.';
+
   // ── Attachments ──────────────────────────────────────────────
   static String attachMaxFiles(int max, String label) =>
       'Μέγιστο όριο $max αρχείων για το πεδίο "$label"';

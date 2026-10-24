@@ -229,6 +229,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final future = ConfirmDialog.delete(
       context,
       title: 'Διαγραφή φακέλου "${folder.name}";',
+      subtitle: AppErrors.deleteIrreversible,
     );
     final ok = await future;
     if (!ok || !mounted) return;

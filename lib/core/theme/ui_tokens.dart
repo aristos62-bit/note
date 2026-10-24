@@ -213,6 +213,10 @@ class ColorsUI {
   static Color getOnError(Brightness b)          => byBrightness(brightness: b, light: onErrorLight, dark: onErrorDark);
   static Color getBackground(Brightness b)       => byBrightness(brightness: b, light: backgroundLight, dark: backgroundDark);
   static Color getSurface(Brightness b)          => byBrightness(brightness: b, light: surfaceLight, dark: surfaceDark);
+  /// Αδιαφανής επιφάνεια για modals (sheets/dialogs). Το `surface` είναι
+  /// ημιδιαφανές (alpha ~52–66%) και αφήνει το περιεχόμενο πίσω να φαίνεται·
+  /// εδώ επαναχρησιμοποιείται το υπάρχον αδιαφανές `background` token.
+  static Color getModalSurface(Brightness b)     => getBackground(b);
   static Color getCard(Brightness b)             => byBrightness(brightness: b, light: cardLight, dark: cardDark);
   static Color getTextPrimary(Brightness b)      => byBrightness(brightness: b, light: textPrimaryLight, dark: textPrimaryDark);
   static Color getTextSecondary(Brightness b)    => byBrightness(brightness: b, light: textSecondaryLight, dark: textSecondaryDark);
