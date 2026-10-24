@@ -416,6 +416,7 @@
 | 24/10/2026 | E39 | **Καταγραφή (απόφαση χρήστη):** ενιαία κοινοποίηση τίτλου+πεδίων+συνημμένων για **όλα** τα items (όχι μόνο συλλογές) — θέλει spec πριν από κώδικα. | `share_service.dart:12,71-101,346-374` · device spot (Yahoo ✅ / άλλος ❌) |
 | 24/10/2026 | docs | **Sync όλων των `.md` με τον κώδικα (S273):** `supernote.md` → 294/294, Error Handling/Performance αληθή, tree +4 αρχεία, `dayTickProvider`/`appInfo`/`appLock`, ShareService+E39· `oldsessions.md` → banner «ιστορικό έως S272, ενεργά στο error_list»· `a11y.md` → pointer σε error_list· `README.md` → πραγματική περιγραφή· `code_refactor.md` → έτοιμο banner «ΠΑΓΩΜΕΝΟ» (χωρίς άλλη αλλαγή). | analyze clean · test **294/294** · grep `catch (_) {}`=0 · 42.653 γραμμές lib/155 αρχεία (χωρίς g.dart) |
 | 24/10/2026 | E25 | **CLOSED (E26 βήματα 1–3 «σαν τελικό κλείσιμο»):** `oldsessions.md` κεφάλαιο **S273** (E18 + device + E39 + docs) · `code_refactor.md` §3/§7/§8/§9 → **παραπομπή** (αρχειοθετήθηκαν, αντίγραφο σε `backups/s273_docs_sync/`) · `supernote.md` αληθή + test counter · `a11y.md`/`README.md` sync. | P3 10→9 · E26: 1–3 ✅, 4 ⏳ (μετά P2/P3) |
+| 24/10/2026 | docs | **Κενό ιστορικού P1 → έκλεισε:** τα **E15/E16/E17/E29/E30/E33** δεν είχαν κεφάλαιο (S263–S269) — γράφτηκε **αναδρομικό κεφάλαιο** στο `oldsessions.md` (21–22/10, από §3/§4 + backups). `a11y.md`: τα §3.6/§8 του `code_refactor.md` → σημείωση αρχειοθέτησης. | `oldsessions.md` S263–S269 · `a11y.md:13` |
 
 ---
 
