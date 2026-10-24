@@ -123,7 +123,10 @@ class AttachmentService {
         try {
           final orphan = File(destPath);
           if (await orphan.exists()) await orphan.delete();
-        } catch (_) {}
+        } catch (e, stack) {
+          DebugConfig.error(
+              '[AttachmentService] orphan cleanup failed (continuing)', e, stack);
+        }
       }
       rethrow;
     }

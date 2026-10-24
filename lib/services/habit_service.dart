@@ -120,7 +120,10 @@ class HabitService {
       for (final t in times) {
         result[t] = map[t] == true;
       }
-    } catch (_) {}
+    } catch (e) {
+      DebugConfig.warning(
+          'HabitService._loadTodayTimeProgress: parse failed (habitId=$habitId): $e');
+    }
 
     return result;
   }
@@ -148,7 +151,9 @@ class HabitService {
       return list
           .map((s) => _dateOnly(DateTime.parse(s.toString())))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      DebugConfig.warning(
+          'HabitService._loadDayCompletions: parse failed (habitId=$habitId): $e');
       return [];
     }
   }
@@ -746,16 +751,22 @@ class HabitService {
           final times = <TimeOfDay>[];
           final single = parseHabitTime(allProps['reminder_time'] ?? '');
           if (single != null) times.add(single);
-          try {
-            final list = jsonDecode(allProps['reminder_times'] ?? '') as List;
-            for (final e in list) {
-              final parsed = parseHabitTime(e.toString());
-              if (parsed != null && !times.any((t) =>
-                  t.hour == parsed.hour && t.minute == parsed.minute)) {
-                times.add(parsed);
+          final timesJson = allProps['reminder_times'] ?? '';
+          if (timesJson.isNotEmpty) {
+            try {
+              final list = jsonDecode(timesJson) as List;
+              for (final e in list) {
+                final parsed = parseHabitTime(e.toString());
+                if (parsed != null && !times.any((t) =>
+                    t.hour == parsed.hour && t.minute == parsed.minute)) {
+                  times.add(parsed);
+                }
               }
+            } catch (e) {
+              DebugConfig.warning(
+                  'HabitService.topUp: reminder_times parse failed (habitId=${habit.id}): $e');
             }
-          } catch (_) {}
+          }
           if (times.isEmpty) continue;
 
           final recurrence = Recurrence.fromProperties(allProps);

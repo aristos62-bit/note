@@ -92,4 +92,39 @@ void main() {
           contains('10:00'));
     });
   });
+
+  // E18: tolerant parsing — corrupt props δεν πετούν, επιστρέφουν null.
+  group('fromProperties tolerant parsing (E18)', () {
+    test('corrupt weekly days → days null, δεν πετάει', () {
+      final w = Recurrence.fromProperties({
+        'recurrence_type': 'weekly',
+        'recurrence_days': '{not json',
+      });
+      expect(w.days, isNull);
+    });
+
+    test('corrupt yearly days → days null, δεν πετάει', () {
+      final y = Recurrence.fromProperties({
+        'recurrence_type': 'yearly',
+        'recurrence_days': 'oops',
+      });
+      expect(y.days, isNull);
+    });
+
+    test('corrupt times → times null, δεν πετάει', () {
+      final d = Recurrence.fromProperties({
+        'recurrence_type': 'daily',
+        'recurrence_times': 'oops',
+      });
+      expect(d.times, isNull);
+    });
+
+    test('monthly legacy plain int παραμένει υποστηριζόμενο (χωρίς log)', () {
+      final m = Recurrence.fromProperties({
+        'recurrence_type': 'monthly',
+        'recurrence_days': '15',
+      });
+      expect(m.days, [15]);
+    });
+  });
 }

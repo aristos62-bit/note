@@ -1,6 +1,7 @@
 // lib/models/recurrence.dart
 import 'dart:convert';
 import '../core/utils/date_utils.dart';
+import '../core/utils/debug_config.dart';
 
 enum RecurrenceType { daily, weekly, monthly, yearly, custom }
 
@@ -86,7 +87,10 @@ class Recurrence {
       if (daysJson != null && daysJson.isNotEmpty) {
         try {
           days = (jsonDecode(daysJson) as List).map((e) => e as int).toList();
-        } catch (_) {}
+        } catch (e) {
+          DebugConfig.warning(
+              'Recurrence.fromProperties: weekly days parse failed: $e');
+        }
       }
     }
 
@@ -107,7 +111,10 @@ class Recurrence {
       if (daysJson != null && daysJson.isNotEmpty) {
         try {
           days = (jsonDecode(daysJson) as List).map((e) => e as int).toList();
-        } catch (_) {}
+        } catch (e) {
+          DebugConfig.warning(
+              'Recurrence.fromProperties: yearly days parse failed: $e');
+        }
       }
     }
 
@@ -119,7 +126,10 @@ class Recurrence {
         try {
           times =
               (jsonDecode(timesStr) as List).map((e) => e.toString()).toList();
-        } catch (_) {}
+        } catch (e) {
+          DebugConfig.warning(
+              'Recurrence.fromProperties: times parse failed: $e');
+        }
       }
     }
 
