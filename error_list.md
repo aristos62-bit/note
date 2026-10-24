@@ -40,22 +40,22 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 22/10/2026)
+## 0. Baseline (μετρημένο στον κώδικα — 24/10/2026)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `82cdc77` + S272 (E38) | `git log` |
-| `flutter analyze` | **No issues found** | run 23/10/2026 |
-| `flutter test` | **290/290** (50 αρχεία test) | run 23/10/2026 |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 39.371 | μετρήθηκε |
-| Αρχεία >500 γραμμές (R1) | **19** (`main.dart` 511) | βλ. E06 |
+| Git HEAD | `e2a9ea6` + S273 (E18) | `git log` |
+| `flutter analyze` | **No issues found** | run 24/10/2026 |
+| `flutter test` | **294/294** (50 αρχεία test) | run 24/10/2026 |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 42.607 | μετρήθηκε |
+| Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
-| `catch (_) {}` | **7** (14/21 έκλεισαν στην Ο2) | grep |
+| `catch (_) {}` | **0** (E18 CLOSED 24/10/2026) | grep |
 | `debugPrint`/`print` εκτός `DebugConfig` | 0 | grep |
 
-⚠️ **Γνωστό doc-drift:** `supernote.md:19` γράφει 245/245, πραγματικό **287/287**. Δεν διορθώνεται τώρα (status ≠ αρχιτεκτονική) — θα διορθωθεί στο τελικό sync (E26).
+⚠️ **Γνωστό doc-drift:** `supernote.md:19` γράφει 245/245, πραγματικό **294/294**. Δεν διορθώνεται τώρα (status ≠ αρχιτεκτονική) — θα διορθωθεί στο τελικό sync (E26).
 
 ### 0.1 Δεύτερος έλεγχος (21/10/2026) — τι διορθώθηκε στη λίστα
 1. **`E24` «grid-mode guard gap» → ακυρώθηκε ως bug.** Έλεγξα το SDK (`reorderable_list.dart:82-83,129-131`: το `onReorderItem` διορθώνει το `newIndex`) **και** το package (`reorderable_grid.dart:652-663,573-577`: δίνει index κελιού-στόχου). Και τα δύο ταιριάζουν με το `removeAt+insert` του `moveAndMerge` ⇒ **όχι off-by-one**. Μένει μόνο προαιρετικό device spot-check.
@@ -73,38 +73,36 @@
 > **P3 = ΜΕΛΛΟΝΤΙΚΕΣ ΠΡΟΣΘΗΚΕΣ – ΑΝΑΒΑΘΜΙΣΕΙΣ** → νέα features + δομική καθαριότητα.
 > **P4 = By-design/αποδεκτά** → καμία ενέργεια. *Κανένα επιβεβαιωμένο crash ή απώλεια δεδομένων.*
 
-### 🔴 P1 — Σφάλματα (1)
+### 🔴 P1 — Σφάλματα (0)
 
-| # | ID | Θέμα | Γιατί είναι P1 (απόδειξη) |
-|---|---|---|---|
-| 1 | `E18` | **`catch (_) {}` ×7** (R4) | Κρύβει σφάλματα (attachments/habits/recurrence/share) → αόρατες αποτυχίες· τα 14/21 έκλεισαν στην Ο2 |
+> Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
 ### 🟠 P2 — Βελτιώσεις λειτουργιών (8)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
-| 3 | `E05` | **F13b** — bulk-delete perf (`permanentDeleteMany`) | Πάγωμα ~7s σε μαζική διαγραφή (N× invalidate + passes) |
-| 4 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 5 | `E27` | **Grid reorder χωρίς autoScroll** | Δεν φτάνεις μακρινούς στόχους σε μεγάλο grid |
-| 6 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
-| 7 | `E19` | **`take(10)` ×2 + διπλότυπη λογική φίλτρου** | Λάθος/διπλά αποτελέσματα σε άκρες |
-| 8 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
-| 9 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
-| 10 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
+| 1 | `E05` | **F13b** — bulk-delete perf (`permanentDeleteMany`) | Πάγωμα ~7s σε μαζική διαγραφή (N× invalidate + passes) |
+| 2 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
+| 3 | `E27` | **Grid reorder χωρίς autoScroll** | Δεν φτάνεις μακρινούς στόχους σε μεγάλο grid |
+| 4 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
+| 5 | `E19` | **`take(10)` ×2 + διπλότυπη λογική φίλτρου** | Λάθος/διπλά αποτελέσματα σε άκρες |
+| 6 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
+| 7 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 8 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (9)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
-| 13 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 14 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
-| 15 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
-| 16 | `E06` | **R1: 19 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 17 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(μόνο αν φανεί στο E03)* |
-| 18 | `E14` | **F19** — dead providers (`pendingReminders*`) | Καθαριότητα |
-| 19 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
-| 20 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
-| 21 | `E25` | **Doc-drift παλιών docs** | Συντήρηση (κλείνει με E26) |
+| 9 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
+| 10 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
+| 11 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
+| 12 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 13 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(μόνο αν φανεί στο E03)* |
+| 14 | `E14` | **F19** — dead providers (`pendingReminders*`) | Καθαριότητα |
+| 15 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
+| 16 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
+| 17 | `E25` | **Doc-drift παλιών docs** | Συντήρηση (κλείνει με E26) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό).
@@ -158,7 +156,8 @@
 - **Ρίσκο:** **υψηλό** (S250 race + S142 lifecycle + attachments). Θέλει ισοδυναμία: ίδιο τελικό state με N×.
 - **Αποδοχή:** `analyze` clean + tests + device bulk delete (ρητή λίστα δεδομένων) με 0 ERR.
 
-### E06 — R1: 19 αρχεία >500 γραμμές
+### E06 — R1: 20 αρχεία >500 γραμμές
+> Επανμέτρηση 24/10/2026 (S273): **20** αρχεία >500, `main.dart` 519. Ο παρακάτω πίνακας είναι το μέτρημα της 22/10 (stale per-file νούμερα — refresh στο E25/E26).
 Επιβεβαιωμένο μέτρημα (`lib/`, χωρίς `*.g.dart`):
 
 | Αρχείο | Γραμμές |
@@ -231,11 +230,11 @@
 ### E17 — ✅ CLOSED 21/10/2026 (F4: κοινό `_bakeQueue`) — βλ. §3
 - **Υλοποίηση:** `rescheduleForItem` → `_bakeQueue.run(() => _rescheduleForItemImpl(itemId))` — ίδια ουρά με `scheduleAll` (καμία 6η) + `resolveScheduleMode()` 1×/pass (`reminder_scheduler.dart:689-725`). **Device (POCO X3):** 5/5 call sites (`item_provider.dart:203,214,275,341,360`) `rebaked=1`, cold-start race bake `id=1→2`, counts σταθερά 168→171, test 259/259.
 
-### E18 — `catch (_) {}` ×7 (R4) — μερικό κλείσιμο
-- **Κατάσταση:** 14/21 CLOSED 22/10/2026 (Ο2): `backup_service` ×13 + `backup_archive` ×1 → `DebugConfig.warning`/σχόλιο.
-- **Υπόλοιπα 7 → Ο6:** `recurrence.dart:89,110,122` · `attachment_service.dart:126` · `share_service.dart:432` · `habit_service.dart:123,758`.
-- **Κανόνας R4:** απαγορεύεται. Ανά site: `DebugConfig.warning` (ή τεκμηριωμένη σκόπιμη σίγαση best-effort).
-- **Αποδοχή (Ο6):** 0 `catch (_) {}` χωρίς σχόλιο/λόγο.
+### E18 — ✅ CLOSED 24/10/2026 (R4: 0 άδεια catch)
+- **Υλοποίηση (S273):** 7 sites → ορατό log: `recurrence.dart:91,115,130` (`warning` ×3) · `attachment_service.dart:127` (`error`+stack) · `share_service.dart:433` (`warning`) · `habit_service.dart:124,155,766` (`warning` ×3).
+- **Διόρθωση topUp (`habit_service.dart:754-767`):** guard `reminder_times.isNotEmpty` πριν το `jsonDecode` — απέφευγε `FormatException` σε **κάθε** habit με 1 ώρα (`setReminderTime` διαγράφει το `reminder_times`).
+- **Αμετάβλητα (σκόπιμα):** monthly legacy `catch (_)` (`recurrence.dart:102`, fallback `int.tryParse`) · non-empty `catch (_)` (share bullet/numbered) — δεν ήταν E18.
+- **Αποδοχή:** `catch (_) {}` = **0** · analyze clean · test **294/294** (βλ. §4).
 
 ### E19 — `take(10)` ×2 + διπλότυπη λογική
 - **Σημεία:** `items_query_provider.dart:64` · `home_folder_view.dart:171` (το doc έλεγε `:143` — drift). Ίδιο φίλτρο `deletedAt == null && !archived` + magic 10 ⇒ SPoT helper/const.
@@ -323,6 +322,8 @@
 
 - **`E38` — CLOSED 23/10/2026 (analyze+tests, S272):** μία καθολική επιλογή φακέλου (`selectedFolderIdProvider`, null = «Όλοι») σε Home + 7 λίστες + Ημερολόγιο· κοινός picker νέων items (`folder_picker_dialog.dart`)· κεντρικό deselect στη διαγραφή· αφαίρεση auto-select mixin/seed/preferred folder. analyze clean · test **290/290**.
 
+- **`E18` — CLOSED 24/10/2026 (analyze+tests, S273):** τα 7 τελευταία άδεια `catch (_) {}` → `DebugConfig.warning`/`error` (+ guard στο `topUp`); `catch (_) {}` = **0** συνολικά. analyze clean · test **294/294**.
+
 - **Cascades/lifecycle:** S141 (collections cascade), S142 (κάδος συμμετρικός), S143 (archive = σίγαση), S148 (reorder subset→full), S213 (κάδος restore).
 - **Routing/theming:** S156 (birthday), S169 (tokens), S172 (`AppTransitions`), S178 (mojibake), S180 (`safePop`), S183 (event 1 AppBar), S176 (`$isNew`).
 - **Providers/lifecycle:** S170, S171, S179, S181 (`getByIds`), S182 (PIN state), S187, S189, S191.
@@ -391,6 +392,8 @@
 | 22/10/2026 | E28, E12 | **Full 140%/landscape pass (user-confirmed):** 15 SafeSheet sites + 7 archive menus/calendar inline toggle, χωρίς overflow/κόψιμο· κανένα Flutter error. | χειροκίνητος έλεγχος χρήστη · screenshots `backups/o4_sheets_2026-10-22/device_logs/` |
 | 23/10/2026 | E38 | **S272 υλοποίηση:** ενοποίηση επιλογής φακέλου σε `selectedFolderIdProvider` (null = «Όλοι», εκκίνηση πάντα «Όλοι»), αφαίρεση `homeSelectedFolderProvider`/`FolderAutoSelectMixin`/startup seed/`preferredFolderId` UI, κεντρικό deselect, κοινό `folder_picker_dialog`, FAB unconditional σε Home + 7 λίστες + Ημερολόγιο, type-first + φίλτρο μήνα (events + γενέθλια) στο Ημερολόγιο. | backup `backups/s272_e38_folder_picker/` · analyze clean |
 | 23/10/2026 | E38 | **Verify:** πλήρες `flutter test -j 1` **290/290** (50 files) · νέο `test/folder_picker_resolve_test.dart` (έγκυρη επιλογή / picker σε «Όλοι» / stale επιλογή). | run 23/10/2026 |
+| 24/10/2026 | E18 | **S273 υλοποίηση:** 7 άδεια `catch (_) {}` → ορατό log (`warning` ×6 + `error`+stack ×1)· guard `isNotEmpty` στο `topUp` (αποφυγή per-pass `FormatException`). | `recurrence.dart:91,115,130` · `attachment_service.dart:127` · `share_service.dart:433` · `habit_service.dart:124,155,766` · backup `backups/s273_e18_catch/` |
+| 24/10/2026 | E18 | **Verify:** `catch (_) {}` = **0** · analyze clean · test **294/294** (+4 tolerant-parsing tests). | run 24/10/2026 · `test/habit_topup_test.dart` |
 
 ---
 
@@ -419,7 +422,7 @@
 | **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
 | **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
 | **Ο5 — Grid + verify** | E27 + E03 | `reorderable_item_list` + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 |
-| **Ο6 — Cleanup & visibility sweep** | E18 (→0) + E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
+| **Ο6 — Cleanup & visibility sweep** (E18 ✅ 24/10/2026) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).

@@ -429,7 +429,9 @@ class ShareService {
               lines.add(
                   '• 📎 $label: ${ids.length == 1 ? '1 συνημμένο' : '${ids.length} συνημμένα'}');
             }
-          } catch (_) {}
+          } catch (e) {
+            DebugConfig.warning('📤 attachment field "$key" parse error: $e');
+          }
         default:
           lines.add('• $label: ${prop.value}');
       }
