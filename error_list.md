@@ -90,7 +90,7 @@
 | 7 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 | 8 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (9)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (10)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
@@ -103,6 +103,7 @@
 | 15 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
 | 16 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
 | 17 | `E25` | **Doc-drift παλιών docs** | Συντήρηση (κλείνει με E26) |
+| 18 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό).
@@ -309,6 +310,22 @@
 - **Υλοποίηση:** ένα state (null = «Όλοι», εκκίνηση πάντα «Όλοι»), κεντρικό deselect στο `FolderNotifier.delete`, κοινό `showFolderPickerDialog` + `resolveFolderForNewItem` (δεν αλλάζει την κοινή επιλογή), FAB πάντα ορατό (Home/7 λίστες/Ημερολόγιο — type-first), φίλτρο μήνα σε events + γενέθλια επαφών, αφαίρεση mixin/seed/preferred UI+provider+μέθοδος+share branch.
 - **Απόδειξη:** analyze clean · **290/290** (50 files, +3 `test/folder_picker_resolve_test.dart`) · backup `backups/s272_e38_folder_picker/` (24 αρχεία · BASE_HEAD `82cdc77`).
 
+### E39 — Ενιαία κοινοποίηση: τίτλος + πεδία + συνημμένα σε ΟΛΑ τα items
+- **Απόφαση χρήστη (24/10/2026):** όχι μόνο για συλλογές — **κοινή συμπεριφορά** για notes/tasks/events/contacts/appointments/journal/habits/collections κ.λπ., όπου υπάρχει κοινοποίηση.
+- **Σημερινή κατάσταση (μετρημένη):**
+  - `shareItem` (`share_service.dart:12`): ειδική διαδρομή **μόνο** για `ItemType.knowledge` (entry: schema + πεδία + αρχεία). Όλα τα άλλα → `_format` (`:71-101`).
+  - `_format`: note/task/appointment/contact/event/journal/habit έχουν δικό τους formatter· **collection (`ItemType.project`), goal, finance, bookmark, checklist → μόνο τίτλος** (`default: :96-97`).
+  - Συνημμένα συλλέγονται **μόνο** από πεδία collection entry (`:346-374`). Item-level `AttachmentsStrip` (`note_detail_widgets.dart:138`, `event_detail_screen.dart:665`) **δεν** κοινοποιείται ποτέ.
+  - Κοινοποίηση **συλλογής** = σκέτος τίτλος (δεν διαβάζει entries) — επιβεβαιωμένο σε device 24/10/2026.
+  - Προορισμοί που αγνοούν `EXTRA_TEXT` όταν υπάρχει αρχείο → χάνεται όλο το κείμενο (Yahoo Mail ✅· άλλος προορισμός ❌) — `share_plus 12.0.2`, `Share.kt:108-113`.
+- **Στόχος:** ένα ενιαίο pipeline `ShareContentBuilder` → `{subject, text, files}` με σταθερή σειρά: **τίτλος → σύνοψη συνημμένων → πεδία → σώμα**. Κάθε τύπος δηλώνει μόνο τα δικά του sections (task: προτεραιότητα/προθεσμία/υποεργασίες · event/appointment: ώρα/τοποθεσία · contact: τηλέφωνα/email · habit: recurrence · collection: entries).
+- **Συνημμένα:** από (α) item attachments και (β) collection field ids· **dedupe by id**, skip missing αρχείο (log), όρια πλήθους/μεγέθους + σύνοψη `📎 n συνημμένα` **αμέσως μετά τον τίτλο** (ανθεκτικό σε truncation).
+- **Συλλογή:** «με περιεχόμενο» = λίστα entries (τίτλος + πεδία + 📎), χωρίς archived/deleted· ρητή επιλογή αν στέλνονται και τα αρχεία τους.
+- **Συμβατότητα προορισμών:** επιλογή **«Κείμενο»** / **«Κείμενο + αρχεία»** (ή `.md` fallback) ώστε να μη χάνεται ποτέ το κείμενο. *(Απορροφά την άτυπη ιδέα «E40» — δεν δημιουργείται ξεχωριστό ID.)*
+- **Side effects:** `share_service.dart` (refactor formatters σε builder) + 1 σημείο UI (item actions/entry card) + tests· **καμία** αλλαγή DB/schema/notifications.
+- **Αποδοχή:** για κάθε shareable τύπο → τίτλος + πεδία + συνημμένα παρόντα· 0 χαμένα/διπλά αρχεία· analyze/test clean· device spot-check (Yahoo Mail + app που αγνοεί `EXTRA_TEXT`).
+- **Κατάσταση:** **OPEN — θέλει spec/απόφαση πριν από κώδικα** (δεν έχει υλοποιηθεί τίποτα).
+
 ### E26 — Τελικό κλείσιμο
 1. `oldsessions.md`: 1 κεφάλαιο «Φ5 — error_list sweep» (τι έκλεισε, ημερομηνίες, hashes, device tests).
 2. `code_refactor.md`: διαγραφή/αντικατάσταση §3/§7/§8/§9 με παραπομπή στο κεφάλαιο του `oldsessions.md` (καμία διπλή λίστα).
@@ -396,6 +413,7 @@
 | 24/10/2026 | E18 | **S273 υλοποίηση:** 7 άδεια `catch (_) {}` → ορατό log (`warning` ×6 + `error`+stack ×1)· guard `isNotEmpty` στο `topUp` (αποφυγή per-pass `FormatException`). | `recurrence.dart:91,115,130` · `attachment_service.dart:127` · `share_service.dart:433` · `habit_service.dart:124,155,766` · backup `backups/s273_e18_catch/` |
 | 24/10/2026 | E18 | **Verify:** `catch (_) {}` = **0** · analyze clean · test **294/294** (+4 tolerant-parsing tests). | run 24/10/2026 · `test/habit_topup_test.dart` |
 | 24/10/2026 | E18 | **Device pass (POCO X3, debug):** cold start `topUp: done scanned=4 … scheduledBatch=275` · `OS pending=315` · 151ms · **0** `parse failed` / **0** `ERR`. T1 ειδοποίηση · T2 progress+persistence · T5 share entry (Yahoo Mail: τίτλος+πεδία+📎) · T6 add/open/delete — όλα OK. | logcat 18:26–18:41 (`scanned=4`) · Yahoo Mail |
+| 24/10/2026 | E39 | **Καταγραφή (απόφαση χρήστη):** ενιαία κοινοποίηση τίτλου+πεδίων+συνημμένων για **όλα** τα items (όχι μόνο συλλογές) — θέλει spec πριν από κώδικα. | `share_service.dart:12,71-101,346-374` · device spot (Yahoo ✅ / άλλος ❌) |
 
 ---
 
@@ -427,4 +445,4 @@
 | **Ο6 — Cleanup & visibility sweep** (E18 ✅ 24/10/2026, device-verified) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
 
-**Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
+**Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
