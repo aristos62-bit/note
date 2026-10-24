@@ -235,6 +235,7 @@
 - **Διόρθωση topUp (`habit_service.dart:754-767`):** guard `reminder_times.isNotEmpty` πριν το `jsonDecode` — απέφευγε `FormatException` σε **κάθε** habit με 1 ώρα (`setReminderTime` διαγράφει το `reminder_times`).
 - **Αμετάβλητα (σκόπιμα):** monthly legacy `catch (_)` (`recurrence.dart:102`, fallback `int.tryParse`) · non-empty `catch (_)` (share bullet/numbered) — δεν ήταν E18.
 - **Αποδοχή:** `catch (_) {}` = **0** · analyze clean · test **294/294** (βλ. §4).
+- **Device pass (POCO X3, debug — 24/10/2026):** cold start `topUp: done scanned=4 needTopUp=0 created=0 scheduledBatch=275` · `OS pending=315` · 151ms · **0** `parse failed` / **0** `ERR`. T1 ειδοποίηση ✅ · T2 `x/3 ώρες` + persistence ✅ · T5 share entry σε Yahoo Mail (τίτλος+πεδία+📎) ✅ · T6 add/open/delete ✅. Τα `WRN RACE RISK` είναι προϋπάρχοντα (S50, `main.dart:349-353`), όχι E18.
 
 ### E19 — `take(10)` ×2 + διπλότυπη λογική
 - **Σημεία:** `items_query_provider.dart:64` · `home_folder_view.dart:171` (το doc έλεγε `:143` — drift). Ίδιο φίλτρο `deletedAt == null && !archived` + magic 10 ⇒ SPoT helper/const.
@@ -322,7 +323,7 @@
 
 - **`E38` — CLOSED 23/10/2026 (analyze+tests, S272):** μία καθολική επιλογή φακέλου (`selectedFolderIdProvider`, null = «Όλοι») σε Home + 7 λίστες + Ημερολόγιο· κοινός picker νέων items (`folder_picker_dialog.dart`)· κεντρικό deselect στη διαγραφή· αφαίρεση auto-select mixin/seed/preferred folder. analyze clean · test **290/290**.
 
-- **`E18` — CLOSED 24/10/2026 (analyze+tests, S273):** τα 7 τελευταία άδεια `catch (_) {}` → `DebugConfig.warning`/`error` (+ guard στο `topUp`); `catch (_) {}` = **0** συνολικά. analyze clean · test **294/294**.
+- **`E18` — CLOSED 24/10/2026 (device/test-verified, S273):** τα 7 τελευταία άδεια `catch (_) {}` → `DebugConfig.warning`/`error` (+ guard στο `topUp`); `catch (_) {}` = **0** συνολικά. analyze clean · test **294/294** · device (POCO X3) `scanned=4` + 275 alarms, 0 warnings.
 
 - **Cascades/lifecycle:** S141 (collections cascade), S142 (κάδος συμμετρικός), S143 (archive = σίγαση), S148 (reorder subset→full), S213 (κάδος restore).
 - **Routing/theming:** S156 (birthday), S169 (tokens), S172 (`AppTransitions`), S178 (mojibake), S180 (`safePop`), S183 (event 1 AppBar), S176 (`$isNew`).
@@ -394,6 +395,7 @@
 | 23/10/2026 | E38 | **Verify:** πλήρες `flutter test -j 1` **290/290** (50 files) · νέο `test/folder_picker_resolve_test.dart` (έγκυρη επιλογή / picker σε «Όλοι» / stale επιλογή). | run 23/10/2026 |
 | 24/10/2026 | E18 | **S273 υλοποίηση:** 7 άδεια `catch (_) {}` → ορατό log (`warning` ×6 + `error`+stack ×1)· guard `isNotEmpty` στο `topUp` (αποφυγή per-pass `FormatException`). | `recurrence.dart:91,115,130` · `attachment_service.dart:127` · `share_service.dart:433` · `habit_service.dart:124,155,766` · backup `backups/s273_e18_catch/` |
 | 24/10/2026 | E18 | **Verify:** `catch (_) {}` = **0** · analyze clean · test **294/294** (+4 tolerant-parsing tests). | run 24/10/2026 · `test/habit_topup_test.dart` |
+| 24/10/2026 | E18 | **Device pass (POCO X3, debug):** cold start `topUp: done scanned=4 … scheduledBatch=275` · `OS pending=315` · 151ms · **0** `parse failed` / **0** `ERR`. T1 ειδοποίηση · T2 progress+persistence · T5 share entry (Yahoo Mail: τίτλος+πεδία+📎) · T6 add/open/delete — όλα OK. | logcat 18:26–18:41 (`scanned=4`) · Yahoo Mail |
 
 ---
 
@@ -422,7 +424,7 @@
 | **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
 | **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
 | **Ο5 — Grid + verify** | E27 + E03 | `reorderable_item_list` + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 |
-| **Ο6 — Cleanup & visibility sweep** (E18 ✅ 24/10/2026) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
+| **Ο6 — Cleanup & visibility sweep** (E18 ✅ 24/10/2026, device-verified) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
