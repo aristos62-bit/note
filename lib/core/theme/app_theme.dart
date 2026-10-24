@@ -239,13 +239,21 @@ class AppThemeData {
 
       // ── Dialog ─────────────────────────────────────────────
       dialogTheme: DialogThemeData(
-        backgroundColor: ColorsUI.getSurface(b),
+        backgroundColor: ColorsUI.getModalSurface(b),
         elevation: 8,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.dialogBR,
         ),
         titleTextStyle: TypographyUI.titleLarge(b),
         contentTextStyle: TypographyUI.bodyMedium(b),
+      ),
+
+      // ── Date / Time pickers (ίδια αδιαφανής επιφάνεια με τα dialogs) ──
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: ColorsUI.getModalSurface(b),
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: ColorsUI.getModalSurface(b),
       ),
 
       // ── SnackBar ───────────────────────────────────────────

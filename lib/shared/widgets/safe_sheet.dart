@@ -51,7 +51,7 @@ Future<T?> showSafeSheet<T>(
     context: context,
     isScrollControlled: scrollControlled,
     barrierColor: barrierColor,
-    backgroundColor: ColorsUI.getSurface(context.brightness),
+    backgroundColor: ColorsUI.getModalSurface(context.brightness),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.only(
         topLeft: Radius.circular(AppRadius.bottomSheet),

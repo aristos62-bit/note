@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 245/245 🟢 (`flutter test`) |
+| Test suite | 294/294 🟢 (`flutter test`, 24/10/2026) |
 
 ---
 
@@ -133,6 +133,8 @@ lib/
 │   ├── reminder_provider.dart    — Reminders CRUD
 │   ├── attachment_provider.dart  — Attachments CRUD
 │   ├── settings_provider.dart    — Settings CRUD, derived providers
+│   ├── app_info_provider.dart    — appVersionProvider (package_info_plus)
+│   ├── app_lock_provider.dart    — appLockStateProvider (AppLockService)
 │   └── ui_provider.dart          — UI state (selectedFolder, viewMode, isDragging)
 ├── services/
 │   ├── services.dart             — Barrel export
@@ -187,6 +189,9 @@ lib/
 │   │   ├── journal.dart          — Barrel
 │   │   ├── journal_list_screen.dart — Journal entries by date
 │   │   └── journal_detail_screen.dart — Journal entry editor
+│   ├── lock/
+│   │   ├── lock.dart             — Barrel export
+│   │   └── lock_screen.dart      — App-lock screen (PIN hash + biometric, lockout)
 │   ├── collections/
 │   │   ├── collections.dart      — Barrel
 │   │   ├── collections_screen.dart — All collections
@@ -209,6 +214,7 @@ lib/
 │   │   ├── settings_backup.dart           — Export / import / wipe
 │   │   ├── settings_pin_dialogs.dart      — App-lock PIN dialogs + validation
 │   │   ├── settings_reminders_dialog.dart — Past reminders dialog
+│   │   ├── reminder_diagnostics_screen.dart — Διαγνωστικά υπενθυμίσεων (DB vs OS alarms)
 │   │   ├── settings_archived_dialog.dart  — Archived items dialog
 │   │   ├── settings_contacts_dialogs.dart — Contact import dialogs + progress
 │   │   ├── settings_contacts_flow.dart    — Contact import flow + imported list
@@ -509,7 +515,12 @@ final db = SuperNoteHelper.instance;
 - Uses Isar `titleContains()` filter (case-insensitive)
 
 ### ShareService (`lib/services/share_service.dart`)
-- Uses `share_plus` package
+- `shareItem(item)` → `share_plus`: **μία** είσοδος για κάθε shareable item (`item_actions_sheet.dart:164-169`).
+- `ItemType.knowledge` (collection entry) → `_buildKnowledgeShare`: πεδία schema + αρχεία πεδίων `attachment` (`_formatCollectionEntry`, files loop).
+- Λοιποί τύποι → `_format`: note (blocks → markdown-ish), task, appointment, contact, event, journal, habit.
+- `ItemType.project` (συλλογή), goal, finance, bookmark, checklist → `default` = **μόνο τίτλος**.
+- Item-level συνημμένα (`AttachmentsStrip`: note `note_detail_widgets.dart:138`, event `event_detail_screen.dart:665`) **δεν** συλλέγονται σήμερα.
+- Ενιαία συμπεριφορά (τίτλος + πεδία + συνημμένα για **όλα** τα items) = **E39** (OPEN — `error_list.md`).
 
 ### SharedIntentService (`lib/services/shared_intent_service.dart`)
 - Singleton (S59) — stream `incoming` (warm+cold)· dedup 2s (`isDuplicate`)· `reset` μετά το initial
@@ -602,8 +613,9 @@ tagNotifierProvider → AsyncNotifierProvider<TagNotifier, List<Tag>>
 
 ### Habit Providers
 ```
+dayTickProvider → StateProvider<DateTime>                    // τρέχουσα μέρα· reset stats στο resume (S270)
 habitStreamProvider → StreamProvider.family<Item?, int>
-habitStatsProvider → FutureProvider.family<HabitStats, int>  // invalidates on habitStreamProvider change
+habitStatsProvider → FutureProvider.family<HabitStats, int>  // invalidates on habitStreamProvider change + dayTickProvider
 ```
 
 ### Task Providers
@@ -913,25 +925,28 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 
 ## Error Handling Status
 
-### Unprotected operations (no try-catch):
-- **HIGH** - `attachment_service.dart`: 5 file I/O + 1 DB write (lines 45-78)
-- **MEDIUM** - `contact_import_service.dart`: JSON parsing (line 38), file ops (55-64)
-- **MEDIUM** - `backup_service.dart`: partial failure in single try-catch (leaves partial files)
-- **MEDIUM** - `reminder_scheduler.dart`: `cancelAll()`, `pendingNotificationRequests()` — ✅ S252: καλύπτονται όταν καλούνται μέσω `scheduleAll` (SPoT δίχτυο `_bakeQueue`, fail-open 60s· `:78`/`:176`)
-- **MEDIUM** - Most DB operations in SuperNoteHelper repositories have zero try-catch
+### Κεντρικά (SPoT)
+- **Μηνύματα προς χρήστη:** `AppErrors` (`lib/core/utils/app_errors.dart`) — ενιαία strings· ~80 σημεία χρήσης σε `lib/` (όχι διάσπαρτα literals).
+- **Logging:** `DebugConfig` (`error`/`warning`/`info`/`debug`) — **0** γυμνά `debugPrint`/`print` εκτός αυτού.
+- **Κανένα σιωπηλό σφάλμα:** `catch (_) {}` = **0** (E18, 24/10/2026).
 
-### Protected:
-- `item_color_helper.dart`: `_parseHex()` has try-catch ✅
+### Καλυμμένα (δείγμα)
+- `attachment_service.dart`: file I/O + DB write σε try/catch → `DebugConfig.error` + stack (orphan cleanup, E18).
+- `recurrence.dart` / `habit_service.dart`: tolerant parsing (legacy/κατεστραμμένα properties) → `DebugConfig.warning` + fallback αντί crash (E18).
+- `item_color_helper.dart`: `_parseHex()` try/catch.
 
-### User-facing error messages:
-- None — exceptions propagate raw
+### Ανοιχτά (γνωστά — χωρίς per-call swallow)
+- `contact_import_service.dart`: JSON parsing + file ops — τα σφάλματα επιστρέφονται ως counts/`ImportResult`.
+- `backup_service.dart`: partial failure σε ένα try/catch (μπορεί να αφήσει partial files) — best-effort rollback.
+- `reminder_scheduler.dart`: `cancelAll()` / `pendingNotificationRequests()` — S252: IO waits μέσα στο `scheduleAll` (SPoT δίχτυο `_bakeQueue`, fail-open 60s· `:78`/`:176`).
+- `SuperNoteHelper` repositories: οι περισσότερες DB πράξεις χωρίς try/catch → τα σφάλματα Isar προωθούνται ως `AsyncError` στους providers (δεν καταπίνονται).
 
 ---
 
 ## Performance Notes
 
 ### Provider architecture:
-- No `autoDispose` — all providers live forever
+- `autoDispose`: **6** providers (batch/family για entries/contacts) — δεν μένουν όλοι ζωντανοί· βλ. State Management
 - `pinnedAndFavoritesProvider` uses StreamController (manually disposed)
 - `habitStatsProvider` uses `ref.listen` for invalidation (not `ref.watch`)
 - `tasksWithDetailsProvider` batch-loads properties + tags in `Future.wait`

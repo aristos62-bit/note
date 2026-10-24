@@ -1,17 +1,30 @@
-# super_note
+# SuperNote
 
-A new Flutter project.
+Προσωπική εφαρμογή σημειώσεων/οργάνωσης σε **Flutter + Isar** (Android/iOS/desktop), με 13 τύπους item
+(note, task, event, contact, habit, project/collection, goal, finance, bookmark, journal, appointment,
+checklist, knowledge entry), real-time streams, υπενθυμίσεις (topUp + OS alarms), συλλογές με πεδία,
+συνημμένα, αναζήτηση, app-lock και backup/restore.
 
-## Getting Started
+## Τεκμηρίωση (πού τι βρίσκεται)
 
-This project is a starting point for a Flutter application.
+| Αρχείο | Περιεχόμενο |
+|---|---|
+| `AGENTS.md` | Κανόνες συνεργασίας (πάντα πρώτο) |
+| `error_list.md` | **Μοναδική πηγή** για εκκρεμότητες/πρόοδο (P1–P4, κάρτες, logs) |
+| `supernote.md` | Αρχιτεκτονική (models, services, providers, routing, patterns) |
+| `oldsessions.md` | Ιστορικό sessions (ενημερώνεται μόνο στο τελικό κλείσιμο) |
+| `code_refactor.md` | Ιστορικός οδηγός ποιότητας σελίδων (παγωμένο ως προς εκκρεμότητες) |
+| `a11y.md` | Σχέδιο accessibility — **PARKED** (E01) |
 
-A few resources to get you started if this is your first Flutter project:
+## Ανάπτυξη
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run
+flutter analyze
+flutter test -j 1 --reporter compact
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Τρέχουσα κατάσταση (24/10/2026): `flutter analyze` clean · tests **294/294** · `catch (_) {}` = 0.
+
+> Τα δεδομένα της συσκευής δεν δημιουργούνται/αλλάζουν ποτέ μέσω `adb` — μόνο in-app (AGENTS.md #12).

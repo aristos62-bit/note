@@ -6,11 +6,11 @@
 // ✅ DebugConfig: log στο confirm/cancel
 //
 // ΧΡΗΣΗ:
-//   // Διαγραφή (κόκκινο)
+//   // Διαγραφή (κόκκινο) — προεπιλογή: AppErrors.deleteReversible (κάδος)
 //   final confirmed = await ConfirmDialog.delete(
 //     context,
 //     title: 'Διαγραφή σημείωσης',
-//     subtitle: 'Η ενέργεια δεν μπορεί να αναιρεθεί.',
+//     // Οριστική διαγραφή: subtitle: AppErrors.deleteIrreversible,
 //   );
 //   if (confirmed) notifier.deleteItem(item.id);
 //
@@ -39,7 +39,7 @@ class ConfirmDialog {
     return show(
       context,
       title:        title,
-      subtitle:     subtitle ?? 'Η ενέργεια δεν μπορεί να αναιρεθεί.',
+      subtitle:     subtitle ?? AppErrors.deleteReversible,
       confirmLabel: confirmLabel,
       icon:         Icons.delete_outline_rounded,
       isDestructive: true,
@@ -129,7 +129,7 @@ class ConfirmDialog {
     return showModalBottomSheet<bool>(
       context:       context,
       isScrollControlled: true,
-      backgroundColor: ColorsUI.getSurface(context.brightness),
+      backgroundColor: ColorsUI.getModalSurface(context.brightness),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topLeft:  Radius.circular(AppRadius.bottomSheet),

@@ -91,8 +91,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     if (_selectedIds.isEmpty) return;
     final confirm = await ConfirmDialog.delete(
       context,
-      title: 'Οριστική διαγραφή',
-      subtitle: 'Θα διαγραφούν οριστικά ${_selectedIds.length} στοιχεία.',
+      title: 'Οριστική διαγραφή;',
+      subtitle: AppErrors.deleteIrreversible,
     );
     if (!confirm) return;
     final notifier = ref.read(itemNotifierProvider.notifier);

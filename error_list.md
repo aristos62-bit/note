@@ -44,7 +44,7 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `e2a9ea6` + S273 (E18) | `git log` |
+| Git HEAD | `c2f57c0` + S273 docs sync | `git log` |
 | `flutter analyze` | **No issues found** | run 24/10/2026 |
 | `flutter test` | **294/294** (50 αρχεία test) | run 24/10/2026 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 42.607 | μετρήθηκε |
@@ -55,7 +55,7 @@
 | `catch (_) {}` | **0** (E18 CLOSED 24/10/2026) | grep |
 | `debugPrint`/`print` εκτός `DebugConfig` | 0 | grep |
 
-⚠️ **Γνωστό doc-drift:** `supernote.md:19` γράφει 245/245, πραγματικό **294/294**. Δεν διορθώνεται τώρα (status ≠ αρχιτεκτονική) — θα διορθωθεί στο τελικό sync (E26).
+✅ **Doc-drift διορθώθηκε (24/10/2026, S273 docs sync):** `supernote.md` → test counter **294/294**, Error Handling/Performance αληθή, tree **+4 αρχεία** (`lock_screen`, `reminder_diagnostics_screen`, `app_info_provider`, `app_lock_provider`), `dayTickProvider` + ShareService (pointer στο E39). Βλ. §4.
 
 ### 0.1 Δεύτερος έλεγχος (21/10/2026) — τι διορθώθηκε στη λίστα
 1. **`E24` «grid-mode guard gap» → ακυρώθηκε ως bug.** Έλεγξα το SDK (`reorderable_list.dart:82-83,129-131`: το `onReorderItem` διορθώνει το `newIndex`) **και** το package (`reorderable_grid.dart:652-663,573-577`: δίνει index κελιού-στόχου). Και τα δύο ταιριάζουν με το `removeAt+insert` του `moveAndMerge` ⇒ **όχι off-by-one**. Μένει μόνο προαιρετικό device spot-check.
@@ -265,7 +265,9 @@
 ### E25 — Doc-drift / ασυνέπειες παλιών docs
 - `supernote.md`: **Error Handling** (`:891-905`): «Unprotected attachment_service» / «User-facing messages: None» = **αναληθή** (υπάρχουν try/catch + `AppErrors`). **Performance** (`:908-919`): «No autoDispose» = **6 autoDispose**. Λείπει `dayTickProvider` (`habit_provider.dart:16`) από τη λίστα Habit Providers. `:19` γράφει 245/245 = **275/275**.
 - `code_refactor.md`: `:188` (F9 ανοιχτό) vs `:192` (✅ CLOSED) · F4 ×6 vs ×5 · `§3.8:110` λάθος path (`item_provider:443` → `items_query_provider:64` / `home_folder_view:171`) · §8 αρίθμηση 4→10.
-- **Κλείνει μαζί με το E26** (δεν διορθώνονται ένα-ένα τώρα).
+- **Μερική διόρθωση (S273, 24/10/2026):** το `supernote.md` **διορθώθηκε** (test counter 294/294 · Error Handling/Performance αληθή · tree +4 αρχεία · `dayTickProvider` · ShareService) — βλ. §0/§4.
+- **Απομένει:** `code_refactor.md` — έχει πλέον banner «ΠΑΓΩΜΕΝΟ ΩΣ ΠΡΟΣ ΤΙΣ ΕΚΚΡΕΜΟΤΗΤΕΣ» (edit χρήστη)· τα §3/§7/§8/§9 μένουν **ιστορικά** και συγχρονίζονται μόνο στο **E26**.
+- **Κλείνει μαζί με το E26** (δεν ξαναγράφονται ένα-ένα τώρα).
 
 ### E27 — Grid reorder χωρίς autoScroll
 - **Πού:** `reorderable_item_list.dart:137` — `autoScroll: false` στο `SliverReorderableGrid`.
@@ -414,6 +416,7 @@
 | 24/10/2026 | E18 | **Verify:** `catch (_) {}` = **0** · analyze clean · test **294/294** (+4 tolerant-parsing tests). | run 24/10/2026 · `test/habit_topup_test.dart` |
 | 24/10/2026 | E18 | **Device pass (POCO X3, debug):** cold start `topUp: done scanned=4 … scheduledBatch=275` · `OS pending=315` · 151ms · **0** `parse failed` / **0** `ERR`. T1 ειδοποίηση · T2 progress+persistence · T5 share entry (Yahoo Mail: τίτλος+πεδία+📎) · T6 add/open/delete — όλα OK. | logcat 18:26–18:41 (`scanned=4`) · Yahoo Mail |
 | 24/10/2026 | E39 | **Καταγραφή (απόφαση χρήστη):** ενιαία κοινοποίηση τίτλου+πεδίων+συνημμένων για **όλα** τα items (όχι μόνο συλλογές) — θέλει spec πριν από κώδικα. | `share_service.dart:12,71-101,346-374` · device spot (Yahoo ✅ / άλλος ❌) |
+| 24/10/2026 | docs | **Sync όλων των `.md` με τον κώδικα (S273):** `supernote.md` → 294/294, Error Handling/Performance αληθή, tree +4 αρχεία, `dayTickProvider`/`appInfo`/`appLock`, ShareService+E39· `oldsessions.md` → banner «ιστορικό έως S272, ενεργά στο error_list»· `a11y.md` → pointer σε error_list· `README.md` → πραγματική περιγραφή· `code_refactor.md` → έτοιμο banner «ΠΑΓΩΜΕΝΟ» (χωρίς άλλη αλλαγή). | analyze clean · test **294/294** · grep `catch (_) {}`=0 · 3.655 γραμμές lib/155 αρχεία (χωρίς g.dart) |
 
 ---
 
