@@ -8,6 +8,7 @@ import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../helpers/item_color_helper.dart';
 import 'event_detail_screen.dart';
+import 'span_utils.dart';
 import '../contacts/contact_detail_screen.dart';
 import '../../services/services.dart';
 
@@ -17,9 +18,22 @@ enum _EventCreationType { event, birthday, specialDay }
 // ── Τύπος ενδείξεων ημερολογίου (για sorting/display) ────────
 enum _DayMarkerType { birthday, specialDay, event }
 
+/// E41 — Δεδομένα μήνα: ημέρες → items (για πλέγμα + λίστα ημέρας) και
+/// ημέρες → γραμμή πολυήμερου.
+class _MonthData {
+  final Map<DateTime, List<Item>> days;
+  final Map<DateTime, SpanDay> bars;
+
+  const _MonthData(this.days, this.bars);
+
+  static const empty = _MonthData({}, {});
+}
+
 final _monthEventsProvider =
-    FutureProvider.family<Map<DateTime, List<Item>>, DateTime>(
-        (ref, month) async {
+    FutureProvider.family<_MonthData, DateTime>((ref, month) async {
+  // E41: το itemsStream ακούει μόνο τη collection `items` — οι αλλαγές σε
+  // properties (start/end/span) χρειάζονται explicit version bump.
+  ref.watch(calendarDataVersionProvider);
   final selectedFolderId = ref.watch(selectedFolderIdProvider);
   final allItems = ref.watch(itemsStreamProvider).valueOrNull ?? [];
   // S272 (E38): «Όλοι» = null → όλα· αλλιώς μόνο τα items του ακριβούς φακέλου
@@ -36,17 +50,64 @@ final _monthEventsProvider =
       .toList();
   final result = <DateTime, List<Item>>{};
 
+  void addDay(DateTime day, Item item) {
+    final list = result.putIfAbsent(day, () => []);
+    if (!list.any((e) => e.id == item.id)) list.add(item);
+  }
+
+  // E41: 1 query για όλα τα events (πριν: N+1 — ένα getAll ανά event).
+  final Map<int, List<ItemProperty>> propsMap = events.isEmpty
+      ? const {}
+      : await ref
+          .read(dbProvider)
+          .properties
+          .getAllForItems([for (final e in events) e.id]);
+
+  final spans = <SpanCandidate>[];
+
   for (final event in events) {
-    final props = await ref.read(itemPropertiesProvider(event.id).future);
-    final startStr =
-        props.where((p) => p.key == 'start_time').firstOrNull?.value;
+    final props = propsMap[event.id] ?? const <ItemProperty>[];
+    final startStr = props
+        .where((p) => p.key == PropertyKeys.startTime)
+        .firstOrNull
+        ?.value;
     if (startStr == null) continue;
     final start = DateTime.tryParse(startStr);
     if (start == null) continue;
+
+    // E41: εύρος πολυήμερου. 🎂 γενέθλια εξαιρούνται (κανόνας).
+    if (!ItemColorHelper.isBirthdayEvent(event)) {
+      final range = spanRangeOf(props);
+      if (range != null) {
+        spans.add(SpanCandidate(
+          itemId: event.id,
+          range: range,
+          colorHex: spanColorOf(props),
+        ));
+      }
+    }
+
     if (start.year != month.year || start.month != month.month) continue;
-    final day = DateTime(start.year, start.month, start.day);
-    result.putIfAbsent(day, () => []).add(event);
+    addDay(DateTime(start.year, start.month, start.day), event);
   }
+
+  // E41: κάθε ημέρα του εύρους μπαίνει στη λίστα ημέρας — ακόμη κι αν η
+  // γραμμή χάσει το lane σε επικάλυψη (all-or-nothing).
+  final monthStart = DateTime(month.year, month.month, 1);
+  final monthEnd = DateTime(month.year, month.month + 1, 0);
+  final byId = {for (final e in events) e.id: e};
+  for (final s in spans) {
+    final event = byId[s.itemId];
+    if (event == null) continue;
+    for (var i = 0; i < s.range.days; i++) {
+      final day = DateTime(
+          s.range.start.year, s.range.start.month, s.range.start.day + i);
+      if (day.isBefore(monthStart) || day.isAfter(monthEnd)) continue;
+      addDay(day, event);
+    }
+  }
+
+  final bars = buildSpanBars(spans: spans, month: month);
 
   // Επέκταση ετήσιων στους μελλοντικούς μήνες (display-only, ίδιο Item —
   // tap ανοίγει τη σειρά). Μόνο yearly (birthdays + bell-yearly).
@@ -69,9 +130,7 @@ final _monthEventsProvider =
     final day = yearlyOccurrenceDay(
         root.rrule!, root.triggerAt, month.year, month.month);
     if (day == null) continue;
-    final key = DateTime(month.year, month.month, day);
-    final list = result.putIfAbsent(key, () => []);
-    if (!list.any((e) => e.id == event.id)) list.add(event);
+    addDay(DateTime(month.year, month.month, day), event);
   }
 
   // Γενέθλια επαφών (display-only, ίδιο Item — tap ανοίγει την επαφή).
@@ -90,16 +149,12 @@ final _monthEventsProvider =
       if (b == null) continue;
       final day = contactBirthdayDay(b, month.year, month.month);
       if (day == null) continue;
-      final key = DateTime(month.year, month.month, day);
-      final list = result.putIfAbsent(key, () => []);
-      if (!list.any((e) => e.id == c.id)) {
-        list.add(c);
-        added++;
-      }
+      addDay(DateTime(month.year, month.month, day), c);
+      added++;
     }
     DebugConfig.db('Calendar month ${month.month}/${month.year}: contact birthdays added=$added');
   }
-  return result;
+  return _MonthData(result, bars);
 });
 
 final _selectedDayProvider = StateProvider<DateTime>((ref) {
@@ -162,7 +217,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     // Day-scope: ids των events της επιλεγμένης μέρας (0 νέα queries).
     // Κενό set = άδεια μέρα (ΟΧΙ null — το null σημαίνει «χωρίς φίλτρο»).
-    final dayMap = monthAsync.valueOrNull ?? {};
+    final monthData = monthAsync.valueOrNull ?? _MonthData.empty;
+    final dayMap = monthData.days;
     final Set<int>? dayIds = monthAsync.hasError
         ? null
         : (dayMap[selectedDay]?.map((e) => e.id).toSet() ?? <int>{});
@@ -281,7 +337,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     WidgetRef ref,
     DateTime focusedMonth,
     DateTime selectedDay,
-    AsyncValue<Map<DateTime, List<Item>>> monthAsync, {
+    AsyncValue<_MonthData> monthAsync, {
     Set<int>? dayIds,
     bool dayLoading = false,
   }) {
@@ -291,7 +347,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           focusedMonth: focusedMonth,
           selectedDay: selectedDay,
           // ✅ Περνάμε ολόκληρο το map (items με icon info)
-          dayEvents: monthAsync.valueOrNull ?? {},
+          dayEvents: monthAsync.valueOrNull?.days ?? const {},
+          spanBars: monthAsync.valueOrNull?.bars ?? const {},
           onDayTap: (day) => _onDayTap(day),
         ),
         const Divider(height: 1),
@@ -320,7 +377,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     WidgetRef ref,
     DateTime focusedMonth,
     DateTime selectedDay,
-    AsyncValue<Map<DateTime, List<Item>>> monthAsync, {
+    AsyncValue<_MonthData> monthAsync, {
     Set<int>? dayIds,
     bool dayLoading = false,
   }) {
@@ -334,7 +391,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 _MonthGrid(
                   focusedMonth: focusedMonth,
                   selectedDay: selectedDay,
-                  dayEvents: monthAsync.valueOrNull ?? {},
+                  dayEvents: monthAsync.valueOrNull?.days ?? const {},
+                  spanBars: monthAsync.valueOrNull?.bars ?? const {},
                   onDayTap: (day) => _onDayTap(day),
                 ),
                 const Divider(height: 1),
@@ -600,6 +658,9 @@ class _MonthGrid extends ConsumerWidget {
 
   /// Όλα τα items ανά ημέρα — χρησιμοποιείται για τον τύπο δείκτη
   final Map<DateTime, List<Item>> dayEvents;
+
+  /// E41: πολυήμερα — γραμμή ανά ημέρα (1 lane).
+  final Map<DateTime, SpanDay> spanBars;
   final ValueChanged<DateTime> onDayTap;
 
   static const _weekDays = AppDateUtils.weekdayInitials;
@@ -612,17 +673,20 @@ class _MonthGrid extends ConsumerWidget {
     required this.focusedMonth,
     required this.selectedDay,
     required this.dayEvents,
+    required this.spanBars,
     required this.onDayTap,
   });
 
   /// Υπολογίζει ποιοι τύποι markers υπάρχουν για μια ημέρα.
   /// Επιστρέφει ταξινομημένη λίστα (birthday πρώτα).
-  List<_DayMarkerType> _markersFor(DateTime date) {
+  /// E41: το item που πήρε γραμμή αυτή την ημέρα δεν μετράει στις τελείες.
+  List<_DayMarkerType> _markersFor(DateTime date, SpanDay? spanBar) {
     final items = dayEvents[date];
     if (items == null || items.isEmpty) return [];
 
     final types = <_DayMarkerType>{};
     for (final item in items) {
+      if (spanBar != null && item.id == spanBar.itemId) continue;
       if (ItemColorHelper.isBirthdayEvent(item)) {
         types.add(_DayMarkerType.birthday);
       } else if (item.type == ItemType.contact) {
@@ -685,7 +749,8 @@ class _MonthGrid extends ConsumerWidget {
 
               final isToday = date == today;
               final isSelected = date == selectedDay;
-              final markers = _markersFor(date);
+              final spanBar = spanBars[date];
+              final markers = _markersFor(date, spanBar);
 
               return GestureDetector(
                 onTap: () => onDayTap(date),
@@ -704,6 +769,7 @@ class _MonthGrid extends ConsumerWidget {
                   ),
                   child: Stack(
                     alignment: Alignment.center,
+                    clipBehavior: Clip.none,
                     children: [
                       // ── Αριθμός ημέρας ──────────────────
                       Text(
@@ -717,6 +783,16 @@ class _MonthGrid extends ConsumerWidget {
                                   : context.cText,
                         ),
                       ),
+
+                      // ── E41: γραμμή πολυήμερου (πάνω από τον κύκλο) ──
+                      if (spanBar != null)
+                        Positioned(
+                          top: 0,
+                          left: -2,
+                          right: -2,
+                          height: kSpanBarTotalHeight,
+                          child: _SpanBar(bar: spanBar),
+                        ),
 
                       // ── Δείκτες τύπου συμβάντων ─────────
                       if (markers.isNotEmpty)
@@ -738,6 +814,53 @@ class _MonthGrid extends ConsumerWidget {
           const SizedBox(height: Spacing.xs),
           const _CalendarLegend(),
         ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// E41 — SPAN BAR: 3px χρώμα + 1px halo (πάνω/κάτω)
+// ════════════════════════════════════════════════════════════════
+
+class _SpanBar extends StatelessWidget {
+  final SpanDay bar;
+
+  const _SpanBar({required this.bar});
+
+  @override
+  Widget build(BuildContext context) {
+    final b = context.brightness;
+    final color = spanDayColor(bar, b);
+    final outer = BorderRadius.horizontal(
+      left: bar.isStart
+          ? const Radius.circular(kSpanBarTotalHeight / 2)
+          : Radius.zero,
+      right: bar.isEnd
+          ? const Radius.circular(kSpanBarTotalHeight / 2)
+          : Radius.zero,
+    );
+    final inner = BorderRadius.horizontal(
+      left: bar.isStart
+          ? const Radius.circular(kSpanBarHeight / 2)
+          : Radius.zero,
+      right: bar.isEnd
+          ? const Radius.circular(kSpanBarHeight / 2)
+          : Radius.zero,
+    );
+
+    return ExcludeSemantics(
+      child: Container(
+        decoration: BoxDecoration(
+          // Halo = ακριβώς το χρώμα του κελιού (αόρατο σε απλή ημέρα)· δίνει
+          // 1px απόσταση από τον γεμάτο κύκλο selected/today (2.03:1 / 1.01:1).
+          color: spanSurface(b),
+          borderRadius: outer,
+        ),
+        padding: const EdgeInsets.symmetric(vertical: kSpanBarHalo),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: color, borderRadius: inner),
+        ),
       ),
     );
   }

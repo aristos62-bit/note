@@ -6,6 +6,7 @@ export 'theme/ui_tokens.dart';
 export 'theme/app_spacing.dart';
 export 'theme/app_theme.dart';
 export 'utils/date_utils.dart';
+export 'utils/property_keys.dart';
 export 'utils/string_utils.dart';
 export 'utils/debug_config.dart';
 export 'utils/responsive.dart';

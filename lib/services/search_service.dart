@@ -143,7 +143,10 @@ class SearchService {
         if (results.length >= maxResults) break;
         final props = propsMap[item.id] ?? [];
         final match = props
-            .where((p) => p.value != null && p.value!.toLowerCase().contains(q))
+            .where((p) =>
+                p.value != null &&
+                !PropertyKeys.technical.contains(p.key) &&
+                p.value!.toLowerCase().contains(q))
             .map((p) => p.value!)
             .firstOrNull;
         if (match != null) {

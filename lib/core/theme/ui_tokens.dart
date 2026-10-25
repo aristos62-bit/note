@@ -240,6 +240,14 @@ class ColorsUI {
   static bool hasGoodContrast(Color foreground, Color background) =>
       _calculateContrastRatio(foreground, background) >= 7.0;
 
+  /// WCAG 1.4.11 — μη-κειμενικό περιεχόμενο (γραμμές, borders, icons).
+  static bool hasUiContrast(Color foreground, Color background) =>
+      _calculateContrastRatio(foreground, background) >= 3.0;
+
+  /// Δημόσιος υπολογισμός αντίθεσης (ίδιος αλγόριθμος με τα υπόλοιπα).
+  static double contrastRatio(Color foreground, Color background) =>
+      _calculateContrastRatio(foreground, background);
+
   static double _calculateContrastRatio(Color c1, Color c2) {
     final lum1 = _getRelativeLuminance(c1);
     final lum2 = _getRelativeLuminance(c2);
