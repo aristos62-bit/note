@@ -3715,3 +3715,43 @@
 - Το sync docs γίνεται **χωρίς** νέο κεφάλαιο προόδου όσο ζει το `error_list.md`· το παρόν γράφτηκε κατ' εξαίρεση (εντολή χρήστη) ως «τελικό κλείσιμο» της φάσης.
 
 **Επόμενο:** **P2** — E05 (bulk-delete perf), E08 (notification permission), E27 (grid autoscroll), E22 (§3.8 υπολειπόμενα)· μετά P3 (E19/E21/E14/E23, E39 με spec).
+
+## Session 274 — 25/10/2026 (E41: πολυήμερα συμβάντα — `end_date` + `span_color`)
+
+> Στόχος: πολυήμερα συμβάντα με **γραμμή + χρώμα** στο πλέγμα του μήνα, **χωρίς** αλλαγή σχήματος/`build_runner`. Εγκρίθηκε ολόκληρη η πρόταση + 3 ευρήματα (Δ1 halo, Δ2 adaptive color, Δ3/F25 version provider)· ο κανόνας 4 (ένα βήμα) **αναστάλθηκε κατ' εντολή χρήστη** για μία ροή: backups → υλοποίηση → tests → analyze → docs → commit/push.
+
+**Αποφάσεις:**
+1. `end_date` = **EAV property** (όχι πεδίο Isar) — **date-only, inclusive, τοπικό μεσάνυχτα** (ποτέ UTC: θα μετατόπιζε την ημέρα).
+2. `span_color` = `#RRGGBB` μέσω `SettingsColorPickerSheet`· default = accent τύπου event (`#2E7D32` light / `#81C784` dark). Νέα `PropertyKeys` (`core/utils/property_keys.dart`) με `technical` (εκτός αναζήτησης) + `calendar` (version bump).
+3. **1 lane**, κελί **44px αμετάβλητο**, **all-or-nothing** ανά εύρος, sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)`.
+4. 🎂 γενέθλια: χωρίς λήξη/χρώμα (και στον caller)· λήξη ≤ έναρξη → άκυρη, **χωρίς write-on-open**.
+5. **Δ1:** μπάρα **3px + 1px halo** χρώματος επιφάνειας (χωρίς αυτό: 2.03:1 light / 1.01:1 dark πάνω στον κύκλο selected).
+6. **Δ2:** render-time προσαρμογή χρώματος ≥**3.0:1** ως προς **composited** surface (`spanSurface` = `alphaBlend(surface, background)`· light 3.89 / dark 5.90).
+7. **Δ3/F25:** `calendarDataVersionProvider` + bump **μόνο** για `PropertyKeys.calendar` — επειδή το `itemsStreamProvider` ακούει **μόνο** τη collection `items` και το `_saveTitle` κάνει skip όταν ο τίτλος δεν άλλαξε. Το ίδιο κενό υπήρχε και για `start_time` (κλείνει τώρα).
+
+**Υλοποίηση:**
+1. `core/utils/property_keys.dart` (νέο) + export στο `core.dart`.
+2. `core/theme/ui_tokens.dart`: δημόσιο `contrastRatio()` (+`hasUiContrast`).
+3. `features/calendar/span_utils.dart` (νέο): `SpanRange`/`SpanCandidate`/`SpanDay`, `spanRangeOf`, `spanColorOf`, `spanSurface`, `spanBarColor`, `spanDefaultColor`, `spanDayColor`, `buildSpanBars` + `kSpanMaxLanes/kSpanBarHeight/kSpanBarHalo/kSpanMinContrast`. DST-safe `days` μέσω UTC-normalized diff.
+4. `features/calendar/event_properties_panel.dart` (νέο): `EventPropertiesPanel` + `PropRow` (Ολοήμερο/Έναρξη/Λήξη/Χρώμα), caption προσαρμογής, κρύβονται στα 🎂.
+5. `event_detail_screen.dart`: `_pickEndDate` (`firstDate`=έναρξη+1, `lastDate` extend), `_pickSpanColor`/`_saveSpanColor` (`showSafeSheet` + pop με `sheetCtx`), **clamp `initialDate`** στο `_pickStartTime`, callbacks σε mobile/tablet, αφαίρεση παλιών `_EventPropertiesPanel`/`_PropRow`.
+6. `calendar_screen.dart`: `_MonthData {days, bars}` + batch `properties.getAllForItems` (**αντί N+1**), `ref.watch(calendarDataVersionProvider)`, επέκταση ημερών εύρους + `addDay` dedupe, `buildSpanBars`, `_MonthGrid(spanBars)`, `_markersFor(date, spanBar)` (το item της γραμμής δεν μετρά στις τελείες), `_SpanBar` (`Positioned(top:0,left:-2,right:-2,h:5)` + `Clip.none`).
+7. `property_provider.dart`: `calendarDataVersionProvider` + `_bumpCalendarIfNeeded` σε `setDate`/`setText`/`remove`.
+8. `search_service.dart`: blocklist `PropertyKeys.technical` · `share_service.dart`: `_formatEvent` → εύρος ημερομηνιών όταν υπάρχει έγκυρο `end_date`.
+
+**Γεωμετρία (γιατί 3+1px):** @140% text box abs y8–36, ink ~10–34, τελείες 34–39 → μπάρα 2–7 ⇒ 3px κενό. Το halo είναι αόρατο σε απλή ημέρα και δίνει 1px gap σε selected/today.
+
+**Απόδειξη:** analyze **No issues found** · test **318/318** (51 files, **+24** `test/span_utils_test.dart`: εύρος/άκυρο/DST/clipping/επικάλυψη/ντετερμινισμός/αντίθεση/keys) · 158 αρχεία / 43.180 γραμμές `lib/` (χωρίς `*.g.dart`) · 20 αρχεία >500.
+
+**Backups:** `backups/s274_e41/` (11 αρχεία + `BASE_HEAD.txt` = `8b47b48`).
+
+**Εκκρεμεί:** **device test** E41 (T1–T7) — πρώτα ρητή λίστα δεδομένων στον χρήστη (κανόνας 12).
+
+**Μαθήματα:**
+- Το `end_date` **ποτέ** UTC: `DateTime(y,m,d)` (local midnight) — αλλιώς η ημέρα μετατοπίζεται.
+- `SpanRange.days` με `difference().inDays` χάνει ημέρα σε DST (23h) → ημερολογιακή αριθμητική.
+- Το `itemsStreamProvider` **δεν** βλέπει `itemPropertys` → κάθε οθόνη που ζωγραφίζει από properties χρειάζεται δικό της version provider.
+- `showDatePicker` απαιτεί `firstDate <= initialDate <= lastDate` (assert) → clamp πριν το άνοιγμα.
+- Το κελί 44px δεν σηκώνει 2η γραμμή· το all-or-nothing κρατά την οπτική καθαρή (ο «χαμένος» φαίνεται στις τελείες).
+
+**Επόμενο:** device test E41 → μετά P2 (E05/E08/E27/E22) και P3 (E39 με spec, E19/E21/E14/E23).

@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 294/294 🟢 (`flutter test`, 24/10/2026) |
+| Test suite | 318/318 🟢 (`flutter test`, 25/10/2026) |
 
 ---
 
@@ -89,6 +89,7 @@ lib/
 │       └── ui_tokens.dart        — ColorsUI, TypographyUI, Context extensions
 │   └── utils/
 │       ├── date_utils.dart       — Date formatting (relative, due, journal, grouping)
+│       ├── property_keys.dart    — PropertyKeys (start/end date, span_color, technical/calendar sets — E41)
 │       ├── debug_config.dart     — Log categories (startup, db, nav, provider, notif, error)
 │       ├── string_utils.dart     — String operations
 │       ├── responsive.dart       — ResponsiveLayout, breakpoints (+shortScreenHeight S262), autoGridItemExtent (S261)
@@ -180,7 +181,9 @@ lib/
 │   ├── calendar/
 │   │   ├── calendar.dart         — Barrel
 │   │   ├── calendar_screen.dart  — Month view
-│   │   └── event_detail_screen.dart — Event editor
+│   │   ├── event_detail_screen.dart — Event editor
+│   │   ├── event_properties_panel.dart — Properties panel (all-day, start, end, span color)
+│   │   └── span_utils.dart       — Multi-day spans (`end_date`) + bar lane/contrast (E41)
 │   ├── contacts/
 │   │   ├── contacts.dart         — Barrel
 │   │   ├── contact_list_screen.dart — Contacts list (imported + manual)
@@ -348,6 +351,8 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - Key-value per item: `itemId + key` unique
 - Typed helpers: `dateValue`, `numberValue`, `boolValue`, `displayValue`
 - Stream: `itemPropertiesProvider(itemId)`
+- **Keys SPoT (E41):** `PropertyKeys` (`core/utils/property_keys.dart`) — `technical` (εκτός αναζήτησης) + `calendar` (version bump). Κανένα schema change.
+- **Ημερολόγιο (E41):** `start_time` / `end_time` / `end_date` / `span_color`. Το `end_date` είναι **date-only, inclusive, τοπικό μεσάνυχτα** (ποτέ UTC)· `span_color` = `#RRGGBB`, default = accent τύπου event. Αλλαγή σε αυτά τα 4 keys κάνει bump το `calendarDataVersionProvider` (το `itemsStreamProvider` ακούει μόνο τη collection `items`).
 
 ### Folder
 - Tree hierarchy: `parentFolderId`, `workspaceId`, `sortOrder`
@@ -601,6 +606,7 @@ itemPropertiesProvider → FutureProvider.family<List<ItemProperty>, int>
 itemPropertyProvider → FutureProvider.family<ItemProperty?, (int, String)>
 dueDateProvider → FutureProvider.family<DateTime?, int>
 propertyNotifierProvider → AsyncNotifierProviderFamily<PropertyNotifier, List<ItemProperty>, int>
+calendarDataVersionProvider → StateProvider<int>  // E41: bump σε calendar keys
 ```
 
 ### Tag Providers
@@ -851,6 +857,8 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Month view with event dots
 - Event creation/editing with date/time pickers
 - Πεδίο `notes` (`ContentFieldWidget`, pattern TaskDetail) — τα events αποκτούν ορατό σώμα (S59)
+- **Πολυήμερα (E41):** `end_date` (EAV, inclusive) + προαιρετικό `span_color`. Η γραμμή ζωγραφίζεται στο πάνω μέρος του κελιού: **1 lane**, 3px χρώμα + 1px halo (`span_utils.dart`), all-or-nothing ανά εύρος, sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)`. Χρώμα προσαρμόζεται render-time σε ≥3.0:1 ως προς τη σύνθετη επιφάνεια (WCAG 1.4.11). 🎂 γενέθλια = χωρίς λήξη/χρώμα.
+- **Δεδομένα μήνα:** `_MonthData {days, bars}` από 1 batch `properties.getAllForItems` (όχι N+1) + `calendarDataVersionProvider` για invalidation· το panel ιδιοτήτων ζει στο `event_properties_panel.dart`.
 
 ### ContactListScreen (`/contacts`) + ContactDetailScreen (`/contacts/:id`)
 - Two sources: manually created (ItemType.contact) + imported (ContactImportService)
@@ -1000,7 +1008,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (229/229 🟢) |
+| `flutter test` | Πλήρες suite (318/318 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

@@ -16,6 +16,9 @@ import '../../providers/providers.dart';
 import '../../helpers/item_color_helper.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../services/reminder_scheduler.dart';
+import '../settings/settings_colors.dart';
+import 'event_properties_panel.dart';
+import 'span_utils.dart';
 
 class EventDetailScreen extends ConsumerStatefulWidget {
   final int itemId;
@@ -204,12 +207,19 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         ? DateTime(AppDateUtils.birthdayFirstYear)
         : DateTime(now.year - 1);
 
+    final lastDate = DateTime(now.year + AppDateUtils.pickerLastYears);
+    // E41: το SDK απαιτεί firstDate <= initialDate <= lastDate
+    // (date_picker.dart:235,239) — ένα παλιό event εκτός εύρους θα έκανε assert.
+    final initialDate = init.isBefore(firstDate)
+        ? firstDate
+        : (init.isAfter(lastDate) ? lastDate : init);
+
     final date = await showDatePicker(
       context: context,
       locale: const Locale('el', 'GR'),
-      initialDate: init,
+      initialDate: initialDate,
       firstDate: firstDate,
-      lastDate: DateTime(now.year + AppDateUtils.pickerLastYears),
+      lastDate: lastDate,
     );
     if (date == null || !mounted) return;
     if (!context.mounted) return;
@@ -259,6 +269,60 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       DebugConfig.notif('EventDetail birthday resync: deleteThread+create m=${date.month} d=${date.day}');
       await ReminderScheduler.instance.refreshRecurringReminders();
     }
+  }
+
+  /// E41: λήξη πολυήμερου. `firstDate` = έναρξη + 1 ημέρα (το `end_date` είναι
+  /// inclusive)· `lastDate` επεκτείνεται ώστε να μη σκάει το SDK assert όταν
+  /// η έναρξη βρίσκεται στο όριο του picker.
+  Future<void> _pickEndDate(BuildContext context, DateTime? start) async {
+    if (start == null) return;
+    final now = DateTime.now();
+    final firstDate =
+        DateTime(start.year, start.month, start.day + 1);
+    var lastDate = DateTime(now.year + AppDateUtils.pickerLastYears);
+    if (lastDate.isBefore(firstDate)) lastDate = firstDate;
+
+    final date = await showDatePicker(
+      context: context,
+      locale: const Locale('el', 'GR'),
+      initialDate: firstDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+    );
+    if (date == null || !mounted) return;
+
+    DebugConfig.db('EventDetail setEndDate $date');
+    await ref
+        .read(propertyNotifierProvider(widget.itemId).notifier)
+        .setDate(
+            PropertyKeys.endDate, DateTime(date.year, date.month, date.day));
+  }
+
+  /// E41: χρώμα γραμμής — κοινό `SettingsColorPickerSheet` (pattern
+  /// `settings_colors.dart:87-99`: `builder: sheetCtx` + pop με sheet ctx).
+  Future<void> _pickSpanColor(BuildContext context) async {
+    final props =
+        ref.read(itemPropertiesProvider(widget.itemId)).valueOrNull ?? const [];
+    final currentHex = spanColorOf(props);
+
+    await showSafeSheet<void>(
+      context,
+      builder: (sheetCtx) => SettingsColorPickerSheet(
+        type: ItemType.event,
+        currentHex: currentHex,
+        onSelected: (hex) {
+          Navigator.pop(sheetCtx);
+          _saveSpanColor(hex);
+        },
+      ),
+    );
+  }
+
+  Future<void> _saveSpanColor(String? hex) async {
+    DebugConfig.db('EventDetail setSpanColor $hex');
+    await ref
+        .read(propertyNotifierProvider(widget.itemId).notifier)
+        .setText(PropertyKeys.spanColor, hex);
   }
 
   Future<void> _toggleAllDay(bool newValue) async {
@@ -386,6 +450,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           onLocationChange: _onLocationChanged,
           onNotesSaved: _saveNotes,
           onPickStart: (cur) => _pickStartTime(context, cur),
+          onPickEnd: (start) => _pickEndDate(context, start),
+          onPickSpanColor: () => _pickSpanColor(context),
           onToggleAllDay: _toggleAllDay,
         ),
       );
@@ -408,9 +474,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           children: [
             SizedBox(
               width: 280,
-              child: _EventPropertiesPanel(
+              child: EventPropertiesPanel(
                 item: item,
                 onPickStart: (cur) => _pickStartTime(context, cur),
+                onPickEnd: (start) => _pickEndDate(context, start),
+                onPickSpanColor: () => _pickSpanColor(context),
                 onToggleAllDay: _toggleAllDay,
               ),
             ),
@@ -429,6 +497,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 onLocationChange: _onLocationChanged,
                 onNotesSaved: _saveNotes,
                 onPickStart: (cur) => _pickStartTime(context, cur),
+                onPickEnd: (start) => _pickEndDate(context, start),
+                onPickSpanColor: () => _pickSpanColor(context),
                 onToggleAllDay: _toggleAllDay,
                 hideProperties: true,
               ),
@@ -472,6 +542,8 @@ class _EventBody extends ConsumerWidget {
   final ValueChanged<String> onLocationChange;
   final ValueChanged<String> onNotesSaved;
   final ValueChanged<DateTime?> onPickStart;
+  final ValueChanged<DateTime?> onPickEnd;
+  final VoidCallback onPickSpanColor;
   final ValueChanged<bool> onToggleAllDay;
   final bool hideProperties;
 
@@ -485,6 +557,8 @@ class _EventBody extends ConsumerWidget {
     required this.onLocationChange,
     required this.onNotesSaved,
     required this.onPickStart,
+    required this.onPickEnd,
+    required this.onPickSpanColor,
     required this.onToggleAllDay,
     this.hideProperties = false,
   });
@@ -548,9 +622,11 @@ class _EventBody extends ConsumerWidget {
             child: Padding(
               padding:
                   EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
-              child: _EventPropertiesPanel(
+              child: EventPropertiesPanel(
                 item: item,
                 onPickStart: onPickStart,
+                onPickEnd: onPickEnd,
+                onPickSpanColor: onPickSpanColor,
                 onToggleAllDay: onToggleAllDay,
               ),
             ),
@@ -670,111 +746,8 @@ class _EventBody extends ConsumerWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// EVENT PROPERTIES PANEL
+// APP BAR
 // ════════════════════════════════════════════════════════════════
-
-class _EventPropertiesPanel extends ConsumerWidget {
-  final Item item;
-  final ValueChanged<DateTime?> onPickStart;
-  final ValueChanged<bool> onToggleAllDay;
-
-  const _EventPropertiesPanel({
-    required this.item,
-    required this.onPickStart,
-    required this.onToggleAllDay,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final propsAsync = ref.watch(itemPropertiesProvider(item.id));
-
-    return propsAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(Spacing.md),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => const SizedBox.shrink(),
-      data: (props) {
-        String? prop(String key) =>
-            props.where((p) => p.key == key).firstOrNull?.value;
-
-        final startStr = prop('start_time');
-        final allDay = prop('all_day') == 'true';
-        final startTime = startStr != null ? DateTime.tryParse(startStr) : null;
-
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: Spacing.sm),
-
-              // All day toggle
-              _PropRow(
-                icon: Icons.wb_sunny_rounded,
-                label: 'Ολοήμερο',
-                child: Switch(
-                  value: allDay,
-                  onChanged: onToggleAllDay,
-                  activeThumbColor: context.cPrimary,
-                ),
-              ),
-
-              // Start time
-              _PropRow(
-                icon: Icons.schedule_rounded,
-                label: 'Έναρξη',
-                child: GestureDetector(
-                  onTap: () => onPickStart(startTime),
-                  child: Text(
-                    startTime != null
-                        ? (allDay ? startTime.short : startTime.dateTime)
-                        : 'Επιλογή',
-                    style: context.bodyMd.withColor(
-                        startTime != null ? context.cText : context.cText2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// PROP ROW
-// ════════════════════════════════════════════════════════════════
-
-class _PropRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Widget child;
-
-  const _PropRow({
-    required this.icon,
-    required this.label,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.xs + 2),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: context.cText2),
-          const SizedBox(width: Spacing.sm),
-          SizedBox(
-            width: 80,
-            child: Text(label, style: context.bodyMd.withColor(context.cText2)),
-          ),
-          Expanded(child: child),
-        ],
-      ),
-    );
-  }
-}
 
 class _EventDetailAppBar extends StatelessWidget
     implements PreferredSizeWidget {

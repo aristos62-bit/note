@@ -264,13 +264,24 @@ class ShareService {
     final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς τίτλο')];
 
     final startTime =
-        properties.where((p) => p.key == 'start_time').firstOrNull?.dateValue;
+        properties.where((p) => p.key == PropertyKeys.startTime).firstOrNull?.dateValue;
     final endTime =
-        properties.where((p) => p.key == 'end_time').firstOrNull?.dateValue;
+        properties.where((p) => p.key == PropertyKeys.endTime).firstOrNull?.dateValue;
+    final endDate =
+        properties.where((p) => p.key == PropertyKeys.endDate).firstOrNull?.dateValue;
     if (startTime != null) {
-      final timeStr = endTime != null
-          ? '${AppDateUtils.formatDateTime(startTime)} — ${AppDateUtils.formatTime(endTime)}'
-          : AppDateUtils.formatDateTime(startTime);
+      // E41: πολυήμερο → εύρος (το `end_time` μένει η ώρα της 1ης ημέρας).
+      final endDay = endDate != null
+          ? DateTime(endDate.year, endDate.month, endDate.day)
+          : null;
+      final startDay =
+          DateTime(startTime.year, startTime.month, startTime.day);
+      final multiDay = endDay != null && endDay.isAfter(startDay);
+      final timeStr = multiDay
+          ? '${AppDateUtils.formatDateTime(startTime)} — ${AppDateUtils.formatShort(endDay)}'
+          : endTime != null
+              ? '${AppDateUtils.formatDateTime(startTime)} — ${AppDateUtils.formatTime(endTime)}'
+              : AppDateUtils.formatDateTime(startTime);
       lines.add('• 📅 $timeStr');
     }
 

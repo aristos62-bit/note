@@ -20,6 +20,7 @@
 //
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/utils/debug_config.dart';
+import '../core/utils/property_keys.dart';
 import '../models/item_property.dart';
 import 'db_provider.dart';
 
@@ -32,6 +33,13 @@ final propertyWriteVersionProvider = StateProvider<int>((ref) => 0);
 /// Το βλέπει ο batch provider ημερομηνιών της λίστας journal.
 /// ΜΟΝΟ writer: _setEntryDate (journal_detail_screen.dart) — content/mood αγνοούνται σκόπιμα.
 final journalDatesVersionProvider = StateProvider<int>((ref) => 0);
+
+/// E41: Αυξάνεται όταν γράφεται property που επηρεάζει το **ημερολόγιο**
+/// (`PropertyKeys.calendar`: start/end time, end_date, span_color).
+/// Αιτία: το `itemsStreamProvider` ακούει μόνο τη collection `items` — οι
+/// αλλαγές σε `itemPropertys` δεν προκαλούν emit, άρα το πλέγμα μένει stale
+/// (π.χ. span-only αλλαγή χωρίς αλλαγή τίτλου, `event_detail_screen.dart:103`).
+final calendarDataVersionProvider = StateProvider<int>((ref) => 0);
 
 // ── Read providers ────────────────────────────────────────────────
 
@@ -78,6 +86,7 @@ class PropertyNotifier
       } else {
         await ref.read(dbProvider).properties.setDate(arg, key, date);
       }
+      _bumpCalendarIfNeeded(key);
       ref.invalidateSelf();
       ref.invalidate(itemPropertiesProvider(arg));
       ref.invalidate(dueDateProvider(arg));
@@ -109,6 +118,7 @@ class PropertyNotifier
         await ref.read(dbProvider).properties
             .set(itemId: arg, key: key, value: value);
       }
+      _bumpCalendarIfNeeded(key);
       ref.invalidateSelf();
       ref.invalidate(itemPropertiesProvider(arg));
     } catch (e, s) {
@@ -119,12 +129,19 @@ class PropertyNotifier
   Future<void> remove(String key) async {
     try {
       await ref.read(dbProvider).properties.delete(arg, key);
+      _bumpCalendarIfNeeded(key);
       ref.invalidateSelf();
       ref.invalidate(itemPropertiesProvider(arg));
       ref.invalidate(dueDateProvider(arg));
     } catch (e, s) {
       DebugConfig.error('PropertyNotifier.remove', e, s);
     }
+  }
+
+  /// E41: ενημερώνει το πλέγμα ημερολογίου μόνο για calendar-related keys.
+  void _bumpCalendarIfNeeded(String key) {
+    if (!PropertyKeys.calendar.contains(key)) return;
+    ref.read(calendarDataVersionProvider.notifier).state++;
   }
 }
 

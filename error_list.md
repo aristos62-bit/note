@@ -40,14 +40,14 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 24/10/2026)
+## 0. Baseline (μετρημένο στον κώδικα — 25/10/2026)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `48edd5f` + S273 final docs sync | `git log` |
-| `flutter analyze` | **No issues found** | run 24/10/2026 |
-| `flutter test` | **294/294** (50 αρχεία test) | run 24/10/2026 |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 42.607 | μετρήθηκε |
+| Git HEAD | `8b47b48` + E41 (S274) | `git log` |
+| `flutter analyze` | **No issues found** | run 25/10/2026 |
+| `flutter test` | **318/318** (51 αρχεία test) | run 25/10/2026 |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.180 (158 αρχεία) | μετρήθηκε |
 | Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
@@ -90,7 +90,7 @@
 | 7 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 | 8 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (9)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (10)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
@@ -103,6 +103,7 @@
 | 15 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
 | 16 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
 | 17 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 18 | `E41` | **Πολυήμερα συμβάντα** (γραμμή + χρώμα) — 🟡 υλοποιημένο, **εκκρεμεί device** | Νέα λειτουργία (S274) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό).
@@ -323,6 +324,16 @@
 - **Αποδοχή:** για κάθε shareable τύπο → τίτλος + πεδία + συνημμένα παρόντα· 0 χαμένα/διπλά αρχεία· analyze/test clean· device spot-check (Yahoo Mail + app που αγνοεί `EXTRA_TEXT`).
 - **Κατάσταση:** **OPEN — θέλει spec/απόφαση πριν από κώδικα** (δεν έχει υλοποιηθεί τίποτα).
 
+### E41 — 🟡 Πολυήμερα συμβάντα: γραμμή + χρώμα (S274 — υλοποιημένο, εκκρεμεί device)
+- **Πού:** `features/calendar/span_utils.dart` (νέο) · `event_properties_panel.dart` (νέο — εξαγωγή από `event_detail_screen`) · `calendar_screen.dart` (`_MonthData`, batch properties, `_SpanBar`) · `event_detail_screen.dart` (`_pickEndDate`, `_pickSpanColor`, clamp picker) · `providers/property_provider.dart` (`calendarDataVersionProvider`) · `core/utils/property_keys.dart` (νέο) · `services/search_service.dart` (blocklist) · `services/share_service.dart` (εύρος ημερομηνιών).
+- **Τι:** προαιρετικό `end_date` (EAV, **date-only, inclusive, τοπικό μεσάνυχτα**) → γραμμή στο πάνω μέρος του κελιού + προαιρετικό `span_color` (`#RRGGBB`, default = accent τύπου event). Λήξη ≤ έναρξη = άκυρη (**κανένα write-on-open**). 🎂 γενέθλια: χωρίς λήξη/χρώμα (και στον caller).
+- **Κανόνες (αποφασισμένοι):** **1 lane** (κελί 44px αμετάβλητο) · **all-or-nothing** ανά εύρος · sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)` · μπάρα **3px + 1px halo** χρώματος επιφάνειας (γιατί selected 2.03:1 / 1.01:1) · render-time προσαρμογή ≥**3.0:1** ως προς **composited** surface (WCAG 1.4.11· light 3.89 / dark 5.90).
+- **F25 (έκλεισε μαζί):** το `itemsStreamProvider` ακούει μόνο τη collection `items` → αλλαγές σε properties (και το `_saveTitle` skip όταν ο τίτλος δεν άλλαξε) άφηναν **stale** πλέγμα. `calendarDataVersionProvider` bump **μόνο** για τα 4 calendar keys (`start_time`, `end_time`, `end_date`, `span_color`) → καμία επίπτωση σε tasks/journal/contacts.
+- **Απόδειξη:** analyze clean · **318/318** (51 files, **+24** `test/span_utils_test.dart`) · backup `backups/s274_e41/` (11 αρχεία · BASE_HEAD `8b47b48`).
+- **Γιατί P3:** νέα λειτουργία — όχι σφάλμα/επιβράδυνση υπάρχουσας.
+- **Κόστος/Ρίσκο:** 3 νέα αρχεία + 1 provider· **χωρίς** schema/`build_runner`. Επικάλυψη = ο 2ος πέφτει σε τελείες (απόφαση, όχι bug).
+- **Fix/Acceptance (device):** event 3 ημερών → γραμμή σε 3 κελιά με στρογγυλά άκρα · χρώμα από picker (και σε selected/today) · επικάλυψη → ο 1ος κρατά γραμμή/ο 2ος τελείες · διαγραφή λήξης → μονήμερο · share δείχνει εύρος · 100%/140% χωρίς overflow.
+
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
 1. ✅ `oldsessions.md`: κεφάλαιο **S273** (Φ5 partial: E18, device pass, E39, docs, commits).
@@ -417,6 +428,9 @@
 | 24/10/2026 | docs | **Sync όλων των `.md` με τον κώδικα (S273):** `supernote.md` → 294/294, Error Handling/Performance αληθή, tree +4 αρχεία, `dayTickProvider`/`appInfo`/`appLock`, ShareService+E39· `oldsessions.md` → banner «ιστορικό έως S272, ενεργά στο error_list»· `a11y.md` → pointer σε error_list· `README.md` → πραγματική περιγραφή· `code_refactor.md` → έτοιμο banner «ΠΑΓΩΜΕΝΟ» (χωρίς άλλη αλλαγή). | analyze clean · test **294/294** · grep `catch (_) {}`=0 · 42.653 γραμμές lib/155 αρχεία (χωρίς g.dart) |
 | 24/10/2026 | E25 | **CLOSED (E26 βήματα 1–3 «σαν τελικό κλείσιμο»):** `oldsessions.md` κεφάλαιο **S273** (E18 + device + E39 + docs) · `code_refactor.md` §3/§7/§8/§9 → **παραπομπή** (αρχειοθετήθηκαν, αντίγραφο σε `backups/s273_docs_sync/`) · `supernote.md` αληθή + test counter · `a11y.md`/`README.md` sync. | P3 10→9 · E26: 1–3 ✅, 4 ⏳ (μετά P2/P3) |
 | 24/10/2026 | docs | **Κενό ιστορικού P1 → έκλεισε:** τα **E15/E16/E17/E29/E30/E33** δεν είχαν κεφάλαιο (S263–S269) — γράφτηκε **αναδρομικό κεφάλαιο** στο `oldsessions.md` (21–22/10, από §3/§4 + backups). `a11y.md`: τα §3.6/§8 του `code_refactor.md` → σημείωση αρχειοθέτησης. | `oldsessions.md` S263–S269 · `a11y.md:13` |
+| 25/10/2026 | E41 | **S274 υλοποίηση (όλη η πρόταση + Δ1/Δ2/Δ3):** `end_date`/`span_color` ως EAV (χωρίς schema)· `span_utils.dart` (εύρος, 1 lane all-or-nothing, sort, halo, ≥3.0:1)· `event_properties_panel.dart` (εξαγωγή + Λήξη/Χρώμα)· `_MonthData` + batch `getAllForItems` (όχι N+1)· `calendarDataVersionProvider` (F25 bump μόνο σε 4 calendar keys)· blocklist αναζήτησης· share εύρος· clamp `initialDate`. | `span_utils.dart:1-232` · `event_properties_panel.dart:1-190` · `calendar_screen.dart` `_MonthData`/`_SpanBar` · `property_provider.dart` · backup `backups/s274_e41/` |
+| 25/10/2026 | E41 | **Verify:** analyze **No issues found** · **318/318** (51 files, +24 `test/span_utils_test.dart` — εύρος/DST/clipping/επικάλυψη/ντετερμινισμός/αντίθεση/keys). | run 25/10/2026 |
+| 25/10/2026 | E41 | **Docs:** `supernote.md` → 318/318, tree **+3 αρχεία** (`property_keys`, `span_utils`, `event_properties_panel`), calendar/EAV/provider σημειώσεις· `oldsessions.md` → κεφάλαιο **S274** (κατ' εξαίρεση, εντολή χρήστη). **Εκκρεμεί device test** (T1–T7, κανόνας 12). | analyze clean · test **318/318** |
 
 ---
 
