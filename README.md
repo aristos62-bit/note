@@ -10,7 +10,7 @@ checklist, knowledge entry), real-time streams, υπενθυμίσεις (topUp 
 | Αρχείο | Περιεχόμενο |
 |---|---|
 | `AGENTS.md` | Κανόνες συνεργασίας (πάντα πρώτο) |
-| `error_list.md` | **Μοναδική πηγή** για εκκρεμότητες/πρόοδο (P1–P4, κάρτες, logs) |
+| `error_list.md` | **Μοναδική πηγή** για εκκρεμότητες (P1–P4, κάρτες, logs) — η πρόοδος πάει στο `oldsessions.md` |
 | `supernote.md` | Αρχιτεκτονική (models, services, providers, routing, patterns) |
 | `oldsessions.md` | Ιστορικό sessions (ενημερώνεται μόνο στο τελικό κλείσιμο) |
 | `code_refactor.md` | Ιστορικός οδηγός ποιότητας σελίδων (παγωμένο ως προς εκκρεμότητες) |

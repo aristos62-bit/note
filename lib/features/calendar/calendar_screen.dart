@@ -802,7 +802,7 @@ class _MonthGrid extends ConsumerWidget {
                       // ── Δείκτες τύπου συμβάντων (πάνω μέρος κελιού) ──
                       if (markers.isNotEmpty)
                         Positioned(
-                          top: 3,
+                          top: 0,
                           child: _DayMarkerRow(
                             markers: markers,
                             primary: context.cPrimary,
