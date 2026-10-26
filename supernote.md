@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 318/318 🟢 (`flutter test`, 25/10/2026) |
+| Test suite | 321/321 🟢 (`flutter test`, 26/10/2026) |
 
 ---
 
@@ -857,7 +857,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Month view with event dots
 - Event creation/editing with date/time pickers
 - Πεδίο `notes` (`ContentFieldWidget`, pattern TaskDetail) — τα events αποκτούν ορατό σώμα (S59)
-- **Πολυήμερα (E41):** `end_date` (EAV, inclusive) + προαιρετικό `span_color`. Η γραμμή ζωγραφίζεται στο πάνω μέρος του κελιού: **1 lane**, 3px χρώμα + 1px halo (`span_utils.dart`), all-or-nothing ανά εύρος, sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)`. Χρώμα προσαρμόζεται render-time σε ≥3.0:1 ως προς τη σύνθετη επιφάνεια (WCAG 1.4.11). 🎂 γενέθλια = χωρίς λήξη/χρώμα.
+- **Πολυήμερα (E41):** `end_date` (EAV, inclusive) + προαιρετικό `span_color`. Η γραμμή ζωγραφίζεται στο πάνω μέρος του κελιού: **1 lane**, 3px χρώμα + 1px halo (`span_utils.dart`), **επικάλυψη = 45° hatch overlay** πάνω στη συμπαγή βάση (`SpanDay.overlays`), sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)`. Χρώμα προσαρμόζεται render-time σε ≥3.0:1 ως προς τη σύνθετη επιφάνεια (WCAG 1.4.11). 🎂 γενέθλια = χωρίς λήξη/χρώμα.
 - **Δεδομένα μήνα:** `_MonthData {days, bars}` από 1 batch `properties.getAllForItems` (όχι N+1) + `calendarDataVersionProvider` για invalidation· το panel ιδιοτήτων ζει στο `event_properties_panel.dart`.
 
 ### ContactListScreen (`/contacts`) + ContactDetailScreen (`/contacts/:id`)
@@ -1008,7 +1008,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (318/318 🟢) |
+| `flutter test` | Πλήρες suite (321/321 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

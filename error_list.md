@@ -46,8 +46,8 @@
 |---|---|---|
 | Git HEAD | `8b47b48` + E41 (S274) | `git log` |
 | `flutter analyze` | **No issues found** | run 25/10/2026 |
-| `flutter test` | **318/318** (51 αρχεία test) | run 25/10/2026 |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.180 (158 αρχεία) | μετρήθηκε |
+| `flutter test` | **321/321** (51 αρχεία test) | run 25/10/2026 |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.306 (158 αρχεία) | μετρήθηκε |
 | Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
@@ -327,12 +327,12 @@
 ### E41 — 🟡 Πολυήμερα συμβάντα: γραμμή + χρώμα (S274 — υλοποιημένο, εκκρεμεί device)
 - **Πού:** `features/calendar/span_utils.dart` (νέο) · `event_properties_panel.dart` (νέο — εξαγωγή από `event_detail_screen`) · `calendar_screen.dart` (`_MonthData`, batch properties, `_SpanBar`) · `event_detail_screen.dart` (`_pickEndDate`, `_pickSpanColor`, clamp picker) · `providers/property_provider.dart` (`calendarDataVersionProvider`) · `core/utils/property_keys.dart` (νέο) · `services/search_service.dart` (blocklist) · `services/share_service.dart` (εύρος ημερομηνιών).
 - **Τι:** προαιρετικό `end_date` (EAV, **date-only, inclusive, τοπικό μεσάνυχτα**) → γραμμή στο πάνω μέρος του κελιού + προαιρετικό `span_color` (`#RRGGBB`, default = accent τύπου event). Λήξη ≤ έναρξη = άκυρη (**κανένα write-on-open**). 🎂 γενέθλια: χωρίς λήξη/χρώμα (και στον caller).
-- **Κανόνες (αποφασισμένοι):** **1 lane** (κελί 44px αμετάβλητο) · **all-or-nothing** ανά εύρος · sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)` · μπάρα **3px + 1px halo** χρώματος επιφάνειας (γιατί selected 2.03:1 / 1.01:1) · render-time προσαρμογή ≥**3.0:1** ως προς **composited** surface (WCAG 1.4.11· light 3.89 / dark 5.90).
+- **Κανόνες (αποφασισμένοι):** **1 lane** (κελί 44px αμετάβλητο) · **επικάλυψη = 45° hatch overlay** πάνω στη συμπαγή βάση (καμία χαμένη ημέρα — **αναθεώρηση** S274: καταργήθηκε το all-or-nothing) · sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)` · μπάρα **3px + 1px halo** χρώματος επιφάνειας (γιατί selected 2.03:1 / 1.01:1) · render-time προσαρμογή ≥**3.0:1** ως προς **composited** surface (WCAG 1.4.11· light 3.89 / dark 5.90).
 - **F25 (έκλεισε μαζί):** το `itemsStreamProvider` ακούει μόνο τη collection `items` → αλλαγές σε properties (και το `_saveTitle` skip όταν ο τίτλος δεν άλλαξε) άφηναν **stale** πλέγμα. `calendarDataVersionProvider` bump **μόνο** για τα 4 calendar keys (`start_time`, `end_time`, `end_date`, `span_color`) → καμία επίπτωση σε tasks/journal/contacts.
 - **Απόδειξη:** analyze clean · **318/318** (51 files, **+24** `test/span_utils_test.dart`) · backup `backups/s274_e41/` (11 αρχεία · BASE_HEAD `8b47b48`).
 - **Γιατί P3:** νέα λειτουργία — όχι σφάλμα/επιβράδυνση υπάρχουσας.
-- **Κόστος/Ρίσκο:** 3 νέα αρχεία + 1 provider· **χωρίς** schema/`build_runner`. Επικάλυψη = ο 2ος πέφτει σε τελείες (απόφαση, όχι bug).
-- **Fix/Acceptance (device):** event 3 ημερών → γραμμή σε 3 κελιά με στρογγυλά άκρα · χρώμα από picker (και σε selected/today) · επικάλυψη → ο 1ος κρατά γραμμή/ο 2ος τελείες · διαγραφή λήξης → μονήμερο · share δείχνει εύρος · 100%/140% χωρίς overflow.
+- **Κόστος/Ρίσκο:** 3 νέα αρχεία + 1 provider· **χωρίς** schema/`build_runner`. Επικάλυψη = hatch overlay στο ίδιο ύψος 5px· αν τα δύο χρώματα είναι ίδια (default accent), το φόντο του hatch γίνεται η επιφάνεια ώστε να φαίνεται πάντα.
+- **Fix/Acceptance (device):** event 3 ημερών → γραμμή σε 3 κελιά με στρογγυλά άκρα · χρώμα από picker (και σε selected/today) · **επικάλυψη → 45° hatch στην κοινή ζώνη και συνεχής γραμμή σε όλο το εύρος του 2ου** · διαγραφή λήξης → μονήμερο · share δείχνει εύρος · 100%/140% χωρίς overflow.
 
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
@@ -431,6 +431,7 @@
 | 25/10/2026 | E41 | **S274 υλοποίηση (όλη η πρόταση + Δ1/Δ2/Δ3):** `end_date`/`span_color` ως EAV (χωρίς schema)· `span_utils.dart` (εύρος, 1 lane all-or-nothing, sort, halo, ≥3.0:1)· `event_properties_panel.dart` (εξαγωγή + Λήξη/Χρώμα)· `_MonthData` + batch `getAllForItems` (όχι N+1)· `calendarDataVersionProvider` (F25 bump μόνο σε 4 calendar keys)· blocklist αναζήτησης· share εύρος· clamp `initialDate`. | `span_utils.dart:1-232` · `event_properties_panel.dart:1-190` · `calendar_screen.dart` `_MonthData`/`_SpanBar` · `property_provider.dart` · backup `backups/s274_e41/` |
 | 25/10/2026 | E41 | **Verify:** analyze **No issues found** · **318/318** (51 files, +24 `test/span_utils_test.dart` — εύρος/DST/clipping/επικάλυψη/ντετερμινισμός/αντίθεση/keys). | run 25/10/2026 |
 | 25/10/2026 | E41 | **Docs:** `supernote.md` → 318/318, tree **+3 αρχεία** (`property_keys`, `span_utils`, `event_properties_panel`), calendar/EAV/provider σημειώσεις· `oldsessions.md` → κεφάλαιο **S274** (κατ' εξαίρεση, εντολή χρήστη). **Εκκρεμεί device test** (T1–T7, κανόνας 12). | analyze clean · test **318/318** |
+| 25/10/2026 | E41 | **Αναθεώρηση (device feedback):** καταργήθηκε το all-or-nothing → `SpanDay.overlays` + `buildSpanBars` δίνουν **συνεχή** γραμμή σε κάθε εύρος (βάση = 1ο, υπόλοιπα = **45° hatch**, 1px ανά 3px)· `_SpanBarPainter` + `spanOverlapSurface` (ίδια χρώματα → φόντο = επιφάνεια)· markers εξαιρούν base+overlays. **Ίδιο ύψος 5px / κελί 44px.** | `span_utils.dart` (`SpanDay`/`SpanOverlay`/`buildSpanBars`) · `calendar_screen.dart` (`_SpanBarPainter`, `_markersFor`) · test **321/321** (+3) · backup `backups/s274_e41_hatch/` |
 
 ---
 

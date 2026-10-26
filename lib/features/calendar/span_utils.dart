@@ -8,8 +8,9 @@
 //  · Λήξη ≤ έναρξη → άκυρο (μονήμερο)· κανένα write-on-open.
 //  · 🎂 γενέθλια: ποτέ εύρος/χρώμα (ο caller τα αγνοεί).
 //  · 1 lane: το κελί των 44px δεν χωρά 2η γραμμή (βλ. E41 report).
-//  · All-or-nothing ανά εύρος: αν έστω μία μέρα είναι πιασμένη, ολόκληρο
-//    το εύρος πέφτει στις τελείες — ποτέ σπασμένη/διάτρητη γραμμή.
+//  · Επικάλυψη **δεν κρύβει** εύρος: το 1ο (νωρίτερα/μεγαλύτερο) είναι η
+//    συμπαγής βάση· κάθε επόμενο ζωγραφίζεται ως **45° hatch overlay** πάνω
+//    της, μόνο στις ημέρες που συμπίπτουν. Καμία σπασμένη γραμμή.
 //  · Ντετερμινιστικό: sort (έναρξη ↑, διάρκεια ↓, itemId ↑).
 
 import 'package:flutter/material.dart';
@@ -21,8 +22,8 @@ import '../../models/models.dart';
 /// Κρατείται σταθερό: @140% το κείμενο φτάνει y36 και οι τελείες y39.
 const int kSpanMaxLanes = 1;
 
-/// Γεωμετρία μπάρας: 3px χρώμα + 1px halo (πάνω/κάτω) = 5px συνολικό ύψος.
-const double kSpanBarHeight = 3.0;
+/// Γεωμετρία μπάρας: 6px χρώμα + 1px halo (πάνω/κάτω) = 8px συνολικό ύψος.
+const double kSpanBarHeight = 6.0;
 const double kSpanBarHalo = 1.0;
 const double kSpanBarTotalHeight = kSpanBarHeight + 2 * kSpanBarHalo;
 
@@ -62,14 +63,36 @@ class SpanCandidate {
   });
 }
 
-/// Μία ημέρα γραμμής: ποιο item, τι χρώμα, αν είναι αρχή/τέλος εύρους.
+/// Μία ημέρα γραμμής: ποιο item είναι η **βάση** (συμπαγές χρώμα), τι χρώμα,
+/// αν είναι αρχή/τέλος εύρους, και ποια εύρη την **επικαλύπτουν** (hatch).
 class SpanDay {
   final int itemId;
   final String? colorHex;
   final bool isStart;
   final bool isEnd;
 
-  const SpanDay({
+  /// Εύρη που συμπίπτουν αυτή την ημέρα → 45° λωρίδες πάνω στη βάση.
+  final List<SpanOverlay> overlays;
+
+  SpanDay({
+    required this.itemId,
+    this.colorHex,
+    this.isStart = false,
+    this.isEnd = false,
+    List<SpanOverlay>? overlays,
+  }) : overlays = overlays ?? <SpanOverlay>[];
+
+  bool get hasOverlap => overlays.isNotEmpty;
+}
+
+/// Εύρος που επικαλύπτει τη βάση μιας ημέρας (ζωγραφίζεται ως hatch).
+class SpanOverlay {
+  final int itemId;
+  final String? colorHex;
+  final bool isStart;
+  final bool isEnd;
+
+  const SpanOverlay({
     required this.itemId,
     this.colorHex,
     this.isStart = false,
@@ -118,13 +141,31 @@ Color spanBarColor(Color color, Brightness b) {
 Color spanDefaultColor(Brightness b) =>
     spanBarColor(ColorsUI.itemTypeColor(ItemType.event, b), b);
 
-/// Χρώμα γραμμής για ένα `SpanDay` (default accent αν δεν υπάρχει hex).
-Color spanDayColor(SpanDay day, Brightness b) {
-  final parsed = ItemColorHelper.parseHex(day.colorHex);
+/// Χρώμα γραμμής από hex (default accent αν λείπει/είναι άκυρο).
+Color spanColorFromHex(String? hex, Brightness b) {
+  final parsed = ItemColorHelper.parseHex(hex);
   return spanBarColor(parsed ?? ColorsUI.itemTypeColor(ItemType.event, b), b);
 }
 
+/// Χρώμα γραμμής για ένα `SpanDay` (default accent αν δεν υπάρχει hex).
+Color spanDayColor(SpanDay day, Brightness b) =>
+    spanColorFromHex(day.colorHex, b);
+
+/// Χρώμα λωρίδων ενός overlay.
+Color spanOverlayColor(SpanOverlay overlay, Brightness b) =>
+    spanColorFromHex(overlay.colorHex, b);
+
+/// Φόντο του hatch: η βάση — **εκτός** αν μοιάζει πολύ με το χρώμα του
+/// overlay (π.χ. και τα δύο default accent), οπότε χρησιμοποιείται η
+/// επιφάνεια ώστε οι λωρίδες να φαίνονται πάντα.
+Color spanOverlapSurface(Color base, Color overlay, Brightness b) =>
+    ColorsUI.contrastRatio(base, overlay) >= 1.6 ? base : spanSurface(b);
+
 /// Χτίζει το map ημέρας → γραμμή για τον ορατό μήνα (clipped στα όρια μήνα).
+///
+/// Κάθε έγκυρο εύρος ζωγραφίζει **συνεχόμενη** γραμμή: το πρώτο (βάσει sort)
+/// γίνεται η συμπαγής βάση της ημέρας, τα υπόλοιπα προστίθενται ως `overlays`
+/// (45° hatch). Καμία ημέρα δεν μένει χωρίς γραμμή λόγω επικάλυψης.
 Map<DateTime, SpanDay> buildSpanBars({
   required List<SpanCandidate> spans,
   required DateTime month,
@@ -142,33 +183,31 @@ Map<DateTime, SpanDay> buildSpanBars({
       return a.itemId.compareTo(b.itemId);
     });
 
-  final free = <DateTime>{};
-  for (var d = monthStart;
-      !d.isAfter(monthEnd);
-      d = DateTime(d.year, d.month, d.day + 1)) {
-    free.add(d);
-  }
-
   final out = <DateTime, SpanDay>{};
   for (final s in sorted) {
-    final days = <DateTime>[];
     for (var i = 0; i < s.range.days; i++) {
-      final day =
-          DateTime(s.range.start.year, s.range.start.month, s.range.start.day + i);
+      final day = DateTime(
+          s.range.start.year, s.range.start.month, s.range.start.day + i);
       if (day.isBefore(monthStart) || day.isAfter(monthEnd)) continue;
-      days.add(day);
-    }
-    if (days.isEmpty) continue;
-    if (days.any((d) => !free.contains(d))) continue; // all-or-nothing
 
-    for (final day in days) {
-      free.remove(day);
-      out[day] = SpanDay(
-        itemId: s.itemId,
-        colorHex: s.colorHex,
-        isStart: day == s.range.start,
-        isEnd: day == s.range.end,
-      );
+      final isStart = day == s.range.start;
+      final isEnd = day == s.range.end;
+      final base = out[day];
+      if (base == null) {
+        out[day] = SpanDay(
+          itemId: s.itemId,
+          colorHex: s.colorHex,
+          isStart: isStart,
+          isEnd: isEnd,
+        );
+      } else {
+        base.overlays.add(SpanOverlay(
+          itemId: s.itemId,
+          colorHex: s.colorHex,
+          isStart: isStart,
+          isEnd: isEnd,
+        ));
+      }
     }
   }
   return out;
