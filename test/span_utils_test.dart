@@ -133,8 +133,7 @@ void main() {
       expect(bars, isEmpty);
     });
 
-    test('επικάλυψη 1 lane → ο νικητής (νωρίτερα/μεγαλύτερο) παίρνει όλο το εύρος',
-        () {
+    test('επικάλυψη → base + hatch overlay, καμία χαμένη ημέρα', () {
       final bars = buildSpanBars(
         spans: [
           _candidate(20, DateTime(2026, 3, 11), DateTime(2026, 3, 13)),
@@ -142,11 +141,46 @@ void main() {
         ],
         month: month,
       );
-      // id=10 ξεκινά νωρίτερα → κερδίζει 10-12· το 20 χάνει ΟΛΟΚΛΗΡΟ (11-13).
+      // 10-12: βάση το 10 (ξεκινά νωρίτερα)· 11-12: hatch overlay το 20·
+      // 13: μένει μόνο το 20 → συμπαγής βάση (καμία σπασμένη γραμμή).
+      expect(bars.length, 4);
       expect(bars[DateTime(2026, 3, 10)]!.itemId, 10);
+      expect(bars[DateTime(2026, 3, 10)]!.hasOverlap, isFalse);
       expect(bars[DateTime(2026, 3, 11)]!.itemId, 10);
-      expect(bars[DateTime(2026, 3, 12)]!.itemId, 10);
-      expect(bars.containsKey(DateTime(2026, 3, 13)), isFalse);
+      expect(bars[DateTime(2026, 3, 11)]!.overlays.single.itemId, 20);
+      expect(bars[DateTime(2026, 3, 12)]!.overlays.single.itemId, 20);
+      expect(bars[DateTime(2026, 3, 13)]!.itemId, 20);
+      expect(bars[DateTime(2026, 3, 13)]!.hasOverlap, isFalse);
+    });
+
+    test('overlay κρατά τα άκρα του δικού του εύρους', () {
+      final bars = buildSpanBars(
+        spans: [
+          _candidate(10, DateTime(2026, 3, 10), DateTime(2026, 3, 14)),
+          _candidate(20, DateTime(2026, 3, 12), DateTime(2026, 3, 13)),
+        ],
+        month: month,
+      );
+      final o1 = bars[DateTime(2026, 3, 12)]!.overlays.single;
+      final o2 = bars[DateTime(2026, 3, 13)]!.overlays.single;
+      expect(o1.isStart, isTrue);
+      expect(o1.isEnd, isFalse);
+      expect(o2.isStart, isFalse);
+      expect(o2.isEnd, isTrue);
+    });
+
+    test('3 εύρη στην ίδια ημέρα → βάση + 2 overlays (σειρά sort)', () {
+      final bars = buildSpanBars(
+        spans: [
+          _candidate(3, DateTime(2026, 3, 10), DateTime(2026, 3, 12)),
+          _candidate(1, DateTime(2026, 3, 10), DateTime(2026, 3, 12)),
+          _candidate(2, DateTime(2026, 3, 10), DateTime(2026, 3, 12)),
+        ],
+        month: month,
+      );
+      final day = bars[DateTime(2026, 3, 10)]!;
+      expect(day.itemId, 1);
+      expect(day.overlays.map((o) => o.itemId).toList(), [2, 3]);
     });
 
     test('ίδια έναρξη → μεγαλύτερη διάρκεια κερδίζει', () {
@@ -215,19 +249,26 @@ void main() {
     });
 
     test('spanDayColor: invalid hex → fallback accent (χωρίς exception)', () {
-      const day = SpanDay(itemId: 1, colorHex: 'not-a-hex');
+      final day = SpanDay(itemId: 1, colorHex: 'not-a-hex');
       final c = spanDayColor(day, Brightness.light);
       expect(ColorsUI.contrastRatio(c, spanSurface(Brightness.light)),
           greaterThanOrEqualTo(kSpanMinContrast));
     });
+
+    test('spanOverlapSurface: ίδιο χρώμα → επιφάνεια, διαφορετικό → βάση', () {
+      const green = Color(0xFF2E7D32);
+      const b = Brightness.light;
+      expect(spanOverlapSurface(green, green, b), spanSurface(b));
+      expect(spanOverlapSurface(green, Colors.white, b), green);
+    });
   });
 
   group('σταθερές / keys', () {
-    test('1 lane + γεωμετρία 3px + 2×1px halo', () {
+    test('1 lane + γεωμετρία 6px + 2×1px halo', () {
       expect(kSpanMaxLanes, 1);
-      expect(kSpanBarHeight, 3);
+      expect(kSpanBarHeight, 6);
       expect(kSpanBarHalo, 1);
-      expect(kSpanBarTotalHeight, 5);
+      expect(kSpanBarTotalHeight, 8);
     });
 
     test('τεχνικά keys εκτός αναζήτησης', () {

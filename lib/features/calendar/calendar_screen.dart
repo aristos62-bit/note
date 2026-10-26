@@ -679,14 +679,19 @@ class _MonthGrid extends ConsumerWidget {
 
   /// Υπολογίζει ποιοι τύποι markers υπάρχουν για μια ημέρα.
   /// Επιστρέφει ταξινομημένη λίστα (birthday πρώτα).
-  /// E41: το item που πήρε γραμμή αυτή την ημέρα δεν μετράει στις τελείες.
+  /// E41: τα items που έχουν γραμμή/hatch αυτή την ημέρα δεν μετράνε στις τελείες.
   List<_DayMarkerType> _markersFor(DateTime date, SpanDay? spanBar) {
     final items = dayEvents[date];
     if (items == null || items.isEmpty) return [];
 
+    final barIds = <int>{
+      if (spanBar != null) spanBar.itemId,
+      if (spanBar != null) ...spanBar.overlays.map((o) => o.itemId),
+    };
+
     final types = <_DayMarkerType>{};
     for (final item in items) {
-      if (spanBar != null && item.id == spanBar.itemId) continue;
+      if (barIds.contains(item.id)) continue;
       if (ItemColorHelper.isBirthdayEvent(item)) {
         types.add(_DayMarkerType.birthday);
       } else if (item.type == ItemType.contact) {
@@ -784,20 +789,20 @@ class _MonthGrid extends ConsumerWidget {
                         ),
                       ),
 
-                      // ── E41: γραμμή πολυήμερου (πάνω από τον κύκλο) ──
+                      // ── E41: γραμμή πολυήμερου (κάτω μέρος κελιού) ──
                       if (spanBar != null)
                         Positioned(
-                          top: 0,
+                          bottom: 0,
                           left: -2,
                           right: -2,
                           height: kSpanBarTotalHeight,
                           child: _SpanBar(bar: spanBar),
                         ),
 
-                      // ── Δείκτες τύπου συμβάντων ─────────
+                      // ── Δείκτες τύπου συμβάντων (πάνω μέρος κελιού) ──
                       if (markers.isNotEmpty)
                         Positioned(
-                          bottom: 3,
+                          top: 3,
                           child: _DayMarkerRow(
                             markers: markers,
                             primary: context.cPrimary,
@@ -831,7 +836,10 @@ class _SpanBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final b = context.brightness;
-    final color = spanDayColor(bar, b);
+    final baseColor = spanDayColor(bar, b);
+    final overlayColors = [
+      for (final o in bar.overlays) spanOverlayColor(o, b)
+    ];
     final outer = BorderRadius.horizontal(
       left: bar.isStart
           ? const Radius.circular(kSpanBarTotalHeight / 2)
@@ -858,11 +866,90 @@ class _SpanBar extends StatelessWidget {
           borderRadius: outer,
         ),
         padding: const EdgeInsets.symmetric(vertical: kSpanBarHalo),
-        child: DecoratedBox(
-          decoration: BoxDecoration(color: color, borderRadius: inner),
+        child: CustomPaint(
+          painter: _SpanBarPainter(
+            base: baseColor,
+            overlays: overlayColors,
+            overlapBackground: overlayColors.isEmpty
+                ? baseColor
+                : spanOverlapSurface(baseColor, overlayColors.first, b),
+            radius: inner,
+          ),
         ),
       ),
     );
+  }
+}
+
+/// E41 — ζωγραφίζει τη γραμμή: συμπαγής βάση + 45° λωρίδες (hatch) για τα
+/// εύρη που επικαλύπτουν την ίδια ημέρα.
+class _SpanBarPainter extends CustomPainter {
+  /// 1px λωρίδα ανά 3px (στα 3px ύψους διαβάζεται ως «hatch», όχι θόρυβος).
+  static const double _stripeStep = 3.0;
+  static const double _stripeWidth = 1.0;
+
+  final Color base;
+  final List<Color> overlays;
+  final Color overlapBackground;
+  final BorderRadius radius;
+
+  const _SpanBarPainter({
+    required this.base,
+    required this.overlays,
+    required this.overlapBackground,
+    required this.radius,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndCorners(
+      Offset.zero & size,
+      topLeft: radius.topLeft,
+      topRight: radius.topRight,
+      bottomLeft: radius.bottomLeft,
+      bottomRight: radius.bottomRight,
+    );
+
+    canvas.drawRRect(
+      rrect,
+      Paint()..color = overlays.isEmpty ? base : overlapBackground,
+    );
+    if (overlays.isEmpty) return;
+
+    canvas.save();
+    canvas.clipRRect(rrect);
+    final paint = Paint()
+      ..strokeWidth = _stripeWidth
+      ..strokeCap = StrokeCap.butt
+      ..isAntiAlias = true;
+
+    var index = 0;
+    for (var x = -size.height;
+        x < size.width + size.height;
+        x += _stripeStep) {
+      paint.color = overlays[index % overlays.length];
+      canvas.drawLine(
+        Offset(x, size.height),
+        Offset(x + size.height, 0),
+        paint,
+      );
+      index++;
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpanBarPainter old) {
+    if (old.base != base ||
+        old.overlapBackground != overlapBackground ||
+        old.radius != radius ||
+        old.overlays.length != overlays.length) {
+      return true;
+    }
+    for (var i = 0; i < overlays.length; i++) {
+      if (old.overlays[i] != overlays[i]) return true;
+    }
+    return false;
   }
 }
 
