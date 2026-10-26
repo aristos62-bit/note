@@ -3,8 +3,8 @@
 > **Κανονιστικό (ισχύει μέχρι να διαγραφεί αυτό το αρχείο):**
 > - Το `error_list.md` είναι η **μοναδική πηγή** για εκκρεμότητες, προτεραιότητα και πρόοδο.
 > - **Απαγορεύεται** να συντηρούνται παράλληλες λίστες σε άλλα `.md`. Ό,τι λέει το `code_refactor.md` §3/§7/§8/§9, το `supernote.md` (status/error-handling/performance) ή το `oldsessions.md` για *ανοιχτά* θέματα **δεν είναι έγκυρο** — έγκυρο είναι μόνο ό,τι λέει αυτό το αρχείο.
-> - `supernote.md` = μόνο αρχιτεκτονική (κανόνας 8, αμετάβλητο). `oldsessions.md` = ιστορικό (δεν ενημερώνεται όσο τρέχει αυτή η λίστα).
-> - Στο **τέλος** (όταν κλείσουν όλα): διαγραφή `error_list.md` → ένα κεφάλαιο στο `oldsessions.md` + ενημέρωση/καθάρισμα `code_refactor.md` + `supernote.md`.
+> - `supernote.md` = μόνο αρχιτεκτονική (κανόνας 8, αμετάβλητο). `oldsessions.md` = ιστορικό.
+> - Στο **τέλος** (όταν ολοκληρωθεί το fix που δουλεύουμε): → ένα κεφάλαιο στο `oldsessions.md` + ενημέρωση/καθάρισμα `code_refactor.md` + `supernote.md`.
 >
 > **📌 ΠΡΙΝ ΑΠΟ ΚΑΘΕ ΕΝΗΜΕΡΩΣΗ: το πρώτο που διαβάζω είναι αυτό το SOP.**
 > **SOP ενημέρωσης (η ροή του E15 = πρότυπο για κάθε fix):**
@@ -47,7 +47,7 @@
 | Git HEAD | `8b47b48` + E41 (S274) | `git log` |
 | `flutter analyze` | **No issues found** | run 25/10/2026 |
 | `flutter test` | **321/321** (51 αρχεία test) | run 25/10/2026 |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.306 (158 αρχεία) | μετρήθηκε |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.306 (158 αρχεία) | μετρήθηκε 26/10/2026 |
 | Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
@@ -326,7 +326,7 @@
 
 ### E41 — 🟡 Πολυήμερα συμβάντα: γραμμή + χρώμα (S274 — υλοποιημένο, εκκρεμεί device)
 - **Πού:** `features/calendar/span_utils.dart` (νέο) · `event_properties_panel.dart` (νέο — εξαγωγή από `event_detail_screen`) · `calendar_screen.dart` (`_MonthData`, batch properties, `_SpanBar`) · `event_detail_screen.dart` (`_pickEndDate`, `_pickSpanColor`, clamp picker) · `providers/property_provider.dart` (`calendarDataVersionProvider`) · `core/utils/property_keys.dart` (νέο) · `services/search_service.dart` (blocklist) · `services/share_service.dart` (εύρος ημερομηνιών).
-- **Τι:** προαιρετικό `end_date` (EAV, **date-only, inclusive, τοπικό μεσάνυχτα**) → γραμμή στο πάνω μέρος του κελιού + προαιρετικό `span_color` (`#RRGGBB`, default = accent τύπου event). Λήξη ≤ έναρξη = άκυρη (**κανένα write-on-open**). 🎂 γενέθλια: χωρίς λήξη/χρώμα (και στον caller).
+- **Τι:** προαιρετικό `end_date` (EAV, **date-only, inclusive, τοπικό μεσάνυχτα**) → γραμμή στο **κάτω** μέρος του κελιού (τελείες τύπου πάνω) + προαιρετικό `span_color` (`#RRGGBB`, default = accent τύπου event). Λήξη ≤ έναρξη = άκυρη (**κανένα write-on-open**). 🎂 γενέθλια: χωρίς λήξη/χρώμα (και στον caller).
 - **Κανόνες (αποφασισμένοι):** **1 lane** (κελί 44px αμετάβλητο) · **επικάλυψη = 45° hatch overlay** πάνω στη συμπαγή βάση (καμία χαμένη ημέρα — **αναθεώρηση** S274: καταργήθηκε το all-or-nothing) · sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)` · μπάρα **3px + 1px halo** χρώματος επιφάνειας (γιατί selected 2.03:1 / 1.01:1) · render-time προσαρμογή ≥**3.0:1** ως προς **composited** surface (WCAG 1.4.11· light 3.89 / dark 5.90).
 - **F25 (έκλεισε μαζί):** το `itemsStreamProvider` ακούει μόνο τη collection `items` → αλλαγές σε properties (και το `_saveTitle` skip όταν ο τίτλος δεν άλλαξε) άφηναν **stale** πλέγμα. `calendarDataVersionProvider` bump **μόνο** για τα 4 calendar keys (`start_time`, `end_time`, `end_date`, `span_color`) → καμία επίπτωση σε tasks/journal/contacts.
 - **Απόδειξη:** analyze clean · **318/318** (51 files, **+24** `test/span_utils_test.dart`) · backup `backups/s274_e41/` (11 αρχεία · BASE_HEAD `8b47b48`).
@@ -432,6 +432,7 @@
 | 25/10/2026 | E41 | **Verify:** analyze **No issues found** · **318/318** (51 files, +24 `test/span_utils_test.dart` — εύρος/DST/clipping/επικάλυψη/ντετερμινισμός/αντίθεση/keys). | run 25/10/2026 |
 | 25/10/2026 | E41 | **Docs:** `supernote.md` → 318/318, tree **+3 αρχεία** (`property_keys`, `span_utils`, `event_properties_panel`), calendar/EAV/provider σημειώσεις· `oldsessions.md` → κεφάλαιο **S274** (κατ' εξαίρεση, εντολή χρήστη). **Εκκρεμεί device test** (T1–T7, κανόνας 12). | analyze clean · test **318/318** |
 | 25/10/2026 | E41 | **Αναθεώρηση (device feedback):** καταργήθηκε το all-or-nothing → `SpanDay.overlays` + `buildSpanBars` δίνουν **συνεχή** γραμμή σε κάθε εύρος (βάση = 1ο, υπόλοιπα = **45° hatch**, 1px ανά 3px)· `_SpanBarPainter` + `spanOverlapSurface` (ίδια χρώματα → φόντο = επιφάνεια)· markers εξαιρούν base+overlays. **Ίδιο ύψος 5px / κελί 44px.** | `span_utils.dart` (`SpanDay`/`SpanOverlay`/`buildSpanBars`) · `calendar_screen.dart` (`_SpanBarPainter`, `_markersFor`) · test **321/321** (+3) · backup `backups/s274_e41_hatch/` |
+| 26/10/2026 | E41 | **Εναλλαγή θέσεων (υλοποίηση χρήστη + έλεγχος):** τελείες τύπου **πάνω** (`top: 3`) · γραμμή πολυήμερου **κάτω** (`bottom: 0`). Καθρέφτης του προηγούμενου → **ίδια κενά** @140% (dots↔ink 0px, bar↔ink 3px). Docs sync (πάνω→κάτω, μέτρηση 43.306). | `calendar_screen.dart:792-810` · analyze clean · test **321/321** · backup `backups/s274_e41_dots_top/` |
 
 ---
 

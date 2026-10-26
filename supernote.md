@@ -857,7 +857,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Month view with event dots
 - Event creation/editing with date/time pickers
 - Πεδίο `notes` (`ContentFieldWidget`, pattern TaskDetail) — τα events αποκτούν ορατό σώμα (S59)
-- **Πολυήμερα (E41):** `end_date` (EAV, inclusive) + προαιρετικό `span_color`. Η γραμμή ζωγραφίζεται στο πάνω μέρος του κελιού: **1 lane**, 3px χρώμα + 1px halo (`span_utils.dart`), **επικάλυψη = 45° hatch overlay** πάνω στη συμπαγή βάση (`SpanDay.overlays`), sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)`. Χρώμα προσαρμόζεται render-time σε ≥3.0:1 ως προς τη σύνθετη επιφάνεια (WCAG 1.4.11). 🎂 γενέθλια = χωρίς λήξη/χρώμα.
+- **Πολυήμερα (E41):** `end_date` (EAV, inclusive) + προαιρετικό `span_color`. Η γραμμή ζωγραφίζεται στο **κάτω** μέρος του κελιού (οι τελείες τύπου πάνω): **1 lane**, 3px χρώμα + 1px halo (`span_utils.dart`), **επικάλυψη = 45° hatch overlay** πάνω στη συμπαγή βάση (`SpanDay.overlays`), sort `(έναρξη ↑, διάρκεια ↓, itemId ↑)`. Χρώμα προσαρμόζεται render-time σε ≥3.0:1 ως προς τη σύνθετη επιφάνεια (WCAG 1.4.11). 🎂 γενέθλια = χωρίς λήξη/χρώμα.
 - **Δεδομένα μήνα:** `_MonthData {days, bars}` από 1 batch `properties.getAllForItems` (όχι N+1) + `calendarDataVersionProvider` για invalidation· το panel ιδιοτήτων ζει στο `event_properties_panel.dart`.
 
 ### ContactListScreen (`/contacts`) + ContactDetailScreen (`/contacts/:id`)
