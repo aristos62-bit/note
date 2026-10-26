@@ -1,6 +1,6 @@
 # SuperNote — Development History
 
-> **⚠️ ΕΝΕΡΓΕΣ ΕΚΚΡΕΜΟΤΗΤΕΣ (26/10/2026):** **ΜΟΝΟ** στο **`error_list.md`** — μοναδική πηγή, όπου προστίθενται και ενημερώνονται. Το παρόν αρχείο είναι **ιστορικό + πρόοδος**: η πρόοδος κάθε εκκρεμότητας γράφεται εδώ **μόνο όταν κλείσει οριστικά** (AGENTS.md #9)· τελευταία κεφάλαια = **S273 (24/10/2026)** και **S274 (25–26/10/2026, E41)**. Οι λίστες «Επόμενο session» των παλιών κεφαλαίων είναι αρχειακές, **δεν** ενημερώνονται και **δεν** πρέπει να ακολουθούνται ως ενεργές.
+> **⚠️ ΕΝΕΡΓΕΣ ΕΚΚΡΕΜΟΤΗΤΕΣ (26/10/2026):** **ΜΟΝΟ** στο **`error_list.md`** — μοναδική πηγή, όπου προστίθενται και ενημερώνονται. Το παρόν αρχείο είναι **ιστορικό + πρόοδος**: η πρόοδος κάθε εκκρεμότητας γράφεται εδώ **μόνο όταν κλείσει οριστικά** (AGENTS.md #9)· τελευταία κεφάλαια = **S273 (24/10/2026)**, **S274 (25–26/10/2026, E41)** και **S275 (26/10/2026, O6)**. Οι λίστες «Επόμενο session» των παλιών κεφαλαίων είναι αρχειακές, **δεν** ενημερώνονται και **δεν** πρέπει να ακολουθούνται ως ενεργές.
 
 ## Session 1 — 21-05-2026 (App initialization hardening)
 - try-catch + `_InitErrorApp` fallback screen αν αποτύχει η DB init
@@ -3766,3 +3766,42 @@
 - Το hatch χρειάζεται φόντο διαφορετικό από τη βάση όταν τα χρώματα συμπίπτουν (default accent) — αλλιώς είναι αόρατο.
 
 **Επόμενο:** device test E41 → μετά P2 (E05/E08/E27/E22) και P3 (E39 με spec, E19/E21/E14/E23).
+
+## Session 275 — 26/10/2026 (O6: cleanup & visibility sweep — E19/E14/E21/E23 + E42) — ✅ CLOSED
+
+> Στόχος: «cleanup & visibility sweep» χωρίς device — να φύγει **διπλή δουλειά**, **νεκροί providers** και **ψευδή σχόλια** από τη ροή της Αρχικής. Εγκρίθηκε ολόκληρη η πρόταση (Δ1–Δ9)· ο κανόνας 4 (ένα βήμα) **αναστάλθηκε κατ' εντολή χρήστη** για μία ροή: backups → υλοποίηση → tests → analyze → docs → commit/push. Υλοποίηση **μόνο με edit-tool** (όχι PowerShell) λόγω ελληνικών.
+
+**Αποφάσεις (τελικές):**
+1. **Δ1-A′ — E19:** `_recentLimit` + **`Item.isVisible`** (SPoT getter, 0 χρήσεις πριν) αντί νέου helper· ο 2ος υπολογισμός φεύγει. Το semantic («Πρόσφατα» = `updatedAt desc` + drag policy) **δεν** κλείνει εδώ → **E44** στο O5 (ίδιο widget/device pass).
+2. **Δ2-A2 — διαγραφή** `FolderViewData` + `folderViewDataProvider`: μία συνδρομή αντί 2, O(n) stats αντί O(13·n), 1 invalidate αντί 2, **και** φεύγει το `error: (_, __) async* {}` που παραβίαζε `supernote.md:950` (αιώνιο skeleton).
+3. **Δ3-A:** 7 dead providers (`itemsByFolder`, `pinnedItems`, `favoriteItems`, `itemCount`, `pinnedItemsStream`, `blocks`, `childBlocks`) + `item_provider:391` invalidate + `home_screen:6` σχόλιο.
+4. **Δ4-A:** **E42 επιτόπου** — fingerprint `+updatedAt` **μόνο** για `pinnedOrder == null`.
+5. **Δ5-A / Δ6-A:** E23 ρητό κλείσιμο («limits canonical **ανά τομέα**», 370-ήμερο ×2 σκόπιμο) · E21 **5 διαγραφές + 2 αντικαταστάσεις** (User/Device = αληθές σήμα).
+6. **Δ7-B / Δ8-A / Δ9-A:** analyze+tests+test απόδειξης, χωρίς device· `home_screen:247`, `_canDrag`, `ReorderUtils`, `_bakeQueue`, `pinnedAndFavoritesProvider` άθικτα· 0 νέα logs.
+
+**Υλοποίηση (7 αρχεία κώδικα + 7 μοντέλα + 1 test + docs):**
+1. `home_folder_view.dart`: `_recentLimit` · `_countVisibleByType` (private, `isVisible`) · stats από το **ίδιο** `allItems` · 1 invalidate στο refresh · `_StatsRowSkeleton` `const` + `Key('statsSkeleton')` · 3 φίλτρα → `isVisible`.
+2. `items_query_provider.dart`: −42 γραμμές (`FolderViewData` + provider) · −`import 'dart:async'` · header σχόλιο.
+3. `reminder_provider.dart`: −2 providers, −4 invalidates · `reminder_section.dart`: −1 invalidate.
+4. `item_provider.dart`: −4 providers, −1 invalidate · `pinned_provider.dart`: −1 · `block_provider.dart`: −2.
+5. `home_screen.dart`: σχόλιο real-time + **E42 fingerprint**.
+6. `models/`: 5× διαγραφή TODO · `user`/`device` → `// Collection στο Isar — καμία λειτουργία δεν τη χρησιμοποιεί ακόμη.`
+7. `supernote.md`: −10 γραμμές providers + 1 αντικατάσταση (HomeScreen stats) — **αρχιτεκτονική αλλαγή** (provider έφυγε).
+
+**Εύρημα κατά την υλοποίηση (test):** με 3 πραγματικά items το fixture ζωγράφιζε **κάρτες**· το default test view (800×600) δίνει `gridColumns=2` → κάρτες **126dp** → overflow στο header Row του `_FolderItemCard` (test-only). Λύση: `tester.view.physicalSize = 360×800` (mobile → 1 στήλη) στο `_folderViewAt` — ρεαλιστικό πλάτος, όχι χαλάρωση assertion.
+
+**Απόδειξη:** `flutter analyze --no-pub` **No issues found** · **322/322** (51 αρχεία, +1 test: stream error → `statsSkeleton` = `findsNothing`) · **158 αρχεία / 43.206 γραμμές** `lib/` (χωρίς `*.g.dart`, −100) · 20 αρχεία >500 (`home_screen.dart` 921, προϋπάρχον E06) · `grep pendingReminders|FolderViewData|itemsByFolderProvider|…` = **0** στο `lib/`.
+
+**Backups:** `backups/s275_o6/` (19 αρχεία + `BASE_HEAD.txt` = `be0fe26`).
+
+**Κατάσταση: ✅ CLOSED.** `error_list.md`: §1 **P2 8→8** (E19 έξω, **E44** μέσα) · **P3 9→6** (E14/E21/E23 έξω) · §2 4× `✅ CLOSED` + νέα κάρτα E44 (πριν την E26) · §3 2 bullets · §0 (HEAD, 322/322, 43.206) · §6 O6 ✅, O5 = E27+E03+E44 · P4 + stale `.g.dart` slots 8/10.
+
+**Μαθήματα:**
+- Πριν γράψεις «SPoT helper», έλεγξε το **query contract**: το `watchByFolder` φιλτράρει ήδη `deletedAtIsNull + archivedEqualTo(false)` ⇒ τα in-memory φίλτρα ήταν **νεκρά**, όχι απλώς διπλά.
+- `error: (_, __) async* {}` σε Riverpod **δεν** δίνει `AsyncError` — αφήνει τον consumer σε `loading` **για πάντα**. Το `when(error:)` δεν τρέχει ποτέ.
+- Όταν διαγράφεις provider, έλεγξε και το **repository API** που εξυπηρετούσε: `watchPending`/`getChildren`/`items.count` έμειναν χωρίς caller αλλά είναι τεκμηριωμένο API → **δεν** διαγράφονται.
+- Fixture με πραγματικά items ⇒ πραγματικές κάρτες· το `SizedBox(width:360)` μέσα σε test view 800 δεν αλλάζει τις στήλες — χρειάζεται `tester.view`.
+- Το `pubspec.lock` λέει **riverpod 2.6.1** (constraint `^2.5.1`) — τα APIs ελέγχονται από το lock, όχι από το constraint.
+- `item.g.dart` έχει **write-only** slots 8/10 (`isDeleted`/`isVisible` getters) → **ποτέ** `build_runner` χωρίς λόγο· 0 reads, αβλαβές.
+
+**Επόμενο:** **O5** = E27 (autoScroll) + E03 (device re-verify) + **E44** (recency sort + drag policy), ένα device pass στα 100%/140% (και εκεί επαληθεύεται το E42).

@@ -572,22 +572,16 @@ folderNotifierProvider → AsyncNotifierProvider<FolderNotifier, List<Folder>>
 activeItemTypeFilterProvider → StateProvider<ItemType?>
 showArchivedProvider → StateProvider<bool>
 itemsStreamProvider → StreamProvider<List<Item>>             // filtered items
-itemsByFolderProvider → FutureProvider.family<List<Item>, int>
-pinnedItemsProvider → FutureProvider<List<Item>>
-favoriteItemsProvider → FutureProvider<List<Item>>
 itemByIdProvider → FutureProvider.family<Item?, int>
 itemStreamProvider → StreamProvider.family<Item?, int>
-itemCountProvider → FutureProvider.family<int, ItemType>
 itemNotifierProvider → AsyncNotifierProvider<ItemNotifier, List<Item>>
 
 // Dedicated high-performance streams:
 itemsByFolderStreamProvider → StreamProvider.family<List<Item>, int>
 trashedItemsStreamProvider → StreamProvider<List<Item>>
-pinnedItemsStreamProvider → StreamProvider<List<Item>>
 pinnedAndFavoritesProvider → StreamProvider<({List<Item> pinned, List<Item> favorites})>
 
 // Composite:
-folderViewDataProvider → StreamProvider.family<FolderViewData, int>
 archivedItemsProvider → FutureProvider<List<Item>>               // Φ4a β18 (από settings)
 collectionEntriesCountProvider → FutureProvider<Map<int, int>>  // Φ4a β18 (από collections)
 ```
@@ -595,8 +589,6 @@ collectionEntriesCountProvider → FutureProvider<Map<int, int>>  // Φ4a β18 (
 ### Block Providers
 ```
 blocksStreamProvider → StreamProvider.family<List<ItemBlock>, int>
-blocksProvider → FutureProvider.family<List<ItemBlock>, int>
-childBlocksProvider → FutureProvider.family<List<ItemBlock>, int>
 blockNotifierProvider → AsyncNotifierProviderFamily<BlockNotifier, List<ItemBlock>, int>
 ```
 
@@ -633,8 +625,6 @@ subtasksStreamProvider → StreamProvider.family<List<Item>, int>   // from cach
 
 ### Reminder Providers
 ```
-pendingRemindersProvider → FutureProvider<List<Reminder>>
-pendingRemindersStreamProvider → StreamProvider<List<Reminder>>
 itemRemindersProvider → FutureProvider.family<List<Reminder>, int>
 pastPendingRemindersProvider → FutureProvider<List<Reminder>>   // Φ4a β18 (από settings)
 reminderNotifierProvider → AsyncNotifierProviderFamily<ReminderNotifier, List<Reminder>, int>
@@ -832,7 +822,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 ### HomeScreen (`/`)
 - Greeting (**κρύβεται σε κοντό viewport** — `context.isShortScreen`, S262), pinned items, favorites, recent items
 - Folder selector = **`FolderChipSelector`** (`folder_selector.dart`) — ΟΧΙ `DraggableFolderSelector` (αυτό είναι σε calendar/collections/contacts/habits/journal/tasks/item lists)· chips **56→64** adaptive (S262)
-- `FolderViewData` provider for composite data
+- Stats φακέλου: **in-memory από το `itemsByFolderStreamProvider`** (μία συνδρομή, φίλτρο `Item.isVisible`) — **όχι** ξεχωριστός provider (S275)
 - `_PinnedFavoritesSection` — isolated ConsumerStatefulWidget
 - `_SquareItemCard`, `_FolderItemCard` — specialized cards
 - `HomeFolderView` (σε `SliverFillRemaining`): stats 48 + toggle 52 = fixed headers, λίστα σε `Expanded`· σε `maxHeight ≤ 100` τα stats κρύβονται (`shouldShowFolderStats`, S262)

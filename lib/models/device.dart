@@ -1,5 +1,5 @@
 // lib/models/device.dart
-// TODO: Σελίδα προς Ανάπτυξη
+// Collection στο Isar — καμία λειτουργία δεν τη χρησιμοποιεί ακόμη.
 import 'package:isar/isar.dart';
 part 'device.g.dart';
 

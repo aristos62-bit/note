@@ -11,15 +11,6 @@ import 'workspace_provider.dart';
 // 🔹 Κάνουν yield μόνο όταν αλλάζουν τα σχετικά δεδομένα
 // ─────────────────────────────────────────────────────────────────
 
-/// Stream όλων των pinned items του active workspace — ανεξάρτητο
-final pinnedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
-  final db   = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return Stream.value(const []);
-  return db.items.watchPinnedByWorkspace(wsId);
-});
-
-/// Stream όλων των favorite items του active workspace — ανεξάρτητο
 /// Stream pinned + favorites — ανεξάρτητα Isar queries.
 /// ΔΕΝ εξαρτάται από itemsStreamProvider.
 /// Φωτίζει ΜΟΝΟ όταν αλλάξει pinned ή favorite status.

@@ -16,20 +16,6 @@ StreamProvider.family<List<ItemBlock>, int>((ref, itemId) {
   return db.blocks.watchByItem(itemId);
 });
 
-/// Future blocks — για αρχικό load
-final blocksProvider =
-FutureProvider.family<List<ItemBlock>, int>((ref, itemId) {
-  final db = ref.watch(dbProvider);
-  return db.blocks.getByItem(itemId);
-});
-
-/// Children blocks (για toggle/nested blocks)
-final childBlocksProvider =
-FutureProvider.family<List<ItemBlock>, int>((ref, parentBlockId) {
-  final db = ref.watch(dbProvider);
-  return db.blocks.getChildren(parentBlockId);
-});
-
 // ─────────────────────────────────────────────────────────────────
 // BlockNotifier — CRUD για blocks ενός item
 // ─────────────────────────────────────────────────────────────────

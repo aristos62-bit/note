@@ -20,22 +20,32 @@ Folder _folder({int id = 1, String name = 'Γενικά'}) {
     ..icon = '📁';
 }
 
-/// Stats με έναν μόνο ενεργό τύπο → ακριβώς ένα '3' στην οθόνη (εύκολος έλεγχος).
-FolderViewData _viewData() => FolderViewData(
-      stats: {ItemType.note: 3},
-      pinned: const <Item>[],
-      favorites: const <Item>[],
-      recent: const <Item>[],
+/// 3 σημειώσεις → ακριβώς ένα '3' στην οθόνη (εύκολος έλεγχος).
+List<Item> _notes(int count) => List.generate(
+      count,
+      (i) => Item()
+        ..id = i + 1
+        ..title = 'Σημείωση ${i + 1}'
+        ..type = ItemType.note
+        ..workspaceId = 1
+        ..folderId = 1
+        ..createdAt = DateTime(2026, 1, 1)
+        ..updatedAt = DateTime(2026, 1, 1),
     );
 
 List<Override> _overrides(int folderId) => [
-      folderViewDataProvider(folderId)
-          .overrideWith((ref) => Stream.value(_viewData())),
       itemsByFolderStreamProvider(folderId)
-          .overrideWith((ref) => Stream.value(const <Item>[])),
+          .overrideWith((ref) => Stream.value(_notes(3))),
     ];
 
-Widget _folderViewAt({required double height}) {
+Widget _folderViewAt(WidgetTester tester, {required double height}) {
+  // Πλάτος κινητού (360dp) → 1 στήλη, ώστε οι κάρτες των 3 items να
+  // χωράνε χωρίς test-only overflow στο header Row της κάρτας.
+  tester.view.physicalSize = const Size(360, 800);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   return ProviderScope(
     overrides: _overrides(1),
     child: MaterialApp(
@@ -66,7 +76,7 @@ void main() {
   group('B-Π1 HomeFolderView σε κοντό ύψος', () {
     testWidgets('80dp: stats κρυμμένα, toggle ορατό, χωρίς overflow',
         (tester) async {
-      await tester.pumpWidget(_folderViewAt(height: 80));
+      await tester.pumpWidget(_folderViewAt(tester, height: 80));
       await tester.pumpAndSettle();
 
       expect(find.text('3'), findsNothing); // stats κρυμμένα
@@ -75,11 +85,39 @@ void main() {
     });
 
     testWidgets('200dp: stats ορατά, χωρίς overflow', (tester) async {
-      await tester.pumpWidget(_folderViewAt(height: 200));
+      await tester.pumpWidget(_folderViewAt(tester, height: 200));
       await tester.pumpAndSettle();
 
       expect(find.text('3'), findsOneWidget);
       expect(find.byType(CircleToggleButton), findsNWidgets(4));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('error στο stream: τα stats δεν μένουν σε αιώνιο skeleton',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            itemsByFolderStreamProvider(1).overrideWith(
+              (ref) => Stream<List<Item>>.error(StateError('db closed')),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 360,
+                  height: 200,
+                  child: HomeFolderView(folder: _folder()),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('statsSkeleton')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

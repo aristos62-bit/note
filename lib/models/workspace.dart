@@ -1,5 +1,4 @@
 // lib/models/workspace.dart
-// TODO: Σελίδα προς Ανάπτυξη
 import 'package:isar/isar.dart';
 part 'workspace.g.dart';
 

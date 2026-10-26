@@ -1,7 +1,7 @@
 // lib/providers/items_query_provider.dart
 //
 // S255 (F13): split από item_provider.dart (R1: <500 γραμμές) — read/derived
-// providers: streams folder/κάδου, aggregate folder view, collection counts.
+// providers: streams folder/κάδου, collection counts.
 // Το `archivedItemsProvider` μένει στο item_provider.dart (το invalidate-άρει
 // ο ItemNotifier.toggleArchive).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +10,6 @@ import 'db_provider.dart';
 import 'workspace_provider.dart';
 import 'item_provider.dart'; // itemsStreamProvider (collectionEntriesCountProvider)
 import '../core/utils/debug_config.dart';
-import 'dart:async';
 
 // ─────────────────────────────────────────────────────────────────
 // Real-time items ανά folder (για home folder view)
@@ -29,49 +28,6 @@ final trashedItemsStreamProvider = StreamProvider<List<Item>>((ref) {
   final wsId = ref.watch(activeWorkspaceIdProvider);
   if (wsId == null) return Stream.value(const []);
   return db.items.watchDeletedByWorkspace(wsId);
-});
-
-// ─────────────────────────────────────────────────────────────────
-// Combined data για HomeFolderView (αντικαθιστά 4 ξεχωριστά providers)
-// ─────────────────────────────────────────────────────────────────
-
-class FolderViewData {
-  final Map<ItemType, int> stats;
-  final List<Item> pinned;
-  final List<Item> favorites;
-  final List<Item> recent;
-
-  FolderViewData({
-    required this.stats,
-    required this.pinned,
-    required this.favorites,
-    required this.recent,
-  });
-}
-
-/// Ένας provider — 1 rebuild αντί για 4
-final folderViewDataProvider =
-    StreamProvider.family<FolderViewData, int>((ref, folderId) async* {
-  FolderViewData compute(List<Item> items) {
-    final stats = <ItemType, int>{};
-    for (final type in ItemType.values) {
-      stats[type] = items.where((i) => i.type == type && i.deletedAt == null).length;
-    }
-    final pinned = items.where((i) => i.pinned && i.deletedAt == null).toList();
-    final favorites = items.where((i) => i.favorite && i.deletedAt == null).toList();
-    final active = items.where((i) => !i.archived && i.deletedAt == null).toList();
-    active.sort((a, b) => (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt));
-    final recent = active.take(10).toList();
-    return FolderViewData(stats: stats, pinned: pinned, favorites: favorites, recent: recent);
-  }
-
-  yield* ref.watch(itemsByFolderStreamProvider(folderId)).when(
-    data: (items) async* {
-      yield compute(items);
-    },
-    loading: () async* {},
-    error: (_, __) async* {},
-  );
 });
 
 // ── Collection entry counts (Φ4a βήμα 18: από collections_screen,

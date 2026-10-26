@@ -9,17 +9,6 @@ import '../core/utils/debug_config.dart';
 // Reminders
 // ─────────────────────────────────────────────────────────────────
 
-/// Pending reminders (επόμενες 370 μέρες — ίδιο παράθυρο με getPending)
-final pendingRemindersProvider = FutureProvider<List<Reminder>>((ref) {
-  return ref.watch(dbProvider).reminders.getPending();
-});
-
-/// Real‑time pending reminders (επόμενες 370 μέρες) – ενημερώνεται αυτόματα
-final pendingRemindersStreamProvider = StreamProvider<List<Reminder>>((ref) {
-  final db = ref.watch(dbProvider);
-  return db.reminders.watchPending();
-});
-
 /// Reminders ενός item
 final itemRemindersProvider =
 FutureProvider.family<List<Reminder>, int>((ref, itemId) {
@@ -57,7 +46,6 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
       );
       ref.invalidateSelf();
       ref.invalidate(itemRemindersProvider(arg));
-      ref.invalidate(pendingRemindersProvider);
       return created;
     } catch (e, s) {
       DebugConfig.error('ReminderNotifier.create', e, s);
@@ -81,7 +69,6 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
         await ReminderScheduler.instance.rescheduleReminder(row);
       }
       ref.invalidateSelf();
-      ref.invalidate(pendingRemindersProvider);
     } catch (e, s) {
       DebugConfig.error('ReminderNotifier.snooze', e, s);
     }
@@ -92,7 +79,6 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
       // DB delete πρώτα, μετά unconditional OS cancel (ίδιο queue pass).
       await ReminderScheduler.instance.deleteSingleReminder(reminderId);
       ref.invalidateSelf();
-      ref.invalidate(pendingRemindersProvider);
     } catch (e, s) {
       DebugConfig.error('ReminderNotifier.delete', e, s);
     }
@@ -102,7 +88,6 @@ class ReminderNotifier extends FamilyAsyncNotifier<List<Reminder>, int> {
     try {
       await ref.read(dbProvider).reminders.markSent(reminderId);
       ref.invalidateSelf();
-      ref.invalidate(pendingRemindersProvider);
     } catch (e, s) {
       DebugConfig.error('ReminderNotifier.markSent', e, s);
     }
