@@ -3,7 +3,7 @@
 // Home Screen — refactored with Pinned/Favorites toggle.
 // ✅ ViewMode: pinned | favorites | both
 // ✅ Badges on cards (pin and/or star)
-// ✅ Real-time (foldersStreamProvider + pinnedItemsStreamProvider + favoriteItemsStreamProvider)
+// ✅ Real-time (foldersStreamProvider + pinnedAndFavoritesProvider)
 // ✅ Responsive: mobile / tablet
 // ✅ Dark mode + DebugConfig
 // ✅ Square cards with type-specific background colors, 3 per row on tablet, 2 per row on mobile
@@ -638,9 +638,13 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
   void didUpdateWidget(covariant _ReorderableGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Fingerprint: id + flags + pinnedOrder (χρησιμοποιείται ως unified order σε ViewMode.both)
-    String fingerprint(List<Item> items) =>
-        items.map((i) => '${i.id}:${i.pinned}:${i.favorite}:${i.pinnedOrder}').join(',');
+    // Fingerprint: id + flags + pinnedOrder + recency των unordered items.
+    // Χωρίς το updatedAt, το sort του ViewMode.both (:551-552) άλλαζε σειρά
+    // μετά από edit αλλά το τοπικό _items δεν ανανεωνόταν.
+    String fingerprint(List<Item> items) => items
+        .map((i) => '${i.id}:${i.pinned}:${i.favorite}:${i.pinnedOrder}:'
+            '${i.pinnedOrder == null ? (i.updatedAt ?? i.createdAt).millisecondsSinceEpoch : ''}')
+        .join(',');
 
     final streamFp = fingerprint(widget.items);
     final oldFp    = fingerprint(oldWidget.items);

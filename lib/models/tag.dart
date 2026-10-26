@@ -1,5 +1,4 @@
 // lib/models/tag.dart
-// TODO: Σελίδα προς Ανάπτυξη
 import 'package:isar/isar.dart';
 part 'tag.g.dart';
 

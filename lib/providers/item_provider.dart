@@ -38,29 +38,6 @@ final itemsStreamProvider = StreamProvider<List<Item>>((ref) {
   );
 });
 
-/// Items ενός συγκεκριμένου folder
-final itemsByFolderProvider =
-FutureProvider.family<List<Item>, int>((ref, folderId) {
-  final db = ref.watch(dbProvider);
-  return db.items.getByFolder(folderId);
-});
-
-/// Pinned items
-final pinnedItemsProvider = FutureProvider<List<Item>>((ref) async {
-  final db = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  return db.items.getPinned(wsId);
-});
-
-/// Favorite items
-final favoriteItemsProvider = FutureProvider<List<Item>>((ref) async {
-  final db = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return [];
-  return db.items.getFavorites(wsId);
-});
-
 /// Ένα συγκεκριμένο item by ID (για detail screen)
 final itemByIdProvider = FutureProvider.family<Item?, int>((ref, id) {
   final db = ref.watch(dbProvider);
@@ -72,15 +49,6 @@ final itemStreamProvider =
 StreamProvider.family<Item?, int>((ref, id) {
   final db = ref.watch(dbProvider);
   return db.items.watchById(id);
-});
-
-/// Count ανά τύπο
-final itemCountProvider =
-FutureProvider.family<int, ItemType>((ref, type) async {
-  final db = ref.watch(dbProvider);
-  final wsId = ref.watch(activeWorkspaceIdProvider);
-  if (wsId == null) return 0;
-  return db.items.count(workspaceId: wsId, type: type);
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -388,7 +356,6 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     try {
       await ref.read(dbProvider).items.reorderPinned(newOrder);
       ref.invalidateSelf();
-      ref.invalidate(pinnedItemsProvider);
       ref.invalidate(pinnedAndFavoritesProvider);
     } catch (e, s) {
       DebugConfig.error('ItemNotifier.reorderPinned', e, s);

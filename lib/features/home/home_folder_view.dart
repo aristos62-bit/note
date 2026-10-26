@@ -36,12 +36,25 @@ class HomeFolderView extends ConsumerStatefulWidget {
 const double _folderStatsBlockHeight = 48; // top 8 + row 36 + bottom 4
 const double _folderToggleHeight     = 52; // margin 8 + padding 8 + circle 36
 
+/// Μέγιστο πλήθος «Πρόσφατων» στο Home folder view (SPoT για το παλιό take(10)).
+const int _recentLimit = 10;
+
 /// Δείχνουμε τα stats μόνο όταν χωράνε μαζί με το toggle.
 /// Safety net για πολύ κοντά viewports (split-screen / desktop window).
 /// Strict `>`: στο ίσο ύψος η λίστα θα είχε 0 dp.
 bool shouldShowFolderStats(double maxHeight) {
   if (!maxHeight.isFinite) return true;
   return maxHeight > _folderStatsBlockHeight + _folderToggleHeight;
+}
+
+/// Stats του folder view — μία διάβαση, ίδιος κανόνας ορατότητας με τη λίστα.
+Map<ItemType, int> _countVisibleByType(List<Item> items) {
+  final counts = <ItemType, int>{};
+  for (final item in items) {
+    if (!item.isVisible) continue;
+    counts[item.type] = (counts[item.type] ?? 0) + 1;
+  }
+  return counts;
 }
 
 class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
@@ -75,8 +88,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Widget build(BuildContext context) {
     DebugConfig.provider('HomeFolderView build folder=${folder.id}');
 
-    final folderData  = ref.watch(folderViewDataProvider(folder.id));
-    // ΝΕΟ: itemsByFolderStreamProvider → ταξινόμηση από sortOrder (κρατά τη σειρά μετά reorder)
+    // SPoT: μία συνδρομή — stats + λίστα από το ίδιο stream.
     final allItems    = ref.watch(itemsByFolderStreamProvider(folder.id));
     final isDragging  = ref.watch(isDraggingProvider);
     final folderColor = ItemColorHelper.parseHex(folder.color) ?? context.cPrimary;
@@ -102,10 +114,10 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
                 children: [
                   // Stats — fixed header (κρύβεται σε κοντό viewport)
                   if (showStats)
-                    folderData.when(
-                      loading: () => _StatsRowSkeleton(),
+                    allItems.when(
+                      loading: () => const _StatsRowSkeleton(),
                       error: (_, __) => const SizedBox.shrink(),
-                      data: (data) => _FolderStatsRow(stats: data.stats),
+                      data: (items) => _FolderStatsRow(stats: _countVisibleByType(items)),
                     ),
                   // ViewMode toggle — fixed header
                   _FolderViewModeToggle(
@@ -125,7 +137,6 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
                     child: RefreshIndicator(
                       onRefresh: () async {
                         ref.invalidate(itemsByFolderStreamProvider(folder.id));
-                        ref.invalidate(folderViewDataProvider(folder.id));
                       },
                       child: _buildContent(context, allItems),
                     ),
@@ -165,10 +176,13 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
         return const SizedBox.shrink();
       },
       data: (all) {
+        // Το itemsByFolderStreamProvider επιστρέφει ήδη μόνο μη-διαγραμμένα και
+        // μη-αρχειοθετημένα (watchByFolder: deletedAtIsNull + archivedEqualTo(false)).
+        // Το Item.isVisible είναι το SPoT του κανόνα — όχι νέο φίλτρο.
         final items = switch (_viewMode) {
-          FolderViewMode.pinned    => all.where((i) => i.pinned   && i.deletedAt == null).toList(),
-          FolderViewMode.favorites => all.where((i) => i.favorite && i.deletedAt == null).toList(),
-          FolderViewMode.recent    => all.where((i) => i.deletedAt == null && !i.archived).take(10).toList(),
+          FolderViewMode.pinned    => all.where((i) => i.pinned && i.isVisible).toList(),
+          FolderViewMode.favorites => all.where((i) => i.favorite && i.isVisible).toList(),
+          FolderViewMode.recent    => all.where((i) => i.isVisible).take(_recentLimit).toList(),
           FolderViewMode.all       => <Item>[],
         };
         // Περνάμε και τη full λίστα για σωστό reorder
@@ -345,9 +359,12 @@ class _FolderStatsRow extends StatelessWidget {
 }
 
 class _StatsRowSkeleton extends StatelessWidget {
+  const _StatsRowSkeleton();
+
   @override
   Widget build(BuildContext context) {
     return Padding(
+      key: const Key('statsSkeleton'),
       padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),
       child: SizedBox(
         height: 36,

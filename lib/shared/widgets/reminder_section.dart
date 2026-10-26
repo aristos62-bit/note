@@ -112,7 +112,6 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           _reminderId = null;
           ref.invalidate(itemRemindersProvider(widget.itemId));
           ref.invalidate(reminderNotifierProvider(widget.itemId));
-          ref.invalidate(pendingRemindersProvider);
           DebugConfig.notif('ReminderSection._saveReminder: all reminders deleted');
         }
         return;

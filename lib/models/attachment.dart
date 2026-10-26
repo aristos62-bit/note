@@ -1,5 +1,4 @@
 // lib/models/attachment.dart
-// TODO: Σελίδα προς Ανάπτυξη
 import 'package:isar/isar.dart';
 part 'attachment.g.dart';
 

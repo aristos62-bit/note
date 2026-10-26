@@ -1,5 +1,4 @@
 // lib/models/app_settings.dart
-// TODO: Σελίδα προς Ανάπτυξη
 import 'package:isar/isar.dart';
 part 'app_settings.g.dart';
 

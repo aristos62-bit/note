@@ -40,15 +40,15 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 26/10/2026)
+## 0. Baseline (μετρημένο στον κώδικα — 26/10/2026, μετά το S275/O6)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `e68f084` (E41 CLOSED) | `git log` |
-| `flutter analyze` | **No issues found** | run 26/10/2026 |
-| `flutter test` | **321/321** (51 αρχεία test) | run 26/10/2026 |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.306 (158 αρχεία) | μετρήθηκε 26/10/2026 |
-| Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519) | βλ. E06 |
+| Git HEAD | `be0fe26` (E41 CLOSED) + S275 commit | `git log` |
+| `flutter analyze` | **No issues found** | run 26/10/2026 (S275) |
+| `flutter test` | **322/322** (51 αρχεία test) | run 26/10/2026 (S275) |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.206 (158 αρχεία) | μετρήθηκε 26/10/2026 (S275) |
+| Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519 · `home_screen.dart` 921) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
@@ -85,12 +85,12 @@
 | 2 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
 | 3 | `E27` | **Grid reorder χωρίς autoScroll** | Δεν φτάνεις μακρινούς στόχους σε μεγάλο grid |
 | 4 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
-| 5 | `E19` | **`take(10)` ×2 + διπλότυπη λογική φίλτρου** | Λάθος/διπλά αποτελέσματα σε άκρες |
+| 5 | `E44` | **«Πρόσφατα» = πραγματικά πρόσφατα + drag policy** (νέο, από S275) | Το `recent` ταξινομεί με `sortOrder` αντί `updatedAt`· drag σε recency-sorted λίστα |
 | 6 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
 | 7 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 | 8 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (9)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
@@ -99,13 +99,10 @@
 | 11 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
 | 12 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
 | 13 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(μόνο αν φανεί στο E03)* |
-| 14 | `E14` | **F19** — dead providers (`pendingReminders*`) | Καθαριότητα |
-| 15 | `E21` | **Stale TODOs ×7** (`models/`) | Καθαριότητα |
-| 16 | `E23` | **G-track (S120)** — ρητό κλείσιμο | Απόφαση |
-| 17 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 14 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
-- iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό).
+- iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
 
 **Κλειστό κατά τον 2ο έλεγχο**
 - `E24` «grid-mode guard gap» → **stale / όχι bug** (SDK + package source)· βλ. §3.
@@ -217,9 +214,9 @@
 ### E13 — B-Π2b (υπό συνθήκη)
 - Κρύψιμο του label «Φάκελοι» σε κοντό viewport **μόνο αν** φανεί ανάγκη στο E03.
 
-### E14 — F19: dead providers
-- **Απόδειξη:** `pendingRemindersProvider` (`reminder_provider.dart:13`) = **0 readers**· μόνο 5 invalidates (`:60,:84,:94,:104` + `reminder_section.dart:114`). `pendingRemindersStreamProvider` (`:18`) = **0 references**.
-- **Προσοχή:** πρέπει να φύγουν **και τα 5 invalidates** αλλιώς analyze error. Αγγίζει `supernote.md:597-598` ⇒ απόφαση.
+### E14 — ✅ CLOSED 26/10/2026 (S275)
+- **Υλοποίηση:** διαγράφηκαν `pendingRemindersProvider` + `pendingRemindersStreamProvider` (`reminder_provider.dart:12-21`), **5 invalidates** (`:60,:84,:95,:105` + `reminder_section.dart:115`) και 2 γραμμές docs (`supernote.md:636-637`). Το repo API `watchPending` μένει (τεκμηριωμένο, `supernote.md:424`).
+- **Αποδοχή:** `flutter analyze` clean · **322/322** · `grep pendingReminders` = **0** στο `lib/`.
 
 ### E15 — ✅ CLOSED 21/10/2026 (F2: OFF path) — βλ. §3
 - **Υλοποίηση:** A (`settings_provider.dart:81-91`) · B/B3 + C + C3 (`reminder_scheduler.dart`) · device-verified (βλ. §3 + Progress log).
@@ -237,15 +234,18 @@
 - **Αποδοχή:** `catch (_) {}` = **0** · analyze clean · test **294/294** (βλ. §4).
 - **Device pass (POCO X3, debug — 24/10/2026):** cold start `topUp: done scanned=4 needTopUp=0 created=0 scheduledBatch=275` · `OS pending=315` · 151ms · **0** `parse failed` / **0** `ERR`. T1 ειδοποίηση ✅ · T2 `x/3 ώρες` + persistence ✅ · T5 share entry σε Yahoo Mail (τίτλος+πεδία+📎) ✅ · T6 add/open/delete ✅. Τα `WRN RACE RISK` είναι προϋπάρχοντα (S50, `main.dart:349-353`), όχι E18.
 
-### E19 — `take(10)` ×2 + διπλότυπη λογική
-- **Σημεία:** `items_query_provider.dart:64` · `home_folder_view.dart:171` (το doc έλεγε `:143` — drift). Ίδιο φίλτρο `deletedAt == null && !archived` + magic 10 ⇒ SPoT helper/const.
+### E19 — ✅ CLOSED 26/10/2026 (S275)
+- **Υλοποίηση:** (α) `_recentLimit = 10` στο `home_folder_view.dart` · (β) τα 3 φίλτρα χρησιμοποιούν το **υπάρχον** `Item.isVisible` (`item.dart:141`, 0 χρήσεις πριν) — απόδειξη ότι ήταν περιττά: το `watchByFolder` φιλτράρει **στη DB** `deletedAtIsNull + archivedEqualTo(false)` (`super_note_helper.dart:574-583`) · (γ) διαγράφηκε ο 2ος υπολογισμός `take(10)` μαζί με `FolderViewData` + `folderViewDataProvider` (`items_query_provider.dart:34-75`).
+- **Αποδοχή:** analyze clean · **322/322** · ίδια items/stats (behavior-neutral).
+- **Υπόλοιπο → `E44`:** «Πρόσφατα» ταξινομούνται με `sortOrder`, όχι `updatedAt` (semantic bug) + drag policy σε recency-sorted λίστα.
 
 ### E20 — `firstDate: DateTime(2000)` ×3
 - **Σημεία:** `reminder_section.dart:237` · `appointment_detail_screen.dart:463` · `journal_detail_screen.dart:561`. Αποκλείει ημερομηνίες <2000.
 - **Αποδοχή:** απόφαση ορίου (π.χ. 1900) + tests αν αλλάξει.
 
-### E21 — Stale TODOs ×7
-- `models/{attachment,device,app_settings,item_tag,tag,user,workspace}.dart:2` → `// TODO: Σελίδα προς Ανάπτυξη`. Απόφαση: **διαγραφή** (κατά πλειοψηφία) ή υλοποίηση.
+### E21 — ✅ CLOSED 26/10/2026 (S275)
+- **Υλοποίηση:** διαγράφηκε το `// TODO: Σελίδα προς Ανάπτυξη` από `models/{attachment,app_settings,item_tag,tag,workspace}.dart:2` (χρησιμοποιούνται κανονικά → το TODO ήταν ψευδές). Σε `user.dart`/`device.dart` αντικαταστάθηκε με: `// Collection στο Isar — καμία λειτουργία δεν τη χρησιμοποιεί ακόμη.` (0 χρήσεις, κανένα auth/sync feature).
+- **Αποδοχή:** analyze clean · **322/322** · `grep "Σελίδα προς Ανάπτυξη"` = **0**.
 
 ### E22 — Υπόλοιπα §3.8 (spot-verified & μετρημένα 21/10/2026)
 **Επιβεβαιωμένα υπαρκτά:**
@@ -258,8 +258,9 @@
 - **`day/month/year` αντί intl (χειροκίνητο `d/m/yyyy`)** → `journal_detail_screen.dart:551,739` · `shared_intent_service.dart:150` · `reminder_diagnostics_screen.dart:187`.
 **Χαμηλής αξίας / per-case (όχι wholesale):** `if(!mounted)return` style · `Colors.white/black` (κυρίως σωστά ως on-color σε χρωματιστές επιφάνειες).
 
-### E23 — G-track (S120): απόφαση κλεισίματος
-- «tokens/copy/limits, ξεχωριστά». Tokens ✅ S169· limits υπάρχουν (`maxAttachmentSizeMB`). Πιθανόν **obsolete** — θέλει ρητό κλείσιμο για να μη στοιχειώνει.
+### E23 — ✅ CLOSED 26/10/2026 (S275, απόφαση — 0 κώδικας)
+- **Κείμενο κλεισίματος (ακριβές):** Tokens canonical (S169). Limits canonical **ανά τομέα** (`osAlarmLimit`, `maxAttachmentSizeMB`, `pickerLastYears`, `maxResults`, `ImageUtils.*`). **Δεν** υπάρχει ενιαίο registry και **δεν** προστίθεται: το μόνο πραγματικό διπλότυπο (370-ήμερο, `super_note_helper.dart:1143,1155`) μένει σκόπιμα (2 sites, ίδιο αρχείο, σχολιασμένα). **Δεν** διεκδικείται «όλα canonical».
+- **Αποδοχή:** analyze clean · **322/322** (docs-only).
 
 ### E25 — ✅ CLOSED 24/10/2026 (S273, docs sync όπως στο τελικό κλείσιμο)
 - `supernote.md`: test counter **294/294**, Error Handling/Performance **αληθή**, tree **+4 αρχεία**, `dayTickProvider`, ShareService (E39 pointer) · `code_refactor.md`: §3/§7/§8/§9 → **παραπομπή** (κανόνας 9), πλήρες αντίγραφο `backups/s273_docs_sync/` · `oldsessions.md`: κεφάλαιο **S273** · `a11y.md`/`README.md` ευθυγραμμισμένα. Λεπτομέρειες: §3/§4 + `oldsessions.md` S273.
@@ -328,6 +329,13 @@
 - **Device pass (26/10/2026):** 3ήμερο συμπαγές · επικάλυψη → **45° hatch** στην κοινή ζώνη + συνεχής γραμμή σε όλο το 2ο εύρος · all-day εύρος · γενέθλια χωρίς γραμμή · χρώμα picker (και σε selected/today) · 100%/140% χωρίς overflow. **PASS.**
 - **Αποδοχή:** analyze clean · **321/321** (51 files) · §3 + `oldsessions.md` S274 · backups `s274_e41/`, `s274_e41_hatch/`, `s274_e41_dots_top/`, `s274_e41_close/`.
 
+### E44 — «Πρόσφατα» = πραγματικά πρόσφατα + drag policy (P2 — νέο από S275)
+- **Πού:** `home_folder_view.dart` (`FolderViewMode.recent` → `all.where(isVisible).take(_recentLimit)`) · `reorderable_item_list.dart:36` (`_canDrag` = `!pinned && !favorite`, hardcoded).
+- **Απόδειξη:** το stream έρχεται `sortBySortOrder()` (`super_note_helper.dart:580`) → `_sortByCategory` για ίσο `sortOrder` επιστρέφει `0` (`:236`)· κάθε νέο item γράφεται `sortOrder = 0.0` (`item_provider.dart`) ⇒ **ποια 10 φαίνονται δεν ορίζεται από τον κώδικα**. Η ταξινόμηση `updatedAt desc` υπήρχε μόνο στο διαγραμμένο `FolderViewData.recent` και **δεν διαβαζόταν ποτέ**.
+- **Γιατί P2:** λάθος περιεχόμενο στο **default** mode (`home_folder_view.dart:49`), όχι crash.
+- **Κόστος/Ρίσκο:** `updatedAt desc` πριν το `take` + `canDrag` override param στο `ReorderableItemList` (shared widget — **ίδιο** αρχείο με E27/autoScroll). Χωρίς το gating, το drag σε recency-sorted λίστα φαίνεται «να μην κάνει τίποτα».
+- **Acceptance:** 12 items με διαφορετικά `updatedAt` → τα **10 νεότερα**· edit → πάει πρώτο· drag σε recent mode είτε απενεργοποιημένο είτε σταθερό (απόφαση στο O5)· 100%/140% χωρίς overflow.
+
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
 1. ✅ `oldsessions.md`: κεφάλαιο **S273** (Φ5 partial: E18, device pass, E39, docs, commits).
@@ -339,7 +347,10 @@
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S274.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S275.
+
+- **`O6` (E19, E14, E21, E23) — CLOSED 26/10/2026 (S275, analyze+tests):** `FolderViewData` + `folderViewDataProvider` **διαγράφηκαν** (2η συνδρομή στο ίδιο stream + `error: (_, __) async* {}` που παραβίαζε `supernote.md:950` → αιώνιο skeleton)· stats in-memory από το `itemsByFolderStreamProvider` (`_countVisibleByType`, `Item.isVisible`)· `_recentLimit=10` αντί magic number· **9 dead providers** + **7 invalidates** + docs (11 γραμμές) έφυγαν· **7 stale TODOs** (5 διαγραφές + 2 αληθή σχόλια)· E23 ρητό κλείσιμο. analyze clean · **322/322** · νέο test: stream error → `statsSkeleton` = `findsNothing`.
+- **`E42` — CLOSED 26/10/2026 (S275, μαζί με O6):** `home_screen.dart` fingerprint + `updatedAt` **μόνο** για `pinnedOrder == null` (εκεί το sort το χρησιμοποιεί, `:551-552`) → η σειρά στο `ViewMode.both` ανανεώνεται μετά από edit χωρίς churn στα ordered items. Επαλήθευση στο device pass του **O5** (ίδια οθόνη).
 
 - **`E41` — CLOSED 26/10/2026 (device-verified, S274: πολυήμερα συμβάντα):** `end_date` (EAV, date-only inclusive) + `span_color` → **συνεχής** γραμμή στο κάτω μέρος του κελιού (τελείες τύπου πάνω, `top: 0`), **45° hatch overlay** στις επικαλύψεις (`SpanDay.overlays`), 1 lane / 5px (3px + 1px halo), render-time αντίθεση ≥3.0:1 · `calendarDataVersionProvider` (F25) · blocklist αναζήτησης · share εύρος. Device (26/10/2026): 26 συμπαγές → 27–28 hatch → 29 συμπαγές 2ου · all-day 22–24 · γενέθλια χωρίς γραμμή · χρώμα picker σε selected/today · 100%/140% χωρίς overflow. analyze clean · **321/321**.
 
@@ -447,7 +458,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 → Ο5 → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 (+E44) → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -456,8 +467,8 @@
 | **Ο3 — Mass-delete pipeline** | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` (+bulk reminder call αν χρειαστεί) | — |
 | **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
 | **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
-| **Ο5 — Grid + verify** | E27 + E03 | `reorderable_item_list` + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 |
-| **Ο6 — Cleanup & visibility sweep** (E18 ✅ 24/10/2026, device-verified) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device | E19/E21/E14/E23 από E18 |
+| **Ο5 — Grid + verify** | E27 + E03 + **E44** | `reorderable_item_list` + recency sort/drag policy + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 · E44 από E19 |
+| **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
