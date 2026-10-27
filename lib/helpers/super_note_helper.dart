@@ -415,15 +415,42 @@ class ItemRepository {
     });
   }
 
-  /// Restore soft-deleted item
-  Future<void> restore(int id) async {
-    final item = await getById(id);
-    if (item == null) return;
-    item.deletedAt = null;
-    item.isDirty = true;
+  /// Restore soft-deleted item — E40: wrapper του batch (1 impl, ίδιο state).
+  Future<void> restore(int id) => restoreMany([id]);
+
+  /// E40: batch restore — 1 read (getByIds) + 1 writeTxn/putAll για ΟΛΑ τα ids
+  /// (αντί N restore calls). Δεν αλλάζει updatedAt/localVersion (E44 recency).
+  ///
+  /// ΑΣΦΑΛΕΙΑ (SDK-αποδεδειγμένο): κενή λίστα → return ΠΡΙΝ από κάθε Isar call
+  /// (`putAll([])` κάνει `alloc(0)` → ArgumentError όπου malloc(0)==null).
+  /// Κλειστή DB: guard ΠΡΙΝ το getByIds (το read απαιτεί ανοιχτή DB).
+  /// ΠΟΤΕ κλήση από μέσα σε writeTxn (το Isar δεν επιτρέπει nested txns).
+  Future<void> restoreMany(List<int> ids) async {
+    final unique = ids.toSet().toList();
+    if (unique.isEmpty) return;
+    if (!_isar.isOpen) {
+      DebugConfig.warning(
+          'restoreMany: DB closed — skipped (n=${unique.length})');
+      return;
+    }
+    final items = await getByIds(unique);
+    final targets = [for (final it in items) if (it.deletedAt != null) it];
+    if (targets.isEmpty) {
+      DebugConfig.db(
+          'restoreMany: n=${unique.length} restored=0 (already active/missing)');
+      return;
+    }
+    for (final item in targets) {
+      item.deletedAt = null;
+      item.isDirty = true;
+    }
     await _isar.writeTxn(() async {
-      await _isar.items.put(item);
+      await _isar.items.putAll(targets);
     });
+    // Id list μόνο σε μικρά batch (αποφυγή τεράστιων γραμμών logcat).
+    final idLog = unique.length <= 20 ? ' ids=$unique' : '';
+    DebugConfig.db(
+        'restoreMany: n=${unique.length} restored=${targets.length}$idLog');
   }
 
   /// Hard delete (permanent — διαγράφει και όλα τα related data + φυσικά αρχεία από δίσκο)

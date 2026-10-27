@@ -3918,3 +3918,41 @@
 - Στο device pass βάλε **marker ανά test** (`adb shell log -t E05MARK "=== T1 ==="`) στο **ίδιο** logcat stream: ένα αρχείο, 7 ενότητες, 0 Ctrl+C. Και έλεγξε το **pid** — αν άλλαξε, η εφαρμογή έκανε restart και τα προηγούμενα logs ανήκουν σε άλλη build (συνέβη στο 1ο T1).
 
 **Επόμενο:** **Ο7** (E22 + E20 — dates/editor mini-pass).
+
+---
+
+## S278 — E40: batch restore από τον κάδο (N× → 1×)
+
+**Πρόβλημα:** το `_restoreSelected` καλούσε `restoreItem(id)` σε loop ⇒ **N×** cascade query-set, **N×** `writeTxn` (N commits/fsync), **N×** `refreshRecurringReminders` (global), **N×** `topUpHabitReminders(force)` (global σάρωση συνηθειών), **N×** `invalidateSelf`. Το τελικό state ήταν ήδη σωστό — το κόστος ήταν το πρόβλημα.
+
+**Απόφαση (με OK χρήστη):** 1 impl + wrappers (`restoreItem`, `restore`) · **όχι** batch reschedule τώρα (`scheduleAll(incremental)` απορρίφθηκε: global scope + χωρίς E10 text sync· `debouncedRefresh…` = λάθος εργαλείο· `syncScheduleWithRecurrence` = destructive) · φίλτρο `deletedAt != null` · `invalidateSelf` σε `finally` · flag επανεισόδου UI · 0 νέα tests/SnackBar · `topUp` πάντα 1×.
+
+**Τεχνικά θεμέλια (πραγματικός SDK — `pubspec.lock`):**
+- isar **3.1.0+1**: `putAll` → `putAllByIndex` → `getTxn(true, …)` που **reuse-άρει** το ενεργό write txn από το Zone (`isar_common.dart:84-110`) ⇒ **1 commit**, 0 nested error. Αντίθετα, `writeTxn` → `_beginTxn` → `_requireNotInTxn()` (`:19-26, :37`) ⇒ **απαγορεύεται** nested `writeTxn`.
+- 🔴 `putAll([])` → `newCObjectSet(0)` → `alloc<CObject>(0)` → `MallocAllocator.allocate` → `posixMalloc(0)` + `if (address == 0) throw ArgumentError` (`ffi-2.2.0 allocation.dart:61-71`) ⇒ guard κενής λίστας **πρώτος**, πριν από κάθε Isar call.
+- `Isar.isOpen` (`isar.dart:148`/`:247`) + `requireOpen()` στο `_beginTxn` (`:36`) ⇒ το `!isOpen` guard **πριν** το `getByIds` (το read απαιτεί ανοιχτή DB — αλλιώς δεν προλαβαίνει να δράσει).
+- riverpod **2.6.1**: `invalidateSelf` = `runOnDispose` + scheduled refresh, idempotent (`framework/element.dart:292-300`)· `ref` μετά από widget dispose → `StateError` (`flutter_riverpod consumer.dart:550`) ⇒ `mounted` χειροκίνητα.
+- lints: `flutter_lints 4.0.0` — `use_build_context_synchronously`/`avoid_print`/`prefer_const_*` **ενεργά**· `unawaited_futures`/`discarded_futures` **όχι** (δεν πιέζει σε `unawaited`).
+- FLN **17.2.4**: μόνο `cancel(id)`/`cancelAll()` — καμία bulk-by-ids· το E40 **δεν** αγγίζει FLN (0 νέο dependency).
+
+**Υλοποίηση (3 αρχεία, 2 νέες μέθοδοι, 0 νέοι providers/ουρές/αρχεία/strings/tests/schema):**
+1. `super_note_helper.dart` (`:418-454`): `restoreMany(ids)` = `isEmpty` → `!isOpen` → `getByIds` → φίλτρο `deletedAt != null` → `deletedAt=null` + `isDirty=true` → **1** `writeTxn` + `putAll`· log `restoreMany: n=… restored=…`· `restore(id)` = wrapper. **Χωρίς** `updatedAt`/`localVersion` (E44 recency).
+2. `item_provider.dart` (`:250-289`): `restoreMany(ids)` = dedupe → 1 `_collectionEntryIds(…, includeDeleted:true)` → entries+parents dedupe (entries πρώτα) → 1 repo call → 1 refresh → `rescheduleForItem`/id → 1 `topUp(force)` → log parity n=1 (`restoreItem: id=… → rescheduled`) → `finally` `invalidateSelf`· `restoreItem(id)` = wrapper. `_cascadeCollectionEntries` **μένει** (delete paths).
+3. `trash_screen.dart` (`:75-92`): snapshot ids **πριν** το confirm → flag **πριν** το 1ο await → confirm → `if (!confirm || !mounted) return` → **1** `restoreMany` → `_clearSelectionAndRefresh`· `_restoreSingle` αμετάβλητο.
+
+**R1:** `trash_screen` 492→**496** ✅ · `item_provider` 459→**482** ✅ (όριο επιτήρησης 495) · `super_note_helper` 1596→**1623** (ήδη >500 = **E06**, 0 νέα παράβαση).
+
+**Απόδειξη:** `flutter analyze` → **No issues found** (4.7s) · `flutter test` → **339/339** (~23s) · 0 test edits (0 hits σε restore/trash).
+
+**Backups:** `backups/s278_e40/` — 3 `.pre` (`trash_screen`, `item_provider`, `super_note_helper`) + `BASE_HEAD.txt` = `0141a0d`.
+
+**Residuals:** R-E40-1 reschedule παραμένει ανά id (σειριακά, χωρίς νέο getter) · R-E40-2 το φίλτρο δεν ξαναγράφει `isDirty` σε μη-deleted entries (indexed, **0 consumers**) · R-E40-3 read-modify-write window 1/item (ίδιο με `restore`/`reorder`) · R-E40-4 archived+deleted → επανέρχεται στο **αρχείο**, όχι στη λίστα (parity, T9) · R-E40-5 `restoreItem` n=1 έχει 2 επιπλέον logs (`ItemNotifier.restoreMany`, `E40 restoreMany`) — τα παλιά μένουν **byte-identical** · R-E40-6 `invalidateSelf` σε `finally` (app-scoped provider, ίδιο πρότυπο με `unarchiveMany`).
+
+**Μαθήματα:**
+- Το `putAll` μέσα σε `writeTxn` **δεν** είναι nested txn: το `getTxn` reuse-άρει το ενεργό — αλλιώς θα έσκαγε με IsarError.
+- Ο guard κενής λίστας δεν είναι «καλή πρακτική»: το `alloc(0)` φτάνει σε `ArgumentError` ανάλογα με την πλατφόρμα.
+- Σειρά guards: `isEmpty` → `isOpen` → read → txn. Αν το `isOpen` μπει μετά το read, δεν προλαβαίνει (το read πετάει πρώτο).
+- `ref` μετά από `await` σε `ConsumerState` = `StateError`, και **δεν** το πιάνει lint (είναι `WidgetRef`, όχι `BuildContext`) — `mounted` χειροκίνητα.
+- Πριν γράψεις batch restore, έλεγξε αν το SDK έχει ήδη bulk cancel/insert API· εδώ το FLN δεν έχει, αλλά το Isar `putAll` + `getTxn` κάλυψαν το 100% της ανάγκης.
+
+**Κατάσταση: 🟡 ΥΛΟΠΟΙΗΘΗΚΕ (analyze clean + 339/339) — αναμονή device T1–T9.** Το E40 **μένει ανοιχτό** στο `error_list.md` μέχρι το device pass (κανόνας 9).
