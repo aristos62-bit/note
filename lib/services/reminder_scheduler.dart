@@ -693,43 +693,54 @@ class ReminderScheduler {
   }
 
   Future<void> deleteAllRemindersForItem(int itemId) =>
-      _bakeQueue.run(() => _deleteAllRemindersForItemImpl(itemId));
+      _bakeQueue.run(() => _deleteAllRemindersImpl([itemId]));
 
-  Future<void> _deleteAllRemindersForItemImpl(int itemId) async {
+  /// E05 (F13b): batch εκδοχή — **1** OS snapshot (`pendingNotificationRequests`)
+  /// για όλα τα items + 1 query rows + 1 writeTxn (αντί N× platform call).
+  /// Ίδιο τελικό state με N× single.
+  Future<void> deleteAllRemindersForItems(List<int> itemIds) {
+    final ids = itemIds.toSet().toList();
+    if (ids.isEmpty) return Future<void>.value();
+    return _bakeQueue.run(() => _deleteAllRemindersImpl(ids));
+  }
+
+  Future<void> _deleteAllRemindersImpl(List<int> itemIds) async {
+    final one = itemIds.length == 1;
+    final label =
+        one ? 'deleteAllRemindersForItem' : 'deleteAllRemindersForItems';
+    final suffix = one ? 'itemId=${itemIds.first}' : 'n=${itemIds.length}';
     try {
-      DebugConfig.notif(
-          'ReminderScheduler.deleteAllRemindersForItem: itemId=$itemId');
+      DebugConfig.notif('ReminderScheduler.$label: $suffix');
+      final payloads = {for (final id in itemIds) id.toString()};
       final all = await SuperNoteHelper.instance.isar.reminders
           .filter()
-          .itemIdEqualTo(itemId)
+          .anyOf(itemIds, (q, id) => q.itemIdEqualTo(id))
           .findAll();
       // H4α: ένα batch αντί για thread-delete ανά row. Το OS scan καλύπτει
       // και ghosts που δεν έχουν πλέον DB row.
       final ids = <int>{for (final r in all) r.id};
       final os = await _readOsSnapshots();
       ids.addAll(os.values
-          .where((o) => o.payload == itemId.toString())
+          .where((o) => payloads.contains(o.payload))
           .map((o) => o.id));
 
       try {
-        if (ids.isNotEmpty) {
+        // Guard στο `all` (όχι στο `ids`): ΠΟΤΕ deleteAll([]) — βλ. hardDeleteMany.
+        if (all.isNotEmpty) {
           await SuperNoteHelper.instance.isar.writeTxn(() async {
             await SuperNoteHelper.instance.isar.reminders
                 .deleteAll(all.map((r) => r.id).toList());
           });
         }
       } catch (e, stack) {
-        DebugConfig.error(
-            'ReminderScheduler.deleteAllRemindersForItem DB itemId=$itemId',
-            e,
-            stack);
+        DebugConfig.error('ReminderScheduler.$label DB $suffix', e, stack);
       } finally {
         await _cancelReminderIdsImpl(ids);
       }
       DebugConfig.notif(
-          'deleteAllRemindersForItem: deleted ${all.length} rows, cancelled ${ids.length} OS ids itemId=$itemId');
+          '$label: deleted ${all.length} rows, cancelled ${ids.length} OS ids $suffix');
     } catch (e, stack) {
-      DebugConfig.error('ReminderScheduler.deleteAllRemindersForItem', e, stack);
+      DebugConfig.error('ReminderScheduler.$label', e, stack);
     }
   }
 

@@ -427,36 +427,85 @@ class ItemRepository {
   }
 
   /// Hard delete (permanent — διαγράφει και όλα τα related data + φυσικά αρχεία από δίσκο)
-  Future<void> hardDelete(int id) async {
-    DebugConfig.db('hardDelete: permanent delete itemId=$id');
+  /// E05 (F13b): 1 impl — το single είναι wrapper του batch (ίδιο τελικό state).
+  Future<void> hardDelete(int id) => hardDeleteMany([id]);
+
+  /// E05 (F13b): batch hard delete — 1 query reminders + 1 query attachments
+  /// + 1 writeTxn για ΟΛΑ τα ids (αντί 3 DB calls/item). Τα φυσικά αρχεία
+  /// διαγράφονται μετά το txn (όπως το single). Τα OS alarms έχουν ήδη
+  /// ακυρωθεί upstream (deleteAllRemindersForItems).
+  ///
+  /// ΑΣΦΑΛΕΙΑ (SDK-αποδεδειγμένο): ΠΟΤΕ κενή λίστα σε deleteAll/anyOf —
+  /// `anyOf([])` είναι no-op filter (= ΟΛΑ τα rows) και `deleteAll([])` κάνει
+  /// `alloc(0)` (ArgumentError σε πλατφόρμες όπου malloc(0) == null).
+  Future<void> hardDeleteMany(List<int> ids) async {
+    final unique = ids.toSet().toList();
+    if (unique.isEmpty) return;
+    // B4/E33 defense-in-depth (ίδιο πρότυπο με cleanupOldPending): κλειστή DB
+    // (restore/wipe) → warning + skip, αντί exception.
+    if (!_isar.isOpen) {
+      DebugConfig.warning(
+          'hardDeleteMany: DB closed — skipped (n=${unique.length})');
+      return;
+    }
+    // Id list μόνο σε μικρά batch (αποφυγή τεράστιων γραμμών logcat).
+    final idLog = unique.length <= 20 ? ' ids=$unique' : '';
+    DebugConfig.db('hardDeleteMany: permanent delete n=${unique.length}$idLog');
 
     // ★ Έλεγξε reminders πριν τη διαγραφή
     final remindersBefore = await _isar.reminders
         .filter()
-        .itemIdEqualTo(id)
+        .anyOf(unique, (q, id) => q.itemIdEqualTo(id))
         .findAll();
-    DebugConfig.db('hardDelete: found ${remindersBefore.length} reminder(s) for itemId=$id — will cascade-delete from Isar but NOT cancel OS notifications!');
-    for (final r in remindersBefore) {
-      DebugConfig.notif('  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name} rrule=${r.rrule} parentId=${r.parentReminderId}');
+    DebugConfig.db(
+        'hardDeleteMany: found ${remindersBefore.length} reminder(s) for n=${unique.length} — cascade-delete from Isar but NOT cancel OS notifications!');
+    // Log ανά row μόνο σε μικρά batch (αποφυγή χιλιάδων γραμμών logcat).
+    if (remindersBefore.length <= 20) {
+      for (final r in remindersBefore) {
+        DebugConfig.notif(
+            '  reminder id=${r.id} trigger=${r.triggerAt} status=${r.status.name} rrule=${r.rrule} parentId=${r.parentReminderId}');
+      }
     }
 
     // 1. Φόρτωσε attachments ΠΡΙΝ το writeTxn (για disk cleanup μετά)
     final attachments = await _isar.attachments
         .filter()
-        .itemIdEqualTo(id)
+        .anyOf(unique, (q, id) => q.itemIdEqualTo(id))
         .findAll();
-    DebugConfig.db('hardDelete: found ${attachments.length} attachment(s) for itemId=$id');
+    DebugConfig.db(
+        'hardDeleteMany: found ${attachments.length} attachment(s) for n=${unique.length}');
 
     await _isar.writeTxn(() async {
-      await _isar.items.delete(id);
+      await _isar.items.deleteAll(unique);
       // Cascade delete
-      await _isar.itemBlocks.filter().itemIdEqualTo(id).deleteAll();
-      await _isar.itemPropertys.filter().itemIdEqualTo(id).deleteAll();
-      await _isar.itemTags.filter().itemIdEqualTo(id).deleteAll();
-      await _isar.relations.filter().fromItemIdEqualTo(id).deleteAll();
-      await _isar.relations.filter().toItemIdEqualTo(id).deleteAll();
-      await _isar.reminders.filter().itemIdEqualTo(id).deleteAll();
-      await _isar.attachments.filter().itemIdEqualTo(id).deleteAll();
+      await _isar.itemBlocks
+          .filter()
+          .anyOf(unique, (q, id) => q.itemIdEqualTo(id))
+          .deleteAll();
+      await _isar.itemPropertys
+          .filter()
+          .anyOf(unique, (q, id) => q.itemIdEqualTo(id))
+          .deleteAll();
+      await _isar.itemTags
+          .filter()
+          .anyOf(unique, (q, id) => q.itemIdEqualTo(id))
+          .deleteAll();
+      await _isar.relations
+          .filter()
+          .anyOf(unique, (q, id) => q.fromItemIdEqualTo(id))
+          .deleteAll();
+      await _isar.relations
+          .filter()
+          .anyOf(unique, (q, id) => q.toItemIdEqualTo(id))
+          .deleteAll();
+      await _isar.reminders
+          .filter()
+          .anyOf(unique, (q, id) => q.itemIdEqualTo(id))
+          .deleteAll();
+      await _isar.attachments
+          .filter()
+          .anyOf(unique, (q, id) => q.itemIdEqualTo(id))
+          .deleteAll();
     });
 
     // 2. Διέγραψε φυσικά αρχεία από δίσκο (μετά το τρανζαξιόν)
@@ -465,15 +514,18 @@ class ItemRepository {
         final file = File(att.localPath);
         if (await file.exists()) {
           await file.delete();
-          DebugConfig.db('hardDelete: deleted file "${att.fileName}" (${att.localPath})');
+          DebugConfig.db(
+              'hardDeleteMany: deleted file "${att.fileName}" (${att.localPath})');
         } else {
-          DebugConfig.db('hardDelete: file already missing "${att.fileName}" (${att.localPath})');
+          DebugConfig.db(
+              'hardDeleteMany: file already missing "${att.fileName}" (${att.localPath})');
         }
       } catch (e) {
-        DebugConfig.warning('hardDelete: failed to delete file ${att.localPath}: $e');
+        DebugConfig.warning(
+            'hardDeleteMany: failed to delete file ${att.localPath}: $e');
       }
     }
-    DebugConfig.db('hardDelete: done itemId=$id');
+    DebugConfig.db('hardDeleteMany: done n=${unique.length}');
   }
 
   // ── REORDER (new) ──────────────────────────────────────────

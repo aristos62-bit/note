@@ -3854,3 +3854,52 @@
 - Το `update()` bump `updatedAt` και για pin/favorite/χρώμα/archive/μετακίνηση → κάθε τέτοια ενέργεια φέρνει το item στην κορυφή των «Προσφάτων» (F11, by design· όχι bug).
 
 **Επόμενο:** **Ο3** (E05 — mass-delete pipeline, υψηλό ρίσκο) → **Ο7** (E22 + E20).
+
+## Session 277 — 27/10/2026 (Ο3: mass-delete pipeline — E05 `permanentDeleteMany`) — 🟡 κώδικας ✅ · device pending
+
+> Στόχος: «Άδειασμα κάδου» / «Οριστική διαγραφή επιλεγμένων» = **1** κύκλος αντί N (σήμερα N× `invalidateSelf` + N× OS snapshot + N× txn + N× cascade queries). Καμία αλλαγή αρχιτεκτονικής: ίδια ουρά, ίδιοι providers, **ίδιο τελικό state**.
+
+**Αποφάσεις (A1–A8, εγκρίθηκαν πριν τον κώδικα):**
+1. **A1:** `HabitService.deleteHabitRemindersMany(itemIds, {afterRows})` — **ενημέρωση** της υπάρχουσας S250 API (το single = wrapper), **όχι** `runSerializedPass` (0 έκθεση ουράς).
+2. **A2:** **1** `writeTxn` για όλο το batch (all-or-nothing) — σήμερα μια αποτυχία αφήνει μισή διαγραφή.
+3. **A3:** `permanentDelete` (single) **αμετάβλητο** — 0 rewrite του S250-verified path.
+4. **A4:** `_restoreSelected` (ίδιο N×) → **νέο ID (E40) με OK**, εκτός E05.
+5. **A5:** per-reminder log μόνο σε ≤20 rows, αλλιώς σύνοψη· id-lists σε logs μόνο σε ≤20.
+6. **A6:** **0 νέα unit tests** (T-A) — απόδειξη = analyze + 339/339 + device structural logs (precedent S255).
+7. **A7:** `_cascadeCollectionEntries` → thin wrapper του batch `_collectionEntryIds` (1 impl, χρησιμοποιείται και από `deleteItem`/`restoreItem`).
+8. **A8:** `if (!_isar.isOpen) { warning; return; }` στο `hardDeleteMany` (πρότυπο B4/E33 `cleanupOldPending`).
+
+**Τεχνικά θεμέλια (έλεγχος στον πραγματικό SDK — `pubspec.lock`, όχι υποθέσεις):**
+- isar **3.1.0+1**: `IsarCollection.deleteAll(List<int>) → Future<int>` (`isar_collection_impl.dart:351`)· `Query.deleteAll()` = **1** native `isar_q_delete`, χωρίς materialization (`query_impl.dart:88-97`)· `Isar.isOpen` (`isar.dart:148`).
+- 🔴 **`anyOf([])` = no-op filter** (`query_builder_extensions.dart:93-106` + `query_builder.dart:129-133` → `FilterGroup.and([])` = always true) ⇒ `filter().anyOf([]).deleteAll()` θα έσβηνε **ΟΛΑ** τα rows. **Hard rule:** ποτέ κενή λίστα σε `anyOf` delete-path. (Και τα 4 υπάρχοντα batch APIs έχουν ήδη `if (itemIds.isEmpty) return …`.)
+- 🔴 **`deleteAll([])`** → `txn.alloc<Int64>(0)` → `calloc(0,1)` → `ArgumentError` όπου `malloc(0)==null` (`allocation.dart:161-170`). **Hard rule:** guard πριν. (Το παλιό `_deleteAllRemindersForItemImpl` έλεγχε το `ids` αντί το `all` — διορθώθηκε, behavior-neutral.)
+- ✅ **Το 1 writeTxn είναι πραγματικά 1**: `writeTxn` κάνει `Zone.fork(_zoneTxn)` (`isar_common.dart:49-51`) και το `getTxn` **reuse-άρει** το ενεργό write txn (`:88-101`) ⇒ τα 8 `deleteAll()` δεν ανοίγουν νέα txn.
+- riverpod **2.6.1**: `invalidateSelf()` = `runOnDispose` + scheduled refresh (`element.dart:292-308`) — ασφαλές σε non-autoDispose· N× rebuild → **1**.
+- flutter_local_notifications **17.2.4**: **μόνο** `cancel(id)` / `cancelAll()` — **καμία** bulk-by-ids ⇒ R-E05-4 (O(N) OS cancels) παραμένει· το `cancelAll()` **απορρίφθηκε** (θα έσβηνε alarms άλλων items).
+- lints: `flutter_lints 4.0.0` (`lints 4.0.0`) — `unawaited_futures` **δεν** είναι ενεργό· `control_flow_in_finally` ενεργό (το `finally` μας δεν έχει return/break). **0** `build_runner` (κανένα schema change).
+
+**Υλοποίηση (5 αρχεία, 4 batch APIs, 0 νέοι providers/ουρές/strings/tests):**
+1. `super_note_helper.dart` (`:429-529`): `hardDeleteMany(List<int>)` = 1 query reminders + 1 query attachments + **1** writeTxn (8 `deleteAll`) + disk cleanup μετά· `hardDelete(id)` = wrapper· `isOpen` guard.
+2. `reminder_scheduler.dart` (`:695-737`): `deleteAllRemindersForItems(List<int>)` + `_deleteAllRemindersImpl` (1 OS snapshot, 1 rows query, 1 txn, `finally` cancel)· `deleteAllRemindersForItem` = wrapper· **log parity n=1** (`itemId=`).
+3. `habit_service.dart` (`:694-720`): `deleteHabitRemindersMany(itemIds, {afterRows})` = 1 pass της `_passQueue` (wipe ΟΛΩΝ + afterRows αδιαίρετα)· `deleteHabitReminders` = wrapper· log parity `habitId=`.
+4. `item_provider.dart` (`:221-251` resolver + `:296-339`): `permanentDeleteMany(ids)` — cascade resolver → 1 snapshot → 1 hard-delete txn → 1 `invalidateSelf`· `_collectionEntryIds` batch (1 `getByIds` + 1 `getByWorkspace`/workspace + 1 `getCollectionIds`)· `_cascadeCollectionEntries` = wrapper· habits ⊆ `unique` (τα entries είναι εξ ορισμού `knowledge`) ⇒ 1 `getByIds(unique)`.
+5. `trash_screen.dart` (`:98-100`, `:180-183`): 2 loops → 2 κλήσεις `permanentDeleteMany` (**496 → 492**, R1 ✅).
+
+**R1:** `trash_screen` 492 ✅ · `item_provider` 459 ✅ · `super_note_helper` 1596 · `habit_service` 1379 · `reminder_scheduler` 1268 (τα 3 τελευταία >500 = **E06**, 0 νέα παράβαση).
+
+**Απόδειξη (analyze + tests):** `flutter analyze` → **No issues found** (66.8s) · `flutter test` → **339/339** (54 αρχεία, κανένα test δεν αναφέρει τα symbols — grep 0 hits) · 158 αρχεία / **43.377** γραμμές `lib/`.
+
+**Backups:** `backups/s277_e05/` — 5 `.pre` αρχεία (SHA-256 ταυτόσημα πριν το edit) + `BASE_HEAD.txt` = `e62b4fe`.
+
+**Residuals:** R-E05-1 all-or-nothing txn · R-E05-2 fail-open 60s · R-E05-3 maintenance skip (parity) · R-E05-4 O(N) OS cancels (plugin) · R-E05-5 log rename `hardDelete`→`hardDeleteMany` · R-E05-6 3 αρχεία >500 (E06) · **R-E05-7** habit branch + maintenance = 0 deletions (μη προσπελάσιμο: `barrierDismissible:false` modal στο restore/wipe). **Observations (προϋπάρχοντα, 0 αλλαγή):** `Attachment.thumbnailPath` δεν σβήνεται από δίσκο · `dbProvider` δεν invalidate-άρεται μετά `SuperNoteHelper.close()`.
+
+**Κατάσταση: 🟡 κώδικας ✅ — device pending.** `error_list.md`: §0 (HEAD/339/43.377) · κάρτα E05 `Κατάσταση` γραμμή. `supernote.md`: 4 σημεία (API surface). Device: **T1–T7** με ρητή λίστα δεδομένων (κανόνας 12).
+
+**Μαθήματα:**
+- Πριν γράψεις batch delete, διάβασε το `anyOf` του SDK: **κενή λίστα = χωρίς φίλτρο**, όχι «κανένα αποτέλεσμα» — είναι το πιο επικίνδυνο σημείο όλης της δουλειάς.
+- Το `deleteAll([])` δεν είναι no-op: φτάνει σε `alloc(0)`· ο guard πρέπει να είναι στο **πλήθος των rows**, όχι στο σύνολο των OS ids.
+- «1 transaction» δεν σημαίνει «1 query»: το κέρδος είναι το **1 commit** (fsync) + 1 invalidate, όχι η αφαίρεση των queries.
+- Όταν κάνεις batch, τα logs πρέπει να κρατήσουν **byte-identical** τη μορφή για `n=1` — αλλιώς σπάνε τα device greps προηγούμενων sessions (S250).
+- Το `maintenance` skip μιας ουράς δεν είναι «απλώς καθυστέρηση»: αν το `afterRows` κρύβει τη διαγραφή, το skip = **καμία** διαγραφή. Ελέγχθηκε ότι η διαδρομή είναι μη προσπελάσιμη (modal), γι' αυτό δεν μπήκε fallback.
+
+**Επόμενο:** **device pass E05** (T1–T7, POCO X3 `9593c01e`) → οριστικό κλείσιμο E05 → **Ο7** (E22 + E20).

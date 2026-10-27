@@ -96,9 +96,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
     if (!confirm) return;
     final notifier = ref.read(itemNotifierProvider.notifier);
-    for (final id in _selectedIds.toList()) {
-      await notifier.permanentDelete(id);
-    }
+    await notifier.permanentDeleteMany(_selectedIds.toList());
     _clearSelectionAndRefresh();
   }
 
@@ -181,9 +179,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
               if (!confirm) return;
               final notifier = ref.read(itemNotifierProvider.notifier);
               final trashed = trashedAsync.valueOrNull ?? [];
-              for (final item in trashed) {
-                await notifier.permanentDelete(item.id);
-              }
+              await notifier.permanentDeleteMany([for (final i in trashed) i.id]);
               _clearSelectionAndRefresh();
             },
           ),
