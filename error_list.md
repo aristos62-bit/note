@@ -235,22 +235,22 @@
 - **Υπόλοιπο → `E44`:** «Πρόσφατα» ταξινομούνται με `sortOrder`, όχι `updatedAt` (semantic bug) + drag policy σε recency-sorted λίστα.
 
 ### E20 — `firstDate: DateTime(2000)` ×3
-- **Σημεία:** `reminder_section.dart:237` · `appointment_detail_screen.dart:463` · `journal_detail_screen.dart:561`. Αποκλείει ημερομηνίες <2000.
+- **Σημεία:** `reminder_section.dart:237` · `appointment_detail_screen.dart:463` · `journal_detail_screen.dart:548` (refs refresh 27/10/2026/S277). Αποκλείει ημερομηνίες <2000.
 - **Αποδοχή:** απόφαση ορίου (π.χ. 1900) + tests αν αλλάξει.
 
 ### E21 — ✅ CLOSED 26/10/2026 (S275)
 - **Υλοποίηση:** διαγράφηκε το `// TODO: Σελίδα προς Ανάπτυξη` από `models/{attachment,app_settings,item_tag,tag,workspace}.dart:2` (χρησιμοποιούνται κανονικά → το TODO ήταν ψευδές). Σε `user.dart`/`device.dart` αντικαταστάθηκε με: `// Collection στο Isar — καμία λειτουργία δεν τη χρησιμοποιεί ακόμη.` (0 χρήσεις, κανένα auth/sync feature).
 - **Αποδοχή:** analyze clean · **322/322** · `grep "Σελίδα προς Ανάπτυξη"` = **0**.
 
-### E22 — Υπόλοιπα §3.8 (spot-verified & μετρημένα 21/10/2026)
+### E22 — Υπόλοιπα §3.8 (spot-verified & μετρημένα 21/10/2026 · refs refresh 27/10/2026/S277)
 **Επιβεβαιωμένα υπαρκτά:**
 - `Text('✓')` → `habit_detail_screen.dart:731`.
-- `📅` ×2 → `folder_create_sheet.dart:28,33`.
+- `📅` ×2 → `shared/widgets/folder_create_sheet.dart:28,33`.
 - `BlockTileWidget` Stateful → `block_editor_widget.dart:146` (state `:170`).
-- **Delete πάντα ορατό** → `block_editor_widget.dart:265-284` (22×22 κόκκινο ✕ σε **κάθε** block, χωρίς hover/focus) — UX.
-- **`O(n²)` block editor** → `block_editor_widget.dart:110-113`: `widget.blocks.sublist(0, i).where((b) => b.type == BlockType.numbered).length` **ανά γραμμή** μέσα στο `SliverChildBuilderDelegate`.
-- **`DateTime.now()` σε build** → αποδειγμένο: `task_list_screen.dart:302` μέσα σε `_TaskListBody.build` (25+ hits συνολικά, per-case).
-- **`day/month/year` αντί intl (χειροκίνητο `d/m/yyyy`)** → `journal_detail_screen.dart:551,739` · `shared_intent_service.dart:150` · `reminder_diagnostics_screen.dart:187`.
+- **Delete πάντα ορατό** → `block_editor_widget.dart:265-284` (`Icons.close_rounded` `:279`, 22×22 κόκκινο ✕ σε **κάθε** block, χωρίς hover/focus) — UX.
+- **`O(n²)` block editor** → `block_editor_widget.dart:110-113` (`sublist(0, i)` `:111`): `widget.blocks.sublist(0, i).where((b) => b.type == BlockType.numbered).length` **ανά γραμμή** μέσα στο `SliverChildBuilderDelegate`.
+- **`DateTime.now()` σε build** → αποδειγμένο: `task_list_screen.dart:268` (`_TaskListBody.build`) + `:475` (`_TaskProgressBar.build`) (25+ hits συνολικά, per-case · refs refresh 27/10/2026/S277).
+- **`day/month/year` αντί intl (χειροκίνητο `d/m/yyyy`)** → `journal_detail_screen.dart:538,726` · `shared_intent_service.dart:150` · `reminder_diagnostics_screen.dart:187` (refs refresh 27/10/2026/S277).
 **Χαμηλής αξίας / per-case (όχι wholesale):** `if(!mounted)return` style · `Colors.white/black` (κυρίως σωστά ως on-color σε χρωματιστές επιφάνειες).
 
 ### E23 — ✅ CLOSED 26/10/2026 (S275, απόφαση — 0 κώδικας)
