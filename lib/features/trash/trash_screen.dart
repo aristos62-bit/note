@@ -23,6 +23,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   // Multi‑selection state
   Set<int> _selectedIds = {};
+  bool _restoring = false; // E40: guard επανεισόδου (non-modal).
 
   @override
   void dispose() {
@@ -72,19 +73,22 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   }
 
   Future<void> _restoreSelected() async {
-    if (_selectedIds.isEmpty) return;
-    final confirm = await ConfirmDialog.show(
-      context,
-      title: 'Επαναφορά επιλεγμένων',
-      subtitle: 'Θα επαναφερθούν ${_selectedIds.length} στοιχεία.',
-      confirmLabel: 'Επαναφορά',
-    );
-    if (!confirm) return;
-    final notifier = ref.read(itemNotifierProvider.notifier);
-    for (final id in _selectedIds.toList()) {
-      await notifier.restoreItem(id);
+    if (_restoring || _selectedIds.isEmpty) return;
+    final ids = _selectedIds.toList(); // snapshot: confirm == ενέργεια
+    setState(() => _restoring = true);
+    try {
+      final confirm = await ConfirmDialog.show(
+        context,
+        title: 'Επαναφορά επιλεγμένων',
+        subtitle: 'Θα επαναφερθούν ${ids.length} στοιχεία.',
+        confirmLabel: 'Επαναφορά',
+      );
+      if (!confirm || !mounted) return; // S234: ref μετά από await
+      await ref.read(itemNotifierProvider.notifier).restoreMany(ids);
+      _clearSelectionAndRefresh();
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
-    _clearSelectionAndRefresh();
   }
 
   Future<void> _permanentDeleteSelected() async {

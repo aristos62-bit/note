@@ -247,23 +247,46 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
     return out;
   }
 
-  /// Restore από soft delete (F1: αν συλλογή → restore και των εγγραφών της)
-  Future<void> restoreItem(int id) async {
+  /// E40: batch restore — 1 cascade query-set + 1 txn + 1× refresh + 1× topUp
+  /// (αντί N× restoreItem). Wrapper: restoreItem(id) → restoreMany([id]).
+  /// NEVER-THROW · invalidate σε finally (και σε σφάλμα → όχι stale λίστα).
+  Future<void> restoreMany(List<int> ids) async {
+    final unique = ids.toSet().toList();
+    if (unique.isEmpty) return;
+    final idLog = unique.length <= 20 ? ' ids=$unique' : '';
+    DebugConfig.db('ItemNotifier.restoreMany n=${unique.length}$idLog');
+    final sw = Stopwatch()..start();
     try {
-      await _cascadeCollectionEntries(id, (eid) => ref.read(dbProvider).items.restore(eid),
-          includeDeleted: true, logTag: 'restoreItem');
-      await ref.read(dbProvider).items.restore(id);
-      // Συμμετρικό με unarchive: οι κρατημένες rows ξαναπρογραμματίζονται·
-      // οι συνήθειες θέλουν top-up (ο ορίζοντας εξαντλήθηκε στον κάδο).
+      final db = ref.read(dbProvider);
+      final entryIds = await _collectionEntryIds(unique,
+          includeDeleted: true,
+          logTag: unique.length == 1 ? 'restoreItem' : 'restoreMany');
+      // Εγγραφές πρώτα (interrupt-safe), μετά τα επιλεγμένα (dedupe).
+      final allIds = <int>{...entryIds, ...unique}.toList();
+      await db.items.restoreMany(allIds);
+      // Συμμετρικό με unarchive: 1× global refresh → reschedule ανά item →
+      // 1× topUp (ο ορίζοντας των συνηθειών εξαντλήθηκε στον κάδο).
       await ReminderScheduler.instance.refreshRecurringReminders();
-      await ReminderScheduler.instance.rescheduleForItem(id);
+      for (final id in unique) {
+        await ReminderScheduler.instance.rescheduleForItem(id);
+      }
       await HabitService.instance.topUpHabitReminders(force: true);
-      DebugConfig.notif('restoreItem: id=$id → rescheduled');
-      ref.invalidateSelf();
+      if (unique.length == 1) {
+        // Log parity n=1 (byte-identical με το παλιό restoreItem).
+        DebugConfig.notif('restoreItem: id=${unique.first} → rescheduled');
+      }
+      DebugConfig.notif(
+          'E40 restoreMany: n=${unique.length} total=${allIds.length} → 1× txn + 1× refresh + 1× topUp took=${sw.elapsedMilliseconds}ms');
     } catch (e, s) {
-      DebugConfig.error('ItemNotifier.restoreItem', e, s);
+      DebugConfig.error('ItemNotifier.restoreMany', e, s);
+    } finally {
+      ref.invalidateSelf();
     }
   }
+
+  /// Restore από soft delete (F1: αν συλλογή → restore και των εγγραφών της)
+  /// E40: wrapper του batch (1 impl) — log parity n=1 στο restoreMany.
+  Future<void> restoreItem(int id) => restoreMany([id]);
 
   /// Permanent delete
   Future<void> permanentDelete(int id) async {

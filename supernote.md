@@ -416,7 +416,7 @@ final db = SuperNoteHelper.instance;
 ### Sub-repositories
 | Repository | Key Methods | Stream Methods |
 |---|---|---|
-| `ItemRepository` | create, getById, getByWorkspace, getByFolder, getPinned, getFavorites, search, update, softDelete, restore, hardDelete, hardDeleteMany, reorder, reorderPinned, reorderFavorites, reorderCombined, count | watchByWorkspace, watchByFolder, watchPinnedByWorkspace, watchFavoritesByWorkspace, watchDeletedByWorkspace, watchById |
+| `ItemRepository` | create, getById, getByIds, getByWorkspace, getByFolder, getPinned, getFavorites, search, update, softDelete, restore, restoreMany, hardDelete, hardDeleteMany, reorder, reorderPinned, reorderFavorites, reorderCombined, count | watchByWorkspace, watchByFolder, watchPinnedByWorkspace, watchFavoritesByWorkspace, watchDeletedByWorkspace, watchById |
 | `BlockRepository` | create, getByItem, getChildren, updateText, toggleCheck, delete, reorder | watchByItem |
 | `PropertyRepository` | set (upsert), get, getValue, getAll, delete + typed helpers (setDate, setNumber, setBool, setCurrency) | — |
 | `TagRepository` | createOrGet, addToItem, removeFromItem, getForItem, getItemsWithTag, getAll | — |
@@ -894,6 +894,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 ### TrashScreen
 - Soft-deleted items (Item.deletedAt != null)
 - Restore or permanent delete
+- Bulk restore (E40): `ItemNotifier.restoreMany(ids)` = 1 cascade query-set (`_collectionEntryIds`) + **1** `writeTxn`/`putAll` (`ItemRepository.restoreMany`) + 1× `refreshRecurringReminders` + `rescheduleForItem`/id + 1× `topUpHabitReminders(force)` + `invalidateSelf` σε `finally`· `restoreItem(id)`/`restore(id)` = wrappers (1 impl, log parity n=1)
 
 ---
 
