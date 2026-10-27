@@ -57,10 +57,28 @@ Map<ItemType, int> _countVisibleByType(List<Item> items) {
   return counts;
 }
 
+/// Επιλογή «Πρόσφατων»: νεότερα πρώτα με `updatedAt ?? createdAt`.
+/// Tie-break `id desc` → ντετερμινιστική σειρά (τα νέα items έχουν όλα
+/// `sortOrder = 0.0` και το `List.sort` δεν είναι stable).
+/// `isVisible` = ίδιο SPoT φίλτρο με τις άλλες καρτέλες.
+List<Item> selectRecentItems(List<Item> items, {int limit = _recentLimit}) {
+  if (limit <= 0) return const <Item>[];
+  final visible = items.where((i) => i.isVisible).toList()
+    ..sort((a, b) {
+      final byTime =
+      (b.updatedAt ?? b.createdAt).compareTo(a.updatedAt ?? a.createdAt);
+      if (byTime != 0) return byTime;
+      return b.id.compareTo(a.id);
+    });
+  if (visible.length <= limit) return visible;
+  return visible.sublist(0, limit);
+}
+
 class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   Folder get folder => widget.folder;
   FolderViewMode _viewMode = FolderViewMode.recent;
   bool? _lastShowStats; // μόνο για log (αποφυγή spam ανά frame)
+  String? _lastRecentLog; // fingerprint για log (αποφυγή spam ανά frame)
 
   void _showCreateMenu(BuildContext context) async {
     final type =
@@ -182,9 +200,17 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
         final items = switch (_viewMode) {
           FolderViewMode.pinned    => all.where((i) => i.pinned && i.isVisible).toList(),
           FolderViewMode.favorites => all.where((i) => i.favorite && i.isVisible).toList(),
-          FolderViewMode.recent    => all.where((i) => i.isVisible).take(_recentLimit).toList(),
+          FolderViewMode.recent    => selectRecentItems(all),
           FolderViewMode.all       => <Item>[],
         };
+        if (_viewMode == FolderViewMode.recent) {
+          final fingerprint =
+              '${items.length}/$_recentLimit ids=[${items.map((i) => i.id).join(',')}]';
+          if (fingerprint != _lastRecentLog) {
+            _lastRecentLog = fingerprint;
+            DebugConfig.db('HomeFolderView recent $fingerprint');
+          }
+        }
         // Περνάμε και τη full λίστα για σωστό reorder
         return _buildItemsList(context, items, allItems: all);
       },
@@ -198,6 +224,8 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
       items: items,
       gridItemExtent: 100,
       gridItemExtentMax: 104,
+      // «Πρόσφατα» = χρονική προβολή· η χειροκίνητη σειρά είναι το «Όλα».
+      dragEnabled: _viewMode != FolderViewMode.recent,
       onReorder: (oldIdx, newIdx) {
         if (oldIdx == newIdx) return;
         final merged = ReorderUtils.moveAndMerge(full: allItems, filtered: items, oldIndex: oldIdx, newIndex: newIdx, debugLabel: 'folder_view');

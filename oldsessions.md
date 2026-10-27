@@ -3805,3 +3805,52 @@
 - `item.g.dart` έχει **write-only** slots 8/10 (`isDeleted`/`isVisible` getters) → **ποτέ** `build_runner` χωρίς λόγο· 0 reads, αβλαβές.
 
 **Επόμενο:** **O5** = E27 (autoScroll) + E03 (device re-verify) + **E44** (recency sort + drag policy), ένα device pass στα 100%/140% (και εκεί επαληθεύεται το E42).
+
+## Session 276 — 26/10/2026 (Ο5: grid autoScroll + «Πρόσφατα» + drag policy — E27/E03/E44) — ✅ CLOSED
+
+> Στόχος: να φύγουν **τρεις** εκκρεμότητες μαζί, γιατί μοιράζονται το **ίδιο** widget (`reorderable_item_list.dart`) και την **ίδια** οθόνη: auto-scroll στο grid (E27), «Πρόσφατα» = πραγματικά πρόσφατα + drag policy (E44), και device re-verify του auto-height (E03). Κανόνας 4 τηρήθηκε **αυστηρά**: 15 βήματα (0–14), ο χρήστης εφάρμοζε, στάση μετά από κάθε βήμα.
+
+**Αποφάσεις (A1–A8, εγκρίθηκαν πριν τον κώδικα):**
+1. **A1:** recency = `updatedAt ?? createdAt` (**item-level**, όχι block/property).
+2. **A2:** pure **top-level** `selectRecentItems` στο `home_folder_view.dart` (testable, χωρίς provider).
+3. **A3:** tie-break **`id desc`** — τα νέα items έχουν όλα `sortOrder = 0.0` και το `List.sort` δεν είναι stable.
+4. **A4:** **drag off** στο «Πρόσφατα» (χρονική προβολή, όχι χειροκίνητη σειρά).
+5. **A5:** `dragEnabled` **default `true`** → 0 αλλαγές στα 7 άλλα sites.
+6. **A6:** `_sortByCategory` **PARK** — 0 αλλαγές (το recency δεν εξαρτάται πλέον από αυτό).
+7. **A7:** ρητό `autoScroll: true` στις συλλογές.
+8. **A8:** F12/F13 → **νέες κάρτες**, όχι fix μέσα στο Ο5.
+
+**Διόρθωση v3 (πριν το βήμα 4):** αντί `bool? canDrag` με force-true (θα έδινε **νεκρά handles** σε pinned/favorite), κρατήθηκε `bool dragEnabled` **και** `_isDraggable = dragEnabled && !pinned && !favorite` — η νέα παράμετρος **δεν παρακάμπτει** την policy, τη συνδυάζει (AND).
+
+**Υλοποίηση (3 αρχεία + 3 νέα test files):**
+1. `test/recent_items_test.dart` (red πρώτα, «isn't defined» ×11) → **9 tests**.
+2. `home_folder_view.dart`: `selectRecentItems` (γρ. 64) · `_lastRecentLog` (γρ. 81) · `recent => selectRecentItems(all)` (γρ. 203) · gated log (γρ. 206-212) · `dragEnabled: _viewMode != FolderViewMode.recent` (γρ. 228).
+3. `reorderable_item_list.dart`: `dragEnabled` (γρ. 25/38) · `_isDraggable` (γρ. 41-42) · 4 αντικαταστάσεις (γρ. 65/120/142) · `autoScroll: physics is! NeverScrollableScrollPhysics` (γρ. 145).
+4. `collections_screen.dart`: `autoScroll: true` (γρ. 228).
+5. `test/reorderable_item_list_test.dart` (**+4**) · `test/home_recent_view_test.dart` (**+4**).
+
+**Εύρημα-κλειδί (autoScroll):** ο **γραπτός** κανόνας του package (`reorderable_grid.dart:338-339`) λέει «να απενεργοποιείται με `NeverScrollableScrollPhysics`» — άρα η σωστή τιμή είναι **παράγωγο του physics**, όχι `false`. Στα **Tasks** `autoScroll` = false **by design** (`NeverScrollableScrollPhysics` + `shrinkWrap`, `task_list_screen.dart:342-343`).
+
+**Device E27 (POCO X3, landscape, grid 2 στηλών):** κρατώντας το handle στο **κάτω άκρο του scrollable viewport** ~2s, η λίστα **κυλάει μόνη της** και αποκαλύπτει τα επόμενα items. Το trigger είναι γεωμετρικό: `proxyObjectEnd > scrollWindowEnd` (`reorderable_grid.dart:719-724`) — δηλαδή η **κάρτα** να βγει έξω από το viewport, όχι το δάχτυλο από την οθόνη. Μία χειρονομία κάλυψε 13 θέσεις (`move full=179 filtered=13 0→12`) → πρακτικά αδύνατο χωρίς auto-scroll.
+
+**Device E44 (POCO X3):** `HomeFolderView recent 10/10 ids=[…]` σε κάθε build· με 15 items στο φάκελο φαίνονται **10**· ενέργεια σε item → **1ο** (F11, by design μέσω `updatedAt` bump στο `update()`, `super_note_helper.dart:392`)· **καμία λαβή** στα «Πρόσφατα»· pinned/favorite **χωρίς** λαβή στα «Όλα»· drag σε «Πρόσφατα» κλειδωμένο· drag σε «Όλα» αποθηκεύει σειρά **χωρίς** να αγγίξει το `updatedAt`. Ελέγχθηκε και το «open-only bump»: άνοιγμα σημείωσης **δεν** αλλάζει σειρά (`_lastSavedTitle` guard, `note_detail_screen.dart:78` + `:141-142`).
+
+**Device E03 (POCO X3):** 140% **portrait** (9 οθόνες: journal/contacts/trash/search/home/collections/tasks/entries/habits) **και** 140% **landscape** (grid: notes 100→108, folder view 100→104, collections →102, home grid →144) → **0** `RenderFlex overflow`, **0** `❌`, `chipH=66.0 scale=1.40` σε κάθε build· επαναφορά 100% → `chipH=58.0 scale=1.00`.
+
+**Regression drag (100%):** Εργασίες (`[task]`, χωρίς auto-scroll by design) · Συνήθειες (`[habit]`) · Συλλογές (`[collections]`) · Entries (`[entries]`) · Home «Όλα» (`[folder_view]`) · Folder browser (`[browser]`) · «Πρόσφατα» κλειδωμένο → **όλα ✅**, σειρά **επιμένει** μετά από έξοδο/είσοδο, **0 ERR**.
+
+**Απόδειξη:** `flutter analyze` **No issues found** · **339/339** (54 αρχεία, +17: 9+4+4) · 158 αρχεία / **43.242** γραμμές `lib/` (χωρίς `*.g.dart`) · 20 αρχεία >500 (αμετάβλητο).
+
+**Backups:** `backups/o5_2026-10-26/` (rollback των 3 lib αρχείων) · `backups/o5_2026-10-26/docs/` (4 docs + `BASE_HEAD.txt` = `62c840d`).
+
+**Κατάσταση: ✅ CLOSED.** `error_list.md`: §1 **P2 8→5** (E27/E44/E03 έξω, renumber· P3 6..11) · §2 3× `✅ CLOSED` · §3 bullet Ο5 + «Grid» ενημερωμένο · §0 (HEAD, 339/339, 43.242) · §5/§6 (S276, Ο5 ✅). `supernote.md`: **αρχιτεκτονική αλλαγή** (autoScroll rule + `dragEnabled` policy + recency) → 5 σημεία. `README.md`: 339/339. `code_refactor.md`/`a11y.md`/`AGENTS.md`: **καμία αλλαγή** (παγωμένα/χωρίς hits).
+
+**Μαθήματα:**
+- «Άκρη της οθόνης» ≠ «άκρη του scrollable»: το auto-scroll κρίνεται από το **viewport** του `CustomScrollView` (κάτω από τα chips/toggle), όχι από το Scaffold — γι' αυτό το test έμοιαζε να αποτυγχάνει ενώ δούλευε.
+- Παράμετρος σε **κοινό** widget: προτίμησε **default που δεν αλλάζει** τα υπάρχοντα sites (A5) αντί να περάσεις ρητά τιμές σε 7 σημεία.
+- Όταν προσθέτεις «policy» σε shared widget, η νέα flag πρέπει να **συνδυάζεται** με την υπάρχουσα (`&&`), ποτέ να την αντικαθιστά.
+- Recency σε `sortOrder`-sorted stream = **τυχαία** αποτελέσματα (όλα `0.0`)· το `take` **πρέπει** να γίνει μετά το sort.
+- Log gate (`_lastRecentLog`) είναι **per-State**: όταν η οθόνη ξαναχτίζεται από την αρχή, το ίδιο fingerprint ξανατυπώνεται — όχι ένδειξη αλλαγής δεδομένων.
+- Το `update()` bump `updatedAt` και για pin/favorite/χρώμα/archive/μετακίνηση → κάθε τέτοια ενέργεια φέρνει το item στην κορυφή των «Προσφάτων» (F11, by design· όχι bug).
+
+**Επόμενο:** **Ο3** (E05 — mass-delete pipeline, υψηλό ρίσκο) → **Ο7** (E22 + E20).

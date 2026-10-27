@@ -40,14 +40,14 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 26/10/2026, μετά το S275/O6)
+## 0. Baseline (μετρημένο στον κώδικα — 26/10/2026, μετά το S276/Ο5)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `be0fe26` (E41 CLOSED) + S275 commit | `git log` |
-| `flutter analyze` | **No issues found** | run 26/10/2026 (S275) |
-| `flutter test` | **322/322** (51 αρχεία test) | run 26/10/2026 (S275) |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.206 (158 αρχεία) | μετρήθηκε 26/10/2026 (S275) |
+| Git HEAD | `62c840d` (O6/S275) + Ο5/S276 commit | `git log` |
+| `flutter analyze` | **No issues found** | run 26/10/2026 (S276) |
+| `flutter test` | **339/339** (54 αρχεία test) | run 26/10/2026 (S276) |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.242 (158 αρχεία) | μετρήθηκε 26/10/2026 (S276) |
 | Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519 · `home_screen.dart` 921) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
@@ -77,29 +77,26 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (8)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (5)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
 | 1 | `E05` | **F13b** — bulk-delete perf (`permanentDeleteMany`) | Πάγωμα ~7s σε μαζική διαγραφή (N× invalidate + passes) |
 | 2 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 3 | `E27` | **Grid reorder χωρίς autoScroll** | Δεν φτάνεις μακρινούς στόχους σε μεγάλο grid |
-| 4 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
-| 5 | `E44` | **«Πρόσφατα» = πραγματικά πρόσφατα + drag policy** (νέο, από S275) | Το `recent` ταξινομεί με `sortOrder` αντί `updatedAt`· drag σε recency-sorted λίστα |
-| 6 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
-| 7 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
-| 8 | `E03` | **Device re-verify grid auto-height** | Επαλήθευση ότι δεν υπάρχει regression (100%/140%, portrait/landscape) |
+| 3 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
+| 4 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
+| 5 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
-| 9 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 10 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
-| 11 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
-| 12 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 13 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(μόνο αν φανεί στο E03)* |
-| 14 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 6 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
+| 7 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
+| 8 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
+| 9 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 10 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(δεν εμφανίστηκε στο device pass του E03 — 26/10/2026)* |
+| 11 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -128,11 +125,10 @@
 - **Device (22/10/2026, POCO X3):** 100% & 140%, portrait + landscape → «Οκτ ’26» πλήρες, archive toggle ορατό, **0 overflow/assertions**. Screenshots: `backups/o4_sheets_2026-10-22/device_logs/sn_*calendar*`.
 - **Αποδοχή:** πλήρες/κόσμιο label σε 100% & 140%, portrait/landscape, 0 overflow.
 
-### E03 — Device re-verify grid auto-height (#2)
-- **Κατάσταση:** κώδικας ✅ S261 · ευρήματα A/B ✅ διορθώθηκαν S262 + S262-b · **εκκρεμεί re-verify**.
-- **Τι ελέγχεται:** journal, contacts, trash, search, home, collections, tasks, entries, habits — 100%/140%, portrait/landscape, chips πλήρη, 0 `RenderFlex overflow`.
-- **Κανόνας 12:** πριν το test ζητείται ρητή λίστα δεδομένων.
-- **Αποδοχή:** 0 overflow/κοψίματα + screenshots.
+### E03 — ✅ CLOSED 26/10/2026 (device-verified, S276 — 0 κώδικας)
+- **Υλοποίηση:** καμία νέα αλλαγή — ο κώδικας του S261 (`autoGridItemExtent`) + S262/S262-b επιβεβαιώθηκε ως έχει.
+- **Device (POCO X3, 26/10/2026):** **140%** portrait (journal, contacts, trash, search, home, collections, tasks, entries, habits) **και** 140% landscape (grid 2 στηλών: notes 100→108, folder view 100→104, collections →102, home grid →144) → **0** `RenderFlex overflow`, **0** `❌`, `chipH=66.0 scale=1.40` σε κάθε build· επαναφορά 100% → `chipH=58.0 scale=1.00`. Απόδειξη: logcat με φίλτρο `overflowed|RenderFlex|DraggableFolderSelector` (χωρίς αποθηκευμένα screenshots).
+- **Αποδοχή:** ✅ 0 overflow/κοψίματα σε 100%/140%, portrait/landscape.
 
 ### E04 — ✅ CLOSED 22/10/2026 (device-verified, sheet reassemble)
 - **Πού (επαληθευμένο στον κώδικα):**
@@ -265,10 +261,10 @@
 ### E25 — ✅ CLOSED 24/10/2026 (S273, docs sync όπως στο τελικό κλείσιμο)
 - `supernote.md`: test counter **294/294**, Error Handling/Performance **αληθή**, tree **+4 αρχεία**, `dayTickProvider`, ShareService (E39 pointer) · `code_refactor.md`: §3/§7/§8/§9 → **παραπομπή** (κανόνας 9), πλήρες αντίγραφο `backups/s273_docs_sync/` · `oldsessions.md`: κεφάλαιο **S273** · `a11y.md`/`README.md` ευθυγραμμισμένα. Λεπτομέρειες: §3/§4 + `oldsessions.md` S273.
 
-### E27 — Grid reorder χωρίς autoScroll
-- **Πού:** `reorderable_item_list.dart:137` — `autoScroll: false` στο `SliverReorderableGrid`.
-- **Συνέπεια:** σε grid (tablet/desktop) με λίστα μεγαλύτερη από την οθόνη, το drag δεν κυλάει αυτόματα → δύσκολη μετακίνηση σε απόσταση.
-- **Κόστος:** μικρό (1 flag + device test). **Ρίσκο:** χαμηλό (autoScroll του package είναι 14ms steps).
+### E27 — ✅ CLOSED 26/10/2026 (device-verified, S276)
+- **Πού ήταν:** `reorderable_item_list.dart:137` — `autoScroll: false` στο `SliverReorderableGrid`.
+- **Υλοποίηση:** `autoScroll: physics is! NeverScrollableScrollPhysics` (ο **γραπτός κανόνας του package**, `reorderable_grid.dart:338-339`) · `collections_screen.dart:228` → ρητό `autoScroll: true`. Στο 1-column path (`ReorderableListView`) το auto-scroll είναι native — δεν άλλαξε.
+- **Device (POCO X3, 26/10/2026, grid 2 στηλών):** κρατώντας το handle στην άκρη της λίστας, το περιεχόμενο **κυλάει μόνο του** και αποκαλύπτει τα επόμενα items (μία χειρονομία 13 θέσεων: `move full=179 filtered=13 0→12`) · 0 exceptions. **PASS.**
 
 ### E28 — ✅ CLOSED 22/10/2026 (device-verified, user-confirmed 140%/landscape)
 - **Πού (αρχικός έλεγχος 12, τελικά 15 μετά τον έλεγχο των settings/calendar/contact):** `appointment_detail:537` · `task_detail:170` · `tag_picker_sheet:114` *(isScrollControlled)* · `settings_tiles:176,264` (size/folder picker) · `settings_colors:88` · `note_detail:120` · `contact_detail:436,1041` · `collection_detail:212` *(isScrollControlled)* `,787` · `journal_detail:176` · `event_detail:308` · `calendar_screen:375`.
@@ -329,12 +325,12 @@
 - **Device pass (26/10/2026):** 3ήμερο συμπαγές · επικάλυψη → **45° hatch** στην κοινή ζώνη + συνεχής γραμμή σε όλο το 2ο εύρος · all-day εύρος · γενέθλια χωρίς γραμμή · χρώμα picker (και σε selected/today) · 100%/140% χωρίς overflow. **PASS.**
 - **Αποδοχή:** analyze clean · **321/321** (51 files) · §3 + `oldsessions.md` S274 · backups `s274_e41/`, `s274_e41_hatch/`, `s274_e41_dots_top/`, `s274_e41_close/`.
 
-### E44 — «Πρόσφατα» = πραγματικά πρόσφατα + drag policy (P2 — νέο από S275)
-- **Πού:** `home_folder_view.dart` (`FolderViewMode.recent` → `all.where(isVisible).take(_recentLimit)`) · `reorderable_item_list.dart:36` (`_canDrag` = `!pinned && !favorite`, hardcoded).
-- **Απόδειξη:** το stream έρχεται `sortBySortOrder()` (`super_note_helper.dart:580`) → `_sortByCategory` για ίσο `sortOrder` επιστρέφει `0` (`:236`)· κάθε νέο item γράφεται `sortOrder = 0.0` (`item_provider.dart`) ⇒ **ποια 10 φαίνονται δεν ορίζεται από τον κώδικα**. Η ταξινόμηση `updatedAt desc` υπήρχε μόνο στο διαγραμμένο `FolderViewData.recent` και **δεν διαβαζόταν ποτέ**.
-- **Γιατί P2:** λάθος περιεχόμενο στο **default** mode (`home_folder_view.dart:49`), όχι crash.
-- **Κόστος/Ρίσκο:** `updatedAt desc` πριν το `take` + `canDrag` override param στο `ReorderableItemList` (shared widget — **ίδιο** αρχείο με E27/autoScroll). Χωρίς το gating, το drag σε recency-sorted λίστα φαίνεται «να μην κάνει τίποτα».
-- **Acceptance:** 12 items με διαφορετικά `updatedAt` → τα **10 νεότερα**· edit → πάει πρώτο· drag σε recent mode είτε απενεργοποιημένο είτε σταθερό (απόφαση στο O5)· 100%/140% χωρίς overflow.
+### E44 — ✅ CLOSED 26/10/2026 (device-verified, S276)
+- **Πού ήταν:** `home_folder_view.dart` (`FolderViewMode.recent` → `all.where(isVisible).take(_recentLimit)`) · `reorderable_item_list.dart:36` (`_canDrag = !pinned && !favorite`, hardcoded).
+- **Απόδειξη (τότε):** το stream έρχεται `sortBySortOrder()` (`super_note_helper.dart:580`) → `_sortByCategory` για ίσο `sortOrder` επιστρέφει `0` (`:236`)· κάθε νέο item γράφεται `sortOrder = 0.0` ⇒ **ποια 10 φαίνονται δεν οριζόταν από τον κώδικα**.
+- **Υλοποίηση:** top-level `selectRecentItems` (`home_folder_view.dart:64`) = `isVisible` + **`updatedAt ?? createdAt` desc** + tie-break `id desc` + `take(10)` (ντετερμινιστικό, 9 unit tests) · `ReorderableItemList.dragEnabled` (default **`true`** — 0 αλλαγές στα 7 άλλα sites) + `_isDraggable = dragEnabled && !pinned && !favorite` · Home «Πρόσφατα» → `dragEnabled: false` (A4) · `_sortByCategory` **PARK** (A6, 0 αλλαγές — το recency δεν εξαρτάται πλέον από αυτό).
+- **Device (POCO X3, 26/10/2026):** `HomeFolderView recent 10/10 ids=[…]` σε κάθε build· 15 items → **10 νεότερα**· ενέργεια/μετακίνηση σε item → **1ο** (F11, by design μέσω `updatedAt`)· **καμία λαβή** στα «Πρόσφατα» · pinned/favorite **χωρίς** λαβή στα «Όλα» · drag σε «Πρόσφατα» **κλειδωμένο** · drag σε «Όλα» αποθηκεύει σειρά και **δεν** αγγίζει το `updatedAt` · 100%/140% 0 overflow. **PASS.**
+- **Αποδοχή:** ✅ 12 items με διαφορετικά `updatedAt` → 10 νεότερα · edit → πρώτο · drag off στο recent · 0 handles σε pinned/favorite.
 
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
@@ -351,6 +347,8 @@
 
 - **`O6` (E19, E14, E21, E23) — CLOSED 26/10/2026 (S275, analyze+tests):** `FolderViewData` + `folderViewDataProvider` **διαγράφηκαν** (2η συνδρομή στο ίδιο stream + `error: (_, __) async* {}` που παραβίαζε `supernote.md:950` → αιώνιο skeleton)· stats in-memory από το `itemsByFolderStreamProvider` (`_countVisibleByType`, `Item.isVisible`)· `_recentLimit=10` αντί magic number· **9 dead providers** + **7 invalidates** + docs (11 γραμμές) έφυγαν· **7 stale TODOs** (5 διαγραφές + 2 αληθή σχόλια)· E23 ρητό κλείσιμο. analyze clean · **322/322** · νέο test: stream error → `statsSkeleton` = `findsNothing`.
 - **`E42` — CLOSED 26/10/2026 (S275, μαζί με O6):** `home_screen.dart` fingerprint + `updatedAt` **μόνο** για `pinnedOrder == null` (εκεί το sort το χρησιμοποιεί, `:551-552`) → η σειρά στο `ViewMode.both` ανανεώνεται μετά από edit χωρίς churn στα ordered items. Επαλήθευση στο device pass του **O5** (ίδια οθόνη).
+
+- **`O5` (E27 + E03 + E44) — CLOSED 26/10/2026 (device-verified, S276):** grid reorder **autoScroll** από το physics αντί hardcoded `false` (`reorderable_item_list.dart:145` · rule του package `reorderable_grid.dart:338-339`) + ρητό `true` στις συλλογές · «Πρόσφατα» = `updatedAt ?? createdAt` desc + tie-break `id desc` + `take(10)` (`selectRecentItems`, 9 tests) · `dragEnabled` στο κοινό widget (`_isDraggable = dragEnabled && !pinned && !favorite`, default `true`, off μόνο στο «Πρόσφατα»). Device (POCO X3): auto-scroll ✅ σε grid 2 στηλών · 10/10 πραγματικά πρόσφατα · 0 handles εκεί · pinned/favorite χωρίς handle · regression drag σε tasks/habits/collections/entries/folder_view/browser ✅ · **339/339**, analyze clean.
 
 - **`E41` — CLOSED 26/10/2026 (device-verified, S274: πολυήμερα συμβάντα):** `end_date` (EAV, date-only inclusive) + `span_color` → **συνεχής** γραμμή στο κάτω μέρος του κελιού (τελείες τύπου πάνω, `top: 0`), **45° hatch overlay** στις επικαλύψεις (`SpanDay.overlays`), 1 lane / 5px (3px + 1px halo), render-time αντίθεση ≥3.0:1 · `calendarDataVersionProvider` (F25) · blocklist αναζήτησης · share εύρος. Device (26/10/2026): 26 συμπαγές → 27–28 hatch → 29 συμπαγές 2ου · all-day 22–24 · γενέθλια χωρίς γραμμή · χρώμα picker σε selected/today · 100%/140% χωρίς overflow. analyze clean · **321/321**.
 
@@ -376,7 +374,7 @@
 - **`E28` — CLOSED 22/10/2026 (device-verified, user-confirmed):** 15 SafeSheet sites σε 140%/landscape, χωρίς overflow/assertions· screenshots `backups/o4_sheets_2026-10-22/device_logs/`.
 - **`E12` — CLOSED 22/10/2026 (device-verified, user-confirmed):** 7 archive menus + calendar inline σε 140%/landscape, χωρίς κόψιμο/overflow· screenshots `backups/o4_sheets_2026-10-22/device_logs/`.
 - **Settings:** S253 (9 guards + split 9 αρχεία), S254 (`selection_list_dialog`), S255 (F13 `unarchiveMany`), S256 (F9 pop), S257 (F18 fresh list), S258 (F9c dead members), S259 (F17 slider), S260 (F18 tests), S262-b (popup overflow ×7, chip minWidth, `_PropRow`, «Όλοι» drag flag).
-- **Grid:** S261 (auto-height) + S262/S262-b fixes → μένει μόνο **E03 re-verify**.
+- **Grid:** S261 (auto-height) + S262/S262-b fixes → ✅ **E03 CLOSED 26/10/2026** (device 100%/140%, portrait/landscape, 0 overflow — S276).
 - **`E24` «grid-mode guard gap» — CLOSED 21/10/2026 (stale, όχι bug):** `onReorderItem` του SDK διορθώνει ήδη το `newIndex` (`reorderable_list.dart:82-83,129-131`) · το `SliverReorderableGrid` δίνει index κελιού-στόχου (`reorderable_grid.dart:573-577,652-663`) · και τα δύο ταιριάζουν με `removeAt+insert` του `moveAndMerge` (`reorder_utils.dart:26-29`) ⇒ κανένα off-by-one. (Προαιρετικό device spot-check σε tablet grid.)
 - **Crash guards:** `parseHex` try/catch, `int.parse` → `tryParse` (appointment/collection_detail), `trash deletedAt`, postFrame `mounted` guards.
 
@@ -449,7 +447,7 @@
 |---|---|---|
 | `code_refactor.md` §3/§7/§8/§9 | λίστες/status | ✅ **αρχειοθετήθηκαν 24/10/2026 (S273)** — παραπομπή σε `oldsessions.md`/`error_list.md` (κανόνας 9) |
 | `supernote.md` | αρχιτεκτονική + status | ✅ **μόνο αρχιτεκτονική** (κανόνας 8) — αληθή facts 24/10/2026 |
-| `oldsessions.md` | ιστορικό + «επόμενο session» | ✅ **ιστορικό + πρόοδος** — κεφάλαιο **S274** (25–26/10/2026, E41 CLOSED)· εκκρεμότητες μόνο στο `error_list.md`, πρόοδος εδώ στο οριστικό κλείσιμο |
+| `oldsessions.md` | ιστορικό + «επόμενο session» | ✅ **ιστορικό + πρόοδος** — κεφάλαιο **S276** (26/10/2026, Ο5: E27+E03+E44 CLOSED)· εκκρεμότητες μόνο στο `error_list.md`, πρόοδος εδώ στο οριστικό κλείσιμο |
 | `error_list.md` | — | **η μοναδική πηγή εκκρεμοτήτων** μέχρι το E26, μετά διαγράφεται |
 | `AGENTS.md` | κανόνες 6/9/10 | ✅ **ενημερώθηκε 26/10/2026**: 6 = `error_list.md` (εκκρεμότητες) + `oldsessions.md` (ιστορικό/πρόοδος) · 9 = εκκρεμότητες μόνο στο `error_list.md`, **πρόοδος στο `oldsessions.md` στο οριστικό κλείσιμο** · 10 = 1 κεφάλαιο/φάση |
 
@@ -458,7 +456,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 (+E44) → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -467,7 +465,7 @@
 | **Ο3 — Mass-delete pipeline** | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` (+bulk reminder call αν χρειαστεί) | — |
 | **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
 | **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
-| **Ο5 — Grid + verify** | E27 + E03 + **E44** | `reorderable_item_list` + recency sort/drag policy + μαζικό device pass (100%/140°) — το E03 κλείνει εδώ | E03 από E27 · E44 από E19 |
+| **Ο5 — Grid + verify** ✅ CLOSED 26/10/2026 (device-verified, S276) | E27 + E03 + **E44** | `reorderable_item_list` (autoScroll + dragEnabled) + `selectRecentItems` recency + μαζικό device pass (100%/140°) | E03 από E27 · E44 από E19 |
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
 

@@ -225,7 +225,7 @@ class _CollectionsReorderableGrid extends ConsumerWidget {
                 itemCount: collections.length,
                 onReorder: (oldIndex, newIndex) => _onReorder(oldIndex, newIndex, ref),
                 itemDragEnable: (i) => _canDrag(collections[i]),
-                autoScroll: false,
+                autoScroll: true,
                 itemBuilder: (ctx, i) {
                   final item = collections[i];
                   final canDrag = _canDrag(item);
