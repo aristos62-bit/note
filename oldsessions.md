@@ -3855,7 +3855,7 @@
 
 **Επόμενο:** **Ο3** (E05 — mass-delete pipeline, υψηλό ρίσκο) → **Ο7** (E22 + E20).
 
-## Session 277 — 27/10/2026 (Ο3: mass-delete pipeline — E05 `permanentDeleteMany`) — 🟡 κώδικας ✅ · device pending
+## Session 277 — 27/10/2026 (Ο3: mass-delete pipeline — E05 `permanentDeleteMany`) — ✅ CLOSED (device-verified)
 
 > Στόχος: «Άδειασμα κάδου» / «Οριστική διαγραφή επιλεγμένων» = **1** κύκλος αντί N (σήμερα N× `invalidateSelf` + N× OS snapshot + N× txn + N× cascade queries). Καμία αλλαγή αρχιτεκτονικής: ίδια ουρά, ίδιοι providers, **ίδιο τελικό state**.
 
@@ -3893,7 +3893,21 @@
 
 **Residuals:** R-E05-1 all-or-nothing txn · R-E05-2 fail-open 60s · R-E05-3 maintenance skip (parity) · R-E05-4 O(N) OS cancels (plugin) · R-E05-5 log rename `hardDelete`→`hardDeleteMany` · R-E05-6 3 αρχεία >500 (E06) · **R-E05-7** habit branch + maintenance = 0 deletions (μη προσπελάσιμο: `barrierDismissible:false` modal στο restore/wipe). **Observations (προϋπάρχοντα, 0 αλλαγή):** `Attachment.thumbnailPath` δεν σβήνεται από δίσκο · `dbProvider` δεν invalidate-άρεται μετά `SuperNoteHelper.close()`.
 
-**Κατάσταση: 🟡 κώδικας ✅ — device pending.** `error_list.md`: §0 (HEAD/339/43.377) · κάρτα E05 `Κατάσταση` γραμμή. `supernote.md`: 4 σημεία (API surface). Device: **T1–T7** με ρητή λίστα δεδομένων (κανόνας 12).
+**Κατάσταση: ✅ CLOSED 27/10/2026 — device-verified (T1–T7, POCO X3 `9593c01e`, commit `a5a40a6`).** `error_list.md`: §0 (HEAD/339/43.377) · §1 **P2 5→4** (E05 έξω) · κάρτα E05 → CLOSED · §3 bullet · §6 Ο3 ✅. `supernote.md`: 4 σημεία (API surface — μόνο αρχιτεκτονική). Device: **T1–T7** με ρητή λίστα δεδομένων (κανόνας 12) — αποτελέσματα παρακάτω.
+
+**Device pass (27/10/2026 — logcat `flutter:V`, 0 `ERR`, 0 exceptions, 0 `DB closed`/maintenance skip):**
+| Test | Απόδειξη | Αποτέλεσμα |
+|---|---|---|
+| T1 bulk (2 σημ. + συλλογή) | `permanentDeleteMany n=3 ids=[497,496,501]` → `cascade collections=1 entries=4` → `total=7 entries=4 habits=0` → `deleteAllRemindersForItems: n=7` → `deleted 2 rows, cancelled 2 OS ids` → `hardDeleteMany n=7 ids=[502,503,504,505,497,496,501]` (**entries πρώτα**) → `E05 … 1× snapshot + 1× txn took=293ms` | ✅ |
+| T2 άδειασμα κάδου (με habit) | `n=7 … total=7 entries=0 habits=1` → `deleteHabitRemindersMany: n=7` (**όχι** single) → `deleteAllRemindersForItems: n=7` → `deleted 1 rows, cancelled 1 OS ids` → `hardDeleteMany n=7` **μέσα** στο pass → `took=193ms` | ✅ |
+| T3 cascade εγγραφών | entries `502–505` στο **ίδιο** txn (`total=7` = 3+4) + UI: πουθενά | ✅ |
+| T4 habit branch | `habits=1`, 1 κλήση, `hardDeleteMany: found 0 reminder(s)` (σωστή σειρά) | ✅ |
+| T5 disk cleanup | id=471: `found 1 attachment(s)` → `deleted file "Screenshot_2026-06-23-…jpg"` | ✅ |
+| T6 ghost notifications | `cancelled 2 OS ids` (T1) + `1 OS ids` (T2) + **καμία** ειδοποίηση στην πράξη | ✅ |
+| T7 single parity | `deleteAllRemindersForItem: itemId=487` + `hardDeleteMany … n=1` + `permanentDelete done id=487` | ✅ |
+
+**Δομικοί μετρητές:** 2 ενέργειες → **2** `permanentDeleteMany` · **2** `deleteAllRemindersForItems` · **5** `hardDeleteMany` (2 batch + 3 single) · **0** fallback σε loop · **0** N× invalidate.
+**Παρατηρήσεις (όχι bugs):** (α) 7× `WRN [LIFECYCLE] RACE RISK` = `main.dart:351` (B11, προϋπάρχον· 2 lifecycle events <2s από κλείδωμα οθόνης) — 0 σχέση με E05· (β) T1 `deleted 2 rows` για 3 σημειώσεις (1 row δεν υπήρχε/είχε ήδη τρέξει)· (γ) T2 habit `deleted 1 rows` (το soft delete είχε ήδη σβήσει τις rows, topUp σκιπάρει deleted)· (δ) το 1ο T1 (pid 23690) είχε 0 delete logs λόγω restart → επαναλήφθηκε καθαρά.
 
 **Μαθήματα:**
 - Πριν γράψεις batch delete, διάβασε το `anyOf` του SDK: **κενή λίστα = χωρίς φίλτρο**, όχι «κανένα αποτέλεσμα» — είναι το πιο επικίνδυνο σημείο όλης της δουλειάς.
@@ -3901,5 +3915,6 @@
 - «1 transaction» δεν σημαίνει «1 query»: το κέρδος είναι το **1 commit** (fsync) + 1 invalidate, όχι η αφαίρεση των queries.
 - Όταν κάνεις batch, τα logs πρέπει να κρατήσουν **byte-identical** τη μορφή για `n=1` — αλλιώς σπάνε τα device greps προηγούμενων sessions (S250).
 - Το `maintenance` skip μιας ουράς δεν είναι «απλώς καθυστέρηση»: αν το `afterRows` κρύβει τη διαγραφή, το skip = **καμία** διαγραφή. Ελέγχθηκε ότι η διαδρομή είναι μη προσπελάσιμη (modal), γι' αυτό δεν μπήκε fallback.
+- Στο device pass βάλε **marker ανά test** (`adb shell log -t E05MARK "=== T1 ==="`) στο **ίδιο** logcat stream: ένα αρχείο, 7 ενότητες, 0 Ctrl+C. Και έλεγξε το **pid** — αν άλλαξε, η εφαρμογή έκανε restart και τα προηγούμενα logs ανήκουν σε άλλη build (συνέβη στο 1ο T1).
 
-**Επόμενο:** **device pass E05** (T1–T7, POCO X3 `9593c01e`) → οριστικό κλείσιμο E05 → **Ο7** (E22 + E20).
+**Επόμενο:** **Ο7** (E22 + E20 — dates/editor mini-pass).
