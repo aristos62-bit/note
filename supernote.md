@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 321/321 🟢 (`flutter test`, 26/10/2026) |
+| Test suite | 339/339 🟢 (`flutter test`, 26/10/2026) |
 
 ---
 
@@ -233,7 +233,7 @@ lib/
         ├── responsive_item_list.dart — Responsive list/grid with ItemCards
         ├── item_list_screen.dart  — Generic item list screen
         ├── item_list_embedded.dart — Embedded item list
-        ├── reorderable_item_list.dart — Drag-to-reorder list
+        ├── reorderable_item_list.dart — Drag-to-reorder list/grid (autoScroll + dragEnabled)
         ├── draggable_item_wrapper.dart — LongPressDraggable wrapper
         ├── draggable_folder_selector.dart — Folder chips with drag target
         ├── block_editor_widget.dart — Rich text block editor (notes)
@@ -773,6 +773,8 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 ### Grid extents (S261 — `responsive.dart` + `ReorderableItemList`)
 - Helper: `context.gridTextScale` (πραγματικό `MediaQuery.textScalerOf`), `context.autoGridItemExtent({base, max})`, top-level `autoGridItemExtentFor(base, max, textScale)` = **παρεμβολή base→max** στο textScale 1.0→1.4 (clamp).
 - **Reorderable grids** (`ReorderableItemList`): uniform `mainAxisExtent` = `autoGridItemExtent(base: gridItemExtent, max: gridItemExtentMax)` — το `gridItemExtentMax` (null ⇒ base) δίνει «αέρα» στο 1.4 (tasks 94→116 · entries 140→160 · folder view 100→104 · item lists 100→108).
+- **Reorder auto-scroll (S276):** `SliverReorderableGrid.autoScroll: physics is! NeverScrollableScrollPhysics` — ο γραπτός κανόνας του package (`reorderable_grid.dart:338-339`), όχι hardcoded `false`· οι συλλογές περνούν ρητά `autoScroll: true` (`collections_screen.dart:228`). Στο 1-column path (`ReorderableListView`) το auto-scroll είναι native και δεν άλλαξε.
+- **Drag policy (S276):** `ReorderableItemList.dragEnabled` (default `true`) → `_isDraggable = dragEnabled && !pinned && !favorite` (AND — δεν παρακάμπτει την policy). `dragEnabled: false` μόνο στο «Πρόσφατα» (`home_folder_view.dart:228`), όπου η σειρά είναι χρονική — 0 αλλαγές στα άλλα 7 sites.
 - **Adaptive square** (home `_ReorderableGrid`, collections): `base = cellWidth` (square στο 1.0), `max = max(cellWidth, 144/102)` — καμία αλλαγή στο 1.0, αυξάνει μόνο με τη γραμματοσειρά.
 - **Folder chips (S262):** adaptive ύψος από τον ίδιο helper — `DraggableFolderSelector` **58→66** · home `_FolderChip` **56→64** · `maxLines: 1` στο label. Σταθερό εσωτερικό `padding` vertical **4** (A1) ώστε padding+border να μη τρώνε το slot του label. Το home emoji είναι **ακλιμάκωτο**: `TextScaler.noScaling` + `height: 1.0` = σταθερό line box **18dp** (ισοδύναμο με `Icon(size: 18)` του Draggable) — αλλιώς το ύψος του emoji εξαρτάται από τη γραμματοσειρά της συσκευής και πεινάει το label.
 
@@ -826,6 +828,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - `_PinnedFavoritesSection` — isolated ConsumerStatefulWidget
 - `_SquareItemCard`, `_FolderItemCard` — specialized cards
 - `HomeFolderView` (σε `SliverFillRemaining`): stats 48 + toggle 52 = fixed headers, λίστα σε `Expanded`· σε `maxHeight ≤ 100` τα stats κρύβονται (`shouldShowFolderStats`, S262)
+- «Πρόσφατα» (**default mode**): `selectRecentItems` (`home_folder_view.dart:64`) = `isVisible` + **`updatedAt ?? createdAt` desc** + tie-break **`id desc`** + `take(10)` — **όχι** `sortOrder` (S276). Το `take` εφαρμόζεται **μετά** το sort, αλλιώς «πρόσφατα» = τυχαία 10. Drag κλειδωμένο σε αυτή την προβολή (`dragEnabled: false`).
 
 ### NoteListScreen (`/notes`) + NoteDetailScreen (`/notes/:id`)
 - Full block editor (BlockEditorWidget) with multiple block types
@@ -998,7 +1001,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (321/321 🟢) |
+| `flutter test` | Πλήρες suite (339/339 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

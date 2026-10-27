@@ -20,6 +20,10 @@ class ReorderableItemList extends StatelessWidget {
   final VoidCallback? onReorderStart;
   final VoidCallback? onReorderEnd;
 
+  /// false → κανένα drag (π.χ. «Πρόσφατα», όπου η σειρά είναι χρονική).
+  /// Συνδυάζεται (AND) με την policy pinned/favorites — δεν την παρακάμπτει.
+  final bool dragEnabled;
+
   const ReorderableItemList({
     super.key,
     required this.items,
@@ -31,9 +35,11 @@ class ReorderableItemList extends StatelessWidget {
     this.physics,
     this.onReorderStart,   // ← ΝΕΟ
     this.onReorderEnd,     // ← ΝΕΟ
+    this.dragEnabled = true,
   });
 
-  bool _canDrag(Item item) => !item.pinned && !item.favorite;
+  bool _isDraggable(Item item) =>
+      dragEnabled && !item.pinned && !item.favorite;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +62,7 @@ class ReorderableItemList extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (ctx, i) {
         final item = items[i];
-        final canDrag = _canDrag(item);
+        final draggable = _isDraggable(item);
         return Padding(
           padding: const EdgeInsets.only(bottom: Spacing.sm),
           key: ValueKey(item.id),
@@ -64,7 +70,7 @@ class ReorderableItemList extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center, // ← ΔΙΟΡΘΩΣΗ (ήταν start)
             children: [
               Expanded(child: itemBuilder(ctx, item, i)),
-              if (canDrag)
+              if (draggable)
                 ReorderableDragStartListener(
                   index: i,
                   child: const ReorderHandle(),
@@ -111,13 +117,13 @@ class ReorderableItemList extends StatelessWidget {
             ),
             itemBuilder: (ctx, i) {
               final item = items[i];
-              final canDrag = _canDrag(item);
+              final draggable = _isDraggable(item);
               return Stack(
                 key: ValueKey(item.id),
                 clipBehavior: Clip.none,
                 children: [
                   itemBuilder(ctx, item, i),
-                  if (canDrag)
+                  if (draggable)
                     Positioned(
                       right: -4,
                       top: 0,
@@ -133,8 +139,10 @@ class ReorderableItemList extends StatelessWidget {
             },
             itemCount: items.length,
             onReorder: onReorder,
-            itemDragEnable: (i) => _canDrag(items[i]),
-            autoScroll: false,
+            itemDragEnable: (i) => _isDraggable(items[i]),
+            // Auto-scroll μόνο όταν το scroll είναι ενεργό· το ίδιο το πακέτο
+            // ορίζει: «Should be disabled if ... NeverScrollableScrollPhysics».
+            autoScroll: physics is! NeverScrollableScrollPhysics,
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
