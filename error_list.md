@@ -44,7 +44,7 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `e62b4fe` (S276) + Ο3/S277 commit | `git log` |
+| Git HEAD | `a5a40a6` (S277 — κώδικας Ο3/E05) + S277 docs commit | `git log` |
 | `flutter analyze` | **No issues found** | run 27/10/2026 (S277) |
 | `flutter test` | **339/339** (54 αρχεία test) | run 27/10/2026 (S277) |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.377 (158 αρχεία) | μετρήθηκε 27/10/2026 (S277) |
@@ -77,26 +77,25 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (5)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (4)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
-| 1 | `E05` | **F13b** — bulk-delete perf (`permanentDeleteMany`) | Πάγωμα ~7s σε μαζική διαγραφή (N× invalidate + passes) |
-| 2 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 3 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
-| 4 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
-| 5 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
+| 2 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
+| 3 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
+| 4 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
-| 6 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 7 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
-| 8 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
-| 9 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 10 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(δεν εμφανίστηκε στο device pass του E03 — 26/10/2026)* |
-| 11 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 5 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
+| 6 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
+| 7 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
+| 8 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 9 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(δεν εμφανίστηκε στο device pass του E03 — 26/10/2026)* |
+| 10 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -142,13 +141,12 @@
 - **Κατάσταση:** κώδικας ✅ · **device ✅ 22/10/2026:** status sheet ανοιχτό → `ext.flutter.reassemble` μέσω VM service (app pid 30972) → το sheet **παρέμεινε ανοιχτό**, **0 Flutter assertions/overflow**. Επιπλέον status/priority/reminder/folder/size/contact photo ανοίγουν/κλείνουν χωρίς overflow. Απόδειξη: `backups/o4_sheets_2026-10-22/device_logs/e04_reassemble_pass.png`, `e04_reassemble.log`, `e04_reassemble_errors.txt`.
 - **Αποδοχή:** reassemble με ανοιχτό sheet → 0 assertions. ✅
 
-### E05 — F13b: bulk-delete perf
-- **Πού:** `trash_screen.dart:90-100` (selected) + `:171-186` (empty trash) — loops `await notifier.permanentDelete(id)`.
-- **Κόστος ανά item:** `item_provider.dart` → `_cascadeCollectionEntries` + `getForItem` + `deleteAllRemindersForItem`/`deleteHabitReminders` + `hardDelete` + `invalidateSelf()` (N×).
-- **Πρόταση:** `ItemNotifier.permanentDeleteMany(List<int> ids)` — ίδια σειρά/εγγυήσεις: habit = wipe + hardDelete **στο ίδιο pass** (S250), NEVER-THROW, `finally` 1× invalidate, attachments cleanup, cascade entries.
-- **Κατάσταση (27/10/2026, S277):** κώδικας ✅ — 5 αρχεία, 4 batch APIs (`permanentDeleteMany` · `hardDeleteMany` · `deleteAllRemindersForItems` · `deleteHabitRemindersMany`), 0 νέοι providers/ουρές/tests· `analyze` clean · **339/339**. **Device pending** (T1–T7 + ρητή λίστα δεδομένων — `oldsessions.md` S277).
-- **Ρίσκο:** **υψηλό** (S250 race + S142 lifecycle + attachments). Θέλει ισοδυναμία: ίδιο τελικό state με N×.
-- **Αποδοχή:** `analyze` clean + tests + device bulk delete (ρητή λίστα δεδομένων) με 0 ERR.
+### E05 — F13b: bulk-delete perf — ✅ CLOSED 27/10/2026 (S277, device-verified)
+- **Πού:** `trash_screen.dart:99` (selected) + `:182` (empty trash) — ήταν loops `await notifier.permanentDelete(id)`.
+- **Κόστος ανά item (πριν):** `_cascadeCollectionEntries` + `getForItem` + `deleteAllRemindersForItem`/`deleteHabitReminders` + `hardDelete` + `invalidateSelf()` (N×).
+- **Λύση:** `ItemNotifier.permanentDeleteMany(List<int> ids)` + 3 batch APIs (`hardDeleteMany`, `deleteAllRemindersForItems`, `deleteHabitRemindersMany`)· 1 OS snapshot + 1 txn + 1 invalidate. Τα singles (`permanentDelete`, `hardDelete`, `deleteHabitReminders`, `deleteAllRemindersForItem`) = wrappers (log parity n=1).
+- **Απόδειξη:** `analyze` clean · **339/339** · device T1–T7: T1 `n=3 → total=7 entries=4` (entries πρώτα, 1 txn, `took=293ms`) · T2 habit branch `deleteHabitRemindersMany n=7` + `hardDeleteMany` μέσα στο pass (`took=193ms`) · T5 `deleted file "…jpg"` · T7 single parity · **0 ERR**. Λεπτομέρειες: `oldsessions.md` S277.
+- **Residuals:** R-E05-1 all-or-nothing txn · R-E05-4 O(N) OS cancels (plugin: μόνο `cancel(id)`/`cancelAll()`) · R-E05-7 habit+maintenance (μη προσπελάσιμο).
 
 ### E06 — R1: 20 αρχεία >500 γραμμές
 > Επανμέτρηση 24/10/2026 (S273): **20** αρχεία >500, `main.dart` 519. Ο παρακάτω πίνακας είναι το μέτρημα της 22/10 (stale per-file νούμερα — refresh στο E25/E26).
@@ -344,7 +342,9 @@
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S275.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S277.
+
+- **`E05` (Ο3) — CLOSED 27/10/2026 (S277, device-verified):** mass-delete pipeline = **1** κύκλος αντί N. `ItemNotifier.permanentDeleteMany` (`trash_screen` 2 loops → 2 κλήσεις) + `hardDeleteMany` (1 query reminders + 1 query attachments + **1** writeTxn για όλα τα ids) + `deleteAllRemindersForItems` (**1** OS snapshot) + `deleteHabitRemindersMany` (**1** pass `_passQueue`: wipe + `afterRows` αδιαίρετα, S250). Singles = wrappers με **log parity n=1**. Device T1–T7: T1 `n=3 → total=7 entries=4` `took=293ms` · T2 habit branch `n=7` `took=193ms` · T5 `deleted file "…jpg"` (disk cleanup) · T7 single parity · **0 ERR**. Hard rules: ποτέ `anyOf([])`/`deleteAll([])`. analyze clean · 339/339.
 
 - **`O6` (E19, E14, E21, E23) — CLOSED 26/10/2026 (S275, analyze+tests):** `FolderViewData` + `folderViewDataProvider` **διαγράφηκαν** (2η συνδρομή στο ίδιο stream + `error: (_, __) async* {}` που παραβίαζε `supernote.md:950` → αιώνιο skeleton)· stats in-memory από το `itemsByFolderStreamProvider` (`_countVisibleByType`, `Item.isVisible`)· `_recentLimit=10` αντί magic number· **9 dead providers** + **7 invalidates** + docs (11 γραμμές) έφυγαν· **7 stale TODOs** (5 διαγραφές + 2 αληθή σχόλια)· E23 ρητό κλείσιμο. analyze clean · **322/322** · νέο test: stream error → `statsSkeleton` = `findsNothing`.
 - **`E42` — CLOSED 26/10/2026 (S275, μαζί με O6):** `home_screen.dart` fingerprint + `updatedAt` **μόνο** για `pinnedOrder == null` (εκεί το sort το χρησιμοποιεί, `:551-552`) → η σειρά στο `ViewMode.both` ανανεώνεται μετά από edit χωρίς churn στα ordered items. Επαλήθευση στο device pass του **O5** (ίδια οθόνη).
@@ -457,13 +457,13 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
 | **Ο1 — Scheduler correctness** ✅ CLOSED 21/10/2026 (S270 `c2dc8f2` + device/test) | E10 + E34 + E35 + E36 + E37 (προαιρ. E08, E14) | `reminder_scheduler.dart` + `reminder_text.dart` + `reminder_bake_plan.dart` + `habit_service.dart` + providers/settings + 16 tests | E35–E37 από E10/E34 |
 | **Ο2 — Lifecycle (startup/resume/restore)** ✅ CLOSED 22/10/2026 (device-verified) | E16 + E33 + E18-μέρος | `main.dart` + debounce `reminder_scheduler` + `backup_service` + `super_note_helper` + `backup_archive` + cold-start/restore tests | E18: 14/21 sites (υπόλοιπα 7 → Ο6) |
-| **Ο3 — Mass-delete pipeline** | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` (+bulk reminder call αν χρειαστεί) | — |
+| **Ο3 — Mass-delete pipeline** ✅ CLOSED 27/10/2026 (S277 `a5a40a6` + device T1–T7) | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` + `super_note_helper` + `reminder_scheduler` (4 batch APIs, 0 νέοι providers/tests) | — |
 | **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
 | **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
 | **Ο5 — Grid + verify** ✅ CLOSED 26/10/2026 (device-verified, S276) | E27 + E03 + **E44** | `reorderable_item_list` (autoScroll + dragEnabled) + `selectRecentItems` recency + μαζικό device pass (100%/140°) | E03 από E27 · E44 από E19 |
