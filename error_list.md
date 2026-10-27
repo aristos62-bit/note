@@ -40,14 +40,14 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 26/10/2026, μετά το S276/Ο5)
+## 0. Baseline (μετρημένο στον κώδικα — 27/10/2026, μετά το S277/Ο3)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `62c840d` (O6/S275) + Ο5/S276 commit | `git log` |
-| `flutter analyze` | **No issues found** | run 26/10/2026 (S276) |
-| `flutter test` | **339/339** (54 αρχεία test) | run 26/10/2026 (S276) |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.242 (158 αρχεία) | μετρήθηκε 26/10/2026 (S276) |
+| Git HEAD | `e62b4fe` (S276) + Ο3/S277 commit | `git log` |
+| `flutter analyze` | **No issues found** | run 27/10/2026 (S277) |
+| `flutter test` | **339/339** (54 αρχεία test) | run 27/10/2026 (S277) |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.377 (158 αρχεία) | μετρήθηκε 27/10/2026 (S277) |
 | Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519 · `home_screen.dart` 921) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
@@ -143,9 +143,10 @@
 - **Αποδοχή:** reassemble με ανοιχτό sheet → 0 assertions. ✅
 
 ### E05 — F13b: bulk-delete perf
-- **Πού:** `trash_screen.dart:90-103` — loop `await notifier.permanentDelete(id)`.
-- **Κόστος ανά item:** `item_provider.dart:285-310` → `_cascadeCollectionEntries` + `getForItem` + `deleteAllRemindersForItem`/`deleteHabitReminders` + `hardDelete` + `invalidateSelf()` (N×).
+- **Πού:** `trash_screen.dart:90-100` (selected) + `:171-186` (empty trash) — loops `await notifier.permanentDelete(id)`.
+- **Κόστος ανά item:** `item_provider.dart` → `_cascadeCollectionEntries` + `getForItem` + `deleteAllRemindersForItem`/`deleteHabitReminders` + `hardDelete` + `invalidateSelf()` (N×).
 - **Πρόταση:** `ItemNotifier.permanentDeleteMany(List<int> ids)` — ίδια σειρά/εγγυήσεις: habit = wipe + hardDelete **στο ίδιο pass** (S250), NEVER-THROW, `finally` 1× invalidate, attachments cleanup, cascade entries.
+- **Κατάσταση (27/10/2026, S277):** κώδικας ✅ — 5 αρχεία, 4 batch APIs (`permanentDeleteMany` · `hardDeleteMany` · `deleteAllRemindersForItems` · `deleteHabitRemindersMany`), 0 νέοι providers/ουρές/tests· `analyze` clean · **339/339**. **Device pending** (T1–T7 + ρητή λίστα δεδομένων — `oldsessions.md` S277).
 - **Ρίσκο:** **υψηλό** (S250 race + S142 lifecycle + attachments). Θέλει ισοδυναμία: ίδιο τελικό state με N×.
 - **Αποδοχή:** `analyze` clean + tests + device bulk delete (ρητή λίστα δεδομένων) με 0 ERR.
 

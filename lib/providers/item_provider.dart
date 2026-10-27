@@ -220,15 +220,31 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
 
   /// D1/F1: εφαρμόζει [action] στις knowledge εγγραφές της συλλογής [id] (αν project).
   /// includeDeleted=true → και soft-deleted (restore/permanent). Εγγραφές πρώτα (interrupt-safe).
+  /// E05: thin wrapper πάνω στο batch [_collectionEntryIds] (1 impl, 0 διπλή λογική).
   Future<void> _cascadeCollectionEntries(int id, Future<void> Function(int) action, {bool includeDeleted = false, String logTag = 'deleteItem'}) async {
+    for (final eid in await _collectionEntryIds([id], includeDeleted: includeDeleted, logTag: logTag)) {
+      await action(eid);
+    }
+  }
+
+  /// E05 (F13b): batch resolver εγγραφών συλλογών — 1× getByIds
+  /// + 1× getByWorkspace ανά distinct workspace + 1× getCollectionIds
+  /// (αντί 3 queries ανά project). Ίδιο σύνολο/σειρά με το single cascade.
+  Future<List<int>> _collectionEntryIds(List<int> ids, {bool includeDeleted = false, String logTag = 'deleteItem'}) async {
     final db = ref.read(dbProvider);
-    final item = await db.items.getById(id);
-    if (item == null || item.type != ItemType.project) return;
-    final entries = await db.items.getByWorkspace(item.workspaceId, type: ItemType.knowledge, includeArchived: true, includeDeleted: includeDeleted);
+    final items = await db.items.getByIds(ids);
+    final projects = [for (final it in items) if (it.type == ItemType.project) it];
+    if (projects.isEmpty) return const [];
+    final entries = <Item>[];
+    for (final wsId in {for (final p in projects) p.workspaceId}) {
+      entries.addAll(await db.items.getByWorkspace(wsId, type: ItemType.knowledge, includeArchived: true, includeDeleted: includeDeleted));
+    }
     final colIds = await db.properties.getCollectionIds([for (final e in entries) e.id]);
-    final ids = [for (final e in colIds.entries) if (e.value == id.toString()) e.key];
-    DebugConfig.db('$logTag cascade collection=$id entries=${ids.length}');
-    for (final eid in ids) { await action(eid); }
+    final projectStrs = {for (final p in projects) p.id.toString()};
+    final out = [for (final e in colIds.entries) if (projectStrs.contains(e.value)) e.key];
+    final label = ids.length == 1 ? 'collection=${ids.first}' : 'collections=${projects.length}';
+    DebugConfig.db('$logTag cascade $label entries=${out.length}');
+    return out;
   }
 
   /// Restore από soft delete (F1: αν συλλογή → restore και των εγγραφών της)
@@ -275,6 +291,49 @@ class ItemNotifier extends AsyncNotifier<List<Item>> {
       DebugConfig.db('ItemNotifier.permanentDelete done id=$id');
     } catch (e, s) {
       DebugConfig.error('ItemNotifier.permanentDelete', e, s);
+    }
+  }
+
+  /// E05 (F13b): bulk permanent delete — **ίδιο τελικό state** με N×
+  /// [permanentDelete], με 1× OS snapshot + 1× hard-delete txn + 1× invalidate.
+  /// Cascade: 1 resolver για όλα τα projects. Αν υπάρχει habit → ΟΛΟ το
+  /// wipe+delete στο ίδιο pass της HabitService (S250). NEVER-THROW.
+  Future<void> permanentDeleteMany(List<int> ids) async {
+    final unique = ids.toSet().toList();
+    if (unique.isEmpty) return;
+    final sw = Stopwatch()..start();
+    // Id list μόνο σε μικρά batch (αποφυγή τεράστιων γραμμών logcat).
+    final idLog = unique.length <= 20 ? ' ids=$unique' : '';
+    DebugConfig.db('ItemNotifier.permanentDeleteMany n=${unique.length}$idLog');
+    try {
+      final entryIds = await _collectionEntryIds(unique,
+          includeDeleted: true, logTag: 'permanentDelete');
+      // Ντετερμινιστική σειρά (entries πρώτα) — η ατομικότητα την παρέχει το 1 txn.
+      final allIds = <int>{...entryIds, ...unique}.toList();
+      final db = ref.read(dbProvider);
+      // Τα entryIds είναι εξ ορισμού knowledge (getByWorkspace type:knowledge)
+      // ⇒ habits ⊆ unique — αρκεί 1 getByIds στο unique.
+      final items = await db.items.getByIds(unique);
+      final habitIds = [for (final it in items) if (it.type == ItemType.habit) it.id];
+      DebugConfig.db('permanentDeleteMany: total=${allIds.length} '
+          'entries=${entryIds.length} habits=${habitIds.length}');
+      if (habitIds.isEmpty) {
+        await ReminderScheduler.instance.deleteAllRemindersForItems(allIds);
+        await db.items.hardDeleteMany(allIds);
+      } else {
+        // S250: wipe ΟΛΩΝ των rows + hard delete στο ΙΔΙΟ pass της _passQueue.
+        await HabitService.instance.deleteHabitRemindersMany(allIds,
+            afterRows: () => db.items.hardDeleteMany(allIds));
+      }
+      DebugConfig.notif('E05 permanentDeleteMany: n=${unique.length} '
+          'entries=${entryIds.length} habits=${habitIds.length} '
+          '→ 1× snapshot + 1× txn took=${sw.elapsedMilliseconds}ms');
+    } catch (e, s) {
+      DebugConfig.error('ItemNotifier.permanentDeleteMany', e, s);
+    } finally {
+      ref.invalidateSelf();
+      DebugConfig.db('ItemNotifier.permanentDeleteMany done '
+          'took=${sw.elapsedMilliseconds}ms');
     }
   }
 

@@ -694,13 +694,30 @@ class HabitService {
   /// P1#1 (S250): wipe reminder rows + follow-up (soft/hard delete) στο ΙΔΙΟ
   /// pass της _passQueue — κλείνει το race delete ↔ topUp (εύρημα S234).
   /// [afterRows]: τρέχει αφού σβηστούν ΟΛΕΣ οι rows (item soft/hard delete).
+  /// E05: thin wrapper πάνω στο batch [deleteHabitRemindersMany] (1 impl).
   Future<void> deleteHabitReminders(
-      int habitId, {Future<void> Function()? afterRows}) =>
-      _passQueue.run(() async {
-        DebugConfig.notif('deleteHabitReminders: habitId=$habitId');
-        await ReminderScheduler.instance.deleteAllRemindersForItem(habitId);
-        if (afterRows != null) await afterRows();
-      });
+          int habitId, {Future<void> Function()? afterRows}) =>
+      deleteHabitRemindersMany([habitId], afterRows: afterRows);
+
+  /// E05 (F13b): batch εκδοχή — 1 pass + 1 wipe αντί N×. Το [itemIds] μπορεί
+  /// να περιέχει και μη-habit items (μικτό bulk delete): το wipe τους τρέχει
+  /// κι αυτό μέσα στο pass, ώστε habit wipe + hard delete να είναι αδιαίρετα
+  /// (S250/S234). Σύμβαση ουράς: NEVER-THROW · fail-open 60s · skip σε
+  /// maintenance (E33).
+  Future<void> deleteHabitRemindersMany(List<int> itemIds,
+      {Future<void> Function()? afterRows}) {
+    final ids = itemIds.toSet().toList();
+    if (ids.isEmpty) return Future<void>.value();
+    return _passQueue.run(() async {
+      // Id list μόνο σε μικρά batch (αποφυγή τεράστιων γραμμών logcat).
+      final idLog = ids.length <= 20 ? ' ids=$ids' : '';
+      DebugConfig.notif(ids.length == 1
+          ? 'deleteHabitReminders: habitId=${ids.first}'
+          : 'deleteHabitRemindersMany: n=${ids.length}$idLog');
+      await ReminderScheduler.instance.deleteAllRemindersForItems(ids);
+      if (afterRows != null) await afterRows();
+    });
+  }
 
   Future<void> topUpHabitReminders({bool force = false}) =>
       _passQueue.run(() => _topUpHabitRemindersImpl(force: force));

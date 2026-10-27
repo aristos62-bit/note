@@ -416,7 +416,7 @@ final db = SuperNoteHelper.instance;
 ### Sub-repositories
 | Repository | Key Methods | Stream Methods |
 |---|---|---|
-| `ItemRepository` | create, getById, getByWorkspace, getByFolder, getPinned, getFavorites, search, update, softDelete, restore, hardDelete, reorder, reorderPinned, reorderFavorites, reorderCombined, count | watchByWorkspace, watchByFolder, watchPinnedByWorkspace, watchFavoritesByWorkspace, watchDeletedByWorkspace, watchById |
+| `ItemRepository` | create, getById, getByWorkspace, getByFolder, getPinned, getFavorites, search, update, softDelete, restore, hardDelete, hardDeleteMany, reorder, reorderPinned, reorderFavorites, reorderCombined, count | watchByWorkspace, watchByFolder, watchPinnedByWorkspace, watchFavoritesByWorkspace, watchDeletedByWorkspace, watchById |
 | `BlockRepository` | create, getByItem, getChildren, updateText, toggleCheck, delete, reorder | watchByItem |
 | `PropertyRepository` | set (upsert), get, getValue, getAll, delete + typed helpers (setDate, setNumber, setBool, setCurrency) | — |
 | `TagRepository` | createOrGet, addToItem, removeFromItem, getForItem, getItemsWithTag, getAll | — |
@@ -459,7 +459,7 @@ final db = SuperNoteHelper.instance;
 
 ### ReminderScheduler (`lib/services/reminder_scheduler.dart`)
 - `scheduleAll({incremental})` — full/incremental bake· `scheduleReminders(Iterable<Reminder>)` — batch (refresh/top-up/repair)· `scheduleReminder`, `rescheduleReminder` (snooze/trigger change), `rescheduleForItem` (rename/status/archive/restore).
-- Cancel/delete API: `cancelReminderIds`, `cancelAllForItem`, `deleteSingleReminder`, `deleteReminderThread`, `deleteAllRemindersForItem`, `refreshRecurringReminders`, `debouncedRefreshRecurringReminders`.
+- Cancel/delete API: `cancelReminderIds`, `cancelAllForItem`, `deleteSingleReminder`, `deleteReminderThread`, `deleteAllRemindersForItem`, `deleteAllRemindersForItems` (batch — E05), `refreshRecurringReminders`, `debouncedRefreshRecurringReminders`.
 - Text SPoT (`reminder_text.dart`): generic «Υπενθύμιση» → live body· event birthday → live body· contact birthday → live title+body· habit generated → σταθερό title + «Υπενθύμιση: <όνομα>»· `title == null` → live title από item.
 - Planner (`reminder_bake_plan.dart`): oldest-first· keep μόνο όταν OS title/body == resolved· replacements δεν παίρνουν νέο slot· νέα rows μόνο σε ελεύθερα slots· scoped stale cancel· `forceSchedule` για item-wide rebake· `truncated`.
 - Race/queue (E17/E34): cancel/delete/schedule mutations μέσω `_bakeQueue`· DB-first delete + `finally` OS cancel· unconditional wipe με scan `payload == itemId`· `_scheduleOne` φρέσκα row/item/settings guards (orphan, archived, κάδος, done/cancelled, past).
@@ -467,6 +467,7 @@ final db = SuperNoteHelper.instance;
 - Σίγαση semantics: archived (S143) · done/cancelled (S194) · κάδος (S213) — `_scheduleOne` + refresh σκιπάρουν· τα rows **μένουν**, φεύγουν μόνο τα OS alarms· επιστροφή σε ενεργό → reschedule.
 - Snooze (S52): status μένει `pending`, `triggerAt` = οδηγός· DB snooze πρώτα, μετά `rescheduleReminder` (cancel + fresh schedule στο ίδιο queue pass)· εξαίρεση από wrong-time cleanup.
 - `permanentDelete` (S53): `deleteAllRemindersForItem` **πριν** το `hardDelete` — DB rows + OS cancel + payload ghosts.
+- `permanentDeleteMany` (E05/S277): bulk εκδοχή — **1** OS snapshot (`getPendingNotifications()`) + **1** `hardDeleteMany` txn + **1** `invalidateSelf` αντί N×· το `permanentDelete` (single) μένει **αμετάβλητο**. Το `hardDelete` = wrapper του `hardDeleteMany`· **ΠΟΤΕ** `anyOf([])`/`deleteAll([])` (κενή λίστα = χωρίς φίλτρο).
 - Bake accounting (S234): `ScheduleOutcome {baked, skipped, failed, kept}`· το keep αποφασίζεται πλέον στον planner (ίδιο text), το `_scheduleOne` επιστρέφει baked/skipped/failed· SUCCESS log μόνο σε `baked`.
 - Budget (S236/E35): `osAlarmLimit` — iOS/macOS 60 · Android 450, oldest-first· εφαρμόζεται σε scheduleAll, batch, rescheduleForItem, refresh/topUp και single· `truncated` flag + day-rebake στο resume.
 - Interval>1 (S54): weekly/monthly/yearly σέβονται το διάστημα — scheduler anchor = root· tests `recurrence_weekly_test.dart`.
@@ -490,6 +491,7 @@ final db = SuperNoteHelper.instance;
 - Selective wipe (S270): `_clearHabitGenerated` σβήνει **μόνο** habit-generated rows (DB πρώτα, μετά OS ids)· ποτέ `cancelAllForItem`· `setReminderTime` καθαρίζει το legacy `reminder_times`· topUp/repair σκιπάρουν archived/deleted/done/cancelled.
 - Ώρες weekly/monthly (S62): `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις).
 - Maintenance (E33): `pauseForMaintenance()` / `drainForMaintenance(65s)` / `resumeAfterMaintenance()` για pass+repair· χωρίς forced rearm — το idempotent topUp ξανατρέχει στο επόμενο resume/cold start.
+- Διαγραφή reminders (S250/E05): `deleteHabitRemindersMany(itemIds, {afterRows})` — **1** pass της `_passQueue` = wipe ΟΛΩΝ των rows + `afterRows` (soft/hard delete) αδιαίρετα· το `deleteHabitReminders(id)` = wrapper. Σε μικτό bulk batch το wipe καλύπτει και τα μη-habit ids (1 snapshot, 0 race με topUp).
 
 ### ContactImportService (`lib/services/contact_import_service.dart`)
 - `requestPermission()` — FlutterContacts permission
