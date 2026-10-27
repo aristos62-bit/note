@@ -77,25 +77,26 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (4)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (5)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
 | 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
 | 2 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
 | 3 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
-| 4 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 4 | `E40` | **Restore pipeline: `_restoreSelected` N×** | Επαναφορά πολλών από τον κάδο = N× refresh/topUp/txn/invalidate |
+| 5 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
-| 5 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 6 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
-| 7 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
-| 8 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 9 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(δεν εμφανίστηκε στο device pass του E03 — 26/10/2026)* |
-| 10 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 6 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
+| 7 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
+| 8 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
+| 9 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 10 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(δεν εμφανίστηκε στο device pass του E03 — 26/10/2026)* |
+| 11 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -314,10 +315,19 @@
 - **Στόχος:** ένα ενιαίο pipeline `ShareContentBuilder` → `{subject, text, files}` με σταθερή σειρά: **τίτλος → σύνοψη συνημμένων → πεδία → σώμα**. Κάθε τύπος δηλώνει μόνο τα δικά του sections (task: προτεραιότητα/προθεσμία/υποεργασίες · event/appointment: ώρα/τοποθεσία · contact: τηλέφωνα/email · habit: recurrence · collection: entries).
 - **Συνημμένα:** από (α) item attachments και (β) collection field ids· **dedupe by id**, skip missing αρχείο (log), όρια πλήθους/μεγέθους + σύνοψη `📎 n συνημμένα` **αμέσως μετά τον τίτλο** (ανθεκτικό σε truncation).
 - **Συλλογή:** «με περιεχόμενο» = λίστα entries (τίτλος + πεδία + 📎), χωρίς archived/deleted· ρητή επιλογή αν στέλνονται και τα αρχεία τους.
-- **Συμβατότητα προορισμών:** επιλογή **«Κείμενο»** / **«Κείμενο + αρχεία»** (ή `.md` fallback) ώστε να μη χάνεται ποτέ το κείμενο. *(Απορροφά την άτυπη ιδέα «E40» — δεν δημιουργείται ξεχωριστό ID.)*
+- **Συμβατότητα προορισμών:** επιλογή **«Κείμενο»** / **«Κείμενο + αρχεία»** (ή `.md` fallback) ώστε να μη χάνεται ποτέ το κείμενο. *(Απορροφά την άτυπη ιδέα «κείμενο/κείμενο+αρχεία» — **δεν** παίρνει δικό της ID· το `E40` χρησιμοποιείται για το restore pipeline, βλ. κάρτα E40.)*
 - **Side effects:** `share_service.dart` (refactor formatters σε builder) + 1 σημείο UI (item actions/entry card) + tests· **καμία** αλλαγή DB/schema/notifications.
 - **Αποδοχή:** για κάθε shareable τύπο → τίτλος + πεδία + συνημμένα παρόντα· 0 χαμένα/διπλά αρχεία· analyze/test clean· device spot-check (Yahoo Mail + app που αγνοεί `EXTRA_TEXT`).
 - **Κατάσταση:** **OPEN — θέλει spec/απόφαση πριν από κώδικα** (δεν έχει υλοποιηθεί τίποτα).
+
+### E40 — Restore pipeline: `_restoreSelected` N× (αδελφό του E05)
+- **Πού:** `trash_screen.dart:74-88` — `_restoreSelected()` κάνει `for (final id in _selectedIds.toList()) await notifier.restoreItem(id)`.
+- **Κόστος ανά item (μετρημένο στον κώδικα):** `restoreItem` (`item_provider.dart:251-266`) = `_cascadeCollectionEntries` (queries) + `items.restore` + `refreshRecurringReminders()` (global pass) + `rescheduleForItem(id)` (bake) + `topUpHabitReminders(force: true)` (pass) + `invalidateSelf()` ⇒ **N×** τα παραπάνω για N επιλεγμένα.
+- **Απόδειξη (προέλευση):** εντοπίστηκε στο S277/Ο3 ως Α4 — «`_restoreSelected` (ίδιο N×) → νέο ID (E40) με OK, εκτός E05» (η διαγραφή έκλεισε με `permanentDeleteMany`, η επαναφορά **όχι**).
+- **Γιατί P2:** βελτίωση **υπάρχουσας** λειτουργίας (κάδος → «Επαναφορά επιλεγμένων»), όχι σφάλμα· καμία απώλεια δεδομένων, ίδιο τελικό state — μόνο N× κόστος.
+- **Κόστος/Ρίσκο:** μικρό-μεσαίο. Χρειάζεται `restoreMany(List<int> ids)` (1 cascade batch + 1 restore txn) και **μία** φορά `refreshRecurringReminders` + **μία** `topUpHabitReminders(force:true)` + **1** `invalidateSelf` για όλο το batch (το `rescheduleForItem` ανά id μέσα σε **1** pass). Ρίσκα: σειρά/συμμετρία με τα singles (log parity `n=1`, πρότυπο E05/S250), cascade συλλογής + entries στο ίδιο batch, καμία αλλαγή σε DB/schema/notifications.
+- **Fix/Acceptance:** N επιλεγμένα → **1** cascade query-set + **1** txn + **1** refresh + **1** topUp + **1** invalidate · `restoreItem`/`_restoreSingle` (n=1) **αμετάβλητα** · analyze clean · **339/339** · device (κανόνας 12: 3+ στον κάδο, incl. 1 συλλογή με entries + 1 habit) → ίδιο τελικό state με σήμερα, 0 ERR.
+- **Κατάσταση:** **OPEN** (0 κώδικας — δεν έχει υλοποιηθεί τίποτα).
 
 ### E41 — ✅ CLOSED 26/10/2026 (device-verified, S274: πολυήμερα συμβάντα)
 - **Υλοποίηση:** `span_utils.dart` (εύρος, 1 lane, hatch overlays, sort, halo, ≥3.0:1) · `event_properties_panel.dart` (Λήξη/Χρώμα) · `calendar_screen.dart` (`_MonthData`, batch properties, `_SpanBarPainter`, markers) · `event_detail_screen.dart` (`_pickEndDate`/`_pickSpanColor`, clamp) · `property_provider.dart` (`calendarDataVersionProvider`) · `property_keys.dart` · `search_service.dart` (blocklist) · `share_service.dart` (εύρος). `end_date` = EAV date-only inclusive · `span_color` = `#RRGGBB` · τελείες **πάνω** (`top: 0`) / γραμμή **κάτω** (`bottom: 0`).
@@ -448,7 +458,7 @@
 |---|---|---|
 | `code_refactor.md` §3/§7/§8/§9 | λίστες/status | ✅ **αρχειοθετήθηκαν 24/10/2026 (S273)** — παραπομπή σε `oldsessions.md`/`error_list.md` (κανόνας 9) |
 | `supernote.md` | αρχιτεκτονική + status | ✅ **μόνο αρχιτεκτονική** (κανόνας 8) — αληθή facts 24/10/2026 |
-| `oldsessions.md` | ιστορικό + «επόμενο session» | ✅ **ιστορικό + πρόοδος** — κεφάλαιο **S276** (26/10/2026, Ο5: E27+E03+E44 CLOSED)· εκκρεμότητες μόνο στο `error_list.md`, πρόοδος εδώ στο οριστικό κλείσιμο |
+| `oldsessions.md` | ιστορικό + «επόμενο session» | ✅ **ιστορικό + πρόοδος** — κεφάλαιο **S277** (27/10/2026, Ο3: E05 CLOSED, device-verified)· εκκρεμότητες μόνο στο `error_list.md`, πρόοδος εδώ στο οριστικό κλείσιμο |
 | `error_list.md` | — | **η μοναδική πηγή εκκρεμοτήτων** μέχρι το E26, μετά διαγράφεται |
 | `AGENTS.md` | κανόνες 6/9/10 | ✅ **ενημερώθηκε 26/10/2026**: 6 = `error_list.md` (εκκρεμότητες) + `oldsessions.md` (ιστορικό/πρόοδος) · 9 = εκκρεμότητες μόνο στο `error_list.md`, **πρόοδος στο `oldsessions.md` στο οριστικό κλείσιμο** · 10 = 1 κεφάλαιο/φάση |
 
@@ -457,7 +467,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -468,6 +478,7 @@
 | **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
 | **Ο5 — Grid + verify** ✅ CLOSED 26/10/2026 (device-verified, S276) | E27 + E03 + **E44** | `reorderable_item_list` (autoScroll + dragEnabled) + `selectRecentItems` recency + μαζικό device pass (100%/140°) | E03 από E27 · E44 από E19 |
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
+| **Ο9 — Restore pipeline** | E40 (solo — αδελφό του Ο3, ίδια αρχεία) | `trash_screen` + `item_provider` (`restoreMany`) + 1 refresh/topUp/invalidate για όλο το batch | E40 από E05/Ο3 (Α4) |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
