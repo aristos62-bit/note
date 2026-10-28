@@ -3954,5 +3954,21 @@
 - Σειρά guards: `isEmpty` → `isOpen` → read → txn. Αν το `isOpen` μπει μετά το read, δεν προλαβαίνει (το read πετάει πρώτο).
 - `ref` μετά από `await` σε `ConsumerState` = `StateError`, και **δεν** το πιάνει lint (είναι `WidgetRef`, όχι `BuildContext`) — `mounted` χειροκίνητα.
 - Πριν γράψεις batch restore, έλεγξε αν το SDK έχει ήδη bulk cancel/insert API· εδώ το FLN δεν έχει, αλλά το Isar `putAll` + `getTxn` κάλυψαν το 100% της ανάγκης.
+- **Markers σε logcat:** `adb shell log -t E40MARK "…"` γράφει σε **άλλο** tag — με `flutter:V *:S` **δεν** καταγράφεται. Σωστό: `adb logcat -v time flutter:V E40MARK:V *:S`. Χωρίς markers η αντιστοίχιση test↔γραμμή γίνεται μόνο από timestamps/ids (έγινε εδώ, αλλά χάνεται η 1:1 απόδειξη).
+- **Έλεγχος πριν το κλείσιμο:** η απόδειξη του N×→1× είναι τα **1** refresh/1 topUp/1 repo log ανά κλήση — **όχι** ο χρόνος (εξαρτάται από το OS scheduling: 330ms–9.2s).
 
-**Κατάσταση: 🟡 ΥΛΟΠΟΙΗΘΗΚΕ (analyze clean + 339/339) — αναμονή device T1–T9.** Το E40 **μένει ανοιχτό** στο `error_list.md` μέχρι το device pass (κανόνας 9).
+**Device pass (27/10/2026, POCO X3 — `e40_device.log` 5.213 γρ. / 590 KB, pid `32101` σταθερό σε όλες τις γραμμές ⇒ κανένα restart, 0 `ERR`/exception/`DB closed`, 0 `truncated`, max `OS pending=425` < 450):**
+- **T1 batch 3:** `n=3 → total=10 restored=10` (η συλλογή είχε **7** entries, όχι 4) · **1** cascade `collections=1 entries=7` · **1** txn · **1** refresh · **1** topUp · 3× `rescheduleForItem` · `took=511ms`. Εγγραφές **πρώτα** στο `ids` list (`…503,306,488,489`) ⇒ interrupt-safe ordering ✅
+- **T2 συνήθεια (id=469):** `HabitService.topUp: done scanned=4 needTopUp=1 created=120` · 120× `_scheduleOne … SUCCESS` · `took=9186ms` (βλ. παρατήρηση).
+- **T3 recurring (id=464):** `rescheduleForItem: itemId=464 rebaked=14 skipped=1` · 1 refresh (`scheduled batch=71`) · `took=2713ms`.
+- **T4 single parity:** 15 κλήσεις n=1 → `restoreItem: id=… → rescheduled` byte-identical με το παλιό.
+- **T5 διπλό tap:** 1 κλήση / 1 dialog (επιβεβαίωση χρήστη — δεν κατεγράφη, βλ. μάθημα markers).
+- **T6 συλλογή+entries:** `n=3 [503,502,306] → total=8` (όχι 11) `restored=8` ⇒ dedupe ✅.
+- **T7 ήδη restored:** 7× n=1 (entries) → `n=1 [306] → total=8 restored=1` ⇒ το φίλτρο `deletedAt != null` δουλεύει, 0 επανεγγραφές ✅.
+- **T8 10 επιλεγμένα:** ✅ (επιβεβαίωση χρήστη).
+- **T9 archived+deleted (id=451, 2×):** `rescheduleForItem … skipped=5` + `skipping archived root id=2191` → μετά `ItemCardBuilder id=451 archived=true showArchived=true` ⇒ επέστρεψε στο **αρχείο**, όχι στη λίστα ✅.
+- **UI refresh:** `EmptyState` 78ms μετά το commit (`18:16:09.443` → `.472`) ⇒ 1 watcher emission ανά batch ✅.
+
+**Παρατήρηση (όχι regression, καταγράφεται):** το restore **συνήθειας** κρατά το UI ~9.2s (`topUpHabitReminders(force:true)` = 120 σειριακά `zonedSchedule` × ~55ms). Ίδιο κόστος υπήρχε και πριν (1× πλέον αντί N×). Δεν άνοιξε νέο ID — αν χρειαστεί, προτείνεται ξεχωριστό batch/parallel topUp.
+
+**Κατάσταση: ✅ CLOSED 27/10/2026 (device-verified T1–T9).** `error_list.md`: κάρτα CLOSED · §1 P2 5→4 · §3 bullet · §6 Ο9 ✅ · §0 baseline (`e96cbc9`, 43.431 γρ.). Backups: `backups/s278_e40/` (κώδικας) + `backups/s278_e40_close/` (docs + `e40_device.log`).
