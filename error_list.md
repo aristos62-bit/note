@@ -77,14 +77,15 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (4)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (5)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
 | 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
 | 2 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
 | 3 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
-| 4 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 4 | `E45` | **Habit topUp: σειριακό OS scheduling** | 120 alarms ≈ 9.2s (restore/cold start/resume) |
+| 5 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
@@ -338,6 +339,18 @@
 - **Device (POCO X3, 26/10/2026):** `HomeFolderView recent 10/10 ids=[…]` σε κάθε build· 15 items → **10 νεότερα**· ενέργεια/μετακίνηση σε item → **1ο** (F11, by design μέσω `updatedAt`)· **καμία λαβή** στα «Πρόσφατα» · pinned/favorite **χωρίς** λαβή στα «Όλα» · drag σε «Πρόσφατα» **κλειδωμένο** · drag σε «Όλα» αποθηκεύει σειρά και **δεν** αγγίζει το `updatedAt` · 100%/140% 0 overflow. **PASS.**
 - **Αποδοχή:** ✅ 12 items με διαφορετικά `updatedAt` → 10 νεότερα · edit → πρώτο · drag off στο recent · 0 handles σε pinned/favorite.
 
+### E45 — Habit topUp: σειριακό OS scheduling (120 alarms ≈ 9.2s)
+- **Πού (μετρημένο):** `habit_service.dart:725-848` (`_topUpHabitRemindersImpl`) — δημιουργεί **120 rows** (2 ώρες/ημέρα × `horizonDays = 60`, `:543`) με **σειριακό** `await helper.reminders.create(...)` ανά occurrence (`:816-826`)· μετά **1** batch `ReminderScheduler.scheduleReminders(pendingToSchedule)` (`:832`), που καταλήγει σε `_runBakePlan` (`reminder_scheduler.dart:220-239`): `for (final reminder in plan.schedule) await _scheduleOne(...)` ⇒ **1 `zonedSchedule` ανά alarm, σειριακά**.
+- **Απόδειξη (S278, POCO X3, device):** restore συνήθειας (T2 του E40) → `HabitService.topUp: done scanned=4 needTopUp=1 created=120 scheduledBatch=338` · **120×** `_scheduleOne … SUCCESS` · `PERF#9 topUp: … took=8962ms` (≈**55ms/alarm**) → συνολικό `E40 restoreMany took=9186ms` · `OS pending` 291→**411** (budget 450, 0 `truncated`).
+- **Γιατί P2:** κανένα λάθος state (τα alarms είναι σωστά) — το κόστος είναι **χρόνος/UX**: `await` μέσα στο restore, και χτυπά **και** cold start / resume / `scheduleAll` γιατί όλα περνούν από το ίδιο `_runBakePlan`.
+- **Επιλογές (να επιλεγεί πριν από κώδικα):**
+  1. **Bounded concurrency** στο `_runBakePlan` (chunks 4–8 με `Future.wait`) — το budget cut γίνεται **πριν** την εκτέλεση (`plan.schedule` ήδη κομμένο, `:135`/`:912`), άρα η σειρά εκτέλεσης **δεν** αλλάζει ποια alarms κρατιούνται· ρίσκο: παράλληλα `zonedSchedule` στο ίδιο method channel → θέλει μέτρηση, όχι υπόθεση.
+  2. **1 `putAll` αντί 120 `create`** για τις rows (μικρό αλλά καθαρό κέρδος, ίδιο πρότυπο με `restoreMany`/`hardDeleteMany`).
+  3. **`horizonDays` 60 → 30/14** (product απόφαση): 120 → 60/28 alarms, αλλά «αδειάζει» νωρίτερα (πιο συχνό topUp)· το σχόλιο H3 (`:837-838`) το προτείνει ρητά ως μοχλό.
+- **Όχι επιλογή:** batch API του FLN — **δεν υπάρχει** στο 17.2.4 (μόνο `zonedSchedule` / `cancel(id)` / `cancelAll()`).
+- **Acceptance:** ίδια alarms / ίδιο budget cut με σήμερα · 120 alarms σε **≤ ~2-3s** · 0 ERR · analyze clean · **339/339** · device: restore συνήθειας + cold start + resume (ίδια `os`/`took`).
+- **Κατάσταση:** **OPEN** (0 κώδικας — θέλει επιλογή 1/2/3).
+
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
 1. ✅ `oldsessions.md`: κεφάλαιο **S273** (Φ5 partial: E18, device pass, E39, docs, commits).
@@ -466,7 +479,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 → Ο10** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -479,5 +492,6 @@
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
 | **Ο9 — Restore pipeline** ✅ CLOSED 27/10/2026 (S278 `e96cbc9` + device T1–T9) | E40 (solo — αδελφό του Ο3, ίδια αρχεία) | `trash_screen` + `item_provider` (`restoreMany`) + 1 refresh/topUp/invalidate για όλο το batch | E40 από E05/Ο3 (Α4) |
 | **Ο7 — Dates/editor mini-pass** | E22 + E20 | Μικρές στοχευμένες αλλαγές (`journal_detail` κ.λπ.) | E20 από E22 |
+| **Ο10 — Habit topUp perf** | E45 (solo — `habit_service` + `_runBakePlan`) | 1 πρόταση: batch/parallel OS scheduling + `putAll` rows (απόφαση: horizonDays) | — |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
