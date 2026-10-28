@@ -3969,6 +3969,6 @@
 - **T9 archived+deleted (id=451, 2×):** `rescheduleForItem … skipped=5` + `skipping archived root id=2191` → μετά `ItemCardBuilder id=451 archived=true showArchived=true` ⇒ επέστρεψε στο **αρχείο**, όχι στη λίστα ✅.
 - **UI refresh:** `EmptyState` 78ms μετά το commit (`18:16:09.443` → `.472`) ⇒ 1 watcher emission ανά batch ✅.
 
-**Παρατήρηση (όχι regression, καταγράφεται):** το restore **συνήθειας** κρατά το UI ~9.2s (`topUpHabitReminders(force:true)` = 120 σειριακά `zonedSchedule` × ~55ms). Ίδιο κόστος υπήρχε και πριν (1× πλέον αντί N×). Δεν άνοιξε νέο ID — αν χρειαστεί, προτείνεται ξεχωριστό batch/parallel topUp.
+**Παρατήρηση → καταχωρήθηκε ως `E45` (P2, ομάδα Ο10):** το restore **συνήθειας** κρατά το UI ~9.2s (`topUpHabitReminders(force:true)` = 120 rows × `horizonDays=60` → 120 σειριακά `zonedSchedule` × ~55ms στο `_runBakePlan`). **Δεν** είναι regression του E40 (ίδιο κόστος υπήρχε και πριν, τώρα 1× αντί N×) — καταχωρήθηκε με OK χρήστη ως ξεχωριστό P2 (batch/parallel scheduling + `putAll` rows + απόφαση horizon).
 
 **Κατάσταση: ✅ CLOSED 27/10/2026 (device-verified T1–T9).** `error_list.md`: κάρτα CLOSED · §1 P2 5→4 · §3 bullet · §6 Ο9 ✅ · §0 baseline (`e96cbc9`, 43.431 γρ.). Backups: `backups/s278_e40/` (κώδικας) + `backups/s278_e40_close/` (docs + `e40_device.log`).
