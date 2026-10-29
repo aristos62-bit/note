@@ -20,12 +20,23 @@ class _BakeExecutionResult {
     required this.failed,
     required this.skipped,
     required this.cancelled,
+    required this.cancelMs,
+    required this.schedMs,
+    required this.nativeMs,
   });
 
   final int baked;
   final int failed;
   final int skipped;
   final int cancelled;
+
+  /// Φ0 (E45): χρόνοι του bake — `cancelMs` καλύπτει το loop των ακυρώσεων
+  /// (κάθε `cancel` ξαναγράφει ΟΛΗ τη persisted λίστα του plugin),
+  /// `schedMs` το loop των `zonedSchedule`, `nativeMs` μόνο το platform call
+  /// (άρα `schedMs - nativeMs` ≈ Dart-side reads/text).
+  final int cancelMs;
+  final int schedMs;
+  final int nativeMs;
 }
 
 class ReminderScheduler {
@@ -40,6 +51,11 @@ class ReminderScheduler {
 
   /// True αν το τελευταίο bake κόπηκε στο OS-όριο (διαβάζεται από diagnostics).
   bool get isOsWindowTruncated => _osWindowTruncated;
+
+  /// Φ0 (E45): σωρευτής χρόνου **μόνο** του platform call (`zonedSchedule`),
+  /// ώστε να ξεχωρίζει το native κόστος από το Dart-side (reads/text/logs).
+  /// Μηδενίζεται στο ξεκίνημα κάθε `_runBakePlan` — τα passes είναι σειριακά.
+  int _accumNativeUs = 0;
   Timer? _refreshTimer;
   DateTime? _lastRefreshRun; // 🔍 DEBUG: για μέτρηση του κενού μεταξύ refresh
 
@@ -164,7 +180,11 @@ class ReminderScheduler {
           'skipped=${plan.skippedCount + result.skipped} cancelled=${result.cancelled} '
           'cut=$cut truncated=${plan.truncated} os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
-          'avg=${pending.isEmpty ? 0 : (loopSw.elapsedMilliseconds / pending.length).toStringAsFixed(1)}ms/alarm');
+          // Φ3 (E45): ο παλιός `avg=` διαιρούσε με το σύνολο των DB rows
+          // (`pending.length`), όχι με τα alarms που ψήθηκαν — παραπλανητικό.
+          'avgSched=${result.baked == 0 ? 0 : (loopSw.elapsedMilliseconds / result.baked).toStringAsFixed(1)}ms/alarm '
+          'dart=${result.schedMs - result.nativeMs}ms native=${result.nativeMs}ms '
+          'cancel=${result.cancelMs}ms');
       if (plan.truncated) {
         DebugConfig.warning(
             'scheduleAll: BUDGET cut — desired=${plan.desiredCount} schedule=${plan.schedule.length} keep=${plan.keepIds.length} limit=${NotificationService.osAlarmLimit}');
@@ -204,6 +224,8 @@ class ReminderScheduler {
     required bool vibration,
     required AndroidScheduleMode mode,
   }) async {
+    _accumNativeUs = 0; // Φ0/E45: καθαρή μέτρηση για αυτό το bake
+    final cancelSw = Stopwatch()..start();
     var cancelled = 0;
     for (final id in plan.cancelIds) {
       try {
@@ -214,6 +236,8 @@ class ReminderScheduler {
             'ReminderScheduler._runBakePlan cancel id=$id', e, stack);
       }
     }
+    cancelSw.stop();
+    final schedSw = Stopwatch()..start();
     var baked = 0;
     var failed = 0;
     var skipped = 0;
@@ -237,11 +261,15 @@ class ReminderScheduler {
         }
       }
     }
+    schedSw.stop();
     return _BakeExecutionResult(
       baked: baked,
       failed: failed,
       skipped: skipped,
       cancelled: cancelled,
+      cancelMs: cancelSw.elapsedMilliseconds,
+      schedMs: schedSw.elapsedMilliseconds,
+      nativeMs: _accumNativeUs ~/ 1000,
     );
   }
 
@@ -904,10 +932,14 @@ class ReminderScheduler {
       final rows = reminders.toList();
       if (rows.isEmpty) return;
 
+      final readSw = Stopwatch()..start(); // Φ0/E45
       final os = await _readOsSnapshots();
+      final itemsById = await _buildItemsMap(rows);
+      readSw.stop();
+      final planSw = Stopwatch()..start(); // Φ0/E45
       final plan = buildReminderBakePlan(
         rows: rows,
-        items: await _buildItemsMap(rows),
+        items: itemsById,
         osById: os,
         limit: NotificationService.osAlarmLimit,
         now: DateTime.now(),
@@ -916,7 +948,10 @@ class ReminderScheduler {
         // άλλων rows· το scheduleAll/rescheduleForItem το κάνει scoped.
         cancelableOsIds: const <int>{},
       );
+      planSw.stop();
+      final modeSw = Stopwatch()..start(); // Φ0/E45
       final mode = await NotificationService.instance.resolveScheduleMode();
+      modeSw.stop();
       final result = await _runBakePlan(
         plan,
         sound: settings.soundEnabled,
@@ -928,6 +963,14 @@ class ReminderScheduler {
           'scheduleReminders: rows=${rows.length} desired=${plan.desiredCount} '
           'baked=${result.baked} kept=${plan.keepIds.length} failed=${result.failed} '
           'skipped=${plan.skippedCount + result.skipped} truncated=${plan.truncated}');
+      // Φ0/E45: διαχωρισμός read/plan/mode/cancel/sched/native — η γραμμή
+      // `scheduleReminders:` μένει byte-identical για τα υπάρχοντα greps.
+      DebugConfig.notif(
+          'PERF#9b scheduleReminders: rows=${rows.length} os=${os.length} '
+          'readMs=${readSw.elapsedMilliseconds} planMs=${planSw.elapsedMilliseconds} '
+          'modeMs=${modeSw.elapsedMilliseconds} cancelMs=${result.cancelMs} '
+          'schedMs=${result.schedMs} nativeMs=${result.nativeMs} '
+          'dartMs=${result.schedMs - result.nativeMs} baked=${result.baked}');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.scheduleReminders', e, stack);
     }
@@ -1152,6 +1195,7 @@ class ReminderScheduler {
         return ScheduleOutcome.skipped;
       }
       try {
+        final nativeSw = Stopwatch()..start(); // Φ0/E45: μόνο το platform call
         final ok = await NotificationService.instance.schedule(
           id: fresh.id,
           title: text.title,
@@ -1162,6 +1206,8 @@ class ReminderScheduler {
           vibration: vibration,
           mode: resolvedMode,
         );
+        nativeSw.stop();
+        _accumNativeUs += nativeSw.elapsedMicroseconds;
         if (!ok) {
           DebugConfig.warning(
               'ReminderScheduler._scheduleOne: FAILED id=${fresh.id} (OS rejected — rows kept)');
