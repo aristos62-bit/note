@@ -4092,4 +4092,41 @@
 
 **Κατάσταση:** 🔧 κώδικας ✅ 29/10/2026 · **device pass ⏳** (T1 πρώτη αποθήκευση · T2 restore vs 9186ms · T3 cold start · T5 αλλαγή ωρών · T6 archive · T7 OFF→ON). Μετά τη μέτρηση αποφασίζεται 2α (OS-horizon/`horizonDays`) ή 2β (concurrency, μόνο αν `dartMs` ≥40%).
 
+---
+
+# S281 — Ο10 / E45 (2α): OS-horizon 14 ημερών για habit alarms
+
+**Απόφαση (μετά τη μέτρηση Φ0):** `native=20155ms / loop=21711ms` = **92,8%** σειριακό plugin persistence ⇒ το concurrency απορρίφθηκε· ο μόνος μοχλός είναι **λιγότερες κλήσεις**. Επιλέχθηκε **A**: το OS κρατά **14 ημέρες** habit alarms, η DB **60** (refill με τον υπάρχοντα topUp/resume). Παράλληλα λύνεται το πραγματικό bug: `db=1105 desired=956 cut=506` — 506 alarms **δεν** προγραμματίζονταν ποτέ.
+
+**Τι άλλαξε (3 production + 1 test):**
+1. `reminder_bake_plan.dart`
+   - `habitOsHorizonDays = 14` — **δεν είναι νέο νούμερο**: είναι το A5 (`refreshRecurringReminders` batchSize 14 για daily, με ρητό σκεπτικό «με 5 σταματούσε μετά 5 μέρες») εκφρασμένο σε ημέρες.
+   - `habitMinOsAlarmsPerItem = 5` — **safety rail** για sparse (weekly/monthly) habits: χωρίς αυτό μια monthly εμφάνιση εκτός 14ημέρου θα άφηνε **0 alarms** (σιωπή). Ίδιο νούμερο με το A5 για weekly/monthly/yearly.
+   - `Set<int> habitDeferredIds({rows, now, horizonDays, minPerItem})` — **pure SPoT** του κανόνα (το καλεί το plan **και** η Διάγνωση). Cutoff `DateTime(now.year, now.month, now.day + 14)` = τοπικό μεσάνυχτο, **DST-safe** (όχι `.add(Duration(days:14))`), **αποκλειστικό** (`triggerAt == cutoff` → deferred).
+   - Predicate `r.title == habitGeneratedTitle` — **ίδιο** με `_clearHabitGenerated` (`habit_service.dart:602`), **0 νέο marker/στήλη**. Επαληθεύτηκε ότι το title **δεν** drift-άρει: `resolveReminderNotificationText` κρατά το title για habit rows (`reminder_text.dart:62-63`), `syncable…` επιστρέφει `null` όταν δεν άλλαξε (`:75-84`).
+   - `ReminderBakePlan.deferredCount` · `required bool habitOsWindow` (**compiler-enforced**: 3 prod + 7 tests — ένα μελλοντικό call site δεν μπορεί να το ξεχάσει).
+2. `reminder_scheduler.dart`: `habitOsWindow: true` στα **3** call sites (`:147` scheduleAll, `:940` scheduleReminders/topUp, `:1032` rescheduleForItem) + `deferred=` στα `PERF#9`/`PERF#9b`.
+3. `reminder_diagnostics_screen.dart`: `_PendingRow.deferred` + «⏳ εκτός ορίζοντα 14ημ. (στη DB)» (cInfo) αντί για ψευδές κόκκινο «⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!» — αλλιώς ~690 rows θα έμοιαζαν σπασμένες στην οθόνη που χρησιμοποιούμε για device pass — + γραμμή «Αναβολή: N» στην κάρτα σύνοψης.
+4. `test/reminder_bake_plan_test.dart`: `habitOsWindow: false` στα 7 υπάρχοντα + **7 νέα** (flag-off parity · μέσα κρατιέται · έξω deferred · non-habit έξω κρατιέται · min-5 rail · budget 900+56 → `desired=264 deferred=692 truncated=false` · όριο cutoff).
+
+**Reuse αντί νέου μηχανισμού (επανέλεγχος):**
+- `cancelableOsIds` (scoped) καθαρίζει τυχόν OS habit alarm εκτός πολιτικής — `scheduleAll` incremental περνά **όλα** τα OS ids (`:154-155`), `rescheduleForItem` μόνο του item (`:1027-1031`).
+- **Refill**: `topUp` στο resume (`main.dart:417`) + cold start (`:232`) + forced (`item_provider.dart:273/395/414`). Το `rebakeIfTruncatedAndDayChanged` σωστά **no-op** όταν `truncated=false`: το παράθυρο `now..now+14` **μόνο μικραίνει** με τον χρόνο, άρα δεν χάνεται κάλυψη.
+- `rescheduleForItem` έχει `forceSchedule: true` ⇒ σήμερα ξαναψήνει **όλες** τις rows του item (έως ~225/habit σε rename/unarchive) — τώρα ~53.
+- `_scheduleRemindersImpl` (αλλαγή ωρών) γράφει 60ημ. rows και ψήνει `createdRows`· **0 αλλαγές** εκεί, τις κόβει το plan.
+- `repairLegacyHabitRows` δεν φτιάχνει rows μόνο του → `syncScheduleWithRecurrence` → `createMany(generatedTitle)` ⇒ καλύπτεται.
+- `_clearHabitGenerated` (mass-cancel) **δεν** αγγίχτηκε (ξεχωριστό βήμα).
+
+**Αναμενόμενα (ίδια δεδομένα/device):** `desired 956→~266` · `deferred ~690` · `cut 506→0` · `truncated false` · cold start `21,7s → ~7-8s` (O(n) ανά κλήση × n κλήσεις ⇒ ≈(266/450)²×21,7s).
+
+**Έλεγχος:** `flutter analyze` → **No issues found** · `flutter test` → **377/377 All tests passed** (~25s) · backups `backups/o10_e45_oswindow/` (3 production + 1 test + 3 docs).
+
+**Μαθήματα:**
+- **Ο κανόνας πρέπει να ζει σε pure function όταν τον χρειάζονται 2 consumers:** το plan τον εφαρμόζει, η Διάγνωση τον *δείχνει* — αν τον διπλογράφαμε, η οθόνη θα έλεγε «λείπει» για rows που σωστά αναβάλλονται.
+- **Πριν κόψεις κάτι, έλεγξε την οθόνη που το παρατηρεί:** το πραγματικό ρίσκο δεν ήταν το bake αλλά το Diagnostics (690 ψευδή errors).
+- **Επανάχρηση = ίδιο νούμερο + ίδιο predicate:** `14`/`5` (A5) και `habitGeneratedTitle` (`_clearHabitGenerated`) αντί για νέα consts/markers.
+- **`required` flag αντί default:** ο compiler έγινε ο guard κατά της σιωπηλής επιστροφής στο παλιό behavior.
+
+**Κατάσταση:** 🔧 κώδικας ✅ 29/10/2026 · **device pass ⏳** (T1–T9 του E45, με έμφαση σε T3 cold start `desired≈266/deferred≈690/truncated=false/loop≈7-8s` και T8/T9 Διάγνωση).
+
 
