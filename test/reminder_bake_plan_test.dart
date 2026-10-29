@@ -67,6 +67,7 @@ void main() {
         limit: 2,
         now: _now,
         incremental: false,
+        habitOsWindow: false,
       );
       expect(plan.cancelIds, isEmpty);
       expect(plan.schedule.map((r) => r.id), [1, 2]);
@@ -93,6 +94,7 @@ void main() {
         limit: 3,
         now: _now,
         incremental: true,
+        habitOsWindow: false,
       );
       expect(plan.keepIds, [1]);
       expect(plan.schedule.map((r) => r.id), [2, 3]);
@@ -117,6 +119,7 @@ void main() {
         limit: 2,
         now: _now,
         incremental: true,
+        habitOsWindow: false,
       );
       expect(plan.keepIds, [1, 2]);
       expect(plan.schedule, isEmpty);
@@ -137,6 +140,7 @@ void main() {
         limit: 60,
         now: _now,
         incremental: true,
+        habitOsWindow: false,
         cancelableOsIds: {2},
       );
       expect(plan.cancelIds, [2]);
@@ -160,6 +164,7 @@ void main() {
         limit: 60,
         now: _now,
         incremental: false,
+        habitOsWindow: false,
       );
       expect(plan.desiredCount, 0);
       expect(plan.skippedCount, 3);
@@ -177,6 +182,7 @@ void main() {
         limit: 1,
         now: _now,
         incremental: true,
+        habitOsWindow: false,
         forceSchedule: true,
       );
       expect(plan.keepIds, isEmpty);
@@ -195,9 +201,180 @@ void main() {
         limit: 60,
         now: _now,
         incremental: false,
+        habitOsWindow: false,
       );
       expect(plan.desiredCount, 0);
       expect(plan.schedule, isEmpty);
+    });
+  });
+
+  // ── E45/A: habit OS-window ──────────────────────────────────────────
+  group('habit OS window (E45/A)', () {
+    /// Λεπτά από το `_now` μέχρι το **αποκλειστικό** cutoff: +14 ημέρες από
+    /// το μεσάνυχτο της 01/01/2030 = 15/01/2030 00:00, δηλαδή 13ημ 16ω.
+    const cutoffMinutes = 13 * 1440 + 960; // 19680
+
+    Reminder habit(int id, int minutes, {int itemId = 1}) => _reminder(
+          id: id,
+          itemId: itemId,
+          minutes: minutes,
+          title: habitGeneratedTitle,
+          body: 'Υπενθύμιση: Συνήθεια',
+        );
+
+    Item habitItem({int id = 1}) =>
+        _item(id: id, type: ItemType.habit, title: 'Συνήθεια');
+
+    test('flag off → ίδιο plan (regression guard)', () {
+      final rows = [habit(1, 30000), habit(2, 40000), habit(3, 50000)];
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: false,
+      );
+      expect(plan.desiredCount, 3);
+      expect(plan.deferredCount, 0);
+      expect(plan.schedule.map((r) => r.id), [1, 2, 3]);
+    });
+
+    test('habit row μέσα στο παράθυρο κρατιέται', () {
+      final plan = buildReminderBakePlan(
+        rows: [habit(1, 60)],
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(plan.desiredCount, 1);
+      expect(plan.deferredCount, 0);
+      expect(plan.schedule.single.id, 1);
+    });
+
+    test('habit row έξω → deferred (όχι skip, όχι schedule)', () {
+      // index 6: τα πρώτα 5 τα κρατά το rail, το 6ο (έξω) αναβάλλεται.
+      final plan = buildReminderBakePlan(
+        rows: [
+          for (var i = 1; i <= 5; i++) habit(i, i * 60),
+          habit(6, 14 * 1440),
+        ],
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(plan.desiredCount, 5);
+      expect(plan.deferredCount, 1);
+      expect(plan.skippedCount, 0);
+      expect(plan.schedule.map((r) => r.id), [1, 2, 3, 4, 5]);
+      expect(plan.truncated, isFalse);
+    });
+
+    test('non-habit row έξω από το παράθυρο κρατιέται', () {
+      final plan = buildReminderBakePlan(
+        rows: [_reminder(id: 1, minutes: 40 * 1440)],
+        items: {1: _item()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(plan.desiredCount, 1);
+      expect(plan.deferredCount, 0);
+      expect(plan.schedule.single.id, 1);
+    });
+
+    test('min-5 rail: sparse habit κρατά 5 occurrences, οι άλλες deferred', () {
+      final plan = buildReminderBakePlan(
+        rows: [for (var i = 0; i < 7; i++) habit(i + 1, 14 * 1440 + i * 1440)],
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(plan.desiredCount, 5);
+      expect(plan.deferredCount, 2);
+      expect(plan.schedule.map((r) => r.id), [1, 2, 3, 4, 5]);
+
+      // <5 occurrences όλες έξω → καμία αναβολή (καμία σιωπή).
+      final sparse = buildReminderBakePlan(
+        rows: [for (var i = 0; i < 4; i++) habit(i + 1, 20 * 1440 + i)],
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(sparse.desiredCount, 4);
+      expect(sparse.deferredCount, 0);
+    });
+
+    test('budget: 900 habit + 56 non-habit → χωρίς truncation', () {
+      final rows = <Reminder>[];
+      for (var item = 1; item <= 4; item++) {
+        for (var i = 0; i < 225; i++) {
+          rows.add(habit(item * 1000 + i, 60 + i * 380, itemId: item));
+        }
+      }
+      for (var i = 0; i < 56; i++) {
+        rows.add(_reminder(id: 9000 + i, itemId: 900, minutes: 30 + i));
+      }
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: {
+          for (var item = 1; item <= 4; item++) item: habitItem(id: item),
+          900: _item(id: 900, title: 'Ραντεβού'),
+        },
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      // 4 × 52 habit occurrences μέσα στο 14ήμερο + 56 non-habit.
+      expect(plan.desiredCount, 264);
+      expect(plan.deferredCount, 692);
+      expect(plan.schedule.length, 264);
+      expect(plan.truncated, isFalse);
+    });
+
+    test('όριο: triggerAt == cutoff → deferred, cutoff-1ms → kept', () {
+      // index 6 (τα πρώτα 5 είναι μέσα) ώστε να μη «σώζεται» από το rail.
+      final base = [for (var i = 1; i <= 5; i++) habit(i, i * 60)];
+      final atCutoff = buildReminderBakePlan(
+        rows: [...base, habit(6, cutoffMinutes)],
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(atCutoff.deferredCount, 1);
+      expect(atCutoff.desiredCount, 5);
+
+      final justInside = buildReminderBakePlan(
+        rows: [...base, habit(6, cutoffMinutes - 1)],
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(justInside.deferredCount, 0);
+      expect(justInside.desiredCount, 6);
     });
   });
 }
