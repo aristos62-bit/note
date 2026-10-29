@@ -421,7 +421,7 @@ final db = SuperNoteHelper.instance;
 | `PropertyRepository` | set (upsert), get, getValue, getAll, delete + typed helpers (setDate, setNumber, setBool, setCurrency) | — |
 | `TagRepository` | createOrGet, addToItem, removeFromItem, getForItem, getItemsWithTag, getAll | — |
 | `RelationRepository` | create, getFrom, getTo, getRelatedItems, delete | — |
-| `ReminderRepository` | create, getPending, getForItem, markSent, snooze, delete, cleanupOldPending, getPastPending, updateRootReminderForItem | watchPending |
+| `ReminderRepository` | create, createMany, getPending, getForItem, markSent, snooze, delete, cleanupOldPending, getPastPending, updateRootReminderForItem | watchPending |
 | `FolderRepository` | create, getByWorkspace, delete, getById, update, reorder | watchByWorkspace, watchById |
 | `WorkspaceRepository` | create, getAll, getDefault | — |
 | `AttachmentRepository` | create, getForItem, getById, delete | — |

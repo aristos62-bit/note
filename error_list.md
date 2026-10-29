@@ -84,7 +84,7 @@
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
 | 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 2 | `E45` | **Habit topUp: σειριακό OS scheduling** | 120 alarms ≈ 9.2s (restore/cold start/resume) |
+| 2 | `E45` | **Habit topUp: σειριακό OS scheduling** — 🔧 κώδικας ✅ (S280), device ⏳ | 120 alarms ≈ 9.2s (restore/cold start/resume) |
 | 3 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
@@ -361,15 +361,27 @@
 
 ### E45 — Habit topUp: σειριακό OS scheduling (120 alarms ≈ 9.2s)
 - **Πού (μετρημένο):** `habit_service.dart:725-848` (`_topUpHabitRemindersImpl`) — δημιουργεί **120 rows** (2 ώρες/ημέρα × `horizonDays = 60`, `:543`) με **σειριακό** `await helper.reminders.create(...)` ανά occurrence (`:816-826`)· μετά **1** batch `ReminderScheduler.scheduleReminders(pendingToSchedule)` (`:832`), που καταλήγει σε `_runBakePlan` (`reminder_scheduler.dart:220-239`): `for (final reminder in plan.schedule) await _scheduleOne(...)` ⇒ **1 `zonedSchedule` ανά alarm, σειριακά**.
-- **Απόδειξη (S278, POCO X3, device):** restore συνήθειας (T2 του E40) → `HabitService.topUp: done scanned=4 needTopUp=1 created=120 scheduledBatch=338` · **120×** `_scheduleOne … SUCCESS` · `PERF#9 topUp: … took=8962ms` (≈**55ms/alarm**) → συνολικό `E40 restoreMany took=9186ms` · `OS pending` 291→**411** (budget 450, 0 `truncated`).
+- **Απόδειξη (S278, POCO X3, device):** restore συνήθειας (T2 του E40) → `HabitService.topUp: done scanned=4 needTopUp=1 created=120 scheduledBatch=338` · **120×** `_scheduleOne … SUCCESS` · `PERF#9 topUp: … took=8962ms` (**74,7 ms/alarm** = 8962/120, άνω φράγμα — το παλιό «55ms/alarm» δεν προκύπτει από τα ίδια νούμερα) → συνολικό `E40 restoreMany took=9186ms` · `OS pending` 291→**411** (budget 450, 0 `truncated`).
 - **Γιατί P2:** κανένα λάθος state (τα alarms είναι σωστά) — το κόστος είναι **χρόνος/UX**: `await` μέσα στο restore, και χτυπά **και** cold start / resume / `scheduleAll` γιατί όλα περνούν από το ίδιο `_runBakePlan`.
 - **Επιλογές (να επιλεγεί πριν από κώδικα):**
   1. **Bounded concurrency** στο `_runBakePlan` (chunks 4–8 με `Future.wait`) — το budget cut γίνεται **πριν** την εκτέλεση (`plan.schedule` ήδη κομμένο, `:135`/`:912`), άρα η σειρά εκτέλεσης **δεν** αλλάζει ποια alarms κρατιούνται· ρίσκο: παράλληλα `zonedSchedule` στο ίδιο method channel → θέλει μέτρηση, όχι υπόθεση.
   2. **1 `putAll` αντί 120 `create`** για τις rows (μικρό αλλά καθαρό κέρδος, ίδιο πρότυπο με `restoreMany`/`hardDeleteMany`).
   3. **`horizonDays` 60 → 30/14** (product απόφαση): 120 → 60/28 alarms, αλλά «αδειάζει» νωρίτερα (πιο συχνό topUp)· το σχόλιο H3 (`:837-838`) το προτείνει ρητά ως μοχλό.
 - **Όχι επιλογή:** batch API του FLN — **δεν υπάρχει** στο 17.2.4 (μόνο `zonedSchedule` / `cancel(id)` / `cancelAll()`).
-- **Acceptance:** ίδια alarms / ίδιο budget cut με σήμερα · 120 alarms σε **≤ ~2-3s** · 0 ERR · analyze clean · **339/339** · device: restore συνήθειας + cold start + resume (ίδια `os`/`took`).
-- **Κατάσταση:** **OPEN** (0 κώδικας — θέλει επιλογή 1/2/3).
+- **Θεμέλιο (S280 — από SDK + config, όχι υπόθεση):**
+  - FLN 17.2.4 `zonedSchedule` → `zonedScheduleNotification` (`:1605`→`:573`): `setupAlarm` (`:591`) **πριν** το `saveScheduledNotification` (`:593-595`) = `loadScheduledNotifications` (**Gson parse ΟΛΗΣ** της λίστας, `:501-512`) + `saveScheduledNotifications` (**serialize ΟΛΗΣ** + `apply()`, `:514-522`). Δηλαδή **O(n) persistence σε κάθε κλήση**, στο platform (main) thread (`setMethodCallHandler`, `:1370-1373`).
+  - Το ίδιο ισχύει για **κάθε `cancel`** (`removeNotificationFromCache`, `:524-534` ← `cancelNotification`, `:1769-1781`) και για κάθε `pendingNotificationRequests` (πλήρες parse, `:1532-1546`).
+  - Επειδή `setupAlarm` προηγείται του save, ένα revoke exact-alarm **δεν** αφήνει ghost cache· το Dart κάνει 1× retry `inexact` (`notification_service.dart:293-312`). Το boot rearm (`:219-236`) καλεί με `updateScheduledNotificationsCache=false` → **καμία εγγραφή**.
+  - Isar 3.1.0+1: `putAll` = `getTxn(true)` (reuse ενεργού txn, `isar_common.dart:88-101`) + `schema.attach` ανά object (`isar_collection_impl.dart:304-326`) → **τα ids γράφονται πίσω**· `putAll([])` → `alloc(0)` → `ArgumentError` (`txn.dart:56-62`, `ffi-2.2.0/allocation.dart:57-71`) ⇒ guard `isEmpty`.
+  - **Συνέπεια:** το **concurrency δεν επιταχύνει το native** (είναι σειριακό). Μοχλοί = λιγότερες κλήσεις · λιγότερα commits · μικρότερη persisted λίστα · Dart/log overhead.
+- **Υλοποίηση S280:**
+  1. **Φ1** `ReminderRepository.createMany` (1 `writeTxn` + `putAll`, guards `isEmpty`/`!isOpen`, ids πίσω) → `topUp` (120 txns → **1**) + `_scheduleRemindersImpl` (2ος loop). Το `create` μένει για τους 3 UI callers.
+  2. **Φ0** μετρήσεις (0 behavior change): `PERF#9b topUp` (`rowsMs`, `osReadMs`, `schedMs`, `otherMs`) · `PERF#9b scheduleReminders` (`readMs`, `planMs`, `modeMs`, `cancelMs`, `schedMs`, `nativeMs`, `dartMs`) · `_BakeExecutionResult` + μετρητής μόνο του `zonedSchedule` στο `_scheduleOne`.
+  3. **Φ3** `avg=` → `avgSched=` (διαιρεί με `result.baked`, όχι με όλες τις DB rows — το «8.7ms/alarm» του S225 ήταν **ms/row**) + `RUNWAY` log στο topUp.
+  4. **Γ7** `_lastTopUp = null` στο catch → ένα αποτυχημένο pass δεν μπλοκάρει retry για 10 λεπτά.
+- **Εκτός / μετά τη μέτρηση:** concurrency N=4 (2β — μόνο αν `dartMs` ≥40%) · OS-horizon 14ημ. ή `horizonDays` 60→30 (2α/Γ2 — product απόφαση) · log trimming (μόνο αν μετρηθεί) · «μην περιμένει το restore» (2γ, δεν λύνει το main-thread jank) · `refreshRecurringReminders` child loop (άλλο feature).
+- **Acceptance:** analyze clean · **370/370** · device: T1 πρώτη αποθήκευση H1 · T2 restore H2 (vs `9186ms`) · T3 cold start · T5 αλλαγή ωρών (2ος loop → `createMany`) · T6 archive/unarchive · T7 OFF→ON — **ίδια alarms / ίδιο budget cut**, 0 `ERR`, `PERF#9b` με πλήρη διαχωρισμό.
+- **Κατάσταση:** 🔧 **κώδικας ✅ 29/10/2026 (S280)** · analyze clean · 370/370 · **device pass ⏳** (αναμονή μετρήσεων T1–T7) · backups `backups/o10_e45_p0/`.
 
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
@@ -514,6 +526,6 @@
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
 | **Ο9 — Restore pipeline** ✅ CLOSED 27/10/2026 (S278 `e96cbc9` + device T1–T9) | E40 (solo — αδελφό του Ο3, ίδια αρχεία) | `trash_screen` + `item_provider` (`restoreMany`) + 1 refresh/topUp/invalidate για όλο το batch | E40 από E05/Ο3 (Α4) |
 | **Ο7 — Dates/editor mini-pass** ✅ CLOSED 29/10/2026 (S279 `c16f90d` + device T1–T8) | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
-| **Ο10 — Habit topUp perf** | E45 (solo — `habit_service` + `_runBakePlan`) | 1 πρόταση: batch/parallel OS scheduling + `putAll` rows (απόφαση: horizonDays) | — |
+| **Ο10 — Habit topUp perf** 🔧 κώδικας ✅ 29/10/2026 (S280) · device ⏳ | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper`) | 1 πρόταση: Φ0 μετρήσεις + Φ1 `createMany` (1 txn) + Φ3 `avgSched`/RUNWAY + Γ7 guard reset· concurrency & horizonDays **μετά** τη μέτρηση | — |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
