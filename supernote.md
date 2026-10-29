@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 339/339 🟢 (`flutter test`, 26/10/2026) |
+| Test suite | 370/370 🟢 (`flutter test`, 28/10/2026) |
 
 ---
 
@@ -136,7 +136,7 @@ lib/
 │   ├── settings_provider.dart    — Settings CRUD, derived providers
 │   ├── app_info_provider.dart    — appVersionProvider (package_info_plus)
 │   ├── app_lock_provider.dart    — appLockStateProvider (AppLockService)
-│   └── ui_provider.dart          — UI state (selectedFolder, viewMode, isDragging)
+│   └── ui_provider.dart          — UI state (selectedFolder, viewMode, isDragging, dayTick)
 ├── services/
 │   ├── services.dart             — Barrel export
 │   ├── notification_service.dart — flutter_local_notifications init
@@ -613,7 +613,7 @@ tagNotifierProvider → AsyncNotifierProvider<TagNotifier, List<Tag>>
 
 ### Habit Providers
 ```
-dayTickProvider → StateProvider<DateTime>                    // τρέχουσα μέρα· reset stats στο resume (S270)
+dayTickProvider → StateProvider<DateTime>                    // τρέχουσα μέρα· reset stats στο resume (S270) — SPoT: ui_provider.dart (S279)
 habitStreamProvider → StreamProvider.family<Item?, int>
 habitStatsProvider → FutureProvider.family<HabitStats, int>  // invalidates on habitStreamProvider change + dayTickProvider
 ```
@@ -1004,7 +1004,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (339/339 🟢) |
+| `flutter test` | Πλήρες suite (370/370 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

@@ -436,12 +436,15 @@ class _AppointmentDetailScreenState
 
   Future<void> _pickBirthday() async {
     final now = DateTime.now();
-    final init = _contactBirthday ?? DateTime(1990, 1, 1);
+    final firstDate = DateTime(AppDateUtils.earliestYear);
+    final raw = _contactBirthday ?? DateTime(1990, 1, 1);
+    // E41/E20: firstDate <= initialDate <= lastDate (date_picker asserts).
+    final init = AppDateUtils.clampToRange(raw, firstDate, now);
     final picked = await showDatePicker(
       context: context,
       locale: const Locale('el', 'GR'),
       initialDate: init,
-      firstDate: DateTime(AppDateUtils.birthdayFirstYear),
+      firstDate: firstDate,
       lastDate: now,
     );
     if (picked != null) {
@@ -456,12 +459,18 @@ class _AppointmentDetailScreenState
   }
 
   Future<void> _selectDate() async {
+    final firstDate = DateTime(AppDateUtils.earliestYear);
+    final lastDate = DateTime(2100);
+    final raw = _selectedDate ?? DateTime.now();
+    // E41/E20: firstDate <= initialDate <= lastDate (date_picker asserts) —
+    // επιτρέπει παλιά ραντεβού (π.χ. 1995) χωρίς assert σε stored τιμές.
+    final initialDate = AppDateUtils.clampToRange(raw, firstDate, lastDate);
     final picked = await showDatePicker(
       context: context,
       locale: const Locale('el', 'GR'),
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked != null) {
       _hasChanges = true;
@@ -652,7 +661,7 @@ class _AppointmentDetailScreenState
               OutlinedButton.icon(
                 onPressed: _selectDate,
                 icon: const Icon(Icons.calendar_today),
-                label: Text(_selectedDate != null ? DateFormat('dd/MM/yyyy').format(_selectedDate!) : 'Επιλογή ημερομηνίας'),
+                label: Text(_selectedDate != null ? AppDateUtils.formatNumeric(_selectedDate!) : 'Επιλογή ημερομηνίας'),
               ),
               OutlinedButton.icon(
                 onPressed: _selectTime,

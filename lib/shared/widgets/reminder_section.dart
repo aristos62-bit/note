@@ -229,13 +229,18 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
   Future<void> _pickDateTime() async {
     DebugConfig.notif('ReminderSection._pickDateTime: called');
     final now = DateTime.now();
-    final initial = _triggerDateTime ?? widget.defaultStartTime ?? now.add(const Duration(hours: 1));
+    final firstDate = DateTime(AppDateUtils.earliestYear);
+    final lastDate = DateTime(now.year + AppDateUtils.pickerLastYears);
+    final raw = _triggerDateTime ?? widget.defaultStartTime ?? now.add(const Duration(hours: 1));
+    // E41/E20: το SDK απαιτεί firstDate <= initialDate <= lastDate
+    // (date_picker.dart:235,239) — παλιά/μελλοντική trigger δεν κάνει assert.
+    final initial = AppDateUtils.clampToRange(raw, firstDate, lastDate);
     final date = await showDatePicker(
       context: context,
       locale: const Locale('el', 'GR'),
       initialDate: initial,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + AppDateUtils.pickerLastYears),
+      firstDate: firstDate,
+      lastDate: lastDate,
       helpText: 'Ημερομηνία υπενθύμισης',
     );
     if (!mounted) return;
@@ -246,7 +251,7 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
     }
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
+      initialTime: TimeOfDay.fromDateTime(raw),
       helpText: 'Ώρα υπενθύμισης',
     );
     if (!mounted) return;

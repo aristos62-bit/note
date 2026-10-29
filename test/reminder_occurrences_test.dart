@@ -68,6 +68,23 @@ void main() {
           DateTime(2000, 1, 1, 9, 0), DateTime(2026, 10, 14, 12, 0), 5);
       expect(out, isEmpty);
     });
+
+    test('E20: daily από 1900 (νέο firstDate) → κενό, ίδιο walk-cap, καμία διαγραφή',
+        () {
+      final out = ReminderScheduler.planOccurrences(Recurrence.daily(),
+          DateTime(1900, 1, 1, 9, 0), DateTime(2026, 10, 14, 12, 0), 5);
+      expect(out, isEmpty);
+    });
+
+    test('E20: yearly γενέθλια 1950 → γεμίζει κανονικά (cap-safe)', () {
+      final r = Recurrence.yearly(month: 5, day: 20);
+      final out = ReminderScheduler.planOccurrences(
+          r, DateTime(1950, 5, 20, 9, 0), DateTime(2026, 10, 14, 12, 0), 2);
+      expect(out, [
+        DateTime(2027, 5, 20, 9, 0),
+        DateTime(2028, 5, 20, 9, 0),
+      ]);
+    });
   });
 
   group('Recurrence DST (Europe/Athens)', () {

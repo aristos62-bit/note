@@ -104,6 +104,33 @@ class AppDateUtils {
       '${formatShort(date)}, ${formatTime(date)}';
 
   // ─────────────────────────────────────────────────────────────
+  // NUMERIC — "14/03/2025" (dd/MM/yyyy) & "14/03/2025 14:30"
+  // Χρήση: journal entry date, appointments, diagnostics, share fallback.
+  // Πλήρως intl-free (χωρίς locale data) → ασφαλές και σε tests.
+  // ─────────────────────────────────────────────────────────────
+
+  static String formatNumeric(DateTime date) =>
+      '${_two(date.day)}/${_two(date.month)}/'
+      '${date.year.toString().padLeft(4, '0')}';
+
+  static String formatNumericDateTime(DateTime date) =>
+      '${formatNumeric(date)} ${_two(date.hour)}:${_two(date.minute)}';
+
+  static String _two(int value) => value.toString().padLeft(2, '0');
+
+  // ─────────────────────────────────────────────────────────────
+  // PICKER BOUNDS — clamp για showDatePicker (E20/E41)
+  // Το SDK απαιτεί firstDate <= initialDate <= lastDate (3 asserts στο
+  // date_picker.dart), αλλιώς πετάει. Το DateTime δεν έχει clamp().
+  // ─────────────────────────────────────────────────────────────
+
+  static DateTime clampToRange(DateTime value, DateTime first, DateTime last) {
+    if (value.isBefore(first)) return first;
+    if (value.isAfter(last)) return last;
+    return value;
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // WEEKDAY / MONTH NAMES — SPoT (Φ4a βήμα 6, ελληνικά, Δευτέρα-πρώτα)
   // 0-based παντού: weekday[0]=Δευτέρα, month[0]=Ιανουάριος.
   // ─────────────────────────────────────────────────────────────
@@ -113,8 +140,10 @@ class AppDateUtils {
     'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ',
   ];
 
-  /// Όρια date pickers (Φ4a βήμα 19 — SPoT: birthday-first + picker-last).
-  static const int birthdayFirstYear = 1900;
+  /// Όρια date pickers (Φ4a βήμα 19 — SPoT: earliest-first + picker-last).
+  /// [earliestYear] = παλαιότερο επιτρεπτό έτος (γενέθλια, παλιά events,
+  /// journal entries, ραντεβού). Πριν ήταν `birthdayFirstYear`.
+  static const int earliestYear = 1900;
   static const int pickerLastYears = 5;
 
   /// Μονογράμματα ημερών (headers calendars).
@@ -236,4 +265,6 @@ extension DateTimeX on DateTime {
   String get short     => AppDateUtils.formatShort(this);
   String get timeOnly  => AppDateUtils.formatTime(this);
   String get dateTime  => AppDateUtils.formatDateTime(this);
+  String get numeric   => AppDateUtils.formatNumeric(this);
+  String get numericDateTime => AppDateUtils.formatNumericDateTime(this);
 }

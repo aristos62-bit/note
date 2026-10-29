@@ -18,19 +18,21 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
+import 'item_type_icon.dart';
 import 'safe_sheet.dart';
 
 /// Κοινή λίστα τύπων δημιουργίας (byte-identical με την home-λίστα,
 /// που ήταν η πλήρης — ο browser έχανε το appointment).
+/// 2-tuple (type, label) + [ItemTypeIcon] — SPoT: ίδιο icon/χρώμα με τις κάρτες.
 const kFolderCreateTypes = [
-  (ItemType.note, '📝', 'Σημείωση'),
-  (ItemType.task, '✅', 'Εργασία'),
-  (ItemType.event, '📅', 'Συμβάν'),
-  (ItemType.habit, '🔄', 'Συνήθεια'),
-  (ItemType.journal, '📖', 'Ημερολόγιο'),
-  (ItemType.contact, '👤', 'Επαφή'),
-  (ItemType.project, '📦', 'Συλλογή'),
-  (ItemType.appointment, '📅', 'Ραντεβού'),
+  (ItemType.note, 'Σημείωση'),
+  (ItemType.task, 'Εργασία'),
+  (ItemType.event, 'Συμβάν'),
+  (ItemType.habit, 'Συνήθεια'),
+  (ItemType.journal, 'Ημερολόγιο'),
+  (ItemType.contact, 'Επαφή'),
+  (ItemType.project, 'Συλλογή'),
+  (ItemType.appointment, 'Ραντεβού'),
 ];
 
 class FolderCreateSheet extends StatelessWidget {
@@ -60,9 +62,8 @@ class FolderCreateSheet extends StatelessWidget {
         children: [
           const Divider(),
           ...kFolderCreateTypes.map((t) => ListTile(
-                leading:
-                    Text(t.$2, style: const TextStyle(fontSize: 22)),
-                title: Text(t.$3, style: context.bodyMd),
+                leading: ItemTypeIcon(t.$1, size: 22),
+                title: Text(t.$2, style: context.bodyMd),
                 trailing: Icon(Icons.chevron_right_rounded,
                     size: 18, color: context.cDisabled),
                 onTap: () {

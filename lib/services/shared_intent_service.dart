@@ -147,7 +147,7 @@ class SharedIntentService {
         .firstWhere((l) => l.isNotEmpty, orElse: () => '');
     if (first.isEmpty) {
       final now = DateTime.now();
-      return 'Κοινοποίηση ${now.day}/${now.month}/${now.year}';
+      return 'Κοινοποίηση ${AppDateUtils.formatNumeric(now)}';
     }
     return AppStringUtils.truncate(first, 80);
   }

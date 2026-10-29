@@ -535,17 +535,21 @@ class _EntryDatePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formattedDate = entryDate != null
-        ? '${entryDate!.day}/${entryDate!.month}/${entryDate!.year}'
+        ? AppDateUtils.formatNumeric(entryDate!)
         : 'Επιλογή ημερομηνίας';
 
     return GestureDetector(
       onTap: () async {
         final now = DateTime.now();
-        final initialDate = entryDate ?? now;
+        final firstDate = DateTime(AppDateUtils.earliestYear);
+        final init = entryDate ?? now;
+        // E41/E20: το SDK απαιτεί firstDate <= initialDate <= lastDate
+        // (date_picker.dart:235,239) — παλιά entry δεν πρέπει να κάνει assert.
+        final initialDate = AppDateUtils.clampToRange(init, firstDate, now);
         final picked = await showDatePicker(
           context: context,
           initialDate: initialDate,
-          firstDate: DateTime(2000),
+          firstDate: firstDate,
           lastDate: now,
           locale: const Locale('el', 'GR'),
         );
@@ -723,7 +727,7 @@ class _JournalMetaPanel extends ConsumerWidget {
             icon: Icons.edit_calendar_rounded,
             label: 'Ημερομηνία καταχώρησης',
             value: entryDate != null
-                ? '${entryDate!.day}/${entryDate!.month}/${entryDate!.year}'
+                ? AppDateUtils.formatNumeric(entryDate!)
                 : 'μη ορισμένη',
           ),
           if (mood.isNotEmpty) ...[

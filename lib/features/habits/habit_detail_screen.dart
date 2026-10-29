@@ -727,9 +727,6 @@ class _TimeProgressSection extends StatelessWidget {
                           .withColor(isDone ? context.cSuccess : context.cText),
                     ),
                     const Spacer(),
-                    if (isDone)
-                      Text('✓',
-                          style: context.bodyMd.withColor(context.cSuccess)),
                   ],
                 ),
               ),

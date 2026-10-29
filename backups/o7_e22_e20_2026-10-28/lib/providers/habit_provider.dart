@@ -1,0 +1,37 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/item.dart';
+import '../services/habit_service.dart';
+import 'db_provider.dart';
+
+// Real-time habit (Item) by id
+final habitStreamProvider =
+StreamProvider.family<Item?, int>((ref, id) {
+  final db = ref.watch(dbProvider);
+  return db.items.watchById(id);
+});
+
+/// Τρέχουσα ημερολογιακή μέρα (μόνο ημερομηνία). Ενημερώνεται από το
+/// lifecycle (resume) όταν έχει αλλάξει η μέρα, ώστε τα habit stats να
+/// ξαναϋπολογίζονται (reset ημερήσιας προόδου / completedToday).
+final dayTickProvider = StateProvider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+});
+
+/// Real-time *stats* για habit
+// ✅ select στο updatedAt — αποφεύγει rebuild loop από property writes
+final habitStatsProvider =
+FutureProvider.family<HabitStats, int>((ref, habitId) async {
+  // Αλλαγή μέρας → recompute (το cached αποτέλεσμα της χθεσινής μέρας
+  // δεν πρέπει να επιβιώνει μετά τα μεσάνυχτα).
+  ref.watch(dayTickProvider);
+  // Ακούμε ΜΟΝΟ το updatedAt του item — όχι κάθε property write
+  ref.listen(
+    habitStreamProvider(habitId).select(
+          (value) => value.valueOrNull?.updatedAt,
+    ),
+        (_, __) => ref.invalidateSelf(),
+  );
+  final stats = await HabitService.instance.getStats(habitId);
+  return stats;
+});

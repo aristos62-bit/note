@@ -3972,3 +3972,64 @@
 **Παρατήρηση → καταχωρήθηκε ως `E45` (P2, ομάδα Ο10):** το restore **συνήθειας** κρατά το UI ~9.2s (`topUpHabitReminders(force:true)` = 120 rows × `horizonDays=60` → 120 σειριακά `zonedSchedule` × ~55ms στο `_runBakePlan`). **Δεν** είναι regression του E40 (ίδιο κόστος υπήρχε και πριν, τώρα 1× αντί N×) — καταχωρήθηκε με OK χρήστη ως ξεχωριστό P2 (batch/parallel scheduling + `putAll` rows + απόφαση horizon).
 
 **Κατάσταση: ✅ CLOSED 27/10/2026 (device-verified T1–T9).** `error_list.md`: κάρτα CLOSED · §1 P2 5→4 · §3 bullet · §6 Ο9 ✅ · §0 baseline (`e96cbc9`, 43.431 γρ.). Backups: `backups/s278_e40/` (κώδικας) + `backups/s278_e40_close/` (docs + `e40_device.log`).
+
+---
+
+## S279 — 28-29/10/2026 — Ο7: dates/editor mini-pass (E22 + E20) — κώδικας + tests, ⏳ device T1–T8
+
+**Στόχος:** κλείσιμο των δύο τελευταίων «μικρών» καρτών του §3.8/§4: **E22** (υπόλοιπα spot-verified: `O(n²)` block editor, πάντα-ορατό delete, `DateTime.now()` σε build, χειροκίνητο `d/m/yyyy`, `✓`, emoji) και **E20** (`firstDate: DateTime(2000)` ×3). Καμία αλλαγή schema/navigation/providers API· 0 νέα production αρχεία/κλάσεις.
+
+**Αποφάσεις (εγκεκριμένες πριν την υλοποίηση):** D1 `dd/MM/yyyy` παντού · D2 `firstDate` 1900 + rename `birthdayFirstYear`→`earliestYear` · D3 clamp `initialDate` (E41 pattern) · D4 μετακίνηση `dayTickProvider` → `ui_provider.dart` + `today` param · D5 ✕ ορατό σε focus/hover με 48×48 hit area · D6 `BlockTileWidget` παραμένει Stateful με πραγματικό state · D7 αφαίρεση `✓` · D8 `kFolderCreateTypes` 2-tuple + `ItemTypeIcon` · D9 ακυρωμένο (υπάρχει `startOfDay`) · D10 ενημέρωση tree `supernote.md`.
+
+**Τεχνικά θεμέλια (πραγματικό SDK 3.47.7 / Dart 3.13.5 — όχι μνήμη):**
+- `showDatePicker` 3 asserts: `date_picker.dart:235-236` (`initialDate >= firstDate`), `:239-240` (`initialDate <= lastDate`), `:1982` (`firstDate <= lastDate`). `DateTime` **δεν** έχει `clamp()` → ternary helper.
+- `kMinInteractiveDimension = 48.0` (`material/constants.dart:27`).
+- `InputDecorator`: `minContainerHeight = isDense||isCollapsed||expands ? 0 : kMinInteractiveDimension` (`input_decorator.dart:1122-1124`) ⇒ το TextField είναι **ήδη** 48 ψηλό → το 48×48 ✕ **δεν** αλλάζει το ύψος της γραμμής.
+- `Visibility`: `assert(maintainState || !maintainAnimation)`, `assert(maintainAnimation || !maintainSize)`, `assert(maintainSize || !maintainInteractivity)` (`widgets/indexed_stack.dart`).
+- `Focus` ancestor: `hasFocus = hasPrimaryFocus || primaryFocus.ancestors.contains(this)` (`focus_manager.dart:774-775`) + `_notify()` σε αλλαγή (`:1990-1995,2010-2012`).
+- Isar `delete(id)` → `Future<bool>` idempotent (`isar_collection.dart:158`)· `updateText` null-safe (`super_note_helper.dart:808-810`).
+- intl **0.20.3** χρειάζεται `initializeDateFormatting()` για `el` → τα νέα numeric formats είναι **intl-free** (`shared_intent_mapper_test` δεν κάνει init).
+- `analysis_options.yaml` εξαιρεί **`backups/**`** ⇒ το rename δεν σπάει το analyze μέσω παλιών αντιγράφων.
+
+**Υλοποίηση (14 production αρχεία):**
+1. `core/utils/date_utils.dart` (239→**270**): `formatNumeric` (dd/MM/yyyy), `formatNumericDateTime` (dd/MM/yyyy HH:mm), `_two`, `clampToRange(value, first, last)`, getters `numeric`/`numericDateTime`, rename `birthdayFirstYear`→`earliestYear` (1900).
+2. `features/journal/journal_detail_screen.dart`: 2× numeric (`:538` picker label, `:726` meta panel) + `firstDate: earliestYear` + clamp (`lastDate: now`).
+3. `shared/widgets/reminder_section.dart`: `firstDate: 1900` / `lastDate: now.year+5` + clamp· `initialTime` από το **`raw`** (όχι το clamp, για να μη μηδενίζεται η ώρα).
+4. `features/appointments/appointment_detail_screen.dart`: birthday clamp + `_selectDate` `firstDate: 1900`/`lastDate: 2100` + clamp (πλέον δέχεται ραντεβού 1995) + `:655` numeric.
+5. `features/contacts/contact_detail_screen.dart`: rename caller + clamp.
+6. `features/calendar/event_detail_screen.dart`: rename caller (το E41 clamp υπήρχε ήδη `:211-215`).
+7. `services/shared_intent_service.dart`: fallback `Κοινοποίηση dd/MM/yyyy` (intl-free).
+8. `features/settings/reminder_diagnostics_screen.dart`: `_fmt` → `formatNumericDateTime` · `_dayLabel` → `formatNumeric` (**+έτος** στο group header) · `:397` → `formatTime`.
+9. `features/tasks/task_list_screen.dart`: `_TaskListBody` → `ref.watch(dayTickProvider)`· `today` περνά σε `_buildSection`→`_TaskCard`→`_TaskProgressBar`· `dueDate.startOfDay` (0 `DateTime.now()` σε build).
+10. `shared/widgets/block_editor_widget.dart` (412→**466**): `numberedIndexesFor(blocks)` **O(n)** top-level (testable)· ✕ μόνο σε hover/focus με `Visibility(maintainSize/maintainAnimation/maintainState:true, maintainInteractivity:false)` + `SizedBox(48×48)` + `key: ValueKey('block_delete')`· ancestor `Focus(canRequestFocus:false, skipTraversal:true)`· `MouseRegion`.
+11. `shared/widgets/folder_create_sheet.dart`: `kFolderCreateTypes` **2-tuple** `(type, label)` + `ItemTypeIcon(t.$1, size: 22)` (SPoT icon/χρώμα).
+12. `features/habits/habit_detail_screen.dart`: αφαίρεση `Text('✓')` (`Spacer` έμεινε).
+13. `providers/ui_provider.dart` (8→**19**): +`dayTickProvider` (SPoT UI state).
+14. `providers/habit_provider.dart` (37→**30**): −`dayTickProvider`, +`import 'ui_provider.dart'` (0 κύκλος — ui_provider εισάγει μόνο riverpod).
+
+**Tests (5 νέα + 2 επεκτάσεις, 339 → 370):**
+- `date_utils_numeric_test` (zero-pad, 4ψήφιο έτος, intl-free, `formatNumericDateTime`, getters, clamp edges, `earliestYear`).
+- `picker_bounds_test` (2× **AssertionError του SDK** χωρίς clamp — απόδειξη γιατί χρειάζεται· 2× επιτυχία με clamp).
+- `block_numbering_test` (`numberedIndexesFor`: κενή, χωρίς numbered, μικτή, 10 συνεχόμενα, 41 blocks, μετά από heading).
+- `block_tile_delete_test` (κρυφό αρχικά · focus→ορατό+διαγράφει · hover enter/exit · hit area 48×48 · κρυφό = 0 taps).
+- `folder_create_icons_test` (2-tuple, labels = `ItemTypeIcon.labelFor`, 8 `ItemTypeIcon`, 0 emoji).
+- `shared_intent_mapper_test` +έλεγχος regex `^\d{2}/\d{2}/\d{4}$`.
+- `reminder_occurrences_test` +daily από **1900** → κενό (walk-cap, keep-not-delete) +yearly γενέθλια **1950** → γεμίζει.
+
+**R1:** κανένα νέο αρχείο >500 που δεν ήταν ήδη (`block_editor` 466 ✅, `date_utils` 270 ✅, `ui_provider` 19 ✅, `habit_provider` 30 ✅· `journal` 791 / `appointment` 945 / `contact` 1470 / `event` 842 / `task_list` 760 / `habit_detail` 1861 ήταν ήδη >500 = E06).
+
+**Απόδειξη:** `flutter analyze` → **No issues found** (4.1s) · `flutter test` → **370/370 All tests passed** (~27s) · 0 test edits σε υπάρχοντα tests πλην των 2 επεκτάσεων.
+
+**Backups:** `backups/o7_e22_e20_2026-10-28/` — 14 production + 2 test αρχεία (πλήρη αντίγραφα, ίδια δομή φακέλων).
+
+**Περιορισμός (όχι νέος):** `planOccurrences` `maxWalk=6000` → daily >~16,4 έτη / weekly >~57–115 έτη πίσω χτυπούν cap· κρατούν thread + `DebugConfig.warning`, **δεν** διαγράφουν (A3/A4). Monthly/yearly ασφαλή. Καταγράφηκε ως limitation + tests.
+
+**⏳ Εκκρεμεί device pass (T1–T8, απαιτούν δεδομένα χρήστη):** T1 γενέθλια 1950 · T2 ραντεβού 1995 · T3 journal 12/04/1998 · T4 σημείωση 40+ blocks/10 numbered (✕ focus/hover, 140%/landscape) · T5 υπενθύμιση 1999 + daily · T6 create menu icons · T7 διάγνωση dd/MM/yyyy · T8 habit χωρίς ✓.
+
+**Μαθήματα:**
+- Το assert του `showDatePicker` είναι **σύγχρονο** μέσα στη συνάρτηση → σε test γράφεται `expect(() => showDatePicker(...), throwsAssertionError)`· αν κληθεί μέσα από `onPressed`, το test framework το καταγράφει **πριν** προλάβει το `takeException()`.
+- `Scaffold(body: ...)` δίνει **loose** constraints → `Column` γεμίζει το ύψος· γι' αυτό σε hover test χρειάζεται `Align`+`SizedBox` για να βγει ο pointer εκτός `MouseRegion`.
+- Το `Visibility(maintainSize:true)` κρατά το layout αλλά **όχι** τα taps (`maintainInteractivity:false`) — γι' αυτό το ✕ δεν διαγράφει όταν είναι κρυφό.
+- Το `InputDecorator` έχει ήδη min height 48 → το 48×48 hit area είναι **δωρεάν** σε ύψος· αλλάζει μόνο το πλάτος (~26dp λιγότερο για το TextField).
+- Provider move χωρίς barrel αλλαγή: το `providers.dart` κάνει export και τα δύο αρχεία → 0 αλλαγές σε `main.dart`/οθόνες.
+
