@@ -51,6 +51,15 @@ void main() {
       expect(t.isNotEmpty, true);
       expect(t.startsWith('Κοινοποίηση'), true);
     });
+
+    test('fallback ημερομηνία dd/MM/yyyy (E22, intl-free)', () {
+      final t = SharedIntentService.buildTitle('   ');
+      // Π.χ. "Κοινοποίηση 28/10/2026" — zero-padded dd/MM/yyyy.
+      expect(RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(
+              t.replaceFirst('Κοινοποίηση ', '')),
+          true);
+      expect(t.contains('Κοινοποίηση '), true);
+    });
   });
 
   group('isFileType', () {

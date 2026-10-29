@@ -222,8 +222,9 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
     final picked = await showDatePicker(
       context: context,
       locale: const Locale('el', 'GR'),
-      initialDate: init,
-      firstDate: DateTime(AppDateUtils.birthdayFirstYear),
+      initialDate: AppDateUtils.clampToRange(
+          init, DateTime(AppDateUtils.earliestYear), now),
+      firstDate: DateTime(AppDateUtils.earliestYear),
       lastDate: now,
     );
     if (picked == null || !mounted) return;

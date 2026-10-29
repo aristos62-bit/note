@@ -265,8 +265,9 @@ class _TaskListBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now   = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    // SPoT: η «σήμερα» έρχεται από το dayTickProvider (ανανεώνεται στο resume)
+    // ώστε οι ομάδες Ληξιπρόθεσμες/Σήμερα να μην μείνουν stale μετά τα μεσάνυχτα.
+    final today = ref.watch(dayTickProvider);
 
     final overdue  = <TaskWithDetails>[];
     final todayT   = <TaskWithDetails>[];
@@ -283,7 +284,7 @@ class _TaskListBody extends ConsumerWidget {
       if (dueDate == null) {
         noDate.add(td);
       } else {
-        final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+        final dueDay = dueDate.startOfDay;
         if (dueDay.isBefore(today)) {
           overdue.add(td);
         } else if (dueDay == today) {
@@ -304,23 +305,23 @@ class _TaskListBody extends ConsumerWidget {
         children: [
           if (overdue.isNotEmpty) ...[
             _SectionHeader(label: 'Ληξιπρόθεσμες', color: context.cError),
-            _buildSection(context, ref, overdue),
+            _buildSection(context, ref, overdue, today: today),
           ],
           if (todayT.isNotEmpty) ...[
             _SectionHeader(label: 'Σήμερα', color: context.cWarning),
-            _buildSection(context, ref, todayT),
+            _buildSection(context, ref, todayT, today: today),
           ],
           if (upcoming.isNotEmpty) ...[
             _SectionHeader(label: 'Επερχόμενες', color: context.cPrimary),
-            _buildSection(context, ref, upcoming),
+            _buildSection(context, ref, upcoming, today: today),
           ],
           if (noDate.isNotEmpty) ...[
             const _SectionHeader(label: 'Χωρίς ημερομηνία'),
-            _buildSection(context, ref, noDate),
+            _buildSection(context, ref, noDate, today: today),
           ],
           if (done.isNotEmpty) ...[
             _SectionHeader(label: 'Ολοκληρωμένες (${done.length})'),
-            _buildSection(context, ref, done, dimmed: true),
+            _buildSection(context, ref, done, today: today, dimmed: true),
           ],
         ],
       ),
@@ -331,6 +332,7 @@ class _TaskListBody extends ConsumerWidget {
       BuildContext context,
       WidgetRef ref,
       List<TaskWithDetails> items, {
+        required DateTime today,
         bool dimmed = false,
       }) {
     return Padding(
@@ -351,6 +353,7 @@ class _TaskListBody extends ConsumerWidget {
             opacity: dimmed ? 0.6 : 1.0,
             child: _TaskCard(
               td: td,
+              today: today,
               onTap: () => onTap(td.task),
               onLongPress: () => onLongPress(td.task),
               onToggleDone: () => onToggleDone(td.task),
@@ -384,12 +387,14 @@ class _TaskListBody extends ConsumerWidget {
 class _TaskCard extends ConsumerWidget {
   // ✅ TaskWithDetails — dueDate + tags ήδη φορτωμένα
   final TaskWithDetails td;
+  final DateTime today;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onToggleDone;
 
   const _TaskCard({
     required this.td,
+    required this.today,
     required this.onTap,
     required this.onLongPress,
     required this.onToggleDone,
@@ -446,6 +451,7 @@ class _TaskCard extends ConsumerWidget {
             item:     td.task,
             subtasks: subtasks,
             dueDate:  dueDate,
+            today:    today,
           ),
         ],
       ),
@@ -461,21 +467,20 @@ class _TaskProgressBar extends StatelessWidget {
   final Item       item;
   final List<Item> subtasks;
   final DateTime?  dueDate;
+  final DateTime   today;
 
   const _TaskProgressBar({
     required this.item,
     required this.subtasks,
     required this.dueDate,
+    required this.today,
   });
 
   @override
   Widget build(BuildContext context) {
     final successColor = context.cSuccess;
     final isDone = item.status == ItemStatus.done;
-    final now    = DateTime.now();
-    final today  = DateTime(now.year, now.month, now.day);
-    final isOverdue = dueDate != null &&
-        DateTime(dueDate!.year, dueDate!.month, dueDate!.day).isBefore(today);
+    final isOverdue = dueDate != null && dueDate!.startOfDay.isBefore(today);
 
     final Color neutralColor = ColorsUI.getBorder(context.brightness);
     final Color errorColor   = context.cError;

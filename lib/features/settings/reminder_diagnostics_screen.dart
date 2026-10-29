@@ -182,10 +182,7 @@ class _ReminderDiagnosticsScreenState
     }
   }
 
-  String _fmt(DateTime dt) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(dt.day)}/${two(dt.month)}/${dt.year} ${two(dt.hour)}:${two(dt.minute)}';
-  }
+  String _fmt(DateTime dt) => AppDateUtils.formatNumericDateTime(dt);
 
   @override
   Widget build(BuildContext context) {
@@ -260,8 +257,7 @@ class _ReminderDiagnosticsScreenState
     if (diff == 1) return 'Αύριο';
     const weekdays = AppDateUtils.weekdayFullNames;
     final wd = weekdays[day.weekday - 1];
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '$wd ${two(day.day)}/${two(day.month)}';
+    return '$wd ${AppDateUtils.formatNumeric(day)}';
   }
 
   /// M4: OS alarms `N / όριο` + κατάσταση περικοπής — reuse του υπάρχοντος
@@ -394,8 +390,7 @@ class _ReminderDiagnosticsScreenState
   Widget _buildPendingRow(_PendingRow row) {
     final r = row.reminder;
     final t = r.triggerAt;
-    String two(int n) => n.toString().padLeft(2, '0');
-    final time = '${two(t.hour)}:${two(t.minute)}';
+    final time = AppDateUtils.formatTime(t);
     if (row.archived || row.silenced || row.deleted) {
       // #2 + A2: σκόπιμα σε σίγαση — όχι προειδοποίηση "λείπει από το OS".
       return ListTile(

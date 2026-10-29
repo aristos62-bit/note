@@ -204,7 +204,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final isBirthdayOrSpecial = ItemColorHelper.isBirthdayEvent(item) ||
         ItemColorHelper.isSpecialDayEvent(item);
     final firstDate = isBirthdayOrSpecial
-        ? DateTime(AppDateUtils.birthdayFirstYear)
+        ? DateTime(AppDateUtils.earliestYear)
         : DateTime(now.year - 1);
 
     final lastDate = DateTime(now.year + AppDateUtils.pickerLastYears);

@@ -6,6 +6,22 @@ import '../../providers/providers.dart';
 import 'content_field_widget.dart';
 import 'link_text.dart';
 
+/// Αρίθμηση αριθμημένων blocks σε ένα πέρασμα — O(n).
+///
+/// Επιστρέφει, για κάθε block, πόσα blocks τύπου [BlockType.numbered]
+/// προηγούνται. Το [BlockTileWidget] εμφανίζει `index + 1` μόνο στα numbered,
+/// οπότε η αρίθμηση είναι συνεχής σε όλη τη σημείωση (όπως πριν, αλλά χωρίς
+/// `sublist(0, i)` ανά block).
+List<int> numberedIndexesFor(List<ItemBlock> blocks) {
+  final indexes = <int>[];
+  var seen = 0;
+  for (final b in blocks) {
+    indexes.add(seen);
+    if (b.type == BlockType.numbered) seen++;
+  }
+  return indexes;
+}
+
 /// Full block editor for rich content (notes).
 ///
 /// Features:
@@ -101,19 +117,17 @@ class _BlockEditorWidgetState extends ConsumerState<BlockEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final numberedIndexes = numberedIndexesFor(widget.blocks);
+
     return SliverMainAxisGroup(slivers: [
       SliverPadding(
         padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (ctx, i) {
-              final numberedIndex = widget.blocks
-                  .sublist(0, i)
-                  .where((b) => b.type == BlockType.numbered)
-                  .length;
               return BlockTileWidget(
                 key: ValueKey(widget.blocks[i].id),
-                index: numberedIndex,
+                index: numberedIndexes[i],
                 block: widget.blocks[i],
                 onDelete: () => _deleteBlock(widget.blocks[i].id),
                 onToggleCheck: () => _toggleCheck(widget.blocks[i].id),
@@ -170,6 +184,12 @@ class BlockTileWidget extends StatefulWidget {
 class _BlockTileWidgetState extends State<BlockTileWidget> {
   BlockType get effectiveType => widget.overrideType ?? widget.block.type;
 
+  bool _hovered = false;
+  bool _focused = false;
+
+  /// Το ✕ εμφανίζεται μόνο σε hover (desktop/web) ή focus (πάντα, και σε touch).
+  bool get _showDelete => _hovered || _focused;
+
   @override
   Widget build(BuildContext context) {
     final isChecklist = effectiveType == BlockType.checklist;
@@ -177,14 +197,32 @@ class _BlockTileWidgetState extends State<BlockTileWidget> {
     final isBullet = effectiveType == BlockType.bulletList;
     final isNumbered = effectiveType == BlockType.numbered;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.xs / 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return MouseRegion(
+      onEnter: (_) {
+        if (!mounted || _hovered) return;
+        setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (!mounted || !_hovered) return;
+        setState(() => _hovered = false);
+      },
+      // Focus (όχι focusable το ίδιο): ειδοποιείται όταν το TextField του block
+      // παίρνει focus, ώστε το ✕ να είναι διαθέσιμο και σε touch συσκευές.
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onFocusChange: (hasFocus) {
+          if (!mounted || hasFocus == _focused) return;
+          setState(() => _focused = hasFocus);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Spacing.xs / 2),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           // ── Prefix ──
           if (isChecklist)
             GestureDetector(
@@ -262,31 +300,47 @@ class _BlockTileWidgetState extends State<BlockTileWidget> {
             ),
           ),
 
-          // ── Delete button ──
-          GestureDetector(
-            onTap: () {
-              widget.onDelete();
-            },
-            child: Container(
-              margin: const EdgeInsets.only(left: Spacing.xs, top: 2),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: context.cError, width: 1.5),
-              ),
-              child: Icon(
-                Icons.close_rounded,
-                size: 14,
-                color: context.cError,
+          // ── Delete button (ορατό σε hover/focus, 48×48 hit area) ──
+          SizedBox(
+            key: const ValueKey('block_delete'),
+            width: kMinInteractiveDimension,
+            height: kMinInteractiveDimension,
+            child: Visibility(
+              visible: _showDelete,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              maintainInteractivity: false,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  widget.onDelete();
+                },
+                child: Center(
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: context.cError, width: 1.5),
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: context.cError,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
+                ],
+              ),
+              // Πατήσιμα links του block (μόνο αν το κείμενο περιέχει URLs).
+              LinkList(text: widget.block.text ?? ''),
             ],
           ),
-          // Πατήσιμα links του block (μόνο αν το κείμενο περιέχει URLs).
-          LinkList(text: widget.block.text ?? ''),
-        ],
+        ),
       ),
     );
   }
