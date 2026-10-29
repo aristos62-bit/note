@@ -55,6 +55,8 @@
 | `catch (_) {}` | **0** (E18 CLOSED 24/10/2026) | grep |
 | `debugPrint`/`print` εκτός `DebugConfig` | 0 | grep |
 
+✅ **Device pass S279/Ο7 (POCO X3, 29/10/2026):** E20+E22 **T1–T8 PASS** (0 exceptions, 0 `ERR` στο logcat · 6.9 MB log + screenshots `backups/s279_o7_device/`). Λεπτομέρειες: §2 κάρτες E20/E22 + §3 + `oldsessions.md` S279.
+
 ✅ **Doc-drift διορθώθηκε (24/10/2026, S273 docs sync):** `supernote.md` → test counter **294/294**, Error Handling/Performance αληθή, tree **+4 αρχεία** (`lock_screen`, `reminder_diagnostics_screen`, `app_info_provider`, `app_lock_provider`), `dayTickProvider` + ShareService (pointer στο E39). Βλ. §4.
 
 ### 0.1 Δεύτερος έλεγχος (21/10/2026) — τι διορθώθηκε στη λίστα
@@ -77,15 +79,13 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (5)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (3)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
 | 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 2 | `E22` | **Υπόλοιπα §3.8** (μετρημένα) | `O(n²)` block editor · πάντα-ορατό delete · `d/m/yyyy` · `DateTime.now()` σε build |
-| 3 | `E20` | **`firstDate: DateTime(2000)` ×3** | Αποκλείει παλιές ημερομηνίες (birthdays/αρχεία) |
-| 4 | `E45` | **Habit topUp: σειριακό OS scheduling** | 120 alarms ≈ 9.2s (restore/cold start/resume) |
-| 5 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 2 | `E45` | **Habit topUp: σειριακό OS scheduling** | 120 alarms ≈ 9.2s (restore/cold start/resume) |
+| 3 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
@@ -235,7 +235,7 @@
 - **Αποδοχή:** analyze clean · **322/322** · ίδια items/stats (behavior-neutral).
 - **Υπόλοιπο → `E44`:** «Πρόσφατα» ταξινομούνται με `sortOrder`, όχι `updatedAt` (semantic bug) + drag policy σε recency-sorted λίστα.
 
-### E20 — 🟡 ΥΛΟΠΟΙΗΘΗΚΕ 28/10/2026 (Ο7) — εκκρεμεί device verify
+### E20 — ✅ CLOSED 29/10/2026 (device-verified T1/T2/T3/T5/T7, S279)
 - **Σημεία (πριν):** `reminder_section.dart:237` · `appointment_detail_screen.dart:463` · `journal_detail_screen.dart:548` (refs refresh 27/10/2026/S277). Αποκλείει ημερομηνίες <2000.
 - **Υλοποίηση:** `AppDateUtils.earliestYear = 1900` (rename του `birthdayFirstYear` — ενημερώθηκαν 3 callers: `contact_detail`, `event_detail`, `appointment_detail`) + `AppDateUtils.clampToRange(value, first, last)` (E41 pattern) σε **5** pickers:
   - journal entry: `1900 … now`
@@ -244,13 +244,19 @@
   - appointment birthday / contact birthday: `1900 … now`
 - **Tests:** `test/picker_bounds_test.dart` (2× AssertionError του SDK χωρίς clamp + 2× επιτυχία με clamp) · `date_utils_numeric_test` (clamp edges) · `reminder_occurrences_test` (daily από 1900 → κενό walk-cap · yearly γενέθλια 1950 → γεμίζει).
 - **Γνωστός περιορισμός (όχι νέος):** `planOccurrences` `maxWalk=6000` → daily >~16,4 έτη και weekly >~57–115 έτη πίσω χτυπούν cap· κρατούν το thread + `DebugConfig.warning`, **δεν** διαγράφουν. Monthly/yearly ασφαλή.
-- **Αποδοχή:** analyze clean · **370/370** · ⏳ device T1 (γενέθλια 1950) / T2 (ραντεβού 1995) / T3 (journal 12/04/1998) / T5 (υπενθύμιση 1999 + daily).
+- **Device pass (POCO X3, debug, 29/10/2026 — `backups/s279_o7_device/`):**
+  - **T1 γενέθλια 1950:** άνοιγμα «Γεννεθλια 1950» → `28 Οκτ 1950, 09:00` · picker ανοίγει **Οκτώβριος 1950** χωρίς assert · Διάγνωση: «Επόμενη 28/10/2027 09:00 · **5 στη σειρά** · μέχρι 28/10/2031» ⇒ το yearly fill δουλεύει από 1950. *(Το item είναι συμβάν γενεθλίων· η επαφή χρησιμοποιεί τον ίδιο `earliestYear` + clamp.)*
+  - **T2 ραντεβού 1995:** `12/06/1995` στο chip · picker **Ιούνιος 1995** χωρίς assert (πριν αδύνατο λόγω `DateTime(2000)`).
+  - **T3 journal 12/04/1998:** chip `12/04/1998` (dd/MM/yyyy) · picker **Απρίλιος 1998** · η λίστα ετών ξεκινά **1900**.
+  - **T5 υπενθύμιση 1990 + daily** (σκόπιμα παλαιότερο του 1999): `ReminderSection._pickDateTime: selected dt=1990-10-29 11:58` → `rrule=FREQ=DAILY;INTERVAL=1` → `created new root id=3223` · `scheduleReminders: rows=85 desired=85 baked=0 kept=85 failed=0 skipped=0 truncated=false` · `refreshRecurringReminders: created 0 new child reminders total` · **0 ERR**. Επιβεβαιώθηκε και **by-design guard**: one-shot με παρελθοντική ώρα → snack «Η ώρα έχει περάσει…» + log `past one-shot, blocked` (γι' αυτό απαιτείται πρώτα recurrence).
+  - **T7 διάγνωση:** ημερομηνίες/ομάδες σε **dd/MM/yyyy** («29/10/2026 17:30», «μέχρι 10/11/2026 17:30»).
+  - **Αποδοχή:** analyze clean · **370/370** · T1/T2/T3/T5/T7 ✅ + T6/T8 (E22) ✅.
 
 ### E21 — ✅ CLOSED 26/10/2026 (S275)
 - **Υλοποίηση:** διαγράφηκε το `// TODO: Σελίδα προς Ανάπτυξη` από `models/{attachment,app_settings,item_tag,tag,workspace}.dart:2` (χρησιμοποιούνται κανονικά → το TODO ήταν ψευδές). Σε `user.dart`/`device.dart` αντικαταστάθηκε με: `// Collection στο Isar — καμία λειτουργία δεν τη χρησιμοποιεί ακόμη.` (0 χρήσεις, κανένα auth/sync feature).
 - **Αποδοχή:** analyze clean · **322/322** · `grep "Σελίδα προς Ανάπτυξη"` = **0**.
 
-### E22 — 🟡 ΥΛΟΠΟΙΗΘΗΚΕ 28/10/2026 (Ο7) — εκκρεμεί device verify
+### E22 — ✅ CLOSED 29/10/2026 (device-verified T4/T6/T8 + regression T7, S279)
 **Επιβεβαιωμένα υπαρκτά (21/10/2026 · refs 27/10/2026/S277) → τι έγινε:**
 - `Text('✓')` (`habit_detail_screen.dart:731`) → **αφαιρέθηκε** (το `Spacer` έμεινε, καμία μετατόπιση).
 - `📅` ×2 (`folder_create_sheet.dart:28,33`) → `kFolderCreateTypes` **2-tuple** `(type, label)` + `ItemTypeIcon` (SPoT χρώμα/icon ανά τύπο). Το `folder_create_parity_test` παραμένει πράσινο (`t.$1` + `length`).
@@ -260,7 +266,12 @@
 - `DateTime.now()` σε build (`task_list_screen.dart:268,475`) → `ref.watch(dayTickProvider)` (μετακόμιση provider σε `ui_provider.dart` — SPoT) · `today` περνά σε `_TaskCard`/`_TaskProgressBar` · `dueDate.startOfDay`.
 - Χειροκίνητο `d/m/yyyy` (`journal_detail:538,726` · `shared_intent_service:150` · `reminder_diagnostics:187`) → `AppDateUtils.formatNumeric` / `formatNumericDateTime` / `formatTime` (**intl-free** τα numeric).
 - **Tests:** `date_utils_numeric_test` · `picker_bounds_test` · `block_numbering_test` · `block_tile_delete_test` · `folder_create_icons_test` + επεκτάσεις `shared_intent_mapper_test` (regex `^\d{2}/\d{2}/\d{4}$`) & `reminder_occurrences_test`.
-- **Αποδοχή:** analyze clean · **370/370** · ⏳ device T4 (40+ blocks / 10 numbered, ✕ focus-hover, 140%/landscape) / T6 (create menu icons) / T8 (habit χωρίς ✓).
+- **Device pass (POCO X3, debug, 29/10/2026 — `backups/s279_o7_device/`):**
+  - **T4 block editor:** σημείωση `T4` — το ✕ **δεν** φαίνεται default· μόλις εστιαστεί block εμφανίζεται **48×48** δεξιά (χωρίς μεταβολή ύψους γραμμής)· αρίθμηση συνεχής **4→11** (10+ numbered, O(n))· **140%** και **landscape** → δύο στήλες, **0 overflow/assertions** (screenshots `t4_focus`, `t4_font140`, `t4_landscape140`).
+  - **T6 create menu:** «Νέο στοιχείο σε “Γενικά”» → **8** τύποι με **ItemTypeIcon** (χρώμα/icon ανά τύπο), **0 emoji**.
+  - **T8 habit:** κεφαλίδα «E40 single» → `0 / 2 ώρες` χωρίς `✓` (Spacer έμεινε).
+  - **T7 (regression):** `formatNumeric*` στο diagnostics χωρίς intl crash.
+  - **Αποδοχή:** analyze clean · **370/370** · T4/T6/T8 ✅ + T1/T2/T3/T5/T7 (E20) ✅.
 **Χαμηλής αξίας / per-case (όχι wholesale):** `if(!mounted)return` style · `Colors.white/black` (κυρίως σωστά ως on-color σε χρωματισμένες επιφάνειες).
 
 ### E23 — ✅ CLOSED 26/10/2026 (S275, απόφαση — 0 κώδικας)
@@ -372,6 +383,8 @@
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
 > Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S277.
+
+- **`O7` (E20 + E22) — CLOSED 29/10/2026 (S279, device-verified T1–T8):** `AppDateUtils.earliestYear=1900` + `clampToRange` σε **5** pickers (journal `1900…now` · reminder `1900…now+5` · appointment `1900…2100` · appointment/contact birthday `1900…now`) · `formatNumeric`/`formatNumericDateTime` (intl-free dd/MM/yyyy) · `numberedIndexesFor` **O(n)** · ✕ **μόνο σε hover/focus** με 48×48 + `Visibility(maintain*)` · `dayTickProvider` στο `ui_provider` (0 `DateTime.now()` σε build) · `kFolderCreateTypes` 2-tuple + `ItemTypeIcon` · αφαίρεση `✓`/emoji. Device (POCO X3, 29/10/2026): T1 1950 (picker + yearly 5/5) · T2 1995 · T3 1998 (+ έτη από **1900**) · T4 focus-✕/αρίθμηση 4→11/140%/landscape · T5 **1990 + daily** root id=3223, `rows=85 desired=85 kept=85 truncated=false`, 0 `ERR` (one-shot παρελθόν → `past one-shot, blocked` by design) · T6 8 icons/0 emoji · T7 dd/MM/yyyy · T8 habit χωρίς ✓. analyze clean · **370/370**.
 
 - **`E05` (Ο3) — CLOSED 27/10/2026 (S277, device-verified):** mass-delete pipeline = **1** κύκλος αντί N. `ItemNotifier.permanentDeleteMany` (`trash_screen` 2 loops → 2 κλήσεις) + `hardDeleteMany` (1 query reminders + 1 query attachments + **1** writeTxn για όλα τα ids) + `deleteAllRemindersForItems` (**1** OS snapshot) + `deleteHabitRemindersMany` (**1** pass `_passQueue`: wipe + `afterRows` αδιαίρετα, S250). Singles = wrappers με **log parity n=1**. Device T1–T7: T1 `n=3 → total=7 entries=4` `took=293ms` · T2 habit branch `n=7` `took=193ms` · T5 `deleted file "…jpg"` (disk cleanup) · T7 single parity · **0 ERR**. Hard rules: ποτέ `anyOf([])`/`deleteAll([])`. analyze clean · 339/339.
 
@@ -488,7 +501,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (κώδικας+tests, εκκρεμεί device) → Ο10** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -500,7 +513,7 @@
 | **Ο5 — Grid + verify** ✅ CLOSED 26/10/2026 (device-verified, S276) | E27 + E03 + **E44** | `reorderable_item_list` (autoScroll + dragEnabled) + `selectRecentItems` recency + μαζικό device pass (100%/140°) | E03 από E27 · E44 από E19 |
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
 | **Ο9 — Restore pipeline** ✅ CLOSED 27/10/2026 (S278 `e96cbc9` + device T1–T9) | E40 (solo — αδελφό του Ο3, ίδια αρχεία) | `trash_screen` + `item_provider` (`restoreMany`) + 1 refresh/topUp/invalidate για όλο το batch | E40 από E05/Ο3 (Α4) |
-| **Ο7 — Dates/editor mini-pass** 🟡 ΥΛΟΠΟΙΗΘΗΚΕ 28/10/2026 (analyze+370 tests) — εκκρεμεί device T1–T8 | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
+| **Ο7 — Dates/editor mini-pass** ✅ CLOSED 29/10/2026 (S279 `c16f90d` + device T1–T8) | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
 | **Ο10 — Habit topUp perf** | E45 (solo — `habit_service` + `_runBakePlan`) | 1 πρόταση: batch/parallel OS scheduling + `putAll` rows (απόφαση: horizonDays) | — |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).

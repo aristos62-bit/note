@@ -3975,7 +3975,7 @@
 
 ---
 
-## S279 — 28-29/10/2026 — Ο7: dates/editor mini-pass (E22 + E20) — κώδικας + tests, ⏳ device T1–T8
+## S279 — 28-29/10/2026 — Ο7: dates/editor mini-pass (E22 + E20) — ✅ CLOSED (device T1–T8)
 
 **Στόχος:** κλείσιμο των δύο τελευταίων «μικρών» καρτών του §3.8/§4: **E22** (υπόλοιπα spot-verified: `O(n²)` block editor, πάντα-ορατό delete, `DateTime.now()` σε build, χειροκίνητο `d/m/yyyy`, `✓`, emoji) και **E20** (`firstDate: DateTime(2000)` ×3). Καμία αλλαγή schema/navigation/providers API· 0 νέα production αρχεία/κλάσεις.
 
@@ -4024,7 +4024,26 @@
 
 **Περιορισμός (όχι νέος):** `planOccurrences` `maxWalk=6000` → daily >~16,4 έτη / weekly >~57–115 έτη πίσω χτυπούν cap· κρατούν thread + `DebugConfig.warning`, **δεν** διαγράφουν (A3/A4). Monthly/yearly ασφαλή. Καταγράφηκε ως limitation + tests.
 
-**⏳ Εκκρεμεί device pass (T1–T8, απαιτούν δεδομένα χρήστη):** T1 γενέθλια 1950 · T2 ραντεβού 1995 · T3 journal 12/04/1998 · T4 σημείωση 40+ blocks/10 numbered (✕ focus/hover, 140%/landscape) · T5 υπενθύμιση 1999 + daily · T6 create menu icons · T7 διάγνωση dd/MM/yyyy · T8 habit χωρίς ✓.
+**Device pass (POCO X3 / M2007J20CG, debug, 29/10/2026 — logcat 6.9 MB + 40 screenshots σε `backups/s279_o7_device/`):**
+
+| Test | Απόδειξη (2 πηγές όπου γίνεται) | Αποτέλεσμα |
+|---|---|---|
+| T1 γενέθλια 1950 | «Γεννεθλια 1950» → `28 Οκτ 1950, 09:00` (screenshot `t1_event`) · picker ανοίγει **Οκτώβριος 1950** (`t1_picker`) · Διάγνωση: «Επόμενη 28/10/2027 · **5 στη σειρά** · μέχρι 28/10/2031» (`t7_diag_rec3`) | ✅ |
+| T2 ραντεβού 1995 | chip `12/06/1995` (`t2_appt`) · picker **Ιούνιος 1995** (`t2_picker2`) | ✅ |
+| T3 journal 1998 | chip `12/04/1998` (`t3_journal`) · picker **Απρίλιος 1998** (`t3_picker`) · λίστα ετών **από 1900** (`t3_years_top`) | ✅ |
+| T4 block editor | ✕ κρυφό default (`t4_note`), ορατό **μόνο** σε focus με 48×48 (`t4_focus`) · αρίθμηση **4→11** (`t4_scroll`) · 140% (`t4_font140`) + landscape (`t4_landscape140`) 0 overflow | ✅ |
+| T5 υπενθύμιση 1990 + daily | `selected dt=1990-10-29 11:58` → `rrule=FREQ=DAILY;INTERVAL=1` → root **id=3223** · `rows=85 desired=85 baked=0 kept=85 failed=0 skipped=0 truncated=false` · `refreshRecurringReminders: created 0 new child reminders total` · 0 `ERR` | ✅ |
+| T6 create menu | 8 τύποι με `ItemTypeIcon`, **0 emoji** (`t6_sheet`, `t6_sheet2`) | ✅ |
+| T7 διάγνωση dd/MM/yyyy | «29/10/2026 17:30», «μέχρι 10/11/2026 17:30» (`t7_diag`) | ✅ |
+| T8 habit χωρίς ✓ | «E40 single» → `0 / 2 ώρες` χωρίς `✓` (`t8_habit`) | ✅ |
+
+**Εύρημα διαδικασίας (όχι bug):** το **one-shot** με παρελθοντική ώρα **μπλοκάρεται by design** (`reminder_section.dart:265` → snack «Η ώρα έχει περάσει — διάλεξε μελλοντική ώρα» + log `past one-shot, blocked`) — γι' αυτό το «υπενθύμιση 1999» δεν περνούσε με τη σειρά που δοκιμάστηκε. Με **recurrence πρώτα** (daily) η παρελθοντική trigger γίνεται δεκτή και αποθηκεύεται (T5). Ο picker δέχεται 1990/1999 χωρίς assert και στις δύο διαδρομές.
+
+**Κατάσταση: ✅ CLOSED 29/10/2026 (device-verified T1–T8).** `error_list.md`: E20/E22 → ✅ · §1 P2 **5→3** · §3 bullet Ο7 · §6 Ο7 ✅ · §0 device pass. Κώδικας: `c16f90d` (370/370, analyze clean) · docs commit στο S279.
+
+**Μαθήματα:**
+- **Σειρά σε device test:** πριν γράψεις «μπλοκάρεται», έλεγξε **ποιο guard** το μπλοκάρει — εδώ `_recurrence == null` ήταν η αιτία, όχι το `firstDate`.
+- Το `showDatePicker` year-picker δείχνει **μόνο** εύρος `firstDate…lastDate` → γρήγορο οπτικό proof του `earliestYear=1900` (και του `now+5` στο reminder picker: 2031).
 
 **Μαθήματα:**
 - Το assert του `showDatePicker` είναι **σύγχρονο** μέσα στη συνάρτηση → σε test γράφεται `expect(() => showDatePicker(...), throwsAssertionError)`· αν κληθεί μέσα από `onPressed`, το test framework το καταγράφει **πριν** προλάβει το `takeException()`.
