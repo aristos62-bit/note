@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 370/370 🟢 (`flutter test`, 28/10/2026) |
+| Test suite | 377/377 🟢 (`flutter test`, 29/10/2026) |
 
 ---
 
@@ -470,6 +470,7 @@ final db = SuperNoteHelper.instance;
 - `permanentDeleteMany` (E05/S277): bulk εκδοχή — **1** OS snapshot (`getPendingNotifications()`) + **1** `hardDeleteMany` txn + **1** `invalidateSelf` αντί N×· το `permanentDelete` (single) μένει **αμετάβλητο**. Το `hardDelete` = wrapper του `hardDeleteMany`· **ΠΟΤΕ** `anyOf([])`/`deleteAll([])` (κενή λίστα = χωρίς φίλτρο).
 - Bake accounting (S234): `ScheduleOutcome {baked, skipped, failed, kept}`· το keep αποφασίζεται πλέον στον planner (ίδιο text), το `_scheduleOne` επιστρέφει baked/skipped/failed· SUCCESS log μόνο σε `baked`.
 - Budget (S236/E35): `osAlarmLimit` — iOS/macOS 60 · Android 450, oldest-first· εφαρμόζεται σε scheduleAll, batch, rescheduleForItem, refresh/topUp και single· `truncated` flag + day-rebake στο resume.
+- **Habit OS-horizon (S281/E45-A):** τα habit-generated one-shots (`title == habitGeneratedTitle`) μπαίνουν στο OS μόνο για **14 ημέρες** (`habitOsHorizonDays`, = A5 autonomy) **+ τουλάχιστον 5 occurrences/item** (`habitMinOsAlarmsPerItem`, DST-safe αποκλειστικό cutoff `DateTime(y,m,d+14)`)· η **DB κρατά 60** (`horizonDays`) και το refill γίνεται με τον υπάρχοντα `topUp`/resume. Ο κανόνας ζει στην pure **`habitDeferredIds`** (SPoT: το plan + το Diagnostics) και ενεργοποιείται με `required bool habitOsWindow` σε 3 call sites· `ReminderBakePlan.deferredCount` = πόσα αναβλήθηκαν (policy, όχι skip/fail). Non-habit reminders κρατούν τον πλήρη ορίζοντα.
 - Interval>1 (S54): weekly/monthly/yearly σέβονται το διάστημα — scheduler anchor = root· tests `recurrence_weekly_test.dart`.
 - Maintenance (E33): `pauseForMaintenance()` κλείνει τα 3 queues και ακυρώνει το εκκρεμές debounce refresh· `drainForMaintenance(65s)` περιμένει πραγματικά in-flight· `resumeAfterMaintenance(rearmRefresh:true)` επανα-οπλίζει **μία** φορά το refresh μόνο σε abort πριν το close.
 

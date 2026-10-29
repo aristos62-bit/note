@@ -84,7 +84,7 @@
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
 | 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 2 | `E45` | **Habit topUp: σειριακό OS scheduling** — 🔧 κώδικας ✅ (S280), device ⏳ | 120 alarms ≈ 9.2s (restore/cold start/resume) |
+| 2 | `E45` | **Habit topUp: σειριακό OS scheduling** — 🔧 κώδικας ✅ (S280/S281: Φ0+Φ1+Α OS-horizon), device ⏳ | 120 alarms ≈ 9.2s (restore/cold start/resume) |
 | 3 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
@@ -379,9 +379,16 @@
   2. **Φ0** μετρήσεις (0 behavior change): `PERF#9b topUp` (`rowsMs`, `osReadMs`, `schedMs`, `otherMs`) · `PERF#9b scheduleReminders` (`readMs`, `planMs`, `modeMs`, `cancelMs`, `schedMs`, `nativeMs`, `dartMs`) · `_BakeExecutionResult` + μετρητής μόνο του `zonedSchedule` στο `_scheduleOne`.
   3. **Φ3** `avg=` → `avgSched=` (διαιρεί με `result.baked`, όχι με όλες τις DB rows — το «8.7ms/alarm» του S225 ήταν **ms/row**) + `RUNWAY` log στο topUp.
   4. **Γ7** `_lastTopUp = null` στο catch → ένα αποτυχημένο pass δεν μπλοκάρει retry για 10 λεπτά.
-- **Εκτός / μετά τη μέτρηση:** concurrency N=4 (2β — μόνο αν `dartMs` ≥40%) · OS-horizon 14ημ. ή `horizonDays` 60→30 (2α/Γ2 — product απόφαση) · log trimming (μόνο αν μετρηθεί) · «μην περιμένει το restore» (2γ, δεν λύνει το main-thread jank) · `refreshRecurringReminders` child loop (άλλο feature).
-- **Acceptance:** analyze clean · **370/370** · device: T1 πρώτη αποθήκευση H1 · T2 restore H2 (vs `9186ms`) · T3 cold start · T5 αλλαγή ωρών (2ος loop → `createMany`) · T6 archive/unarchive · T7 OFF→ON — **ίδια alarms / ίδιο budget cut**, 0 `ERR`, `PERF#9b` με πλήρη διαχωρισμό.
-- **Κατάσταση:** 🔧 **κώδικας ✅ 29/10/2026 (S280)** · analyze clean · 370/370 · **device pass ⏳** (αναμονή μετρήσεων T1–T7) · backups `backups/o10_e45_p0/`.
+- **Υλοποίηση S281 (2α → **A: OS-horizon για habits**):** μετά τη μέτρηση (`native 92,8%`, O(n²) συνολικά ⇒ λιγότερες κλήσεις = ο μόνος μοχλός), το OS κρατά **μόνο 14 ημέρες** από τα habit-generated alarms — η DB κρατά 60 και το topUp/resume ξαναγεμίζει.
+  1. `reminder_bake_plan.dart`: `habitOsHorizonDays = 14` (**= A5**: `refreshRecurringReminders` batchSize 14 για daily, «με 5 σταματούσε μετά 5 μέρες»)· `habitMinOsAlarmsPerItem = 5` (**= A5** weekly/monthly/yearly)· pure **`habitDeferredIds`** (SPoT του κανόνα, το καλεί **και** το Diagnostics)· `ReminderBakePlan.deferredCount`· `required bool habitOsWindow` (compiler-enforced: 3 prod + 7 tests) · cutoff `DateTime(y, m, d + 14)` (τοπικό μεσάνυχτο, **DST-safe**, αποκλειστικό)· predicate `title == habitGeneratedTitle` (ίδιο με `_clearHabitGenerated`, **0 νέο marker**).
+  2. `reminder_scheduler.dart`: `habitOsWindow: true` στα 3 call sites (`scheduleAll` `:147`, `scheduleReminders` `:940`, `rescheduleForItem` `:1032`) + `deferred=` στα `PERF#9`/`PERF#9b`.
+  3. `reminder_diagnostics_screen.dart`: `_PendingRow.deferred` → «⏳ εκτός ορίζοντα 14ημ. (στη DB)» αντί για ψευδές κόκκινο «ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!» (θα έβγαινε για ~690 rows) + γραμμή «Αναβολή: N» στην κάρτα.
+  - **Reuse (0 νέα μηχανισμός):** scoped `cancelableOsIds` καθαρίζει τυχόν OS habit alarms εκτός πολιτικής · `topUp`/resume/cold start = refill · `rescheduleForItem` (`forceSchedule`) ξαναψήνει 14ημ. αντί έως 225 · `_scheduleRemindersImpl` (αλλαγή ωρών) κόβεται αυτόματα από το plan · `repairLegacyHabitRows` → `syncScheduleWithRecurrence` καλύπτεται · `rebakeIfTruncatedAndDayChanged` **σωστά** no-op (`truncated=false`: το παράθυρο δεν «χάνει» κάλυψη, μόνο μικραίνει).
+  - **Αναμενόμενο (ίδια δεδομένα):** `desired 956 → ~266`, `deferred ~690`, `cut 506 → 0`, `truncated false`, cold start `21,7s → ~7-8s`.
+  - **Δεν άλλαξαν:** `horizonDays` (DB 60), `planTopUp`, `_computeOccurrences`, `createMany`, models, providers, UI (εκτός Diagnostics), schema. Το `_clearHabitGenerated` mass-cancel μένει **ανοιχτό** (ξεχωριστό βήμα).
+- **Εκτός / μετά τη μέτρηση:** concurrency N=4 (2β — **απορρίφθηκε** με μέτρηση: native 92,8% σειριακό) · `horizonDays` 60→30 (2γ — παραμένει product απόφαση) · log trimming (μόνο αν μετρηθεί) · «μην περιμένει το restore» (δεν λύνει το main-thread jank) · `refreshRecurringReminders` child loop (άλλο feature) · `_clearHabitGenerated` mass-cancel (ξηρό ρίσκο, μετά το device pass).
+- **Acceptance:** analyze clean · **377/377** · device: T1 πρώτη αποθήκευση H1 · T2 restore H2 (vs `9186ms`) · T3 cold start (`desired≈266`, `deferred≈690`, `truncated=false`, `loop≈7-8s`) · T5 αλλαγή ωρών (2ος loop → `createMany`) · T6 archive/unarchive · T7 OFF→ON · **T8** Diagnostics: 0 κόκκινα «ΛΕΙΠΕΙ», ⏳ στα deferred · **T9** monthly habit → ≥5 alarms στη Διάγνωση — 0 `ERR`.
+- **Κατάσταση:** 🔧 **κώδικας ✅ 29/10/2026 (S280 Φ0/Φ1/Φ3/Γ7 + S281 Α)** · analyze clean · **377/377** · **device pass ⏳** · backups `backups/o10_e45_p0/`, `backups/o10_e45_oswindow/`.
 
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
@@ -526,6 +533,6 @@
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
 | **Ο9 — Restore pipeline** ✅ CLOSED 27/10/2026 (S278 `e96cbc9` + device T1–T9) | E40 (solo — αδελφό του Ο3, ίδια αρχεία) | `trash_screen` + `item_provider` (`restoreMany`) + 1 refresh/topUp/invalidate για όλο το batch | E40 από E05/Ο3 (Α4) |
 | **Ο7 — Dates/editor mini-pass** ✅ CLOSED 29/10/2026 (S279 `c16f90d` + device T1–T8) | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
-| **Ο10 — Habit topUp perf** 🔧 κώδικας ✅ 29/10/2026 (S280) · device ⏳ | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper`) | 1 πρόταση: Φ0 μετρήσεις + Φ1 `createMany` (1 txn) + Φ3 `avgSched`/RUNWAY + Γ7 guard reset· concurrency & horizonDays **μετά** τη μέτρηση | — |
+| **Ο10 — Habit topUp perf** 🔧 κώδικας ✅ 29/10/2026 (S280 + S281/A) · device ⏳ | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper` + `reminder_bake_plan` + Diagnostics) | 1 πρόταση: Φ0 μετρήσεις → Φ1 `createMany` (1 txn) → Φ3 `avgSched`/RUNWAY → Γ7 guard reset → **A: OS-horizon 14ημ. για habits** (`deferredCount`), concurrency **απορρίφθηκε** με μέτρηση | — |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
