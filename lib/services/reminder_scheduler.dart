@@ -151,6 +151,7 @@ class ReminderScheduler {
         limit: NotificationService.osAlarmLimit,
         now: DateTime.now(),
         incremental: effectiveIncremental,
+        habitOsWindow: true, // E45/A: OS κρατά 14ημ. για habits (DB 60)
         cancelableOsIds:
             effectiveIncremental ? osById.keys.toSet() : const <int>{},
       );
@@ -178,6 +179,7 @@ class ReminderScheduler {
           'PERF#9 scheduleAll: DONE db=${pending.length} desired=${plan.desiredCount} '
           'baked=${result.baked} kept=${plan.keepIds.length} failed=${result.failed} '
           'skipped=${plan.skippedCount + result.skipped} cancelled=${result.cancelled} '
+          'deferred=${plan.deferredCount} '
           'cut=$cut truncated=${plan.truncated} os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
           // Φ3 (E45): ο παλιός `avg=` διαιρούσε με το σύνολο των DB rows
@@ -944,6 +946,7 @@ class ReminderScheduler {
         limit: NotificationService.osAlarmLimit,
         now: DateTime.now(),
         incremental: true,
+        habitOsWindow: true, // E45/A
         // Καμία stale ακύρωση εδώ: το batch δεν είναι υπεύθυνο για ghosts
         // άλλων rows· το scheduleAll/rescheduleForItem το κάνει scoped.
         cancelableOsIds: const <int>{},
@@ -970,7 +973,8 @@ class ReminderScheduler {
           'readMs=${readSw.elapsedMilliseconds} planMs=${planSw.elapsedMilliseconds} '
           'modeMs=${modeSw.elapsedMilliseconds} cancelMs=${result.cancelMs} '
           'schedMs=${result.schedMs} nativeMs=${result.nativeMs} '
-          'dartMs=${result.schedMs - result.nativeMs} baked=${result.baked}');
+          'dartMs=${result.schedMs - result.nativeMs} baked=${result.baked} '
+          'deferred=${plan.deferredCount}');
     } catch (e, stack) {
       DebugConfig.error('ReminderScheduler.scheduleReminders', e, stack);
     }
@@ -1036,6 +1040,7 @@ class ReminderScheduler {
         limit: NotificationService.osAlarmLimit,
         now: DateTime.now(),
         incremental: true,
+        habitOsWindow: true, // E45/A
         cancelableOsIds: cancelable,
         forceSchedule: true,
       );

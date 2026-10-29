@@ -13,6 +13,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../services/services.dart';
+import '../../services/reminder_bake_plan.dart';
 
 class ReminderDiagnosticsScreen extends StatefulWidget {
   const ReminderDiagnosticsScreen({super.key});
@@ -52,6 +53,9 @@ class _PendingRow {
   final bool silenced;
   final bool deleted;
 
+  /// E45/A: habit alarm εκτός OS-window — **δεν** είναι σφάλμα, μένει στη DB.
+  final bool deferred;
+
   _PendingRow({
     required this.reminder,
     required this.isRecurringChild,
@@ -59,6 +63,7 @@ class _PendingRow {
     required this.archived,
     required this.silenced,
     required this.deleted,
+    required this.deferred,
   });
 }
 
@@ -69,6 +74,7 @@ class _ReminderDiagnosticsScreenState
   List<_PendingRow> _pending = [];
   int _osCount = 0;
   bool _truncated = false;
+  int _deferredCount = 0;
 
   @override
   void initState() {
@@ -159,6 +165,19 @@ class _ReminderDiagnosticsScreenState
       _osCount = osPending.length;
       _truncated = ReminderScheduler.instance.isOsWindowTruncated;
 
+      // E45/A: ίδιος pure κανόνας με το plan (`habitDeferredIds`) — τα habit
+      // alarms πέρα από το 14ήμερο δεν «λείπουν» από το OS, απλώς αναβάλλονται
+      // (μένουν στη DB και ξαναμπαίνουν καθώς περνά ο χρόνος).
+      final eligibleForWindow = filtered
+          .where((r) =>
+              !(archivedByItem[r.itemId] ?? false) &&
+              !(silencedByItem[r.itemId] ?? false) &&
+              !(deletedByItem[r.itemId] ?? false))
+          .toList();
+      final deferredIds =
+          habitDeferredIds(rows: eligibleForWindow, now: now);
+      _deferredCount = deferredIds.length;
+
       final pendingRows = filtered.map((r) {
         return _PendingRow(
           reminder: r,
@@ -167,6 +186,7 @@ class _ReminderDiagnosticsScreenState
           archived: archivedByItem[r.itemId] ?? false,
           silenced: silencedByItem[r.itemId] ?? false,
           deleted: deletedByItem[r.itemId] ?? false,
+          deferred: deferredIds.contains(r.id),
         );
       }).toList();
 
@@ -309,6 +329,14 @@ class _ReminderDiagnosticsScreenState
                         : 'Πλήρης κάλυψη',
                     style: context.bodySm.withColor(context.cText2),
                   ),
+                  // E45/A: ορατότητα της αναβολής — αλλιώς το «Πλήρης
+                  // κάλυψη» θα έκρυβε ότι τα habit alarms >14ημ. μένουν στη DB.
+                  if (_deferredCount > 0)
+                    Text(
+                      'Αναβολή: $_deferredCount habit alarms εκτός '
+                      '$habitOsHorizonDaysημ. (μένουν στη DB)',
+                      style: context.bodySm.withColor(context.cText2),
+                    ),
                 ],
               ),
             ),
@@ -415,16 +443,25 @@ class _ReminderDiagnosticsScreenState
     return ListTile(
       dense: true,
       leading: Icon(
-        row.inOs ? Icons.notifications_active_rounded : Icons.error_outline_rounded,
-        color: row.inOs ? context.cSuccess : context.cError,
+        row.deferred
+            ? Icons.snooze_rounded
+            : row.inOs
+                ? Icons.notifications_active_rounded
+                : Icons.error_outline_rounded,
+        color: row.deferred
+            ? context.cInfo
+            : row.inOs
+                ? context.cSuccess
+                : context.cError,
         size: 20,
       ),
       title: Text(r.body ?? r.title ?? 'Υπενθύμιση', style: context.bodyMd),
       subtitle: Text(
         '$time'
             '${row.isRecurringChild ? '  •  επαναλαμβανόμενο' : '  •  εφάπαξ'}'
-            '${row.inOs ? '' : '  •  ⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!'}',
-        style: context.bodySm.withColor(row.inOs ? context.cText2 : context.cError),
+            '${row.inOs ? '' : row.deferred ? '  •  ⏳ εκτός ορίζοντα $habitOsHorizonDaysημ. (στη DB)' : '  •  ⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!'}',
+        style: context.bodySm.withColor(
+            row.inOs || row.deferred ? context.cText2 : context.cError),
       ),
     );
   }
