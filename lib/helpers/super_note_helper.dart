@@ -1214,6 +1214,48 @@ class ReminderRepository {
     return reminder;
   }
 
+  /// E45/Φ1: batch εκδοχή του [create] — **1** `writeTxn` + `putAll` αντί N
+  /// commits (120 rows = 120 txns → 1). Τα ids γράφονται πίσω στα objects από
+  /// το Isar (`schema.attach`), άρα ο caller μπορεί να τα χρησιμοποιήσει
+  /// αμέσως ως OS alarm ids — ίδιο συμβόλαιο με το [create].
+  ///
+  /// Guards με το ίδιο πρότυπο με [restoreMany]: κενή λίστα → καμία Isar
+  /// κλήση (`putAll([])` κάνει `alloc(0)` → ArgumentError)· κλειστή DB → skip
+  /// (maintenance/wipe). **ΠΟΤΕ** κλήση από μέσα σε `writeTxn` (nested txn).
+  /// All-or-nothing: σε σφάλμα του txn δεν γράφεται καμία row.
+  Future<List<Reminder>> createMany({
+    required int itemId,
+    required List<DateTime> triggerAts,
+    String? rrule,
+    String? title,
+    String? body,
+  }) async {
+    if (triggerAts.isEmpty) return const <Reminder>[];
+    if (!_isar.isOpen) {
+      DebugConfig.warning(
+          'createMany: DB closed — skipped (n=${triggerAts.length})');
+      return const <Reminder>[];
+    }
+    final now = DateTime.now();
+    final reminders = <Reminder>[
+      for (final occ in triggerAts)
+        Reminder()
+          ..itemId = itemId
+          ..triggerAt = occ
+          ..rrule = rrule
+          ..title = title
+          ..body = body
+          ..status = ReminderStatus.pending
+          ..createdAt = now,
+    ];
+    await _isar.writeTxn(() async {
+      await _isar.reminders.putAll(reminders);
+    });
+    DebugConfig.notif(
+        'ReminderRepository.createMany: itemId=$itemId n=${reminders.length} (1 txn)');
+    return reminders;
+  }
+
   Future<List<Reminder>> getPending() {
     final now = DateTime.now();
     // ✅ 370 ημέρες: καλύπτει batchSize=5 monthly (~5-6 μήνες) + 1ο έτος

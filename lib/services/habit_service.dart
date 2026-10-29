@@ -740,6 +740,7 @@ class HabitService {
       var created = 0;
       var habits = 0;
       var scanned = 0;
+      var rowsMs = 0; // Φ0/E45: χρόνος μόνο για το commit των νέων rows
       // N2/E35: ένα batch στο τέλος για ΟΛΑ τα habits — μία ανάγνωση OS cache,
       // ένα plan και κοινό budget, αντί για scheduleReminders ανά habit.
       final pendingToSchedule = <Reminder>[];
@@ -812,37 +813,59 @@ class HabitService {
           }
           habits++;
           final title = habit.title ?? 'Συνήθεια';
-          final createdRows = <Reminder>[];
-          for (final occ in missing) {
-            final reminder = await helper.reminders.create(
-              itemId: habit.id,
-              triggerAt: occ,
-              rrule: null,
-              title: generatedTitle,
-              body: 'Υπενθύμιση: $title',
-            );
-            createdRows.add(reminder);
-            created++;
-          }
+          // Φ1 (E45): 1 commit για όλες τις occurrences του habit (αντί 1/row).
+          // Τα ids επιστρέφονται συμπληρωμένα — ίδια χρήση ως OS alarm ids.
+          final rowsSw = Stopwatch()..start();
+          final createdRows = await helper.reminders.createMany(
+            itemId: habit.id,
+            triggerAts: missing,
+            rrule: null,
+            title: generatedTitle,
+            body: 'Υπενθύμιση: $title',
+          );
+          rowsSw.stop();
+          rowsMs += rowsSw.elapsedMilliseconds;
+          created += createdRows.length;
           pendingToSchedule.addAll(futurePending);
           pendingToSchedule.addAll(createdRows);
         }
       }
+      final schedSw = Stopwatch()..start(); // Φ0/E45: όλο το batch bake
       if (pendingToSchedule.isNotEmpty) {
         await ReminderScheduler.instance.scheduleReminders(pendingToSchedule);
       }
+      schedSw.stop();
       DebugConfig.notif(
           'HabitService.topUp: done scanned=$scanned needTopUp=$habits created=$created '
           'scheduledBatch=${pendingToSchedule.length}');
+      // Φ3/E45: RUNWAY — ορατότητα του ορίζοντα (ίδιο μοτίβο με
+      // `refreshRecurringReminders`), ώστε τα device tests να δείχνουν
+      // πόσο μακριά φτάνουν τα alarms χωρίς επιπλέον OS read.
+      DebugConfig.notif(
+          'HabitService.topUp: RUNWAY horizon=${horizonDays}d until=$end '
+          'habits=$habits alarms=${pendingToSchedule.length}');
       // H3 debug: πόσα alarms υπάρχουν πραγματικά στο OS (Android ~500/app,
       // iOS 64) — αν πλησιάζει το όριο, μείωσε το horizonDays.
+      final osReadSw = Stopwatch()..start(); // Φ0/E45
       final osPending =
       await NotificationService.instance.getPendingNotifications();
+      osReadSw.stop();
       DebugConfig.notif('HabitService.topUp: OS pending=${osPending.length}');
       DebugConfig.notif( // PERF#9 (S224)
           'PERF#9 topUp: scanned=$scanned needTopUp=$habits created=$created '
           'os=${osPending.length} took=${topUpSw.elapsedMilliseconds}ms');
+      // Φ0/E45: διαχωρισμός του `took` (χωρίς αλλαγή της πάνω γραμμής).
+      // schedMs = όλο το batch (reads+plan+bake)· το analytics του bake
+      // (cancelMs/schedMs/nativeMs) βγαίνει από το `PERF#9b scheduleReminders`.
+      DebugConfig.notif(
+          'PERF#9b topUp: rowsMs=$rowsMs osReadMs=${osReadSw.elapsedMilliseconds} '
+          'schedMs=${schedSw.elapsedMilliseconds} '
+          'otherMs=${topUpSw.elapsedMilliseconds - rowsMs - osReadSw.elapsedMilliseconds - schedSw.elapsedMilliseconds} '
+          'rows=$created batch=${pendingToSchedule.length} os=${osPending.length}');
     } catch (e, stack) {
+      // Γ7/E45: το `_lastTopUp` γράφτηκε ΠΡΙΝ τη δουλειά (guard 10 λεπτών) —
+      // χωρίς reset ένα αποτυχημένο pass θα μπλόκαρε το retry για 10 λεπτά.
+      _lastTopUp = null;
       DebugConfig.error('topUpHabitReminders', e, stack);
     }
   }
@@ -1003,19 +1026,17 @@ class HabitService {
     final title = item.title ?? 'Συνήθεια';
     DebugConfig.notif('HabitService._scheduleReminders: habitId=$habitId times=${times.length} recurrence=${recurrenceToRRULE(recurrence)} → one-shot occurrences');
 
-    final createdRows = <Reminder>[];
-    for (final occ in _computeOccurrences(recurrence, times, now, end)) {
-      final reminder = await SuperNoteHelper.instance.reminders.create(
-        itemId: habitId,
-        triggerAt: occ,
-        // One-shot: η recurrence ζει στα props· με rrule το scheduleAll()
-        // θα το έκοβε μετά από restart και το cleanup δεν θα το μάζευε.
-        rrule: null,
-        title: generatedTitle,
-        body: 'Υπενθύμιση: $title',
-      );
-      createdRows.add(reminder);
-    }
+    // Φ1 (E45): 1 commit για όλες τις occurrences (αντί N).
+    // One-shot: η recurrence ζει στα props· με rrule το scheduleAll()
+    // θα το έκοβε μετά από restart και το cleanup δεν θα το μάζευε.
+    final occurrences = _computeOccurrences(recurrence, times, now, end);
+    final createdRows = await SuperNoteHelper.instance.reminders.createMany(
+      itemId: habitId,
+      triggerAts: occurrences,
+      rrule: null,
+      title: generatedTitle,
+      body: 'Υπενθύμιση: $title',
+    );
     // N2/E35: ένα batch bake για όλες τις νέες rows, με budget — όχι N calls.
     if (createdRows.isNotEmpty) {
       await ReminderScheduler.instance.scheduleReminders(createdRows);
