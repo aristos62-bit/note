@@ -4052,3 +4052,44 @@
 - Το `InputDecorator` έχει ήδη min height 48 → το 48×48 hit area είναι **δωρεάν** σε ύψος· αλλάζει μόνο το πλάτος (~26dp λιγότερο για το TextField).
 - Provider move χωρίς barrel αλλαγή: το `providers.dart` κάνει export και τα δύο αρχεία → 0 αλλαγές σε `main.dart`/οθόνες.
 
+---
+
+# S280 — Ο10 / E45: Habit topUp perf (Φ0 μετρήσεις + Φ1 `createMany` + Φ3/Γ7)
+
+**Στόχος:** 120 habits alarms ≈ 8.962s στο restore/cold start/resume, **χωρίς** αλλαγή εξωτερικής συμπεριφοράς (ίδια alarms, ίδιο budget, ίδια ids).
+
+**Τι αποδείχθηκε πριν από κώδικα (SDK, όχι υπόθεση):**
+- **FLN 17.2.4 (Java):** `zonedSchedule` → `zonedScheduleNotification` (`:1605`→`:573`)· `setupAlarm` (`:591`) **πριν** το `saveScheduledNotification` (`:593-595`) = `loadScheduledNotifications` (Gson **parse όλης** της λίστας, `:501-512`) + `saveScheduledNotifications` (Gson **serialize όλης** + `apply()`, `:514-522`). ⇒ **O(n) persistence ανά κλήση**.
+- **Και το `cancel` είναι O(n):** `cancelNotification` (`:1769-1781`) → `removeNotificationFromCache` (`:524-534`).
+- **`pendingNotificationRequests`:** πλήρες parse + όλα τα title/body/payload στο channel (`:1532-1546`).
+- **Main thread:** `setMethodCallHandler(this)` στο `onAttachedToEngine` (`:1370-1373`) ⇒ το native κομμάτι είναι **σειριακό** ό,τι κι αν κάνει η Dart.
+- **`setupAlarm` πριν το save** ⇒ σε revoke exact-alarm **κανένα ghost cache**· Dart 1× retry `inexact` (`notification_service.dart:293-312`).
+- **Boot rearm** (`rescheduleNotifications`, `:219-236`) καλεί με `updateScheduledNotificationsCache=false` ⇒ καμία εγγραφή.
+- **Isar 3.1.0+1:** `putAll` → `putAllByIndex(null,…)` → `isar.getTxn(true,…)` με **reuse** ενεργού txn (`isar_common.dart:88-101`) → `schema.attach` ανά object (`isar_collection_impl.dart:304-326`) ⇒ **ids πίσω**· `putAll([])` → `alloc(0)` → `ArgumentError` (`txn.dart:56-62` + `ffi-2.2.0/allocation.dart:57-71`).
+
+**Συνέπεια για τη στρατηγική:** το **bounded concurrency δεν βοηθά** το native (σειριακό). Μοχλοί: **λιγότερες κλήσεις**, λιγότερα commits, μικρότερη persisted λίστα, Dart/log overhead. Γι' αυτό η επιλογή 1 της κάρτας υποβιβάστηκε σε conditional και μπήκε **πρώτα μέτρηση**.
+
+**Τι άλλαξε (3 production αρχεία, 0 tests):**
+1. `super_note_helper.dart` — **νέο** `ReminderRepository.createMany({itemId, triggerAts, rrule, title, body})`: guards `isEmpty`/`!isOpen`, **1** `writeTxn` + `putAll`, επιστρέφει τα rows με ids. Ίδιο συμβόλαιο με `create`.
+2. `habit_service.dart`
+   - `_topUpHabitRemindersImpl`: ο loop `create`/occurrence → **1** `createMany` (`:819`)· προστέθηκε `rowsMs` + `PERF#9b topUp` (`rowsMs`/`osReadMs`/`schedMs`/`otherMs`)· **RUNWAY** log (`horizon`, `until`, `habits`, `alarms`)· η γραμμή `PERF#9 topUp` **έμεινε byte-identical**.
+   - `_scheduleRemindersImpl` (2ος loop): **1** `createMany`.
+   - `catch`: `_lastTopUp = null` (Γ7) → αποτυχημένο pass δεν μπλοκάρει retry 10'.
+3. `reminder_scheduler.dart`
+   - `_BakeExecutionResult` + `cancelMs`/`schedMs`/`nativeMs`· `_accumNativeUs` (μόνο το platform call) στο `_scheduleOne`.
+   - `_scheduleRemindersImpl`: stopwatches `readMs`/`planMs`/`modeMs` + `PERF#9b scheduleReminders`.
+   - `scheduleAll`: `avg=` → **`avgSched=`** με παρονομαστή `result.baked` (το παλιό διαιρούσε με **όλες** τις DB rows → το «8.7ms/alarm» του S225 ήταν ms/row) + `dart=`/`native=`/`cancel=`.
+
+**Γιατί δεν σπάει τίποτα (audit):** ίδια rows/ids (ids πίσω από το Isar) · ίδιες είσοδοι plan (άρα ίδιο `desiredCount`/`truncated`/σειρά) · ίδια σειριοποίηση (`createMany` μέσα στο υπάρχον `_passQueue`) · ίδιο error contract. Η **μόνη** διαφορά: σε αποτυχία το batch είναι **all-or-nothing** (πριν: 59 rows χωρίς OS alarms) — καθαρά βελτίωση. Ανεπηρέαστα: `scheduleAll`, `refreshRecurringReminders`, `rescheduleForItem`, `notification_service`, `main.dart`, providers, UI, models, `reminder_bake_plan`, maintenance/restore/wipe, boot rearm, iOS 60/Android 450.
+
+**Έλεγχος:** `flutter analyze` → **No issues found** (4.8s) · `flutter test` → **370/370 All tests passed** (~28s, 0 test edits) · backups `backups/o10_e45_p0/` (3 production + 2 docs).
+
+**Μαθήματα:**
+- **Πριν προτείνεις concurrency σε plugin, διάβασε τον Java κώδικα:** εδώ κάθε κλήση ξαναγράφει **όλη** τη persisted λίστα στο main thread — το `Future.wait` δεν κερδίζει τίποτα.
+- **Ένα metric με λάθος παρονομαστή είναι χειρότερο από κανένα metric:** το `avg=` διαιρούσε με `pending.length` (όλες οι DB rows) και επί 2 sessions το διαβάζαμε ως «ms/alarm».
+- **Οι guards της Isar είναι συμβόλαιο, όχι λεπτομέρεια:** `putAll([])` πετάει (`alloc(0)`), γι' αυτό `isEmpty` guard **πριν** κάθε batch.
+- **Μέτρηση χωρίς αλλαγή συμπεριφοράς:** κρατάς τις παλιές log γραμμές **byte-identical** (device greps) και προσθέτεις νέες (`PERF#9b`) δίπλα.
+
+**Κατάσταση:** 🔧 κώδικας ✅ 29/10/2026 · **device pass ⏳** (T1 πρώτη αποθήκευση · T2 restore vs 9186ms · T3 cold start · T5 αλλαγή ωρών · T6 archive · T7 OFF→ON). Μετά τη μέτρηση αποφασίζεται 2α (OS-horizon/`horizonDays`) ή 2β (concurrency, μόνο αν `dartMs` ≥40%).
+
+
