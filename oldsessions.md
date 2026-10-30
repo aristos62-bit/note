@@ -4129,4 +4129,33 @@
 
 **Κατάσταση:** 🔧 κώδικας ✅ 29/10/2026 · **device pass ⏳** (T1–T9 του E45, με έμφαση σε T3 cold start `desired≈266/deferred≈690/truncated=false/loop≈7-8s` και T8/T9 Διάγνωση).
 
+---
+
+# S282 — E45 follow-up: το «κόκκινο» της Διάγνωσης ήταν ο 370ήμερος ορίζοντας
+
+**Device finding (T8):** μετά την A, η Διάγνωση έδειχνε **>20 κόκκινα** «⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!», όλα γενέθλια επαφών, από **2027** και μετά (πρώτο **21/12/2027**). Ο χρήστης φοβήθηκε regression.
+
+**Διάγνωση (με αριθμητική απόδειξη, όχι υπόθεση):**
+- `PERF#9 scheduleAll: db=934 desired=221 baked=221 kept=0 failed=0 cut=0 truncated=false` ⇒ **όλα** τα rows που βλέπει το plan ψήθηκαν. Άρα κάθε κόκκινο row **δεν βλέπεται** από το plan.
+- `getPending()` = `triggerAtBetween(now, now+370ημ.)` (`super_note_helper.dart:1259-1271`) — σκληρός ορίζοντας.
+- Το `refreshRecurringReminders` ψήνει **χωρίς** ορίζοντα: `13:37:54 scheduleReminders: rows=85 … baked=31 schedMs=2388 nativeMs=2264` → και **0,9s μετά** `13:37:55 scheduleAll: cancelAll done (113ms)` τα σβήνει, γιατί το `scheduleAll` ξαναψήνει μόνο ≤370ημ.
+- 29/10/2026 + 370ημ. = **3/11/2027** ⇒ πρώτο κόκκινο 21/12/2027 ✔ (τα 2028-2031 πάντα έξω).
+- Γιατί 8 → >20: στο session των 13:07 το refresh **δημιούργησε** τα υπόλοιπα παιδιά των yearly roots (2027-2031). Δεν είναι της A: το 370ήμερο και το ordering προϋπήρχαν· πριν τα έκρυβε το `cut=506`.
+
+**Fix (3 αρχεία + docs):**
+1. `super_note_helper.dart`: `ReminderRepository.pendingHorizonDays = 370` — **μία πηγή** για `getPending()`/`watchPending()`/Διάγνωση (πριν: μαγικό 370 σε 2 σημεία).
+2. `reminder_diagnostics_screen.dart`: `_PendingRow.beyondOsHorizon` → ⏳ «εκτός ορίζοντα OS (370ημ.)» (cInfo, snooze) αντί κόκκινο + γραμμή «Εκτός ορίζοντα OS: N» στην κάρτα. Έτσι η οθόνη λέει την αλήθεια χωρίς να κρύβει πραγματικά «λείπει».
+3. `reminder_scheduler.dart` + `main.dart`: `refreshRecurringReminders({bool bake = true})` · στο startup `bake: false` (ακολουθεί `scheduleAll` που ψήνει τα πάντα) ⇒ **−2,4s/cold start**, ίδιο τελικό OS state, κανένα διπλό bake. Οι άλλοι callers (resume debounce, item edits) μένουν `bake: true`.
+
+**Μετρήσεις με A (POCO X3, 2 cold starts):** `total=7031ms` και `6117ms` (πριν: **22035ms**) · `desired=221`, `deferred=564`, `cut=0`, `truncated=false` · `avgSched 30,8 / 26,9 ms` (πριν 48,2) · `native 6141 / 5344ms` (πριν 20155) · `topUp took=93-107ms` · **0 failed / 0 cancelled / 0 exceptions** · `scheduleReminders: rows=85 … deferred=0` ⇒ **non-habit αμετάβλητα**.
+
+**Έλεγχος:** `flutter analyze` → No issues found · `flutter test` → **377/377** · backups `backups/o10_e45_oswindow/*.s282.bak` · log `backups/o10_e45_oswindow/device_t3_coldstart.log`.
+
+**Μαθήματα:**
+- **Δύο διαφορετικοί ορίζοντες = σιωπηλή ασυνέπεια:** DB query με 370ημ., bake χωρίς όριο, UI χωρίς όριο → «λείπει» για rows που *ποτέ* δεν προορίζονταν για OS.
+- **Ο αριθμός `desired==baked && cut==0` κλείνει την υπόθεση:** αν ό,τι βλέπει το plan ψήθηκε, το πρόβλημα είναι στο **τι βλέπει**, όχι στο bake.
+- **Μετράς το ordering:** 2,4s bake που σβήνεται 0,9s μετά φαίνεται μόνο όταν έχεις timings ανά φάση.
+
+**Κατάσταση:** 🔧 κώδικας ✅ 29-30/10/2026 · analyze clean · **377/377** · **device pass ⏳** (T2 restore · T5 αλλαγή ωρών · T6 archive/unarchive · T7 OFF→ON · T8 Διάγνωση=0 κόκκινα · T9 monthly ≥5).
+
 
