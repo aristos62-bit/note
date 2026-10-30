@@ -56,6 +56,11 @@ class _PendingRow {
   /// E45/A: habit alarm εκτός OS-window — **δεν** είναι σφάλμα, μένει στη DB.
   final bool deferred;
 
+  /// S282: έξω από τον ορίζοντα του `getPending()`
+  /// (`ReminderRepository.pendingHorizonDays` = 370) — δεν μπαίνει ποτέ στο
+  /// plan άρα ούτε στο OS. **Δεν** είναι σφάλμα (π.χ. γενέθλια 2028-2031).
+  final bool beyondOsHorizon;
+
   _PendingRow({
     required this.reminder,
     required this.isRecurringChild,
@@ -64,6 +69,7 @@ class _PendingRow {
     required this.silenced,
     required this.deleted,
     required this.deferred,
+    required this.beyondOsHorizon,
   });
 }
 
@@ -75,6 +81,7 @@ class _ReminderDiagnosticsScreenState
   int _osCount = 0;
   bool _truncated = false;
   int _deferredCount = 0;
+  int _beyondHorizonCount = 0;
 
   @override
   void initState() {
@@ -178,6 +185,16 @@ class _ReminderDiagnosticsScreenState
           habitDeferredIds(rows: eligibleForWindow, now: now);
       _deferredCount = deferredIds.length;
 
+      // S282: ό,τι είναι πιο πέρα από τον ορίζοντα του `getPending()` δεν
+      // μπαίνει στο plan → δεν θα είναι ποτέ στο OS. Δεν είναι σφάλμα.
+      final osHorizonEnd = now.add(
+          const Duration(days: ReminderRepository.pendingHorizonDays));
+      final beyondHorizonIds = <int>{
+        for (final r in filtered)
+          if (!r.triggerAt.isBefore(osHorizonEnd)) r.id,
+      };
+      _beyondHorizonCount = beyondHorizonIds.length;
+
       final pendingRows = filtered.map((r) {
         return _PendingRow(
           reminder: r,
@@ -187,6 +204,7 @@ class _ReminderDiagnosticsScreenState
           silenced: silencedByItem[r.itemId] ?? false,
           deleted: deletedByItem[r.itemId] ?? false,
           deferred: deferredIds.contains(r.id),
+          beyondOsHorizon: beyondHorizonIds.contains(r.id),
         );
       }).toList();
 
@@ -337,6 +355,13 @@ class _ReminderDiagnosticsScreenState
                       '$habitOsHorizonDaysημ. (μένουν στη DB)',
                       style: context.bodySm.withColor(context.cText2),
                     ),
+                  if (_beyondHorizonCount > 0)
+                    Text(
+                      'Εκτός ορίζοντα OS: $_beyondHorizonCount alarms '
+                      '(>${ReminderRepository.pendingHorizonDays}ημ. — δεν '
+                      'προγραμματίζονται ποτέ)',
+                      style: context.bodySm.withColor(context.cText2),
+                    ),
                 ],
               ),
             ),
@@ -440,28 +465,42 @@ class _ReminderDiagnosticsScreenState
         ),
       );
     }
+    // S282: τρεις «άχρωμες» καταστάσεις (στο OS / habit-window / πέρα από τον
+    // ορίζοντα OS) — κόκκινο μόνο όταν πραγματικά λείπει κάτι προγραμματίσιμο.
+    final muted = row.inOs || row.deferred || row.beyondOsHorizon;
+    final String note;
+    if (row.inOs) {
+      note = '';
+    } else if (row.deferred) {
+      note = '  •  ⏳ εκτός ορίζοντα $habitOsHorizonDaysημ. (στη DB)';
+    } else if (row.beyondOsHorizon) {
+      note = '  •  ⏳ εκτός ορίζοντα OS '
+          '(${ReminderRepository.pendingHorizonDays}ημ.)';
+    } else {
+      note = '  •  ⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!';
+    }
     return ListTile(
       dense: true,
       leading: Icon(
-        row.deferred
+        !row.inOs && (row.deferred || row.beyondOsHorizon)
             ? Icons.snooze_rounded
             : row.inOs
                 ? Icons.notifications_active_rounded
                 : Icons.error_outline_rounded,
-        color: row.deferred
-            ? context.cInfo
+        color: !muted
+            ? context.cError
             : row.inOs
                 ? context.cSuccess
-                : context.cError,
+                : context.cInfo,
         size: 20,
       ),
       title: Text(r.body ?? r.title ?? 'Υπενθύμιση', style: context.bodyMd),
       subtitle: Text(
         '$time'
             '${row.isRecurringChild ? '  •  επαναλαμβανόμενο' : '  •  εφάπαξ'}'
-            '${row.inOs ? '' : row.deferred ? '  •  ⏳ εκτός ορίζοντα $habitOsHorizonDaysημ. (στη DB)' : '  •  ⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!'}',
-        style: context.bodySm.withColor(
-            row.inOs || row.deferred ? context.cText2 : context.cError),
+            '$note',
+        style: context.bodySm
+            .withColor(muted ? context.cText2 : context.cError),
       ),
     );
   }

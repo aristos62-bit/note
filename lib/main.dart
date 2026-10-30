@@ -203,8 +203,12 @@ void main() async {
       DebugConfig.error('requestPermission failed', e, stack);
     }
     try {
-      await ReminderScheduler.instance.refreshRecurringReminders();
-      DebugConfig.startup('Recurring reminders refreshed');
+      // S282 (E45): bake=off — αμέσως μετά τρέχει scheduleAll() (:222) που
+      // ψήνει τα πάντα. Χωρίς αυτό, το refresh ψήνει distant children
+      // (~2,4s) και το cancelAll του scheduleAll τα σβήνει 0,9s μετά.
+      await ReminderScheduler.instance
+          .refreshRecurringReminders(bake: false);
+      DebugConfig.startup('Recurring reminders refreshed (no bake)');
     } catch (e, stack) {
       DebugConfig.error('refreshRecurringReminders failed', e, stack);
     }
