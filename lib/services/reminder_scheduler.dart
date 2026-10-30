@@ -338,10 +338,14 @@ class ReminderScheduler {
   final SerialPassQueue _refreshQueue =
       SerialPassQueue(label: 'ReminderScheduler.refresh');
 
-  Future<void> refreshRecurringReminders() =>
-      _refreshQueue.run(_refreshRecurringRemindersImpl);
+  /// [bake] = false: μόνο δημιουργία/καθαρισμός rows, **χωρίς** OS bake.
+  /// Το χρησιμοποιεί το startup, γιατί αμέσως μετά τρέχει `scheduleAll()`
+  /// που ψήνει τα πάντα — αλλιώς ψήνουμε (π.χ. 31 distant alarms ≈2,4s) και
+  /// τα σβήνει το `cancelAll` 0,9s αργότερα.
+  Future<void> refreshRecurringReminders({bool bake = true}) =>
+      _refreshQueue.run(() => _refreshRecurringRemindersImpl(bake: bake));
 
-  Future<void> _refreshRecurringRemindersImpl() async {
+  Future<void> _refreshRecurringRemindersImpl({bool bake = true}) async {
     try {
       final now0 = DateTime.now();
       if (_lastRefreshRun != null) {
@@ -634,12 +638,13 @@ class ReminderScheduler {
             'Root ${root.id}: created $createdForRoot new children in this batch');
       }
 
-      if (pendingToSchedule.isNotEmpty) {
+      if (bake && pendingToSchedule.isNotEmpty) {
         await scheduleReminders(pendingToSchedule);
       }
       DebugConfig.notif(
           'refreshRecurringReminders: created $createdTotal new child reminders total '
-          '(scheduled batch=${pendingToSchedule.length})');
+          '(scheduled batch=${pendingToSchedule.length}'
+          '${bake ? '' : ', bake=off → scheduleAll'} )');
     } catch (e, stack) {
       DebugConfig.error(
           'ReminderScheduler.refreshRecurringReminders', e, stack);
