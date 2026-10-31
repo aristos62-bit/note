@@ -28,6 +28,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
 import '../services/migration_service.dart';
+import '../services/reminder_bake_plan.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // SuperNoteHelper — Singleton
@@ -1259,11 +1260,9 @@ class ReminderRepository {
   /// S282 (E45): ορίζοντας του [getPending] σε ημέρες — **μία πηγή** για DB
   /// query, `watchPending` και Διάγνωση.
   ///
-  /// Γιατί 370: καλύπτει `batchSize=5` monthly (~5-6 μήνες) + το 1ο έτος των
-  /// yearly roots· το `scheduleAll()` ξαναβάζει και τα distant children που το
-  /// `cancelAll` θα έσβηνε (iOS limit 64 → όχι μεγαλύτερο παράθυρο).
-  /// Ό,τι είναι πιο πέρα **δεν μπαίνει ποτέ στο plan** (άρα ούτε στο OS).
-  static const int pendingHorizonDays = 370;
+  /// S283: η τιμή ζει πλέον στο pure `osHorizonDays` (`reminder_bake_plan`),
+  /// ώστε να την εφαρμόζει **και** το bake plan σε όλους τους callers.
+  static const int pendingHorizonDays = osHorizonDays;
 
   Future<List<Reminder>> getPending() {
     final now = DateTime.now();

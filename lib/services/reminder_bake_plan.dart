@@ -13,6 +13,8 @@
 // - habit OS-window (E45/A): τα habit-generated one-shots πάνε στο OS μόνο
 //   για τις επόμενες 14 ημέρες (+ τις πρώτες 5 occurrences/item) — η DB
 //   κρατά 60 και το topUp/resume ξαναγεμίζει καθώς περνά ο χρόνος.
+// - ορίζοντας OS (S283): ΠΟΤΕ bake πέρα από [osHorizonDays] — κοινός κανόνας
+//   για όλους τους callers (πριν τον είχε μόνο το `getPending`).
 
 import '../models/models.dart';
 import 'reminder_text.dart';
@@ -34,6 +36,15 @@ const int habitOsHorizonDays = 14;
 /// σιωπηλή απώλεια λειτουργίας. 5 = ίδιο νούμερο με το A5 για
 /// weekly/monthly/yearly (parity, όχι νέο κατώφλι).
 const int habitMinOsAlarmsPerItem = 5;
+
+/// S283 (E45 follow-up): ορίζοντας του OS σε ημέρες — **μία πηγή**.
+///
+/// Ίδιος αριθμός με το `getPending()` (`ReminderRepository.pendingHorizonDays`)
+/// και τη Διάγνωση (iOS 64 / budget). Ό,τι είναι πιο πέρα **δεν μπαίνει ποτέ**
+/// στο OS από **κανέναν** caller: πριν, το έκοβε μόνο το `getPending()`, ενώ το
+/// `refreshRecurringReminders(bake: true)` έψηνε και τα πιο μακρινά children
+/// (γενέθλια 2028-2031), που τα έσβηνε το επόμενο `cancelAll` του `scheduleAll`.
+const int osHorizonDays = 370;
 
 class OsReminderSnapshot {
   const OsReminderSnapshot({
@@ -61,6 +72,7 @@ class ReminderBakePlan {
     required this.skippedCount,
     required this.truncated,
     required this.deferredCount,
+    required this.beyondHorizonCount,
   });
 
   final List<int> cancelIds;
@@ -74,6 +86,10 @@ class ReminderBakePlan {
   /// δεν μπαίνουν σε `schedule`/`desiredIds`). Δεν είναι skip/fail — είναι
   /// policy. Χωρίς αυτό το μέτρημα, η περικοπή θα φαινόταν σαν εξαφάνιση.
   final int deferredCount;
+
+  /// S283: rows πέρα από τον ορίζοντα OS (`osHorizonDays`) — δεν μπαίνουν ποτέ
+  /// στο plan (άρα ούτε στο OS). Δεν είναι skip/fail: μένουν στη DB.
+  final int beyondHorizonCount;
 }
 
 /// E45/A: pure κανόνας του habit OS-window — **SPoT** του κανόνα, ώστε το
@@ -113,6 +129,55 @@ Set<int> habitDeferredIds({
   return deferred;
 }
 
+/// S283: rows **πέρα** από τον ορίζοντα OS (`triggerAt >= now + horizonDays`).
+///
+/// Το cutoff είναι **αποκλειστικό** — ίδιος predicate με τη Διάγνωση
+/// (`beyondOsHorizonIds`), ώστε η οθόνη και το plan να δείχνουν το ίδιο.
+/// Δεν είναι σφάλμα: τα rows μένουν στη DB και μπαίνουν στο OS όταν μπουν
+/// στον ορίζοντα (επόμενο cold start / topUp).
+Set<int> beyondOsHorizonIds({
+  required List<Reminder> rows,
+  required DateTime now,
+  int horizonDays = osHorizonDays,
+}) {
+  if (rows.isEmpty) return const <int>{};
+  final end = now.add(Duration(days: horizonDays));
+  return <int>{
+    for (final r in rows)
+      if (!r.triggerAt.isBefore(end)) r.id,
+  };
+}
+
+/// S283: ποια rows **μπορεί** να βρίσκονται στο OS αυτή τη στιγμή;
+///
+/// Time-only κανόνας (δεν κοιτά item state — χρησιμοποιείται και για cancel
+/// μετά από archive/delete): μέλλον **και** εντός ορίζοντα OS **και** όχι
+/// habit-deferred. Είναι το ίδιο σύνολο που θα έψηνε το plan, άρα όλα τα
+/// υπόλοιπα (π.χ. 93 από 120 habit rows) δεν χρειάζονται platform cancel.
+Set<int> osSchedulableIds({
+  required List<Reminder> rows,
+  required DateTime now,
+  int horizonDays = osHorizonDays,
+}) {
+  if (rows.isEmpty) return const <int>{};
+  // Το `habitDeferredIds` απαιτεί σειρά (triggerAt, id) — ίδια με το plan.
+  final sorted = [...rows]..sort((a, b) {
+      final byTrigger = a.triggerAt.compareTo(b.triggerAt);
+      if (byTrigger != 0) return byTrigger;
+      return a.id.compareTo(b.id);
+    });
+  final beyond =
+      beyondOsHorizonIds(rows: sorted, now: now, horizonDays: horizonDays);
+  final deferred = habitDeferredIds(rows: sorted, now: now);
+  return <int>{
+    for (final r in sorted)
+      if (r.triggerAt.isAfter(now) &&
+          !beyond.contains(r.id) &&
+          !deferred.contains(r.id))
+        r.id,
+  };
+}
+
 ReminderBakePlan buildReminderBakePlan({
   required List<Reminder> rows,
   required Map<int, Item?> items,
@@ -127,6 +192,8 @@ ReminderBakePlan buildReminderBakePlan({
   final eligible = <Reminder>[];
   final seenIds = <int>{};
   var skipped = 0;
+  var beyondHorizon = 0;
+  final horizonEnd = now.add(const Duration(days: osHorizonDays));
 
   for (final r in rows) {
     if (!seenIds.add(r.id)) {
@@ -139,6 +206,11 @@ ReminderBakePlan buildReminderBakePlan({
     }
     if (r.triggerAt.isBefore(now)) {
       skipped++;
+      continue;
+    }
+    // S283: ποτέ bake πέρα από τον ορίζοντα OS (ίδιος κανόνας με getPending).
+    if (!r.triggerAt.isBefore(horizonEnd)) {
+      beyondHorizon++;
       continue;
     }
     if (r.rrule != null && r.rrule!.isNotEmpty) {
@@ -223,5 +295,6 @@ ReminderBakePlan buildReminderBakePlan({
     skippedCount: skipped,
     truncated: newRows.length > newTake.length,
     deferredCount: deferred.length,
+    beyondHorizonCount: beyondHorizon,
   );
 }

@@ -179,7 +179,7 @@ class ReminderScheduler {
           'PERF#9 scheduleAll: DONE db=${pending.length} desired=${plan.desiredCount} '
           'baked=${result.baked} kept=${plan.keepIds.length} failed=${result.failed} '
           'skipped=${plan.skippedCount + result.skipped} cancelled=${result.cancelled} '
-          'deferred=${plan.deferredCount} '
+          'deferred=${plan.deferredCount} beyond=${plan.beyondHorizonCount} '
           'cut=$cut truncated=${plan.truncated} os=$osCount '
           'loop=${loopSw.elapsedMilliseconds}ms total=${totalSw.elapsedMilliseconds}ms '
           // Φ3 (E45): ο παλιός `avg=` διαιρούσε με το σύνολο των DB rows
@@ -753,7 +753,10 @@ class ReminderScheduler {
           .findAll();
       // H4α: ένα batch αντί για thread-delete ανά row. Το OS scan καλύπτει
       // και ghosts που δεν έχουν πλέον DB row.
-      final ids = <int>{for (final r in all) r.id};
+      // S283: DB ids → μόνο όσα μπορεί να είναι στο OS (μέλλον ∧ εντός
+      // ορίζοντα ∧ όχι habit-deferred), ώστε να μη γίνονται 60 platform calls
+      // για 13 alarms. Το payload-union παρακάτω μένει ως ghost protection.
+      final ids = <int>{...osSchedulableIds(rows: all, now: DateTime.now())};
       final os = await _readOsSnapshots();
       ids.addAll(os.values
           .where((o) => payloads.contains(o.payload))
@@ -1092,7 +1095,12 @@ class ReminderScheduler {
       DebugConfig.notif('ReminderScheduler.cancelAllForItem: itemId=$itemId');
       final reminders =
           await SuperNoteHelper.instance.reminders.getForItem(itemId);
-      final ids = <int>{for (final r in reminders) r.id};
+      // S283: cancel ΜΟΝΟ όσων μπορεί να είναι στο OS (μέλλον ∧ εντός
+      // ορίζοντα ∧ όχι habit-deferred) — πριν γίνονταν 120 platform calls για
+      // 27 alarms (~2,4s). Τα deferred/beyond rows δεν μπήκαν ποτέ στο OS.
+      final ids = <int>{
+        ...osSchedulableIds(rows: reminders, now: DateTime.now())
+      };
       // Unconditional wipe: ακόμη κι αν λείπουν rows, σάρωσε τα OS ghosts
       // που δηλώνουν αυτό το item στο payload.
       final os = await _readOsSnapshots();
