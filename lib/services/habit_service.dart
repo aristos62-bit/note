@@ -5,6 +5,7 @@ import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
 import '../core/core.dart';
 import 'reminder_scheduler.dart';
+import 'reminder_bake_plan.dart';
 import 'reminder_text.dart';
 import 'notification_service.dart';
 
@@ -601,6 +602,11 @@ class HabitService {
       final generated =
           old.where((r) => r.title == generatedTitle).toList();
       final generatedIds = generated.map((r) => r.id).toList();
+      // S283: cancel μόνο όσα πρόλαβαν να μπουν στο OS (μέλλον ∧ εντός
+      // ορίζοντα ∧ όχι deferred). ΧΩΡΙΣ payload-union: θα ακύρωνε και τα
+      // generic bell rows του ίδιου item (βλ. N3 σχόλιο).
+      final toCancel =
+          osSchedulableIds(rows: generated, now: DateTime.now()).toList();
       var deletedFromDb = false;
       if (generatedIds.isNotEmpty) {
         try {
@@ -612,7 +618,7 @@ class HabitService {
         } catch (e, stack) {
           DebugConfig.error('_clearHabitGenerated DB delete', e, stack);
         } finally {
-          await ReminderScheduler.instance.cancelReminderIds(generatedIds);
+          await ReminderScheduler.instance.cancelReminderIds(toCancel);
         }
       }
 
@@ -631,7 +637,7 @@ class HabitService {
         await ReminderScheduler.instance.scheduleReminders(pending);
       }
       DebugConfig.notif(
-          '_clearHabitGenerated: habitId=$habitId generated=${generatedIds.length} restoredBell=${pending.length} dbDeleted=$deletedFromDb');
+          '_clearHabitGenerated: habitId=$habitId generated=${generatedIds.length} cancelled=${toCancel.length} restoredBell=${pending.length} dbDeleted=$deletedFromDb');
     } catch (e, stack) {
       DebugConfig.error('_clearHabitGenerated', e, stack);
     }

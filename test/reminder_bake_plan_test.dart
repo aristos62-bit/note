@@ -377,4 +377,108 @@ void main() {
       expect(justInside.desiredCount, 6);
     });
   });
+
+  group('S283 — ορίζοντας OS', () {
+    // `_now` = 01/01/2030 08:00 → cutoff = +370 ημέρες (Duration, όπως στο plan).
+    const dayMin = 1440;
+    const horizonMin = osHorizonDays * dayMin;
+
+    Reminder habit(int id, int minutes, {int itemId = 1}) => _reminder(
+          id: id,
+          itemId: itemId,
+          minutes: minutes,
+          title: habitGeneratedTitle,
+          body: 'Υπενθύμιση: Συνήθεια',
+        );
+
+    Item habitItem({int id = 1}) =>
+        _item(id: id, type: ItemType.habit, title: 'Συνήθεια');
+
+    test('plan: rows πέρα από τον ορίζοντα δεν ψήνονται (beyond, όχι skip)', () {
+      final rows = [
+        _reminder(id: 1, minutes: 60),
+        _reminder(id: 2, minutes: horizonMin - 1),
+        _reminder(id: 3, minutes: horizonMin), // == cutoff → έξω
+        _reminder(id: 4, minutes: horizonMin + 60),
+      ];
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: {1: _item()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(plan.beyondHorizonCount, 2);
+      expect(plan.skippedCount, 0);
+      expect(plan.desiredCount, 2);
+      expect(plan.schedule.map((r) => r.id), [1, 2]);
+    });
+
+    test('plan: habit πέρα από ορίζοντα δεν μπαίνει στο OS (ούτε μέσω rail)',
+        () {
+      // 1-5 εντός 14ημέρου (κρατιούνται), 6-11 πέρα από το 14ήμερο (deferred),
+      // 12 πέρα από τον ορίζοντα 370ημ. → beyond (όχι deferred).
+      final rows = [
+        for (var i = 1; i <= 5; i++) habit(i, i * dayMin),
+        for (var i = 6; i <= 11; i++) habit(i, i * 4 * dayMin),
+        habit(12, horizonMin + dayMin),
+      ];
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: {1: habitItem()},
+        osById: const {},
+        limit: 450,
+        now: _now,
+        incremental: false,
+        habitOsWindow: true,
+      );
+      expect(plan.beyondHorizonCount, 1);
+      expect(plan.deferredCount, 6);
+      expect(plan.desiredCount, 5);
+      expect(plan.schedule.map((r) => r.id), [1, 2, 3, 4, 5]);
+    });
+
+    test('beyondOsHorizonIds: αποκλειστικό cutoff (== cutoff ανήκει στο beyond)',
+        () {
+      final rows = [
+        _reminder(id: 1, minutes: horizonMin - 1),
+        _reminder(id: 2, minutes: horizonMin),
+        _reminder(id: 3, minutes: horizonMin + dayMin),
+      ];
+      expect(beyondOsHorizonIds(rows: rows, now: _now), {2, 3});
+    });
+
+    test('osSchedulableIds: μέλλον ∧ εντός ορίζοντα ∧ όχι deferred', () {
+      final rows = [
+        _reminder(id: 1, minutes: -60), // παρελθόν
+        habit(2, 1 * dayMin), // index 1 → μέσα
+        habit(3, 2 * dayMin), // index 2 → μέσα
+        habit(4, 3 * dayMin), // index 3 → μέσα
+        habit(5, 4 * dayMin), // index 4 → μέσα
+        habit(6, 5 * dayMin), // index 5 (rail) → μέσα
+        habit(7, 20 * dayMin), // index 6 + εκτός 14ημ. → deferred
+        _reminder(id: 8, minutes: horizonMin + dayMin), // πέρα από ορίζοντα
+        _reminder(id: 9, minutes: 120), // εντός ορίζοντα
+      ];
+      expect(osSchedulableIds(rows: rows, now: _now), {2, 3, 4, 5, 6, 9});
+    });
+
+    test('cancel scope: 120 daily habit rows → μόνο το 14ήμερο (27-28)', () {
+      // Ό,τι είδε το device (T6): 120 OS cancel calls για 27 alarms.
+      final rows = [
+        for (var d = 0; d < 60; d++) ...[
+          habit(d * 2 + 1, d * dayMin + 105), // 09:45
+          habit(d * 2 + 2, d * dayMin + 645), // 18:45
+        ],
+      ];
+      final ids = osSchedulableIds(rows: rows, now: _now);
+      expect(rows.length, 120);
+      expect(ids.length, 28); // 14 ημέρες × 2 ώρες
+      expect(ids.contains(1), isTrue);
+      expect(ids.contains(29), isFalse); // 15η ημέρα → deferred
+      expect(ids.contains(120), isFalse); // 60ή ημέρα → deferred
+    });
+  });
 }

@@ -56,9 +56,8 @@ class _PendingRow {
   /// E45/A: habit alarm εκτός OS-window — **δεν** είναι σφάλμα, μένει στη DB.
   final bool deferred;
 
-  /// S282: έξω από τον ορίζοντα του `getPending()`
-  /// (`ReminderRepository.pendingHorizonDays` = 370) — δεν μπαίνει ποτέ στο
-  /// plan άρα ούτε στο OS. **Δεν** είναι σφάλμα (π.χ. γενέθλια 2028-2031).
+  /// S282: έξω από τον ορίζοντα OS (`osHorizonDays` = 370) — δεν μπαίνει ποτέ
+  /// στο plan άρα ούτε στο OS. **Δεν** είναι σφάλμα (π.χ. γενέθλια 2028-2031).
   final bool beyondOsHorizon;
 
   _PendingRow({
@@ -185,14 +184,9 @@ class _ReminderDiagnosticsScreenState
           habitDeferredIds(rows: eligibleForWindow, now: now);
       _deferredCount = deferredIds.length;
 
-      // S282: ό,τι είναι πιο πέρα από τον ορίζοντα του `getPending()` δεν
-      // μπαίνει στο plan → δεν θα είναι ποτέ στο OS. Δεν είναι σφάλμα.
-      final osHorizonEnd = now.add(
-          const Duration(days: ReminderRepository.pendingHorizonDays));
-      final beyondHorizonIds = <int>{
-        for (final r in filtered)
-          if (!r.triggerAt.isBefore(osHorizonEnd)) r.id,
-      };
+      // S282/S283: ό,τι είναι πιο πέρα από τον ορίζοντα OS δεν μπαίνει ποτέ
+      // στο plan — ίδιος pure κανόνας με το bake plan (μία πηγή).
+      final beyondHorizonIds = beyondOsHorizonIds(rows: filtered, now: now);
       _beyondHorizonCount = beyondHorizonIds.length;
 
       final pendingRows = filtered.map((r) {
@@ -358,7 +352,7 @@ class _ReminderDiagnosticsScreenState
                   if (_beyondHorizonCount > 0)
                     Text(
                       'Εκτός ορίζοντα OS: $_beyondHorizonCount alarms '
-                      '(>${ReminderRepository.pendingHorizonDays}ημ. — δεν '
+                      '(>$osHorizonDaysημ. — δεν '
                       'προγραμματίζονται ποτέ)',
                       style: context.bodySm.withColor(context.cText2),
                     ),
@@ -475,7 +469,7 @@ class _ReminderDiagnosticsScreenState
       note = '  •  ⏳ εκτός ορίζοντα $habitOsHorizonDaysημ. (στη DB)';
     } else if (row.beyondOsHorizon) {
       note = '  •  ⏳ εκτός ορίζοντα OS '
-          '(${ReminderRepository.pendingHorizonDays}ημ.)';
+          '($osHorizonDaysημ.)';
     } else {
       note = '  •  ⚠️ ΛΕΙΠΕΙ ΑΠΟ ΤΟ OS!';
     }
