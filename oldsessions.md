@@ -4158,4 +4158,43 @@
 
 **Κατάσταση:** 🔧 κώδικας ✅ 29-30/10/2026 · analyze clean · **377/377** · **device pass ⏳** (T2 restore · T5 αλλαγή ωρών · T6 archive/unarchive · T7 OFF→ON · T8 Διάγνωση=0 κόκκινα · T9 monthly ≥5).
 
+# S283 — Ο10/E45 κλείσιμο: ορίζοντας OS ως μία πηγή + cancel scope (device-verified)
+
+**Σκοπός:** το device pass του Ο10/E45 (30/10, T1–T9 PASS) άφησε **2 ευρήματα** — όχι παραβίαση acceptance, αλλά χαμένος χρόνος + λάθος σημείο του κανόνα. Και τα δύο λύθηκαν **με reuse**, χωρίς νέο μηχανισμό.
+
+**Εύρημα #1 — refresh-with-bake ψήνει πέρα από τον ορίζοντα:** `refreshRecurringReminders(bake: true)` → `scheduleReminders: baked=31 schedMs=2388`, alarms 2027-12-21…2031-06-25, που τα έσβηνε **0,9s μετά** το `cancelAll` του `scheduleAll`. Αιτία: το 370ήμερο ζούσε **μόνο** στο `getPending()` και **χειρόγραφα** στη Διάγνωση (`reminder_diagnostics_screen.dart:190-196`) — 2 αντίγραφα, και το plan δεν ήξερε τίποτα.
+
+**Εύρημα #2 — mass-cancel χωρίς scope:** archive H1 (`cancelAllForItem`) = **120** platform calls για **27** alarms (~20-27ms/call ≈ **2,4s**)· `deleteAllRemindersForItems` = 60 calls για 13· `_clearHabitGenerated` = 120 για 27. Το `rescheduleForItem` ήταν **ήδη σωστό** (27) και δεν αγγίχτηκε.
+
+**Εύρημα #3 — αποσύρθηκε (όχι bug):** «ο κάδος δεν κλείνει όταν αδειάσει» — `SelectionListDialog.remove()` έχει ήδη `if (_items.isEmpty) _pop()` (`selection_list_dialog.dart:90`)· είχαν μείνει **άλλα** αρχειοθετημένα στη λίστα. Καμία αλλαγή.
+
+**Fix (S283a — ορίζοντας ως μία pure πηγή):**
+1. `reminder_bake_plan.dart`: `osHorizonDays = 370` + `beyondOsHorizonIds()` (αποκλειστικό cutoff) + φίλτρο στο `buildReminderBakePlan` + `ReminderBakePlan.beyondHorizonCount` (χωριστό από `skippedCount` = «σιγασμένο/ανενεργό»).
+2. `super_note_helper.dart`: `pendingHorizonDays = osHorizonDays` (**alias**, όχι 2η σταθερά).
+3. `reminder_diagnostics_screen.dart`: inline 370ήμερο → `beyondOsHorizonIds()` (−6 γραμμές διπλότυπου, ίδια συμπεριφορά).
+4. `reminder_scheduler.dart`: `beyond=` στο `PERF#9`.
+
+**Fix (S283b — cancel μόνο όσων μπορεί να είναι στο OS):** pure `osSchedulableIds()` = μέλλον ∧ εντός ορίζοντα ∧ όχι `habitDeferredIds` (reuse του υπάρχοντος κανόνα 14ημ./min-5).
+- `_cancelAllForItemImpl` (:1095) και DB-σκέλος του `deleteAllRemindersForItems` (:759): `osSchedulableIds ∪ payload-ghosts` — **κρατήθηκε** το payload-union (ghost protection για παλιό 60ήμερο habit bake).
+- `_clearHabitGenerated` (`habit_service.dart:615`): `osSchedulableIds` **χωρίς** payload-union (θα ακύρωνε τα generic bell rows του ίδιου item — N3).
+
+**Device (POCO X3 `9593c01e`, 30/10/2026, T1–T9 του Ο10 + S283 checks):**
+- T1 `Setting 2 reminders habit 473` → `createMany n=120 (1 txn)` · `desired=27 baked=27 deferred=93`.
+- T2 restore H2 → `restoreMany n=1 restored=1` · `createMany n=60` · `baked=13 deferred=233` · `E40 restoreMany took=1665ms` (πριν **9186ms**).
+- T3 cold start ×2: `loop=2857/2885` → μετά S283 `loop=1047/1029ms`, `total=1113/1100ms` (πριν **22035ms**), `desired=116 baked=116 deferred=233 beyond=0 cut=0`, `avgSched 24,6/24,9ms`, `native 844/877ms`.
+- T5/T6/T7/T9: αλλαγή ωρών (6 rows), archive/unarchive (`rebaked=27`), OFF→ON (`os=0` → `baked=103/103`), monthly habit → **5 alarms** (min-5 rail αποδείχθηκε).
+- **S283 verify:** archive H1 → `cancelAllForItem: itemId=473 cancelled=**27**` (**296ms**, πριν 120 calls/~2,4s) · OS **116→89** (=116−27, κανένα ghost) · unarchive → `rebaked=27` · αλλαγή ωρών → `_clearHabitGenerated: generated=120 cancelled=**27**` + `baked=27 deferred=93` · `dumpsys alarm`: **102** distinct, **όλα εντός ορίζοντα** (max 2027-10-18), **καμία παλιά ώρα** (09:45/18:45 έφυγαν) · Διάγνωση **0 κόκκινα**.
+- Επαναφορά δεδομένων μετά τα tests: restore από 22/10 backup (`moved=7 rebased=0`, 7 attachments, `db=292`).
+
+**Έλεγχος:** `flutter analyze` → No issues found · `flutter test` → **382/382** (377 + 5 νέα S283) · backups `backups/s283_horizon/*.bak` (6 κώδικας/tests) + `backups/s283_docs/*.bak` (3 docs).
+
+**Μαθήματα:**
+- **Κανόνας σε 2 σημεία = ο κανόνας δεν υπάρχει:** το 370ήμερο «τηρήθηκε» μόνο επειδή το `getPending` έκοβε πριν το plan· μόλις κάποιος caller έδωσε rows από αλλού (refresh), ψήθηκαν 31 alarms και σβήστηκαν 0,9s μετά. Η μία pure συνάρτηση έκλεισε και το διπλότυπο της Διάγνωσης.
+- **Το «unconditional wipe» δεν είναι δικαιολογία για 120 κλήσεις:** το ghost protection είναι το **payload-union**, όχι το «στείλε όλα τα DB ids». Διαχωρίζοντας τα δύο, το κόστος έπεσε 120→27 **χωρίς** να χαθεί ούτε ένα ghost.
+- **Έλεγχος «ένα alarm ανά cancel»:** `os 116 → 89` (=−27) και `dumpsys` χωρίς παλιές ώρες — αυτό αποδεικνύει ότι το φιλτράρισμα δεν άφησε τίποτα πίσω, όχι το ότι «δεν πέταξε exception».
+- **Πριν προτείνεις νέο μηχανισμό, έλεγξε αν υπάρχει:** `SelectionListDialog` είχε ήδη auto-pop· το `rescheduleForItem` είχε ήδη σωστό scope· το `habitDeferredIds` ήταν ήδη ο κανόνας που χρειαζόταν το cancel.
+
+**Κατάσταση:** ✅ **Ο10/E45 CLOSED 30/10/2026** — device-verified T1–T9 + S283 checks · analyze clean · **382/382**.
+
+
 

@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 377/377 🟢 (`flutter test`, 29/10/2026) |
+| Test suite | 382/382 🟢 (`flutter test`, 31/10/2026) |
 
 ---
 
@@ -471,7 +471,8 @@ final db = SuperNoteHelper.instance;
 - Bake accounting (S234): `ScheduleOutcome {baked, skipped, failed, kept}`· το keep αποφασίζεται πλέον στον planner (ίδιο text), το `_scheduleOne` επιστρέφει baked/skipped/failed· SUCCESS log μόνο σε `baked`.
 - Budget (S236/E35): `osAlarmLimit` — iOS/macOS 60 · Android 450, oldest-first· εφαρμόζεται σε scheduleAll, batch, rescheduleForItem, refresh/topUp και single· `truncated` flag + day-rebake στο resume.
 - **Habit OS-horizon (S281/E45-A):** τα habit-generated one-shots (`title == habitGeneratedTitle`) μπαίνουν στο OS μόνο για **14 ημέρες** (`habitOsHorizonDays`, = A5 autonomy) **+ τουλάχιστον 5 occurrences/item** (`habitMinOsAlarmsPerItem`, DST-safe αποκλειστικό cutoff `DateTime(y,m,d+14)`)· η **DB κρατά 60** (`horizonDays`) και το refill γίνεται με τον υπάρχοντα `topUp`/resume. Ο κανόνας ζει στην pure **`habitDeferredIds`** (SPoT: το plan + το Diagnostics) και ενεργοποιείται με `required bool habitOsWindow` σε 3 call sites· `ReminderBakePlan.deferredCount` = πόσα αναβλήθηκαν (policy, όχι skip/fail). Non-habit reminders κρατούν τον πλήρη ορίζοντα.
-- **Ορίζοντες OS (S282/E45):** `ReminderRepository.pendingHorizonDays = 370` = **μία πηγή** για `getPending()`/`watchPending()`/Διάγνωση — ό,τι είναι πιο πέρα **δεν μπαίνει ποτέ** στο plan (ούτε στο OS) και η Διάγνωση το δείχνει ⏳ «εκτός ορίζοντα OS» (όχι σφάλμα). Το startup καλεί `refreshRecurringReminders(bake: false)` γιατί ακολουθεί `scheduleAll()` (αποφυγή διπλού bake ~2,4s).
+- **Ορίζοντες OS (S282/S283/E45):** `osHorizonDays = 370` (`reminder_bake_plan.dart`) = **μία πηγή** — το `ReminderRepository.pendingHorizonDays` είναι alias του, και το **bake plan σε όλους τους callers** φιλτράρει με την pure `beyondOsHorizonIds` (`ReminderBakePlan.beyondHorizonCount`, policy όχι skip/fail). Άρα ό,τι είναι πιο πέρα **δεν μπαίνει ποτέ** στο OS από κανέναν caller (πριν το έκοβε μόνο το `getPending`, ενώ το `refreshRecurringReminders(bake:true)` έψηνε και 2028-2031 που τα έσβηνε το επόμενο `cancelAll`). Η Διάγνωση δείχνει ⏳ «εκτός ορίζοντα OS» (όχι σφάλμα). Το startup καλεί `refreshRecurringReminders(bake: false)` γιατί ακολουθεί `scheduleAll()` (αποφυγή διπλού bake ~2,4s).
+- **Cancel scope (S283/E45):** τα mass-cancel (`cancelAllForItem`, `deleteAllRemindersForItems`, `_clearHabitGenerated`) ακυρώνουν **μόνο** ό,τι μπορεί να είναι στο OS — pure `osSchedulableIds` = μέλλον ∧ εντός ορίζοντα ∧ όχι `habitDeferredIds` — **συν** το διατηρημένο payload-union (`payload == itemId`) για ghosts. Πριν: 120 platform calls για 27 alarms (~2,4s/archive)· μετά 27 (device-verified).
 - Interval>1 (S54): weekly/monthly/yearly σέβονται το διάστημα — scheduler anchor = root· tests `recurrence_weekly_test.dart`.
 - Maintenance (E33): `pauseForMaintenance()` κλείνει τα 3 queues και ακυρώνει το εκκρεμές debounce refresh· `drainForMaintenance(65s)` περιμένει πραγματικά in-flight· `resumeAfterMaintenance(rearmRefresh:true)` επανα-οπλίζει **μία** φορά το refresh μόνο σε abort πριν το close.
 
@@ -479,6 +480,7 @@ final db = SuperNoteHelper.instance;
 - Pure συμβόλαια χωρίς Isar/plugin: δέχονται `Reminder`/`Item`/OS snapshots και επιστρέφουν text ή απόφαση bake.
 - Το `ReminderText` χρησιμοποιείται και από τον scheduler και από το `rescheduleForItem` για DB text sync root+children, ώστε DB και OS να συμφωνούν.
 - Το `ReminderBakePlan` δεν εκτελεί τίποτα· ο scheduler κάνει πρώτα cancel των stale IDs και μετά schedule των replacements/new rows.
+- Pure SPoT κανόνες (S281/S283): `habitDeferredIds` (14ημ. window + min-5 occurrences/item) · `beyondOsHorizonIds` + `osHorizonDays = 370` (ορίζοντας OS, κοινός με `getPending`/Διάγνωση) · `osSchedulableIds` (= μέλλον ∧ εντός ορίζοντα ∧ όχι deferred — το σύνολο που επιτρέπεται να είναι στο OS, βάση των mass-cancel).
 
 ### HabitService (`lib/services/habit_service.dart`)
 - `getStats(int habitId)` → `HabitStats` (streak, bestStreak, completedCount, dailyProgress, progressPercent, todayTimeProgress)
@@ -490,7 +492,7 @@ final db = SuperNoteHelper.instance;
 - Period awareness: respects recurrence type (daily/weekly/monthly/yearly)
 - Scheduling ownership (S61): habits έχουν δικό τους scheduling — ώρες (`reminder_time(s)`) → one-shots 60d· καμπάνα (`ReminderSection`) απενεργοποιημένη σε detail+list· `refreshRecurringReminders` σκιπάρει habits.
 - `generatedTitle = habitGeneratedTitle` = «Υπενθύμιση συνήθειας» (κοινό literal με `ReminderText`, διαχωρισμός από bell τίτλο)· `syncScheduleWithRecurrence`· `topUpHabitReminders` (10min guard, opt-in, postFrame, **ένα batch** για όλα τα habits)· `repairLegacyHabitRows` (idempotent · δικό του pass — S248).
-- Selective wipe (S270): `_clearHabitGenerated` σβήνει **μόνο** habit-generated rows (DB πρώτα, μετά OS ids)· ποτέ `cancelAllForItem`· `setReminderTime` καθαρίζει το legacy `reminder_times`· topUp/repair σκιπάρουν archived/deleted/done/cancelled.
+- Selective wipe (S270/S283): `_clearHabitGenerated` σβήνει **μόνο** habit-generated rows (DB πρώτα, μετά OS cancel **μόνο** των `osSchedulableIds` — χωρίς payload-union, για να μη θίγονται τα bell rows του ίδιου item)· ποτέ `cancelAllForItem`· `setReminderTime` καθαρίζει το legacy `reminder_times`· topUp/repair σκιπάρουν archived/deleted/done/cancelled.
 - Ώρες weekly/monthly (S62): `Recurrence.weekly/monthly` δέχονται `times` (κοινή ώρα ειδοποίησης)· stats/streak ανέγγιχτα (ώρες = μόνο ειδοποιήσεις).
 - Maintenance (E33): `pauseForMaintenance()` / `drainForMaintenance(65s)` / `resumeAfterMaintenance()` για pass+repair· χωρίς forced rearm — το idempotent topUp ξανατρέχει στο επόμενο resume/cold start.
 - Διαγραφή reminders (S250/E05): `deleteHabitRemindersMany(itemIds, {afterRows})` — **1** pass της `_passQueue` = wipe ΟΛΩΝ των rows + `afterRows` (soft/hard delete) αδιαίρετα· το `deleteHabitReminders(id)` = wrapper. Σε μικτό bulk batch το wipe καλύπτει και τα μη-habit ids (1 snapshot, 0 race με topUp).
@@ -1006,7 +1008,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (370/370 🟢) |
+| `flutter test` | Πλήρες suite (382/382 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

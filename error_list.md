@@ -44,9 +44,9 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `fd54697` κώδικας Ο7 · `5f8a297` docs κλεισίματος (S279) | `git log` |
-| `flutter analyze` | **No issues found** | run 29/10/2026 (S279) |
-| `flutter test` | **370/370** (59 αρχεία test) | run 29/10/2026 (S279) |
+| Git HEAD | `dbd924e` (S282 docs) · S283 κώδικας uncommitted | `git log` |
+| `flutter analyze` | **No issues found** | run 30/10/2026 (S283) |
+| `flutter test` | **382/382** (59 αρχεία test) | run 30/10/2026 (S283) |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.537 (158 αρχεία) | μετρήθηκε 29/10/2026 (S279) |
 | Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519 · `home_screen.dart` 921) | βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
@@ -79,13 +79,12 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (3)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (2)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
 | 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 2 | `E45` | **Habit topUp: σειριακό OS scheduling** — 🔧 κώδικας ✅ (S280/S281: Φ0+Φ1+Α OS-horizon), device ⏳ | 120 alarms ≈ 9.2s (restore/cold start/resume) |
-| 3 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 2 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
@@ -359,7 +358,7 @@
 - **Device (POCO X3, 26/10/2026):** `HomeFolderView recent 10/10 ids=[…]` σε κάθε build· 15 items → **10 νεότερα**· ενέργεια/μετακίνηση σε item → **1ο** (F11, by design μέσω `updatedAt`)· **καμία λαβή** στα «Πρόσφατα» · pinned/favorite **χωρίς** λαβή στα «Όλα» · drag σε «Πρόσφατα» **κλειδωμένο** · drag σε «Όλα» αποθηκεύει σειρά και **δεν** αγγίζει το `updatedAt` · 100%/140% 0 overflow. **PASS.**
 - **Αποδοχή:** ✅ 12 items με διαφορετικά `updatedAt` → 10 νεότερα · edit → πρώτο · drag off στο recent · 0 handles σε pinned/favorite.
 
-### E45 — Habit topUp: σειριακό OS scheduling (120 alarms ≈ 9.2s)
+### E45 — ✅ CLOSED 30/10/2026 (device-verified T1–T9, S280+S281+S282+S283) — Habit topUp: σειριακό OS scheduling (120 alarms ≈ 9.2s)
 - **Πού (μετρημένο):** `habit_service.dart:725-848` (`_topUpHabitRemindersImpl`) — δημιουργεί **120 rows** (2 ώρες/ημέρα × `horizonDays = 60`, `:543`) με **σειριακό** `await helper.reminders.create(...)` ανά occurrence (`:816-826`)· μετά **1** batch `ReminderScheduler.scheduleReminders(pendingToSchedule)` (`:832`), που καταλήγει σε `_runBakePlan` (`reminder_scheduler.dart:220-239`): `for (final reminder in plan.schedule) await _scheduleOne(...)` ⇒ **1 `zonedSchedule` ανά alarm, σειριακά**.
 - **Απόδειξη (S278, POCO X3, device):** restore συνήθειας (T2 του E40) → `HabitService.topUp: done scanned=4 needTopUp=1 created=120 scheduledBatch=338` · **120×** `_scheduleOne … SUCCESS` · `PERF#9 topUp: … took=8962ms` (**74,7 ms/alarm** = 8962/120, άνω φράγμα — το παλιό «55ms/alarm» δεν προκύπτει από τα ίδια νούμερα) → συνολικό `E40 restoreMany took=9186ms` · `OS pending` 291→**411** (budget 450, 0 `truncated`).
 - **Γιατί P2:** κανένα λάθος state (τα alarms είναι σωστά) — το κόστος είναι **χρόνος/UX**: `await` μέσα στο restore, και χτυπά **και** cold start / resume / `scheduleAll` γιατί όλα περνούν από το ίδιο `_runBakePlan`.
@@ -389,7 +388,12 @@
 - **Εκτός / μετά τη μέτρηση:** concurrency N=4 (2β — **απορρίφθηκε** με μέτρηση: native 92,8% σειριακό) · `horizonDays` 60→30 (2γ — παραμένει product απόφαση) · log trimming (μόνο αν μετρηθεί) · «μην περιμένει το restore» (δεν λύνει το main-thread jank) · `refreshRecurringReminders` child loop (άλλο feature) · `_clearHabitGenerated` mass-cancel (ξηρό ρίσκο, μετά το device pass).
 - **Acceptance:** analyze clean · **377/377** · device: T1 πρώτη αποθήκευση H1 · T2 restore H2 (vs `9186ms`) · T3 cold start (`desired≈266`, `deferred≈690`, `truncated=false`, `loop≈7-8s`) · T5 αλλαγή ωρών (2ος loop → `createMany`) · T6 archive/unarchive · T7 OFF→ON · **T8** Diagnostics: 0 κόκκινα «ΛΕΙΠΕΙ», ⏳ στα deferred · **T9** monthly habit → ≥5 alarms στη Διάγνωση — 0 `ERR`.
 - **Follow-up S282 (device finding, όχι της A):** το Diagnostics έδειχνε **>20 κόκκινα** «ΛΕΙΠΕΙ» για γενέθλια 2027-2031. Αιτία: `getPending()` έχει ορίζοντα **370 ημ.** (`super_note_helper.dart:1259-1271`), ενώ `refreshRecurringReminders` ψήνει παιδιά **χωρίς** ορίζοντα → το `scheduleAll` κάνει `cancelAll` και ξαναψήνει μόνο ≤370ημ. ⇒ ό,τι είναι μετά **3/11/2027** μένει εκτός OS (πρώτο κόκκινο **21/12/2027** — επιβεβαιωμένο). Απόδειξη: `desired=221 baked=221 cut=0` ⇒ κάθε κόκκινο είναι αναγκαστικά εκτός ορίζοντα. Επιπλέον **~2,4s χαμένα/cold start** (`baked=31 schedMs=2388` στις 13:37:54 → `cancelAll 113ms` 0,9s μετά). Fix: (α) `ReminderRepository.pendingHorizonDays = 370` **μία πηγή** (getPending/watchPending/Διάγνωση), (β) Διάγνωση: ⏳ «εκτός ορίζοντα OS (370ημ.)» αντί κόκκινο + γραμμή στην κάρτα, (γ) `refreshRecurringReminders(bake:false)` στο startup (`main.dart:206` — ακολουθεί `scheduleAll`). `analyze` clean · **377/377**.
-- **Κατάσταση:** 🔧 **κώδικας ✅ 29/10/2026 (S280 Φ0/Φ1/Φ3/Γ7 + S281 Α + S282 fix)**, 30/10/2026 docs · analyze clean · **377/377** · **device pass ⏳** · backups `backups/o10_e45_p0/`, `backups/o10_e45_oswindow/`.
+- **Follow-up S283 (device findings από το device pass 30/10/2026, 2 ευρήματα + 1 απόσυρση):**
+  1. **Refresh-with-bake ψήνει >370ημ.** (`baked=31 schedMs=2388` στο `refreshRecurringReminders(bake:true)`) — το 370ήμερο ζούσε μόνο στο `getPending` και (χειρόγραφα) στη Διάγνωση. **S283a:** `osHorizonDays = 370` + pure `beyondOsHorizonIds()` στο `reminder_bake_plan.dart` = **μία πηγή**· φίλτρο στο `buildReminderBakePlan` + `beyondHorizonCount` (χωριστό από `skippedCount`)· `pendingHorizonDays = osHorizonDays` (alias, καμία 2η σταθερά)· η Διάγνωση καλεί την ίδια pure συνάρτηση (−6 γραμμές διπλότυπου).
+  2. **Mass-cancel χωρίς scope:** 120 `cancel` calls για 27 alarms (~2,4s). **S283b:** pure `osSchedulableIds()` (= μέλλον ∧ εντός ορίζοντα ∧ όχι `habitDeferredIds`) στα `_cancelAllForItemImpl`, `_clearHabitGenerated` και στο DB-σκέλος του `deleteAllRemindersForItems`· **κρατήθηκε** το payload-union (`payload == itemId`) όπου υπήρχε (ghost protection)· στο `_clearHabitGenerated` **όχι** payload-union για να μη θίγονται τα bell rows. `rescheduleForItem` δεν άλλαξε (ήδη σωστό).
+  3. **Αποσύρθηκε (όχι bug):** «ο κάδος δεν κλείνει όταν αδειάσει» — `SelectionListDialog.remove()` έχει ήδη `if (_items.isEmpty) _pop()` (`selection_list_dialog.dart:90`)· είχαν μείνει άλλα αρχειοθετημένα στη λίστα.
+  - **Device (POCO X3, 30/10/2026, after S283):** archive H1 → `cancelAllForItem: itemId=473 cancelled=**27**` (πριν 120, 296ms αντί ~2,4s) · OS 116→**89** (κανένα ghost) · unarchive → `rebaked=27` · αλλαγή ωρών → `_clearHabitGenerated: generated=120 cancelled=**27**` + `baked=27 deferred=93` · cold start `total=1113/1100ms` (πριν 7209/7222) `desired=116 baked=116 deferred=233 beyond=0` · `dumpsys alarm`: 102 distinct, **όλα εντός ορίζοντα** (max 2027-10-18), καμία παλιά ώρα. `analyze` clean · **382/382**.
+- **Κατάσταση:** ✅ **CLOSED 30/10/2026** — κώδικας S280 Φ0/Φ1/Φ3/Γ7 + S281/A + S282 + **S283a/b**, device pass T1–T9 **PASS**, analyze clean, **382/382**, backups `backups/o10_e45_p0/`, `backups/o10_e45_oswindow/`, `backups/s283_horizon/`. **Ανοιχτό μόνο ως product απόφαση:** `horizonDays` 60→30/14 (2γ, δεν το ζητά κανένα μετρημένο πρόβλημα).
 
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
@@ -402,9 +406,11 @@
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S277.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S283.
 
 - **`O7` (E20 + E22) — CLOSED 29/10/2026 (S279, device-verified T1–T8):** `AppDateUtils.earliestYear=1900` + `clampToRange` σε **5** pickers (journal `1900…now` · reminder `1900…now+5` · appointment `1900…2100` · appointment/contact birthday `1900…now`) · `formatNumeric`/`formatNumericDateTime` (intl-free dd/MM/yyyy) · `numberedIndexesFor` **O(n)** · ✕ **μόνο σε hover/focus** με 48×48 + `Visibility(maintain*)` · `dayTickProvider` στο `ui_provider` (0 `DateTime.now()` σε build) · `kFolderCreateTypes` 2-tuple + `ItemTypeIcon` · αφαίρεση `✓`/emoji. Device (POCO X3, 29/10/2026): T1 1950 (picker + yearly 5/5) · T2 1995 · T3 1998 (+ έτη από **1900**) · T4 focus-✕/αρίθμηση 4→11/140%/landscape · T5 **1990 + daily** root id=3223, `rows=85 desired=85 kept=85 truncated=false`, 0 `ERR` (one-shot παρελθόν → `past one-shot, blocked` by design) · T6 8 icons/0 emoji · T7 dd/MM/yyyy · T8 habit χωρίς ✓. analyze clean · **370/370**.
+
+- **`O10` (E45) — CLOSED 30/10/2026 (S280+S281+S282+S283, device-verified T1–T9):** habit topUp = **1** `createMany` txn αντί 120 (S280 Φ1) + `avgSched`/RUNWAY/guard-reset (Φ0/Φ3/Γ7) · **A: OS-horizon 14ημ.** για habit one-shots (`habitDeferredIds` = SPoT, min-5 occurrences/item, `deferredCount`) · **S282:** `pendingHorizonDays`/`osHorizonDays = 370` μία πηγή + Διάγνωση ⏳ αντί ψευδούς κόκκινου + startup `bake:false` · **S283:** ορίζοντας στο **plan** (`beyondHorizonIds`/`beyondHorizonCount`) + **cancel scope** (`osSchedulableIds`) ώστε τα mass-cancel να μην κάνουν 120 calls για 27 alarms. Device (POCO X3, 30/10/2026): restore H2 `restoreMany took=1665ms` (πριν 9186) · cold start `total=7031→6117→**1113/1100ms**` (πριν 22035) με `desired=116 baked=116 deferred=233 beyond=0 cut=0` · archive H1 `cancelled=**27**` (πριν 120) · αλλαγή ωρών `generated=120 cancelled=27` + `baked=27 deferred=93` · OFF→ON `baked=103/103` · Διάγνωση **0 κόκκινα** · monthly habit **5 alarms** (min-5 rail). analyze clean · **382/382**.
 
 - **`E05` (Ο3) — CLOSED 27/10/2026 (S277, device-verified):** mass-delete pipeline = **1** κύκλος αντί N. `ItemNotifier.permanentDeleteMany` (`trash_screen` 2 loops → 2 κλήσεις) + `hardDeleteMany` (1 query reminders + 1 query attachments + **1** writeTxn για όλα τα ids) + `deleteAllRemindersForItems` (**1** OS snapshot) + `deleteHabitRemindersMany` (**1** pass `_passQueue`: wipe + `afterRows` αδιαίρετα, S250). Singles = wrappers με **log parity n=1**. Device T1–T7: T1 `n=3 → total=7 entries=4` `took=293ms` · T2 habit branch `n=7` `took=193ms` · T5 `deleted file "…jpg"` (disk cleanup) · T7 single parity · **0 ERR**. Hard rules: ποτέ `anyOf([])`/`deleteAll([])`. analyze clean · 339/339.
 
@@ -521,7 +527,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10 ✅ (device T1–T9)** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -534,6 +540,6 @@
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |
 | **Ο9 — Restore pipeline** ✅ CLOSED 27/10/2026 (S278 `e96cbc9` + device T1–T9) | E40 (solo — αδελφό του Ο3, ίδια αρχεία) | `trash_screen` + `item_provider` (`restoreMany`) + 1 refresh/topUp/invalidate για όλο το batch | E40 από E05/Ο3 (Α4) |
 | **Ο7 — Dates/editor mini-pass** ✅ CLOSED 29/10/2026 (S279 `c16f90d` + device T1–T8) | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
-| **Ο10 — Habit topUp perf** 🔧 κώδικας ✅ 29/10/2026 (S280 + S281/A) · device ⏳ | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper` + `reminder_bake_plan` + Diagnostics) | 1 πρόταση: Φ0 μετρήσεις → Φ1 `createMany` (1 txn) → Φ3 `avgSched`/RUNWAY → Γ7 guard reset → **A: OS-horizon 14ημ. για habits** (`deferredCount`), concurrency **απορρίφθηκε** με μέτρηση | — |
+| **Ο10 — Habit topUp perf** ✅ CLOSED 30/10/2026 (S280 `72e6b0e` + S281 `bbe72fb` + S283 + device T1–T9) | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper` + `reminder_bake_plan` + Diagnostics) | 1 πρόταση: Φ0 μετρήσεις → Φ1 `createMany` (1 txn) → Φ3 `avgSched`/RUNWAY → Γ7 guard reset → **A: OS-horizon 14ημ. για habits** (`deferredCount`), concurrency **απορρίφθηκε** με μέτρηση → **S283: ορίζοντας OS μία πηγή + cancel scope** (`beyondHorizonCount`, `osSchedulableIds`) | — |
 
 **Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
