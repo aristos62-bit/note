@@ -40,15 +40,15 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 29/10/2026, μετά το S279/Ο7)
+## 0. Baseline (μετρημένο στον κώδικα — 01/11/2026, μετά το S284/E08)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `dbd924e` (S282 docs) · S283 κώδικας uncommitted | `git log` |
-| `flutter analyze` | **No issues found** | run 30/10/2026 (S283) |
-| `flutter test` | **382/382** (59 αρχεία test) | run 30/10/2026 (S283) |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.537 (158 αρχεία) | μετρήθηκε 29/10/2026 (S279) |
-| Αρχεία >500 γραμμές (R1) | **20** (`main.dart` 519 · `home_screen.dart` 921) | βλ. E06 |
+| Git HEAD | `7e7f2b5` (S283) · S284/E08 committed (βλ. §3) | `git log` |
+| `flutter analyze` | **No issues found** | run 01/11/2026 (S284) |
+| `flutter test` | **393/393** (61 αρχεία test) | run 01/11/2026 (S284) |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 44.152 (161 αρχεία) | μετρήθηκε 01/11/2026 (S284) |
+| Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 01/11/2026 · βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
@@ -79,12 +79,11 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (2)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (1)
 
 | # | ID | Θέμα | Τι βελτιώνει |
 |---|---|---|---|
-| 1 | `E08` | **Notification-permission status + persistent OFF hint** | Χάνονται ειδοποιήσεις χωρίς ορατή εξήγηση στον χρήστη |
-| 2 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+| 1 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
 
@@ -184,10 +183,12 @@
 - **Λείπει (επαληθευμένο 21/10/2026):** **0 UI callers** (grep) · `markSent` 0 callers (σκόπιμα κρατείται) · `_details()` (`notification_service.dart:396-414`) χωρίς Android `actions`/iOS category · `_onTap` (`:416-425`) αγνοεί `actionId` · `_onBackgroundTap` (`:428-433`) no-op.
 - **Θέλει spec πρώτα** (κουμπί/actions/background-tap χωρίς Isar). **Κόστος:** μεγάλο.
 
-### E08 — Notification-permission status + persistent OFF hint
-- **Απόδειξη:** grep `areNotificationsEnabled|checkPermissions|permissionStatus` = **0** hits. `notification_service` έχει μόνο `requestPermission`.
-- **Πού:** `reminder_section.dart:202-210` ελέγχει μόνο `settings.notificationsEnabled` + SnackBar στο save.
-- **Θέλει:** (α) query OS permission API, (β) μόνιμη γραμμή-hint. **Κόστος:** μικρό-μεσαίο.
+### E08 — ✅ CLOSED 01/11/2026 (S284 · κώδικας+tests · ⏳ device T1–T8 εκκρεμεί)
+- **Υλοποίηση:** `NotificationService.permissionStatus()` → tri-state (`granted/denied/unknown`) με **fail-open** (init/σφάλμα/πλατφόρμα χωρίς API → `unknown`) + gate `_permissionRequested` (τίθεται στην **είσοδο** του `requestPermission`, ώστε πριν την απάντηση του dialog να μην εμφανίζεται ψευδές «κλειστές»). Νέα αρχεία: `services/notification_permission.dart` (enum + 2 pure mappers, provisional→granted) · `providers/notification_permission_provider.dart` (`FutureProvider`) · `shared/widgets/notification_hint.dart` (`NotificationHintRow` + `NotificationPermissionHint`· in-app OFF έχει προτεραιότητα· granted/unknown → `shrink`). 6 strings στο `AppErrors` («Notifications» ομάδα).
+- **Call sites (3):** `settings_screen.dart` (Consumer + subtitle «Κλειστές από το σύστημα» + μόνιμη γραμμή) · `reminder_section.dart` (compact γραμμή μετά το switch + save-time SnackBar **else-if**, ποτέ 2) · `reminder_diagnostics_screen.dart` (`_osPermission` στο `_load()` → σταματά το ψευδές «Πλήρης κάλυψη»). Lifecycle: `main.dart` 2 **σύγχρονα** invalidates (μετά το `requestPermission` — και στη διαδρομή timeout — + σε κάθε `resumed`).
+- **Αποδοχή:** analyze clean · **393/393** (382 + 11 νέα) · 0 νέο dependency/codegen/schema · scheduler & `_bakeQueue` **0 γραμμές** · τα 3 Windows hints (S202) έγιναν 1 widget με byte-identical κείμενο.
+- **Device (εκκρεμεί):** T1/T1β/T2/T3/T3β (Android 16, runtime άδεια) · T4/T4β/T5–T8 (POCO X3, app-level block). Δεδομένα: 1 σημείωση «E08» + 1 εργασία «E08 task» με μελλοντική υπενθύμιση (+1 ώρα). Λεπτομέρειες: `oldsessions.md` S284.
+- **Residuals:** R-E08-1 channel-level block (το `syncChannel` ήδη delete+recreate → ρευστό by design) · R-E08-2 exact-alarm (fail-safe inexact) · R-E08-3 χωρίς deep link σε ρυθμίσεις OS · R-E08-4 macOS: read-only query, η αίτηση δεν υπάρχει (pre-existing) · R-E08-5 αν δεν κληθεί ποτέ `requestPermission` → `unknown` (λογαρισμένο).
 
 ### E09 — Attachments: add-button + card badge
 - **Απόδειξη:** `attachments_strip.dart:5` — ρητά «ΜΟΝΟ προβολή/άνοιγμα/διαγραφή — το add ζει στα collection entries» · `item_card.dart` = 0 badge.
@@ -406,8 +407,9 @@
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S283.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S284.
 
+- **`E08` — CLOSED 01/11/2026 (S284, analyze+tests· ⏳ device εκκρεμεί):** άδεια ειδοποιήσεων OS ως ορατή κατάσταση. `permissionStatus()` (tri-state + gate + fail-open) · `notification_permission.dart` (enum + 2 pure mappers) · `notificationPermissionProvider` (`FutureProvider`, invalidate σε request/resume) · `NotificationHintRow` + `NotificationPermissionHint` (SPoT, 3 call sites: Settings / `ReminderSection` / Διάγνωση) · 6 `AppErrors` strings · save-time SnackBar **else-if**. Παύει το ψευδές «Πλήρης κάλυψη» της Διάγνωσης. analyze clean · **393/393** · scheduler 0 γραμμές.
 - **`O7` (E20 + E22) — CLOSED 29/10/2026 (S279, device-verified T1–T8):** `AppDateUtils.earliestYear=1900` + `clampToRange` σε **5** pickers (journal `1900…now` · reminder `1900…now+5` · appointment `1900…2100` · appointment/contact birthday `1900…now`) · `formatNumeric`/`formatNumericDateTime` (intl-free dd/MM/yyyy) · `numberedIndexesFor` **O(n)** · ✕ **μόνο σε hover/focus** με 48×48 + `Visibility(maintain*)` · `dayTickProvider` στο `ui_provider` (0 `DateTime.now()` σε build) · `kFolderCreateTypes` 2-tuple + `ItemTypeIcon` · αφαίρεση `✓`/emoji. Device (POCO X3, 29/10/2026): T1 1950 (picker + yearly 5/5) · T2 1995 · T3 1998 (+ έτη από **1900**) · T4 focus-✕/αρίθμηση 4→11/140%/landscape · T5 **1990 + daily** root id=3223, `rows=85 desired=85 kept=85 truncated=false`, 0 `ERR` (one-shot παρελθόν → `past one-shot, blocked` by design) · T6 8 icons/0 emoji · T7 dd/MM/yyyy · T8 habit χωρίς ✓. analyze clean · **370/370**.
 
 - **`O10` (E45) — CLOSED 30/10/2026 (S280+S281+S282+S283, device-verified T1–T9):** habit topUp = **1** `createMany` txn αντί 120 (S280 Φ1) + `avgSched`/RUNWAY/guard-reset (Φ0/Φ3/Γ7) · **A: OS-horizon 14ημ.** για habit one-shots (`habitDeferredIds` = SPoT, min-5 occurrences/item, `deferredCount`) · **S282:** `pendingHorizonDays`/`osHorizonDays = 370` μία πηγή + Διάγνωση ⏳ αντί ψευδούς κόκκινου + startup `bake:false` · **S283:** ορίζοντας στο **plan** (`beyondHorizonIds`/`beyondHorizonCount`) + **cancel scope** (`osSchedulableIds`) ώστε τα mass-cancel να μην κάνουν 120 calls για 27 alarms. Device (POCO X3, 30/10/2026): restore H2 `restoreMany took=1665ms` (πριν 9186) · cold start `total=7031→6117→**1113/1100ms**` (πριν 22035) με `desired=116 baked=116 deferred=233 beyond=0 cut=0` · archive H1 `cancelled=**27**` (πριν 120) · αλλαγή ωρών `generated=120 cancelled=27` + `baked=27 deferred=93` · OFF→ON `baked=103/103` · Διάγνωση **0 κόκκινα** · monthly habit **5 alarms** (min-5 rail). analyze clean · **382/382**.

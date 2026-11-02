@@ -16,6 +16,16 @@ void main() {
     expect(AppErrors.eventCreateFailed, isNotEmpty);
   });
 
+  test('E08: άδεια OS vs in-app — 6 σταθερές, καμία κενή', () {
+    expect(AppErrors.notifBlockedBySystem, contains('σύστημα'));
+    expect(AppErrors.notifBlockedBySystem, contains('SuperNote'));
+    expect(AppErrors.notifBlockedBySystemShort, contains('σύστημα'));
+    expect(AppErrors.notifDisabledInApp, contains('εφαρμογή'));
+    expect(AppErrors.notifDisabledInAppShort, contains('εφαρμογή'));
+    expect(AppErrors.reminderSavedNoAlarmSystem, contains('σύστημα'));
+    expect(AppErrors.notifCoverageBlocked, contains('κάλυψη'));
+  });
+
   test('archived/restored για κάθε ItemLabel', () {
     for (final label in ItemLabel.values) {
       final noun = label == ItemLabel.note

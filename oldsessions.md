@@ -4197,4 +4197,41 @@
 **Κατάσταση:** ✅ **Ο10/E45 CLOSED 30/10/2026** — device-verified T1–T9 + S283 checks · analyze clean · **382/382**.
 
 
+# S284 — E08: άδεια ειδοποιήσεων OS ως ορατή κατάσταση (κώδικας+tests · device εκκρεμεί)
+
+**Σκοπός:** να σταματήσει η σιωπηλή απώλεια ειδοποιήσεων. Το `main.dart` καλούσε `requestPermission()` και **πετούσε** το αποτέλεσμα (μόνο log), το `ReminderSection` έλεγχε **μόνο** το in-app flag και **μόνο** τη στιγμή του save, και η Διάγνωση έλεγε «Πλήρης κάλυψη» επειδή σύγκρινε μόνο DB↔OS alarms — όχι αν το OS επιτρέπει εμφάνιση.
+
+**Λύση (3 νέα αρχεία, 8 αγγίγματα, 0 νέα dependencies/codegen):**
+- `services/notification_permission.dart` — SPoT: `NotificationPermissionState {granted, denied, unknown}` + 2 **pure** mappers (Android `bool?`, Darwin `NotificationsEnabledOptions?`· provisional → granted). Το `null` → `unknown`, **ποτέ** `denied`.
+- `notification_service.dart` — `permissionStatus()` (Android `areNotificationsEnabled` / iOS+macOS `checkPermissions` / Linux+Windows → `unknown` / catch → `unknown`) + in-memory gate `_permissionRequested`, τεθειμένο **στην είσοδο** του `requestPermission` (πριν το await).
+- `providers/notification_permission_provider.dart` — `FutureProvider` (mirror `appVersionProvider`).
+- `shared/widgets/notification_hint.dart` — `NotificationHintRow` (dumb, `compact` 16/20) + `NotificationPermissionHint` (in-app OFF προτεραιότητα· granted/unknown → `SizedBox.shrink`).
+- Call sites: `settings_screen.dart` (Consumer + subtitle «Κλειστές από το σύστημα» + μόνιμη γραμμή), `reminder_section.dart` (compact γραμμή μετά το switch + save-time SnackBar **else-if**), `reminder_diagnostics_screen.dart` (`_osPermission` στο `_load()` → icon/κείμενο αντί ψευδούς «Πλήρης κάλυψη»).
+- `main.dart` — 2 **σύγχρονα** `container.invalidate(notificationPermissionProvider)`: μετά το `requestPermission()` (**και** στη διαδρομή timeout/σφάλματος — αλλιώς το `.timeout(5s)` θα έτρωγε το refresh) + σε κάθε `resumed`.
+
+**Χρονική ορθότητα (το κρίσιμο σημείο):** σε Android 13+ πριν απαντηθεί το dialog το `areNotificationsEnabled()` γυρίζει `false` → χωρίς gate θα έδειχνε **ψευδώς** «κλειστές». Το gate λύνει την πρώτη εκκίνηση· το `resumed` invalidate λύνει την αλλαγή άδειας **εκτός** εφαρμογής (MIUI auto-management). Fail-open παντού: καμία προειδοποίηση χωρίς στοιχεία.
+
+**Τεχνική επαλήθευση πριν τον κώδικα:** Flutter 3.47.8 / Dart 3.13.7 · merged manifest `targetSdk 36` / `minSdk 24` + `POST_NOTIFICATIONS` (άρα το runtime dialog υπάρχει) · desugaring ενεργό · riverpod 2.6.1 (`container.invalidate` = **no-op** αν δεν έχει διαβαστεί → 0 κόστος startup· `copyWithPrevious(isRefresh:true)` → **κανένα flicker**· `select` υπάρχει) · plugin 17.2.4 πηγαίος κώδικας (`areNotificationsEnabled` ποτέ null· σε SDK<33 η αίτηση επιστρέφει το **πραγματικό** app-level state).
+
+**Reuse (κανόνας 10):** 9 υπάρχοντα (NotificationService, `isSupportedPlatform`, `settingsNotifierProvider` = κυρίαρχο μοτίβο 22 vs 6, `appVersionProvider` pattern, Consumer pattern `settings_screen:208-214`, `AppErrors`, `DebugConfig.notif/error`, `context.cWarning/cText2`, `_load()` της Διάγνωσης) · **1** widget-family αντί 4 αντίγραφα · καμία νέα πηγή state.
+
+**Επανέλεγχος πριν την υλοποίηση (τι διορθώθηκε):** (1) το Settings **είχε ήδη** το `AppSettings` → 0 νέο watch· (2) το `_SystemGroup` είναι plain `StatefulWidget` → εσωτερικό `Consumer`· (3) το sheet δεν διάβαζε settings στο build → `settingsNotifierProvider.select` με `bool?` (loading ≠ OFF)· (4) το invalidate έπρεπε να μπει **μετά** το try/catch (timeout)· (5) το κουμπί «ξανα-αίτηση» **απορρίφθηκε** (σε Android 13+ μετά από 2 αρνήσεις είναι no-op)· (6) τα 3 Windows hints **δεν** ήταν ίδια (icon 16 vs 20) → `compact`· (7) δεν υπάρχει lifecycle provider για reuse → main.dart touch αναγκαίο· (8) το `supernote.md` **άλλαξε** (3 νέα αρχεία στο δέντρο).
+
+**Έλεγχος:** `flutter analyze` → No issues found · `flutter test` → **393/393** (382 + 11 νέα: 3 pure + 7 widget + 1 strings) · scheduler/`_bakeQueue`/DB **0 γραμμές** · κανένα υπάρχον test δεν αγγίζει τα 3 hint sites (grep) · μέγεθος: `notification_service` 434→469, `settings_screen` 437→446, `reminder_section` 410→**405** (extract), `main` 523→531, `reminder_diagnostics` 501→518, `app_errors` 106→112. Backups: `backups/s284_e08/` (+ `BASE_HEAD.txt` = `7e7f2b5`).
+
+**Device (εκκρεμεί — κανόνας 12, δεδομένα από τον χρήστη):** 1 σημείωση «E08» + 1 εργασία «E08 task» με μελλοντική υπενθύμιση (+1 ώρα). T1/T1β/T2/T3/T3β (Android 16 — revoke από OS settings· το «άρνηση στο πρώτο launch» **δεν** αναπαράγεται χωρίς wipe, επαληθεύεται με tests) · T4/T4β/T5–T8 (POCO X3 — app-level block, parity, 140%/landscape, cold start ×2).
+
+**Residuals:** R-E08-1 channel-level block (το `syncChannel` **ήδη** delete+recreate → ρευστό by design) · R-E08-2 exact-alarm (fail-safe inexact) · R-E08-3 χωρίς deep link σε ρυθμίσεις OS · R-E08-4 macOS: read-only query, η αίτηση δεν υπάρχει (pre-existing) · R-E08-5 αν δεν κληθεί ποτέ `requestPermission` → `unknown` (λογαρισμένο).
+
+**Μαθήματα:**
+- **Το «αποτέλεσμα πετιέται» είναι placeholder, όχι λεπτομέρεια:** το `requestPermission()` επέστρεφε `bool` από την ημέρα που γράφτηκε — κανείς δεν το διάβαζε. Η E08 ήταν **υπάρχον** συμβόλαιο που ενεργοποιήθηκε, όχι νέο API.
+- **Ο χρόνος είναι μέρος του τύπου:** το ίδιο `false` σημαίνει «δεν ρωτήσαμε», «αρνήθηκε» ή «δεν υπάρχει API». Χωρίς gate + tri-state, η «διόρθωση» θα έδειχνε προειδοποίηση σε κάθε πρώτη εκκίνηση.
+- **Πριν προσθέσεις watch, δες τι έχει ήδη ο caller:** το Settings είχε ήδη το `AppSettings` — το «νέο state» θα ήταν διπλότυπη πηγή.
+- **`container.invalidate` σε provider που δεν διαβάστηκε = δωρεάν:** επιβεβαιώθηκε στον πηγαίο κώδικα της riverpod (`_getOrNull` → `?.`), άρα το lifecycle touch δεν κόστισε startup.
+- **Τα tests γράφονται πριν το device:** το «πριν την απάντηση» σενάριο δεν αναπαράγεται πια χωρίς wipe — τα widget/pure tests είναι η μόνη απόδειξη και πρέπει να υπάρχουν.
+
+**Κατάσταση:** ✅ **E08 κώδικας+tests CLOSED 01/11/2026** · analyze clean · **393/393** · ⏳ device T1–T8 εκκρεμεί (δεν μετράει ως οριστικό device-verified κλείσιμο).
+
+
+
 

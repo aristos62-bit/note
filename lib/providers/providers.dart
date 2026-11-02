@@ -21,4 +21,5 @@ export 'habit_provider.dart';
 export 'ui_provider.dart';
 export 'task_provider.dart';
 export 'app_info_provider.dart';
+export 'notification_permission_provider.dart';
 export 'app_lock_provider.dart';

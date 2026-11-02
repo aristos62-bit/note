@@ -202,6 +202,10 @@ void main() async {
     } catch (e, stack) {
       DebugConfig.error('requestPermission failed', e, stack);
     }
+    // E08: ανανέωσε την κατάσταση άδειας — και στη διαδρομή timeout/σφάλματος
+    // (το .timeout(5s) πετάει αν ο χρήστης δεν απαντήσει στο dialog).
+    container.invalidate(notificationPermissionProvider);
+    DebugConfig.notif('permissionStatus invalidated (after request)');
     try {
       // S282 (E45): bake=off — αμέσως μετά τρέχει scheduleAll() (:222) που
       // ψήνει τα πάντα. Χωρίς αυτό, το refresh ψήνει distant children
@@ -405,6 +409,10 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         }
         if (_isStale(seq, state)) return;
         _pausedAt = null;
+        // E08: η άδεια ειδοποιήσεων μπορεί να άλλαξε εκτός εφαρμογής
+        // (ρυθμίσεις OS) — σύγχρονο invalidate, καμία νέα await.
+        container.invalidate(notificationPermissionProvider);
+        DebugConfig.notif('permissionStatus invalidated (resume)');
         // Habit stats: αν άλλαξε η ημερολογιακή μέρα όσο ήταν στο
         // παρασκήνιο → ενημέρωση του dayTick ώστε να γίνει recompute.
         final nowDay = DateTime.now();
