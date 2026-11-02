@@ -4219,7 +4219,7 @@
 
 **Έλεγχος:** `flutter analyze` → No issues found · `flutter test` → **393/393** (382 + 11 νέα: 3 pure + 7 widget + 1 strings) · scheduler/`_bakeQueue`/DB **0 γραμμές** · κανένα υπάρχον test δεν αγγίζει τα 3 hint sites (grep) · μέγεθος: `notification_service` 434→469, `settings_screen` 437→446, `reminder_section` 410→**405** (extract), `main` 523→531, `reminder_diagnostics` 501→518, `app_errors` 106→112. Backups: `backups/s284_e08/` (+ `BASE_HEAD.txt` = `7e7f2b5`).
 
-**Device (εκκρεμεί — κανόνας 12, δεδομένα από τον χρήστη):** 1 σημείωση «E08» + 1 εργασία «E08 task» με μελλοντική υπενθύμιση (+1 ώρα). T1/T1β/T2/T3/T3β (Android 16 — revoke από OS settings· το «άρνηση στο πρώτο launch» **δεν** αναπαράγεται χωρίς wipe, επαληθεύεται με tests) · T4/T4β/T5–T8 (POCO X3 — app-level block, parity, 140%/landscape, cold start ×2).
+**Device (PASSED 02/11/2026 — POCO X3 M2007J20CG, Android 12 / SDK 31 / MIUI 14, όλα τα τεστ στην ίδια συσκευή):** επειδή το SDK 31 είναι **< 33**, δεν υπάρχει runtime dialog `POST_NOTIFICATIONS` — άρα το μονοπάτι είναι **μόνο app-level block** και το «πριν απαντηθεί το dialog» σενάριο καλύπτεται **μόνο από tests** (by design, όχι παράλειψη). Δεδομένα (κανόνας 12, από τον χρήστη): σημείωση «E08» + υπενθυμίσεις. Αποτελέσματα: **T1** granted → καμία γραμμή · **T2** master OFF + resume → subtitle «Κλειστές από το σύστημα» + μακρύ system hint, log `resume → raw=false → denied` · **T3** save → **ένα** SnackBar «…το σύστημα δεν επιτρέπει ειδοποιήσεις…», **μία** κλήση `permissionStatus` · **T4** Διάγνωση → `notifications_off` + «Πλήρης κάλυψη DB↔OS — αλλά το σύστημα δεν επιτρέπει εμφάνιση» (σταματά το ψευδές «Πλήρης κάλυψη») · **T5** in-app OFF → μήνυμα **in-app** (προτεραιότητα) + **ένα** SnackBar in-app, **μηδέν** `permissionStatus` (απόδειξη `else-if`) · **T6** 140% portrait (3 γραμμές) + landscape (4 γραμμές) → **0 overflow** · **T7** cold start ×2 → νέα PIDs + `raw=true → granted`. Log: 6.143 γραμμές, **0 `ERR` / 0 `WRN`** (`backups/s284_e08/device_logs/`, screenshots `v1…v5`, ριπές `v2seq`/`v3seq`/`v3bseq`). Ευρήματα εκτός E08: (α) επιλογή παρελθούσας ώρας → σωστό «Η ώρα έχει περάσει» (pre-existing validation, όχι bug) · (β) στο 140% η κάτω μπάρα πλοήγησης κόβει ελαφρώς την ετικέτα «Συνθέσεις» στο δεξί άκρο (pre-existing, **δεν** αγγίχτηκε).
 
 **Residuals:** R-E08-1 channel-level block (το `syncChannel` **ήδη** delete+recreate → ρευστό by design) · R-E08-2 exact-alarm (fail-safe inexact) · R-E08-3 χωρίς deep link σε ρυθμίσεις OS · R-E08-4 macOS: read-only query, η αίτηση δεν υπάρχει (pre-existing) · R-E08-5 αν δεν κληθεί ποτέ `requestPermission` → `unknown` (λογαρισμένο).
 
@@ -4229,8 +4229,10 @@
 - **Πριν προσθέσεις watch, δες τι έχει ήδη ο caller:** το Settings είχε ήδη το `AppSettings` — το «νέο state» θα ήταν διπλότυπη πηγή.
 - **`container.invalidate` σε provider που δεν διαβάστηκε = δωρεάν:** επιβεβαιώθηκε στον πηγαίο κώδικα της riverpod (`_getOrNull` → `?.`), άρα το lifecycle touch δεν κόστισε startup.
 - **Τα tests γράφονται πριν το device:** το «πριν την απάντηση» σενάριο δεν αναπαράγεται πια χωρίς wipe — τα widget/pure tests είναι η μόνη απόδειξη και πρέπει να υπάρχουν.
+- **Ρώτα το SDK πριν γράψεις μήτρα τεστ:** το «Android 16 runtime dialog» σενάριο ήταν **ανύπαρκτο** στη συσκευή (SDK 31). Ένα `getprop ro.build.version.sdk` πριν το σχέδιο γλιτώνει 5 τεστ που δεν μπορούν να τρέξουν.
+- **Το 4s SnackBar δεν πιάνεται με «πες μου όταν»:** η καθυστέρηση ανθρώπου→εργαλείου είναι μεγαλύτερη από τη διάρκεια. Ριπή `screencap` (70 frames/50s) + ομαδοποίηση κατά μέγεθος αρχείου βρήκε το σωστό frame χωρίς video/ffmpeg.
 
-**Κατάσταση:** ✅ **E08 κώδικας+tests CLOSED 01/11/2026** · analyze clean · **393/393** · ⏳ device T1–T8 εκκρεμεί (δεν μετράει ως οριστικό device-verified κλείσιμο).
+**Κατάσταση:** ✅ **E08 CLOSED 02/11/2026 — device-verified (POCO X3, T1–T7)** · analyze clean · **393/393** · 0 ERR στο device log.
 
 
 
