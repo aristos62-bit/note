@@ -44,7 +44,7 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `5deaa8b` (S286/E11 κώδικας+tests+docs) | `git log` |
+| Git HEAD | `cd2a09a` (S286/E11 κώδικας+tests+docs) | `git log` |
 | `flutter analyze` | **No issues found** | run 02/11/2026 (S286) |
 | `flutter test` | **400 PASS / 1 FAIL** (62 αρχεία test) — το FAIL είναι το προϋπάρχον `home_short_viewport_test` (800dp) | run 02/11/2026 (S286) |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.828 (162 αρχεία) | μετρήθηκε 02/11/2026 (S286) |
