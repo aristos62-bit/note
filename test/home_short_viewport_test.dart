@@ -44,6 +44,7 @@ Widget _homeScreenAt(
   WidgetTester tester, {
   required double width,
   required double height,
+  double textScale = 1.0,
 }) {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1.0;
@@ -56,7 +57,15 @@ Widget _homeScreenAt(
       selectedFolderIdProvider.overrideWith((ref) => 1),
       ..._overrides(1),
     ],
-    child: const MaterialApp(home: HomeScreen()),
+    child: MaterialApp(
+      builder: (BuildContext context, Widget? child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: child!,
+      ),
+      home: const HomeScreen(),
+    ),
   );
 }
 
@@ -176,6 +185,26 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         _homeScreenAt(tester, width: 360, height: 800),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Φάκελοι'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.data ?? '').startsWith('Καλ'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    // E46: το greeting row (icon + greeting + ημερομηνία + app icon 80dp) δεν
+    // έχει πλέον unbounded Column ⇒ σε 320dp με 140% γραμματοσειρά κόβει με
+    // «…» αντί να βγάζει RenderFlex overflow.
+    testWidgets('320dp + 140% γραμματοσειρά: greeting ορατό, χωρίς overflow',
+        (tester) async {
+      await tester.pumpWidget(
+        _homeScreenAt(tester, width: 320, height: 800, textScale: 1.4),
       );
       await tester.pumpAndSettle();
 

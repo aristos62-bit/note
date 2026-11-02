@@ -4351,7 +4351,41 @@ if (!context.isShortScreen)
 - **Ένα probe έξω από το repo** (temp Flutter project) απέδειξε τα νούμερα πριν αγγίξω production κώδικα — 0 ρίσκο, 0 churn.
 - **Μην ανοίγεις κάρτα για ξένο failure** χωρίς OK· κατέγραψε το και ανέφερέ το.
 
-**Κατάσταση:** ✅ **E11 CLOSED & DEVICE-VERIFIED 02/11/2026** — analyze clean · **400 PASS / 1 FAIL (προϋπάρχον `home_short_viewport_test`)** · 7 νέα tests · **device pass OK** (χειροκίνητο, 9 detail οθόνες) · **−327** γραμμές `lib/`. Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E06`/`E39` · εκκρεμεί απόφαση για το προϋπάρχον `home_short_viewport_test` (άνοιγμα νέας κάρτας `E46`;).
+**Κατάσταση:** ✅ **E11 CLOSED & DEVICE-VERIFIED 02/11/2026** — analyze clean · **400 PASS / 1 FAIL (προϋπάρχον `home_short_viewport_test`)** · 7 νέα tests · **device pass OK** (χειροκίνητο, 9 detail οθόνες) · **−327** γραμμές `lib/`. Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E06`/`E39` · εκκρεμεί απόφαση για το προϋπάρχον `home_short_viewport_test` (άνοιγμα νέας κάρτας `E46`;) → **έκλεισε στο S287 ως `E46`**.
+
+---
+
+## Session 287 — 02/11/2026 (E46: greeting row overflow στην Αρχική — 400/401 → 402/402)
+
+**Scope:** το μοναδικό κόκκινο του suite μετά το E11 (`home_short_viewport_test`, «800dp ύψος portrait», `RenderFlex overflowed by 94 pixels`). Ο χρήστης ζήτησε fix αντί για νέα κάρτα-parking. 1 αρχείο `lib/` (`home_screen.dart`) + 1 test αρχείο. **0** νέα symbols/strings/tokens/deps.
+
+**Διάγνωση (probe, όχι εικασία):** προσωρινό αντίγραφο του test (διαγράφηκε) τύπωσε τον creator chain του overflow μέσα από traversal των `RenderFlex`:
+`Row ← Expanded ← Row ← Padding ← _GreetingSection ← SliverToBoxAdapter ← Viewport` · `sum=341.5dp` vs `width=248dp` (360 − 2×16 `pagePadding` − 80 app icon) ⇒ **94px**.
+- Το `Column` με greeting + ημερομηνία ζούσε σε `Row` **χωρίς** `Flexible/Expanded` ⇒ unbounded πλάτος, κανένα wrap/ellipsis ποτέ.
+- Το 392dp test περνάει γιατί εκεί το greeting είναι κρυφό (`isShortScreen`, E13) ⇒ το Row δεν χτίζεται.
+- **Γιατί δεν φαινόταν στη συσκευή:** η test-font είναι πολύ πλατύτερη από Roboto. Ο χρήστης έλεγξε **portrait + landscape + 140%** στην εφαρμογή → κανένα οπτικό πρόβλημα. Πραγματικό ρίσκο μόνο σε **στενό πλάτος + μεγάλο scale** (320dp × 140–200%, «Μέγεθος οθόνης: Μεγάλο»).
+
+**Απόφαση:** fix στο layout (όχι χαλάρωση του test) — το test περιγράφει σωστό περιορισμό (στενό viewport δεν πρέπει να overflowάρει) και το `Column` ήταν το λάθος. Πλεονεκτήματα: κρατά το guard, κλείνει latent a11y κενό, 0 οπτική αλλαγή όταν χωράει.
+
+**Υλοποίηση:**
+1. `home_screen.dart` `_GreetingSection`: `Flexible` γύρω από το `Column` + `maxLines: 1` + `overflow: TextOverflow.ellipsis` στα 2 `Text` (greeting `titleLg`, ημερομηνία `bodySm`/`cText2`).
+2. `test/home_short_viewport_test.dart`: `_homeScreenAt(..., double textScale = 1.0)` με `MaterialApp.builder` → `MediaQuery.copyWith(textScaler: TextScaler.linear(textScale))` + νέο test «320dp + 140% γραμματοσειρά: greeting ορατό, χωρίς overflow» (`Φάκελοι` ορατό, greeting βρέθηκε, `takeException()` null).
+
+**Έλεγχοι:** `flutter analyze --no-pub` → **No issues found** · `home_short_viewport_test` → **7/7** · full `flutter test` → **402/402 PASS** (ήταν 400/401· +1 νέο test, 0 failures). Μετρήσεις μετά: `lib/` **43.842** γραμμές / **162** αρχεία · `home_screen.dart` **938** · R1 **21** (αμετάβλητο).
+
+**Backups:** `backups/E46_home_greeting_overflow_2026-11-02/` — `home_screen.dart` + `home_short_viewport_test.dart` + `error_list.md` + `oldsessions.md`.
+
+**Docs:** `error_list.md` — νέα κάρτα `E46` ✅ CLOSED (με απόδειξη 341.5/248 και γιατί δεν φαινόταν στο device) · §3 bullet · §0 (HEAD/analyze/tests **402/402**/γραμμές). `supernote.md`: **καμία** αλλαγή (δεν άλλαξε αρχιτεκτονική — ίδιο widget, ίδιο layout pattern). `a11y.md`: καμία (το D4 αφορά AppBars).
+
+**Μαθήματα:**
+- **«Test-only» ≠ «ανύπαρκτο»:** η test-font μεγεθύνει το πλάτος κειμένου, αλλά το unbounded `Column` είναι πραγματικό layout λάθος — απλώς περιμένει στενότερο viewport ή μεγαλύτερο scale για να φανεί.
+- **Ο creator chain αξίζει το probe:** το `tester.takeException()` δίνει μόνο «94 pixels»· χρειάστηκε traversal των `RenderFlex` για να βρεθεί **ποιο** Row.
+- **Ένα κόκκινο test είναι χρέος:** με 400/401 επί μέρες, το επόμενο πραγματικό failure θα περνούσε απαρατήρητο.
+
+**Commits:** βλ. `git log` (`fix(E46): …`).
+
+**Κατάσταση:** ✅ **E46 CLOSED 02/11/2026 (analyze+tests)** — device pass **δεν** χρειάζεται: 0 οπτική αλλαγή στο default (ο χρήστης επιβεβαίωσε εξάλλου ότι δεν υπήρχε ορατό πρόβλημα). Suite **πράσινο 402/402**. Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E06`/`E39`.
+
 
 
 

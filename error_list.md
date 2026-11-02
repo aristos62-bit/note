@@ -40,15 +40,15 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 02/11/2026, μετά το S286/E11)
+## 0. Baseline (μετρημένο στον κώδικα — 02/11/2026, μετά το S287/E46)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `cd2a09a` (S286/E11 κώδικας+tests+docs) + docs-only follow-up (`32b0355` sync hash · από εδώ και πέρα device pass) | `git log` |
-| `flutter analyze` | **No issues found** | run 02/11/2026 (S286) |
-| `flutter test` | **400 PASS / 1 FAIL** (62 αρχεία test) — το FAIL είναι το προϋπάρχον `home_short_viewport_test` (800dp) | run 02/11/2026 (S286) |
+| Git HEAD | `db066fe` (S286/E11 device-verified docs) + S287 commit | `git log` |
+| `flutter analyze` | **No issues found** | run 02/11/2026 (S287) |
+| `flutter test` | **402/402 PASS** (62 αρχεία test) | run 02/11/2026 (S287) |
 | Device pass | **E11 OK** (02/11/2026, χειροκίνητος έλεγχος χρήστη — χωρίς screenshots/logs) | S286 |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.828 (162 αρχεία) | μετρήθηκε 02/11/2026 (S286) |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.842 (162 αρχεία) | μετρήθηκε 02/11/2026 (S287) |
 | Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 02/11/2026 · βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **47** (πριν 89 — τα 9 detail AppBars έγιναν 1 widget) | grep |
@@ -408,6 +408,14 @@
   - **Device (POCO X3, 30/10/2026, after S283):** archive H1 → `cancelAllForItem: itemId=473 cancelled=**27**` (πριν 120, 296ms αντί ~2,4s) · OS 116→**89** (κανένα ghost) · unarchive → `rebaked=27` · αλλαγή ωρών → `_clearHabitGenerated: generated=120 cancelled=**27**` + `baked=27 deferred=93` · cold start `total=1113/1100ms` (πριν 7209/7222) `desired=116 baked=116 deferred=233 beyond=0` · `dumpsys alarm`: 102 distinct, **όλα εντός ορίζοντα** (max 2027-10-18), καμία παλιά ώρα. `analyze` clean · **382/382**.
 - **Κατάσταση:** ✅ **CLOSED 30/10/2026** — κώδικας S280 Φ0/Φ1/Φ3/Γ7 + S281/A + S282 + **S283a/b**, device pass T1–T9 **PASS**, analyze clean, **382/382**, backups `backups/o10_e45_p0/`, `backups/o10_e45_oswindow/`, `backups/s283_horizon/`. **Ανοιχτό μόνο ως product απόφαση:** `horizonDays` 60→30/14 (2γ, δεν το ζητά κανένα μετρημένο πρόβλημα).
 
+### E46 — ✅ CLOSED 02/11/2026 (S287: analyze+tests) — greeting row: unbounded `Column` → 94px RenderFlex overflow
+- **Πού:** `home_screen.dart:455-475` (`_GreetingSection`) — `Row` [`Icon` 22 + `Spacing.sm` 8 + `Column`(greeting, ημερομηνία)] χωρίς `Flexible` ⇒ το `Column` έπαιρνε **unbounded** πλάτος από το `Row` και δεν έκοβε ποτέ το κείμενο.
+- **Απόδειξη (layout probe μέσα στο test, creator chain):** `Row ← Expanded ← Row ← Padding ← _GreetingSection ← SliverToBoxAdapter ← Viewport` · περιεχόμενο **341.5dp** vs **248dp** διαθέσιμο (360 − 2×16 `pagePadding` − 80 app icon) ⇒ **94px** δεξιά. Το 392dp test περνούσε επειδή εκεί το greeting είναι κρυφό (`isShortScreen`).
+- **Γιατί δεν φαινόταν στη συσκευή (χειροκίνητος έλεγχος χρήστη, portrait+landscape+140%):** η **test-font** του Flutter είναι πολύ πλατύτερη από Roboto ⇒ με Roboto χωράει στα 360/393dp ακόμη και σε 140%. Πραγματικό ρίσκο **μόνο** σε στενό πλάτος + μεγάλο text scale (π.χ. **320dp × 140–200%**, ή «Μέγεθος οθόνης: Μεγάλο» που ρίχνει το logical width).
+- **Fix:** `Flexible` γύρω από το `Column` + `maxLines: 1` / `overflow: TextOverflow.ellipsis` στα 2 `Text` ⇒ κόβει με «…» αντί για κίτρινες μπάρες. **0** οπτική αλλαγή όταν το κείμενο χωράει.
+- **Test:** νέο «320dp + 140% γραμματοσειρά: greeting ορατό, χωρίς overflow» (νέα παράμετρος `textScale` στο `_homeScreenAt`, μέσω `MediaQuery.copyWith(textScaler:)`) — κλειδώνει τη συμπεριφορά ώστε να μην «επαναφερθεί» το bug.
+- **Acceptance:** `flutter analyze` **clean** · **402/402** (πριν **400/401**· +1 νέο test) · 0 νέα symbols/tokens/deps · 2 αρχεία (`home_screen.dart`, `home_short_viewport_test.dart`).
+
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
 1. ✅ `oldsessions.md`: κεφάλαιο **S273** (Φ5 partial: E18, device pass, E39, docs, commits).
@@ -419,8 +427,9 @@
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S286.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S287.
 
+- **`E46` — CLOSED 02/11/2026 (S287, analyze+tests):** `_GreetingSection` (`home_screen.dart`) — `Flexible` + `maxLines: 1`/ellipsis γύρω από το `Column` των κειμένων (ήταν unbounded μέσα στο `Row` ⇒ RenderFlex overflow **94px** όταν το κείμενο δεν χωράει). Διορθώνει το μοναδικό κόκκινο του suite (**400/401 → 402/402**) και καλύπτει 320dp × 140–200%. 2 αρχεία · 0 νέα symbols/tokens.
 - **`E11` — CLOSED & DEVICE-VERIFIED 02/11/2026 (S286, analyze+tests+device):** κοινό `DetailAppBar` (`lib/shared/widgets/detail_app_bar.dart`, `StatelessWidget`+`PreferredSizeWidget`, 6 nullable callbacks) σε **15 call sites / 9 detail screens**· compact + icon 20 + `titleSpacing: 0` + `actionsPadding: 0` ⇒ 6 ενέργειες χωράνε και στα 320dp (firstX **80**, όριο **296dp**). Διορθώνει event spinner ≤390dp, note/task 2px overflow και journal/contact/event/appointment 24dp επικάλυψη με back στα 320dp. **0** νέα tokens/deps · **−327** γραμμές `lib/` (44.155→43.828) · analyze clean · **400/401** (+7 tests στο `detail_app_bar_test.dart`) · **device pass χειροκίνητα OK** (χωρίς screenshots/logs).
 - **`E13` — CLOSED 02/11/2026 (S285, analyze+tests+red-on-old+device POCO X3):** το label «Φάκελοι» κρύβεται σε κοντό viewport (`home_screen.dart:86-98`: `if (!context.isShortScreen)` — reuse `responsive.dart:73`, parity με το greeting `:78`) ⇒ **+28.02dp** στο `HomeFolderView` (`SliverFillRemaining` `:149`) χωρίς απώλεια οριζόντιου padding (chips από x=0). 0 νέα symbols/strings. **394/394** · red-on-old ✅ · 2 tests (392dp κρυφό / 800dp ορατό) · **device T1–T5 PASS**. *Αντιστρέφει την S262 απόρριψη — απόφαση χρήστη, όχι bug.*
 - **`E08` — CLOSED 02/11/2026 (S284, analyze+tests+device POCO X3):** άδεια ειδοποιήσεων OS ως ορατή κατάσταση. `permissionStatus()` (tri-state + gate + fail-open) · `notification_permission.dart` (enum + 2 pure mappers) · `notificationPermissionProvider` (`FutureProvider`, invalidate σε request/resume) · `NotificationHintRow` + `NotificationPermissionHint` (SPoT, 3 call sites: Settings / `ReminderSection` / Διάγνωση) · 6 `AppErrors` strings · save-time SnackBar **else-if**. Παύει το ψευδές «Πλήρης κάλυψη» της Διάγνωσης. analyze clean · **393/393** · scheduler 0 γραμμές · device T1–T7 PASSED (0 ERR, 6.143 γραμμές log).
