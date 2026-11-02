@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:super_note/features/home/home_folder_view.dart';
 import 'package:super_note/features/home/home_screen.dart';
 import 'package:super_note/models/models.dart';
@@ -38,6 +39,27 @@ List<Override> _overrides(int folderId) => [
           .overrideWith((ref) => Stream.value(_notes(3))),
     ];
 
+/// Πλήρης Αρχική (HomeScreen) με επιλεγμένο φάκελο — για ελέγχους viewport.
+Widget _homeScreenAt(
+  WidgetTester tester, {
+  required double width,
+  required double height,
+}) {
+  tester.view.physicalSize = Size(width, height);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  return ProviderScope(
+    overrides: [
+      foldersStreamProvider.overrideWith((ref) => Stream.value([_folder()])),
+      selectedFolderIdProvider.overrideWith((ref) => 1),
+      ..._overrides(1),
+    ],
+    child: const MaterialApp(home: HomeScreen()),
+  );
+}
+
 Widget _folderViewAt(WidgetTester tester, {required double height}) {
   // Πλάτος κινητού (360dp) → 1 στήλη, ώστε οι κάρτες των 3 items να
   // χωράνε χωρίς test-only overflow στο header Row της κάρτας.
@@ -63,6 +85,12 @@ Widget _folderViewAt(WidgetTester tester, {required double height}) {
 }
 
 void main() {
+  setUpAll(() async {
+    // Parity με main.dart:22 — το greeting χρησιμοποιεί DateFormat('…','el'),
+    // που απαιτεί αρχικοποίηση locale data (σε tests δεν τρέχει το main()).
+    await initializeDateFormatting();
+  });
+
   group('B-Π1 shouldShowFolderStats (strict >)', () {
     test('στα όρια: 100 → false (η λίστα θα έμενε 0dp)', () {
       expect(shouldShowFolderStats(double.infinity), isTrue);
@@ -123,23 +151,10 @@ void main() {
   });
 
   group('B-Π2 HomeScreen — κοντό viewport (landscape κινητού)', () {
-    testWidgets('392dp ύψος: greeting κρυφό, folder view ορατό, χωρίς overflow',
+    testWidgets('392dp ύψος: greeting κρυφό, label «Φάκελοι» κρυφό, χωρίς overflow',
         (tester) async {
-      tester.view.physicalSize = const Size(872, 392);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            foldersStreamProvider
-                .overrideWith((ref) => Stream.value([_folder()])),
-            selectedFolderIdProvider.overrideWith((ref) => 1),
-            ..._overrides(1),
-          ],
-          child: const MaterialApp(home: HomeScreen()),
-        ),
+        _homeScreenAt(tester, width: 872, height: 392),
       );
       await tester.pumpAndSettle();
 
@@ -150,8 +165,27 @@ void main() {
         ),
         findsNothing,
       );
+      // E13: το label της ομάδας chips κρύβεται σε κοντό viewport (+28dp)
+      expect(find.text('Φάκελοι'), findsNothing);
       // Το folder view του επιλεγμένου φακέλου είναι ορατό
       expect(find.byType(CircleToggleButton), findsNWidgets(4));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('800dp ύψος (portrait): greeting και label «Φάκελοι» ορατά',
+        (tester) async {
+      await tester.pumpWidget(
+        _homeScreenAt(tester, width: 360, height: 800),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Φάκελοι'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.data ?? '').startsWith('Καλ'),
+        ),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     });
   });
