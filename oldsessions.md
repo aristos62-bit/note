@@ -4289,7 +4289,7 @@ if (!context.isShortScreen)
 
 ---
 
-## Session 286 — 02/11/2026 (E11: ενοποιημένο `DetailAppBar` — 9 detail screens → 1 widget)
+## Session 286 — 02/11/2026 (E11: ενοποιημένο `DetailAppBar` — 9 detail screens → 1 widget) — ✅ CLOSED & DEVICE-VERIFIED
 
 **Scope (αναστολή κανόνα 4 εγκεκριμένη · edit-tool only):** `error_list.md` P3 `E11` — ένα κοινό `DetailAppBar` για note/task/habit/event/journal/contact/appointment/collection/entry αντί 9 hand-rolled μπάρες. 1 νέο αρχείο `lib/` + 1 γραμμή barrel + 9 detail screens + 1 νέο test αρχείο. **0** νέα tokens/deps/providers.
 
@@ -4341,7 +4341,9 @@ if (!context.isShortScreen)
 
 **Docs:** `error_list.md` — §1 P3 5→4 (E11 έξω + renumber) · §2 E11 → ✅ CLOSED · §3 bullet · §0 (HEAD/analyze/tests/γραμμές/tooltips). `a11y.md` D4 ξαναγράφτηκε (σταθερό compact, μετρημένα, γιατί όχι adaptive). `supernote.md` — δέντρο + νέα ενότητα `DetailAppBar` + διόρθωση Flutter/Dart (3.47.8/3.13.7) + test counter. `code_refactor.md`: καμία (παγωμένο).
 
-**Commits:** `cd2a09a` — κώδικας + tests + docs (το baseline HEAD του `error_list.md` δείχνει εδώ· το docs-only sync του hash ακολουθεί).
+**Commits:** `cd2a09a` — κώδικας + tests + docs (το baseline HEAD του `error_list.md` δείχνει εδώ· το docs-only sync του hash ακολουθεί ως `32b0355`).
+
+**📱 Device pass (02/11/2026):** ο χρήστης έλεγξε **χειροκίνητα** τις 9 detail οθόνες (note/task/habit/event/journal/contact/appointment/collection/entry) με 1 item ανά τύπο → **OK**, καμία απόκλιση/regression. Ειδικά επιβεβαιώθηκε: event spinner/«Αποθήκευση...» **ορατό**, κανένα overflow ούτε επικάλυψη με το back, σωστή σειρά tooltips. Απόδειξη = χειροκίνητη παρατήρηση (χωρίς screenshots/dumps· `_debug=false` ⇒ logs OFF, όπως και στο E13).
 
 **Μαθήματα:**
 - **Μέτρα το SDK, μη το θυμάσαι:** το `toolbarHeight` 64 στο `_AppBarDefaultsM3` δεν σημαίνει 64 στο layout — το build διαβάζει `kToolbarHeight`.
@@ -4349,7 +4351,7 @@ if (!context.isShortScreen)
 - **Ένα probe έξω από το repo** (temp Flutter project) απέδειξε τα νούμερα πριν αγγίξω production κώδικα — 0 ρίσκο, 0 churn.
 - **Μην ανοίγεις κάρτα για ξένο failure** χωρίς OK· κατέγραψε το και ανέφερέ το.
 
-**Κατάσταση:** ✅ **E11 CLOSED 02/11/2026 (analyze+tests)** — device pass **δεν** έγινε (οπτικό· προαιρετικό). Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E06`/`E39` · εκκρεμεί απόφαση για το προϋπάρχον `home_short_viewport_test` (άνοιγμα νέας κάρτας `E46`;).
+**Κατάσταση:** ✅ **E11 CLOSED & DEVICE-VERIFIED 02/11/2026** — analyze clean · **400 PASS / 1 FAIL (προϋπάρχον `home_short_viewport_test`)** · 7 νέα tests · **device pass OK** (χειροκίνητο, 9 detail οθόνες) · **−327** γραμμές `lib/`. Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E06`/`E39` · εκκρεμεί απόφαση για το προϋπάρχον `home_short_viewport_test` (άνοιγμα νέας κάρτας `E46`;).
 
 
 
