@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../helpers/item_color_helper.dart';
-import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/widgets.dart';
 import 'collection_fields.dart' show FieldDef, FieldType;
@@ -511,7 +510,7 @@ class _CollectionDetailScreenState
           },
           child: Scaffold(
             backgroundColor: context.cBg,
-            appBar: _buildAppBar(context, item),
+            appBar: _buildAppBar(),
             body: _buildBody(context),
           ),
         );
@@ -519,32 +518,10 @@ class _CollectionDetailScreenState
     );
   }
 
-  AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
-    backgroundColor:        context.cBg,
-    elevation:              0,
-    scrolledUnderElevation: 1,
-    title: null,
-    actions: [
-      // Save button
-      IconButton(
-        icon: Icon(Icons.save_rounded, color: context.cPrimary),
-        tooltip: 'Αποθήκευση',
-        onPressed: _save,
-      ),
-      // Favorite button
-      IconButton(
-        icon: Icon(
-          _isFavorite
-              ? Icons.star_rounded
-              : Icons.star_outline_rounded,
-          color: _isFavorite
-              ? ColorsUI.getWarning(context.brightness)
-              : context.cText2,
-        ),
-        onPressed: _toggleFavorite,
-        tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-      ),
-    ],
+  DetailAppBar _buildAppBar() => DetailAppBar(
+    isFavorite: _isFavorite,
+    onSave: _save,
+    onFavorite: _toggleFavorite,
   );
 
   Widget _buildBody(BuildContext context) {

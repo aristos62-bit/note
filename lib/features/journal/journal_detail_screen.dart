@@ -270,61 +270,17 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
     ),
   );
 
-  AppBar _buildAppBar(BuildContext context, Item item) {
-    return AppBar(
-      backgroundColor: context.cBg,
-      elevation: 0,
-      scrolledUnderElevation: 1,
-      title: null,
-      actions: [
-        // Save
-        IconButton(
-          icon: Icon(Icons.save_rounded, color: context.cPrimary),
-          tooltip: 'Αποθήκευση',
-          onPressed: _save,
-        ),
-        // Reminder
-        IconButton(
-          icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
-          onPressed: _showReminderDialog,
-          tooltip: 'Υπενθύμιση',
-        ),
-        // Favorite
-        IconButton(
-          icon: Icon(
-            item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: item.favorite
-                ? ColorsUI.getWarning(context.brightness)
-                : context.cText2,
-          ),
-          onPressed: () => _toggleFav(item),
-          tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-        ),
-        // Pin
-        IconButton(
-          icon: Icon(
-            item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            color: item.pinned ? context.cPrimary : context.cText2,
-          ),
-          onPressed: () => _togglePin(item),
-          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-        ),
-        // Archive
-        IconButton(
-          icon: Icon(
-            item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
-            color: context.cText2,
-          ),
-          tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-          onPressed: () => _toggleArchive(item),
-        ),
-        // Delete
-        IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-          tooltip: 'Διαγραφή',
-          onPressed: () => _delete(context),
-        ),
-      ],
+  DetailAppBar _buildAppBar(BuildContext context, Item item) {
+    return DetailAppBar(
+      isPinned: item.pinned,
+      isFavorite: item.favorite,
+      isArchived: item.archived,
+      onSave: _save,
+      onReminder: _showReminderDialog,
+      onFavorite: () => _toggleFav(item),
+      onPin: () => _togglePin(item),
+      onArchive: () => _toggleArchive(item),
+      onDelete: () => _delete(context),
     );
   }
 

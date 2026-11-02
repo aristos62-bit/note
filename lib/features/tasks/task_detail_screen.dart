@@ -284,107 +284,27 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     );
   }
 
-  AppBar _buildAppBar(BuildContext context, Item item) {
-    return AppBar(
-      backgroundColor: context.cBg,
-      elevation:                0,
-      scrolledUnderElevation:   1,
-      titleSpacing:             0,
-      actionsPadding: const EdgeInsets.symmetric(horizontal: 4),
-      title: _isSaving
-          ? Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          width: 14, height: 14,
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: context.cText2),
-        ),
-        const SizedBox(width: Spacing.xs),
-        Flexible(
-          child: Text('Αποθήκευση...',
-              style: context.bodySm.withColor(context.cText2),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false),
-        ),
-      ])
-          : null,
-      actions: [
-        // Save
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
-          tooltip: 'Αποθήκευση',
-          onPressed: _isSaving
-              ? null
-              : () async {
-            final saved = await executeSave(_flushPendingSaves);
-            if (saved) safePop();
-          },
-        ),
-        // Reminder
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.notifications_none_rounded,
-              color: context.cText2, size: 20),
-          onPressed: _showReminderDialog,
-          tooltip:   'Υπενθύμιση',
-        ),
-        // Favorite
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(
-            item.favorite
-                ? Icons.star_rounded
-                : Icons.star_outline_rounded,
-            color: item.favorite
-                ? ColorsUI.getWarning(context.brightness)
-                : context.cText2,
-            size: 20,
-          ),
-          tooltip:   item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-          onPressed: () => _toggleFav(item),
-        ),
-        // Pin
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(
-            item.pinned
-                ? Icons.push_pin_rounded
-                : Icons.push_pin_outlined,
-            color: item.pinned ? context.cPrimary : context.cText2,
-            size: 20,
-          ),
-          tooltip:   item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-          onPressed: () => _togglePin(item),
-        ),
-        // Archive
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(
-            item.archived
-                ? Icons.unarchive_rounded
-                : Icons.archive_rounded,
-            color: context.cText2,
-            size: 20,
-          ),
-          tooltip:   item.archived ? 'Επαναφορά από αρχείο' : 'Αρχειοθέτηση',
-          onPressed: () => handleArchive(
-            context: context,
-            ref: ref,
-            itemId: item.id,
-            isArchived: item.archived,
-            label: ItemLabel.task,
-          ),
-        ),
-        // Delete
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.delete_outline_rounded,
-              color: context.cError, size: 20),
-          onPressed: () => _deleteTask(context, item),
-          tooltip:   'Διαγραφή',
-        ),
-      ],
+  DetailAppBar _buildAppBar(BuildContext context, Item item) {
+    return DetailAppBar(
+      isSaving: _isSaving,
+      isPinned: item.pinned,
+      isFavorite: item.favorite,
+      isArchived: item.archived,
+      onSave: () async {
+        final saved = await executeSave(_flushPendingSaves);
+        if (saved) safePop();
+      },
+      onReminder: _showReminderDialog,
+      onFavorite: () => _toggleFav(item),
+      onPin: () => _togglePin(item),
+      onArchive: () => handleArchive(
+        context: context,
+        ref: ref,
+        itemId: item.id,
+        isArchived: item.archived,
+        label: ItemLabel.task,
+      ),
+      onDelete: () => _deleteTask(context, item),
     );
   }
 

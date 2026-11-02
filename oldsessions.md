@@ -4287,6 +4287,70 @@ if (!context.isShortScreen)
 
 **Κατάσταση:** ✅ **E13 CLOSED & DEVICE-VERIFIED 02/11/2026** — analyze clean · **394/394** · red-on-old ✅ · 2 tests · **device T1–T6 OK (POCO X3)** · 0 νέα symbols/strings. Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E11`/`E06`/`E39`.
 
+---
+
+## Session 286 — 02/11/2026 (E11: ενοποιημένο `DetailAppBar` — 9 detail screens → 1 widget)
+
+**Scope (αναστολή κανόνα 4 εγκεκριμένη · edit-tool only):** `error_list.md` P3 `E11` — ένα κοινό `DetailAppBar` για note/task/habit/event/journal/contact/appointment/collection/entry αντί 9 hand-rolled μπάρες. 1 νέο αρχείο `lib/` + 1 γραμμή barrel + 9 detail screens + 1 νέο test αρχείο. **0** νέα tokens/deps/providers.
+
+**Τεχνικά θεμέλια (πραγματικό SDK Flutter 3.47.8 / Dart 3.13.7 — όχι μνήμη):**
+1. `AppBar` ύψος: `widget.toolbarHeight ?? appBarTheme.toolbarHeight ?? kToolbarHeight` (`app_bar.dart:925-926`) = **56**· το `64` του `_AppBarDefaultsM3` (`:2527`) **δεν** εφαρμόζεται στο build ⇒ explicit `toolbarHeight: Spacing.appBarHeight` = zero-change.
+2. `NavigationToolbar.performLayout`: `maxWidth = width − leadingWidth − trailingWidth − middleSpacing*2` (`navigation_toolbar.dart:130-136`) ⇒ `titleSpacing: 0` ανακτά **32dp** (default `kMiddleSpacing` 16 ×2).
+3. `actionsPadding` default = `EdgeInsets.zero` (`app_bar.dart:2569`) ⇒ το `horizontal: 4` των note/task πρόσθετε 8dp και ήταν **το** 2px overflow στα 320dp.
+4. `IconButton` M3: `minimumSize 40` (`icon_button.dart:1002`), `padding 8`, `visualDensity.standard` (default), `tapTargetSize = theme.materialTapTargetSize` (`:1155`)· `VisualDensity.compact = (-2,-2)` → `baseSizeAdjustment = -8` (`theme_data.dart:3311-3313`)· mobile `padded` ⇒ min **40** (48−8), desktop `shrinkWrap` ⇒ **36×32** (με `dx = max(0, -8)` για padding, `button_style_button.dart:501-505`).
+5. AppBar title text scale clamp **1.34** (`app_bar.dart:44-45,1095`).
+6. `SafeArea(bottom:false)` τυλίγει το toolbar (`app_bar.dart:1191`) ⇒ cutouts μειώνουν το πλάτος· αμελητέο (portrait ≥320dp, landscape ≥568dp).
+
+**Μετρήσεις (layout probe έξω από το repo, `%TEMP%\opencode\e11_probe`, Android + Windows):**
+
+| Config | 320dp | 360dp |
+|---|---|---|
+| Σήμερα event: standard 6 + `titleSpacing: 16` | firstX **32** (24dp πάνω στο back) | title **−16** ⇒ spinner **αόρατο** |
+| Σήμερα note/task: compact 6 + `pad 4` | title 16 ⇒ **overflow 2.0px** | title 56, OK |
+| Πρόταση: compact 6 + `titleSpacing: 0` + `pad 0` | firstX **80**, title **24**, **0 exceptions** | firstX 120, title **64** |
+
+Όριο **296dp** (firstX 56)· 300dp ⇒ μόνο το saving label overflow 14px· 280dp ⇒ 16dp επικάλυψη — καμία πραγματική συσκευή.
+
+**Αποφάσεις:** Q1 νέο `shared/widgets/detail_app_bar.dart` + export · Q2 **σταθερό compact** (απορρίφθηκε adaptive: αλλάζει μέγεθος σε rotate/resize, δεν λύνει το event, +2 καταστάσεις) · Q3 `titleSpacing: 0` · Q4 `actionsPadding: 0` · Q5 canonical tooltips («Επαναφορά», «Αποκαρφίτσωμα» — outliers task «Επαναφορά από αρχείο» / event «Ξεκαρφίτσωμα») · Q6 save→reminder→favorite→pin→archive→delete · Q7 saving slot μόνο στις 4 με πραγματικό `isSaving` · Q8 archive = απλό callback (δύο μοντέλα: `handleArchive` / `_toggleArchive`) · Q9 placeholders loading/error/not-found **άνευ** αλλαγής · Q10 νεκρά `isSaving` σε body widgets → defer (άλλο αρχείο).
+
+**Τι άλλαξε από την πρόταση πριν την υλοποίηση:** αφαιρέθηκε το `saveEnabled` (αρκεί `onSave != null && !isSaving`) · επιβεβαιώθηκε ότι το `toolbarHeight` 64 είναι dormant · το 320dp εύρημα αναδιατυπώθηκε ως **επικάλυψη με back**, όχι overflow · το `a11y.md` D4 ήταν stale (το task ήταν ήδη compact) και διορθώθηκε.
+
+**Υλοποίηση:**
+1. `lib/shared/widgets/detail_app_bar.dart` (**154** γραμμές, νέο): `StatelessWidget` + `PreferredSizeWidget`, `preferredSize = Size.fromHeight(Spacing.appBarHeight)`, 4 bools + 6 nullable callbacks, `const` constructor, `_kActionIconSize = 20`, saving Row (spinner `AppIconSize.xs` + `Spacing.xs` + «Αποθήκευση...» `bodySm`/`cText2`).
+2. `shared/widgets/widgets.dart`: +1 export.
+3. Note/task: saving handler μένει inline (`executeSave` + `safePop`) — η λογική **δεν** μετακινήθηκε.
+4. Habit: ίδιος empty-title guard + `nav.pop()` σε `onSave`, χωρίς reminder (null), pin↔fav σειρά ενοποιημένη.
+5. Journal/contact/appointment: 6 actions, χωρίς `isSaving` (όπως πριν).
+6. Collection: μόνο save+favorite → `_buildAppBar()` χωρίς params (έφυγε και το `models.dart` import).
+7. Entries: inline `AppBar` → `DetailAppBar` με τα 5 υπάρχοντα callbacks.
+8. Event: 2 call sites → `DetailAppBar`, διαγράφηκε το private `_EventDetailAppBar` (90 γραμμές, ήταν `:752` — το παλιό ref `:805` έδειχνε μέσα στην κλάση).
+9. `test/detail_app_bar_test.dart` (**7 tests**): `preferredSize` 56 · 6 ενέργειες + canonical σειρά/tooltips · null callbacks κρύβουν · `isSaving` → spinner+label+disabled save · compact **40×40** + icon 20 · 320/360dp χωρίς overflow, firstX = `width − 240`.
+
+**Ευρήματα που διορθώθηκαν (πραγματικά bugs, όχι hygiene):**
+- Event spinner **αόρατος** σε ≤390dp (σήμερα title −16 στα 360dp, clipped από το `ClipRect`).
+- Note/task saving **overflow 2px** στα 320dp (`actionsPadding: 4`).
+- Journal/contact/event/appointment actions **πάνω στο back** στα 320dp (24dp, χωρίς exception).
+
+**Οπτικές αλλαγές (καμία λειτουργική):** habit/event/appointment pin↔favorite σειρά · note ανενεργά pin/fav `cText`→`cText2` · event icon 24→20 + spinner `cText2` · note/task −8dp δεξί padding. Λειτουργική διαφορά **μόνο**: το save του event απενεργοποιείται για λίγα ms κατά το title autosave (το `executeSave` είχε ήδη guard).
+
+**Έλεγχοι:** `flutter analyze --no-pub` → **No issues found** · `flutter test` → **400 PASS / 1 FAIL** (62 αρχεία). Το FAIL είναι **προϋπάρχον** και άσχετο: `home_short_viewport_test.dart` — «800dp ύψος (portrait)», `RenderFlex overflowed by 94 pixels on the right` στο `HomeScreen` (πριν την υλοποίηση έτρεχε **393/394** με το ίδιο failure). Δεν άνοιξε κάρτα χωρίς OK χρήστη.
+
+**Μετρήσεις μετά:** `lib/` **43.828** γραμμές / **162** αρχεία (πριν 44.155 / 161) ⇒ **−327** γραμμές · R1 **21** (αμετάβλητο) · `tooltip:` **47** (πριν 89).
+
+**Backups:** `backups/E11_detail_appbar_2026-11-02/` — 9 detail screens + `widgets.dart` + `error_list.md` + `a11y.md` + `oldsessions.md` + `supernote.md`.
+
+**Docs:** `error_list.md` — §1 P3 5→4 (E11 έξω + renumber) · §2 E11 → ✅ CLOSED · §3 bullet · §0 (HEAD/analyze/tests/γραμμές/tooltips). `a11y.md` D4 ξαναγράφτηκε (σταθερό compact, μετρημένα, γιατί όχι adaptive). `supernote.md` — δέντρο + νέα ενότητα `DetailAppBar` + διόρθωση Flutter/Dart (3.47.8/3.13.7) + test counter. `code_refactor.md`: καμία (παγωμένο).
+
+**Commits:** `5deaa8b` — κώδικας + tests + docs σε ένα commit.
+
+**Μαθήματα:**
+- **Μέτρα το SDK, μη το θυμάσαι:** το `toolbarHeight` 64 στο `_AppBarDefaultsM3` δεν σημαίνει 64 στο layout — το build διαβάζει `kToolbarHeight`.
+- **Τα «overflow» δεν είναι πάντα overflow:** στα 320dp τα actions **επικαλύπτουν** το back χωρίς exception· μόνο μέτρηση θέσεων το δείχνει.
+- **Ένα probe έξω από το repo** (temp Flutter project) απέδειξε τα νούμερα πριν αγγίξω production κώδικα — 0 ρίσκο, 0 churn.
+- **Μην ανοίγεις κάρτα για ξένο failure** χωρίς OK· κατέγραψε το και ανέφερέ το.
+
+**Κατάσταση:** ✅ **E11 CLOSED 02/11/2026 (analyze+tests)** — device pass **δεν** έγινε (οπτικό· προαιρετικό). Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E06`/`E39` · εκκρεμεί απόφαση για το προϋπάρχον `home_short_viewport_test` (άνοιγμα νέας κάρτας `E46`;).
+
 
 
 
