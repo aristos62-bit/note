@@ -95,6 +95,23 @@ class AppErrors {
   static const reminderSavedNoAlarm =
       'Αποθηκεύτηκε, αλλά οι ειδοποιήσεις είναι κλειστές — δεν θα χτυπήσει';
 
+  // E08 (S284): άδεια OS vs in-app flag — 2 διαφορετικές αιτίες σιωπής.
+  static const notifBlockedBySystem =
+      'Οι ειδοποιήσεις είναι κλειστές από το σύστημα — άνοιξέ τις στις '
+      'Ρυθμίσεις › Ειδοποιήσεις › SuperNote';
+  static const notifBlockedBySystemShort =
+      'Κλειστές από το σύστημα — δεν θα χτυπήσει';
+  static const notifDisabledInApp =
+      'Οι ειδοποιήσεις είναι κλειστές στην εφαρμογή — άνοιξέ τις στις '
+      'Ρυθμίσεις';
+  static const notifDisabledInAppShort =
+      'Κλειστές στην εφαρμογή — δεν θα χτυπήσει';
+  static const reminderSavedNoAlarmSystem =
+      'Αποθηκεύτηκε, αλλά το σύστημα δεν επιτρέπει ειδοποιήσεις — '
+      'δεν θα χτυπήσει';
+  static const notifCoverageBlocked =
+      'Πλήρης κάλυψη DB↔OS — αλλά το σύστημα δεν επιτρέπει εμφάνιση';
+
   // ── Birthday ─────────────────────────────────────────────────
   static String birthdayReplaced(String name) =>
       'Αντικαταστάθηκε η υπενθύμιση γενεθλίων για $name';

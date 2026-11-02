@@ -135,11 +135,13 @@ lib/
 │   ├── attachment_provider.dart  — Attachments CRUD
 │   ├── settings_provider.dart    — Settings CRUD, derived providers
 │   ├── app_info_provider.dart    — appVersionProvider (package_info_plus)
+│   ├── notification_permission_provider.dart — notificationPermissionProvider (E08)
 │   ├── app_lock_provider.dart    — appLockStateProvider (AppLockService)
 │   └── ui_provider.dart          — UI state (selectedFolder, viewMode, isDragging, dayTick)
 ├── services/
 │   ├── services.dart             — Barrel export
 │   ├── notification_service.dart — flutter_local_notifications init
+│   ├── notification_permission.dart — Pure tri-state άδειας ειδοποιήσεων (E08)
 │   ├── reminder_scheduler.dart   — Schedule/cancel platform notifications
 │   ├── reminder_text.dart        — Pure title/body resolver (E10)
 │   ├── reminder_bake_plan.dart   — Pure OS bake planner (E10/E35)
@@ -260,6 +262,7 @@ lib/
         ├── safe_sheet.dart        — Scroll-safe sheet shell SPoT (S109)
         ├── safe_dialog.dart       — Scroll-safe dialog body (S109)
         ├── attachments_strip.dart — Shared attachments strip SPoT (S136)
+        ├── notification_hint.dart — Μόνιμα hints ειδοποιήσεων SPoT (E08)
         └── reminder_recurrence_picker.dart — Recurrence picker (split S166)
 ```
 
@@ -456,6 +459,12 @@ final db = SuperNoteHelper.instance;
 - `onNotificationTap` — static callback for tap handling (set in `main()`)
 - `schedule(...)` → `Future<bool>` — `true` μόνο σε πραγμάτωση (S234)
 - `syncChannel(vibration)` — delete+recreate καναλιού· μόνο στο toggle, ποτέ στο init· ήχος OFF μέσω `silent` (S58)
+- `permissionStatus()` → `Future<NotificationPermissionState>` (E08) — read-only άδεια OS: Android `areNotificationsEnabled`, iOS/macOS `checkPermissions`· **fail-open** (`unknown` σε init/σφάλμα/πλατφόρμα χωρίς API)· gate `_permissionRequested` (τίθεται στην **είσοδο** του `requestPermission`) ώστε πριν την απάντηση του dialog να μην εμφανίζεται ψευδές «κλειστές».
+
+### Notification permission (E08)
+- `services/notification_permission.dart` — SPoT: `NotificationPermissionState {granted, denied, unknown}` + 2 pure mappers (`permissionStateFromAndroid`, `permissionStateFromDarwin`· provisional → granted). Κανόνας: null/άγνωστο → `unknown`, **ποτέ** denied.
+- `providers/notification_permission_provider.dart` — `FutureProvider` (mirror `appVersionProvider`)· `invalidate` από `main.dart` μετά το `requestPermission()` (και στη διαδρομή timeout) + σε κάθε `resumed` (η άδεια αλλάζει εκτός εφαρμογής).
+- `shared/widgets/notification_hint.dart` — `NotificationHintRow` (dumb, `compact` 16/20 — αντικατέστησε τα 3 inline S202 hints) + `NotificationPermissionHint` (in-app OFF έχει προτεραιότητα· granted/unknown → `SizedBox.shrink`). Call sites: Settings, `ReminderSection`, Διάγνωση (σταματά το ψευδές «Πλήρης κάλυψη»).
 
 ### ReminderScheduler (`lib/services/reminder_scheduler.dart`)
 - `scheduleAll({incremental})` — full/incremental bake· `scheduleReminders(Iterable<Reminder>)` — batch (refresh/top-up/repair)· `scheduleReminder`, `rescheduleReminder` (snooze/trigger change), `rescheduleForItem` (rename/status/archive/restore).

@@ -6,6 +6,7 @@
 //   import 'package:super_note/services/services.dart';
 //
 export 'notification_service.dart';
+export 'notification_permission.dart';
 export 'reminder_scheduler.dart';
 export 'search_service.dart';
 export 'habit_service.dart';

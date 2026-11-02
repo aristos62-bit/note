@@ -81,6 +81,7 @@ class _ReminderDiagnosticsScreenState
   bool _truncated = false;
   int _deferredCount = 0;
   int _beyondHorizonCount = 0;
+  NotificationPermissionState _osPermission = NotificationPermissionState.unknown;
 
   @override
   void initState() {
@@ -168,6 +169,11 @@ class _ReminderDiagnosticsScreenState
       await NotificationService.instance.getPendingNotifications();
       final osIds = osPending.map((p) => p.id).toSet();
 
+      // E08: η άδεια εμφάνισης — χωρίς αυτή το «Πλήρης κάλυψη» θα ήταν
+      // ψευδές (τα alarms υπάρχουν αλλά δεν εμφανίζονται ποτέ).
+      final osPermission =
+          await NotificationService.instance.permissionStatus();
+
       _osCount = osPending.length;
       _truncated = ReminderScheduler.instance.isOsWindowTruncated;
 
@@ -206,6 +212,7 @@ class _ReminderDiagnosticsScreenState
       setState(() {
         _roots = rootStatuses;
         _pending = pendingRows;
+        _osPermission = osPermission;
         _loading = false;
       });
     } catch (e) {
@@ -318,6 +325,7 @@ class _ReminderDiagnosticsScreenState
       );
     }
     final limit = NotificationService.osAlarmLimit;
+    final osDenied = _osPermission == NotificationPermissionState.denied;
     return Card(
       margin: const EdgeInsets.only(bottom: Spacing.sm),
       child: Padding(
@@ -325,8 +333,14 @@ class _ReminderDiagnosticsScreenState
         child: Row(
           children: [
             Icon(
-              _truncated ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
-              color: _truncated ? context.cWarning : context.cSuccess,
+              osDenied
+                  ? Icons.notifications_off_rounded
+                  : _truncated
+                      ? Icons.warning_amber_rounded
+                      : Icons.check_circle_rounded,
+              color: osDenied || _truncated
+                  ? context.cWarning
+                  : context.cSuccess,
             ),
             const SizedBox(width: Spacing.sm),
             Expanded(
@@ -336,10 +350,13 @@ class _ReminderDiagnosticsScreenState
                   Text('OS: $_osCount / $limit',
                       style: context.bodyMd),
                   Text(
-                    _truncated
-                        ? 'Περικοπή ενεργή — οι μακρινές μπαίνουν σταδιακά'
-                        : 'Πλήρης κάλυψη',
-                    style: context.bodySm.withColor(context.cText2),
+                    osDenied
+                        ? AppErrors.notifCoverageBlocked
+                        : _truncated
+                            ? 'Περικοπή ενεργή — οι μακρινές μπαίνουν σταδιακά'
+                            : 'Πλήρης κάλυψη',
+                    style: context.bodySm.withColor(
+                        osDenied ? context.cWarning : context.cText2),
                   ),
                   // E45/A: ορατότητα της αναβολής — αλλιώς το «Πλήρης
                   // κάλυψη» θα έκρυβε ότι τα habit alarms >14ημ. μένουν στη DB.

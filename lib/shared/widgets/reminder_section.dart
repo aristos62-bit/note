@@ -7,8 +7,10 @@ import '../../providers/providers.dart';
 import '../../models/models.dart';
 import '../../services/reminder_scheduler.dart';
 import '../../services/notification_service.dart';
+import '../../services/notification_permission.dart';
 import 'reminder_recurrence_picker.dart';
 import 'safe_sheet.dart';
+import 'notification_hint.dart';
 
 // ---------------------------------------------------------------------
 // Main Widget
@@ -204,6 +206,14 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
           final settings = await ref.read(dbProvider).settings.get();
           if (!settings.notificationsEnabled && mounted) {
             _snack(AppErrors.reminderSavedNoAlarm);
+          } else if (mounted) {
+            // E08: OS-denied → δεν θα εμφανιστεί τίποτα. Έλεγχος ΜΟΝΟ όταν
+            // το in-app είναι ON — ποτέ 2 SnackBars (else-if).
+            final osState =
+                await NotificationService.instance.permissionStatus();
+            if (osState == NotificationPermissionState.denied && mounted) {
+              _snack(AppErrors.reminderSavedNoAlarmSystem);
+            }
           }
         } catch (e) {
           DebugConfig.error('ReminderSection settings-check', e);
@@ -322,19 +332,19 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
         ),
         if (!NotificationService.isSupportedPlatform) ...[
           const SizedBox(height: Spacing.xs),
-          Row(
-            children: [
-              Icon(Icons.info_outline_rounded, size: 16, color: context.cText2),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: Text(
-                  AppErrors.notificationsUnsupportedWindows,
-                  style: context.bodySm.withColor(context.cText2),
-                ),
-              ),
-            ],
+          const NotificationHintRow(
+            icon: Icons.info_outline_rounded,
+            text: AppErrors.notificationsUnsupportedWindows,
+            compact: true,
           ),
         ],
+        NotificationPermissionHint(
+          osState: ref.watch(notificationPermissionProvider).valueOrNull ??
+              NotificationPermissionState.unknown,
+          inAppEnabled: ref.watch(settingsNotifierProvider
+              .select((s) => s.valueOrNull?.notificationsEnabled)),
+          compact: true,
+        ),
         if (_enabled) ...[
           const SizedBox(height: Spacing.xs),
           GestureDetector(

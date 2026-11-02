@@ -55,6 +55,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:super_note/core/utils/debug_config.dart';
+import 'notification_permission.dart';
 
 class NotificationService {
   NotificationService._internal();
@@ -89,6 +90,11 @@ class NotificationService {
   }
 
   bool _initialized = false;
+
+  /// E08 (S284): gate «ρωτήσαμε τουλάχιστον μία φορά σε αυτή τη διεργασία».
+  /// Χωρίς αυτό, σε Android 13+ πριν απαντηθεί το dialog το
+  /// `areNotificationsEnabled()` γυρίζει false → ψευδής προειδοποίηση.
+  bool _permissionRequested = false;
 
   // ─────────────────────────────────────────────────────────
   // INIT
@@ -168,6 +174,9 @@ class NotificationService {
 
   Future<bool> requestPermission() async {
     DebugConfig.notif('NotificationService.requestPermission: called');
+    // E08: το gate μπαίνει στην ΕΙΣΟΔΟ (πριν το await) — ώστε μια ταυτόχρονη
+    // permissionStatus() κατά τη διάρκεια του dialog να δίνει unknown.
+    _permissionRequested = true;
     try {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
@@ -207,6 +216,52 @@ class NotificationService {
     }
   }
 
+  /// E08 (S284): τρέχουσα άδεια ειδοποιήσεων του OS — read-only.
+  /// Fail-open: κάθε αβεβαιότητα/σφάλμα → unknown (ποτέ ψευδές denied).
+  Future<NotificationPermissionState> permissionStatus() async {
+    if (!_initialized) {
+      DebugConfig.notif('permissionStatus: skipped (not initialized)');
+      return NotificationPermissionState.unknown;
+    }
+    if (!_permissionRequested) {
+      DebugConfig.notif('permissionStatus: skipped (not requested yet)');
+      return NotificationPermissionState.unknown;
+    }
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) {
+        final raw = await android.areNotificationsEnabled();
+        final state = permissionStateFromAndroid(raw);
+        DebugConfig.notif(
+            'permissionStatus: platform=android raw=$raw → ${state.name}');
+        return state;
+      }
+
+      final ios = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      if (ios != null) {
+        final state = permissionStateFromDarwin(await ios.checkPermissions());
+        DebugConfig.notif('permissionStatus: platform=iOS → ${state.name}');
+        return state;
+      }
+
+      final macos = _plugin.resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin>();
+      if (macos != null) {
+        final state =
+            permissionStateFromDarwin(await macos.checkPermissions());
+        DebugConfig.notif('permissionStatus: platform=macOS → ${state.name}');
+        return state;
+      }
+
+      DebugConfig.notif('permissionStatus: no platform impl → unknown');
+      return NotificationPermissionState.unknown;
+    } catch (e, stack) {
+      DebugConfig.error('NotificationService.permissionStatus', e, stack);
+      return NotificationPermissionState.unknown;
+    }
+  }
 
   // ─────────────────────────────────────────────────────────
   // SHOW / SCHEDULE / CANCEL

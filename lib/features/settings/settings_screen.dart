@@ -148,32 +148,42 @@ class _SystemGroupState extends State<_SystemGroup> {
             ref: widget.ref,
           )),
           const SizedBox(height: Spacing.sm),
-          _buildCard(
-            SettingsSwitchTile(
-              label: 'Ειδοποιήσεις',
-              subtitle: 'Reminders και υπενθυμίσεις',
-              value: widget.settings.notificationsEnabled,
-              onChanged: (v) {
-                DebugConfig.provider('Settings: notifications=$v');
-                widget.ref.read(settingsNotifierProvider.notifier).toggleNotifications(v);
-              },
-            ),
-          ),
-          if (!NotificationService.isSupportedPlatform) ...[
-            const SizedBox(height: Spacing.sm),
-            Row(
+          Consumer(builder: (_, ref, __) {
+            final osState =
+                ref.watch(notificationPermissionProvider).valueOrNull ??
+                    NotificationPermissionState.unknown;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded, size: 20, color: context.cText2),
-                const SizedBox(width: Spacing.sm),
-                Expanded(
-                  child: Text(
-                    AppErrors.notificationsUnsupportedWindows,
-                    style: context.bodySm.withColor(context.cText2),
+                _buildCard(
+                  SettingsSwitchTile(
+                    label: 'Ειδοποιήσεις',
+                    subtitle: osState == NotificationPermissionState.denied
+                        ? 'Κλειστές από το σύστημα'
+                        : 'Reminders και υπενθυμίσεις',
+                    value: widget.settings.notificationsEnabled,
+                    onChanged: (v) {
+                      DebugConfig.provider('Settings: notifications=$v');
+                      widget.ref
+                          .read(settingsNotifierProvider.notifier)
+                          .toggleNotifications(v);
+                    },
                   ),
                 ),
+                if (!NotificationService.isSupportedPlatform) ...[
+                  const SizedBox(height: Spacing.sm),
+                  const NotificationHintRow(
+                    icon: Icons.info_outline_rounded,
+                    text: AppErrors.notificationsUnsupportedWindows,
+                  ),
+                ],
+                NotificationPermissionHint(
+                  osState: osState,
+                  inAppEnabled: widget.settings.notificationsEnabled,
+                ),
               ],
-            ),
-          ],
+            );
+          }),
           const SizedBox(height: Spacing.sm),
           _buildCard(
             SettingsSwitchTile(
