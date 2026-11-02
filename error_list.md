@@ -44,11 +44,11 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `084fadd` (S284/E08 κώδικας+tests) · device pass 02/11/2026 (βλ. §3) | `git log` |
-| `flutter analyze` | **No issues found** | run 01/11/2026 (S284) |
-| `flutter test` | **393/393** (61 αρχεία test) | run 01/11/2026 (S284) |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 44.152 (161 αρχεία) | μετρήθηκε 01/11/2026 (S284) |
-| Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 01/11/2026 · βλ. E06 |
+| Git HEAD | `ed6490a` (S285/E13 κώδικας+tests) | `git log` |
+| `flutter analyze` | **No issues found** | run 02/11/2026 (S285) |
+| `flutter test` | **394/394** (61 αρχεία test) | run 02/11/2026 (S285) |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 44.155 (161 αρχεία) | μετρήθηκε 02/11/2026 (S285) |
+| Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 02/11/2026 · βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
 | `tooltip:` | **89** | grep |
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
@@ -85,16 +85,15 @@
 |---|---|---|---|
 | 1 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (6)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (5)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
 | 6 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
 | 7 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
 | 8 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
-| 9 | `E06` | **R1: 20 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 10 | `E13` | **B-Π2b** — κρύψιμο label «Φάκελοι» σε κοντό viewport | Προσθήκη *(δεν εμφανίστηκε στο device pass του E03 — 26/10/2026)* |
-| 11 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 9 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 10 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -207,8 +206,12 @@
 - **Υλοποίηση (22/10/2026, `92fdcc6`):** `ArchivedMenuButton` για τα 7 AppBar menus + `ArchivedInlineButton` (`Align`, όχι `Row+Spacer`) για το calendar· flexible label για 140% στα menus.
 - **Κατάσταση:** κώδικας ✅ · **device ✅ 22/10/2026 (χειροκίνητος έλεγχος χρήστη):** 7 AppBar menus + calendar inline toggle σε **140% / landscape**, χωρίς κόψιμο label ή overflow· δεν καταγράφηκαν Flutter errors. Screenshots: `backups/o4_sheets_2026-10-22/device_logs/`.
 
-### E13 — B-Π2b (υπό συνθήκη)
-- Κρύψιμο του label «Φάκελοι» σε κοντό viewport **μόνο αν** φανεί ανάγκη στο E03.
+### E13 — ✅ CLOSED 02/11/2026 (S285 — υλοποίηση με ρητή απόφαση χρήστη)
+- **Τι άλλαξε:** `home_screen.dart:86-98` — το label «Φάκελοι» τυλίχθηκε σε `if (!context.isShortScreen)` (reuse `responsive.dart:73`, **ίδιος** κανόνας με το greeting `:78`). **0** νέα symbols/strings/widgets/tokens.
+- **Κέρδος (αποδεδειγμένο, όχι εκτίμηση):** το `HomeFolderView` είναι σε `SliverFillRemaining` (`home_screen.dart:149`) ⇒ **+28.02dp** στο viewport του grid/λίστας (`labelLg` 14×1.43 = 20.02 + 2×`Spacing.xs` 4). Τα chips ξεκινούν από **x=0** (device dump S255: `b=[0,619]`) ⇒ **0** απώλεια οριζόντιου padding.
+- **⚠️ Αντιστροφή απόφασης:** η S262 (`oldsessions.md:3507`) είχε **απορρίψει** ρητά το κρύψιμο («+28dp, χάνεται δομή, μη ανάλογο κέρδος»)· το E13 έμεινε ως *υπό συνθήκη* και το E03 πέρασε **2×** (S262/S276) χωρίς να χρειαστεί. Κλείνει με **ρητή εντολή χρήστη** (S285) — μην το ξαναδείτε ως bug/regression.
+- **Απόδειξη:** `flutter analyze` **clean** · **394/394** (61 αρχεία) · **red-on-old ✅** (προσωρινό `if (true)` ⇒ το test 392dp πέφτει με «Found 1 widget with text Φάκελοι») · 2 tests: 392dp **κρυφό** / 800dp **ορατό**.
+- **Όριο/παρενέργεια:** το `shouldShowFolderStats` (>100dp) μπορεί να εμφανίσει τα stats στη ζώνη 100–128dp (ασφαλές εξ ορισμού: 48+52 = 100 ≤ h). Device pass **προαιρετικό** (καθαρό layout, 0 logic) — δεν απαιτείται για το κλείσιμο.
 
 ### E14 — ✅ CLOSED 26/10/2026 (S275)
 - **Υλοποίηση:** διαγράφηκαν `pendingRemindersProvider` + `pendingRemindersStreamProvider` (`reminder_provider.dart:12-21`), **5 invalidates** (`:60,:84,:95,:105` + `reminder_section.dart:115`) και 2 γραμμές docs (`supernote.md:636-637`). Το repo API `watchPending` μένει (τεκμηριωμένο, `supernote.md:424`).
@@ -409,6 +412,7 @@
 
 > Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S284.
 
+- **`E13` — CLOSED 02/11/2026 (S285, analyze+tests + red-on-old):** το label «Φάκελοι» κρύβεται σε κοντό viewport (`home_screen.dart:86-98`: `if (!context.isShortScreen)` — reuse `responsive.dart:73`, parity με το greeting `:78`) ⇒ **+28.02dp** στο `HomeFolderView` (`SliverFillRemaining` `:149`) χωρίς απώλεια οριζόντιου padding (chips από x=0). 0 νέα symbols/strings. **394/394** · red-on-old ✅ · 2 tests (392dp κρυφό / 800dp ορατό). *Αντιστρέφει την S262 απόρριψη — απόφαση χρήστη, όχι bug.*
 - **`E08` — CLOSED 02/11/2026 (S284, analyze+tests+device POCO X3):** άδεια ειδοποιήσεων OS ως ορατή κατάσταση. `permissionStatus()` (tri-state + gate + fail-open) · `notification_permission.dart` (enum + 2 pure mappers) · `notificationPermissionProvider` (`FutureProvider`, invalidate σε request/resume) · `NotificationHintRow` + `NotificationPermissionHint` (SPoT, 3 call sites: Settings / `ReminderSection` / Διάγνωση) · 6 `AppErrors` strings · save-time SnackBar **else-if**. Παύει το ψευδές «Πλήρης κάλυψη» της Διάγνωσης. analyze clean · **393/393** · scheduler 0 γραμμές · device T1–T7 PASSED (0 ERR, 6.143 γραμμές log).
 - **`O7` (E20 + E22) — CLOSED 29/10/2026 (S279, device-verified T1–T8):** `AppDateUtils.earliestYear=1900` + `clampToRange` σε **5** pickers (journal `1900…now` · reminder `1900…now+5` · appointment `1900…2100` · appointment/contact birthday `1900…now`) · `formatNumeric`/`formatNumericDateTime` (intl-free dd/MM/yyyy) · `numberedIndexesFor` **O(n)** · ✕ **μόνο σε hover/focus** με 48×48 + `Visibility(maintain*)` · `dayTickProvider` στο `ui_provider` (0 `DateTime.now()` σε build) · `kFolderCreateTypes` 2-tuple + `ItemTypeIcon` · αφαίρεση `✓`/emoji. Device (POCO X3, 29/10/2026): T1 1950 (picker + yearly 5/5) · T2 1995 · T3 1998 (+ έτη από **1900**) · T4 focus-✕/αρίθμηση 4→11/140%/landscape · T5 **1990 + daily** root id=3223, `rows=85 desired=85 kept=85 truncated=false`, 0 `ERR` (one-shot παρελθόν → `past one-shot, blocked` by design) · T6 8 icons/0 emoji · T7 dd/MM/yyyy · T8 habit χωρίς ✓. analyze clean · **370/370**.
 
@@ -536,7 +540,7 @@
 | **Ο1 — Scheduler correctness** ✅ CLOSED 21/10/2026 (S270 `c2dc8f2` + device/test) | E10 + E34 + E35 + E36 + E37 (προαιρ. E08, E14) | `reminder_scheduler.dart` + `reminder_text.dart` + `reminder_bake_plan.dart` + `habit_service.dart` + providers/settings + 16 tests | E35–E37 από E10/E34 |
 | **Ο2 — Lifecycle (startup/resume/restore)** ✅ CLOSED 22/10/2026 (device-verified) | E16 + E33 + E18-μέρος | `main.dart` + debounce `reminder_scheduler` + `backup_service` + `super_note_helper` + `backup_archive` + cold-start/restore tests | E18: 14/21 sites (υπόλοιπα 7 → Ο6) |
 | **Ο3 — Mass-delete pipeline** ✅ CLOSED 27/10/2026 (S277 `a5a40a6` + device T1–T7) | E05 (solo — υψηλό ρίσκο, εξαρτάται από Ο1) | `trash_screen` + `item_provider` + `habit_service` + `super_note_helper` + `reminder_scheduler` (4 batch APIs, 0 νέοι providers/tests) | — |
-| **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E13, E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 |
+| **Ο4 — UI consolidation/hardening** ✅ CLOSED 22/10/2026 (S271 `92fdcc6` + device) | E04 + E28 + E12 + E02 (προαιρ. E11) | Sheets + οθόνες (ίδια αρχεία, ένα πέρασμα) + landscape/140% checks | E28/E12/E02 από E04 · E13 ✅ S285 |
 | **Ο8 — Καθολική επιλογή φακέλου** ✅ CLOSED 23/10/2026 (S272, analyze+test) | E38 (solo) | `selectedFolderIdProvider` + Home/7 λίστες/Ημερολόγιο + `folder_picker_dialog` + settings/share cleanup + 3 tests | — |
 | **Ο5 — Grid + verify** ✅ CLOSED 26/10/2026 (device-verified, S276) | E27 + E03 + **E44** | `reorderable_item_list` (autoScroll + dragEnabled) + `selectRecentItems` recency + μαζικό device pass (100%/140°) | E03 από E27 · E44 από E19 |
 | **Ο6 — Cleanup & visibility sweep** ✅ CLOSED 26/10/2026 (S275, analyze+tests) | E19 + E21 + E14 + E23 | Μηχανικά/αποφάσεις, χωρίς device (+E42 επιτόπου) | E19/E21/E14/E23 από E18 |

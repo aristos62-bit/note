@@ -4234,6 +4234,50 @@
 
 **Κατάσταση:** ✅ **E08 CLOSED 02/11/2026 — device-verified (POCO X3, T1–T7)** · analyze clean · **393/393** · 0 ERR στο device log.
 
+## Session 285 — 02/11/2026 (E13: κρύψιμο label «Φάκελοι» σε κοντό viewport — απόφαση χρήστη)
+
+**Scope (αναστολή κανόνα 4 εγκεκριμένη · edit-tool only):** `error_list.md` §1 P3 `E13` (**B-Π2b**) — το label «Φάκελοι» της Αρχικής να κρύβεται σε κοντό viewport. 1 αρχείο `lib/` + 1 test αρχείο· 0 νέα symbols/strings/widgets/tokens.
+
+**Επανέλεγχος πριν την υλοποίηση (τι διόρθωσε την αρχική πρόταση):**
+1. **Το E13 είχε ήδη απορριφθεί ρητά** — S262 (`oldsessions.md:3507`): «κρύψιμο και του label «Φάκελοι» (**+28 dp, χάνεται δομή, μη ανάλογο κέρδος**)». Έμεινε ως *υπό συνθήκη* («μόνο αν φανεί ανάγκη στο E03») και το E03 πέρασε **2×** (S262/S276) χωρίς να χρειαστεί ⇒ δεν είναι bug, είναι **αντιστροφή απόφασης** (ρητή εντολή χρήστη) και καταγράφεται ως τέτοια.
+2. **Το «+28dp» αποδείχθηκε πού πάει:** `home_screen.dart:149` = `SliverFillRemaining(child: HomeFolderView(...))` ⇒ το κρυμμένο label αυξάνει **απευθείας** το `constraints.maxHeight` του grid/λίστας κατά **28.02dp** (`labelLg` 14×1.43 = 20.02 + 2×`Spacing.xs` 4) — όχι απλώς «λιγότερο scroll».
+3. **Δεν χάνεται οριζόντιο padding:** τα chips ξεκινούν από **x=0** (device dump S255: `b=[0,619][220,773]`, label `b=[44,531]`) — το `Padding(horizontal: responsiveHPadding)` τυλίγει **μόνο** το label.
+4. **Καμία reusable «section header»** (`labelLg` μόνο εδώ + `priority_badge.dart:91`) ⇒ inline conditional, **0** νέα widgets. Εναλλακτικές που απορρίφθηκαν: `LayoutBuilder` σε όλο το body · `Visibility` (κρατά layout space) · compact label (δεν κερδίζει 28dp).
+5. Παρενέργεια που καταγράφηκε: το `shouldShowFolderStats` (>100dp) μπορεί να εμφανίσει τα stats στη ζώνη 100–128dp (ασφαλές: 48+52 = 100 ≤ h).
+
+**Απόφαση:** **A** (υλοποίηση) έναντι **B** (κλείσιμο ως not-needed, 0 κώδικας) — επιλογή χρήστη: A. Επιλέχθηκε `context.isShortScreen` (υπάρχον, `responsive.dart:73`) για **parity με το greeting** (`home_screen.dart:78`) — καμία νέα σταθερά/μηχανισμός.
+
+**Υλοποίηση (`home_screen.dart` 921→924, +12/−9):**
+```dart
+// γρ. 86-98
+// «Φάκελοι»: κρύβεται σε κοντό viewport (landscape κινητού) —
+// ίδιος κανόνας με το greeting (+28dp στο folder view).
+if (!context.isShortScreen)
+  Padding( … 'Φάκελοι' … ),
+```
+**Tests (`test/home_short_viewport_test.dart` 158→192):** helper `_homeScreenAt(tester, width, height)` (μία πηγή fixture για τα 2 viewports) · στο υπάρχον 392dp test προστέθηκε `expect(find.text('Φάκελοι'), findsNothing)` · **νέο** 800dp portrait test (`findsOneWidget` για label **και** greeting) · `setUpAll(initializeDateFormatting())`.
+
+**Λάθος που διορθώθηκε κατά την υλοποίηση:** το πρώτο portrait test έπεσε με **`LocaleDataException`** από το `_GreetingSection` (`AppDateUtils.formatDateTime` → `DateFormat('el')`), με συνέπεια `h=0.0` και «0 widgets Φάκελοι» για **λάθος** λόγο. Λύση: `initializeDateFormatting()` σε `setUpAll` (parity `main.dart:22`, `test/f18_past_pending_invalidate_test.dart:39-43`).
+
+**Red-on-old ✅:** προσωρινό `if (true)` (παλιά συμπεριφορά) ⇒ το test 392dp **πέφτει**: `Expected: no matching candidates / Actual: Found 1 widget with text "Φάκελοι"` — μετά επαναφορά της γραμμής (καμία άλλη διαφορά).
+
+**Έλεγχοι:** `flutter analyze --no-pub` → **No issues found** (63.0s) · `flutter test` → **394/394 All tests passed** (30s, 61 αρχεία) · `lib/` **44.155** γραμμές / **161** αρχεία · R1 **21** (αμετάβλητο· `home_screen` 924 ήταν ήδη >500 = E06) · 0 tests άλλων αρχείων επηρεάστηκαν (`HomeScreen` υπάρχει μόνο σε αυτό το test file).
+
+**Docs:** `error_list.md` — §1 P3 **6→5** (+ renumber, E06 «20→21 αρχεία» για ακρίβεια) · §2 E13 → ✅ CLOSED με ρητή σημείωση αντιστροφής · §3 bullet · §6 Ο4 («προαιρ. E11», E13 ✅ S285) · §0 (HEAD/analyze/tests/γραμμές). **`supernote.md`: καμία αλλαγή** (κανόνας 8 — 0 νέα αρχεία/APIs/δέντρο). **`code_refactor.md`: καμία** (παγωμένο).
+
+**Backups:** `backups/s285_e13/` — `home_screen.dart.pre` + `home_short_viewport_test.dart.pre` + `error_list.md.pre` + `oldsessions.md.pre` (SHA-256) + `BASE_HEAD.txt` = `b6af11d` + `BASE_STATUS.txt`.
+
+**Commits:** `ed6490a` (κώδικας + tests) · docs = το commit αυτής της ενότητας.
+
+**Μαθήματα:**
+- **Πριν «φτιάξεις» ένα parked item, διάβασε γιατί απορρίφθηκε:** το E13 είχε τεκμηριωμένη απόρριψη· η σωστή ροή είναι *ρητή αντιστροφή* + σημείωση στο tracker, αλλιώς το επόμενο session το ξανα-ανοίγει ως regression.
+- **`Measure-Object -Line` δεν μετράει τις κενές γραμμές** ⇒ σε σύγκριση baseline χρησιμοποίησε `(Get-Content $f).Count` (44.155 vs 40.335 ψευδές).
+- **Ένα widget test που χτίζει `HomeScreen` χρειάζεται `initializeDateFormatting()`** — το greeting καλεί `DateFormat('el')` και χωρίς αυτό το δέντρο καταρρέει (το σφάλμα εμφανίζεται ως «λείπει το label», όχι ως locale error).
+- **Ένα test fixture ανά viewport:** το `_homeScreenAt(width,height)` απέτρεψε διπλότυπο setup και έκανε το red-on-old probe μία γραμμή.
+
+**Κατάσταση:** ✅ **E13 CLOSED 02/11/2026** — analyze clean · **394/394** · red-on-old ✅ · 2 tests · device pass προαιρετικό (καθαρό layout, 0 logic). Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E11`/`E06`/`E39`.
+
+
 
 
 
