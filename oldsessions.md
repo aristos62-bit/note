@@ -4269,13 +4269,23 @@ if (!context.isShortScreen)
 
 **Commits:** `ed6490a` (κώδικας + tests) · docs = το commit αυτής της ενότητας.
 
+**Device pass (POCO X3, 02/11/2026 — χειροκίνητος έλεγχος χρήστη):** ο χρήστης δήλωσε **OK** σε όλο το σενάριο **T1–T6** (καμία απόκλιση αναφέρθηκε· απόδειξη = χειροκίνητη παρατήρηση, χωρίς screenshots/dumps — τα logs είναι OFF λόγω `_debug=false`).
+- **Προαπαιτούμενα δεδομένα (κανόνας 12 — τα έφτιαξε ο χρήστης, 0 data μέσω adb):** 3 φάκελοι — `Εργασία` (6 σημειώσεις, μία με μακρύ τίτλο), `Σπίτι` (2), `Ιδέες` (0) · 1 καρφιτσωμένο + 1 αγαπημένο.
+- **T1 portrait (`360×800dp`):** greeting + label «Φάκελοι» **ορατά**.
+- **T2 landscape (`872×392dp` ⇒ `isShortScreen`):** label **απόν**, chips **αμέσως** κάτω από το AppBar, greeting απόν, **0** overflow stripe.
+- **T3** scroll σε grid/λίστα landscape: κανονικό, FAB + κάτω μπάρα OK.
+- **T4** εναλλαγή `Σπίτι` → `Ιδέες` (κενός) → `Εργασία`: OK, label **δεν** επανεμφανίζεται.
+- **T5** επιστροφή σε portrait: label + greeting **επανέρχονται**, επιλογή φακέλου διατηρείται.
+- **T6** landscape + γραμματοσειρά **140%**: OK, χωρίς overflow.
+- **Συμπέρασμα:** η αλλαγή επιβεβαιώνεται στο device ως **πλήρης** (χωρίς regression) — το `E13` δεν χρειάζεται άλλο άνοιγμα.
+
 **Μαθήματα:**
 - **Πριν «φτιάξεις» ένα parked item, διάβασε γιατί απορρίφθηκε:** το E13 είχε τεκμηριωμένη απόρριψη· η σωστή ροή είναι *ρητή αντιστροφή* + σημείωση στο tracker, αλλιώς το επόμενο session το ξανα-ανοίγει ως regression.
 - **`Measure-Object -Line` δεν μετράει τις κενές γραμμές** ⇒ σε σύγκριση baseline χρησιμοποίησε `(Get-Content $f).Count` (44.155 vs 40.335 ψευδές).
 - **Ένα widget test που χτίζει `HomeScreen` χρειάζεται `initializeDateFormatting()`** — το greeting καλεί `DateFormat('el')` και χωρίς αυτό το δέντρο καταρρέει (το σφάλμα εμφανίζεται ως «λείπει το label», όχι ως locale error).
 - **Ένα test fixture ανά viewport:** το `_homeScreenAt(width,height)` απέτρεψε διπλότυπο setup και έκανε το red-on-old probe μία γραμμή.
 
-**Κατάσταση:** ✅ **E13 CLOSED 02/11/2026** — analyze clean · **394/394** · red-on-old ✅ · 2 tests · device pass προαιρετικό (καθαρό layout, 0 logic). Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E11`/`E06`/`E39`.
+**Κατάσταση:** ✅ **E13 CLOSED & DEVICE-VERIFIED 02/11/2026** — analyze clean · **394/394** · red-on-old ✅ · 2 tests · **device T1–T6 OK (POCO X3)** · 0 νέα symbols/strings. Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E11`/`E06`/`E39`.
 
 
 
