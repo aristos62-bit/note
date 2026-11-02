@@ -4341,7 +4341,7 @@ if (!context.isShortScreen)
 
 **Docs:** `error_list.md` — §1 P3 5→4 (E11 έξω + renumber) · §2 E11 → ✅ CLOSED · §3 bullet · §0 (HEAD/analyze/tests/γραμμές/tooltips). `a11y.md` D4 ξαναγράφτηκε (σταθερό compact, μετρημένα, γιατί όχι adaptive). `supernote.md` — δέντρο + νέα ενότητα `DetailAppBar` + διόρθωση Flutter/Dart (3.47.8/3.13.7) + test counter. `code_refactor.md`: καμία (παγωμένο).
 
-**Commits:** `5deaa8b` — κώδικας + tests + docs σε ένα commit.
+**Commits:** `cd2a09a` — κώδικας + tests + docs (το baseline HEAD του `error_list.md` δείχνει εδώ· το docs-only sync του hash ακολουθεί).
 
 **Μαθήματα:**
 - **Μέτρα το SDK, μη το θυμάσαι:** το `toolbarHeight` 64 στο `_AppBarDefaultsM3` δεν σημαίνει 64 στο layout — το build διαβάζει `kToolbarHeight`.
