@@ -83,16 +83,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.responsiveHPadding,
-                    vertical: Spacing.xs,
+                // «Φάκελοι»: κρύβεται σε κοντό viewport (landscape κινητού) —
+                // ίδιος κανόνας με το greeting (+28dp στο folder view).
+                if (!context.isShortScreen)
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.responsiveHPadding,
+                      vertical: Spacing.xs,
+                    ),
+                    child: Text(
+                      'Φάκελοι',
+                      style: context.labelLg.withColor(context.cText2),
+                    ),
                   ),
-                  child: Text(
-                    'Φάκελοι',
-                    style: context.labelLg.withColor(context.cText2),
-                  ),
-                ),
                 // ❌ Αφαιρέθηκε το chip "Νέος" – πλέον υπάρχει FAB
                 FolderChipSelector(
                   folders: folders,
