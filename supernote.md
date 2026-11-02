@@ -8,15 +8,15 @@
 |---|---|
 | Όνομα | super_note (SuperNote) |
 | Version | 1.0.4+2 |
-| Flutter | 3.47.7 (stable) |
-| Dart | 3.13.5 |
+| Flutter | 3.47.8 (stable) |
+| Dart | 3.13.7 |
 | GitHub | https://github.com/aristos62-bit/note |
 | Τοπικό path | `C:\Users\Vaggelis\Flutter Projects\super_note` |
 | IDE | Android Studio Panda 4 \| 2025.3.4 Patch 1 |
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 382/382 🟢 (`flutter test`, 31/10/2026) |
+| Test suite | 400 PASS / 1 FAIL (`flutter test`, 02/11/2026 — το FAIL είναι προϋπάρχον `home_short_viewport_test`) |
 
 ---
 
@@ -251,6 +251,7 @@ lib/
         ├── reminder_section.dart  — Reminder date/time picker
         ├── view_mode_toggle.dart  — Pinned/Favorites/All toggle
         ├── archive_helper.dart    — Central archive/unarchive function
+        ├── detail_app_bar.dart    — Κοινή AppBar detail screens SPoT (E11/S286)
         ├── reorder_handle.dart    — Drag handle icon
         ├── sheet_handle.dart      — Bottom-sheet grabber SPoT (S64)
         ├── item_actions_sheet.dart — Long-press actions sheet SPoT (S65)
@@ -465,6 +466,12 @@ final db = SuperNoteHelper.instance;
 - `services/notification_permission.dart` — SPoT: `NotificationPermissionState {granted, denied, unknown}` + 2 pure mappers (`permissionStateFromAndroid`, `permissionStateFromDarwin`· provisional → granted). Κανόνας: null/άγνωστο → `unknown`, **ποτέ** denied.
 - `providers/notification_permission_provider.dart` — `FutureProvider` (mirror `appVersionProvider`)· `invalidate` από `main.dart` μετά το `requestPermission()` (και στη διαδρομή timeout) + σε κάθε `resumed` (η άδεια αλλάζει εκτός εφαρμογής).
 - `shared/widgets/notification_hint.dart` — `NotificationHintRow` (dumb, `compact` 16/20 — αντικατέστησε τα 3 inline S202 hints) + `NotificationPermissionHint` (in-app OFF έχει προτεραιότητα· granted/unknown → `SizedBox.shrink`). Call sites: Settings, `ReminderSection`, Διάγνωση (σταματά το ψευδές «Πλήρης κάλυψη»).
+
+### DetailAppBar (`lib/shared/widgets/detail_app_bar.dart`, E11/S286)
+- SPoT για τις **9 detail οθόνες** (15 call sites: note/task/habit/event/journal/contact/appointment/collection/entry). `StatelessWidget` + `PreferredSizeWidget`, **0 provider coupling** — μόνο callbacks· η λογική save/archive/delete μένει στις οθόνες (δύο save μοντέλα: `executeSave` vs τοπικό `setState`, δύο archive μοντέλα: `handleArchive` vs `_toggleArchive`).
+- API: `isSaving`, `isPinned`, `isFavorite`, `isArchived` + `onSave/onReminder/onFavorite/onPin/onArchive/onDelete` — **nullable callback = κρυφό κουμπί** (habit χωρίς reminder, collection χωρίς pin/archive/delete). Save ενεργό όταν `onSave != null && !isSaving`.
+- Σταθερό layout: `VisualDensity.compact` + icon 20 + `titleSpacing: 0` + `actionsPadding: 0` + `toolbarHeight: Spacing.appBarHeight` (56) + σειρά save→reminder→favorite→pin→archive→delete + canonical tooltips.
+- Γιατί: `NavigationToolbar` αφαιρεί `2×middleSpacing` (16 default) ⇒ το `titleSpacing: 0` δίνει **+32dp**· 6×40 = 240dp χωράει στα 320dp (firstX 80, όριο 296dp). Saving slot (spinner 14 + «Αποθήκευση...») μόνο όπου υπάρχει πραγματικό `isSaving`. Λεπτομέρειες/a11y: `a11y.md` D4.
 
 ### ReminderScheduler (`lib/services/reminder_scheduler.dart`)
 - `scheduleAll({incremental})` — full/incremental bake· `scheduleReminders(Iterable<Reminder>)` — batch (refresh/top-up/repair)· `scheduleReminder`, `rescheduleReminder` (snooze/trigger change), `rescheduleForItem` (rename/status/archive/restore).

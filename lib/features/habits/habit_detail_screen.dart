@@ -249,89 +249,40 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen>
         ),
       );
 
-  AppBar _buildAppBar(BuildContext context, Item item) => AppBar(
-        backgroundColor: context.cBg,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        titleSpacing: 0,
-        title: _isSaving
-            ? Row(mainAxisSize: MainAxisSize.min, children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: context.cText2),
-                ),
-                const SizedBox(width: Spacing.xs),
-                Text('',
-                    style: context.bodySm.withColor(context.cText2)),
-              ])
-            : null,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.save_rounded, color: context.cPrimary, size: 20),
-            tooltip: 'Αποθήκευση',
-            onPressed: _isSaving
-                ? null
-                : () async {
-              if (_titleCtrl.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text(AppErrors.needTitle)),
-                );
-                return;
-              }
-              final nav = Navigator.of(context);
-              setState(() => _isSaving = true);
-              try {
-                await _saveTitle(_titleCtrl.text.trim());
-                if (mounted) nav.pop();
-              } catch (e) {
-                DebugConfig.error('HabitDetail save button', e);
-                if (mounted) {
-                  setState(() => _isSaving = false);
-                  if (!context.mounted)return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text(AppErrors.saveFailed)),
-                  );
-                }
-              }
-            },
-          ),
-          // Καμπάνα OFF: οι συνήθειες έχουν native scheduling
-          // (Ώρες εκτέλεσης → one-shots 60d)· generic dialog απενεργοποιημένο.
-          IconButton(
-            icon: Icon(
-                _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-                color: _isPinned ? context.cPrimary : context.cText2,
-                size: 20),
-            tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-            onPressed: () => _togglePin(item),
-          ),
-          IconButton(
-            icon: Icon(
-                _isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: _isFavorite
-                    ? ColorsUI.getWarning(context.brightness)
-                    : context.cText2,
-                size: 20),
-            tooltip: _isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-            onPressed: () => _toggleFav(item),
-          ),
-          IconButton(
-            icon: Icon(
-                item.archived ? Icons.unarchive_rounded : Icons.archive_rounded,
-                color: context.cText2,
-                size: 20),
-            tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-            onPressed: () => _toggleArchive(item),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded,
-                color: context.cError, size: 20),
-            tooltip: 'Διαγραφή',
-            onPressed: () => _delete(context),
-          ),
-        ],
+  DetailAppBar _buildAppBar(BuildContext context, Item item) => DetailAppBar(
+        isSaving: _isSaving,
+        isPinned: _isPinned,
+        isFavorite: _isFavorite,
+        isArchived: item.archived,
+        onSave: () async {
+          if (_titleCtrl.text.trim().isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text(AppErrors.needTitle)),
+            );
+            return;
+          }
+          final nav = Navigator.of(context);
+          setState(() => _isSaving = true);
+          try {
+            await _saveTitle(_titleCtrl.text.trim());
+            if (mounted) nav.pop();
+          } catch (e) {
+            DebugConfig.error('HabitDetail save button', e);
+            if (mounted) {
+              setState(() => _isSaving = false);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text(AppErrors.saveFailed)),
+              );
+            }
+          }
+        },
+        // Καμπάνα OFF: οι συνήθειες έχουν native scheduling
+        // (Ώρες εκτέλεσης → one-shots 60d)· generic dialog απενεργοποιημένο.
+        onFavorite: () => _toggleFav(item),
+        onPin: () => _togglePin(item),
+        onArchive: () => _toggleArchive(item),
+        onDelete: () => _delete(context),
       );
 
   Widget _buildLoading() => Scaffold(

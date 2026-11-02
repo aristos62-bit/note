@@ -40,17 +40,18 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 01/11/2026, μετά το S284/E08)
+## 0. Baseline (μετρημένο στον κώδικα — 02/11/2026, μετά το S286/E11)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `ed6490a` (S285/E13 κώδικας+tests) | `git log` |
-| `flutter analyze` | **No issues found** | run 02/11/2026 (S285) |
-| `flutter test` | **394/394** (61 αρχεία test) | run 02/11/2026 (S285) |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 44.155 (161 αρχεία) | μετρήθηκε 02/11/2026 (S285) |
+| Git HEAD | `5deaa8b` (S286/E11 κώδικας+tests+docs) | `git log` |
+| `flutter analyze` | **No issues found** | run 02/11/2026 (S286) |
+| `flutter test` | **400 PASS / 1 FAIL** (62 αρχεία test) — το FAIL είναι το προϋπάρχον `home_short_viewport_test` (800dp) | run 02/11/2026 (S286) |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.828 (162 αρχεία) | μετρήθηκε 02/11/2026 (S286) |
 | Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 02/11/2026 · βλ. E06 |
 | `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
-| `tooltip:` | **89** | grep |
+| `tooltip:` | **47** (πριν 89 — τα 9 detail AppBars έγιναν 1 widget) | grep |
+
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
 | `catch (_) {}` | **0** (E18 CLOSED 24/10/2026) | grep |
 | `debugPrint`/`print` εκτός `DebugConfig` | 0 | grep |
@@ -87,15 +88,14 @@
 |---|---|---|---|
 | 1 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (5)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (4)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
 | 6 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
 | 7 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
-| 8 | `E11` | **Ενοποιημένο `DetailAppBar`** | Αναβάθμιση/consistency |
-| 9 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 10 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 8 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 9 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -198,9 +198,13 @@
 ### E10 — ✅ CLOSED 21/10/2026 (device-verified, B2.3)
 - **Device (POCO X3):** rename `E17 RENAME v3`→`v4` + future reminder 22:50 → `rescheduleForItem: rebaked=1 kept=0`· πραγματικό notification title «Υπενθύμιση», body `E17 RENAME v4`, σε OS. Logs/screenshot: `backups/O1_reminder_hardening_2026-10-21/device_logs/e10_*`.
 
-### E11 — Ενοποιημένο DetailAppBar
-- **Απόδειξη:** δεν υπάρχει κοινό `DetailAppBar` (grep). Μόνο private `_EventDetailAppBar` (`event_detail_screen.dart:805`). Τα detail screens χτίζουν hand-rolled `_buildAppBar`.
-- **Κόστος:** μεσαίο. **Καθαρά hygiene**, 0 λειτουργικός αντίκτυπος.
+### E11 — ✅ CLOSED 02/11/2026 (S286: analyze+tests, κοινό `DetailAppBar`)
+- **Τι άλλαξε:** νέο `lib/shared/widgets/detail_app_bar.dart` (`StatelessWidget` + `PreferredSizeWidget`, 6 nullable callbacks → `null` = κρυφό κουμπί) + 1 export στο barrel `widgets.dart`. Αντικατέστησε **15 call sites σε 9 detail screens** (note/task/habit/event/journal/contact/appointment/collection/entry) και διαγράφηκε το private `_EventDetailAppBar` — η σωστή θέση του ήταν `event_detail_screen.dart:752` (το παλιό ref `:805` έδειχνε μέσα στην κλάση).
+- **Σταθερό παντού:** `VisualDensity.compact` (mobile 40×40 · desktop 36×32), icon 20, `titleSpacing: 0`, `actionsPadding: 0`, ύψος `Spacing.appBarHeight` (56), σειρά save→reminder→favorite→pin→archive→delete, canonical tooltips («Επαναφορά», «Αποκαρφίτσωμα»), saving slot μόνο όπου υπάρχει πραγματικό `isSaving` (note/task/habit/event).
+- **Μετρημένα (SDK 3.47.8 + layout probe, όχι εκτίμηση):** `NavigationToolbar` αφαιρεί `2×middleSpacing` (`navigation_toolbar.dart:130-136`) → `titleSpacing: 0` = **+32dp**· `actionsPadding` default **0** (`app_bar.dart:2569`) → το `4` των note/task ήταν το 2px overflow στα 320dp· compact 6 ενέργειες σε 320dp → firstX **80** (πριν 32 = **24dp επικάλυψη με back**, χωρίς exception)· όριο **296dp** (καμία πραγματική συσκευή).
+- **Διορθώνει 3 υπαρκτά bugs:** event spinner αόρατος ≤390dp (σήμερα title **−16** στα 360dp λόγω `titleSpacing: 16` + 6×48) · note/task saving overflow **2px** στα 320dp · journal/contact/event/appointment actions πάνω στο back στα 320dp.
+- **Αποδοχή:** `flutter analyze` **clean** · **400/401** — τα 7 νέα του `test/detail_app_bar_test.dart` περνούν· το μοναδικό failure είναι το **προϋπάρχον** `home_short_viewport_test` (HomeScreen 800dp, 94px overflow — άσχετο με E11, δεν άνοιξε κάρτα χωρίς OK χρήστη).
+- **Οπτικές αλλαγές (καμία λειτουργική):** habit/event/appointment pin↔favorite σειρά · note ανενεργά pin/fav `cText`→`cText2` · event icon 24→20 + spinner `cText2` · αφαίρεση `actionsPadding: 4` από note/task. Λειτουργική διαφορά **μόνο** το save του event απενεργοποιείται για λίγα ms κατά το title autosave. Device pass **δεν** έγινε (οπτικό, προαιρετικό).
 
 ### E12 — ✅ CLOSED 22/10/2026 (device-verified, user-confirmed 140%/landscape)
 - **Σημεία (8, όχι 7 — το calendar έλειπε από το doc):** `item_list_screen.dart:150` · `habit_list_screen.dart:190` · `task_list_screen.dart:270` · `contact_list_screen.dart:160` · `collection_entries_screen.dart:254` · `collections_screen.dart:117` · `journal_list_screen.dart:200` · `calendar_screen.dart:269`.
@@ -413,8 +417,9 @@
 
 ## 3. Κλειστά & επαληθευμένα (μην τα ξανακυνηγάτε)
 
-> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S284.
+> Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S286.
 
+- **`E11` — CLOSED 02/11/2026 (S286, analyze+tests):** κοινό `DetailAppBar` (`lib/shared/widgets/detail_app_bar.dart`, `StatelessWidget`+`PreferredSizeWidget`, 6 nullable callbacks) σε **15 call sites / 9 detail screens**· compact + icon 20 + `titleSpacing: 0` + `actionsPadding: 0` ⇒ 6 ενέργειες χωράνε και στα 320dp (firstX **80**, όριο **296dp**). Διορθώνει event spinner ≤390dp, note/task 2px overflow και journal/contact/event/appointment 24dp επικάλυψη με back στα 320dp. **0** νέα tokens/deps · **−327** γραμμές `lib/` (44.155→43.828) · analyze clean · **400/401** (+7 tests στο `detail_app_bar_test.dart`).
 - **`E13` — CLOSED 02/11/2026 (S285, analyze+tests+red-on-old+device POCO X3):** το label «Φάκελοι» κρύβεται σε κοντό viewport (`home_screen.dart:86-98`: `if (!context.isShortScreen)` — reuse `responsive.dart:73`, parity με το greeting `:78`) ⇒ **+28.02dp** στο `HomeFolderView` (`SliverFillRemaining` `:149`) χωρίς απώλεια οριζόντιου padding (chips από x=0). 0 νέα symbols/strings. **394/394** · red-on-old ✅ · 2 tests (392dp κρυφό / 800dp ορατό) · **device T1–T5 PASS**. *Αντιστρέφει την S262 απόρριψη — απόφαση χρήστη, όχι bug.*
 - **`E08` — CLOSED 02/11/2026 (S284, analyze+tests+device POCO X3):** άδεια ειδοποιήσεων OS ως ορατή κατάσταση. `permissionStatus()` (tri-state + gate + fail-open) · `notification_permission.dart` (enum + 2 pure mappers) · `notificationPermissionProvider` (`FutureProvider`, invalidate σε request/resume) · `NotificationHintRow` + `NotificationPermissionHint` (SPoT, 3 call sites: Settings / `ReminderSection` / Διάγνωση) · 6 `AppErrors` strings · save-time SnackBar **else-if**. Παύει το ψευδές «Πλήρης κάλυψη» της Διάγνωσης. analyze clean · **393/393** · scheduler 0 γραμμές · device T1–T7 PASSED (0 ERR, 6.143 γραμμές log).
 - **`O7` (E20 + E22) — CLOSED 29/10/2026 (S279, device-verified T1–T8):** `AppDateUtils.earliestYear=1900` + `clampToRange` σε **5** pickers (journal `1900…now` · reminder `1900…now+5` · appointment `1900…2100` · appointment/contact birthday `1900…now`) · `formatNumeric`/`formatNumericDateTime` (intl-free dd/MM/yyyy) · `numberedIndexesFor` **O(n)** · ✕ **μόνο σε hover/focus** με 48×48 + `Visibility(maintain*)` · `dayTickProvider` στο `ui_provider` (0 `DateTime.now()` σε build) · `kFolderCreateTypes` 2-tuple + `ItemTypeIcon` · αφαίρεση `✓`/emoji. Device (POCO X3, 29/10/2026): T1 1950 (picker + yearly 5/5) · T2 1995 · T3 1998 (+ έτη από **1900**) · T4 focus-✕/αρίθμηση 4→11/140%/landscape · T5 **1990 + daily** root id=3223, `rows=85 desired=85 kept=85 truncated=false`, 0 `ERR` (one-shot παρελθόν → `past one-shot, blocked` by design) · T6 8 icons/0 emoji · T7 dd/MM/yyyy · T8 habit χωρίς ✓. analyze clean · **370/370**.

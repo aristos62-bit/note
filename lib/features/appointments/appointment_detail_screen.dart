@@ -583,51 +583,17 @@ class _AppointmentDetailScreenState
     );
   }
 
-  AppBar _buildAppBar(Item item) {
-    return AppBar(
-      backgroundColor: context.cBg,
-      elevation: 0,
-      scrolledUnderElevation: 1,
-      actions: [
-        // 1. Save
-        IconButton(
-          icon: Icon(Icons.save_rounded, color: context.cPrimary),
-          onPressed: _save,
-          tooltip: 'Αποθήκευση',
-        ),
-        // 2. Reminder (καμπάνα)
-        IconButton(
-          icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
-          onPressed: _showReminderDialog,
-          tooltip: 'Υπενθύμιση',
-        ),
-        // 3. Pin
-        IconButton(
-          icon: Icon(item.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-              color: item.pinned ? context.cPrimary : context.cText2),
-          onPressed: () => _togglePin(item),
-          tooltip: item.pinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-        ),
-        // 4. Favorite
-        IconButton(
-          icon: Icon(item.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: item.favorite ? ColorsUI.getWarning(context.brightness) : context.cText2),
-          onPressed: () => _toggleFav(item),
-          tooltip: item.favorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-        ),
-        // 5. Archive
-        IconButton(
-          icon: Icon(item.archived ? Icons.unarchive_rounded : Icons.archive_rounded, color: context.cText2),
-          onPressed: () => _archive(item),
-          tooltip: item.archived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-        ),
-        // 6. Delete
-        IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-          onPressed: () => _delete(item),
-          tooltip: 'Διαγραφή',
-        ),
-      ],
+  DetailAppBar _buildAppBar(Item item) {
+    return DetailAppBar(
+      isPinned: item.pinned,
+      isFavorite: item.favorite,
+      isArchived: item.archived,
+      onSave: _save,
+      onReminder: _showReminderDialog,
+      onFavorite: () => _toggleFav(item),
+      onPin: () => _togglePin(item),
+      onArchive: () => _archive(item),
+      onDelete: () => _delete(item),
     );
   }
 

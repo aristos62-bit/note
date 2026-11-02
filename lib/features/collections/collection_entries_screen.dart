@@ -1102,63 +1102,15 @@ class _CollectionEntryDetailScreenState
           },
           child: Scaffold(
             backgroundColor: context.cBg,
-            appBar: AppBar(
-              backgroundColor: context.cBg,
-              elevation: 0,
-              scrolledUnderElevation: 1,
-              title: null,
-              actions: [
-                // Save button
-                IconButton(
-                  icon: Icon(Icons.save_rounded, color: context.cPrimary),
-                  tooltip: 'Αποθήκευση',
-                  onPressed: _save,
-                ),
-                // Favorite
-                IconButton(
-                  icon: Icon(
-                    _isFavorite
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    color: _isFavorite
-                        ? ColorsUI.getWarning(context.brightness)
-                        : context.cText2,
-                  ),
-                  onPressed: _toggleFavorite,
-                  tooltip: _isFavorite
-                      ? 'Αφαίρεση αγαπημένου'
-                      : 'Αγαπημένο',
-                ),
-                // Pin
-                IconButton(
-                  icon: Icon(
-                    _isPinned
-                        ? Icons.push_pin_rounded
-                        : Icons.push_pin_outlined,
-                    color: _isPinned ? context.cPrimary : context.cText2,
-                  ),
-                  onPressed: _togglePin,
-                  tooltip: _isPinned ? 'Αποκαρφίτσωμα' : 'Καρφίτσωμα',
-                ),
-                // Archive
-                IconButton(
-                  icon: Icon(
-                    _isArchived
-                        ? Icons.unarchive_rounded
-                        : Icons.archive_rounded,
-                    color: context.cText2,
-                  ),
-                  onPressed: _toggleArchive,
-                  tooltip: _isArchived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-                ),
-                // Delete
-                IconButton(
-                  icon: Icon(Icons.delete_outline_rounded,
-                      color: context.cError),
-                  onPressed: _deleteEntry,
-                  tooltip: 'Διαγραφή',
-                ),
-              ],
+            appBar: DetailAppBar(
+              isPinned: _isPinned,
+              isFavorite: _isFavorite,
+              isArchived: _isArchived,
+              onSave: _save,
+              onFavorite: _toggleFavorite,
+              onPin: _togglePin,
+              onArchive: _toggleArchive,
+              onDelete: _deleteEntry,
             ),
             body: ListView(
               padding: EdgeInsets.fromLTRB(

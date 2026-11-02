@@ -428,7 +428,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
   Widget _buildMobile(BuildContext context, Item item) => Scaffold(
         backgroundColor: context.cBg,
-        appBar: _EventDetailAppBar(
+        appBar: DetailAppBar(
           isSaving: _isSaving,
           isPinned: _isPinned,
           isFavorite: _isFavorite,
@@ -458,7 +458,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
   Widget _buildTablet(BuildContext context, Item item) => Scaffold(
         backgroundColor: context.cBg,
-        appBar: _EventDetailAppBar(
+        appBar: DetailAppBar(
           isSaving: _isSaving,
           isPinned: _isPinned,
           isFavorite: _isFavorite,
@@ -745,98 +745,4 @@ class _EventBody extends ConsumerWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// APP BAR
-// ════════════════════════════════════════════════════════════════
 
-class _EventDetailAppBar extends StatelessWidget
-    implements PreferredSizeWidget {
-  final bool isSaving;
-  final bool isPinned;
-  final bool isFavorite;
-  final bool isArchived;
-
-  final VoidCallback onSave;
-  final VoidCallback onReminder;
-  final VoidCallback onPin;
-  final VoidCallback onFavorite;
-  final VoidCallback onArchive;
-  final VoidCallback onDelete;
-
-  const _EventDetailAppBar({
-    required this.isSaving,
-    required this.isPinned,
-    required this.isFavorite,
-    required this.isArchived,
-    required this.onSave,
-    required this.onReminder,
-    required this.onPin,
-    required this.onFavorite,
-    required this.onArchive,
-    required this.onDelete,
-  });
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      backgroundColor: context.cBg,
-      elevation: 0,
-      scrolledUnderElevation: 1,
-      title: isSaving
-          ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
-      actions: [
-        IconButton(
-          icon: Icon(Icons.save_rounded, color: context.cPrimary),
-          tooltip: 'Αποθήκευση',
-          onPressed: onSave,
-        ),
-        IconButton(
-          icon: Icon(Icons.notifications_none_rounded, color: context.cText2),
-          onPressed: onReminder,
-          tooltip: 'Υπενθύμιση',
-        ),
-        IconButton(
-          icon: Icon(
-            isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            color: isPinned ? context.cPrimary : context.cText2,
-          ),
-          tooltip: isPinned ? 'Ξεκαρφίτσωμα' : 'Καρφίτσωμα',
-          onPressed: onPin,
-        ),
-        IconButton(
-          icon: Icon(
-            isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: isFavorite
-                ? ColorsUI.getWarning(context.brightness)
-                : context.cText2,
-          ),
-          tooltip: isFavorite ? 'Αφαίρεση αγαπημένου' : 'Αγαπημένο',
-          onPressed: onFavorite,
-        ),
-        IconButton(
-          icon: Icon(
-            isArchived
-                ? Icons.unarchive_rounded
-                : Icons.archive_rounded,
-            color: context.cText2,
-          ),
-          onPressed: onArchive,
-          tooltip: isArchived ? 'Επαναφορά' : 'Αρχειοθέτηση',
-        ),
-        IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: context.cError),
-          tooltip: 'Διαγραφή',
-          onPressed: onDelete,
-        ),
-      ],
-    );
-  }
-}
