@@ -462,13 +462,27 @@ class _GreetingSection extends StatelessWidget {
                 Icon(greetIcon,
                     size: 22, color: ColorsUI.getWarning(context.brightness)),
                 const SizedBox(width: Spacing.sm),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(greeting, style: context.titleLg),
-                    Text(now.dateTime,
-                        style: context.bodySm.withColor(context.cText2)),
-                  ],
+                // Flexible: χωρίς αυτό το Column παίρνει unbounded πλάτος από
+                // το Row και βγάζει RenderFlex overflow σε στενό viewport /
+                // μεγάλο text scale (E46) αντί να κόψει το κείμενο.
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        greeting,
+                        style: context.titleLg,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        now.dateTime,
+                        style: context.bodySm.withColor(context.cText2),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
