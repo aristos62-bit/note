@@ -339,7 +339,11 @@ class _TaskListBody extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: Spacing.md),
       child: ReorderableItemList(
         items: items.map((td) => td.task).toList(),
-        gridItemExtent: 94,
+        // S288e: 100 (όχι 94) — η κάρτα εργασίας = ItemCard 92 dp (compact +
+        // checkbox 48 + chip προτεραιότητας 22) + μπάρα προόδου 6 dp = 98 dp.
+        // Στα 94 το grid cell έβγαζε `BOTTOM OVERFLOWED BY 4.0 PIXELS` στο
+        // tablet 618 dp (2 στήλες → κάρτα ~200 dp, το chip μένει σε 1 γραμμή).
+        gridItemExtent: 100,
         gridItemExtentMax: 116,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
