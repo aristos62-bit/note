@@ -200,6 +200,17 @@ class _DayHeader extends StatelessWidget {
   }
 }
 
+/// S288: ελάχιστο πλάτος **περιεχομένου** (μετά το NavigationRail) για το
+/// two-pane του Ημερολογίου: 340 dp month grid + λίστα ημέρας.
+///
+/// Σε tablet 618 dp το περιεχόμενο είναι ~497 dp → το δεξί panel έμενε ~156 dp
+/// και η κάρτα συμβάντος/«Εμφάνιση αρχειοθετημένων» έβγαζε overflow 12 px.
+const double calendarTwoPaneMinWidth = 640.0;
+
+/// true όταν χωράει το two-pane· αλλιώς single-column (mobile) layout.
+bool shouldUseTwoPane(double availableWidth) =>
+    availableWidth >= calendarTwoPaneMinWidth;
+
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
 
@@ -384,50 +395,68 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     Set<int>? dayIds,
     bool dayLoading = false,
   }) {
-    return Row(
-      children: [
-        SizedBox(
-          width: context.isDesktop ? 400 : 340,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                MonthGrid(
-                  focusedMonth: focusedMonth,
-                  selectedDay: selectedDay,
-                  dayEvents: monthAsync.valueOrNull?.days ?? const {},
-                  spanBars: monthAsync.valueOrNull?.bars ?? const {},
-                  onDayTap: (day) => _onDayTap(day),
-                ),
-                const Divider(height: 1),
-              ],
-            ),
-          ),
-        ),
-        const VerticalDivider(width: 1),
-        Flexible(
-          fit: FlexFit.tight,
-          child: Column(
-            children: [
-              _DayHeader(day: selectedDay),
-              _buildArchivedToggle(),
-              Flexible(
-                fit: FlexFit.tight,
-                child: ItemListEmbedded(
-                  key: _listKey,
-                  itemType: ItemType.event,
-                  folderId: ref.watch(selectedFolderIdProvider),
-                  showFolderSelector: false,
-                  onlyIds: dayIds,
-                  dayLoading: dayLoading,
-                  allowMixedTypes: true,
-                  onItemTap: (item) => _openDayItem(item),
-                  onShare: (item) => ShareService.shareItem(context, item.id),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // S288: χωρίς αρκετό πλάτος περιεχομένου (π.χ. tablet 618 dp με side
+        // rail) το two-pane αφήνει <300 dp στη λίστα → single-column layout.
+        if (!shouldUseTwoPane(constraints.maxWidth)) {
+          return _buildMobile(
+            context,
+            ref,
+            focusedMonth,
+            selectedDay,
+            monthAsync,
+            dayIds: dayIds,
+            dayLoading: dayLoading,
+          );
+        }
+        return Row(
+          children: [
+            SizedBox(
+              width: context.isDesktop ? 400 : 340,
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    MonthGrid(
+                      focusedMonth: focusedMonth,
+                      selectedDay: selectedDay,
+                      dayEvents: monthAsync.valueOrNull?.days ?? const {},
+                      spanBars: monthAsync.valueOrNull?.bars ?? const {},
+                      onDayTap: (day) => _onDayTap(day),
+                    ),
+                    const Divider(height: 1),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+            const VerticalDivider(width: 1),
+            Flexible(
+              fit: FlexFit.tight,
+              child: Column(
+                children: [
+                  _DayHeader(day: selectedDay),
+                  _buildArchivedToggle(),
+                  Flexible(
+                    fit: FlexFit.tight,
+                    child: ItemListEmbedded(
+                      key: _listKey,
+                      itemType: ItemType.event,
+                      folderId: ref.watch(selectedFolderIdProvider),
+                      showFolderSelector: false,
+                      onlyIds: dayIds,
+                      dayLoading: dayLoading,
+                      allowMixedTypes: true,
+                      onItemTap: (item) => _openDayItem(item),
+                      onShare: (item) =>
+                          ShareService.shareItem(context, item.id),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
