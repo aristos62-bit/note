@@ -310,6 +310,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         : (dayMap[selectedDay]?.map((e) => e.id).toSet() ?? <int>{});
     final dayLoading = monthAsync.isLoading;
 
+    // S288d: με ανοιχτό πληκτρολόγιο (αναζήτηση στη λίστα ημέρας) το body έχει
+    // ήδη συρρικνωθεί (landscape: ~37 dp) — ο selector τρώει ~66 dp, άρα κρύβεται.
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(context, ref, focusedMonth),
@@ -321,7 +325,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       ),
       body: Column(
         children: [
-          const DraggableFolderSelector(),
+          if (!keyboardOpen) const DraggableFolderSelector(),
           Expanded(
             child: ResponsiveLayout(
               mobile: _buildMobile(
