@@ -601,34 +601,49 @@ class _CollectionDetailScreenState
         Wrap(
           spacing: Spacing.sm,
           runSpacing: Spacing.sm,
-          children: _kColors.map((hex) {
+          children: _kColors.asMap().entries.map((e) {
+            final i        = e.key;
+            final hex      = e.value;
             final c       = ItemColorHelper.parseHex(hex) ??
                 const Color(0xFF6366F1);
             final isActive = _color == hex;
-            return GestureDetector(
+            return Semantics(
+              button: true,
+              selected: isActive,
+              label: 'Χρώμα ${i + 1} από ${_kColors.length}',
+              excludeSemantics: true,
               onTap: () {
                 setState(() {
                   _color = hex;
                   _hasChanges = true;
                 });
               },
-              child: AnimatedContainer(
-                duration: AppDuration.fast,
-                width:  36, height: 36,
-                decoration: BoxDecoration(
-                  color:  c,
-                  shape:  BoxShape.circle,
-                  border: Border.all(
-                    color: isActive
-                        ? context.cText
-                        : Colors.transparent,
-                    width: 2.5,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  setState(() {
+                    _color = hex;
+                    _hasChanges = true;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: AppDuration.fast,
+                  width:  36, height: 36,
+                  decoration: BoxDecoration(
+                    color:  c,
+                    shape:  BoxShape.circle,
+                    border: Border.all(
+                      color: isActive
+                          ? context.cText
+                          : Colors.transparent,
+                      width: 2.5,
+                    ),
                   ),
+                  child: isActive
+                      ? const Icon(Icons.check_rounded, size: 18,
+                      color: Colors.white)
+                      : null,
                 ),
-                child: isActive
-                    ? const Icon(Icons.check_rounded, size: 18,
-                    color: Colors.white)
-                    : null,
               ),
             );
           }).toList(),
@@ -706,11 +721,13 @@ class _CollectionDetailScreenState
                       IconButton(
                         icon: Icon(Icons.edit_outlined,
                             size: 18, color: context.cText2),
+                        tooltip: 'Επεξεργασία πεδίου',
                         onPressed: () => _editField(i),
                       ),
                       IconButton(
                         icon: Icon(Icons.delete_outline_rounded,
                             size: 18, color: context.cError),
+                        tooltip: 'Διαγραφή πεδίου',
                         onPressed: () => _removeField(i),
                       ),
                       Icon(Icons.drag_handle_rounded,
@@ -768,31 +785,49 @@ class _CollectionDetailScreenState
               const SizedBox(height: Spacing.md),
               Wrap(
                 spacing: Spacing.md, runSpacing: Spacing.md,
-                children: _kIcons.map((emoji) => GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _icon = emoji;
-                      _hasChanges = true;
-                    });
-                    Navigator.pop(sheetCtx);
-                  },
-                  child: Container(
-                    width: 52, height: 52,
-                    decoration: BoxDecoration(
-                      color: _icon == emoji
-                          ? sheetCtx.cPrimary.withValues(alpha: 0.12)
-                          : ColorsUI.getSurface(sheetCtx.brightness),
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(
-                        color: _icon == emoji
-                            ? sheetCtx.cPrimary
-                            : ColorsUI.getBorder(sheetCtx.brightness),
+                children: _kIcons.asMap().entries.map((e) {
+                  final i     = e.key;
+                  final emoji = e.value;
+                  return Semantics(
+                    button: true,
+                    selected: _icon == emoji,
+                    label: 'Εικονίδιο ${i + 1} από ${_kIcons.length}',
+                    excludeSemantics: true,
+                    onTap: () {
+                      setState(() {
+                        _icon = emoji;
+                        _hasChanges = true;
+                      });
+                      Navigator.pop(sheetCtx);
+                    },
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        setState(() {
+                          _icon = emoji;
+                          _hasChanges = true;
+                        });
+                        Navigator.pop(sheetCtx);
+                      },
+                      child: Container(
+                        width: 52, height: 52,
+                        decoration: BoxDecoration(
+                          color: _icon == emoji
+                              ? sheetCtx.cPrimary.withValues(alpha: 0.12)
+                              : ColorsUI.getSurface(sheetCtx.brightness),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(
+                            color: _icon == emoji
+                                ? sheetCtx.cPrimary
+                                : ColorsUI.getBorder(sheetCtx.brightness),
+                          ),
+                        ),
+                        child: Center(child: Text(emoji,
+                            style: const TextStyle(fontSize: 26))),
                       ),
                     ),
-                    child: Center(child: Text(emoji,
-                        style: const TextStyle(fontSize: 26))),
-                  ),
-                )).toList(),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: Spacing.sm),
             ],

@@ -50,7 +50,7 @@
 | Device pass | **E11 OK** (02/11/2026, χειροκίνητος έλεγχος χρήστη — χωρίς screenshots/logs) | S286 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.842 (162 αρχεία) | μετρήθηκε 02/11/2026 (S287) |
 | Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 02/11/2026 · βλ. E06 |
-| `Semantics(` | **3** (2 `Semantics` + 1 `ExcludeSemantics`) | grep |
+| `Semantics(` | **4** (2 `Semantics` + 2 `ExcludeSemantics`) | grep 03/11/2026 |
 | `tooltip:` | **47** (πριν 89 — τα 9 detail AppBars έγιναν 1 widget) | grep |
 
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
@@ -113,9 +113,9 @@
 
 ### E01 — a11y pass ⏸️ PARKED
 - **Κατάσταση:** PARKED 19/10/2026 (απόφαση χρήστη: μελλοντική υλοποίηση). Δεν αφαιρείται/αναριθμείται.
-- **Απόδειξη (μετρήθηκε):** `Semantics(` = **3** συνολικά (`habit_detail_screen.dart:1080,1764` · `collection_detail_screen.dart:594` = `ExcludeSemantics`) · `tooltip:` = 89.
+- **Απόδειξη (μετρήθηκε 03/11/2026, HEAD `04209dd`):** `Semantics(` = **4** συνολικά — 2 `Semantics` (`habit_detail_screen.dart:1028,1713`) + 2 `ExcludeSemantics` (`calendar_screen.dart:860`, `collection_detail_screen.dart:564`) · `tooltip:` = **47** · `IconButton(` = 40 (τα **14** χωρίς `tooltip` = το Βήμα 13).
 - **Λείπει:** TalkBack pass, 48dp hit-targets, no-PII semantics, flicker, touch 16–22px.
-- **Πριν την υλοποίηση:** refresh protocol `a11y.md` §0.1 (baseline, diff από `bd6f82a`, device audit C1–C22, επανεξέταση D1–D6).
+- **Πριν την υλοποίηση:** refresh protocol `a11y.md` **§0.1** (baseline, diff από `bd6f82a`, device audit C1–C22, επανεξέταση D1–D6) + **§0.4** (επαλήθευση S288: 402/402, 40 `IconButton`/14 χωρίς tooltip, νέα line numbers μετά το E11).
 - **Αποδοχή:** device pass (κανόνας 12 — ρητή λίστα δεδομένων) + μηδέν PII στα semantics + 48dp στα βασικά actions.
 
 ### E02 — ✅ CLOSED 22/10/2026 (device-verified)

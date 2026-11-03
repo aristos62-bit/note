@@ -4386,6 +4386,34 @@ if (!context.isShortScreen)
 
 **Κατάσταση:** ✅ **E46 CLOSED 02/11/2026 (analyze+tests)** — device pass **δεν** χρειάζεται: 0 οπτική αλλαγή στο default (ο χρήστης επιβεβαίωσε εξάλλου ότι δεν υπήρχε ορατό πρόβλημα). Suite **πράσινο 402/402**. Επόμενες εκκρεμότητες: P2 `E01` (parked a11y) · P3 `E07`/`E09`/`E06`/`E39`.
 
+---
+
+## Session 288 — 03/11/2026 (a11y E01: semantics + tooltips + labels, βήματα 1–9)
+
+**Scope:** ξεκλείδωμα του parked `E01` (a11y) με το ενοποιημένο σχέδιο `a11y.md` (§0.5 verdicts 15🔴/4🟡/3🟢, §5 βήματα 1–14). Εκτελέστηκαν **Βήματα 13, 2, 3, 4, 5, 6/6b, 7, 8a/8b/8c, 9a/9b και 1**. Το `a11y_new.md` συγχωνεύτηκε στο `a11y.md` και αρχειοθετήθηκε.
+
+**Τι άλλαξε (ανά αρχείο):**
+1. `view_mode_toggle.dart` (C5): `Semantics(button, selected, label: tooltip)` στο toggle (2 εμφανίσεις → ένα pattern).
+2. `item_card.dart` (C6/C7): checkbox «Ολοκλήρωση εργασίας» (`checked`) + share «Κοινοποίηση» (`HitTestBehavior.opaque`).
+3. `tag_chip.dart` (C8/C9/C10): chip (`selected` μόνο όταν είναι tappable), διαγραφή «Διαγραφή ετικέτας «…»», «Προσθήκη ετικέτας». Το ✕ κρατήθηκε ξεχωριστός κόμβος (χωρίς `excludeSemantics` στο chip).
+4. `task_list_screen.dart` (C11): filter chips κατάστασης/προτεραιότητας με `selected` + ελληνικό label.
+5. `task_detail_screen.dart` (Βήμα 6/6b): `_DoneCheckbox`, subtask checkbox, `_StatusSelector`, `_PrioritySelector`, `_DueDateSelector` (Επιλογή Α: ✕ ως αδελφός κόμβος), `selected` στα δύο sheets. **+71** γραμμές.
+6. `collection_detail_screen.dart` (C15/N3): «Χρώμα N από 12» / «Εικονίδιο N από 16» με `selected` (`.asMap().entries`).
+7. `settings_colors.dart`: swatch τύπου «Αλλαγή χρώματος: …», «Προεπιλογή» (`selected`), οικογένειες/αποχρώσεις («Κόκκινο 500»), νέα σταθερά `_shadeValues`.
+8. `settings_tiles.dart` (C18/C19): theme tiles `selected` + «Σήμερα»-style labels, `semanticFormatterCallback` στο slider («Μέγεθος γραμματοσειράς 120%» αντί για το λάθος «33%»).
+9. `home_screen.dart` + `home_folder_view.dart` (Βήμα 9): share «Κοινοποίηση» σε `_SquareItemCard`/`_FolderItemCard`.
+10. `calendar_screen.dart` (Βήμα 1): `MonthGrid` πλέον **public** (testability) με προαιρετικό `today`, helper `_daySemanticsLabel` («19 Οκτωβρίου 2026, σήμερα, επιλεγμένη, σημάνσεις: συμβάν», «πολυήμερο συμβάν, αρχή/τέλος»), `Semantics` + `HitTestBehavior.opaque` στο κελί, `ExcludeSemantics` στην επικεφαλίδα ημερών. Το `DateFormat('d MMMM yyyy', 'el')` μία φορά (`static final`) — απόφαση B αντί για την ονομαστική του σχεδίου.
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** · full `flutter test` → **408/408 PASS** (402 προϋπάρχοντα + 6 νέα στο `test/a11y_calendar_test.dart`: label ημέρας, σημάνσεις, πολυήμερο, απλή ημέρα, εξαίρεση επικεφαλίδας, tap). Backups ανά βήμα: `backups/a11y_s288_2026-11-03/step2…step13/`.
+
+**Μαθήματα:**
+- **Οι προβλέψεις γραμμών βγαίνουν ±1–2:** ο αξιόπιστος έλεγχος είναι `git diff --numstat` + `Select-String` στα labels, όχι το μέτρημα στο κεφάλι.
+- **Public widget = `super.key` υποχρεωτικό:** το `use_key_in_widget_constructors` χτύπησε μόλις έγινε `MonthGrid` public.
+- **`DateFormat` με locale σε test:** χρειάζεται `initializeDateFormatting()` στο `setUpAll` (parity με `main.dart:22`).
+- **Ένα `DateFormat` ανά κλάση:** 31 κελιά × rebuild = 31 parsings pattern αν κατασκευάζεται μέσα στο loop.
+
+**Κατάσταση:** 🔄 **E01 σε εξέλιξη** — μένουν Βήματα **10** (48×48 targets, D1: 1b-i vs 1b-ii), **11** (`ComposedTextScaler`), **12** (PII + `DebugConfig._debug`), **14** (N5/N6/N2) και το **device pass** με TalkBack. Το `error_list.md`/`oldsessions.md` κλείνουν οριστικά μόνο στο τέλος.
+
 
 
 

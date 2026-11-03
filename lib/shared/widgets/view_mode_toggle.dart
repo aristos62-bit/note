@@ -83,20 +83,27 @@ class CircleToggleButton extends StatelessWidget {
         : ColorsUI.getSurface(context.brightness);
     final borderColor = isSelected ? activeColor : ColorsUI.getBorder(context.brightness);
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: tooltip,
       onTap: onTap,
-      child: Tooltip(
-        message: tooltip,
-        child: AnimatedContainer(
-          duration: AppDuration.fast,
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: bgColor,
-            shape: BoxShape.circle,
-            border: Border.all(color: borderColor, width: 1.5),
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Tooltip(
+          message: tooltip,
+          child: AnimatedContainer(
+            duration: AppDuration.fast,
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: borderColor, width: 1.5),
+            ),
+            child: Icon(icon, size: 18, color: color),
           ),
-          child: Icon(icon, size: 18, color: color),
         ),
       ),
     );

@@ -216,31 +216,37 @@ class _TitleRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (_showCheckbox) ...[
-          GestureDetector(
-            onTap: () {
-              // DebugConfig.print(
-              //     'ItemCard checkbox id=${item.id} done=${!_isDone}');
-              onCheckboxChanged?.call(!_isDone);
-            },
-            child: AnimatedContainer(
-              duration: AppDuration.fast,
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: _isDone ? typeColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-                border: Border.all(
-                  color: _isDone
-                      ? typeColor
-                      : ColorsUI.getBorder(context.brightness),
-                  width: 2,
+          Semantics(
+            checked: _isDone,
+            label: 'Ολοκλήρωση εργασίας',
+            excludeSemantics: true,
+            onTap: () => onCheckboxChanged?.call(!_isDone),
+            child: GestureDetector(
+              onTap: () {
+                // DebugConfig.print(
+                //     'ItemCard checkbox id=${item.id} done=${!_isDone}');
+                onCheckboxChanged?.call(!_isDone);
+              },
+              child: AnimatedContainer(
+                duration: AppDuration.fast,
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: _isDone ? typeColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                  border: Border.all(
+                    color: _isDone
+                        ? typeColor
+                        : ColorsUI.getBorder(context.brightness),
+                    width: 2,
+                  ),
                 ),
+                child: _isDone
+                    ? Icon(Icons.check,
+                    size: 14,
+                    color: ColorsUI.getAccessibleTextColor(typeColor))
+                    : null,
               ),
-              child: _isDone
-                  ? Icon(Icons.check,
-                  size: 14,
-                  color: ColorsUI.getAccessibleTextColor(typeColor))
-                  : null,
             ),
           ),
           const SizedBox(width: Spacing.sm),
@@ -388,12 +394,19 @@ class _TrailingSection extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (onShare != null)
-            GestureDetector(
+            Semantics(
+              button: true,
+              label: 'Κοινοποίηση',
+              excludeSemantics: true,
               onTap: onShare,
-              child: Icon(
-                Icons.share_rounded,
-                size: 16,
-                color: foregroundColor.withValues(alpha: 0.5),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onShare,
+                child: Icon(
+                  Icons.share_rounded,
+                  size: 16,
+                  color: foregroundColor.withValues(alpha: 0.5),
+                ),
               ),
             ),
         ],

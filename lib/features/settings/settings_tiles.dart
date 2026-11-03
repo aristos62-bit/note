@@ -111,31 +111,40 @@ class SettingsThemeTile extends StatelessWidget {
           Row(
             children: _options.map((opt) {
               final isActive = current == opt.$1;
+              void select() {
+                DebugConfig.provider('Settings: theme=${opt.$1.name}');
+                ref.read(settingsNotifierProvider.notifier).setTheme(opt.$1);
+              }
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(right: Spacing.xs),
-                  child: GestureDetector(
-                    onTap: () {
-                      DebugConfig.provider('Settings: theme=${opt.$1.name}');
-                      ref.read(settingsNotifierProvider.notifier).setTheme(opt.$1);
-                    },
-                    child: AnimatedContainer(
-                      duration: AppDuration.fast,
-                      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                      decoration: BoxDecoration(
-                        color: isActive ? context.cPrimary.withAlpha(30) : ColorsUI.getSurface(context.brightness),
-                        borderRadius: AppRadius.buttonBR, // ✅ απευθείας
-                        border: Border.all(
-                          color: isActive ? context.cPrimary : ColorsUI.getBorder(context.brightness),
-                          width: isActive ? 1.5 : 1.0,
+                  child: Semantics(
+                    button: true,
+                    selected: isActive,
+                    label: opt.$2,
+                    excludeSemantics: true,
+                    onTap: select,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: select,
+                      child: AnimatedContainer(
+                        duration: AppDuration.fast,
+                        padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+                        decoration: BoxDecoration(
+                          color: isActive ? context.cPrimary.withAlpha(30) : ColorsUI.getSurface(context.brightness),
+                          borderRadius: AppRadius.buttonBR, // ✅ απευθείας
+                          border: Border.all(
+                            color: isActive ? context.cPrimary : ColorsUI.getBorder(context.brightness),
+                            width: isActive ? 1.5 : 1.0,
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(opt.$3, size: 20, color: isActive ? context.cPrimary : context.cText2),
-                          const SizedBox(height: 4),
-                          Text(opt.$2, style: context.labelSm.withColor(isActive ? context.cPrimary : context.cText2)),
-                        ],
+                        child: Column(
+                          children: [
+                            Icon(opt.$3, size: 20, color: isActive ? context.cPrimary : context.cText2),
+                            const SizedBox(height: 4),
+                            Text(opt.$2, style: context.labelSm.withColor(isActive ? context.cPrimary : context.cText2)),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -227,6 +236,8 @@ class SettingsFontScaleTile extends ConsumerWidget {
             max: 1.4,
             divisions: 6,
             label: '${(current * 100).round()}%',
+            semanticFormatterCallback: (v) =>
+            'Μέγεθος γραμματοσειράς ${(v * 100).round()}%',
             onChanged: (v) {
               DebugConfig.provider('Settings: fontScale=$v');
               ref.read(settingsNotifierProvider.notifier).updateSettings((s) => s.fontScale = v);

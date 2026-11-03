@@ -107,6 +107,7 @@ class AttachmentsStrip extends ConsumerWidget {
                 right: 8,
                 child: IconButton(
                   icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  tooltip: 'Κλείσιμο',
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
               ),
