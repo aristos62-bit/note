@@ -310,10 +310,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         : (dayMap[selectedDay]?.map((e) => e.id).toSet() ?? <int>{});
     final dayLoading = monthAsync.isLoading;
 
-    // S288d: με ανοιχτό πληκτρολόγιο (αναζήτηση στη λίστα ημέρας) το body έχει
-    // ήδη συρρικνωθεί (landscape: ~37 dp) — ο selector τρώει ~66 dp, άρα κρύβεται.
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-
     return Scaffold(
       backgroundColor: context.cBg,
       appBar: _buildAppBar(context, ref, focusedMonth),
@@ -323,20 +319,30 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         tooltip: 'Νέο συμβάν',
         child: const Icon(Icons.add_rounded),
       ),
-      body: Column(
-        children: [
-          if (!keyboardOpen) const DraggableFolderSelector(),
-          Expanded(
-            child: ResponsiveLayout(
-              mobile: _buildMobile(
-                  context, ref, focusedMonth, selectedDay, monthAsync,
-                  dayIds: dayIds, dayLoading: dayLoading),
-              tablet: _buildTablet(
-                  context, ref, focusedMonth, selectedDay, monthAsync,
-                  dayIds: dayIds, dayLoading: dayLoading),
-            ),
-          ),
-        ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // S288d: ο selector (~66 dp) κρύβεται όσο το πληκτρολόγιο είναι
+          // ανοιχτό. Το Scaffold του shell καταναλώνει το MediaQuery.viewInsets
+          // για το body του (άρα εδώ διαβάζεται 0), γι' αυτό χρησιμοποιούμε τις
+          // raw insets του FlutterView· το LayoutBuilder κάνει rebuild όταν
+          // αλλάζει το ύψος του body (άνοιγμα/κλείσιμο πληκτρολογίου).
+          final keyboardOpen = View.of(context).viewInsets.bottom > 0;
+          return Column(
+            children: [
+              if (!keyboardOpen) const DraggableFolderSelector(),
+              Expanded(
+                child: ResponsiveLayout(
+                  mobile: _buildMobile(
+                      context, ref, focusedMonth, selectedDay, monthAsync,
+                      dayIds: dayIds, dayLoading: dayLoading),
+                  tablet: _buildTablet(
+                      context, ref, focusedMonth, selectedDay, monthAsync,
+                      dayIds: dayIds, dayLoading: dayLoading),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -186,7 +186,18 @@ void main() {
   });
 
   group('S288d Ημερολόγιο — folder selector με ανοιχτό πληκτρολόγιο', () {
-    Widget screen({required double keyboardInset}) {
+    // Το S288d διαβάζει `View.of(context).viewInsets` (το MediaQuery.viewInsets
+    // το καταναλώνει το Scaffold του shell), γι' αυτό ρυθμίζουμε το ίδιο το
+    // FlutterView του tester — όχι ένα MediaQuery wrapper. dpr = 1 ώστε τα
+    // physical == logical pixels.
+    void configureView(WidgetTester tester, {double keyboardInset = 0}) {
+      addTearDown(tester.view.reset);
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(412, 915);
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+    }
+
+    Widget screen() {
       return ProviderScope(
         overrides: [
           itemsStreamProvider
@@ -194,27 +205,21 @@ void main() {
           foldersStreamProvider
               .overrideWith((ref) => Stream.value(const <Folder>[])),
         ],
-        child: MaterialApp(
-          home: MediaQuery(
-            data: MediaQueryData(
-              size: const Size(392, 792),
-              viewInsets: EdgeInsets.only(bottom: keyboardInset),
-            ),
-            child: const CalendarScreen(),
-          ),
-        ),
+        child: const MaterialApp(home: CalendarScreen()),
       );
     }
 
     testWidgets('χωρίς πληκτρολόγιο: ο selector είναι ορατός', (tester) async {
-      await tester.pumpWidget(screen(keyboardInset: 0));
+      configureView(tester);
+      await tester.pumpWidget(screen());
       await tester.pump();
 
       expect(find.byType(DraggableFolderSelector), findsOneWidget);
     });
 
     testWidgets('με πληκτρολόγιο (233 dp): ο selector κρύβεται', (tester) async {
-      await tester.pumpWidget(screen(keyboardInset: 233));
+      configureView(tester, keyboardInset: 233);
+      await tester.pumpWidget(screen());
       await tester.pump();
 
       expect(find.byType(DraggableFolderSelector), findsNothing);
