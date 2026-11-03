@@ -211,6 +211,60 @@ const double calendarTwoPaneMinWidth = 640.0;
 bool shouldUseTwoPane(double availableWidth) =>
     availableWidth >= calendarTwoPaneMinWidth;
 
+/// S288b: μερίδιο ύψους για το block πάνω από τη λίστα ημέρας (month grid +
+/// header + toggle ≈ 420 dp). Όταν το block δεν χωράει, γίνεται scrollable και
+/// η λίστα κρατά τουλάχιστον το 45% του viewport (κοινό σενάριο: ανοιχτό
+/// πληκτρολόγιο αναζήτησης → body ~415 dp).
+const double calendarBlockMaxShare = 0.55;
+
+/// S288b: μονόστηλο σώμα του Ημερολογίου (mobile, και tablet σε στενό πλάτος).
+///
+/// Το [calendarBlock] παίρνει το φυσικό του ύψος όταν χωράει (ίδια εμφάνιση με
+/// πριν). Όταν δεν χωράει — κοντό viewport από πληκτρολόγιο ή μικρό παράθυρο —
+/// γίνεται scrollable μέσα στο [calendarBlockMaxShare] του διαθέσιμου ύψους και
+/// η [dayList] κρατά το υπόλοιπο, ώστε να μην υπάρχει RenderFlex overflow.
+class CalendarMobileBody extends StatelessWidget {
+  final Widget calendarBlock;
+  final Widget dayList;
+
+  const CalendarMobileBody({
+    super.key,
+    required this.calendarBlock,
+    required this.dayList,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxBlockHeight = constraints.hasBoundedHeight
+            ? constraints.maxHeight * calendarBlockMaxShare
+            : double.infinity;
+        return Column(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxBlockHeight),
+              // ListView με shrinkWrap: παίρνει το ύψος του περιεχομένου όταν
+              // χωράει και γίνεται scrollable όταν το ξεπερνά (το
+              // SingleChildScrollView δεν έχει shrinkWrap).
+              child: ListView(
+                shrinkWrap: true,
+                primary: false,
+                padding: EdgeInsets.zero,
+                children: [calendarBlock],
+              ),
+            ),
+            Flexible(
+              fit: FlexFit.tight,
+              child: dayList,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
 
@@ -355,7 +409,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     Set<int>? dayIds,
     bool dayLoading = false,
   }) {
-    return Column(
+    // S288b: το block πάνω από τη λίστα (month grid + header + toggle) έχει
+    // σταθερό ύψος ~420 dp. Σε κοντό viewport (ανοιχτό πληκτρολόγιο αναζήτησης,
+    // μικρό παράθυρο desktop, split-screen) ξεπερνά το διαθέσιμο ύψος και βγάζει
+    // «RenderFlex overflowed by X pixels on the bottom».
+    final calendarBlock = Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         MonthGrid(
           focusedMonth: focusedMonth,
@@ -368,21 +427,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         const Divider(height: 1),
         _DayHeader(day: selectedDay),
         _buildArchivedToggle(),
-        Flexible(
-          fit: FlexFit.tight,
-          child: ItemListEmbedded(
-            key: _listKey,
-            itemType: ItemType.event,
-            folderId: ref.watch(selectedFolderIdProvider),
-            showFolderSelector: false,
-            onlyIds: dayIds,
-            dayLoading: dayLoading,
-            allowMixedTypes: true,
-            onItemTap: (item) => _openDayItem(item),
-            onShare: (item) => ShareService.shareItem(context, item.id),
-          ),
-        ),
       ],
+    );
+
+    final dayList = ItemListEmbedded(
+      key: _listKey,
+      itemType: ItemType.event,
+      folderId: ref.watch(selectedFolderIdProvider),
+      showFolderSelector: false,
+      onlyIds: dayIds,
+      dayLoading: dayLoading,
+      allowMixedTypes: true,
+      onItemTap: (item) => _openDayItem(item),
+      onShare: (item) => ShareService.shareItem(context, item.id),
+    );
+
+    return CalendarMobileBody(
+      calendarBlock: calendarBlock,
+      dayList: dayList,
     );
   }
 

@@ -102,4 +102,68 @@ void main() {
       expect(calendarTwoPaneMinWidth, 640.0);
     });
   });
+
+  group('S288b Ημερολόγιο — κοντό viewport (mobile body)', () {
+    // Το block (month grid + header + toggle) είναι ~420 dp σταθερό.
+    Widget harness(
+      WidgetTester tester, {
+      required double height,
+      required double blockHeight,
+    }) {
+      tester.view.physicalSize = Size(392, height);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 392,
+            height: height,
+            child: CalendarMobileBody(
+              calendarBlock: SizedBox(
+                key: const Key('block'),
+                height: blockHeight,
+                child: const SizedBox.expand(),
+              ),
+              dayList: const SizedBox.expand(key: Key('list')),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('415 dp viewport + 420 dp block: κανένα overflow, λίστα ≥45%',
+        (tester) async {
+      await tester.pumpWidget(harness(tester, height: 415, blockHeight: 420));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+
+      final listHeight = tester.getSize(find.byKey(const Key('list'))).height;
+      expect(
+        listHeight,
+        greaterThanOrEqualTo(415 * (1 - calendarBlockMaxShare) - 1),
+      );
+
+      // Το block δεν χώρεσε → μπήκε σε shrinkWrap scroll list.
+      final scrollList = tester.widget<ListView>(
+        find.descendant(
+          of: find.byType(CalendarMobileBody),
+          matching: find.byType(ListView),
+        ),
+      );
+      expect(scrollList.shrinkWrap, isTrue);
+    });
+
+    testWidgets('792 dp viewport: το block παίρνει το φυσικό του ύψος',
+        (tester) async {
+      await tester.pumpWidget(harness(tester, height: 792, blockHeight: 420));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byKey(const Key('block'))).height, 420);
+      expect(tester.getSize(find.byKey(const Key('list'))).height, 372);
+    });
+  });
 }
