@@ -78,7 +78,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     if (title == _lastSavedTitle) return;
 
     setState(() => _isSaving = true);
-    DebugConfig.db('TaskDetail saveTitle id=${widget.itemId} "$title"');
+    DebugConfig.db('TaskDetail saveTitle id=${widget.itemId} title=${AppStringUtils.redact(title, label: 'title')}');
     try {
       await ref.read(itemNotifierProvider.notifier)
           .updateItem(widget.itemId, title: title.isEmpty ? null : title);

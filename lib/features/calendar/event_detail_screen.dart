@@ -98,20 +98,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
     // 🔥 NEW: block parallel saves
     if (_isSavingTitle) {
-      DebugConfig.db('EventDetail saveTitle SKIPPED (in-flight) pending="$title"');
+      DebugConfig.db('EventDetail saveTitle SKIPPED (in-flight) pending=${AppStringUtils.redact(title, label: 'title')}');
       return;
     }
 
     // 🔥 NEW: avoid duplicate writes
     if (title == _lastSavedTitle) {
-      DebugConfig.db('EventDetail saveTitle SKIPPED (duplicate) title="$title"');
+      DebugConfig.db('EventDetail saveTitle SKIPPED (duplicate) title=${AppStringUtils.redact(title, label: 'title')}');
       return;
     }
 
     _isSavingTitle = true;
     setState(() => _isSaving = true);
 
-    DebugConfig.db('EventDetail saveTitle id=${widget.itemId} "$title"');
+    DebugConfig.db('EventDetail saveTitle id=${widget.itemId} title=${AppStringUtils.redact(title, label: 'title')}');
 
     try {
       await ref

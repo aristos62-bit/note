@@ -56,7 +56,9 @@ class _SearchNotifier extends Notifier<_SearchState> {
   _SearchState build() => const _SearchState();
 
   Future<void> search(String query, int workspaceId) async {
-    DebugConfig.search('🔍 _SearchNotifier.search started: query="$query", workspaceId=$workspaceId, state.typeFilter=${state.typeFilter}');
+    DebugConfig.search(
+        '🔍 _SearchNotifier.search started: query=${AppStringUtils.redact(query, label: 'query')}, '
+        'workspaceId=$workspaceId, state.typeFilter=${state.typeFilter}');
     final q = query.trim();
     state = state.copyWith(query: q, isLoading: true, hasSearched: true);
 
@@ -66,7 +68,7 @@ class _SearchNotifier extends Notifier<_SearchState> {
       return;
     }
 
-    DebugConfig.search('🔍 SearchNotifier: "$q" type=${state.typeFilter?.name}');
+    DebugConfig.search('🔍 SearchNotifier: query=${AppStringUtils.redact(q, label: 'query')} type=${state.typeFilter?.name}');
 
     try {
       final results = await SearchService.instance.search(
@@ -123,7 +125,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.initialQuery ?? '');
-    DebugConfig.nav('SearchScreen init query="${widget.initialQuery}"');
+    DebugConfig.nav('SearchScreen init query=${AppStringUtils.redact(widget.initialQuery, label: 'query')}');
 
     // ✅ Reset πάντα κατά το άνοιγμα — ο provider είναι global
     // και κρατά παλιά αποτελέσματα μεταξύ navigations.
@@ -157,7 +159,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   // Στο _SearchScreenState, μέσα στη μέθοδο _doSearch:
 
   void _doSearch() {
-    DebugConfig.search('🔍 _doSearch called, text="${_ctrl.text}"');
+    DebugConfig.search('🔍 _doSearch called, text=${AppStringUtils.redact(_ctrl.text, label: 'query')}');
     final wsId = _wsId;
     DebugConfig.search('🔍 _doSearch wsId=$wsId');
     if (wsId == null) {

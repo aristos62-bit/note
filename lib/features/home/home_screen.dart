@@ -178,7 +178,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       confirmLabel: 'Δημιουργία',
     );
     if (result == null || !context.mounted) return;
-    DebugConfig.db('Home createFolder "${result.name}"');
+    DebugConfig.db('Home createFolder ${AppStringUtils.redact(result.name, label: 'folder')}');
     try {
       await ref.read(folderNotifierProvider.notifier).create(
             result.name,
@@ -209,7 +209,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       initialColor: folder.color ?? kDefaultFolderColor,
     );
     if (result == null || !context.mounted) return;
-    DebugConfig.db('Home renameFolder id=${folder.id} "${result.name}"');
+    DebugConfig.db('Home renameFolder id=${folder.id} name=${AppStringUtils.redact(result.name, label: 'folder')}');
     try {
       await ref.read(folderNotifierProvider.notifier).rename(
             folder.id,
@@ -380,7 +380,7 @@ class _HomeAppBar extends ConsumerWidget {
     final wsName = ref.watch(
       defaultWorkspaceProvider.select((async) => async.valueOrNull?.name),
     ) ?? 'Προσωπικός Βοηθός';
-    DebugConfig.db('Home wsName="$wsName"');
+    DebugConfig.db('Home wsName=${AppStringUtils.redact(wsName, label: 'workspace')}');
 
     return SliverAppBar(
       backgroundColor: context.cBg,
@@ -548,7 +548,7 @@ class _PinnedFavoritesSectionState extends ConsumerState<_PinnedFavoritesSection
 
         DebugConfig.print('📊 FAVORITES COUNT: ${favorites.length}');
         for (var f in favorites) {
-          DebugConfig.print('   - ${f.title} (folderId: ${f.folderId})');
+          DebugConfig.print('   - title=${AppStringUtils.redact(f.title, label: 'title')} (folderId: ${f.folderId})');
         }
 
         List<Item> items;

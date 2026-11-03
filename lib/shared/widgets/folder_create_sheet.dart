@@ -46,7 +46,7 @@ class FolderCreateSheet extends StatelessWidget {
     BuildContext context, {
     required String folderName,
   }) {
-    DebugConfig.nav('FolderCreateSheet.show folder="$folderName"');
+    DebugConfig.nav('FolderCreateSheet.show folder=${AppStringUtils.redact(folderName, label: 'folder')}');
     return showSafeSheet<ItemType?>(
       context,
       child: FolderCreateSheet(folderName: folderName),

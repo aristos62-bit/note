@@ -53,7 +53,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
       initialColor: _folder.color ?? kDefaultFolderColor,
     );
     if (result == null || !context.mounted) return;
-    DebugConfig.db('FolderBrowser update id=${_folder.id} name="${result.name}"');
+    DebugConfig.db('FolderBrowser update id=${_folder.id} name=${AppStringUtils.redact(result.name, label: 'folder')}');
     try {
       await ref.read(folderNotifierProvider.notifier).rename(
             _folder.id,

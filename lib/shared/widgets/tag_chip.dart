@@ -141,7 +141,7 @@ class TagChip extends StatelessWidget {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () {
-                        DebugConfig.print('TagChip.onDelete name="$name"');
+                        DebugConfig.print('TagChip.onDelete name=${AppStringUtils.redact(name, label: 'tag')}');
                         onDelete!();
                       },
                       child: Icon(

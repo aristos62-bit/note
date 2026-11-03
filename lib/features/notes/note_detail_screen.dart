@@ -77,7 +77,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     if (!mounted) return;
     if (title == _lastSavedTitle) return;
     setState(() => _isSaving = true);
-    DebugConfig.db('NoteDetail saveTitle id=${widget.itemId} "$title"');
+    DebugConfig.db('NoteDetail saveTitle id=${widget.itemId} title=${AppStringUtils.redact(title, label: 'title')}');
     try {
       await ref
           .read(itemNotifierProvider.notifier)
