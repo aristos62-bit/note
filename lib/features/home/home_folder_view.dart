@@ -343,6 +343,18 @@ class _FolderStatsRow extends StatelessWidget {
     ItemType.journal, ItemType.contact, ItemType.project, ItemType.appointment,
   ];
 
+  /// Πληθυντικά για το semantics label (N5): «6 Εργασίες», «1 Εργασία».
+  static const _pluralLabels = <ItemType, String>{
+    ItemType.note:        'Σημειώσεις',
+    ItemType.task:        'Εργασίες',
+    ItemType.event:       'Συμβάντα',
+    ItemType.habit:       'Συνήθειες',
+    ItemType.journal:     'Ημερολόγια',
+    ItemType.contact:     'Επαφές',
+    ItemType.project:     'Συλλογές',
+    ItemType.appointment: 'Ραντεβού',
+  };
+
   @override
   Widget build(BuildContext context) {
     final activeTypes = _shown.where((t) => (stats[t] ?? 0) > 0).toList();
@@ -361,22 +373,30 @@ class _FolderStatsRow extends StatelessWidget {
             final type = activeTypes[i];
             final count = stats[type] ?? 0;
             final color = ColorsUI.itemTypeColor(type, context.brightness);
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ItemTypeIcon(type, size: 14, color: color),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$count',
-                    style: context.labelSm.withColor(color).copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ],
+            final label = count == 1
+                ? ItemTypeIcon.labelFor(type)
+                : (_pluralLabels[type] ?? ItemTypeIcon.labelFor(type));
+            return Semantics(
+              container: true,
+              label: '$count $label',
+              excludeSemantics: true,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ItemTypeIcon(type, size: 14, color: color),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$count',
+                      style: context.labelSm.withColor(color).copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             );
           },

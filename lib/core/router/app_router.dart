@@ -607,43 +607,51 @@ class _ScrollableBottomNavState extends State<_ScrollableBottomNav> {
                     final isSelected = i == widget.selectedIndex;
                     final color = isSelected ? context.cPrimary : context.cText2;
 
-                    return GestureDetector(
+                    return Semantics(
+                      container: true,
+                      button: true,
+                      selected: isSelected,
+                      label: item.label,
+                      excludeSemantics: true,
                       onTap: () => widget.onTap(i),
-                      behavior: HitTestBehavior.opaque,
-                      child: AnimatedContainer(
-                        duration: AppDuration.fast,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Spacing.md,
-                          vertical: Spacing.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: isSelected
-                                  ? context.cPrimary
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
+                      child: GestureDetector(
+                        onTap: () => widget.onTap(i),
+                        behavior: HitTestBehavior.opaque,
+                        child: AnimatedContainer(
+                          duration: AppDuration.fast,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.md,
+                            vertical: Spacing.sm,
                           ),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isSelected ? item.selectedIcon : item.icon,
-                              color: color,
-                              size: 22,
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              item.label,
-                              style: context.labelSm.withColor(color).copyWith(
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(
+                                color: isSelected
+                                    ? context.cPrimary
+                                    : Colors.transparent,
+                                width: 2,
                               ),
                             ),
-                          ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isSelected ? item.selectedIcon : item.icon,
+                                color: color,
+                                size: 22,
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                item.label,
+                                style: context.labelSm.withColor(color).copyWith(
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );

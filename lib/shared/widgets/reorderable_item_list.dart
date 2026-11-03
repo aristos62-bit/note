@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:reorderable_grid/reorderable_grid.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
@@ -41,6 +42,29 @@ class ReorderableItemList extends StatelessWidget {
   bool _isDraggable(Item item) =>
       dragEnabled && !item.pinned && !item.favorite;
 
+  /// N2: το drag handle δεν υπήρχε καθόλου στο semantics tree. Προσθέτουμε
+  /// label + custom actions ώστε η αναδιάταξη να είναι εφικτή και με TalkBack
+  /// (χωρίς σύρσιμο). Τα i±1 ταιριάζουν με τον adjusted `newIndex` του
+  /// `onReorderItem`/`SliverReorderableGrid.onReorder`.
+  Widget _dragHandle(int index) {
+    final actions = <CustomSemanticsAction, VoidCallback>{};
+    if (index > 0) {
+      actions[const CustomSemanticsAction(label: 'Μετακίνηση πάνω')] =
+          () => onReorder(index, index - 1);
+    }
+    if (index < items.length - 1) {
+      actions[const CustomSemanticsAction(label: 'Μετακίνηση κάτω')] =
+          () => onReorder(index, index + 1);
+    }
+    return Semantics(
+      container: true,
+      label: 'Αναδιάταξη',
+      hint: 'Ενέργειες για μετακίνηση πάνω ή κάτω',
+      customSemanticsActions: actions,
+      child: const ReorderHandle(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cols = context.gridColumns;
@@ -73,7 +97,7 @@ class ReorderableItemList extends StatelessWidget {
               if (draggable)
                 ReorderableDragStartListener(
                   index: i,
-                  child: const ReorderHandle(),
+                  child: _dragHandle(i),
                 )
               else
               // Placeholder ίδιου πλάτους για να μην αλλάζει το layout
@@ -131,7 +155,7 @@ class ReorderableItemList extends StatelessWidget {
                       child: ReorderableGridDragStartListener(
                         index: i,
                         enabled: true,
-                        child: const ReorderHandle(),
+                        child: _dragHandle(i),
                       ),
                     ),
                 ],
