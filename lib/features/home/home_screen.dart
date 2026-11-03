@@ -31,6 +31,17 @@ enum ViewMode { pinned, favorites, both }
 // ── Folder icons/colors: SPoT στο shared/widgets/folder_form_dialog.dart ──
 // (kFolderIcons/kFolderColors — οι τοπικές λίστες διαγράφηκαν στο Φ4a βήμα 3)
 
+/// S288: στήλες του grid καρτών της Αρχικής.
+///
+/// Κάτω από 360 dp οι 3 στήλες αφήνουν κελί ~91 dp (εσωτερικό ~75 dp), αλλά η
+/// γραμμή «εικονίδιο + badge + share 48 dp» θέλει ~82 dp → RenderFlex overflow
+/// 7,3–9,3 px. Με 2 στήλες το κελί πάει ~140 dp και η γραμμή χωράει.
+int homeGridColumns(double screenWidth) {
+  if (screenWidth < 360) return 2;
+  if (screenWidth < 600) return 3;
+  return 4;
+}
+
 // ════════════════════════════════════════════════════════════════
 // HOME SCREEN
 // ════════════════════════════════════════════════════════════════
@@ -706,7 +717,7 @@ class _ReorderableGridState extends ConsumerState<_ReorderableGrid> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth < 600 ? 3 : 4;
+    final crossAxisCount = homeGridColumns(screenWidth);
     const  spacing = Spacing.sm; // 8.0
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: context.responsiveHPadding),
@@ -768,7 +779,7 @@ class _LoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth < 600 ? 3 : 4;
+    final crossAxisCount = homeGridColumns(screenWidth);
     final placeholderColor = Theme.of(context).colorScheme.surfaceContainerHighest;
 
     return Padding(
