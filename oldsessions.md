@@ -4406,13 +4406,17 @@ if (!context.isShortScreen)
 
 **Έλεγχοι:** `flutter analyze` → **No issues found** · full `flutter test` → **408/408 PASS** (402 προϋπάρχοντα + 6 νέα στο `test/a11y_calendar_test.dart`: label ημέρας, σημάνσεις, πολυήμερο, απλή ημέρα, εξαίρεση επικεφαλίδας, tap). Backups ανά βήμα: `backups/a11y_s288_2026-11-03/step2…step13/`.
 
+**Βήμα 10 — 48×48 tap targets (D1 = 1b-i):** `calendar_screen.dart` `mainAxisExtent` 44→48 · `CircleToggleButton` `SizedBox(48)` + gap `Spacing.md`→`Spacing.xs` (3/4 toggles) · `ItemCard` checkbox `SizedBox(48)` (gap `sm`→`xs`) + trailing share 28→48 · φίλτρα εργασιών `height` 40→48 · `_DoneCheckbox` 26→48 · subtask checkbox 20→48 (gap `sm`→`xs`) · subtask save/delete `IconButton` χωρίς `constraints`/`padding: zero`/`compact` (default 48) · selectors εργασίας `SizedBox(height: 48)` + ✕ 48×48 · collection color circles 36→48 · settings type swatch 28→48 · share `_SquareItemCard`/`_FolderItemCard` 16→48. **Εξαιρέσεις που παραμένουν:** tag chips (D6), κελί ημερολογίου <352 dp, task AppBar compact (D4), family grid 6 στηλών <320 dp.
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** · full `flutter test` → **411/411 PASS** (402 προϋπάρχοντα + 6 `a11y_calendar_test` + 3 `a11y_tap_targets_test`: CircleToggleButton 48, ItemCard checkbox/share ≥48, κελί ημέρας ≥48). Backups: `backups/a11y_s288_2026-11-03/step11/`.
+
 **Μαθήματα:**
 - **Οι προβλέψεις γραμμών βγαίνουν ±1–2:** ο αξιόπιστος έλεγχος είναι `git diff --numstat` + `Select-String` στα labels, όχι το μέτρημα στο κεφάλι.
 - **Public widget = `super.key` υποχρεωτικό:** το `use_key_in_widget_constructors` χτύπησε μόλις έγινε `MonthGrid` public.
 - **`DateFormat` με locale σε test:** χρειάζεται `initializeDateFormatting()` στο `setUpAll` (parity με `main.dart:22`).
 - **Ένα `DateFormat` ανά κλάση:** 31 κελιά × rebuild = 31 parsings pattern αν κατασκευάζεται μέσα στο loop.
 
-**Κατάσταση:** 🔄 **E01 σε εξέλιξη** — μένουν Βήματα **10** (48×48 targets, D1: 1b-i vs 1b-ii), **11** (`ComposedTextScaler`), **12** (PII + `DebugConfig._debug`), **14** (N5/N6/N2) και το **device pass** με TalkBack. Το `error_list.md`/`oldsessions.md` κλείνουν οριστικά μόνο στο τέλος.
+**Κατάσταση:** 🔄 **E01 σε εξέλιξη** — Βήματα 1–10 & 13 ✅· μένουν **11** (`ComposedTextScaler`), **12** (PII + `DebugConfig._debug`), **14** (N5/N6/N2) και το **device pass** με TalkBack. Το `error_list.md` κλείνει οριστικά μόνο στο τέλος.
 
 
 
