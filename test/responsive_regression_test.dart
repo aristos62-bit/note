@@ -226,4 +226,65 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('S288e Εργασίες — κελί grid (κάρτα + μπάρα προόδου)', () {
+    // Η κάρτα εργασίας = ItemCard (compact, checkbox 48 + chip προτεραιότητας)
+    // + μπάρα προόδου 6 dp. Στο tablet 618 dp η κάρτα είναι ~200 dp πλάτος και
+    // το chip μένει σε μία γραμμή — 92 + 6 = 98 dp, δηλαδή το παλιό
+    // `gridItemExtent: 94` έβγαζε overflow 4 px.
+    Widget card({double cellHeight = 100}) {
+      final item = Item()
+        ..workspaceId = 1
+        ..type = ItemType.task
+        ..title = 'Επείγον'
+        ..priority = ItemPriority.urgent;
+
+      return MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              height: cellHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ItemCard(
+                    item: item,
+                    compact: true,
+                    onCheckboxChanged: (_) {},
+                    onShare: () {},
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(4, 0, 4, 2),
+                    child: SizedBox(height: 4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('κελί 100 dp: χωρίς overflow (98 dp περιεχόμενο)',
+        (tester) async {
+      await tester.pumpWidget(card());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final cardHeight = tester.getSize(find.byType(ItemCard)).height;
+      expect(cardHeight + 6, lessThanOrEqualTo(100));
+    });
+
+    testWidgets('παλιό κελί 94 dp: τεκμηριώνει το overflow που διορθώθηκε',
+        (tester) async {
+      await tester.pumpWidget(card(cellHeight: 94));
+      await tester.pumpAndSettle();
+
+      // Ο έλεγχος κρατά την αιτία: 92 + 6 = 98 > 94.
+      expect(tester.takeException(), isNotNull);
+      expect(tester.getSize(find.byType(ItemCard)).height, 92);
+    });
+  });
 }
