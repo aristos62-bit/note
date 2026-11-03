@@ -208,8 +208,24 @@ class _DayHeader extends StatelessWidget {
 const double calendarTwoPaneMinWidth = 640.0;
 
 /// true όταν χωράει το two-pane· αλλιώς single-column (mobile) layout.
-bool shouldUseTwoPane(double availableWidth) =>
-    availableWidth >= calendarTwoPaneMinWidth;
+/// S288c: εκτός από πλάτος χρειάζεται και ύψος — με ανοιχτό πληκτρολόγιο σε
+/// landscape (body ~37 dp) το δεξί panel δεν χωράει ούτε header+toggle
+/// (68 dp) και έβγαζε `RenderFlex overflowed by 31 pixels`.
+bool shouldUseTwoPane(
+  double availableWidth, {
+  double availableHeight = double.infinity,
+}) =>
+    availableWidth >= calendarTwoPaneMinWidth &&
+    availableHeight >= calendarTwoPaneMinHeight;
+
+/// S288c: ελάχιστο ύψος για two-pane (day header 28 + archived toggle 40 +
+/// τουλάχιστον ~130 dp λίστα).
+const double calendarTwoPaneMinHeight = 200.0;
+
+/// S288c: κάτω από αυτό το ύψος το head (month grid / header+toggle) κρύβεται
+/// τελείως, ώστε η λίστα — συνήθως αποτελέσματα αναζήτησης — να πάρει όλο τον
+/// διαθέσιμο χώρο (π.χ. landscape + ανοιχτό πληκτρολόγιο).
+const double calendarMinHeightForChrome = 160.0;
 
 /// S288b: μερίδιο ύψους για το block πάνω από τη λίστα ημέρας (month grid +
 /// header + toggle ≈ 420 dp). Όταν το block δεν χωράει, γίνεται scrollable και
@@ -237,23 +253,27 @@ class CalendarMobileBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // S288c: πολύ κοντό viewport (πληκτρολόγιο σε landscape) → μόνο λίστα.
+        final showBlock = !constraints.hasBoundedHeight ||
+            constraints.maxHeight >= calendarMinHeightForChrome;
         final maxBlockHeight = constraints.hasBoundedHeight
             ? constraints.maxHeight * calendarBlockMaxShare
             : double.infinity;
         return Column(
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: maxBlockHeight),
-              // ListView με shrinkWrap: παίρνει το ύψος του περιεχομένου όταν
-              // χωράει και γίνεται scrollable όταν το ξεπερνά (το
-              // SingleChildScrollView δεν έχει shrinkWrap).
-              child: ListView(
-                shrinkWrap: true,
-                primary: false,
-                padding: EdgeInsets.zero,
-                children: [calendarBlock],
+            if (showBlock)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxBlockHeight),
+                // ListView με shrinkWrap: παίρνει το ύψος του περιεχομένου όταν
+                // χωράει και γίνεται scrollable όταν το ξεπερνά (το
+                // SingleChildScrollView δεν έχει shrinkWrap).
+                child: ListView(
+                  shrinkWrap: true,
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  children: [calendarBlock],
+                ),
               ),
-            ),
             Flexible(
               fit: FlexFit.tight,
               child: dayList,
@@ -461,7 +481,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       builder: (context, constraints) {
         // S288: χωρίς αρκετό πλάτος περιεχομένου (π.χ. tablet 618 dp με side
         // rail) το two-pane αφήνει <300 dp στη λίστα → single-column layout.
-        if (!shouldUseTwoPane(constraints.maxWidth)) {
+        // S288c: το ίδιο και σε πολύ μικρό ύψος (landscape + πληκτρολόγιο).
+        if (!shouldUseTwoPane(
+          constraints.maxWidth,
+          availableHeight: constraints.maxHeight,
+        )) {
           return _buildMobile(
             context,
             ref,
