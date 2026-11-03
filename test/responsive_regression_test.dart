@@ -11,6 +11,7 @@ import 'package:super_note/features/calendar/calendar_screen.dart';
 import 'package:super_note/features/home/home_screen.dart';
 import 'package:super_note/models/models.dart';
 import 'package:super_note/providers/providers.dart';
+import 'package:super_note/shared/widgets/widgets.dart';
 
 Folder _folder() => Folder()
   ..id = 1
@@ -181,6 +182,43 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('block')), findsNothing);
       expect(tester.getSize(find.byKey(const Key('list'))).height, 37);
+    });
+  });
+
+  group('S288d Ημερολόγιο — folder selector με ανοιχτό πληκτρολόγιο', () {
+    Widget screen({required double keyboardInset}) {
+      return ProviderScope(
+        overrides: [
+          itemsStreamProvider
+              .overrideWith((ref) => Stream.value(const <Item>[])),
+          foldersStreamProvider
+              .overrideWith((ref) => Stream.value(const <Folder>[])),
+        ],
+        child: MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(392, 792),
+              viewInsets: EdgeInsets.only(bottom: keyboardInset),
+            ),
+            child: const CalendarScreen(),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('χωρίς πληκτρολόγιο: ο selector είναι ορατός', (tester) async {
+      await tester.pumpWidget(screen(keyboardInset: 0));
+      await tester.pump();
+
+      expect(find.byType(DraggableFolderSelector), findsOneWidget);
+    });
+
+    testWidgets('με πληκτρολόγιο (233 dp): ο selector κρύβεται', (tester) async {
+      await tester.pumpWidget(screen(keyboardInset: 233));
+      await tester.pump();
+
+      expect(find.byType(DraggableFolderSelector), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   });
 }
