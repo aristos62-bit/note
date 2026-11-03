@@ -640,7 +640,7 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(

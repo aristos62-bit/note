@@ -789,7 +789,7 @@ class MonthGrid extends ConsumerWidget {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisExtent: 44,
+              mainAxisExtent: 48,
             ),
             itemCount: startOffset + daysInMonth,
             itemBuilder: (_, index) {

@@ -69,7 +69,7 @@ class CircleToggleButton extends StatelessWidget {
       children: [
         for (int i = 0; i < children.length; i++) ...[
           children[i],
-          if (i != children.length - 1) const SizedBox(width: Spacing.md),
+          if (i != children.length - 1) const SizedBox(width: Spacing.xs),
         ],
       ],
     );
@@ -90,19 +90,26 @@ class CircleToggleButton extends StatelessWidget {
       onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Tooltip(
           message: tooltip,
-          child: AnimatedContainer(
-            duration: AppDuration.fast,
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: borderColor, width: 1.5),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: AnimatedContainer(
+                duration: AppDuration.fast,
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: borderColor, width: 1.5),
+                ),
+                child: Icon(icon, size: 18, color: color),
+              ),
             ),
-            child: Icon(icon, size: 18, color: color),
           ),
         ),
       ),

@@ -902,9 +902,12 @@ class _SquareItemCard extends StatelessWidget {
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: onShare,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 2),
-                          child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Center(
+                            child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                          ),
                         ),
                       ),
                     ),

@@ -65,20 +65,26 @@ class SettingsItemTypeColorsTile extends ConsumerWidget {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _showColorPicker(context, type, hex),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: color ?? _defaultBg(type, context),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: context.cBorder,
-                            width: color == null ? 2 : 0,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Center(
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: color ?? _defaultBg(type, context),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: context.cBorder,
+                                width: color == null ? 2 : 0,
+                              ),
+                            ),
+                            child: color == null
+                                ? Icon(Icons.close_rounded, size: 14, color: context.cText2)
+                                : null,
                           ),
                         ),
-                        child: color == null
-                            ? Icon(Icons.close_rounded, size: 14, color: context.cText2)
-                            : null,
                       ),
                     ),
                   ),

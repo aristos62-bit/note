@@ -530,27 +530,33 @@ class _DoneCheckbox extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: AppDuration.normal,
-          width: 26, height: 26,
-          decoration: BoxDecoration(
-            color: isDone
-                ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            border: Border.all(
-              color: isDone
-                  ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
-                  : isDisabled
-                  ? ColorsUI.getBorder(context.brightness).withValues(alpha: 0.4)
-                  : ColorsUI.getBorder(context.brightness),
-              width: 2,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Center(
+            child: AnimatedContainer(
+              duration: AppDuration.normal,
+              width: 26, height: 26,
+              decoration: BoxDecoration(
+                color: isDone
+                    ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(
+                  color: isDone
+                      ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
+                      : isDisabled
+                      ? ColorsUI.getBorder(context.brightness).withValues(alpha: 0.4)
+                      : ColorsUI.getBorder(context.brightness),
+                  width: 2,
+                ),
+              ),
+              child: isDone
+                  ? Icon(Icons.check_rounded, size: 16,
+                  color: ColorsUI.getAccessibleTextColor(context.cPrimary))
+                  : null,
             ),
           ),
-          child: isDone
-              ? Icon(Icons.check_rounded, size: 16,
-              color: ColorsUI.getAccessibleTextColor(context.cPrimary))
-              : null,
         ),
       ),
     );
@@ -680,18 +686,22 @@ class _StatusSelector extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _pick(context),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(opt.$3, size: 16, color: context.cPrimary),
-          const SizedBox(width: Spacing.xs),
-          Flexible(
-            child: Text(opt.$2,
-                style: context.bodyMd,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 2),
-          Icon(Icons.arrow_drop_down_rounded, size: 18, color: context.cText2),
-        ]),
+        child: SizedBox(
+          height: 48,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(opt.$3, size: 16, color: context.cPrimary),
+            const SizedBox(width: Spacing.xs),
+            Flexible(
+              child: Text(opt.$2,
+                  style: context.bodyMd,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down_rounded, size: 18,
+                color: context.cText2),
+          ]),
+        ),
       ),
     );
   }
@@ -758,15 +768,19 @@ class _PrioritySelector extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _pick(context),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (current == ItemPriority.none)
-            Text('Καμία',
-                style: context.bodyMd.withColor(context.cText2))
-          else
-            PriorityBadge(priority: current, size: BadgeSize.small),
-          const SizedBox(width: 2),
-          Icon(Icons.arrow_drop_down_rounded, size: 18, color: context.cText2),
-        ]),
+        child: SizedBox(
+          height: 48,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (current == ItemPriority.none)
+              Text('Καμία',
+                  style: context.bodyMd.withColor(context.cText2))
+            else
+              PriorityBadge(priority: current, size: BadgeSize.small),
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down_rounded, size: 18,
+                color: context.cText2),
+          ]),
+        ),
       ),
     );
   }
@@ -835,20 +849,23 @@ class _DueDateSelector extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onPick,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Flexible(
-                child: Text(
-                  date != null ? date!.due : 'Χωρίς προθεσμία',
-                  style: context.bodyMd.withColor(
-                      date != null ? labelColor : context.cText2),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            child: SizedBox(
+              height: 48,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Flexible(
+                  child: Text(
+                    date != null ? date!.due : 'Χωρίς προθεσμία',
+                    style: context.bodyMd.withColor(
+                        date != null ? labelColor : context.cText2),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const SizedBox(width: Spacing.xs),
-              if (date == null || onClear == null)
-                Icon(Icons.add_rounded, size: 16, color: context.cText2),
-            ]),
+                const SizedBox(width: Spacing.xs),
+                if (date == null || onClear == null)
+                  Icon(Icons.add_rounded, size: 16, color: context.cText2),
+              ]),
+            ),
           ),
         ),
       ),
@@ -862,7 +879,14 @@ class _DueDateSelector extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onClear,
-            child: Icon(Icons.close_rounded, size: 16, color: context.cText2),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(
+                child: Icon(Icons.close_rounded, size: 16,
+                    color: context.cText2),
+              ),
+            ),
           ),
         ),
       ],
@@ -1216,28 +1240,34 @@ class _SubtaskTileState extends ConsumerState<_SubtaskTile> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onToggle,
-              child: AnimatedContainer(
-                duration: AppDuration.fast,
-                width: 20, height: 20,
-                decoration: BoxDecoration(
-                  color: isDone ? context.cPrimary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.xs),
-                  border: Border.all(
-                    color: isDone
-                        ? context.cPrimary
-                        : ColorsUI.getBorder(context.brightness),
-                    width: 2,
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: AppDuration.fast,
+                    width: 20, height: 20,
+                    decoration: BoxDecoration(
+                      color: isDone ? context.cPrimary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                      border: Border.all(
+                        color: isDone
+                            ? context.cPrimary
+                            : ColorsUI.getBorder(context.brightness),
+                        width: 2,
+                      ),
+                    ),
+                    child: isDone
+                        ? Icon(Icons.check_rounded, size: 13,
+                        color: ColorsUI.getAccessibleTextColor(context.cPrimary))
+                        : null,
                   ),
                 ),
-                child: isDone
-                    ? Icon(Icons.check_rounded, size: 13,
-                    color: ColorsUI.getAccessibleTextColor(context.cPrimary))
-                    : null,
               ),
             ),
           ),
 
-          const SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.xs),
 
           // Τίτλος ή TextField επεξεργασίας
           Expanded(
@@ -1275,9 +1305,6 @@ class _SubtaskTileState extends ConsumerState<_SubtaskTile> {
               icon: Icon(Icons.check_rounded,
                   size: 18, color: context.cPrimary),
               onPressed: _saveEdit,
-              padding:        EdgeInsets.zero,
-              constraints:    const BoxConstraints(),
-              visualDensity:  VisualDensity.compact,
               tooltip:        'Αποθήκευση',
             )
           else
@@ -1285,9 +1312,6 @@ class _SubtaskTileState extends ConsumerState<_SubtaskTile> {
               icon: Icon(Icons.close_rounded,
                   size: 16, color: context.cText2),
               onPressed: widget.onDelete,
-              padding:       EdgeInsets.zero,
-              constraints:   const BoxConstraints(),
-              visualDensity: VisualDensity.compact,
               tooltip:       'Διαγραφή υποεργασίας',
             ),
         ],

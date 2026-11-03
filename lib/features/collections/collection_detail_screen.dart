@@ -626,23 +626,29 @@ class _CollectionDetailScreenState
                     _hasChanges = true;
                   });
                 },
-                child: AnimatedContainer(
-                  duration: AppDuration.fast,
-                  width:  36, height: 36,
-                  decoration: BoxDecoration(
-                    color:  c,
-                    shape:  BoxShape.circle,
-                    border: Border.all(
-                      color: isActive
-                          ? context.cText
-                          : Colors.transparent,
-                      width: 2.5,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: AppDuration.fast,
+                      width:  36, height: 36,
+                      decoration: BoxDecoration(
+                        color:  c,
+                        shape:  BoxShape.circle,
+                        border: Border.all(
+                          color: isActive
+                              ? context.cText
+                              : Colors.transparent,
+                          width: 2.5,
+                        ),
+                      ),
+                      child: isActive
+                          ? const Icon(Icons.check_rounded, size: 18,
+                          color: Colors.white)
+                          : null,
                     ),
                   ),
-                  child: isActive
-                      ? const Icon(Icons.check_rounded, size: 18,
-                      color: Colors.white)
-                      : null,
                 ),
               ),
             );
