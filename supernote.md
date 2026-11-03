@@ -100,6 +100,7 @@ lib/
 │       ├── contact_props.dart    — ContactProps.fromProperties (SPoT)
 │       ├── app_errors.dart       — Κεντρικά user-facing strings (AppErrors)
 │       ├── reorder_utils.dart    — SPoT moveAndMerge subset→full (S148)
+│       ├── composed_text_scaler.dart — system + app text scale σύνθεση με clamp 2.0 (S288, E01)
 │       └── serial_pass_queue.dart — SPoT σειριοποίησης passes (S246)
 ├── models/
 │   ├── models.dart               — Barrel export
@@ -398,6 +399,7 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - Theme: `AppTheme.system/light/dark`
 - Language: `AppLanguage.greek/english/auto`
 - Font scale, default view, archived/deleted visibility
+  - Το `fontScale` (0.8–1.4) **συντίθεται** πλέον με το system text scale (`ComposedTextScaler`, `main.dart` builder) και clamp-άρεται στο 2.0 — πριν το system scale αντικαθίστατο (S288, E01).
 - Notifications toggle, sound, vibration
 - Sync settings (syncEnabled, wifiOnly, interval)
 - `defaultWorkspaceId`

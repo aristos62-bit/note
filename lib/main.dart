@@ -274,26 +274,32 @@ class SuperNoteApp extends ConsumerWidget {
       themeAnimationDuration:
           Duration.zero, // ✅ instant switch, μηδέν animation frames
       routerConfig: router,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(fontScale),
-        ),
-        child: Stack(
-          children: [
-            child!,
-            Consumer(
-              builder: (context, ref, _) {
-                final locked = ref.watch(appLockStateProvider);
-                if (!locked) return const SizedBox.shrink();
-                return const PopScope(
-                  canPop: false,
-                  child: LockScreen(),
-                );
-              },
+      builder: (context, child) {
+        final systemScaler = MediaQuery.textScalerOf(context);
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: ComposedTextScaler(
+              system: systemScaler,
+              app: TextScaler.linear(fontScale),
             ),
-          ],
-        ),
-      ),
+          ),
+          child: Stack(
+            children: [
+              child!,
+              Consumer(
+                builder: (context, ref, _) {
+                  final locked = ref.watch(appLockStateProvider);
+                  if (!locked) return const SizedBox.shrink();
+                  return const PopScope(
+                    canPop: false,
+                    child: LockScreen(),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
