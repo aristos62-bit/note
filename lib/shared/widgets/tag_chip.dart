@@ -83,65 +83,77 @@ class TagChip extends StatelessWidget {
         ? const EdgeInsets.symmetric(horizontal: 7, vertical: 2)
         : const EdgeInsets.symmetric(horizontal: 10, vertical: 4);
 
-    return GestureDetector(
-      onTap: onTap == null ? null : () {
-        DebugConfig.print('TagChip.onTap name=${AppStringUtils.redact(name, label: 'tag')} selected=${!selected}');
-        onTap!();
-      },
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 240),
-        child: AnimatedContainer(
-          duration: AppDuration.fast,
-          padding: onDelete != null
-              ? padding.copyWith(right: 4)
-              : padding,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(AppRadius.chip),
-            border: Border.all(color: borderColor, width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Dot χρώματος (αν έχει custom color)
-              if (color != null) ...[
-                Container(
-                  width: compact ? 6 : 8,
-                  height: compact ? 6 : 8,
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    shape: BoxShape.circle,
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      selected: onTap != null ? selected : null,
+      child: GestureDetector(
+        onTap: onTap == null ? null : () {
+          DebugConfig.print('TagChip.onTap name=${AppStringUtils.redact(name, label: 'tag')} selected=${!selected}');
+          onTap!();
+        },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 240),
+          child: AnimatedContainer(
+            duration: AppDuration.fast,
+            padding: onDelete != null
+                ? padding.copyWith(right: 4)
+                : padding,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(AppRadius.chip),
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Dot χρώματος (αν έχει custom color)
+                if (color != null) ...[
+                  Container(
+                    width: compact ? 6 : 8,
+                    height: compact ? 6 : 8,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+
+                // Label — Flexible ώστε να κάνει wrap αντί να μεγαλώνει το chip
+                Flexible(
+                  child: Text(
+                    name,
+                    softWrap: true,
+                    style: (compact ? context.labelSm : context.labelMd)
+                        .withColor(textColor),
                   ),
                 ),
-                const SizedBox(width: 4),
-              ],
 
-              // Label — Flexible ώστε να κάνει wrap αντί να μεγαλώνει το chip
-              Flexible(
-                child: Text(
-                  name,
-                  softWrap: true,
-                  style: (compact ? context.labelSm : context.labelMd)
-                      .withColor(textColor),
-                ),
-              ),
-
-              // Delete button (πάντα ορατό, εκτός Flexible)
-              if (onDelete != null) ...[
-                const SizedBox(width: 2),
-                GestureDetector(
-                  onTap: () {
-                    DebugConfig.print('TagChip.onDelete name="$name"');
-                    onDelete!();
-                  },
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: compact ? 12 : 14,
-                    color: textColor.withValues(alpha:0.7),
+                // Delete button (πάντα ορατό, εκτός Flexible)
+                if (onDelete != null) ...[
+                  const SizedBox(width: 2),
+                  Semantics(
+                    button: true,
+                    label: 'Διαγραφή ετικέτας «$name»',
+                    excludeSemantics: true,
+                    onTap: onDelete,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        DebugConfig.print('TagChip.onDelete name="$name"');
+                        onDelete!();
+                      },
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: compact ? 12 : 14,
+                        color: textColor.withValues(alpha:0.7),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -306,33 +318,40 @@ class _AddTagButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        DebugConfig.print('TagChipList: add tag tapped');
-        onTap?.call();
-      },
-      child: Container(
-        padding: compact
-            ? const EdgeInsets.symmetric(horizontal: 7, vertical: 2)
-            : const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.chip),
-          border: Border.all(
-            color: context.cBorder,
-            style: BorderStyle.solid,
+    return Semantics(
+      button: true,
+      label: 'Προσθήκη ετικέτας',
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          DebugConfig.print('TagChipList: add tag tapped');
+          onTap?.call();
+        },
+        child: Container(
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 7, vertical: 2)
+              : const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.chip),
+            border: Border.all(
+              color: context.cBorder,
+              style: BorderStyle.solid,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add_rounded,
-                size: compact ? 12 : 14, color: context.cText2),
-            const SizedBox(width: 3),
-            Text('Tag',
-                style: (compact ? context.labelSm : context.labelMd)
-                    .withColor(context.cText2)),
-          ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded,
+                  size: compact ? 12 : 14, color: context.cText2),
+              const SizedBox(width: 3),
+              Text('Tag',
+                  style: (compact ? context.labelSm : context.labelMd)
+                      .withColor(context.cText2)),
+            ],
+          ),
         ),
       ),
     );

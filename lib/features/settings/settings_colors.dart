@@ -57,22 +57,29 @@ class SettingsItemTypeColorsTile extends ConsumerWidget {
                       style: context.bodyMd,
                     ),
                   ),
-                  GestureDetector(
+                  Semantics(
+                    button: true,
+                    label: 'Αλλαγή χρώματος: ${ItemTypeIcon.labelFor(type)}',
+                    excludeSemantics: true,
                     onTap: () => _showColorPicker(context, type, hex),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: color ?? _defaultBg(type, context),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: context.cBorder,
-                          width: color == null ? 2 : 0,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _showColorPicker(context, type, hex),
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: color ?? _defaultBg(type, context),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: context.cBorder,
+                            width: color == null ? 2 : 0,
+                          ),
                         ),
+                        child: color == null
+                            ? Icon(Icons.close_rounded, size: 14, color: context.cText2)
+                            : null,
                       ),
-                      child: color == null
-                          ? Icon(Icons.close_rounded, size: 14, color: context.cText2)
-                          : null,
                     ),
                   ),
                 ],
@@ -159,6 +166,7 @@ class SettingsColorPickerSheetState extends State<SettingsColorPickerSheet> {
     family.shade800,
     family.shade900,
   ];
+  static const _shadeValues = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
 
   String _familyLabel(MaterialColor family) {
     if (family == Colors.red) return 'Κόκκινο';
@@ -214,18 +222,21 @@ class SettingsColorPickerSheetState extends State<SettingsColorPickerSheet> {
           Divider(height: 1, color: context.cDivider),
           const SizedBox(height: Spacing.sm),
           // Προεπιλογή
-          ListTile(
-            leading: Container(
-              width: 28, height: 28,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: context.cBorder, width: 2),
+          Semantics(
+            selected: widget.currentHex == null,
+            child: ListTile(
+              leading: Container(
+                width: 28, height: 28,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: context.cBorder, width: 2),
+                ),
+                child: Icon(Icons.close_rounded, size: 14, color: context.cText2),
               ),
-              child: Icon(Icons.close_rounded, size: 14, color: context.cText2),
+              title: Text('Προεπιλογή', style: context.bodyMd),
+              trailing: widget.currentHex == null ? Icon(Icons.check, size: 18, color: context.cPrimary) : null,
+              onTap: () => widget.onSelected(null),
             ),
-            title: Text('Προεπιλογή', style: context.bodyMd),
-            trailing: widget.currentHex == null ? Icon(Icons.check, size: 18, color: context.cPrimary) : null,
-            onTap: () => widget.onSelected(null),
           ),
           const Divider(height: 1),
           const SizedBox(height: Spacing.sm),
@@ -250,33 +261,43 @@ class SettingsColorPickerSheetState extends State<SettingsColorPickerSheet> {
               itemBuilder: (_, i) {
                 final family = _colorFamilies[i];
                 final isSelected = _selectedFamily == family;
-                return GestureDetector(
+                return Semantics(
+                  button: true,
+                  selected: isSelected,
+                  label: _familyLabel(family).isEmpty
+                      ? 'Χρώμα ${i + 1}'
+                      : _familyLabel(family),
+                  excludeSemantics: true,
                   onTap: () => setState(() => _selectedFamily = isSelected ? null : family),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: family.shade500,
-                          borderRadius: BorderRadius.circular(8),
-                          border: isSelected
-                              ? Border.all(color: Colors.white, width: 2.5)
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _selectedFamily = isSelected ? null : family),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: family.shade500,
+                            borderRadius: BorderRadius.circular(8),
+                            border: isSelected
+                                ? Border.all(color: Colors.white, width: 2.5)
+                                : null,
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check, color: Colors.white, size: 16)
                               : null,
                         ),
-                        child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white, size: 16)
-                            : null,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _familyLabel(family),
-                        style: context.bodySm.withColor(context.cText2),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          _familyLabel(family),
+                          style: context.bodySm.withColor(context.cText2),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -303,26 +324,35 @@ class SettingsColorPickerSheetState extends State<SettingsColorPickerSheet> {
                   crossAxisSpacing: 6,
                 ),
                 itemCount: _shadesOf(_selectedFamily!).length,
-                itemBuilder: (_, i) {
-                  final color = _shadesOf(_selectedFamily!)[i];
-                  final hex = _colorToHex(color);
-                  final isSelected = hex == widget.currentHex;
-                  return GestureDetector(
-                    onTap: () => widget.onSelected(hex),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(6),
-                        border: isSelected
-                            ? Border.all(color: Colors.white, width: 2.5)
-                            : null,
+                  itemBuilder: (_, i) {
+                    final color = _shadesOf(_selectedFamily!)[i];
+                    final hex = _colorToHex(color);
+                    final isSelected = hex == widget.currentHex;
+                    final shade = _shadeValues[i];
+                    return Semantics(
+                      button: true,
+                      selected: isSelected,
+                      label: '${_familyLabel(_selectedFamily!)} $shade',
+                      excludeSemantics: true,
+                      onTap: () => widget.onSelected(hex),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => widget.onSelected(hex),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(6),
+                            border: isSelected
+                                ? Border.all(color: Colors.white, width: 2.5)
+                                : null,
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check, color: Colors.white, size: 16)
+                              : null,
+                        ),
                       ),
-                      child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white, size: 16)
-                          : null,
-                    ),
-                  );
-                },
+                    );
+                  },
               ),
             ),
           ],

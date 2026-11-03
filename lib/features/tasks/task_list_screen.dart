@@ -665,28 +665,35 @@ class _FilterRow extends StatelessWidget {
 
           ..._priorities.map((p) => Padding(
             padding: const EdgeInsets.only(right: Spacing.xs),
-            child: GestureDetector(
+            child: Semantics(
+              button: true,
+              selected: priorityFilter == p,
+              label: AppStringUtils.priorityLabel(p.name),
               onTap: () => onPriorityTap(p),
-              child: AnimatedContainer(
-                duration: AppDuration.fast,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.sm, vertical: Spacing.xs),
-                decoration: BoxDecoration(
-                  color: priorityFilter == p
-                      ? context.priorityColor(p).withValues(alpha: 0.15)
-                      : ColorsUI.getSurface(context.brightness),
-                  borderRadius: BorderRadius.circular(AppRadius.chip),
-                  border: Border.all(
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: () => onPriorityTap(p),
+                child: AnimatedContainer(
+                  duration: AppDuration.fast,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.sm, vertical: Spacing.xs),
+                  decoration: BoxDecoration(
                     color: priorityFilter == p
-                        ? context.priorityColor(p)
-                        : ColorsUI.getBorder(context.brightness),
+                        ? context.priorityColor(p).withValues(alpha: 0.15)
+                        : ColorsUI.getSurface(context.brightness),
+                    borderRadius: BorderRadius.circular(AppRadius.chip),
+                    border: Border.all(
+                      color: priorityFilter == p
+                          ? context.priorityColor(p)
+                          : ColorsUI.getBorder(context.brightness),
+                    ),
                   ),
-                ),
-                child: PriorityBadge(
-                  priority:  p,
-                  size:      BadgeSize.small,
-                  showIcon:  true,
-                  showLabel: true,
+                  child: PriorityBadge(
+                    priority:  p,
+                    size:      BadgeSize.small,
+                    showIcon:  true,
+                    showLabel: true,
+                  ),
                 ),
               ),
             ),
@@ -710,28 +717,35 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppDuration.fast,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.sm + 2, vertical: Spacing.xs),
-        decoration: BoxDecoration(
-          color: selected
-              ? context.cPrimary.withValues(alpha: 0.12)
-              : ColorsUI.getSurface(context.brightness),
-          borderRadius: BorderRadius.circular(AppRadius.chip),
-          border: Border.all(
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: AppDuration.fast,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.sm + 2, vertical: Spacing.xs),
+          decoration: BoxDecoration(
             color: selected
-                ? context.cPrimary.withValues(alpha: 0.5)
-                : ColorsUI.getBorder(context.brightness),
+                ? context.cPrimary.withValues(alpha: 0.12)
+                : ColorsUI.getSurface(context.brightness),
+            borderRadius: BorderRadius.circular(AppRadius.chip),
+            border: Border.all(
+              color: selected
+                  ? context.cPrimary.withValues(alpha: 0.5)
+                  : ColorsUI.getBorder(context.brightness),
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: context.labelSm
-              .withColor(selected ? context.cPrimary : context.cText2),
+          child: Text(
+            label,
+            style: context.labelSm
+                .withColor(selected ? context.cPrimary : context.cText2),
+          ),
         ),
       ),
     );

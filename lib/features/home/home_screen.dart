@@ -415,6 +415,7 @@ class _HomeAppBar extends ConsumerWidget {
             context,
             AppTransitions.slideUpRoute(const SettingsScreen()),
           ),
+          tooltip: 'Ρυθμίσεις',
         ),
       ],
     );
@@ -893,11 +894,18 @@ class _SquareItemCard extends StatelessWidget {
                     ),
                   if (onShare != null) ...[
                     const Spacer(),
-                    GestureDetector(
+                    Semantics(
+                      button: true,
+                      label: 'Κοινοποίηση',
+                      excludeSemantics: true,
                       onTap: onShare,
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 2),
-                        child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onShare,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 2),
+                          child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                        ),
                       ),
                     ),
                   ],

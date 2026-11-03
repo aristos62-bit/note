@@ -464,9 +464,16 @@ class _FolderItemCard extends StatelessWidget {
                 if (onShare != null)
                   Padding(
                     padding: const EdgeInsets.only(left: 4),
-                    child: GestureDetector(
+                    child: Semantics(
+                      button: true,
+                      label: 'Κοινοποίηση',
+                      excludeSemantics: true,
                       onTap: onShare,
-                      child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onShare,
+                        child: Icon(Icons.share_rounded, size: 16, color: textColor.withValues(alpha: 0.6)),
+                      ),
                     ),
                   ),
               ],

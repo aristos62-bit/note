@@ -934,6 +934,7 @@ class _CollectionEntryDetailScreenState
                 right: 8,
                 child: IconButton(
                   icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  tooltip: 'Κλείσιμο',
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
               ),
@@ -1561,6 +1562,7 @@ class _ListField extends StatelessWidget {
                 IconButton(
                   icon: Icon(Icons.remove_circle_outline,
                       size: 18, color: context.cError),
+                  tooltip: 'Αφαίρεση',
                   onPressed: () => onRemove(idx),
                 ),
               ],

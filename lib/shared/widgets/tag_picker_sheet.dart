@@ -62,6 +62,7 @@ class _TagPickerSheetState extends ConsumerState<TagPickerSheet> {
                 hintText: 'Νέο tag...',
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.add_rounded),
+                  tooltip: 'Προσθήκη ετικέτας',
                   onPressed: () => _addTag(_ctrl.text),
                 ),
               ),

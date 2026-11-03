@@ -560,13 +560,15 @@ class _ProgressSection extends StatelessWidget {
             IconButton(
               onPressed: stats!.dailyProgress <= 0 ? null : onDecrement,
               icon: const Icon(Icons.remove_circle_outline),
+              tooltip: 'Μείωση',
               color:
-                  stats!.dailyProgress > 0 ? context.cText2 : context.cDisabled,
+              stats!.dailyProgress > 0 ? context.cText2 : context.cDisabled,
             ),
             const SizedBox(width: Spacing.md),
             IconButton(
               onPressed: isAllDone ? null : onIncrement,
               icon: const Icon(Icons.add_circle_outline),
+              tooltip: 'Αύξηση',
               color: !isAllDone ? context.cPrimary : context.cDisabled,
             ),
           ],
@@ -1638,11 +1640,12 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                   leading:
                       Icon(Icons.access_time_rounded, color: context.cPrimary),
                   title: Text(t, style: context.titleMd),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete_outline_rounded,
-                        color: context.cError),
-                    onPressed: () => setState(() => _times.remove(t)),
-                  ),
+                trailing: IconButton(
+                  icon: Icon(Icons.delete_outline_rounded,
+                      color: context.cError),
+                  tooltip: 'Διαγραφή ώρας',
+                  onPressed: () => setState(() => _times.remove(t)),
+                ),
                 )),
           const SizedBox(height: Spacing.md),
           Row(children: [

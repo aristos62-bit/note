@@ -1,6 +1,7 @@
 // lib/features/calendar/calendar_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:isar/isar.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
@@ -16,7 +17,7 @@ import '../../services/services.dart';
 enum _EventCreationType { event, birthday, specialDay }
 
 // ── Τύπος ενδείξεων ημερολογίου (για sorting/display) ────────
-enum _DayMarkerType { birthday, specialDay, event }
+enum DayMarkerType { birthday, specialDay, event }
 
 /// E41 — Δεδομένα μήνα: ημέρες → items (για πλέγμα + λίστα ημέρας) και
 /// ημέρες → γραμμή πολυήμερου.
@@ -271,12 +272,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.chevron_left_rounded),
+          tooltip: 'Προηγούμενος μήνας',
           onPressed: () {
             final cur = ref.read(_focusedMonthProvider);
             final next = DateTime(cur.year, cur.month - 1);
             ref.read(_focusedMonthProvider.notifier).state = next;
             final synced =
-                _clampDay(ref.read(_selectedDayProvider), next);
+            _clampDay(ref.read(_selectedDayProvider), next);
             ref.read(_selectedDayProvider.notifier).state = synced;
             DebugConfig.nav('Calendar month ${next.month}/${next.year} day synced $synced');
           },
@@ -293,12 +295,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right_rounded),
+          tooltip: 'Επόμενος μήνας',
           onPressed: () {
             final cur = ref.read(_focusedMonthProvider);
             final next = DateTime(cur.year, cur.month + 1);
             ref.read(_focusedMonthProvider.notifier).state = next;
             final synced =
-                _clampDay(ref.read(_selectedDayProvider), next);
+            _clampDay(ref.read(_selectedDayProvider), next);
             ref.read(_selectedDayProvider.notifier).state = synced;
             DebugConfig.nav('Calendar month ${next.month}/${next.year} day synced $synced');
           },
@@ -343,7 +346,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }) {
     return Column(
       children: [
-        _MonthGrid(
+        MonthGrid(
           focusedMonth: focusedMonth,
           selectedDay: selectedDay,
           // ✅ Περνάμε ολόκληρο το map (items με icon info)
@@ -388,7 +391,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                _MonthGrid(
+                MonthGrid(
                   focusedMonth: focusedMonth,
                   selectedDay: selectedDay,
                   dayEvents: monthAsync.valueOrNull?.days ?? const {},
@@ -652,7 +655,7 @@ class _EventTypeOption extends StatelessWidget {
 // MONTH GRID — με ενδείξεις τύπου συμβάντος
 // ════════════════════════════════════════════════════════════════
 
-class _MonthGrid extends ConsumerWidget {
+class MonthGrid extends ConsumerWidget {
   final DateTime focusedMonth;
   final DateTime selectedDay;
 
@@ -663,24 +666,32 @@ class _MonthGrid extends ConsumerWidget {
   final Map<DateTime, SpanDay> spanBars;
   final ValueChanged<DateTime> onDayTap;
 
+  /// Προαιρετική «σήμερα» — μόνο για tests (default: `DateTime.now()`).
+  final DateTime? today;
+
   static const _weekDays = AppDateUtils.weekdayInitials;
+
+  /// Ένα `DateFormat` για όλα τα κελιά (αποφυγή 31 κατασκευών ανά build).
+  static final _dayDateFormat = DateFormat('d MMMM yyyy', 'el');
 
   // ── Χρώματα δεικτών (SPoT: ItemColorHelper) ──────────────────
   static const _birthdayColor = ItemColorHelper.birthdayPink; // pink-500
   static const _specialDayColor = ItemColorHelper.specialAmber; // amber-500
 
-  const _MonthGrid({
+  const MonthGrid({
+    super.key,
     required this.focusedMonth,
     required this.selectedDay,
     required this.dayEvents,
     required this.spanBars,
     required this.onDayTap,
+    this.today,
   });
 
   /// Υπολογίζει ποιοι τύποι markers υπάρχουν για μια ημέρα.
   /// Επιστρέφει ταξινομημένη λίστα (birthday πρώτα).
   /// E41: τα items που έχουν γραμμή/hatch αυτή την ημέρα δεν μετράνε στις τελείες.
-  List<_DayMarkerType> _markersFor(DateTime date, SpanDay? spanBar) {
+  List<DayMarkerType> _markersFor(DateTime date, SpanDay? spanBar) {
     final items = dayEvents[date];
     if (items == null || items.isEmpty) return [];
 
@@ -689,18 +700,18 @@ class _MonthGrid extends ConsumerWidget {
       if (spanBar != null) ...spanBar.overlays.map((o) => o.itemId),
     };
 
-    final types = <_DayMarkerType>{};
+    final types = <DayMarkerType>{};
     for (final item in items) {
       if (barIds.contains(item.id)) continue;
       if (ItemColorHelper.isBirthdayEvent(item)) {
-        types.add(_DayMarkerType.birthday);
+        types.add(DayMarkerType.birthday);
       } else if (item.type == ItemType.contact) {
         // Γενέθλιο επαφής (στο map μπαίνει μόνο σε επέτειο) — φούξια.
-        types.add(_DayMarkerType.birthday);
+        types.add(DayMarkerType.birthday);
       } else if (ItemColorHelper.isSpecialDayEvent(item)) {
-        types.add(_DayMarkerType.specialDay);
+        types.add(DayMarkerType.specialDay);
       } else {
-        types.add(_DayMarkerType.event);
+        types.add(DayMarkerType.event);
       }
     }
 
@@ -708,10 +719,43 @@ class _MonthGrid extends ConsumerWidget {
     return types.toList()..sort((a, b) => a.index.compareTo(b.index));
   }
 
+  /// Label ημέρας για TalkBack («19 Οκτωβρίου 2026, σήμερα, …»).
+  String _daySemanticsLabel(
+    DateTime date, {
+    required bool isToday,
+    required bool isSelected,
+    required List<DayMarkerType> markers,
+    SpanDay? spanBar,
+  }) {
+    final parts = <String>[
+      _dayDateFormat.format(date),
+    ];
+    if (isToday) parts.add('σήμερα');
+    if (isSelected) parts.add('επιλεγμένη');
+    if (spanBar != null) {
+      parts.add(spanBar.isStart
+          ? 'πολυήμερο συμβάν, αρχή'
+          : spanBar.isEnd
+              ? 'πολυήμερο συμβάν, τέλος'
+              : 'πολυήμερο συμβάν');
+    }
+    if (markers.isNotEmpty) {
+      final names = markers
+          .map((m) => switch (m) {
+                DayMarkerType.birthday => 'γενέθλια',
+                DayMarkerType.specialDay => 'ειδική ημέρα',
+                DayMarkerType.event => 'συμβάν',
+              })
+          .join(', ');
+      parts.add('σημάνσεις: $names');
+    }
+    return parts.join(', ');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = this.today ?? DateTime(now.year, now.month, now.day);
 
     final firstOfMonth = DateTime(focusedMonth.year, focusedMonth.month, 1);
     final startOffset = (firstOfMonth.weekday - 1) % 7;
@@ -725,15 +769,17 @@ class _MonthGrid extends ConsumerWidget {
       child: Column(
         children: [
           // ── Επικεφαλίδες ημερών ───────────────────────────
-          Row(
-            children: _weekDays
-                .map((d) => Expanded(
-                      child: Center(
-                        child: Text(d,
-                            style: context.labelSm.withColor(context.cText2)),
-                      ),
-                    ))
-                .toList(),
+          ExcludeSemantics(
+            child: Row(
+              children: _weekDays
+                  .map((d) => Expanded(
+                        child: Center(
+                          child: Text(d,
+                              style: context.labelSm.withColor(context.cText2)),
+                        ),
+                      ))
+                  .toList(),
+            ),
           ),
           const SizedBox(height: Spacing.xs),
 
@@ -757,58 +803,74 @@ class _MonthGrid extends ConsumerWidget {
               final spanBar = spanBars[date];
               final markers = _markersFor(date, spanBar);
 
-              return GestureDetector(
+              return Semantics(
+                key: ValueKey(
+                    'calendar-day-${date.year}-${date.month}-${date.day}'),
+                button: true,
+                selected: isSelected,
+                label: _daySemanticsLabel(
+                  date,
+                  isToday: isToday,
+                  isSelected: isSelected,
+                  markers: markers,
+                  spanBar: spanBar,
+                ),
+                excludeSemantics: true,
                 onTap: () => onDayTap(date),
-                child: Container(
-                  margin: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? context.cPrimary
-                        : isToday
-                            ? context.cPrimary.withValues(alpha: 0.12)
-                            : Colors.transparent,
-                    shape: BoxShape.circle,
-                    border: isToday && !isSelected
-                        ? Border.all(color: context.cPrimary, width: 1.5)
-                        : null,
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      // ── Αριθμός ημέρας ──────────────────
-                      Text(
-                        '$day',
-                        style: context.bodyMd.withColor(
-                          isSelected
-                              ? ColorsUI.getAccessibleTextColor(
-                                  context.cPrimary)
-                              : isToday
-                                  ? context.cPrimary
-                                  : context.cText,
-                        ),
-                      ),
-
-                      // ── E41: γραμμή πολυήμερου (κάτω μέρος κελιού) ──
-                      if (spanBar != null)
-                        Positioned(
-                          bottom: 0,
-                          left: -2,
-                          right: -2,
-                          height: kSpanBarTotalHeight,
-                          child: _SpanBar(bar: spanBar),
-                        ),
-
-                      // ── Δείκτες τύπου συμβάντων (πάνω μέρος κελιού) ──
-                      if (markers.isNotEmpty)
-                        Positioned(
-                          top: 0,
-                          child: _DayMarkerRow(
-                            markers: markers,
-                            primary: context.cPrimary,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onDayTap(date),
+                  child: Container(
+                    margin: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? context.cPrimary
+                          : isToday
+                              ? context.cPrimary.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: isToday && !isSelected
+                          ? Border.all(color: context.cPrimary, width: 1.5)
+                          : null,
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        // ── Αριθμός ημέρας ──────────────────
+                        Text(
+                          '$day',
+                          style: context.bodyMd.withColor(
+                            isSelected
+                                ? ColorsUI.getAccessibleTextColor(
+                                    context.cPrimary)
+                                : isToday
+                                    ? context.cPrimary
+                                    : context.cText,
                           ),
                         ),
-                    ],
+
+                        // ── E41: γραμμή πολυήμερου (κάτω μέρος κελιού) ──
+                        if (spanBar != null)
+                          Positioned(
+                            bottom: 0,
+                            left: -2,
+                            right: -2,
+                            height: kSpanBarTotalHeight,
+                            child: _SpanBar(bar: spanBar),
+                          ),
+
+                        // ── Δείκτες τύπου συμβάντων (πάνω μέρος κελιού) ──
+                        if (markers.isNotEmpty)
+                          Positioned(
+                            top: 0,
+                            child: _DayMarkerRow(
+                              markers: markers,
+                              primary: context.cPrimary,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -958,7 +1020,7 @@ class _SpanBarPainter extends CustomPainter {
 // ════════════════════════════════════════════════════════════════
 
 class _DayMarkerRow extends StatelessWidget {
-  final List<_DayMarkerType> markers;
+  final List<DayMarkerType> markers;
   final Color primary;
 
   const _DayMarkerRow({
@@ -966,13 +1028,13 @@ class _DayMarkerRow extends StatelessWidget {
     required this.primary,
   });
 
-  Color _colorFor(_DayMarkerType type, Color primary) {
+  Color _colorFor(DayMarkerType type, Color primary) {
     switch (type) {
-      case _DayMarkerType.birthday:
-        return _MonthGrid._birthdayColor;
-      case _DayMarkerType.specialDay:
-        return _MonthGrid._specialDayColor;
-      case _DayMarkerType.event:
+      case DayMarkerType.birthday:
+        return MonthGrid._birthdayColor;
+      case DayMarkerType.specialDay:
+        return MonthGrid._specialDayColor;
+      case DayMarkerType.event:
         return primary;
     }
   }
@@ -1017,12 +1079,12 @@ class _CalendarLegend extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const _LegendItem(
-            color: _MonthGrid._birthdayColor,
+            color: MonthGrid._birthdayColor,
             label: 'Γενέθλια',
           ),
           const SizedBox(width: Spacing.md),
           const _LegendItem(
-            color: _MonthGrid._specialDayColor,
+            color: MonthGrid._specialDayColor,
             label: 'Ειδική ημέρα',
           ),
           const SizedBox(width: Spacing.md),

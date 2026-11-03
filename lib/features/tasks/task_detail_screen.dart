@@ -521,29 +521,37 @@ class _DoneCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDisabled = onTap == null;
-    return GestureDetector(
+    return Semantics(
+      checked: isDone,
+      enabled: !isDisabled,
+      label: 'Ολοκλήρωση εργασίας',
+      excludeSemantics: true,
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppDuration.normal,
-        width: 26, height: 26,
-        decoration: BoxDecoration(
-          color: isDone
-              ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: AppDuration.normal,
+          width: 26, height: 26,
+          decoration: BoxDecoration(
             color: isDone
                 ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
-                : isDisabled
-                ? ColorsUI.getBorder(context.brightness).withValues(alpha: 0.4)
-                : ColorsUI.getBorder(context.brightness),
-            width: 2,
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: isDone
+                  ? context.cPrimary.withValues(alpha: isDisabled ? 0.5 : 1.0)
+                  : isDisabled
+                  ? ColorsUI.getBorder(context.brightness).withValues(alpha: 0.4)
+                  : ColorsUI.getBorder(context.brightness),
+              width: 2,
+            ),
           ),
+          child: isDone
+              ? Icon(Icons.check_rounded, size: 16,
+              color: ColorsUI.getAccessibleTextColor(context.cPrimary))
+              : null,
         ),
-        child: isDone
-            ? Icon(Icons.check_rounded, size: 16,
-            color: ColorsUI.getAccessibleTextColor(context.cPrimary))
-            : null,
       ),
     );
   }
@@ -664,20 +672,27 @@ class _StatusSelector extends StatelessWidget {
     final opt = _opts.firstWhere(
             (o) => o.$1 == current,
         orElse: () => _opts.first);
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: 'Κατάσταση: ${opt.$2}',
+      excludeSemantics: true,
       onTap: () => _pick(context),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(opt.$3, size: 16, color: context.cPrimary),
-        const SizedBox(width: Spacing.xs),
-        Flexible(
-          child: Text(opt.$2,
-              style: context.bodyMd,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ),
-        const SizedBox(width: 2),
-        Icon(Icons.arrow_drop_down_rounded, size: 18, color: context.cText2),
-      ]),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _pick(context),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(opt.$3, size: 16, color: context.cPrimary),
+          const SizedBox(width: Spacing.xs),
+          Flexible(
+            child: Text(opt.$2,
+                style: context.bodyMd,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 2),
+          Icon(Icons.arrow_drop_down_rounded, size: 18, color: context.cText2),
+        ]),
+      ),
     );
   }
 
@@ -691,20 +706,23 @@ class _StatusSelector extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             Text('Κατάσταση', style: sheetCtx.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: Spacing.xs),
-            ..._opts.map((o) => ListTile(
-              leading: Icon(o.$3,
-                  color: o.$1 == current ? sheetCtx.cPrimary : sheetCtx.cText2),
-              title: Text(o.$2, style: sheetCtx.bodyMd.copyWith(
-                fontWeight:
-                o.$1 == current ? FontWeight.w600 : FontWeight.normal,
-              )),
-              trailing: o.$1 == current
-                  ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary)
-                  : null,
-              onTap: () {
-                Navigator.pop(sheetCtx);
-                onSelect(o.$1);
-              },
+            ..._opts.map((o) => Semantics(
+              selected: o.$1 == current,
+              child: ListTile(
+                leading: Icon(o.$3,
+                    color: o.$1 == current ? sheetCtx.cPrimary : sheetCtx.cText2),
+                title: Text(o.$2, style: sheetCtx.bodyMd.copyWith(
+                  fontWeight:
+                  o.$1 == current ? FontWeight.w600 : FontWeight.normal,
+                )),
+                trailing: o.$1 == current
+                    ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary)
+                    : null,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  onSelect(o.$1);
+                },
+              ),
             )),
             const SizedBox(height: Spacing.md),
           ],
@@ -729,17 +747,27 @@ class _PrioritySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final priorityLabel = current == ItemPriority.none
+        ? 'Καμία'
+        : AppStringUtils.priorityLabel(current.name);
+    return Semantics(
+      button: true,
+      label: 'Προτεραιότητα: $priorityLabel',
+      excludeSemantics: true,
       onTap: () => _pick(context),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (current == ItemPriority.none)
-          Text('Καμία',
-              style: context.bodyMd.withColor(context.cText2))
-        else
-          PriorityBadge(priority: current, size: BadgeSize.small),
-        const SizedBox(width: 2),
-        Icon(Icons.arrow_drop_down_rounded, size: 18, color: context.cText2),
-      ]),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _pick(context),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (current == ItemPriority.none)
+            Text('Καμία',
+                style: context.bodyMd.withColor(context.cText2))
+          else
+            PriorityBadge(priority: current, size: BadgeSize.small),
+          const SizedBox(width: 2),
+          Icon(Icons.arrow_drop_down_rounded, size: 18, color: context.cText2),
+        ]),
+      ),
     );
   }
 
@@ -753,21 +781,24 @@ class _PrioritySelector extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             Text('Προτεραιότητα', style: sheetCtx.titleSm, maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: Spacing.xs),
-            ..._opts.map((p) => ListTile(
-              leading: p == ItemPriority.none
-                  ? Icon(Icons.remove_rounded, color: sheetCtx.cText2)
-                  : Icon(PriorityBadge.iconFor(p),
-                  color: sheetCtx.priorityColor(p)),
-              title: p == ItemPriority.none
-                  ? Text('Καμία', style: sheetCtx.bodyMd)
-                  : PriorityBadge(priority: p),
-              trailing: p == current
-                  ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary)
-                  : null,
-              onTap: () {
-                Navigator.pop(sheetCtx);
-                onSelect(p);
-              },
+            ..._opts.map((p) => Semantics(
+              selected: p == current,
+              child: ListTile(
+                leading: p == ItemPriority.none
+                    ? Icon(Icons.remove_rounded, color: sheetCtx.cText2)
+                    : Icon(PriorityBadge.iconFor(p),
+                    color: sheetCtx.priorityColor(p)),
+                title: p == ItemPriority.none
+                    ? Text('Καμία', style: sheetCtx.bodyMd)
+                    : PriorityBadge(priority: p),
+                trailing: p == current
+                    ? Icon(Icons.check_rounded, color: sheetCtx.cPrimary)
+                    : null,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  onSelect(p);
+                },
+              ),
             )),
             const SizedBox(height: Spacing.md),
           ],
@@ -794,28 +825,48 @@ class _DueDateSelector extends StatelessWidget {
     else if (isToday) { labelColor = context.cWarning; }
     else              { labelColor = context.cText; }
 
-    return GestureDetector(
-      onTap: onPick,
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Flexible(
-          child: Text(
-            date != null ? date!.due : 'Χωρίς προθεσμία',
-            style: context.bodyMd.withColor(
-                date != null ? labelColor : context.cText2),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Flexible(
+        child: Semantics(
+          button: true,
+          label: 'Προθεσμία: ${date != null ? date!.due : 'Χωρίς προθεσμία'}',
+          excludeSemantics: true,
+          onTap: onPick,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPick,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Flexible(
+                child: Text(
+                  date != null ? date!.due : 'Χωρίς προθεσμία',
+                  style: context.bodyMd.withColor(
+                      date != null ? labelColor : context.cText2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: Spacing.xs),
+              if (date == null || onClear == null)
+                Icon(Icons.add_rounded, size: 16, color: context.cText2),
+            ]),
           ),
         ),
+      ),
+      if (date != null && onClear != null) ...[
         const SizedBox(width: Spacing.xs),
-        if (date != null && onClear != null)
-          GestureDetector(
+        Semantics(
+          button: true,
+          label: 'Καθαρισμός προθεσμίας',
+          excludeSemantics: true,
+          onTap: onClear,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: onClear,
             child: Icon(Icons.close_rounded, size: 16, color: context.cText2),
-          )
-        else
-          Icon(Icons.add_rounded, size: 16, color: context.cText2),
-      ]),
-    );
+          ),
+        ),
+      ],
+    ]);
   }
 }
 
@@ -930,6 +981,23 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
     await ref.read(itemNotifierProvider.notifier).deleteItem(subtaskId);
   }
 
+  /// Εναλλαγή φόρμας νέας υποεργασίας (άνοιγμα/κλείσιμο).
+  void _toggleAdding() {
+    final wasAdding = _adding;
+    setState(() => _adding = !_adding);
+    if (wasAdding) {
+      // Κλείσιμο — καθαρισμός
+      _ctrl.clear();
+      _addFocusNode.unfocus();
+    } else {
+      // ✅ Αναγκαστική εστίαση ακόμη κι αν focus ήταν σε τίτλο/σημειώσεις
+      Future.microtask(() {
+        if (mounted) _addFocusNode.requestFocus();
+      });
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     // 🆕 Real-time stream από subtasksStreamProvider
@@ -976,26 +1044,22 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
                     ),
                   ],
                 ]),
-                GestureDetector(
-                  onTap: () {
-                    final wasAdding = _adding;
-                    setState(() => _adding = !_adding);
-                    if (wasAdding) {
-                      // Κλείσιμο — καθαρισμός
-                      _ctrl.clear();
-                      _addFocusNode.unfocus();
-                    } else {
-                      // ✅ Αναγκαστική εστίαση ακόμη κι αν focus ήταν σε τίτλο/σημειώσεις
-                      Future.microtask(() {
-                        if (mounted) _addFocusNode.requestFocus();
-                      });
-                    }
-                  },
-                  child: Icon(
-                    _adding
-                        ? Icons.close_rounded
-                        : Icons.add_rounded,
-                    size: 20, color: context.cPrimary,
+                Semantics(
+                  button: true,
+                  label: _adding
+                      ? 'Κλείσιμο προσθήκης υποεργασίας'
+                      : 'Προσθήκη υποεργασίας',
+                  excludeSemantics: true,
+                  onTap: _toggleAdding,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _toggleAdding,
+                    child: Icon(
+                      _adding
+                          ? Icons.close_rounded
+                          : Icons.add_rounded,
+                      size: 20, color: context.cPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -1015,6 +1079,7 @@ class _SubtasksSectionState extends ConsumerState<_SubtasksSection> {
                   hintStyle: context.bodyMd.withColor(context.cDisabled),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.send_rounded),
+                    tooltip: 'Προσθήκη υποεργασίας',
                     onPressed: () => _addSubtask(_ctrl.text),
                   ),
                   filled:    true,
@@ -1143,25 +1208,32 @@ class _SubtaskTileState extends ConsumerState<_SubtaskTile> {
       child: Row(
         children: [
           // Checkbox
-          GestureDetector(
+          Semantics(
+            checked: isDone,
+            label: 'Ολοκλήρωση υποεργασίας',
+            excludeSemantics: true,
             onTap: widget.onToggle,
-            child: AnimatedContainer(
-              duration: AppDuration.fast,
-              width: 20, height: 20,
-              decoration: BoxDecoration(
-                color: isDone ? context.cPrimary : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-                border: Border.all(
-                  color: isDone
-                      ? context.cPrimary
-                      : ColorsUI.getBorder(context.brightness),
-                  width: 2,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onToggle,
+              child: AnimatedContainer(
+                duration: AppDuration.fast,
+                width: 20, height: 20,
+                decoration: BoxDecoration(
+                  color: isDone ? context.cPrimary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                  border: Border.all(
+                    color: isDone
+                        ? context.cPrimary
+                        : ColorsUI.getBorder(context.brightness),
+                    width: 2,
+                  ),
                 ),
+                child: isDone
+                    ? Icon(Icons.check_rounded, size: 13,
+                    color: ColorsUI.getAccessibleTextColor(context.cPrimary))
+                    : null,
               ),
-              child: isDone
-                  ? Icon(Icons.check_rounded, size: 13,
-                  color: ColorsUI.getAccessibleTextColor(context.cPrimary))
-                  : null,
             ),
           ),
 
@@ -1206,6 +1278,7 @@ class _SubtaskTileState extends ConsumerState<_SubtaskTile> {
               padding:        EdgeInsets.zero,
               constraints:    const BoxConstraints(),
               visualDensity:  VisualDensity.compact,
+              tooltip:        'Αποθήκευση',
             )
           else
             IconButton(
