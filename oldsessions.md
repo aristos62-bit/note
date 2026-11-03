@@ -4443,6 +4443,13 @@ if (!context.isShortScreen)
 
 **Κατάσταση:** ✅ **E01 CLOSED 03/11/2026 — device-verified (POCO X3).** analyze clean · **420/420** · 14/14 βήματα + device pass (α: dark/392 dp/TalkBack, β: light/320/tablet). Το `error_list.md` ενημερώθηκε (§1 P2 → 0, §2 κάρτα CLOSED, §3 bullet, §0 baseline). Τα 2 νέα layout ευρήματα (home grid @320 dp, calendar panel @tablet) **δεν** ανήκουν στο E01 — καταγράφηκαν εδώ και περιμένουν απόφαση για νέο `E<n>`.
 
+**Fix layout (S288 follow-up, 03/11/2026 — απόφαση χρήστη: μαζί, χωρίς `E<n>`):**
+- **Α — Αρχική @320 dp:** το overflow ήταν **regression του Βήματος 10** (`3251357`: το share έγινε `SizedBox(48×48)` μέσα στο header row της κάρτας). Νέο `homeGridColumns(double)` στο `home_screen.dart`: `<360` → **2** στήλες, `<600` → 3, αλλιώς 4 — ίδια συνάρτηση και στο `_LoadingSkeleton` (όχι layout jump). Στα 320 dp το κελί πάει 90,7 → **140 dp** (εσωτερικό 124) και η γραμμή «icon 14 + badge + share 48» (~82 dp) χωράει.
+- **Β — Ημερολόγιο tablet:** νέο `shouldUseTwoPane(availableWidth)` + `calendarTwoPaneMinWidth = 640` στο `calendar_screen.dart`· το `_buildTablet` τυλίγεται σε `LayoutBuilder` και γυρίζει σε `_buildMobile` (single column) όταν το πλάτος **περιεχομένου** είναι <640 dp — 618 dp tablet με side rail = ~497 dp (δεξί panel ήταν 156 dp). Σε tablet 800 dp (679 dp περιεχόμενο) το two-pane μένει ως έχει.
+- **Tests:** `test/responsive_regression_test.dart` (3): όρια στηλών 320/359/360/599/600, widget test 320 dp με 3 καρφιτσωμένα (κανένα RenderFlex overflow + delegate `crossAxisCount == 2`), όρια two-pane 497/639/640/679.
+- **Επαλήθευση:** analyze clean · **423/423**. Backups: `backups/a11y_s288_2026-11-03/fix_layout/`.
+- **Ανοιχτό (δεν επιβεβαιώθηκε):** side nav χωρίς nodes στο accessibility tree σε tablet — χρειάζεται στοχευμένος έλεγχος πριν κριθεί bug.
+
 
 
 
