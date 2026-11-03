@@ -4435,7 +4435,13 @@ if (!context.isShortScreen)
 - **Γνωστά artifacts (όχι bugs):** το `uiautomator` δίνει ύψος **25,8 dp** στα nav items (πραγματικό touch ≈60 dp — tap στο y=2225 αλλάζει καρτέλα)· μερικά text nodes δείχνουν άκυρα ύψη (π.χ. «Δεν υπάρχουν συμβάντα» 3,6 dp) λόγω clipping του Flutter layer. Το MIUI overlay «Το TalkBack είναι ενεργοποιημένο» εμφανίζεται πάνω από την εφαρμογή και μπλοκάρει τα gestures — δεν επηρεάζει την εφαρμογή.
 - **Δεδομένα χρήστη που χρησιμοποιήθηκαν (χωρίς δημιουργία μέσω adb):** υπάρχοντα 6 σημειώσεις / 11 εργασίες / 13 συμβάντα / 1 συνήθεια / 11 επαφές / 7 συλλογές / 1 ραντεβού + pinned/favorite items για τον έλεγχο των handles.
 
-**Κατάσταση:** ✅ **E01 CLOSED 03/11/2026 — device-verified (POCO X3).** analyze clean · **420/420** · 14/14 βήματα + device pass. Το `error_list.md` ενημερώθηκε (§1 P2 → 0, §2 κάρτα CLOSED, §3 bullet, §0 baseline).
+**Device pass (β) — light / 320 dp / tablet (03/11/2026, ίδια συσκευή):**
+- **Light mode (392 dp):** Home, Εργασίες, Ημερολόγιο, Σημειώσεις, Ρυθμίσεις → κανένα overflow/κόψιμο· chips/κάρτες/AppBar σωστά, 48 dp διατηρούνται. ✅
+- **320 dp** (`wm density 540`, 1080 px → 320 dp): Εργασίες/Σημειώσεις/Συνήθειες/Ημερολόγιο καθαρά· τα φίλτρα scroll οριζόντια (το «Επείγον» κόβεται στο άκρο — αναμενόμενο)· Ημερολόγιο τίτλος «Νοε …» (γνωστή εξαίρεση D2 για 320 dp). **Εύρημα:** στην **Αρχική** κάθε κάρτα του grid βγάζει `RIGHT OVERFLOWED BY 7,3–9,3 PIXELS` (3 στήλες × ~90 dp — η σειρά εικονιδίων + share 48 δεν χωράει) και οι τίτλοι εξαφανίζονται. Screenshot: `backups/a11y_s288_2026-11-03/device_pass/screens/dp320_home_overflow.png`.
+- **Tablet (618 dp, `wm size 1700x2400`):** side rail + 2 στήλες· Σημειώσεις/Εργασίες καθαρές. **Εύρημα:** στο **Ημερολόγιο** το δεξί panel ημέρας βγάζει `RIGHT OVERFLOWED BY 12 PIXELS` (κάρτα συμβάντος + «Εμφάνιση αρχειοθετημένων»). Screenshot: `tab618_calendar_overflow.png`. **Υποψία (όχι επιβεβαιωμένο):** η side nav δεν εμφανίζει nodes στο accessibility tree (ούτε clickable) — πιθανό κενό TalkBack σε tablet· το TalkBack focus έμεινε στον τίτλο επειδή το MIUI overlay μπλοκάρει τα swipes, άρα θέλει χωριστό έλεγχο.
+- **Καθαρισμός συσκευής:** `wm size reset`, `wm density reset`, auto-rotate **ON**, night mode **ON** (όπως πριν), font **1.0**, TalkBack **OFF**.
+
+**Κατάσταση:** ✅ **E01 CLOSED 03/11/2026 — device-verified (POCO X3).** analyze clean · **420/420** · 14/14 βήματα + device pass (α: dark/392 dp/TalkBack, β: light/320/tablet). Το `error_list.md` ενημερώθηκε (§1 P2 → 0, §2 κάρτα CLOSED, §3 bullet, §0 baseline). Τα 2 νέα layout ευρήματα (home grid @320 dp, calendar panel @tablet) **δεν** ανήκουν στο E01 — καταγράφηκαν εδώ και περιμένουν απόφαση για νέο `E<n>`.
 
 
 
