@@ -4388,7 +4388,7 @@ if (!context.isShortScreen)
 
 ---
 
-## Session 288 — 03/11/2026 (a11y E01: semantics + tooltips + labels, βήματα 1–9)
+## Session 288 — 03/11/2026 (a11y E01: semantics + tooltips + labels, βήματα 1–14 + device pass)
 
 **Scope:** ξεκλείδωμα του parked `E01` (a11y) με το ενοποιημένο σχέδιο `a11y.md` (§0.5 verdicts 15🔴/4🟡/3🟢, §5 βήματα 1–14). Εκτελέστηκαν **Βήματα 13, 2, 3, 4, 5, 6/6b, 7, 8a/8b/8c, 9a/9b και 1**. Το `a11y_new.md` συγχωνεύτηκε στο `a11y.md` και αρχειοθετήθηκε.
 
@@ -4424,7 +4424,18 @@ if (!context.isShortScreen)
 - **`DateFormat` με locale σε test:** χρειάζεται `initializeDateFormatting()` στο `setUpAll` (parity με `main.dart:22`).
 - **Ένα `DateFormat` ανά κλάση:** 31 κελιά × rebuild = 31 parsings pattern αν κατασκευάζεται μέσα στο loop.
 
-**Κατάσταση:** 🔄 **E01: όλα τα βήματα 1–14 ✅** — μένει μόνο το **device pass** με TalkBack (tooltips, semantics, 48 dp, font scale 1.0/1.3/2.0). Το `error_list.md` κλείνει οριστικά μετά από αυτό.
+**Device pass (POCO X3 M2007J20CG, Android 12, 1080×2400 @440dpi ≈ 392 dp, app `com.example.super_note` v1.0.4 debug, build 18:06:34):**
+- **Tap targets (uiautomator, ÷2,75):** tooltips AppBar **48×48** · folder chips **80×56** · view toggles **48×48** · FAB **56×56** · share **48×48** · checkbox/τσεκ εργασιών **48×48** · φίλτρα εργασιών **48** ύψος · κελιά ημερολογίου **53,8×48** · month nav/«Σήμερα» **48** · «Νέο» **56×56**. ✅
+- **N5 (stats):** η γραμμή διαβάζεται «6 Σημειώσεις», «11 Εργασίες», «13 Συμβάντα», «1 Συνήθεια», «11 Επαφές», «7 Συλλογές», «1 Ραντεβού» — πληθυντικά/ενικό σωστά. ✅
+- **N6 (κάτω μπάρα):** όλα τα items `android.widget.Button` με label και `selected` στο ενεργό («Αρχική» sel=true, μετά tap «Σημειώσεις» sel=true) — δηλώνεται ρόλος + ενεργή καρτέλα. ✅
+- **N2 (drag handle):** κόμβος «Αναδιάταξη, Ενέργειες για μετακίνηση πάνω ή κάτω» (28×24 dp) εμφανίζεται **μόνο** στα draggable items (όχι σε pinned/favorite) στη λίστα Σημειώσεων. ✅
+- **TalkBack ON @ font 2.0:** η οθόνη Σημειώσεων κλιμακώνει σωστά (κάρτες 70 dp, nav items 41,8 dp ύψος), τα labels μένουν ακέραια και το focus box εμφανίζεται στον τίτλο — **0 overflow**. ✅
+- **Font scale:** 1.0 / 1.3 / 2.0 → κανένα overflow/κόψιμο· στο 2.0 το «Διάφορα» γίνεται «Διάφ…» (αναμενόμενο ellipsis) και η κάτω μπάρα scrollάρεται. ✅
+- **TalkBack ON** (`com.google.android.marvin.talkback/…TalkBackService`, `accessibility_enabled=1`): μιλά **ελληνικά** (Google TTS el-GR), εμφανίζεται focus box και η σειρά focus ακολουθεί το semantics tree· οι ετικέτες που διαβάζονται είναι **ακριβώς** αυτές των κόμβων (stats «6 Σημειώσεις», nav κουμπιά, «Αναδιάταξη»). ✅ Μετά τον έλεγχο **απενεργοποιήθηκε** (`enabled_accessibility_services=null`, `accessibility_enabled=0`) και το `font_scale` επαναφέρθηκε **1.0**.
+- **Γνωστά artifacts (όχι bugs):** το `uiautomator` δίνει ύψος **25,8 dp** στα nav items (πραγματικό touch ≈60 dp — tap στο y=2225 αλλάζει καρτέλα)· μερικά text nodes δείχνουν άκυρα ύψη (π.χ. «Δεν υπάρχουν συμβάντα» 3,6 dp) λόγω clipping του Flutter layer. Το MIUI overlay «Το TalkBack είναι ενεργοποιημένο» εμφανίζεται πάνω από την εφαρμογή και μπλοκάρει τα gestures — δεν επηρεάζει την εφαρμογή.
+- **Δεδομένα χρήστη που χρησιμοποιήθηκαν (χωρίς δημιουργία μέσω adb):** υπάρχοντα 6 σημειώσεις / 11 εργασίες / 13 συμβάντα / 1 συνήθεια / 11 επαφές / 7 συλλογές / 1 ραντεβού + pinned/favorite items για τον έλεγχο των handles.
+
+**Κατάσταση:** ✅ **E01 CLOSED 03/11/2026 — device-verified (POCO X3).** analyze clean · **420/420** · 14/14 βήματα + device pass. Το `error_list.md` ενημερώθηκε (§1 P2 → 0, §2 κάρτα CLOSED, §3 bullet, §0 baseline).
 
 
 

@@ -40,18 +40,18 @@
 
 ---
 
-## 0. Baseline (μετρημένο στον κώδικα — 02/11/2026, μετά το S287/E46)
+## 0. Baseline (μετρημένο στον κώδικα — 03/11/2026, μετά το S288/E01)
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `db066fe` (S286/E11 device-verified docs) + S287 commit | `git log` |
-| `flutter analyze` | **No issues found** | run 02/11/2026 (S287) |
-| `flutter test` | **402/402 PASS** (62 αρχεία test) | run 02/11/2026 (S287) |
-| Device pass | **E11 OK** (02/11/2026, χειροκίνητος έλεγχος χρήστη — χωρίς screenshots/logs) | S286 |
+| Git HEAD | `c14d918` (S288/E01 a11y) | `git log` |
+| `flutter analyze` | **No issues found** | run 03/11/2026 (S288) |
+| `flutter test` | **420/420 PASS** (66 αρχεία test) | run 03/11/2026 (S288) |
+| Device pass | **E01 OK** (03/11/2026, POCO X3 — 48 dp, TalkBack, font 1.0/1.3/2.0) | S288 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.842 (162 αρχεία) | μετρήθηκε 02/11/2026 (S287) |
 | Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 02/11/2026 · βλ. E06 |
-| `Semantics(` | **4** (2 `Semantics` + 2 `ExcludeSemantics`) | grep 03/11/2026 |
-| `tooltip:` | **47** (πριν 89 — τα 9 detail AppBars έγιναν 1 widget) | grep |
+| `Semantics(` | **32** + **3** `ExcludeSemantics` (ήταν 4 συνολικά) | grep 03/11/2026 |
+| `tooltip:` | **61** | grep 03/11/2026 |
 
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
 | `catch (_) {}` | **0** (E18 CLOSED 24/10/2026) | grep |
@@ -83,20 +83,18 @@
 
 > Κανένα ανοιχτό. Το `E18` έκλεισε 24/10/2026 (`catch (_) {}` = **0**) — βλ. §2/§3.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (1)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (0)
 
-| # | ID | Θέμα | Τι βελτιώνει |
-|---|---|---|---|
-| 1 | `E01` | ⏸️ **PARKED** — a11y pass (Semantics / 48dp / PII) | Προσβασιμότητα υπάρχουσας λειτουργίας |
+> Κανένα ανοιχτό. Το `E01` (a11y pass) έκλεισε 03/11/2026 — βλ. §2/§3.
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (4)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
-| 6 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 7 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
-| 8 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 9 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 1 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
+| 2 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
+| 3 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 4 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -111,12 +109,12 @@
 
 ## 2. Κάρτες εκκρεμοτήτων (στοιχεία + απόδειξη + αποδοχή)
 
-### E01 — a11y pass ⏸️ PARKED
-- **Κατάσταση:** PARKED 19/10/2026 (απόφαση χρήστη: μελλοντική υλοποίηση). Δεν αφαιρείται/αναριθμείται.
-- **Απόδειξη (μετρήθηκε 03/11/2026, HEAD `04209dd`):** `Semantics(` = **4** συνολικά — 2 `Semantics` (`habit_detail_screen.dart:1028,1713`) + 2 `ExcludeSemantics` (`calendar_screen.dart:860`, `collection_detail_screen.dart:564`) · `tooltip:` = **47** · `IconButton(` = 40 (τα **14** χωρίς `tooltip` = το Βήμα 13).
-- **Λείπει:** TalkBack pass, 48dp hit-targets, no-PII semantics, flicker, touch 16–22px.
-- **Πριν την υλοποίηση:** refresh protocol `a11y.md` **§0.1** (baseline, diff από `bd6f82a`, device audit C1–C22, επανεξέταση D1–D6) + **§0.4** (επαλήθευση S288: 402/402, 40 `IconButton`/14 χωρίς tooltip, νέα line numbers μετά το E11).
-- **Αποδοχή:** device pass (κανόνας 12 — ρητή λίστα δεδομένων) + μηδέν PII στα semantics + 48dp στα βασικά actions.
+### E01 — ✅ CLOSED 03/11/2026 (device-verified, S288 — a11y pass)
+- **Κατάσταση:** PARKED 19/10/2026 → ενεργοποιήθηκε 03/11/2026 με το `a11y.md`. Εκτελέστηκαν **14 βήματα**: 14 tooltips · `selected`/ρόλος σε view toggles, tag chips, φίλτρα εργασιών, selectors, χρώματα/εικονίδια, theme tiles · ελληνικό label ημερολογίου · 48×48 tap targets · `ComposedTextScaler` (system × app, clamp 2.0) · PII redaction σε **18** αρχεία · N5 stats labels, N6 κάτω μπάρα `selected`+ρόλος, N2 drag-handle custom actions.
+- **Απόδειξη (03/11/2026, HEAD `c14d918`):** `Semantics(` = **32** + `ExcludeSemantics` = **3** (ήταν 4 συνολικά στο audit) · `tooltip:` = **61** · analyze clean · **420/420** (από 402).
+- **Device (POCO X3 M2007J20CG, Android 12, 392 dp):** tap targets **48×48** σε tooltips, folder chips, toggles, FAB, share, checkboxes, φίλτρα, κελιά ημερολογίου (53,8×48), month nav · stats διαβάζονται «6 Σημειώσεις», «11 Εργασίες», «1 Ραντεβού» (όχι σκέτα νούμερα) · κάτω μπάρα = `button` + `selected` («Αρχική» sel=true) · drag handle «Αναδιάταξη, Ενέργειες για μετακίνηση πάνω ή κάτω» μόνο σε draggable items · font 1.0/1.3/2.0 χωρίς overflow/κοψίματα · **TalkBack ON:** ελληνικά (Google TTS el-GR), focus box, σωστή σειρά/labels. Λεπτομέρειες: `oldsessions.md` S288.
+- **Αποδοχή:** ✅ device pass + μηδέν PII στα semantics/logs + 48 dp στα βασικά actions.
+- **Εξαιρέσεις (τεκμηριωμένες):** tag chips (D6) · κελί ημερολογίου <352 dp · task AppBar compact ≈40 dp (D4) · `uiautomator` αναφέρει **25,8 dp** για τα nav items: είναι measurement artifact του Flutter/MIUI (πραγματικό touch ≈60 dp — tap σε όλο το ύψος αλλάζει καρτέλα).
 
 ### E02 — ✅ CLOSED 22/10/2026 (device-verified)
 - **Πού:** `calendar_screen.dart:198-209` — `title: Text('${months[focusedMonth.month - 1]} ${focusedMonth.year}', style: context.titleLg)` χωρίς `maxLines`/ellipsis/`Flexible`.
@@ -429,6 +427,7 @@
 
 > Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S287.
 
+- **`E01` — CLOSED & DEVICE-VERIFIED 03/11/2026 (S288, analyze+tests+device POCO X3):** a11y pass σε **14 βήματα** (`a11y.md`): 14 tooltips · `selected`/ρόλος σε toggles, tag chips, φίλτρα, selectors, χρώματα/εικονίδια, theme tiles · ελληνικό label ημερολογίου · 48×48 tap targets · `ComposedTextScaler` (system × app, clamp 2.0) · PII redaction 18 αρχείων · N5 stats labels · N6 κάτω μπάρα `selected`+ρόλος · N2 drag-handle custom actions. analyze clean · **420/420** (+18 από 402) · device: 48 dp παντού, TalkBack ελληνικά με σωστά labels, 0 overflow σε 1.0/1.3/2.0.
 - **`E46` — CLOSED 02/11/2026 (S287, analyze+tests):** `_GreetingSection` (`home_screen.dart`) — `Flexible` + `maxLines: 1`/ellipsis γύρω από το `Column` των κειμένων (ήταν unbounded μέσα στο `Row` ⇒ RenderFlex overflow **94px** όταν το κείμενο δεν χωράει). Διορθώνει το μοναδικό κόκκινο του suite (**400/401 → 402/402**) και καλύπτει 320dp × 140–200%. 2 αρχεία · 0 νέα symbols/tokens.
 - **`E11` — CLOSED & DEVICE-VERIFIED 02/11/2026 (S286, analyze+tests+device):** κοινό `DetailAppBar` (`lib/shared/widgets/detail_app_bar.dart`, `StatelessWidget`+`PreferredSizeWidget`, 6 nullable callbacks) σε **15 call sites / 9 detail screens**· compact + icon 20 + `titleSpacing: 0` + `actionsPadding: 0` ⇒ 6 ενέργειες χωράνε και στα 320dp (firstX **80**, όριο **296dp**). Διορθώνει event spinner ≤390dp, note/task 2px overflow και journal/contact/event/appointment 24dp επικάλυψη με back στα 320dp. **0** νέα tokens/deps · **−327** γραμμές `lib/` (44.155→43.828) · analyze clean · **400/401** (+7 tests στο `detail_app_bar_test.dart`) · **device pass χειροκίνητα OK** (χωρίς screenshots/logs).
 - **`E13` — CLOSED 02/11/2026 (S285, analyze+tests+red-on-old+device POCO X3):** το label «Φάκελοι» κρύβεται σε κοντό viewport (`home_screen.dart:86-98`: `if (!context.isShortScreen)` — reuse `responsive.dart:73`, parity με το greeting `:78`) ⇒ **+28.02dp** στο `HomeFolderView` (`SliverFillRemaining` `:149`) χωρίς απώλεια οριζόντιου padding (chips από x=0). 0 νέα symbols/strings. **394/394** · red-on-old ✅ · 2 tests (392dp κρυφό / 800dp ορατό) · **device T1–T5 PASS**. *Αντιστρέφει την S262 απόρριψη — απόφαση χρήστη, όχι bug.*
@@ -552,7 +551,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10 ✅ (device T1–T9)** (+ E07/E09/E06 όποτε αποφασιστούν · E01 parked · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10 ✅ (device T1–T9) → E01 ✅ (S288, 14 βήματα + device)** (+ E07/E09/E06 όποτε αποφασιστούν · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -567,4 +566,4 @@
 | **Ο7 — Dates/editor mini-pass** ✅ CLOSED 29/10/2026 (S279 `c16f90d` + device T1–T8) | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
 | **Ο10 — Habit topUp perf** ✅ CLOSED 30/10/2026 (S280 `72e6b0e` + S281 `bbe72fb` + S283 + device T1–T9) | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper` + `reminder_bake_plan` + Diagnostics) | 1 πρόταση: Φ0 μετρήσεις → Φ1 `createMany` (1 txn) → Φ3 `avgSched`/RUNWAY → Γ7 guard reset → **A: OS-horizon 14ημ. για habits** (`deferredCount`), concurrency **απορρίφθηκε** με μέτρηση → **S283: ορίζοντας OS μία πηγή + cancel scope** (`beyondHorizonCount`, `osSchedulableIds`) | — |
 
-**Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · E01 (parked) · E25 (κλείνει με E26).
+**Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · **E01 ✅ CLOSED 03/11/2026 (S288)** · E25 (κλείνει με E26).
