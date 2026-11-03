@@ -4416,13 +4416,15 @@ if (!context.isShortScreen)
 
 **Βήμα 12 — PII logs:** `AppStringUtils.redact(text, {label})` → `[label Nch]`. Εφαρμόστηκε σε **18 αρχεία** (9 του πίνακα `a11y.md` + 9 από τη διευρυμένη σάρωση): `tag_chip` (name) · `event_detail_screen` (3: pending/duplicate/save title) · `collection_detail_screen` (title + `schemaFields=N` αντί για `schemaJson`) · `journal_detail_screen` · `note_detail_screen` · `task_detail_screen` · `reminder_section` (title + body) · `search_service` (query) · `search_screen` (3: query, init query, `_doSearch` text) · `home_screen` (create/rename folder, `wsName`, favorites titles) · `folder_browser_screen` (folder name) · `folder_create_sheet` (folderName) · `item_list_embedded` (query + folder name) · `collection_entries_screen` (query + saved path) · `attachment_service` (5 filename/path) · `super_note_helper` (findDuplicate fileName) · `shared_intent_service` (2 filename/path) · `contact_import_service` (displayName ×2). `confirm_dialog`/`empty_state`/`folder_form_dialog`: callers περνούν UI strings → καμία αλλαγή. Το `DebugConfig._debug` **παραμένει `true`** (απόφαση χρήστη). **Έλεγχοι:** analyze clean · **417/417** (κανένα νέο test — το `redact` καλύπτεται από `phi4c_redact_test`). Backups: `backups/a11y_s288_2026-11-03/step12b/`.
 
+**Βήμα 14 — N5/N6/N2:** (α) `_FolderStatsRow`: `Semantics(container: true, label: '$count $label', excludeSemantics: true)` + `_pluralLabels` map (πληθυντικά ανά τύπο· ενικό όταν `count == 1`) — TalkBack: «3 Σημειώσεις» αντί «3». (β) `_ScrollableBottomNav`: `Semantics(container: true, button: true, selected: isSelected, label: item.label, excludeSemantics: true, onTap: …)` γύρω από κάθε `GestureDetector` — δηλώνει ρόλο κουμπιού + ποια καρτέλα είναι ενεργή. (γ) `ReorderableItemList._dragHandle(index)`: `Semantics(label: 'Αναδιάταξη', hint: 'Ενέργειες για μετακίνηση πάνω ή κάτω', customSemanticsActions: …)` γύρω από το `ReorderHandle` και στα δύο layouts· «Μετακίνηση πάνω» → `onReorder(i, i-1)`, «Μετακίνηση κάτω» → `onReorder(i, i+1)` (adjusted `newIndex`), με `if` ώστε να μην εμφανίζονται άκυρες ενέργειες στα άκρα· `import 'package:flutter/semantics.dart';` (το `CustomSemanticsAction` δεν εξάγεται από το material). **Έλεγχοι:** analyze clean · **420/420** (+3 `a11y_step14_test`: «3 Σημειώσεις», πρώτο handle μόνο «κάτω» + κλήση → `[0,1]`, μεσαίο έχει και τα δύο). Backups: `backups/a11y_s288_2026-11-03/step14/`.
+
 **Μαθήματα:**
 - **Οι προβλέψεις γραμμών βγαίνουν ±1–2:** ο αξιόπιστος έλεγχος είναι `git diff --numstat` + `Select-String` στα labels, όχι το μέτρημα στο κεφάλι.
 - **Public widget = `super.key` υποχρεωτικό:** το `use_key_in_widget_constructors` χτύπησε μόλις έγινε `MonthGrid` public.
 - **`DateFormat` με locale σε test:** χρειάζεται `initializeDateFormatting()` στο `setUpAll` (parity με `main.dart:22`).
 - **Ένα `DateFormat` ανά κλάση:** 31 κελιά × rebuild = 31 parsings pattern αν κατασκευάζεται μέσα στο loop.
 
-**Κατάσταση:** 🔄 **E01 σε εξέλιξη** — Βήματα 1–13 ✅· μένουν **14** (N5/N6/N2) και το **device pass** με TalkBack. Το `error_list.md` κλείνει οριστικά μόνο στο τέλος.
+**Κατάσταση:** 🔄 **E01: όλα τα βήματα 1–14 ✅** — μένει μόνο το **device pass** με TalkBack (tooltips, semantics, 48 dp, font scale 1.0/1.3/2.0). Το `error_list.md` κλείνει οριστικά μετά από αυτό.
 
 
 
