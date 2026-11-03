@@ -133,7 +133,10 @@ class _ReminderSectionState extends ConsumerState<ReminderSection> {
       final rrule = recurrenceToRRULE(_recurrence);
       const title = 'Υπενθύμιση';
       final body = widget.itemTitle;
-      DebugConfig.notif('ReminderSection._saveReminder: rrule=$rrule, title=$title, body=$body');
+      DebugConfig.notif(
+          'ReminderSection._saveReminder: rrule=$rrule, '
+          'title=${AppStringUtils.redact(title, label: 'title')}, '
+          'body=${AppStringUtils.redact(body, label: 'body')}');
 
       if (_reminderId != null) {
         DebugConfig.notif('ReminderSection._saveReminder: UPDATING (reminderId=$_reminderId) → rrule=${rrule ?? 'null'}');

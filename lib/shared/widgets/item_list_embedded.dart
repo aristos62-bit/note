@@ -109,7 +109,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(AppDuration.debounceSearch, () {
-      DebugConfig.search('EMBEDDED query write="$value" (debounce fired)');
+      DebugConfig.search('EMBEDDED query write=${AppStringUtils.redact(value, label: 'query')} (debounce fired)');
       setState(() => _searchQuery = value.trim());
     });
   }
@@ -141,7 +141,7 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
     DebugConfig.db('📁 ItemListEmbedded: foldersAsync.hasValue=${foldersAsync.hasValue}, count=${foldersAsync.valueOrNull?.length ?? 0}');
     if (foldersAsync.hasValue) {
       for (var f in foldersAsync.valueOrNull ?? []) {
-        DebugConfig.db('📁 Folder: id=${f.id}, name=${f.name}');
+        DebugConfig.db('📁 Folder: id=${f.id}, name=${AppStringUtils.redact(f.name, label: 'folder')}');
       }
     }
 

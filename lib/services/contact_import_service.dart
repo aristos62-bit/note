@@ -152,7 +152,7 @@ class ContactImportService {
 
       try {
         if (ContactImportService.isDuplicate(contact, titleSet, phoneSet)) {
-          DebugConfig.print('ContactImport: skipped duplicate "$displayName"');
+          DebugConfig.print('ContactImport: skipped duplicate ${AppStringUtils.redact(displayName, label: 'contact')}');
           skipped++;
           continue;
         }
@@ -160,7 +160,7 @@ class ContactImportService {
         await _mapContactToItem(contact, fields, workspaceId, folderId, helper);
         imported++;
       } catch (e) {
-        DebugConfig.error('ContactImport: error for "$displayName"', e);
+        DebugConfig.error('ContactImport: error for ${AppStringUtils.redact(displayName, label: 'contact')}', e);
         errors++;
         errorDetails.add('$displayName: $e');
       }

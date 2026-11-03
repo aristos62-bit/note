@@ -91,7 +91,7 @@ class _CollectionDetailScreenState
 
   Future<void> _saveData() async {
     final title = _titleCtrl.text.trim();
-    DebugConfig.db('CollectionDetail save id=${widget.collectionId} title="$title"');
+    DebugConfig.db('CollectionDetail save id=${widget.collectionId} title=${AppStringUtils.redact(title, label: 'title')}');
 
     // 1. Τίτλος + χρώμα + icon στο Item model (για να το διαβάζει το card/grid)
     await ref.read(itemNotifierProvider.notifier)
@@ -105,7 +105,7 @@ class _CollectionDetailScreenState
     final notifier = ref.read(
         propertyNotifierProvider(widget.collectionId).notifier);
     final schemaJson = FieldDef.listToJson(_fields);
-    DebugConfig.db('CollectionDetail schema=$schemaJson');
+    DebugConfig.db('CollectionDetail schemaFields=${_fields.length}');
     await Future.wait([
       notifier.setText('schema', schemaJson),
       notifier.setText('icon', _icon),

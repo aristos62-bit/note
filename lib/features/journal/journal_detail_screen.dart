@@ -91,7 +91,7 @@ class _JournalDetailScreenState extends ConsumerState<JournalDetailScreen>
       return;
     }
 
-    DebugConfig.db('JournalDetail save id=${widget.itemId} title="$title"');
+    DebugConfig.db('JournalDetail save id=${widget.itemId} title=${AppStringUtils.redact(title, label: 'title')}');
 
     await ref
         .read(itemNotifierProvider.notifier)

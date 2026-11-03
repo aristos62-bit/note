@@ -44,7 +44,7 @@ class AttachmentService {
 
       final cleanName = AppStringUtils.sanitizeFileName(file.name);
       if (cleanName != file.name) {
-        DebugConfig.db('pickAndSave sanitize: "${file.name}" → "$cleanName"');
+        DebugConfig.db('pickAndSave sanitize: ${AppStringUtils.redact(file.name, label: 'file')} → ${AppStringUtils.redact(cleanName, label: 'file')}');
       }
 
       final existing = await SuperNoteHelper.instance.attachments.findDuplicate(
@@ -54,10 +54,10 @@ class AttachmentService {
       );
       if (existing != null) {
         if (existing.itemId == itemId) {
-          DebugConfig.db('pickAndSave duplicate "${file.name}" (${file.size} bytes) → reusing id=${existing.id} (same item)');
+          DebugConfig.db('pickAndSave duplicate ${AppStringUtils.redact(file.name, label: 'file')} (${file.size} bytes) → reusing id=${existing.id} (same item)');
           return existing;
         }
-        DebugConfig.db('pickAndSave duplicate "${file.name}" (${file.size} bytes) → creating new record for itemId=$itemId');
+        DebugConfig.db('pickAndSave duplicate ${AppStringUtils.redact(file.name, label: 'file')} (${file.size} bytes) → creating new record for itemId=$itemId');
         return await SuperNoteHelper.instance.attachments.create(
           itemId: itemId,
           blockId: blockId,
@@ -95,7 +95,7 @@ class AttachmentService {
       final originalName = p.basename(sourcePath);
       final fileName = AppStringUtils.sanitizeFileName(originalName);
       if (fileName != originalName) {
-        DebugConfig.db('saveFile sanitize: "$originalName" → "$fileName"');
+        DebugConfig.db('saveFile sanitize: ${AppStringUtils.redact(originalName, label: 'file')} → ${AppStringUtils.redact(fileName, label: 'file')}');
       }
       final mimeType = lookupMimeType(sourcePath) ?? 'application/octet-stream';
       final fileSize = await sourceFile.length();
@@ -107,7 +107,7 @@ class AttachmentService {
       );
       await sourceFile.copy(destPath);
 
-      DebugConfig.db('saveFile: stored fileName="$fileName" path="$destPath" size=$fileSize');
+      DebugConfig.db('saveFile: stored fileName=${AppStringUtils.redact(fileName, label: 'file')} path=${AppStringUtils.redact(destPath, label: 'path')} size=$fileSize');
       return await SuperNoteHelper.instance.attachments.create(
         itemId: itemId,
         blockId: blockId,

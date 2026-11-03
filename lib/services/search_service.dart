@@ -57,7 +57,9 @@ class SearchService {
     ItemType? filterType,
     int maxResults = 50,
   }) async {
-    DebugConfig.print('🔍 SEARCH | entered with query="$query", workspaceId=$workspaceId, filterType=$filterType');
+    DebugConfig.print(
+        '🔍 SEARCH | entered with query=${AppStringUtils.redact(query, label: 'query')}, '
+        'workspaceId=$workspaceId, filterType=$filterType');
 
     if (query.trim().isEmpty) {
       DebugConfig.print('🔍 SEARCH | query empty, returning []');

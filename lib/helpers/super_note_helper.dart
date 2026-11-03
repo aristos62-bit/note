@@ -1626,7 +1626,7 @@ class AttachmentRepository {
     required String fileName,
     required int fileSize,
   }) async {
-    DebugConfig.db('AttachmentRepository.findDuplicate itemId=$itemId file="$fileName" size=$fileSize');
+    DebugConfig.db('AttachmentRepository.findDuplicate itemId=$itemId file=${AppStringUtils.redact(fileName, label: 'file')} size=$fileSize');
     return await _isar.attachments
         .filter()
         .fileNameEqualTo(fileName)

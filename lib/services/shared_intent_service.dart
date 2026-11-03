@@ -263,10 +263,10 @@ class SharedIntentService {
             '📎 ${att.fileName} (${att.readableSize})');
         final disp = p.basename(f.path);
         if (disp != att.fileName) {
-          DebugConfig.db('SharedIntent sanitize: "$disp" → "${att.fileName}"');
+          DebugConfig.db('SharedIntent sanitize: ${AppStringUtils.redact(disp, label: 'file')} → ${AppStringUtils.redact(att.fileName, label: 'file')}');
         }
       } catch (e, stack) {
-        DebugConfig.error('SharedIntent saveFile ${f.path}', e, stack);
+        DebugConfig.error('SharedIntent saveFile ${AppStringUtils.redact(f.path, label: 'path')}', e, stack);
       }
     }
     return (lines: attachLines, saved: saved, skipped: skipped);

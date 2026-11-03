@@ -138,7 +138,7 @@ class _CollectionEntriesScreenState
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(AppDuration.debounceSearch, () {
-      DebugConfig.search('ENTRIES query write="$value" (debounce fired)');
+      DebugConfig.search('ENTRIES query write=${AppStringUtils.redact(value, label: 'query')} (debounce fired)');
       ref.read(_entriesSearchQueryProvider.notifier).state = value.trim();
     });
   }
@@ -972,7 +972,7 @@ class _CollectionEntryDetailScreenState
         bytes: bytes,
       );
       if (path != null && mounted) {
-        DebugConfig.db('_saveAttachment saved to "$path"');
+        DebugConfig.db('_saveAttachment saved to path=${AppStringUtils.redact(path, label: 'path')}');
         showSnackBar(AppErrors.attachSaved(attachment.fileName));
       } else {
         DebugConfig.db('_saveAttachment cancelled');
