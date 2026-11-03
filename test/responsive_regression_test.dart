@@ -101,6 +101,13 @@ void main() {
       expect(shouldUseTwoPane(679), isTrue); // tablet 800 dp
       expect(calendarTwoPaneMinWidth, 640.0);
     });
+
+    test('S288c: landscape + πληκτρολόγιο (37 dp ύψος) → single column', () {
+      expect(shouldUseTwoPane(670, availableHeight: 37), isFalse);
+      expect(shouldUseTwoPane(670, availableHeight: 199), isFalse);
+      expect(shouldUseTwoPane(670, availableHeight: 200), isTrue);
+      expect(shouldUseTwoPane(670, availableHeight: 270), isTrue); // landscape
+    });
   });
 
   group('S288b Ημερολόγιο — κοντό viewport (mobile body)', () {
@@ -164,6 +171,16 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byKey(const Key('block'))).height, 420);
       expect(tester.getSize(find.byKey(const Key('list'))).height, 372);
+    });
+
+    testWidgets('37 dp viewport (landscape + πληκτρολόγιο): κρύβεται το block',
+        (tester) async {
+      await tester.pumpWidget(harness(tester, height: 37, blockHeight: 420));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('block')), findsNothing);
+      expect(tester.getSize(find.byKey(const Key('list'))).height, 37);
     });
   });
 }
