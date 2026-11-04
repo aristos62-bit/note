@@ -44,11 +44,12 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | S289 (E47 — ItemMetaRow dense) | `git log` |
+| Git HEAD | S290 (E09 — attachments add + badge) | `git log` |
 | `flutter analyze` | **No issues found** | run 04/11/2026 (S290) |
 | `flutter test` | **455/455 PASS** (68 αρχεία test) | run 04/11/2026 (S290) |
-| Device pass | **E47 OK** (04/11/2026, POCO X3 — tablet 618 dp grid, font 1.0/1.4/2.0, archived, landscape, mobile 392 dp: 0 overflow, meta 1 γραμμή) | S289 |
-| Device pass (προηγούμενο) | **E01 OK** (03/11/2026, POCO X3 — 48 dp, TalkBack, font 1.0/1.3/2.0) | S288 |
+| Device pass | **E09 OK** (04/11/2026, POCO X3 — T1–T6: 48/32 dp, confirm+cancel, badge 2→1, event badge 1, task χωρίς badge, font 1.3/2.0, 0 overflow) | S290 |
+| Device pass (προηγούμενο) | **E47 OK** (04/11/2026, POCO X3 — tablet 618 dp grid, font 1.0/1.4/2.0, archived, landscape, mobile 392 dp: 0 overflow, meta 1 γραμμή) | S289 |
+| Device pass (προηγούμενο ×2) | **E01 OK** (03/11/2026, POCO X3 — 48 dp, TalkBack, font 1.0/1.3/2.0) | S288 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 44.698 (164 αρχεία) | μετρήθηκε 04/11/2026 (S289) |
 | Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 537 · `home_folder_view.dart` 519 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) — **νέο:** `item_card.dart` **624→428** | μέτρηση 04/11/2026 · βλ. E06 |
 | `Semantics(` | **33** + **3** `ExcludeSemantics` (ήταν 4 συνολικά) | grep 04/11/2026 |
@@ -88,14 +89,13 @@
 
 > Κανένα ανοιχτό. Το `E01` (a11y pass) έκλεισε 03/11/2026 — βλ. §2/§3.
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (4)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (3)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
 | 1 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 2 | `E09` | **Attachments add-button + badge στην κάρτα** | 🔧 Υλοποιήθηκε S290 (analyze+tests) — device pending |
-| 3 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 4 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 2 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 3 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -191,11 +191,12 @@
 - **Device (PASSED 02/11/2026, POCO X3 M2007J20CG / Android 12 SDK 31 / MIUI 14):** T1 granted→**καμία** γραμμή · T2 OS-block (master OFF) → subtitle «Κλειστές από το σύστημα» + μακρύ system hint · T3 save → **ένα** SnackBar (system κείμενο) · T4 Διάγνωση → `notifications_off` + «…αλλά το σύστημα δεν επιτρέπει εμφάνιση» αντί ψευδούς «Πλήρης κάλυψη» · T5 in-app OFF → μήνυμα **in-app** (προτεραιότητα) + **ένα** SnackBar, **μηδέν** `permissionStatus` στο log (απόδειξη `else-if`) · T6 140% portrait+landscape → 3/4 γραμμές, 0 overflow · T7 cold start ×2 → `raw=true → granted`. Logs: `backups/s284_e08/device_logs/` (6.143 γραμμές, **0 ERR**). Σημ.: στο SDK 31 **δεν υπάρχει** runtime dialog `POST_NOTIFICATIONS`, άρα το «πριν την απάντηση» σενάριο καλύπτεται μόνο από unit tests (by design). Λεπτομέρειες: `oldsessions.md` S284.
 - **Residuals:** R-E08-1 channel-level block (το `syncChannel` ήδη delete+recreate → ρευστό by design) · R-E08-2 exact-alarm (fail-safe inexact) · R-E08-3 χωρίς deep link σε ρυθμίσεις OS · R-E08-4 macOS: read-only query, η αίτηση δεν υπάρχει (pre-existing) · R-E08-5 αν δεν κληθεί ποτέ `requestPermission` → `unknown` (λογαρισμένο).
 
-### E09 — 🔧 ΥΛΟΠΟΙΗΘΗΚΕ (S290) — device pending
+### E09 — ✅ CLOSED & DEVICE-VERIFIED 04/11/2026 (S290, analyze+tests+device POCO X3)
 - **Απόδειξη (πριν):** `attachments_strip.dart:5` — ρητά «ΜΟΝΟ προβολή/άνοιγμα/διαγραφή — το add ζει στα collection entries» · `item_card.dart` = 0 badge.
 - **Υλοποίηση (S290, εγκεκριμένο D1–D12):** add-button στο strip (κενό → labeled «Προσθήκη»· μη κενό → header + icon-only **48 dp**) με όριο από `AppSettings.attachmentMaxBytes` + `AppErrors.attachTooLarge` (πραγματικό `File.length()` — όχι `PlatformFile.size`) · confirm delete (`ConfirmDialog.delete`, μη αναστρέψιμο) + **32 dp** target + ορατό σφάλμα · badge συνημμένων στο `ItemCard` (inline στο title row, icon-only >1.3 text scale, **4** call sites) από `attachmentCountsProvider` (**1** watch για όλα τα cards αντί N+1) · `attachmentsProvider` → `StreamProvider.autoDispose.family` (`watchForItem`, `fireImmediately: true`) + διαγραφή dead `AttachmentNotifier`/`attachmentNotifierProvider` · per-item dedupe (`findDuplicate` με `itemIdEqualTo`) + ref-guard στο disk delete (`countByLocalPath`, collection scan — μόνο σε delete) · DB-first delete · πληθυντικός `AppStringUtils.attachmentsCountLabel` (badge + share).
 - **Απόδειξη (μετά):** `flutter analyze` **clean** · **455/455** (+12: `item_card_attachment_badge_test` 5, `attachments_strip_test` 4, `attachments_helpers_test` 3) · **0** schema/codegen/deps · `supernote.md` Attachment Providers ενημερώθηκε.
-- **Device:** ⏳ T1–T6 pending στο POCO X3 — **δεν κλείνει** πριν το device pass (κανόνας 12: δεδομένα από τον χρήστη).
+- **Device (PASSED 04/11/2026, POCO X3 `9593c01e`, build `1a4f7f6` + revert-only δοκιμαστικό build):** T1 κενό strip → labeled «Προσθήκη» **48 dp** (299×132 px @440dpi), χωρίς header · T2 σημείωση «E09 x2» με 2 συνημμένα → header «Συνημμένα (2)» + icon-only add 48 dp + card badge «2 συνημμένα» · T3 tap διαγραφής → bottom sheet «Διαγραφή αρχείου;» + «Η ενέργεια δεν μπορεί να αναιρεθεί.»· **Άκυρο** → μένουν και τα 2 · **Διαγραφή** → header «(1)» + badge «1 συνημμένο» χωρίς invalidate, **0 orphans** στο `app_flutter/attachments/` (το `a.png` έφυγε από δίσκο και DB) · T4 συμβάν «E09 x1» → badge «1 συνημμένο» + detail header «(1)» + icon-only add + 32 dp delete · T5 εργασία χωρίς συνημμένα → **κανένα** badge · T6 font **1.3** → badge με αριθμό, font **2.0** → icon-only badge με Semantics «1 συνημμένο» (uiautomator), strip note/event OK, **0** `RenderFlex`/`overflowed`/`E/flutter` στο logcat · bonus: «Προσθήκη» ανοίγει το documentsui picker και το cancel δεν αλλάζει δεδομένα. Λεπτομέρειες/XML/screens: `backups/s290_e09/`.
+- **Residual:** `countByLocalPath` = collection scan (localPath δεν είναι indexed) — μόνο σε delete, αποδεκτό.
 
 ### E10 — ✅ CLOSED 21/10/2026 (device-verified, B2.3)
 - **Device (POCO X3):** rename `E17 RENAME v3`→`v4` + future reminder 22:50 → `rescheduleForItem: rebaked=1 kept=0`· πραγματικό notification title «Υπενθύμιση», body `E17 RENAME v4`, σε OS. Logs/screenshot: `backups/O1_reminder_hardening_2026-10-21/device_logs/e10_*`.
@@ -440,6 +441,7 @@
 
 > Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S287.
 
+- **`E09` — CLOSED & DEVICE-VERIFIED 04/11/2026 (S290, analyze+tests+device POCO X3):** add-button στο `AttachmentsStrip` (κενό → labeled «Προσθήκη»· μη κενό → header + icon-only 48 dp) με όριο από `AppSettings.attachmentMaxBytes` (νέο getter, 0 schema) + πραγματικό `File.length()` (το `PlatformFile.size` είναι 0 σε content-URI) · confirm delete + 32 dp target + ορατό σφάλμα · DB-first delete + ref-guard (`countByLocalPath`) · per-item dedupe (`findDuplicate` με `itemIdEqualTo`) · badge συνημμένων στο `ItemCard` (inline, icon-only >1.3 scale, 4 call sites) από `attachmentCountsProvider` (1 watch/όλα τα cards) · `attachmentsProvider` → `StreamProvider.autoDispose.family` (`watchForItem`) + διαγραφή dead `AttachmentNotifier`. analyze clean · **455/455** (+12) · device: T1–T6 PASS (48/32 dp, confirm+cancel, badge 2→1 χωρίς invalidate, event badge 1, task χωρίς badge, font 1.3/2.0, 0 overflow) · 0 orphans στο `app_flutter/attachments/`.
 - **`E47` — CLOSED & DEVICE-VERIFIED 04/11/2026 (S289, analyze+tests+device POCO X3):** `ItemMetaRow` + `ItemCardMetaScope` (`item_meta_row.dart`): σε grid cells το meta row γίνεται **μία** γραμμή (`Row` + `Flexible` + `maxLines:1`) με κουκκίδα/ημερομηνία/2–3 tags/`+N` αντί `Wrap` (2η γραμμή → overflow σε 200 dp κελί)· πλάτος από `LayoutBuilder` γύρω από το `CustomScrollView` + scope μέσα στο keyed `Stack`· κρυφό info → `Semantics(container:false)`· κάρτα σταθερά **92 dp**. Χωρίς scope (λίστες, `ResponsiveItemList`) ίδιο pixel. analyze clean · **443/443** · `item_card.dart` 624→428 · device: tablet 618 dp + font 1.0/1.4/2.0 + archived + landscape + mobile 392 dp → 0 overflow, semantics επιβεβαιωμένα με uiautomator.
 - **`E01` — CLOSED & DEVICE-VERIFIED 03/11/2026 (S288, analyze+tests+device POCO X3):** a11y pass σε **14 βήματα** (`a11y.md`): 14 tooltips · `selected`/ρόλος σε toggles, tag chips, φίλτρα, selectors, χρώματα/εικονίδια, theme tiles · ελληνικό label ημερολογίου · 48×48 tap targets · `ComposedTextScaler` (system × app, clamp 2.0) · PII redaction 18 αρχείων · N5 stats labels · N6 κάτω μπάρα `selected`+ρόλος · N2 drag-handle custom actions. analyze clean · **420/420** (+18 από 402) · device: 48 dp παντού, TalkBack ελληνικά με σωστά labels, 0 overflow σε 1.0/1.3/2.0.
 - **`E46` — CLOSED 02/11/2026 (S287, analyze+tests):** `_GreetingSection` (`home_screen.dart`) — `Flexible` + `maxLines: 1`/ellipsis γύρω από το `Column` των κειμένων (ήταν unbounded μέσα στο `Row` ⇒ RenderFlex overflow **94px** όταν το κείμενο δεν χωράει). Διορθώνει το μοναδικό κόκκινο του suite (**400/401 → 402/402**) και καλύπτει 320dp × 140–200%. 2 αρχεία · 0 νέα symbols/tokens.
@@ -565,7 +567,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10 ✅ (device T1–T9) → E01 ✅ (S288, 14 βήματα + device)** (+ E07/E09/E06 όποτε αποφασιστούν · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10 ✅ (device T1–T9) → E01 ✅ (S288, 14 βήματα + device) → E09 ✅ (S290, device T1–T6)** (+ E07/E06 όποτε αποφασιστούν · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -580,4 +582,4 @@
 | **Ο7 — Dates/editor mini-pass** ✅ CLOSED 29/10/2026 (S279 `c16f90d` + device T1–T8) | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
 | **Ο10 — Habit topUp perf** ✅ CLOSED 30/10/2026 (S280 `72e6b0e` + S281 `bbe72fb` + S283 + device T1–T9) | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper` + `reminder_bake_plan` + Diagnostics) | 1 πρόταση: Φ0 μετρήσεις → Φ1 `createMany` (1 txn) → Φ3 `avgSched`/RUNWAY → Γ7 guard reset → **A: OS-horizon 14ημ. για habits** (`deferredCount`), concurrency **απορρίφθηκε** με μέτρηση → **S283: ορίζοντας OS μία πηγή + cancel scope** (`beyondHorizonCount`, `osSchedulableIds`) | — |
 
-**Ξεχωριστά:** E07 & E09 (features — spec/απόφαση πρώτα) · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · **E01 ✅ CLOSED 03/11/2026 (S288)** · E25 (κλείνει με E26).
+**Ξεχωριστά:** E07 (feature — spec πρώτα) · **E09 ✅ CLOSED 04/11/2026 (S290, device)** · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · **E01 ✅ CLOSED 03/11/2026 (S288)** · E25 (κλείνει με E26).
