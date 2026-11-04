@@ -44,7 +44,7 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | S290 (E09 — attachments add + badge) | `git log` |
+| Git HEAD | S291 (E07 — close ως P4 by-design, docs only) | `git log` |
 | `flutter analyze` | **No issues found** | run 04/11/2026 (S290) |
 | `flutter test` | **455/455 PASS** (68 αρχεία test) | run 04/11/2026 (S290) |
 | Device pass | **E09 OK** (04/11/2026, POCO X3 — T1–T6: 48/32 dp, confirm+cancel, badge 2→1, event badge 1, task χωρίς badge, font 1.3/2.0, 0 overflow) | S290 |
@@ -89,13 +89,12 @@
 
 > Κανένα ανοιχτό. Το `E01` (a11y pass) έκλεισε 03/11/2026 — βλ. §2/§3.
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (3)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (2)
 
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
-| 1 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 2 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
-| 3 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
+| 1 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
+| 2 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - iOS parked ×2 · 6-actions overflow `note_detail` · zombie-overlap residual (S245 — ισχύει και για τις ουρές του E17 (`_bakeQueue`): fail-open 60s by design, καμία νέα κάρτα) · αρχαίες S~92 σημειώσεις · display-inDays DST cosmetic · `custom:184` σημείωση (stale) · contact-dialog chrome 7.3px (debug-only, αποδεκτό) · **stale write-only Isar slots 8/10** (`isDeleted`/`isVisible` getters) στο `item.g.dart` — **0 reads**, κλείνει μόνο με επόμενο codegen (**όχι** `build_runner` τώρα).
@@ -179,10 +178,10 @@
 - **Απαιτείται απόφαση:** (α) σταδιακά splits ένα αρχείο/session (κατά R1) ή (β) ρητή χαλάρωση του R1 για services/screens.
 - **Αποδοχή (αν (α)):** <500 + analyze/test clean ανά βήμα, 0 αλλαγή συμπεριφοράς.
 
-### E07 — Snooze UI + notification actions
-- **Έτοιμο μηχανικό:** `ReminderNotifier.snooze` (`reminder_provider.dart:68-88`) · repo `snooze` (`super_note_helper.dart:1158-1168`) · OS reschedule semantics S52.
-- **Λείπει (επαληθευμένο 21/10/2026):** **0 UI callers** (grep) · `markSent` 0 callers (σκόπιμα κρατείται) · `_details()` (`notification_service.dart:396-414`) χωρίς Android `actions`/iOS category · `_onTap` (`:416-425`) αγνοεί `actionId` · `_onBackgroundTap` (`:428-433`) no-op.
-- **Θέλει spec πρώτα** (κουμπί/actions/background-tap χωρίς Isar). **Κόστος:** μεγάλο.
+### E07 — ✅ CLOSED 04/11/2026 (απόφαση χρήστη — **P4 by-design, 0 κώδικας**)
+- **Απόφαση:** το snooze είναι λειτουργία **ειδοποίησης alarm-type**. Το SuperNote έχει **έναν κοινό μηχανισμό υπενθύμισης** για όλα τα item types (note/task/contact/event/journal/appointment/habit/goal/…), **χωρίς fire-callback** (`markSent` 0 callers — το FLN 17.2.4 δεν παρέχει τέτοιο callback)· notification actions σε background isolate θα ρίσκαραν **drift DB/OS** και regressions στα `_bakeQueue`/parity. Η **αλλαγή ώρας** υπενθύμισης καλύπτει ήδη την ανάγκη.
+- **Κρατείται ως έχει (τεκμηριωμένο API, μηδέν κόστος):** `ReminderNotifier.snooze` (`reminder_provider.dart:56-75`) · repo `snooze` (`super_note_helper.dart:1322-1332`) · `ReminderStatus.snoozed`.
+- **Απορρίφθηκε:** in-app «+10m/+1h» μόνο μέσα στο `ReminderSection` (μισή λύση, νέο UI χωρίς πραγματικό snooze ειδοποίησης).
 
 ### E08 — ✅ CLOSED 02/11/2026 (S284 · κώδικας+tests+**device-verified** POCO X3)
 - **Υλοποίηση:** `NotificationService.permissionStatus()` → tri-state (`granted/denied/unknown`) με **fail-open** (init/σφάλμα/πλατφόρμα χωρίς API → `unknown`) + gate `_permissionRequested` (τίθεται στην **είσοδο** του `requestPermission`, ώστε πριν την απάντηση του dialog να μην εμφανίζεται ψευδές «κλειστές»). Νέα αρχεία: `services/notification_permission.dart` (enum + 2 pure mappers, provisional→granted) · `providers/notification_permission_provider.dart` (`FutureProvider`) · `shared/widgets/notification_hint.dart` (`NotificationHintRow` + `NotificationPermissionHint`· in-app OFF έχει προτεραιότητα· granted/unknown → `shrink`). 6 strings στο `AppErrors` («Notifications» ομάδα).
@@ -441,6 +440,7 @@
 
 > Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S287.
 
+- **`E07` — CLOSED 04/11/2026 (S291 — απόφαση χρήστη, 0 κώδικας):** snooze UI + notification actions → **P4 by-design**. Ένας κοινός μηχανισμός υπενθύμισης για όλα τα item types· **0 fire-callback** (`markSent` 0 callers, FLN 17.2.4)· background-isolate notification actions = ρίσκο DB/OS drift + `_bakeQueue`/parity regressions· η αλλαγή ώρας καλύπτει την ανάγκη. `ReminderNotifier.snooze`/`ReminderStatus.snoozed` μένουν ως τεκμηριωμένο, αχρησιμοποίητο API. analyze clean · **455/455**.
 - **`E09` — CLOSED & DEVICE-VERIFIED 04/11/2026 (S290, analyze+tests+device POCO X3):** add-button στο `AttachmentsStrip` (κενό → labeled «Προσθήκη»· μη κενό → header + icon-only 48 dp) με όριο από `AppSettings.attachmentMaxBytes` (νέο getter, 0 schema) + πραγματικό `File.length()` (το `PlatformFile.size` είναι 0 σε content-URI) · confirm delete + 32 dp target + ορατό σφάλμα · DB-first delete + ref-guard (`countByLocalPath`) · per-item dedupe (`findDuplicate` με `itemIdEqualTo`) · badge συνημμένων στο `ItemCard` (inline, icon-only >1.3 scale, 4 call sites) από `attachmentCountsProvider` (1 watch/όλα τα cards) · `attachmentsProvider` → `StreamProvider.autoDispose.family` (`watchForItem`) + διαγραφή dead `AttachmentNotifier`. analyze clean · **455/455** (+12) · device: T1–T6 PASS (48/32 dp, confirm+cancel, badge 2→1 χωρίς invalidate, event badge 1, task χωρίς badge, font 1.3/2.0, 0 overflow) · 0 orphans στο `app_flutter/attachments/`.
 - **`E47` — CLOSED & DEVICE-VERIFIED 04/11/2026 (S289, analyze+tests+device POCO X3):** `ItemMetaRow` + `ItemCardMetaScope` (`item_meta_row.dart`): σε grid cells το meta row γίνεται **μία** γραμμή (`Row` + `Flexible` + `maxLines:1`) με κουκκίδα/ημερομηνία/2–3 tags/`+N` αντί `Wrap` (2η γραμμή → overflow σε 200 dp κελί)· πλάτος από `LayoutBuilder` γύρω από το `CustomScrollView` + scope μέσα στο keyed `Stack`· κρυφό info → `Semantics(container:false)`· κάρτα σταθερά **92 dp**. Χωρίς scope (λίστες, `ResponsiveItemList`) ίδιο pixel. analyze clean · **443/443** · `item_card.dart` 624→428 · device: tablet 618 dp + font 1.0/1.4/2.0 + archived + landscape + mobile 392 dp → 0 overflow, semantics επιβεβαιωμένα με uiautomator.
 - **`E01` — CLOSED & DEVICE-VERIFIED 03/11/2026 (S288, analyze+tests+device POCO X3):** a11y pass σε **14 βήματα** (`a11y.md`): 14 tooltips · `selected`/ρόλος σε toggles, tag chips, φίλτρα, selectors, χρώματα/εικονίδια, theme tiles · ελληνικό label ημερολογίου · 48×48 tap targets · `ComposedTextScaler` (system × app, clamp 2.0) · PII redaction 18 αρχείων · N5 stats labels · N6 κάτω μπάρα `selected`+ρόλος · N2 drag-handle custom actions. analyze clean · **420/420** (+18 από 402) · device: 48 dp παντού, TalkBack ελληνικά με σωστά labels, 0 overflow σε 1.0/1.3/2.0.
@@ -567,7 +567,7 @@
 ## 6. Ομάδες υλοποίησης (1 ομάδα = 1 πρόταση + 1 fix)
 
 > Κάθε ομάδα δουλεύεται με **μία ενιαία πρόταση** (συνεκτικό σχέδιο, αριθμημένα βήματα) και **ένα fix** — δεν ξανανοίγει σκόρπια. Νέα ευρήματα από fix: πρώτα εξέταση ένταξης σε υπάρχουσα ομάδα, αλλιώς νέο `E<n>` (SOP §Δ16).
-> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10 ✅ (device T1–T9) → E01 ✅ (S288, 14 βήματα + device) → E09 ✅ (S290, device T1–T6)** (+ E07/E06 όποτε αποφασιστούν · E25 κλείνει με E26).
+> Προτεινόμενη σειρά: **Ο1 ✅ → Ο2 ✅ → Ο4 ✅ → Ο8 ✅ → Ο6 ✅ → Ο5 ✅ → Ο3 ✅ → Ο9 ✅ → Ο7 ✅ (device T1–T8) → Ο10 ✅ (device T1–T9) → E01 ✅ (S288, 14 βήματα + device) → E09 ✅ (S290, device T1–T6) → E07 ✅ (S291 — P4 by-design, 0 κώδικας)** (+ E06 όποτε αποφασιστεί · E25 κλείνει με E26).
 
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
@@ -582,4 +582,4 @@
 | **Ο7 — Dates/editor mini-pass** ✅ CLOSED 29/10/2026 (S279 `c16f90d` + device T1–T8) | E22 + E20 | 14 production αρχεία (12 + `ui_provider`/`habit_provider` για `dayTick`) + 5 νέα tests + 2 επεκτάσεις | E20 από E22 |
 | **Ο10 — Habit topUp perf** ✅ CLOSED 30/10/2026 (S280 `72e6b0e` + S281 `bbe72fb` + S283 + device T1–T9) | E45 (solo — `habit_service` + `reminder_scheduler` + `super_note_helper` + `reminder_bake_plan` + Diagnostics) | 1 πρόταση: Φ0 μετρήσεις → Φ1 `createMany` (1 txn) → Φ3 `avgSched`/RUNWAY → Γ7 guard reset → **A: OS-horizon 14ημ. για habits** (`deferredCount`), concurrency **απορρίφθηκε** με μέτρηση → **S283: ορίζοντας OS μία πηγή + cancel scope** (`beyondHorizonCount`, `osSchedulableIds`) | — |
 
-**Ξεχωριστά:** E07 (feature — spec πρώτα) · **E09 ✅ CLOSED 04/11/2026 (S290, device)** · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · **E01 ✅ CLOSED 03/11/2026 (S288)** · E25 (κλείνει με E26).
+**Ξεχωριστά:** **E07 ✅ CLOSED 04/11/2026 (S291 — P4 by-design, 0 κώδικας)** · **E09 ✅ CLOSED 04/11/2026 (S290, device)** · **E39** (ενιαία κοινοποίηση — spec πρώτα) · E06 (απόφαση splits/χαλάρωση R1) · **E01 ✅ CLOSED 03/11/2026 (S288)** · E25 (κλείνει με E26).
