@@ -4539,6 +4539,28 @@ if (!context.isShortScreen)
 
 **Κατάσταση:** ✅ **E09 CLOSED & DEVICE-VERIFIED 04/11/2026.** `error_list.md` (§0 baseline + Device pass row, §1 P3 4→3, §2 κάρτα CLOSED, §3 bullet, §6 σειρά) + `supernote.md` (§Attachment Providers: 2 stream providers, χωρίς notifier) + `oldsessions.md` (S290) ενημερώθηκαν.
 
+---
+
+## Session 291 — 04/11/2026 (E07: snooze UI + notification actions → P4 by-design, 0 κώδικας)
+
+**Scope:** τελευταία απόφαση πριν το `E39`. Ζητήθηκε ανάλυση + εναλλακτικές· ο χρήστης ενέκρινε **κλείσιμο ως P4 by-design, χωρίς καμία αλλαγή κώδικα**.
+
+**Τι ελέγχθηκε στον κώδικα (04/11/2026):**
+1. `ReminderNotifier.snooze` (`lib/providers/reminder_provider.dart:56-75`): κρατά status `pending` και μεταθέτει το `triggerAt` — **ίδιος** μηχανισμός για όλα τα item types.
+2. `ReminderRepository.snooze` (`lib/helpers/super_note_helper.dart:1322-1332`).
+3. `markSent`: **0 UI callers** (κρατείται σκόπιμα ως API)· το FLN 17.2.4 **δεν** παρέχει fire-callback.
+4. `_onTap`/`_onBackgroundTap` (`lib/services/notification_service.dart:471-488`): **0** διαχείριση `actionId`.
+5. `showReminderSheet` καλείται από **6** detail screens (note/task/contact/event/journal/appointment) → οποιαδήποτε αλλαγή θα άγγιζε όλα τα types.
+6. `snooze`: **0 UI callers** → δεν υπάρχει σημείο όπου θα «κούμπωνε» κουμπί χωρίς νέο UI.
+
+**Απόφαση (P4 by-design):** το snooze είναι λειτουργία **ειδοποίησης alarm-type**. Το SuperNote έχει **έναν** κοινό μηχανισμό υπενθύμισης· notification actions σε background isolate θα ρίσκαραν **drift DB/OS** (το `_bakeQueue`/parity θα έβλεπαν διαφορετική κατάσταση από την Isar) — μεγάλο κόστος, μικρό όφελος, αφού η **αλλαγή ώρας** υπενθύμισης καλύπτει ήδη την ανάγκη. `ReminderNotifier.snooze` / `ReminderStatus.snoozed` μένουν ως **τεκμηριωμένο, αχρησιμοποίητο API** (0 κόστος συντήρησης).
+
+**Απορρίφθηκε:** in-app «+10m/+1h» μόνο μέσα στο `ReminderSection` (μισή λύση: νέο UI χωρίς πραγματικό snooze ειδοποίησης).
+
+**Έλεγχοι:** docs-only αλλαγή → `flutter analyze` **No issues found** (4.2s) · tests baseline **455/455** αμετάβλητο (0 κώδικας). Backups: `backups/s291_e07_close/` (`error_list.md`, `oldsessions.md`, `BASE_HEAD.txt` = `99d3f8a`).
+
+**Κατάσταση:** ✅ **E07 CLOSED 04/11/2026 (P4 by-design, 0 κώδικας).** `error_list.md` (§0 HEAD, §1 P3 3→2 + renumber, §2 κάρτα CLOSED, §3 bullet, §6 σειρά) + `oldsessions.md` (S291). `supernote.md`: **καμία αλλαγή** (δεν άλλαξε αρχιτεκτονική).
+
 
 
 
