@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/attachment.dart';
+import '../core/utils/app_errors.dart';
 import '../core/utils/debug_config.dart';
 import '../core/utils/string_utils.dart';
 
@@ -36,9 +37,19 @@ class AttachmentService {
       final file = result.files.first;
       if (file.path == null) return null;
 
-      if (maxSizeBytes != null && file.size > maxSizeBytes) {
+      // E09: το `PlatformFile.size` είναι 0 όταν ο provider δεν το δίνει
+      // (content-URI) → θα περνούσε το όριο. Παίρνουμε το πραγματικό μέγεθος.
+      var actualSize = file.size;
+      try {
+        actualSize = await File(file.path!).length();
+      } catch (e) {
+        DebugConfig.warning(
+            'pickAndSave: actual size fallback (file.size=$actualSize): $e');
+      }
+
+      if (maxSizeBytes != null && actualSize > maxSizeBytes) {
         throw FormatException(
-          'Το αρχείο υπερβαίνει το όριο των ${(maxSizeBytes / 1048576).toStringAsFixed(0)}MB',
+          AppErrors.attachTooLarge((maxSizeBytes / 1048576).round()),
         );
       }
 
@@ -47,25 +58,16 @@ class AttachmentService {
         DebugConfig.db('pickAndSave sanitize: ${AppStringUtils.redact(file.name, label: 'file')} → ${AppStringUtils.redact(cleanName, label: 'file')}');
       }
 
+      // Dedupe ΜΟΝΟ ανά item (E09/D5β): ίδιο αρχείο σε άλλο item
+      // δημιουργεί νέο αντίγραφο — μηδέν κοινά localPath.
       final existing = await SuperNoteHelper.instance.attachments.findDuplicate(
         itemId: itemId,
         fileName: cleanName,
-        fileSize: file.size,
+        fileSize: actualSize,
       );
       if (existing != null) {
-        if (existing.itemId == itemId) {
-          DebugConfig.db('pickAndSave duplicate ${AppStringUtils.redact(file.name, label: 'file')} (${file.size} bytes) → reusing id=${existing.id} (same item)');
-          return existing;
-        }
-        DebugConfig.db('pickAndSave duplicate ${AppStringUtils.redact(file.name, label: 'file')} (${file.size} bytes) → creating new record for itemId=$itemId');
-        return await SuperNoteHelper.instance.attachments.create(
-          itemId: itemId,
-          blockId: blockId,
-          fileName: cleanName,
-          localPath: existing.localPath,
-          mimeType: existing.mimeType,
-          fileSize: file.size,
-        );
+        DebugConfig.db('pickAndSave duplicate ${AppStringUtils.redact(file.name, label: 'file')} ($actualSize bytes) → reusing id=${existing.id} (same item)');
+        return existing;
       }
 
       return await saveFile(
@@ -134,21 +136,28 @@ class AttachmentService {
 
   Future<void> delete(int attachmentId) async {
     try {
-      final attachment = await SuperNoteHelper.instance.attachments
-          .getById(attachmentId);
+      final repo = SuperNoteHelper.instance.attachments;
+      final attachment = await repo.getById(attachmentId);
       if (attachment == null) return;
 
-      // Διέγραψε από disk — μη σταματάς αν αποτύχει (file ήδη missing)
+      // 1) DB-first (E09): αν αποτύχει, το αρχείο μένει — δεν χάνονται δεδομένα.
+      await repo.delete(attachmentId);
+
+      // 2) Disk — μόνο αν καμία άλλη γραμμή δεν δείχνει το ίδιο αρχείο
+      //    (legacy rows πριν το per-item dedupe).
       try {
+        final refs = await repo.countByLocalPath(attachment.localPath);
+        if (refs > 0) {
+          DebugConfig.db(
+              '[AttachmentService] keep shared file (refs=$refs) id=$attachmentId');
+          return;
+        }
         final file = File(attachment.localPath);
         if (await file.exists()) await file.delete();
       } catch (e, stack) {
         DebugConfig.error(
             '[AttachmentService] disk delete failed (continuing)', e, stack);
       }
-
-      // Διέγραψε από DB — αυτό πρέπει να πετύχει
-      await SuperNoteHelper.instance.attachments.delete(attachmentId);
     } catch (e, stack) {
       DebugConfig.error('[AttachmentService] delete failed', e, stack);
       rethrow;

@@ -60,6 +60,11 @@ class AppSettings {
   /// Μέγιστο μέγεθος αρχείου σε MB για συνημμένα (0 = χωρίς όριο)
   int maxAttachmentSizeMB = 20;
 
+  /// Όριο σε bytes (null = χωρίς όριο). Getter — δεν είναι πεδίο Isar,
+  /// άρα μηδέν schema/migration/codegen.
+  int? get attachmentMaxBytes =>
+      maxAttachmentSizeMB > 0 ? maxAttachmentSizeMB * 1024 * 1024 : null;
+
   // ── Auto-backup ──────────────────────────────────────────────
   /// Αυτόματο zip-αντίγραφο (DB + attachments) στο background.
   bool autoBackupEnabled = false;

@@ -29,6 +29,8 @@ class ItemCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final ValueChanged<bool>? onCheckboxChanged;
   final VoidCallback? onShare;
+  /// Πλήθος συνημμένων (0 = χωρίς badge). E09.
+  final int attachmentCount;
 
   const ItemCard({
     super.key,
@@ -42,6 +44,7 @@ class ItemCard extends StatelessWidget {
     this.onLongPress,
     this.onCheckboxChanged,
     this.onShare,
+    this.attachmentCount = 0,
   });
 
   @override
@@ -118,6 +121,7 @@ class ItemCard extends StatelessWidget {
                           compact: isCompact,
                           onCheckboxChanged: onCheckboxChanged,
                           foregroundColor: foregroundColor,
+                          attachmentCount: attachmentCount,
                         ),
                         const SizedBox(height: Spacing.xs),
                         ItemMetaRow(
@@ -200,6 +204,7 @@ class _TitleRow extends StatelessWidget {
   final bool compact;
   final ValueChanged<bool>? onCheckboxChanged;
   final Color foregroundColor;
+  final int attachmentCount;
 
   const _TitleRow({
     required this.item,
@@ -207,6 +212,7 @@ class _TitleRow extends StatelessWidget {
     required this.compact,
     this.onCheckboxChanged,
     required this.foregroundColor,
+    this.attachmentCount = 0,
   });
 
   bool get _showCheckbox =>
@@ -303,6 +309,15 @@ class _TitleRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        // 📎 ΣΥΝΗΜΜΕΝΑ (E09) — inline, πριν από star/pin.
+        // >1.3 text scale: μόνο εικονίδιο (ο αριθμός μένει στο Semantics).
+        if (attachmentCount > 0) ...[
+          const SizedBox(width: Spacing.xs),
+          _AttachmentBadge(
+            count: attachmentCount,
+            color: foregroundColor,
+          ),
+        ],
         // ⭐ STAR (favorite) – αριστερά από το pin, ίδιο μέγεθος 14
         if (item.favorite) ...[
           const SizedBox(width: Spacing.xs),
@@ -321,6 +336,43 @@ class _TitleRow extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Badge συνημμένων (E09): inline εικονίδιο + αριθμός.
+class _AttachmentBadge extends StatelessWidget {
+  final int count;
+  final Color color;
+
+  const _AttachmentBadge({required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    // >1.3 text scale → μόνο εικονίδιο (αποφυγή οριζόντιας συμπίεσης τίτλου).
+    final scaled = MediaQuery.textScalerOf(context).scale(11);
+    final showCount = scaled <= 11 * 1.3;
+    return Semantics(
+      container: true,
+      label: AppStringUtils.attachmentsCountLabel(count),
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.attach_file_rounded, size: 12, color: color),
+          if (showCount) ...[
+            const SizedBox(width: 1),
+            Text(
+              '$count',
+              style: context.labelSm.copyWith(
+                fontSize: 11,
+                height: 1.0,
+                color: color,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

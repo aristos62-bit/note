@@ -874,7 +874,6 @@ class _CollectionEntryDetailScreenState
           if (mounted) showSnackBar(AppErrors.attachExists(attachment.fileName));
           return;
         }
-        ref.invalidate(attachmentsProvider(widget.entryId));
         setState(() {
           _fieldAttachmentIds.putIfAbsent(fieldKey, () => []);
           _fieldAttachmentIds[fieldKey]!.add(attachment.id);
@@ -892,7 +891,6 @@ class _CollectionEntryDetailScreenState
   Future<void> _removeAttachment(String fieldKey, int attachmentId) async {
     await AttachmentService.instance.delete(attachmentId);
     if (mounted) {
-      ref.invalidate(attachmentsProvider(widget.entryId));
       setState(() {
         _fieldAttachmentIds[fieldKey]?.remove(attachmentId);
         _hasChanges = true;
