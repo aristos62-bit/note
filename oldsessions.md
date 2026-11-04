@@ -4483,9 +4483,21 @@ if (!context.isShortScreen)
 5. **`priority_badge.dart`:** αφαιρέθηκε το per-build `DebugConfig.print('PriorityBadge: …')` (θα πλημμύριζε σε scroll) — το `ItemMetaRow` χρησιμοποιεί το υπάρχον `PriorityBadge.dot` (SPoT).
 6. **Νέο `test/item_meta_row_test.dart` (+12):** pure density/tags όρια · dense 200 dp (dot+date+`+3`, ύψος **92**, 0 overflow, `Αρχείο`/tags κρυφά) · 280 dp (2 tags+`+1`) · 400 dp (3 tags) · textScale **2.0** · 60 dp pathological · semantics label (Αρχείο/Επείγον/κρυφό tag) · full-mode regression (`Αρχείο`+`Επείγον` ορατά) · **e2e** `ReorderableItemList` 618 dp (2 στήλες, scope ×2, κάρτες 92).
 
-**Side effects (audit):** `ItemCard` fixed-grid call sites = **όλα** `compact:true` (η απόδειξη ύψους ισχύει)· `ResponsiveItemList` (5 οθόνες) **χωρίς** scope → full mode αμετάβλητο· `_FolderItemCard`/habits/collections δεν έχουν meta chips· calendar two-pane day list χρησιμοποιεί `ReorderableItemList` → **επίσης διορθώνεται** (ήταν εκτεθειμένο)· `item_card_icons_test` (full mode) ανέπαφο.
+**Side effects (audit):** `ItemCard` fixed-grid call sites = **όλα** `compact:true` (η απόδειξη ύψους ισχύει)· `ResponsiveItemList` (5 οθόνες) **χωρίς** scope → full mode αμετάβλητο· `_FolderItemCard`/habits/collections δεν έχουν meta chips· **Ημερολόγιο:** τα συμβάντα **δεν** χρησιμοποιούν `ItemCard`/`ReorderableItemList` (δεν έχουν priority/tags) → ανέπαφο, μόνο smoke test· `item_card_icons_test` (full mode) ανέπαφο.
 
 **Έλεγχοι:** `flutter analyze` → **No issues found** · full `flutter test` → **443/443 PASS** (431 + 12). Backups: `backups/s289_meta_row/` + `BASE_HEAD.txt` (BASE `2fd7509`, analyze clean, 21/21 focused). `item_card.dart` 624→**428** (E06/R1 win) · `Semantics(` 32→33 (+1).
+
+**Commit:** `a45ad92` (fix) → push OK.
+
+**Device pass (POCO X3 `9593c01e`, 04/11/2026, build `a45ad92`):** build `app-debug.apk` → `adb install -r`. Δεδομένα από τον χρήστη (κανένα adb-created data): `T1 test` (Επείγον + 20/11), `T2 test` (Υψηλή), `T3 test` (αρχειοθετημένη + Υψηλή). Τα **συμβάντα ημερολογίου δεν έχουν priority/tags**, άρα το αρχικό σχέδιο για event με 2 tags ίσχυε μόνο ως smoke test· επίσης οι **εργασίες δεν παίρνουν tags από το UI** (`task_detail_screen.dart:448` = `TagChipList.readOnly`· tag picker μόνο σε σημειώσεις/ημερολόγιο/επαφές/εγγραφές) → το 3-tags σενάριο καλύπτεται μόνο από unit tests.
+1. **Tablet 618 dp** (`wm size 1700x2400`, portrait, Εργασίες 2 στήλες): meta row **1 γραμμή** (κουκκίδα + `20 Νοε`), scroll σε όλα τα 10 tasks → `logcat` **κενό** από `RenderFlex`/`overflowed`.
+2. **Font 1.4** → 0 overflow, 1 γραμμή (το μακρύ chip δίνει `Ληξιπρ…` με ellipsis, όχι wrap) · **Font 2.0** → 0 overflow, 1 γραμμή.
+3. **Αρχειοθετημένη** («Εμφάνιση αρχειοθετημένων» ON): `T3 test` → **μόνο κουκκίδα** (χωρίς `Αρχείο` chip, ως σχεδιάστηκε) και semantics `T3 test · Αρχείο · Προτεραιότητα: Υψηλή` (uiautomator dump) → το κρυφό info **είναι προσβάσιμο**. Επίσης `T1 test · Προτεραιότητα: Επείγον · 20 Νοε`.
+4. **Mobile 392 dp**: full mode **ανέπαφο** — `! Επείγον` + `20 Νοε` chips ορατά (όπως πριν), λίστα Σημειώσεων με `Αρχείο` chip, 0 overflow.
+5. **Tablet landscape**: Ημερολόγιο two-pane (συμβάν χωρίς meta chips) + Σημειώσεις 2 στήλες → 0 overflow.
+6. **Καθαρισμός συσκευής:** `wm size reset`, font **1.0**, auto-rotate **ON**, «Εμφάνιση αρχειοθετημένων» **OFF**. Screenshots: `backups/s289_meta_row/dev_*.png`.
+
+**Κατάσταση:** ✅ **E47 CLOSED & DEVICE-VERIFIED 04/11/2026.** `error_list.md` (§0 baseline + Device pass row, §2 κάρτα, §3 bullet) και `a11y.md` (ο «γνωστός περιορισμός S288e» έκλεισε) ενημερώθηκαν.
 
 
 
