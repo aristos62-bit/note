@@ -4499,6 +4499,35 @@ if (!context.isShortScreen)
 
 **Κατάσταση:** ✅ **E47 CLOSED & DEVICE-VERIFIED 04/11/2026.** `error_list.md` (§0 baseline + Device pass row, §2 κάρτα, §3 bullet) και `a11y.md` (ο «γνωστός περιορισμός S288e» έκλεισε) ενημερώθηκαν.
 
+---
+
+## Session 290 — 04/11/2026 (E09: attachments — add-button στο strip + badge στην κάρτα)
+
+**Scope:** το `AttachmentsStrip` ήταν **μόνο προβολή/άνοιγμα/διαγραφή** (το add ζούσε μόνο στα collection entries) και το `ItemCard` **0 badge**. Ο χρήστης ενέκρινε την πρόταση **D1–D12** και ανέστειλε προσωρινά τον κανόνα #4: πλήρης υλοποίηση → analyze → tests → docs → commit/push → build + device pass.
+
+**Αποφάσεις (εγκεκριμένες, αμετάβλητες):** D1 κενό strip → labeled «Προσθήκη» · D2 μη κενό → header + **icon-only 48 dp** (όχι δεύτερο labeled κουμπί) · D3 badge **inline** στο title row (όχι ξεχωριστή γραμμή) · D4 icon-only badge **>1.3** text scale · D5 badge σε **4** card sites · D6 **streams** + counts provider (όχι invalidate) · D7 per-item dedupe · D8 confirm πριν τη διαγραφή · D9 32 dp delete target + ορατό σφάλμα · D10 πληθυντικός helper (badge + share) · D11 όριο από `AppSettings` + `AppErrors` (όχι hardcoded 20 MB στο strip) · D12 διαγραφή dead `AttachmentNotifier` (έσβηνε μόνο DB row → ορφανό αρχείο) + `_debug` false + όχι εξαγωγή preview.
+
+**Τι άλλαξε (12 lib + 3 νέα tests):**
+1. **`core/utils/string_utils.dart`:** `attachmentsCountLabel(int)` (1 συνημμένο / N συνημμένα) — SPoT για badge + share.
+2. **`core/utils/app_errors.dart`:** `attachTooLarge(mb)` + `attachDeleteFailed`.
+3. **`models/app_settings.dart`:** getter `attachmentMaxBytes` (0/αρνητικό → `null` = χωρίς όριο) — **getter**, άρα 0 schema/migration/codegen.
+4. **`helpers/super_note_helper.dart` (`AttachmentRepository`):** `watchForItem(itemId)` + `watchCounts()` (πλήθος ανά itemId από **ένα** query), και τα δύο με `fireImmediately: true` (υποχρεωτικό — το `QueryBuilder.watch()` δίνει πρώτο event μόνο έτσι)· `findDuplicate` πλέον με `itemIdEqualTo` (per-item dedupe)· `countByLocalPath` για το ref-guard. Στο `hardDeleteMany` (purge) το disk delete κάνει inline `_isar.attachments.filter().localPathEqualTo(...).count()` (η μέθοδος ζει στο `ItemRepository`, το `attachments` είναι local `List`) και **κρατά** το αρχείο αν το δείχνει άλλη γραμμή (legacy rows).
+5. **`services/attachment_service.dart`:** πραγματικό `File(path).length()` (το `PlatformFile.size` είναι 0 σε content-URI → περνούσε το όριο) με fallback· όριο μέσω `AppErrors.attachTooLarge`· per-item dedupe (έφυγε το cross-item sharing branch — μηδέν κοινά `localPath`)· **DB-first** delete + ref-guard (αν αποτύχει το DB, το αρχείο μένει).
+6. **`providers/attachment_provider.dart`:** `attachmentsProvider` → `StreamProvider.autoDispose.family` (watchForItem)· νέο `attachmentCountsProvider` (`StreamProvider.autoDispose<Map<int,int>>`)· **διαγράφηκαν** `AttachmentNotifier`/`attachmentNotifierProvider`.
+7. **`features/collections/collection_entries_screen.dart`:** έφυγαν τα 2 `ref.invalidate(attachmentsProvider(...))` (το stream ενημερώνεται μόνο του).
+8. **`shared/widgets/attachments_strip.dart`:** `_AddButton` (labeled όταν κενό, icon-only 48 dp + tooltip όταν υπάρχει header)· header + `Expanded` τίτλος (όχι overflow σε 140–200%)· `_add` με `settings.attachmentMaxBytes` + SnackBar για `FormatException`/σφάλμα· `_remove` με `ConfirmDialog.delete` (τίτλος «Διαγραφή αρχείου;», `deleteIrreversible`) + ορατό σφάλμα· delete target **32 dp** με Tooltip + `Semantics(container:true, button:true, onTap)`.
+9. **`shared/widgets/item_card.dart`:** prop `attachmentCount = 0` → `_TitleRow` → `_AttachmentBadge` (icon 12 + αριθμός 11sp, `height: 1.0`, Semantics label πληθυντικού· icon-only όταν `scale(11) > 11*1.3`). Default 0 ⇒ **backwards compatible**.
+10. **Badge wiring (4 sites):** `responsive_item_list.dart` (`ItemCardBuilder`), `tasks/task_list_screen.dart` (`_TaskCard` ×2 `ItemCard`), `home/folder_browser_items.dart` (`FolderItemsList` + `FolderItemsGrid`) — όλα `ref.watch(attachmentCountsProvider).valueOrNull?[id] ?? 0`.
+11. **`services/share_service.dart:441`:** πληθυντικός μέσω `AppStringUtils.attachmentsCountLabel`.
+12. **Tests (+12):** `item_card_attachment_badge_test.dart` (5: 0 → κανένα badge, N → αριθμός, 1, 1.2 scale, 2.0 → icon-only + Semantics) · `attachments_strip_test.dart` (4: κενό labeled 48 dp, header + icon-only 48 dp + κελιά, delete 32 dp + tooltip/semantics, tap → confirm + cancel δεν σβήνει) · `attachments_helpers_test.dart` (3: πληθυντικός, MB→bytes + 0/αρνητικό → null, μήνυμα ορίου).
+
+**Side effects (audit):** `pickAndSave` έχει **1** εξωτερικό caller (`collection_entries_screen.dart:865-871`, υπολογίζει μόνο του `maxBytes`) → δεν άλλαξε· δεν υπάρχει άλλο in-app add για note/event → καμία διπλή ενέργεια· restore/wipe κάνουν `SuperNoteHelper.close()`+`init()` και **επιβάλλουν restart** (`settings_backup.dart:184-198,400-405`) → μηδέν stale streams· `autoDispose` ⇒ το strip stream φεύγει με το detail screen· `Attachment.localPath` **δεν** είναι indexed (μόνο `itemId`) ⇒ `countByLocalPath` = collection scan, **μόνο** σε delete (καταγράφηκε ως residual)· τα 2 `AttachmentsStrip` call sites είχαν ήδη bottom space (note 120 dp, event 80 dp).
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** · full `flutter test` → **455/455 PASS** (443 + 12). Backups: `backups/s290_e09/` (14 αρχεία, byte-exact).
+
+**Κατάσταση:** 🔧 **ΥΛΟΠΟΙΗΘΗΚΕ — device pending** (T1–T6, κανόνας 12: δεδομένα από τον χρήστη). `error_list.md` (§0 → 455/455, §1 τύπος, §2 κάρτα) + `supernote.md` (§Attachment Providers: 2 stream providers, χωρίς notifier) ενημερώθηκαν. **Δεν** κλείνει πριν το device pass.
+
+
 
 
 

@@ -539,6 +539,17 @@ class ItemRepository {
     // 2. Διέγραψε φυσικά αρχεία από δίσκο (μετά το τρανζαξιόν)
     for (final att in attachments) {
       try {
+        // D5 guard: legacy rows μπορεί να μοιράζονται το ίδιο localPath.
+        // Μην σβήσεις αρχείο που το δείχνει άλλη (μη διαγραμμένη) γραμμή.
+        final refs = await _isar.attachments
+            .filter()
+            .localPathEqualTo(att.localPath)
+            .count();
+        if (refs > 0) {
+          DebugConfig.db(
+              'hardDeleteMany: keep shared file (refs=$refs) "${att.fileName}"');
+          continue;
+        }
         final file = File(att.localPath);
         if (await file.exists()) {
           await file.delete();
@@ -1614,6 +1625,31 @@ class AttachmentRepository {
         .findAll();
   }
 
+  /// Stream συνημμένων για item (E09: strip + badge, reactive).
+  /// `fireImmediately` απαραίτητο: χωρίς αυτό δεν υπάρχει πρώτο event.
+  Stream<List<Attachment>> watchForItem(int itemId) {
+    return _isar.attachments
+        .filter()
+        .itemIdEqualTo(itemId)
+        .sortByCreatedAt()
+        .watch(fireImmediately: true);
+  }
+
+  /// Stream πλήθους συνημμένων ανά itemId (E09: card badge).
+  /// Ένα query/ένα watch για όλη τη λίστα — όχι N+1 per card.
+  Stream<Map<int, int>> watchCounts() {
+    return _isar.attachments
+        .where()
+        .watch(fireImmediately: true)
+        .map((rows) {
+      final counts = <int, int>{};
+      for (final a in rows) {
+        counts[a.itemId] = (counts[a.itemId] ?? 0) + 1;
+      }
+      return counts;
+    });
+  }
+
   /// Όλα τα attachments (για backup rebase — 1 call αντί για N).
   Future<List<Attachment>> getAll() {
     return _isar.attachments.where().sortByCreatedAt().findAll();
@@ -1629,9 +1665,19 @@ class AttachmentRepository {
     DebugConfig.db('AttachmentRepository.findDuplicate itemId=$itemId file=${AppStringUtils.redact(fileName, label: 'file')} size=$fileSize');
     return await _isar.attachments
         .filter()
+        .itemIdEqualTo(itemId)
         .fileNameEqualTo(fileName)
         .fileSizeEqualTo(fileSize)
         .findFirst();
+  }
+
+  /// Πόσες γραμμές δείχνουν στο ίδιο φυσικό αρχείο.
+  /// Guard για legacy rows (πριν το per-item dedupe) που μοιράζονταν localPath.
+  Future<int> countByLocalPath(String localPath) {
+    return _isar.attachments
+        .filter()
+        .localPathEqualTo(localPath)
+        .count();
   }
 
   Future<void> delete(int id) async {

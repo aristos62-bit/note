@@ -45,8 +45,8 @@
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
 | Git HEAD | S289 (E47 — ItemMetaRow dense) | `git log` |
-| `flutter analyze` | **No issues found** | run 04/11/2026 (S289) |
-| `flutter test` | **443/443 PASS** (67 αρχεία test) | run 04/11/2026 (S289) |
+| `flutter analyze` | **No issues found** | run 04/11/2026 (S290) |
+| `flutter test` | **455/455 PASS** (68 αρχεία test) | run 04/11/2026 (S290) |
 | Device pass | **E47 OK** (04/11/2026, POCO X3 — tablet 618 dp grid, font 1.0/1.4/2.0, archived, landscape, mobile 392 dp: 0 overflow, meta 1 γραμμή) | S289 |
 | Device pass (προηγούμενο) | **E01 OK** (03/11/2026, POCO X3 — 48 dp, TalkBack, font 1.0/1.3/2.0) | S288 |
 | Γραμμές `lib/` (χωρίς `*.g.dart`) | 44.698 (164 αρχεία) | μετρήθηκε 04/11/2026 (S289) |
@@ -93,7 +93,7 @@
 | # | ID | Θέμα | Τύπος |
 |---|---|---|---|
 | 1 | `E07` | **Snooze UI + notification actions** | Νέα λειτουργία (θέλει spec) |
-| 2 | `E09` | **Attachments add-button + badge στην κάρτα** | Νέα λειτουργία (θέλει απόφαση) |
+| 2 | `E09` | **Attachments add-button + badge στην κάρτα** | 🔧 Υλοποιήθηκε S290 (analyze+tests) — device pending |
 | 3 | `E06` | **R1: 21 αρχεία >500 γραμμές** | Δομική αναβάθμιση (splits ή χαλάρωση κανόνα) |
 | 4 | `E39` | **Ενιαία κοινοποίηση (τίτλος+πεδία+συνημμένα) σε όλα τα items** | Νέα λειτουργία/αναβάθμιση (θέλει spec) |
 
@@ -191,9 +191,11 @@
 - **Device (PASSED 02/11/2026, POCO X3 M2007J20CG / Android 12 SDK 31 / MIUI 14):** T1 granted→**καμία** γραμμή · T2 OS-block (master OFF) → subtitle «Κλειστές από το σύστημα» + μακρύ system hint · T3 save → **ένα** SnackBar (system κείμενο) · T4 Διάγνωση → `notifications_off` + «…αλλά το σύστημα δεν επιτρέπει εμφάνιση» αντί ψευδούς «Πλήρης κάλυψη» · T5 in-app OFF → μήνυμα **in-app** (προτεραιότητα) + **ένα** SnackBar, **μηδέν** `permissionStatus` στο log (απόδειξη `else-if`) · T6 140% portrait+landscape → 3/4 γραμμές, 0 overflow · T7 cold start ×2 → `raw=true → granted`. Logs: `backups/s284_e08/device_logs/` (6.143 γραμμές, **0 ERR**). Σημ.: στο SDK 31 **δεν υπάρχει** runtime dialog `POST_NOTIFICATIONS`, άρα το «πριν την απάντηση» σενάριο καλύπτεται μόνο από unit tests (by design). Λεπτομέρειες: `oldsessions.md` S284.
 - **Residuals:** R-E08-1 channel-level block (το `syncChannel` ήδη delete+recreate → ρευστό by design) · R-E08-2 exact-alarm (fail-safe inexact) · R-E08-3 χωρίς deep link σε ρυθμίσεις OS · R-E08-4 macOS: read-only query, η αίτηση δεν υπάρχει (pre-existing) · R-E08-5 αν δεν κληθεί ποτέ `requestPermission` → `unknown` (λογαρισμένο).
 
-### E09 — Attachments: add-button + card badge
-- **Απόδειξη:** `attachments_strip.dart:5` — ρητά «ΜΟΝΟ προβολή/άνοιγμα/διαγραφή — το add ζει στα collection entries» · `item_card.dart` = 0 badge.
-- **Θέλει απόφαση** (feature gap, μπορεί να μείνει σκόπιμα εκτός).
+### E09 — 🔧 ΥΛΟΠΟΙΗΘΗΚΕ (S290) — device pending
+- **Απόδειξη (πριν):** `attachments_strip.dart:5` — ρητά «ΜΟΝΟ προβολή/άνοιγμα/διαγραφή — το add ζει στα collection entries» · `item_card.dart` = 0 badge.
+- **Υλοποίηση (S290, εγκεκριμένο D1–D12):** add-button στο strip (κενό → labeled «Προσθήκη»· μη κενό → header + icon-only **48 dp**) με όριο από `AppSettings.attachmentMaxBytes` + `AppErrors.attachTooLarge` (πραγματικό `File.length()` — όχι `PlatformFile.size`) · confirm delete (`ConfirmDialog.delete`, μη αναστρέψιμο) + **32 dp** target + ορατό σφάλμα · badge συνημμένων στο `ItemCard` (inline στο title row, icon-only >1.3 text scale, **4** call sites) από `attachmentCountsProvider` (**1** watch για όλα τα cards αντί N+1) · `attachmentsProvider` → `StreamProvider.autoDispose.family` (`watchForItem`, `fireImmediately: true`) + διαγραφή dead `AttachmentNotifier`/`attachmentNotifierProvider` · per-item dedupe (`findDuplicate` με `itemIdEqualTo`) + ref-guard στο disk delete (`countByLocalPath`, collection scan — μόνο σε delete) · DB-first delete · πληθυντικός `AppStringUtils.attachmentsCountLabel` (badge + share).
+- **Απόδειξη (μετά):** `flutter analyze` **clean** · **455/455** (+12: `item_card_attachment_badge_test` 5, `attachments_strip_test` 4, `attachments_helpers_test` 3) · **0** schema/codegen/deps · `supernote.md` Attachment Providers ενημερώθηκε.
+- **Device:** ⏳ T1–T6 pending στο POCO X3 — **δεν κλείνει** πριν το device pass (κανόνας 12: δεδομένα από τον χρήστη).
 
 ### E10 — ✅ CLOSED 21/10/2026 (device-verified, B2.3)
 - **Device (POCO X3):** rename `E17 RENAME v3`→`v4` + future reminder 22:50 → `rescheduleForItem: rebaked=1 kept=0`· πραγματικό notification title «Υπενθύμιση», body `E17 RENAME v4`, σε OS. Logs/screenshot: `backups/O1_reminder_hardening_2026-10-21/device_logs/e10_*`.

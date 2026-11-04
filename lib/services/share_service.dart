@@ -438,7 +438,7 @@ class ShareService {
             final ids = jsonDecode(prop.value!) as List;
             if (ids.isNotEmpty) {
               lines.add(
-                  '• 📎 $label: ${ids.length == 1 ? '1 συνημμένο' : '${ids.length} συνημμένα'}');
+                  '• 📎 $label: ${AppStringUtils.attachmentsCountLabel(ids.length)}');
             }
           } catch (e) {
             DebugConfig.warning('📤 attachment field "$key" parse error: $e');

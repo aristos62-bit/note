@@ -135,6 +135,9 @@ class ItemCardBuilder extends ConsumerWidget {
     final showArchived  = ref.watch(showArchivedProvider);
     final isArchived    = item.archived && showArchived;
     final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+    // E09: ένα watch (map) για όλα τα cards — όχι N+1 query.
+    final attachmentCount =
+        ref.watch(attachmentCountsProvider).valueOrNull?[item.id] ?? 0;
 
     DebugConfig.db('ItemCardBuilder id=${item.id} archived=${item.archived} showArchived=$showArchived isArchived=$isArchived');
 
@@ -152,6 +155,7 @@ class ItemCardBuilder extends ConsumerWidget {
           onTap: () => onTap(item),
           onLongPress: () => onLongPress(item),
           onShare: onShare,
+          attachmentCount: attachmentCount,
         ),
       )
           : ItemCard(
@@ -162,6 +166,7 @@ class ItemCardBuilder extends ConsumerWidget {
         onTap: () => onTap(item),
         onLongPress: () => onLongPress(item),
         onShare: onShare,
+        attachmentCount: attachmentCount,
       ),
     );
   }

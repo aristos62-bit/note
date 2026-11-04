@@ -205,6 +205,11 @@ class AppStringUtils {
     return '$count λέξεις';
   }
 
+  /// Εμφάνιση πλήθους συνημμένων (1 συνημμένο / N συνημμένα).
+  /// SPoT για card badge (E09) + share formatter (E39).
+  static String attachmentsCountLabel(int count) =>
+      count == 1 ? '1 συνημμένο' : '$count συνημμένα';
+
   /// Αφαίρεση χαρακτήρων που προκαλούν προβλήματα σε filesystem
   static String sanitizeFileName(String name) {
     if (name.trim().isEmpty) return 'unnamed_file';

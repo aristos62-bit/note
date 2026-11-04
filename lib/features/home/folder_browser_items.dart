@@ -40,6 +40,8 @@ class FolderItemsList extends StatelessWidget {
       itemBuilder: (ctx, item, index) => Consumer(
         builder: (_, ref, __) {
           final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+          final attachmentCount =
+              ref.watch(attachmentCountsProvider).valueOrNull?[item.id] ?? 0;
           return ItemCard(
             item: item,
             compact: true,
@@ -47,6 +49,7 @@ class FolderItemsList extends StatelessWidget {
             onTap: () => onTap(item),
             onLongPress: () => _showActions(ctx, item),
             onShare: onShare != null ? () => onShare!(item) : null,
+            attachmentCount: attachmentCount,
           );
         },
       ),
@@ -90,12 +93,15 @@ class FolderItemsGrid extends StatelessWidget {
       itemBuilder: (_, item) => Consumer(
         builder: (_, ref, __) {
           final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(item.type));
+          final attachmentCount =
+              ref.watch(attachmentCountsProvider).valueOrNull?[item.id] ?? 0;
           return ItemCard(
             item: item,
             compact: true,
             customBackgroundColor: overrideColor,
             onTap: () => onTap(item),
             onShare: onShare != null ? () => onShare!(item) : null,
+            attachmentCount: attachmentCount,
           );
         },
       ),

@@ -55,6 +55,9 @@ class AppErrors {
   static const attachOpenFailed = 'Αδυναμία ανοίγματος του αρχείου';
   static const attachNotFound = 'Το αρχείο δεν βρέθηκε';
   static String attachSaved(String fileName) => 'Αποθηκεύτηκε: $fileName';
+  static String attachTooLarge(int mb) =>
+      'Το αρχείο υπερβαίνει το όριο των $mb MB';
+  static const attachDeleteFailed = 'Αποτυχία διαγραφής αρχείου';
 
   // ── Share / intent ───────────────────────────────────────────
   static const shareFailed = 'Αποτυχία κοινοποίησης';

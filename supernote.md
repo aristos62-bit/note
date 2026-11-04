@@ -657,8 +657,8 @@ reminderNotifierProvider → AsyncNotifierProviderFamily<ReminderNotifier, List<
 
 ### Attachment Providers
 ```
-attachmentsProvider → FutureProvider.family<List<Attachment>, int>
-attachmentNotifierProvider → AsyncNotifierProviderFamily<AttachmentNotifier, List<Attachment>, int>
+attachmentsProvider → StreamProvider.autoDispose.family<List<Attachment>, int>  // watchForItem
+attachmentCountsProvider → StreamProvider.autoDispose<Map<int, int>>            // 1 watch για όλα τα cards (badge)
 ```
 
 ### Settings Providers

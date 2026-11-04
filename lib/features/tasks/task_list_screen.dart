@@ -415,6 +415,9 @@ class _TaskCard extends ConsumerWidget {
     final showArchived = ref.watch(showArchivedProvider);
     final isArchived = td.task.archived && showArchived;
     final overrideColor = ref.watch(itemTypeCardColorOverrideProvider(td.task.type));
+    // E09: badge συνημμένων (ένα watch map για όλα τα cards).
+    final attachmentCount =
+        ref.watch(attachmentCountsProvider).valueOrNull?[td.task.id] ?? 0;
 
     DebugConfig.db('TaskCard id=${td.task.id} archived=${td.task.archived} showArchived=$showArchived isArchived=$isArchived');
 
@@ -438,6 +441,7 @@ class _TaskCard extends ConsumerWidget {
                     onLongPress: onLongPress,
                     onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
                     onShare:    () => ShareService.shareItem(context, td.task.id),
+                    attachmentCount: attachmentCount,
                   ),
                 )
               : ItemCard(
@@ -450,6 +454,7 @@ class _TaskCard extends ConsumerWidget {
                   onLongPress: onLongPress,
                   onCheckboxChanged: hasSubtasks ? null : (_) => onToggleDone(),
                   onShare:    () => ShareService.shareItem(context, td.task.id),
+                  attachmentCount: attachmentCount,
                 ),
           _TaskProgressBar(
             item:     td.task,
