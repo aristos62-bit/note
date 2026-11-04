@@ -4525,7 +4525,19 @@ if (!context.isShortScreen)
 
 **Έλεγχοι:** `flutter analyze` → **No issues found** · full `flutter test` → **455/455 PASS** (443 + 12). Backups: `backups/s290_e09/` (14 αρχεία, byte-exact).
 
-**Κατάσταση:** 🔧 **ΥΛΟΠΟΙΗΘΗΚΕ — device pending** (T1–T6, κανόνας 12: δεδομένα από τον χρήστη). `error_list.md` (§0 → 455/455, §1 τύπος, §2 κάρτα) + `supernote.md` (§Attachment Providers: 2 stream providers, χωρίς notifier) ενημερώθηκαν. **Δεν** κλείνει πριν το device pass.
+**Commit:** `1a4f7f6` (feat) → push OK. Το build του device pass = `1a4f7f6` (+ ένα προσωρινό build μόνο με `DIAG` logs για διάγνωση — επανήλθε byte-identical πριν το τελικό install).
+
+**Device pass (POCO X3 `9593c01e`, 04/11/2026, Android 12 / MIUI 14, 1080×2400 @440dpi):** δεδομένα από τον χρήστη (κανόνας 12, **0** adb-created data): σημείωση «E09 x2» με 2 συνημμένα (`Screenshot_…jpg`, `a.png`), συμβάν «E09 x1» με `aa.png`, εργασία χωρίς συνημμένα.
+1. **T1 κενό strip** (σημείωση «O2 EXTRA»): labeled «Προσθήκη» **[44,1087][343,1219]** = **299×132 px ⇒ 48 dp** ύψος, κανένα header «Συνημμένα».
+2. **T2 badge + strip:** κάρτα «E09 x2» → Semantics **«2 συνημμένα»** (uiautomator, ξεχωριστός κόμβος) · detail: «Συνημμένα (2)» + icon-only add **[904,1087][1036,1219]** = **48 dp** + 2 κελιά με delete 88 px = **32 dp**. Άλλες σημειώσεις χωρίς badge.
+3. **T3 confirm + delete:** tap στο ✕ → bottom sheet «Διαγραφή αρχείου;» + «Η ενέργεια δεν μπορεί να αναιρεθεί.» + Άκυρο/Διαγραφή · **Άκυρο** → και τα 2 αρχεία παραμένουν · **Διαγραφή** → header «Συνημμένα (1)» **χωρίς invalidate** (stream) και badge «1 συνημμένο» στην κάρτα· στο `app_flutter/attachments/` το `a.png` **έφυγε** (0 orphans, το `aa.png` του event έμεινε).
+4. **T4 event:** κάρτα «E09 x1» → badge «1 συνημμένο» · detail «Συνημμένα (1)» + icon-only add 48 dp + 32 dp delete. Το «E1 test» χωρίς badge.
+5. **T5 task:** Εργασίες (10 tasks) → **κανένα** badge· μόνο τα meta chips (προτεραιότητα/ημερομηνία).
+6. **T6 text scale:** `font_scale 1.3` → badge με αριθμό (59 px), «1 συνημμένο» στο Semantics · `font_scale 2.0` → badge **icon-only** (33 px) με το ίδιο Semantics label· strip note/event χωρίς overflow· **0** `RenderFlex`/`overflowed`/`E/flutter` στο logcat σε όλα τα παραπάνω.
+7. **Bonus (add flow):** «Προσθήκη» σε κενή σημείωση → ανοίγει `com.google.android.documentsui` picker (Download) → back/cancel → strip παραμένει κενό (καμία αλλαγή δεδομένων).
+8. **Καθαρισμός συσκευής:** `font_scale` **1.0**, `svc power stayon false`, εφαρμογή στην Αρχική.
+
+**Κατάσταση:** ✅ **E09 CLOSED & DEVICE-VERIFIED 04/11/2026.** `error_list.md` (§0 baseline + Device pass row, §1 P3 4→3, §2 κάρτα CLOSED, §3 bullet, §6 σειρά) + `supernote.md` (§Attachment Providers: 2 stream providers, χωρίς notifier) + `oldsessions.md` (S290) ενημερώθηκαν.
 
 
 
