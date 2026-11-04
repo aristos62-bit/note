@@ -233,6 +233,7 @@ lib/
     └── widgets/
         ├── widgets.dart          — Barrel export
         ├── item_card.dart        — Unified card widget for all item types
+        ├── item_meta_row.dart    — ItemMetaRow + ItemCardMetaScope (meta chips, full/dense, S289/E47)
         ├── responsive_item_list.dart — Responsive list/grid with ItemCards
         ├── item_list_screen.dart  — Generic item list screen
         ├── item_list_embedded.dart — Embedded item list
@@ -783,20 +784,30 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 
 ### ItemCard (`lib/shared/widgets/item_card.dart`)
 - Unified card for ALL item types
-- Props: `Item item`, `Color? customBackgroundColor`, `VoidCallback? onTap`, `Widget? trailing`
+- Props: `Item item`, `DateTime? dueDate`, `List<String> tagNames`, `bool compact`, `bool isArchived`, `Color? customBackgroundColor`, `VoidCallback? onTap`, `VoidCallback? onLongPress`, `ValueChanged<bool>? onCheckboxChanged`, `VoidCallback? onShare`
 - Background: `customBackgroundColor ?? backgroundColorForType(item.type)`
-- Shows: icon, title, subtitle (type label + date), trailing actions
+- Shows: accent bar, icon + title (+ star/pin), meta row, share slot (48 dp)
+- Meta chips: `ItemMetaRow` (`item_meta_row.dart`) — βλ. «ItemMetaRow» παρακάτω
 - Wrapped in `DraggableItemWrapper` for drag-to-folder
 
+### ItemMetaRow (`lib/shared/widgets/item_meta_row.dart`) — S289/E47
+- **Γιατί:** σε fixed-extent grid cells (π.χ. tablet 618 dp → κελί ~200 dp → meta ~114 dp) το `Wrap` τύλιγε 2+ chips σε 2η γραμμή → RenderFlex overflow.
+- **Δύο mode (InheritedWidget `ItemCardMetaScope`):** χωρίς scope → `full` = σημερινό `Wrap` (pixel-identical, λίστες + `ResponsiveItemList`)· με scope → `dense`: **μία** γραμμή, `Row` + `Flexible` + `maxLines: 1`, ποτέ wrap.
+- **Πυκνότητα (καθαρές συναρτήσεις, testable):** `itemMetaDensityFor(width)` → `minimal` (<280: κουκκίδα + ημερομηνία) · `compact` (≥280: + έως 2 tags) · `itemMetaMaxTagsFor` → 3 tags από 400 · `kItemMetaNarrowMinWidth` (72) → μόνο κουκκίδα.
+- **Semantics:** ό,τι κρύβεται οπτικά (Αρχείο, ετικέτα προτεραιότητας, επιπλέον tags) μπαίνει σε `Semantics(container:false, label:)` → TalkBack το διαβάζει.
+- **Πλάτος:** `ItemCard` διαβάζει το πλάτος κελιού από το scope και αφαιρεί τα chrome του (border 2×1 ή 2×1.5 + accent 4 + padding 2×16 + 48 share) → `math.max(0, …)`.
+- **Σταθερό ύψος:** dense meta row έχει `minHeight: 22` (ύψος chip @1.0) → κάρτα **92 dp** ανεξάρτητα από περιεχόμενο (S288e cell guards παραμένουν έγκυρα).
+
 ### ResponsiveItemList (`lib/shared/widgets/responsive_item_list.dart`)
-- **True auto-height** (S261): list on mobile (1 col), grid on tablet/desktop (2–3 cols) χτισμένο από **γραμμές `SliverList`** — κάθε γραμμή `IntrinsicHeight` + `Row(stretch)` + `Expanded` κελιά ⇒ τα κελιά μιας γραμμής παίρνουν **ίσο, φυσικό ύψος** περιεχομένου (αντοχή σε max fontScale 1.4, χωρίς fixed extents).
+- **True auto-height** (S261): list on mobile (1 col), grid on tablet/desktop (2–3 cols) χτισμένο από **γραμμές `SliverList`** — κάθε γραμμή `IntrinsicHeight` + `Row(stretch)` + `Expanded` κελιά ⇒ τα κελιά μιας γραμμής παίρνουν **ίσο, φυσικό ύψος** περιεχομένου (αντοχή σε max fontScale **2.0** = `ComposedTextScaler.maxScaleFactor`, χωρίς fixed extents).
 - Props: `items`, `itemBuilder`, `horizontalPadding`, `bottomInset` (80), `minRowHeight` (48), `itemKey`.
 - `ItemCardBuilder` (στο ίδιο αρχείο) — `ConsumerWidget` που περνά `customBackgroundColor` από provider· drag-to-folder μέσω `DraggableItemWrapper`.
-- ⚠️ **Όριο:** ΟΧΙ `LayoutBuilder`/scrollable/`Stack` μέσα στα cards (τα intrinsics σπάνε) — γι' αυτό τα collections χρησιμοποιούν σταθερό adaptive extent.
+- ⚠️ **Όριο:** ΟΧΙ `LayoutBuilder`/scrollable/`Stack` μέσα στα cards (τα intrinsics σπάνε) — γι' αυτό τα collections χρησιμοποιούν σταθερό adaptive extent. Το πλάτος για dense meta δίνεται από **έξω** (`ItemCardMetaScope`, S289) — ποτέ `LayoutBuilder` μέσα στην κάρτα.
 
 ### Grid extents (S261 — `responsive.dart` + `ReorderableItemList`)
 - Helper: `context.gridTextScale` (πραγματικό `MediaQuery.textScalerOf`), `context.autoGridItemExtent({base, max})`, top-level `autoGridItemExtentFor(base, max, textScale)` = **παρεμβολή base→max** στο textScale 1.0→1.4 (clamp).
-- **Reorderable grids** (`ReorderableItemList`): uniform `mainAxisExtent` = `autoGridItemExtent(base: gridItemExtent, max: gridItemExtentMax)` — το `gridItemExtentMax` (null ⇒ base) δίνει «αέρα» στο 1.4 (tasks 94→116 · entries 140→160 · folder view 100→104 · item lists 100→108).
+- **Reorderable grids** (`ReorderableItemList`): uniform `mainAxisExtent` = `autoGridItemExtent(base: gridItemExtent, max: gridItemExtentMax)` — το `gridItemExtentMax` (null ⇒ base) δίνει «αέρα» στο 1.4 (tasks 100→116 · entries 140→160 · folder view 100→104 · item lists 100→108).
+- **Cell width για dense meta (S289/E47):** `LayoutBuilder` **γύρω** από το `CustomScrollView` (όχι `SliverLayoutBuilder` — το `SliverConstraints ==` περιλαμβάνει `scrollOffset` ⇒ rebuild σε κάθε scroll) υπολογίζει `(maxWidth − 2×responsiveHPadding − 8×(cols−1)) / cols` και το περνά με `ItemCardMetaScope` **μέσα** στο keyed `Stack` (το `reorderable_grid` απαιτεί key στο άμεσο παιδί).
 - **Reorder auto-scroll (S276):** `SliverReorderableGrid.autoScroll: physics is! NeverScrollableScrollPhysics` — ο γραπτός κανόνας του package (`reorderable_grid.dart:338-339`), όχι hardcoded `false`· οι συλλογές περνούν ρητά `autoScroll: true` (`collections_screen.dart:228`). Στο 1-column path (`ReorderableListView`) το auto-scroll είναι native και δεν άλλαξε.
 - **Drag policy (S276):** `ReorderableItemList.dragEnabled` (default `true`) → `_isDraggable = dragEnabled && !pinned && !favorite` (AND — δεν παρακάμπτει την policy). `dragEnabled: false` μόνο στο «Πρόσφατα» (`home_folder_view.dart:228`), όπου η σειρά είναι χρονική — 0 αλλαγές στα άλλα 7 sites.
 - **Adaptive square** (home `_ReorderableGrid`, collections): `base = cellWidth` (square στο 1.0), `max = max(cellWidth, 144/102)` — καμία αλλαγή στο 1.0, αυξάνει μόνο με τη γραμματοσειρά.

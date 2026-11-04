@@ -5,12 +5,13 @@
 // ✅ Dark mode: χρησιμοποιεί ItemColorHelper για background & text contrast
 // ✅ DebugConfig: logs σε onTap / checkbox
 //
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../helpers/item_color_helper.dart';
-import 'priority_badge.dart';
+import 'item_meta_row.dart';
 import 'item_type_icon.dart';
 
 // ════════════════════════════════════════════════════════════════
@@ -72,6 +73,11 @@ class ItemCard extends StatelessWidget {
         ItemColorHelper.textColorForBackground(backgroundColor, context);
     final secondaryForeground = foregroundColor.withValues(alpha: 0.7);
 
+    // Πλάτος κελιού (grid με ItemCardMetaScope) → πλάτος meta row.
+    // Χωρίς scope (λίστες / responsive grid) → null → full mode (Wrap).
+    final cellWidth = ItemCardMetaScope.maybeOf(context);
+    final metaWidth = cellWidth == null ? null : _metaContentWidth(cellWidth);
+
     return GestureDetector(
       onTap: () {
         // DebugConfig.nav('ItemCard.onTap id=${item.id} type=${item.type.name}');
@@ -114,14 +120,14 @@ class ItemCard extends StatelessWidget {
                           foregroundColor: foregroundColor,
                         ),
                         const SizedBox(height: Spacing.xs),
-                        _MetaRow(
+                        ItemMetaRow(
                           item: item,
                           dueDate: dueDate,
                           tagNames: tagNames,
                           isArchived: isArchived,
                           compact: isCompact,
-                          foregroundColor: foregroundColor,
                           secondaryColor: secondaryForeground,
+                          maxWidth: metaWidth,
                         ),
                       ],
                     ),
@@ -142,6 +148,18 @@ class ItemCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Πλάτος που μένει για τη meta row: πλάτος κελιού μείον τα chrome της
+  /// κάρτας (border 2×1 ή 2×1.5, accent bar 4, horizontal padding 2×16,
+  /// + 48 για το share slot όταν υπάρχει) — ίδιο με το πραγματικό layout.
+  double _metaContentWidth(double cellWidth) {
+    final border = item.pinned ? 1.5 : 1.0;
+    final chrome = 2 * border +
+        4.0 + // _AccentBar
+        2 * Spacing.md +
+        (onShare != null ? 48.0 : 0.0); // _TrailingSection
+    return math.max(0.0, cellWidth - chrome);
   }
 
   Color? _parseColor(String hex) {
@@ -308,79 +326,6 @@ class _TitleRow extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════
-// META ROW
-// ════════════════════════════════════════════════════════════════
-
-class _MetaRow extends StatelessWidget {
-  final Item item;
-  final DateTime? dueDate;
-  final List<String> tagNames;
-  final bool isArchived;
-  final bool compact;
-  final Color foregroundColor;
-  final Color secondaryColor;
-
-  const _MetaRow({
-    required this.item,
-    required this.dueDate,
-    required this.tagNames,
-    this.isArchived = false,
-    required this.compact,
-    required this.foregroundColor,
-    required this.secondaryColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final maxTags = context.responsive(mobile: 1, tablet: 2, desktop: 3);
-    final chips = <Widget>[];
-
-    if (isArchived) {
-      chips.add(_ArchivedChip(textColor: secondaryColor));
-    }
-
-    if (item.priority != ItemPriority.none) {
-      chips.add(_PriorityChip(priority: item.priority));
-    }
-
-    if (dueDate != null) {
-      chips.add(_DueDateChip(date: dueDate!));
-    }
-
-    for (int i = 0; i < tagNames.length && i < maxTags; i++) {
-      chips.add(_TagChipSmall(
-        name: tagNames[i],
-        textColor: secondaryColor,
-      ));
-    }
-    if (tagNames.length > maxTags) {
-      chips.add(_TagChipSmall(
-        name: '+${tagNames.length - maxTags}',
-        textColor: secondaryColor,
-      ));
-    }
-
-    if (!compact && item.updatedAt != null) {
-      chips.add(
-        Text(
-          item.updatedAt!.relative,
-          style: context.bodySm.copyWith(color: secondaryColor),
-        ),
-      );
-    }
-
-    if (chips.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: Spacing.xs,
-      runSpacing: Spacing.xs,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: chips,
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
 // TRAILING SECTION
 // ════════════════════════════════════════════════════════════════
 
@@ -423,147 +368,6 @@ class _TrailingSection extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// PRIORITY CHIP
-// ════════════════════════════════════════════════════════════════
-
-class _ArchivedChip extends StatelessWidget {
-  final Color textColor;
-  const _ArchivedChip({required this.textColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final bgColor = textColor.withValues(alpha: 0.12);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(AppRadius.badge),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.archive_rounded, size: 10, color: textColor),
-          const SizedBox(width: 3),
-          Text('Αρχείο', style: context.labelSm.copyWith(color: textColor)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PriorityChip extends StatelessWidget {
-  final ItemPriority priority;
-  const _PriorityChip({required this.priority});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = context.priorityColor(priority);
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
-      decoration: BoxDecoration(
-        color: context.priorityColorSoft(priority),
-        borderRadius: BorderRadius.circular(AppRadius.badge),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(PriorityBadge.iconFor(priority), size: 10, color: color),
-          const SizedBox(width: 3),
-          Text(AppStringUtils.priorityLabel(priority.name),
-              style: context.labelSm.copyWith(color: color)),
-        ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// DUE DATE CHIP
-// ════════════════════════════════════════════════════════════════
-
-class _DueDateChip extends StatelessWidget {
-  final DateTime date;
-  const _DueDateChip({required this.date});
-
-  @override
-  Widget build(BuildContext context) {
-    final isOverdue = date.isOverdue && !date.isToday;
-    final isToday = date.isToday;
-
-    final Color color;
-    if (isOverdue) {
-      color = context.cError;
-    } else if (isToday) {
-      color = context.cWarning;
-    } else {
-      color = context.cText2;
-    }
-
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
-      decoration: BoxDecoration(
-        color: (isOverdue || isToday)
-            ? color.withValues(alpha: 0.1)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.badge),
-        border: (isOverdue || isToday)
-            ? Border.all(color: color.withValues(alpha: 0.3))
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isOverdue
-                ? Icons.warning_amber_rounded
-                : Icons.calendar_today_rounded,
-            size: 10,
-            color: color,
-          ),
-          const SizedBox(width: 3),
-          Text(date.due, style: context.labelSm.copyWith(color: color)),
-        ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// TAG CHIP SMALL
-// ════════════════════════════════════════════════════════════════
-
-class _TagChipSmall extends StatelessWidget {
-  final String name;
-  final Color textColor;
-
-  const _TagChipSmall({
-    required this.name,
-    required this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
-      decoration: BoxDecoration(
-        color:
-            Colors.white.withValues(alpha: 0.15), // ελαφρύ overlay για αντίθεση
-        borderRadius: BorderRadius.circular(AppRadius.badge),
-        border: Border.all(color: textColor.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        name,
-        style: context.labelSm.copyWith(color: textColor),
       ),
     );
   }

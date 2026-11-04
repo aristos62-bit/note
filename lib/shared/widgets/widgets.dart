@@ -5,6 +5,7 @@
 //   import 'package:super_note/shared/widgets/widgets.dart';
 //
 export 'item_card.dart';
+export 'item_meta_row.dart';
 export 'empty_state.dart';
 export 'priority_badge.dart';
 export 'tag_chip.dart';
