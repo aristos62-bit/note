@@ -56,8 +56,6 @@ class PriorityBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     if (priority == ItemPriority.none) return const SizedBox.shrink();
 
-    DebugConfig.print('PriorityBadge: ${priority.name}');
-
     final color     = context.priorityColor(priority);
     final softColor = context.priorityColorSoft(priority);
     final label     = AppStringUtils.priorityLabel(priority.name);

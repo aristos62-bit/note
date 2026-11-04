@@ -4455,6 +4455,39 @@ if (!context.isShortScreen)
 - **S288e — κάθετο overflow (4 px) στις κάρτες Εργασιών @tablet 618 dp:** η κάρτα εργασίας = `ItemCard` compact (**92 dp**: 8+8 padding + checkbox 48 + 4 gap + chip προτεραιότητας 22) + μπάρα προόδου **6 dp** = **98 dp**, αλλά το `gridItemExtent: 94` στις Εργασίες έδινε cell 94 → `BOTTOM OVERFLOWED BY 4.0 PIXELS`. Διορθώθηκε σε **100** (`task_list_screen.dart`, `_buildSection`) — ίδια τιμή με Σημειώσεις/Αρχική/`ItemListEmbedded`. Device-verified: tablet 618 dp + portrait, 0 overflow. **Γνωστός περιορισμός:** αν μια εργασία έχει 2+ chips στο `_MetaRow` (π.χ. προτεραιότητα + ημερομηνία) σε κάρτα ~200 dp, το `Wrap` κάνει 2η γραμμή (+26 dp) → θα ξαναϋπάρξει overflow· δεν εμφανίστηκε στα δεδομένα, δεν άλλαξε το `_MetaRow` (θα άλλαζε όλες τις κάρτες).
 - **Ανοιχτό (δεν επιβεβαιώθηκε):** side nav χωρίς nodes στο accessibility tree σε tablet — χρειάζεται στοχευμένος έλεγχος πριν κριθεί bug.
 
+---
+
+## Session 289 — 04/11/2026 (E47: ItemCard meta row single-line σε fixed-extent grid cells)
+
+**Scope:** το μοναδικό ανοιχτό layout ρίσκο από το S288e — «αν μια εργασία έχει **2+ chips** στο `_MetaRow`, το `Wrap` κάνει 2η γραμμή (+26 dp) και ξαναϋπάρχει overflow στο κελί ~200 dp». Ο χρήστης ανέστειλε τον κανόνα #4 (ένα βήμα τη φορά) και ζήτησε πλήρη υλοποίηση: backups → κώδικας → analyze → tests → docs → commit/push → build + device pass.
+
+**Απόδειξη πριν τον κώδικα (SDK, όχι υπόθεση):**
+- `LayoutBuilder` μέσα σε intrinsic pass → assert (γι' αυτό **ποτέ** μέσα στην κάρτα· `responsive_item_list.dart` χτίζει με `IntrinsicHeight`).
+- `SliverLayoutBuilder` → rebuild σε **κάθε** scroll: το `SliverConstraints.operator==` (`rendering/sliver.dart`) περιλαμβάνει το `scrollOffset`.
+- Cell πλάτος = `(crossAxisExtent − crossAxisSpacing×(cols−1))/cols` (`rendering/sliver_grid.dart:394-398`)· το `SliverPadding` μειώνει το `crossAxisExtent` (`rendering/sliver_padding.dart:133-142`).
+- Border = `decoration.padding` (`widgets/container.dart:378-403`) → τα 2/3 dp του border είναι πραγματικό κόστος.
+- `Semantics(container:false)` = «merged with the semantics of any ancestors» (`widgets/basic.dart`) → σωστό για να προστεθεί label χωρίς νέο κόμβο.
+- Config: `ComposedTextScaler.maxScaleFactor = **2.0**` (`main.dart:281`), slider 0.8–1.4, `autoGridItemExtent` clamp 1.4.
+- Μέτρηση: tablet 618 dp → `618 − 81 rail − 2×32 − 2×32 − 8 = 402` → **200.5 cell** → **114.5 meta** (border 2 + accent 4 + padding 32 + share 48).
+- Ύψη (άρα το πρόβλημα **δεν** είναι ύψος): meta 22 / 28,33 / 37,9 → κάρτα+μπάρα 98 / 104,33 / 113,9 vs cells 100 / 116 / 116 στα 1.0 / 1.4 / 2.0.
+
+**Τι άλλαξε (4 αρχεία + 1 νέο + 1 test):**
+1. **Νέο `lib/shared/widgets/item_meta_row.dart` (417 γραμμές):** `ItemCardMetaScope` (`InheritedWidget`, `maxWidth`) + `ItemMetaRow` + τα chips (`_ArchivedChip`/`_PriorityChip`/`_DueDateChip`/`_TagChipSmall`) μεταφέρθηκαν εδώ.
+   - **full** (χωρίς scope): **byte-identical** σημερινό `Wrap` (λίστες, `ResponsiveItemList`, calendar panels) — καμία οπτική αλλαγή.
+   - **dense** (με scope): **μία** γραμμή `Row` + `Flexible` + `maxLines:1`/ellipsis, `spacing: Spacing.xs`, `ConstrainedBox(minHeight: 22)` ⇒ κάρτα σταθερά **92 dp**. `minimal` <280 dp (κουκκίδα + ημερομηνία), `compact` ≥280 (2 tags), ≥400 (3 tags), `+N` μη-Flexible. Pure: `itemMetaDensityFor`, `itemMetaMaxTagsFor`, `kItemMetaCompactMinWidth`/`kItemMetaWideMinWidth`/`kItemMetaNarrowMinWidth` (72 → μόνο κουκκίδα, γιατί padding/icon των chips είναι μη ελαστικά).
+   - Κρυφό info → `Semantics(container:false, label: 'Αρχείο · Προτεραιότητα: … · Ετικέτες: …')`.
+   - `_DueDateChip`/`_TagChipSmall` πήραν `dense` flag (Flexible + `maxLines:1`, `softWrap:false`). **Προσοχή:** `Flexible` **μόνο** σε dense — σε full mode το `Wrap` δίνει unbounded πλάτος και το `Flexible` θα έσκαγε («non-zero flex … unbounded»).
+2. **`item_card.dart` (624→428):** διαβάζει `ItemCardMetaScope.maybeOf(context)` και περνά `maxWidth` = `cell − (2×border + 4 accent + 2×16 padding + 48 share)` με `math.max(0, …)`. Έφυγαν: `_MetaRow` + 4 chip classes + το dead `foregroundColor` + το (λάθος «PRIORITY CHIP») banner.
+3. **`reorderable_item_list.dart`:** `LayoutBuilder` γύρω από το `CustomScrollView` → `cellWidth = (maxWidth − 2×responsiveHPadding − 8×(cols−1)) / cols` (guard `hasBoundedWidth`)· `ItemCardMetaScope` **μέσα** στο keyed `Stack` (`reorderable_grid.dart:795` απαιτεί key στο άμεσο παιδί — αν το scope τύλιγε το Stack θα έσκαγε το assert).
+4. **`widgets.dart`:** export `item_meta_row.dart`.
+5. **`priority_badge.dart`:** αφαιρέθηκε το per-build `DebugConfig.print('PriorityBadge: …')` (θα πλημμύριζε σε scroll) — το `ItemMetaRow` χρησιμοποιεί το υπάρχον `PriorityBadge.dot` (SPoT).
+6. **Νέο `test/item_meta_row_test.dart` (+12):** pure density/tags όρια · dense 200 dp (dot+date+`+3`, ύψος **92**, 0 overflow, `Αρχείο`/tags κρυφά) · 280 dp (2 tags+`+1`) · 400 dp (3 tags) · textScale **2.0** · 60 dp pathological · semantics label (Αρχείο/Επείγον/κρυφό tag) · full-mode regression (`Αρχείο`+`Επείγον` ορατά) · **e2e** `ReorderableItemList` 618 dp (2 στήλες, scope ×2, κάρτες 92).
+
+**Side effects (audit):** `ItemCard` fixed-grid call sites = **όλα** `compact:true` (η απόδειξη ύψους ισχύει)· `ResponsiveItemList` (5 οθόνες) **χωρίς** scope → full mode αμετάβλητο· `_FolderItemCard`/habits/collections δεν έχουν meta chips· calendar two-pane day list χρησιμοποιεί `ReorderableItemList` → **επίσης διορθώνεται** (ήταν εκτεθειμένο)· `item_card_icons_test` (full mode) ανέπαφο.
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** · full `flutter test` → **443/443 PASS** (431 + 12). Backups: `backups/s289_meta_row/` + `BASE_HEAD.txt` (BASE `2fd7509`, analyze clean, 21/21 focused). `item_card.dart` 624→**428** (E06/R1 win) · `Semantics(` 32→33 (+1).
+
+
 
 
 

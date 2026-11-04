@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:reorderable_grid/reorderable_grid.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
+import 'item_meta_row.dart';
 import 'reorder_handle.dart';
 
 class ReorderableItemList extends StatelessWidget {
@@ -120,57 +123,83 @@ class ReorderableItemList extends StatelessWidget {
   }
 
   Widget _buildGrid(BuildContext context, int cols) {
-    return CustomScrollView(
-      shrinkWrap: shrinkWrap,
-      physics: physics,
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.responsiveHPadding,
-            vertical: Spacing.xs,
-          ),
-          sliver: SliverReorderableGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols,
-              mainAxisSpacing: Spacing.sm,
-              crossAxisSpacing: Spacing.sm,
-              mainAxisExtent: context.autoGridItemExtent(
-                base: gridItemExtent,
-                max: gridItemExtentMax ?? gridItemExtent,
+    final hPadding = context.responsiveHPadding;
+    const spacing = Spacing.sm;
+
+    // Το πλάτος του κελιού είναι γνωστό ΕΔΩ (πριν το CustomScrollView), ώστε
+    // η meta row της κάρτας να μείνει σε μία γραμμή μέσα στο fixed extent
+    // (S289/E47). Γιατί όχι `SliverLayoutBuilder`: το `SliverConstraints ==`
+    // περιλαμβάνει το `scrollOffset` → rebuild σε κάθε scroll.
+    return LayoutBuilder(
+      builder: (layoutContext, constraints) {
+        final double? cellWidth = constraints.hasBoundedWidth
+            ? math.max(
+                0.0,
+                (constraints.maxWidth - hPadding * 2 - spacing * (cols - 1)) /
+                    cols,
+              )
+            : null;
+
+        return CustomScrollView(
+          shrinkWrap: shrinkWrap,
+          physics: physics,
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.symmetric(
+                horizontal: hPadding,
+                vertical: Spacing.xs,
+              ),
+              sliver: SliverReorderableGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  mainAxisSpacing: spacing,
+                  crossAxisSpacing: spacing,
+                  mainAxisExtent: context.autoGridItemExtent(
+                    base: gridItemExtent,
+                    max: gridItemExtentMax ?? gridItemExtent,
+                  ),
+                ),
+                itemBuilder: (ctx, i) {
+                  final item = items[i];
+                  final draggable = _isDraggable(item);
+                  final card = itemBuilder(ctx, item, i);
+                  return Stack(
+                    key: ValueKey(item.id),
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Το scope μπαίνει ΜΕΣΑ στο keyed Stack: το
+                      // reorderable_grid απαιτεί key στο άμεσο παιδί του
+                      // itemBuilder (reorderable_grid.dart:795).
+                      if (cellWidth != null)
+                        ItemCardMetaScope(maxWidth: cellWidth, child: card)
+                      else
+                        card,
+                      if (draggable)
+                        Positioned(
+                          right: -4,
+                          top: 0,
+                          bottom: 0,
+                          child: ReorderableGridDragStartListener(
+                            index: i,
+                            enabled: true,
+                            child: _dragHandle(i),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+                itemCount: items.length,
+                onReorder: onReorder,
+                itemDragEnable: (i) => _isDraggable(items[i]),
+                // Auto-scroll μόνο όταν το scroll είναι ενεργό· το ίδιο το πακέτο
+                // ορίζει: «Should be disabled if ... NeverScrollableScrollPhysics».
+                autoScroll: physics is! NeverScrollableScrollPhysics,
               ),
             ),
-            itemBuilder: (ctx, i) {
-              final item = items[i];
-              final draggable = _isDraggable(item);
-              return Stack(
-                key: ValueKey(item.id),
-                clipBehavior: Clip.none,
-                children: [
-                  itemBuilder(ctx, item, i),
-                  if (draggable)
-                    Positioned(
-                      right: -4,
-                      top: 0,
-                      bottom: 0,
-                      child: ReorderableGridDragStartListener(
-                        index: i,
-                        enabled: true,
-                        child: _dragHandle(i),
-                      ),
-                    ),
-                ],
-              );
-            },
-            itemCount: items.length,
-            onReorder: onReorder,
-            itemDragEnable: (i) => _isDraggable(items[i]),
-            // Auto-scroll μόνο όταν το scroll είναι ενεργό· το ίδιο το πακέτο
-            // ορίζει: «Should be disabled if ... NeverScrollableScrollPhysics».
-            autoScroll: physics is! NeverScrollableScrollPhysics,
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
+        );
+      },
     );
   }
 }

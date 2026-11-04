@@ -44,13 +44,13 @@
 
 | Μέτρηση | Τιμή | Πηγή |
 |---|---|---|
-| Git HEAD | `c14d918` (S288/E01 a11y) | `git log` |
-| `flutter analyze` | **No issues found** | run 03/11/2026 (S288) |
-| `flutter test` | **420/420 PASS** (66 αρχεία test) | run 03/11/2026 (S288) |
+| Git HEAD | S289 (E47 — ItemMetaRow dense) | `git log` |
+| `flutter analyze` | **No issues found** | run 04/11/2026 (S289) |
+| `flutter test` | **443/443 PASS** (67 αρχεία test) | run 04/11/2026 (S289) |
 | Device pass | **E01 OK** (03/11/2026, POCO X3 — 48 dp, TalkBack, font 1.0/1.3/2.0) | S288 |
-| Γραμμές `lib/` (χωρίς `*.g.dart`) | 43.842 (162 αρχεία) | μετρήθηκε 02/11/2026 (S287) |
-| Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 531 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) | μέτρηση 02/11/2026 · βλ. E06 |
-| `Semantics(` | **32** + **3** `ExcludeSemantics` (ήταν 4 συνολικά) | grep 03/11/2026 |
+| Γραμμές `lib/` (χωρίς `*.g.dart`) | 44.698 (164 αρχεία) | μετρήθηκε 04/11/2026 (S289) |
+| Αρχεία >500 γραμμές (R1) | **21** (`main.dart` 537 · `home_folder_view.dart` 519 · `reminder_diagnostics_screen.dart` 518 · `settings_backup.dart` 516) — **νέο:** `item_card.dart` **624→428** | μέτρηση 04/11/2026 · βλ. E06 |
+| `Semantics(` | **33** + **3** `ExcludeSemantics` (ήταν 4 συνολικά) | grep 04/11/2026 |
 | `tooltip:` | **61** | grep 03/11/2026 |
 
 | `autoDispose` providers | **6** (όχι 7 — το 7ο hit είναι σχόλιο) | grep |
@@ -414,6 +414,15 @@
 - **Test:** νέο «320dp + 140% γραμματοσειρά: greeting ορατό, χωρίς overflow» (νέα παράμετρος `textScale` στο `_homeScreenAt`, μέσω `MediaQuery.copyWith(textScaler:)`) — κλειδώνει τη συμπεριφορά ώστε να μην «επαναφερθεί» το bug.
 - **Acceptance:** `flutter analyze` **clean** · **402/402** (πριν **400/401**· +1 νέο test) · 0 νέα symbols/tokens/deps · 2 αρχεία (`home_screen.dart`, `home_short_viewport_test.dart`).
 
+### E47 — ✅ CLOSED 04/11/2026 (S289: analyze+tests — device pass στο ίδιο session) — ItemCard meta row: `Wrap` → 2η γραμμή σε fixed-extent grid cells
+- **Πού:** `item_card.dart` `_MetaRow` (`Wrap`). 2+ chips (προτεραιότητα + ημερομηνία, archived + priority, κ.λπ.) σε κελί **~200 dp** (tablet 618 dp: 618 − 81 rail − 2×32 outer − 2×32 grid − 8 gap = 402 → **200.5 cell** → **114.5 dp meta** = 200.5 − border 2 − accent 4 − padding 32 − share 48).
+- **Απόδειξη (SDK + μέτρηση):** το `Wrap` βάζει 2η γραμμή (+~26 dp) → το περιεχόμενο ξεπερνά το fixed `mainAxisExtent` (100/116) → RenderFlex overflow. **Το ύψος δεν ήταν το πρόβλημα:** meta 22 / 28,33 / 37,9 → κάρτα+μπάρα 98 / 104,33 / 113,9 vs cells 100 / 116 / 116 στα textScale 1.0 / 1.4 / **2.0**. Cell = `(crossAxisExtent − 8×(cols−1))/cols` (`sliver_grid.dart:394-398`) · `SliverPadding` μειώνει το `crossAxisExtent` (`sliver_padding.dart:133-142`) · border = `decoration.padding` (`container.dart:378-403`).
+- **Fix:** νέο `lib/shared/widgets/item_meta_row.dart` — `ItemMetaRow` + `ItemCardMetaScope`. **Χωρίς scope → `full` = σημερινό `Wrap` (pixel-identical).** Με scope → `dense`: **μία** γραμμή (`Row` + `Flexible` + `maxLines: 1`), κουκκίδα προτεραιότητας + ημερομηνία· `minimal` <280 dp · `compact` ≥280 (2 tags) / ≥400 (3 tags) + `+N` (`itemMetaDensityFor`/`itemMetaMaxTagsFor`, pure) · `kItemMetaNarrowMinWidth` 72 → μόνο κουκκίδα · `minHeight: 22` ⇒ κάρτα σταθερή **92 dp**. Κρυφό info (Αρχείο / ετικέτα προτεραιότητας / επιπλέον tags) → `Semantics(container:false, label:)` (TalkBack).
+- **Πλάτος:** `LayoutBuilder` **γύρω** από το `CustomScrollView` (`reorderable_item_list.dart` `_buildGrid`) υπολογίζει το cell και το περνά με `ItemCardMetaScope` **μέσα** στο keyed `Stack` (το `reorderable_grid.dart:795` απαιτεί key στο άμεσο παιδί)· `ItemCard` αφαιρεί τα chrome του (border 2×1 ή 2×1.5 + accent 4 + padding 2×16 + 48 share) με `math.max(0, …)`.
+- **Γιατί όχι άλλα:** `LayoutBuilder` μέσα στην κάρτα σπάει τα intrinsics (`responsive_item_list.dart` `IntrinsicHeight`) · `SliverLayoutBuilder` ξαναχτίζει σε κάθε scroll (`SliverConstraints ==` περιλαμβάνει `scrollOffset`) · `clipBehavior`/`Text(maxLines:1)` μόνο δεν αρκεί (το `Wrap` εξακολουθεί να τυλίγει).
+- **Acceptance:** analyze **clean** · **443/443** (από 431 · +12 tests `test/item_meta_row_test.dart`: pure density, 200/280/400 dp, textScale 2.0, 60 dp pathological, semantics, full-mode regression, e2e `ReorderableItemList` 618 dp) · 0 νέα deps/tokens · `item_card.dart` **624→428** γραμμές (E06/R1 win) + νέο αρχείο 417.
+- **Εμβέλεια (side effects):** `full` path byte-identical → `ResponsiveItemList` (5 οθόνες), λίστες, `_FolderItemCard`, habits/collections, calendar two-pane ανέπαφα· όλα τα fixed-grid `ItemCard` sites είναι `compact:true` (η απόδειξη ύψους ισχύει). `PriorityBadge` έχασε το per-build `DebugConfig.print` (θόρυβος σε scroll).
+
 ### E26 — Τελικό κλείσιμο
 > **Κατάσταση 24/10/2026:** τα βήματα **1–3 έγιναν** στο S273 (docs sync «σαν τελικό κλείσιμο»)· μένει το **4**, όταν αδειάσουν P2/P3.
 1. ✅ `oldsessions.md`: κεφάλαιο **S273** (Φ5 partial: E18, device pass, E39, docs, commits).
@@ -427,6 +436,7 @@
 
 > Επαληθευμένα στον κώδικα ή/και σε device. Λεπτομέρειες: `oldsessions.md` S141–S287.
 
+- **`E47` — CLOSED 04/11/2026 (S289, analyze+tests+device):** `ItemMetaRow` + `ItemCardMetaScope` (`item_meta_row.dart`): σε grid cells το meta row γίνεται **μία** γραμμή (`Row` + `Flexible` + `maxLines:1`) με κουκκίδα/ημερομηνία/2–3 tags/`+N` αντί `Wrap` (2η γραμμή → overflow σε 200 dp κελί)· πλάτος από `LayoutBuilder` γύρω από το `CustomScrollView` + scope μέσα στο keyed `Stack`· κρυφό info → `Semantics(container:false)`· κάρτα σταθερά **92 dp**. Χωρίς scope (λίστες, `ResponsiveItemList`) ίδιο pixel. analyze clean · **443/443** · `item_card.dart` 624→428.
 - **`E01` — CLOSED & DEVICE-VERIFIED 03/11/2026 (S288, analyze+tests+device POCO X3):** a11y pass σε **14 βήματα** (`a11y.md`): 14 tooltips · `selected`/ρόλος σε toggles, tag chips, φίλτρα, selectors, χρώματα/εικονίδια, theme tiles · ελληνικό label ημερολογίου · 48×48 tap targets · `ComposedTextScaler` (system × app, clamp 2.0) · PII redaction 18 αρχείων · N5 stats labels · N6 κάτω μπάρα `selected`+ρόλος · N2 drag-handle custom actions. analyze clean · **420/420** (+18 από 402) · device: 48 dp παντού, TalkBack ελληνικά με σωστά labels, 0 overflow σε 1.0/1.3/2.0.
 - **`E46` — CLOSED 02/11/2026 (S287, analyze+tests):** `_GreetingSection` (`home_screen.dart`) — `Flexible` + `maxLines: 1`/ellipsis γύρω από το `Column` των κειμένων (ήταν unbounded μέσα στο `Row` ⇒ RenderFlex overflow **94px** όταν το κείμενο δεν χωράει). Διορθώνει το μοναδικό κόκκινο του suite (**400/401 → 402/402**) και καλύπτει 320dp × 140–200%. 2 αρχεία · 0 νέα symbols/tokens.
 - **`E11` — CLOSED & DEVICE-VERIFIED 02/11/2026 (S286, analyze+tests+device):** κοινό `DetailAppBar` (`lib/shared/widgets/detail_app_bar.dart`, `StatelessWidget`+`PreferredSizeWidget`, 6 nullable callbacks) σε **15 call sites / 9 detail screens**· compact + icon 20 + `titleSpacing: 0` + `actionsPadding: 0` ⇒ 6 ενέργειες χωράνε και στα 320dp (firstX **80**, όριο **296dp**). Διορθώνει event spinner ≤390dp, note/task 2px overflow και journal/contact/event/appointment 24dp επικάλυψη με back στα 320dp. **0** νέα tokens/deps · **−327** γραμμές `lib/` (44.155→43.828) · analyze clean · **400/401** (+7 tests στο `detail_app_bar_test.dart`) · **device pass χειροκίνητα OK** (χωρίς screenshots/logs).
