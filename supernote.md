@@ -1,6 +1,6 @@
 # SuperNote — Πλήρης Τεκμηρίωση Εφαρμογής
 
-> **⚠️ ΕΚΚΡΕΜΟΤΗΤΕΣ & ΠΡΟΟΔΟΣ (26/10/2026):** οι **εκκρεμότητες** τηρούνται **ΜΟΝΟ** στο **`error_list.md`** (μοναδική πηγή)· η **πρόοδος** καταγράφεται στο **`oldsessions.md`** — και εδώ **μόνο** αν άλλαξε αρχιτεκτονική — όταν μια εκκρεμότητα κλείσει **οριστικά** (AGENTS.md #9). Το παρόν αρχείο περιέχει **μόνο αρχιτεκτονική**· τυχόν status/lists εδώ (Error Handling, Performance Notes, test counter κ.λπ.) είναι **ενδεικτικά και πιθανόν stale** — δεν αποτελούν tracker και **δεν** ενημερώνονται για εκκρεμότητες.
+> **⚠️ ΕΚΚΡΕΜΟΤΗΤΕΣ & ΠΡΟΟΔΟΣ (05/11/2026):** **0 ανοιχτές εκκρεμότητες** — ο tracker **`error_list.md`** αρχειοθετήθηκε στο `backups/s293_e06_close/error_list.md.final` και διαγράφηκε (E26, S293)· αν προκύψει **νέο εύρημα**, το `error_list.md` **επαναδημιουργείται** (μοναδική πηγή, AGENTS.md #6/#9). Η **πρόοδος** καταγράφεται στο **`oldsessions.md`** — και εδώ **μόνο** αν άλλαξε αρχιτεκτονική — όταν μια εκκρεμότητα κλείσει **οριστικά** (AGENTS.md #9). Το παρόν αρχείο περιέχει **μόνο αρχιτεκτονική**· τυχόν status/lists εδώ (Error Handling, Performance Notes, test counter κ.λπ.) είναι **ενδεικτικά και πιθανόν stale** — δεν αποτελούν tracker και **δεν** ενημερώνονται για εκκρεμότητες.
 
 ## Στοιχεία Έργου
 
@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | 400 PASS / 1 FAIL (`flutter test`, 02/11/2026 — το FAIL είναι προϋπάρχον `home_short_viewport_test`) |
+| Test suite | **510/510** (`flutter test`, 05/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -160,8 +160,8 @@ lib/
 │   ├── contact_import_service.dart — Import device contacts
 │   ├── share_service.dart        — Share orchestrator: Load → Choose → Render → Share (E39/S292)
 │   ├── share/
-│   │   ├── share_models.dart     — ShareContent/ShareRequest/ShareResult + όρια (E39)
-│   │   ├── share_loader.dart     — Item + entries + attachments, όρια D1 (E39)
+│   │   ├── share_models.dart     — ShareMode/ShareOutcome/ShareFile/ShareBundle + όρια D1 (E39)
+│   │   ├── share_loader.dart     — Batch φόρτωση: item + blocks + properties + subtasks + attachments (E39)
 │   │   ├── share_text.dart       — Formatters κειμένου όλων των types (E39)
 │   │   ├── share_formatters.dart — Κοινές μορφοποιήσεις πεδίων (E39)
 │   │   ├── share_attachments.dart — Dedupe by id, missing→log, καθαρά ονόματα (E39)
@@ -558,13 +558,16 @@ final db = SuperNoteHelper.instance;
 - Full-text search on Item title: `search(query, workspaceId)` → `List<Item>`
 - Uses Isar `titleContains()` filter (case-insensitive)
 
-### ShareService (`lib/services/share_service.dart`)
-- `shareItem(item)` → `share_plus`: **μία** είσοδος για κάθε shareable item (`item_actions_sheet.dart:164-169`).
-- `ItemType.knowledge` (collection entry) → `_buildKnowledgeShare`: πεδία schema + αρχεία πεδίων `attachment` (`_formatCollectionEntry`, files loop).
-- Λοιποί τύποι → `_format`: note (blocks → markdown-ish), task, appointment, contact, event, journal, habit.
-- `ItemType.project` (συλλογή), goal, finance, bookmark, checklist → `default` = **μόνο τίτλος**.
-- Item-level συνημμένα (`AttachmentsStrip`: note `note_detail_widgets.dart:138`, event `event_detail_screen.dart:665`) **δεν** συλλέγονται σήμερα.
-- Ενιαία συμπεριφορά (τίτλος + πεδία + συνημμένα για **όλα** τα items) = **E39** (OPEN — `error_list.md`).
+### ShareService (`lib/services/share_service.dart`, E39/S292)
+- **Public API αμετάβλητο:** `shareItem(context, itemId)` → `share_plus` — **μία** είσοδος για κάθε item (16 call sites, π.χ. `item_actions_sheet.dart`).
+- **Orchestrator 149 γραμμών** (η λογική ζει σε `lib/services/share/`): **Load → Collect → Render → Choose → Share**.
+  - **Load:** `ShareLoader.load(itemId)` → `ShareData` (item + blocks + properties + subtasks + attachments + schema συλλογής) με **batch** queries — κανένα N+1, καμία εγγραφή.
+  - **Collect:** `ShareAttachments.collect` → dedupe, missing file → log + skip, όρια **D1** (`ShareLimits`: **20** αρχεία / **100 MB** / **100.000** χαρακτήρες / **200** entries συλλογής), καθαρά ονόματα στο κείμενο.
+  - **Render:** `ShareContentBuilder.build` → `ShareBundle` (text + files + `skippedFiles`). Κείμενο ανά τύπο στο `share_text.dart`: note, task/checklist (με subtasks), appointment, contact, event, journal, habit, **knowledge** (πεδία schema + entries συλλογής), `generic` για project/goal/finance/bookmark.
+  - **Choose:** `ShareOptionsSheet` (SafeSheet) — «Κείμενο + αρχεία» / «Μόνο κείμενο»· εμφανίζεται **μόνο** αν υπάρχουν αρχεία **και** η πλατφόρμα τα υποστηρίζει (Linux → όχι).
+  - **Share:** `SharePlus.instance.share(ShareParams)` + `sharePositionOrigin` (iPad/macOS popover)· `unavailable` = σιωπή (όχι σφάλμα), `UnimplementedError` (παλιά Windows) → retry **text-only** + ενημέρωση χρήστη.
+- **Guards:** re-entrancy (`_sharing`), `context.mounted` μετά από κάθε await, item που διαγράφηκε → σιωπηλή έξοδος, πραγματικό σφάλμα → `AppErrors.shareFailed`.
+- **Συνημμένα:** συλλέγονται **όλα** τα item-level + όσα αναφέρονται σε `attachment` fields συλλογής (dedupe)· **κανένα αντίγραφο αρχείου** (D9 — ο παραλήπτης βλέπει το basename του path).
 
 ### SharedIntentService (`lib/services/shared_intent_service.dart`)
 - Singleton (S59) — stream `incoming` (warm+cold)· dedup 2s (`isDuplicate`)· `reset` μετά το initial
