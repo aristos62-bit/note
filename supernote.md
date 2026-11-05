@@ -293,7 +293,10 @@ lib/
 
 ### Κανόνες ανάπτυξης (R1–R6)
 
-- **R1 — Μέγεθος αρχείων**: <500 γραμμές (non-generated· χωρίς `*.g.dart`/`.bak`· `backups/**` excluded από τον analyzer).
+- **R1 — Μέγεθος αρχείων (χαλαρωμένο 05/11/2026, E06):** <500 γραμμές **μόνο για νέα αρχεία** (non-generated· χωρίς `*.g.dart`/`.bak`· `backups/**` excluded από τον analyzer).
+  - Τα **υπάρχοντα** αρχεία >500 (**21** στις 05/11/2026: `lib/` 45.734 γρ. / 174 αρχεία· max `habit_detail_screen.dart` 1.815) **δεν είναι εκκρεμότητα**.
+  - Split γίνεται **μόνο ευκαιριακά**, όταν το αρχείο αγγίζεται για λειτουργικό λόγο (π.χ. `settings` S253 · `item_card` 624→428 στο E47) — **ποτέ** ως αυτοσκοπός/backlog. Κάθε νέο αρχείο που προκύπτει από split μένει <500.
+  - Απόφαση χρήστη 05/11/2026 (S293): το ρίσκο του split στα 6 γκοντ-αρχεία services/screens (scheduler/habit/backup) είναι μεγαλύτερο από το κόστος του μεγέθους.
 - **R2 — Resize**: καμία raw εικόνα (camera 1024/85, gallery guard, thumbnail προτίμηση, display ResizeImage/cacheWidth).
 - **R3 — SPoT-first**: καμία νέα helper αν το καλύπτει υπάρχον SPoT.
 - **R4 — Logging & μηνύματα**: μόνο `DebugConfig.*` (error/warning πάντα ON)· Ελληνικά user μηνύματα μέσω mixin/`handleArchive`.
