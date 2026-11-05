@@ -1,6 +1,7 @@
 # Φ4 — Οδηγός διόρθωσης ποιότητας σελίδων (τελικός, δεσμευτικός)
 
 > **⚠️ ΠΑΓΩΜΕΝΟ ΩΣ ΠΡΟΣ ΤΙΣ ΕΚΚΡΕΜΟΤΗΤΕΣ (21/10/2026):** όλες οι ενότητες με λίστες/status (§3.x, §7, §8, §9, σημειώσεις S###) είναι **ιστορικό**. Οι εκκρεμότητες **υπάρχουν, ενημερώνονται και προστίθενται ΜΟΝΟ** στο **`error_list.md`**. Απαγορεύεται η προσθήκη/αλλαγή εκκρεμοτήτων εδώ — αν χρειαστεί διόρθωση, γίνεται στο `error_list.md` και (μετά το τέλος) συγχρονίζεται το παρόν.
+> **05/11/2026 (S293):** **0 ανοιχτές εκκρεμότητες** — το `error_list.md` **αρχειοθετήθηκε** (`backups/s293_e06_close/error_list.md.final`) και διαγράφηκε (E26 βήμα 4). Ο χάρτης splits (§2) είναι πλέον **ιστορικό, όχι δεσμευτικός** (E06: ρητή χαλάρωση R1).
 
 > Σκοπός: διόρθωση κακογραμμένων/πρόχειρων σελίδων. Κανένα αρχείο >500 γραμμές.
 > Μέθοδος: ένα βήμα τη φορά, backup πριν κάθε edit, OK χρήστη πριν το επόμενο (AGENTS.md 2-4).
@@ -33,13 +34,15 @@
 ## 1. Κανόνες Φ4 (δεσμευτικοί για κάθε βήμα)
 
 - **R0 αρχιτεκτονική:** barrels (`core/services/widgets/providers`), `go_router+AppTransitions` (όχι `MaterialPageRoute`), `DetailScreenMixin`, soft-delete + cascade via `ReminderScheduler.deleteAllRemindersForItem`, καμία DB στο UI.
-- **R1 <500:** χάρτης §2. Extract widget/file, ίδια ονόματα providers/methods.
+- **R1 <500 (χαλαρωμένο 05/11/2026, E06):** <500 **μόνο για νέα αρχεία** — ο χάρτης §2 είναι **ιστορικό**, όχι δεσμευτικός. Extract widget/file, ίδια ονόματα providers/methods.
 - **R2 resize:** μόνο `ImageUtils.avatarProvider/fileThumb/checkMaxBytes` (256/80/2MB). Gallery+camera `maxWidth:1024/quality:85`. Όχι raw `MemoryImage/Image.file` σε λίστες.
 - **R3 reuse πρώτα:** `ItemColorHelper.parseHex`, `ContactProps.fromProperties`, `AppStringUtils.*`, `AppDateUtils.*`, `Recurrence.safeDay/safeMonthDay/epochMonday/isValidWeeklyDay`, `BackupArchive.rebasePath/isBackupZip`, `ConfirmDialog/ArchiveHelper/showTagPickerSheet/ReminderSection/showReminderPicker`, `LinkList.extractUrls/LinkLauncher`, `ItemTypeIcon/PriorityBadge/ItemCard/Skeleton/TagChipList/EmptyState/ContentField/BlockEditor/ResponsiveItemList/ReorderableItemList/ItemCardBuilder/DraggableWrapper`, `sanitizeFileName`, `findDuplicate`, `getByItems/getAllForItems/getCollectionIds`, `planTopUp/parseHabitTime/sync/repair`, `cancelAllForItem`, `syncChannel`, `SearchService.search`, `ShareService.shareItem`, `AttachmentService.*`, `MigrationService`, `AppLockService.hash/verify/auth`, `Spacing/AppRadius/Duration/IconSize/Breakpoints/ColorsUI/context.c*`. Νέα μόνο 8: `SheetHandle`, `ItemActionsSheet` (προαγωγή), `FolderFormDialog`, `SearchClearButton` (με `ValueListenableBuilder`), `AppErrors`, weekdays extension, `AppRoutes.forType`, `_saveAttachments` + debounce consts.
 - **R4 errors/debug:** `AppErrors` ελληνικά (εισάγει strings mixin). `DebugConfig.error/warning` πάντα. Απαγόρευση `catch(_){}/debugPrint/print/PII/log-in-build`. Κάθε catch → `error + SnackBar/EmptyState.error retry`.
 - **Debug:** `nav` σε open/create (όχι build), `db` 1 count/λίστα (όχι ανά κάρτα), `warning` σε hex/date/photo, `error+e/stack` παντού.
 
 ## 2. Χάρτης splits <500
+
+> **05/11/2026 (E06):** **ιστορικό πλαίσιο** — δεν είναι πλέον δεσμευτικός στόχος. Ολοκληρώθηκε μόνο το `settings` split (S253)· τα υπόλοιπα δεν απαιτούνται (βλ. R1 στο `supernote.md`: <500 μόνο για νέα αρχεία, split ευκαιριακά).
 
 `settings 2947→9` ✅ (screen / tiles / colors / backup / pin-dialogs / reminders-dialog / archived-dialog / contacts-dialogs / contacts-flow — S253, public symbols + direct imports, 0 `part`· max 484 γρ.)· `habit_detail 1874→5`· `entries 1776→list/detail/fields`· `contact_detail 1480→3`· `task_detail 1303→3`· `home 1253→3`· `event 916→2`· `journal_detail 914→2`· `appointment_detail 942→2`· `calendar 798→2`· `collection_detail 860→2`· `collections 673→2`· `search 695→2`· `folder_browser 768→2`· `trash 498` ✅ <500 (S251 — 0 ανάγκη split)· `embedded 545→2`· `home_folder_view 570→2`.
 
