@@ -119,6 +119,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                   if (selectedFolderId != null) {
                     entries = entries.where((e) => e.folderId == selectedFolderId).toList();
                   }
+                  final hasInScope = entries.isNotEmpty;
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
@@ -131,7 +132,13 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
                       break;
                   }
                   if (entries.isEmpty) {
-                    return EmptyState.forType(ItemType.journal, onAction: _createEntry);
+                    return FilterAwareEmptyState(
+                      hasItems: hasInScope,
+                      fallback: EmptyState.forType(
+                        ItemType.journal,
+                        onAction: _createEntry,
+                      ),
+                    );
                   }
 
                   final processed = entries

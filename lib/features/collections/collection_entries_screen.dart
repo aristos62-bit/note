@@ -418,6 +418,9 @@ class _FilteredEntriesList extends ConsumerWidget {
       if (colIdStr == collectionId.toString()) allEntries.add(c);
     }
 
+    // Scope συλλογής (πριν το καθολικό φίλτρο — βλ. hasInScope)
+    final hasInScope = allEntries.isNotEmpty;
+
     // View mode
     final viewMode = ref.watch(listViewModeProvider);
     var entries = allEntries;
@@ -466,12 +469,15 @@ class _FilteredEntriesList extends ConsumerWidget {
       }
       // SPoT: shared EmptyState (scroll-safe S104) αντί bespoke — ίδιο
       // icon/κείμενα/κουμπί. ΟΧΙ forType(finance): λάθος icon/subtitle.
-      return EmptyState(
-        icon: Icons.inbox_rounded,
-        title: 'Δεν υπάρχουν εγγραφές',
-        subtitle: 'Πάτα + για να προσθέσεις\nτην πρώτη εγγραφή',
-        actionLabel: 'Νέα εγγραφή',
-        onAction: onCreateEntry,
+      return FilterAwareEmptyState(
+        hasItems: hasInScope,
+        fallback: EmptyState(
+          icon: Icons.inbox_rounded,
+          title: 'Δεν υπάρχουν εγγραφές',
+          subtitle: 'Πάτα + για να προσθέσεις\nτην πρώτη εγγραφή',
+          actionLabel: 'Νέα εγγραφή',
+          onAction: onCreateEntry,
+        ),
       );
     }
 

@@ -3,6 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum ListViewMode { pinned, favorites, all }
 final listViewModeProvider = StateProvider<ListViewMode>((ref) => ListViewMode.all);
 
+/// SPoT ετικετών του καθολικού φίλτρου λιστών (toggle + filter-aware empty
+/// states). Μία πηγή αλήθειας — όχι 4η αντιγραφή των ίδιων 3 strings.
+extension ListViewModeLabel on ListViewMode {
+  String get label => switch (this) {
+        ListViewMode.pinned => 'Καρφιτσωμένα',
+        ListViewMode.favorites => 'Αγαπημένα',
+        ListViewMode.all => 'Όλα',
+      };
+}
+
 /// Καθολική ένδειξη ότι ένα drag βρίσκεται σε εξέλιξη.
 /// Χρησιμοποιείται από PopScope για να μπλοκάρει το system back gesture.
 final isDraggingProvider = StateProvider<bool>((ref) => false);

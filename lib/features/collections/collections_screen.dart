@@ -121,6 +121,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                       .where((c) => c.folderId == selectedFolderId)
                       .toList();
                 }
+                final hasInScope = collections.isNotEmpty;
                 final viewMode = ref.watch(listViewModeProvider);
                 switch (viewMode) {
                   case ListViewMode.pinned:
@@ -134,13 +135,16 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 }
 
                 if (collections.isEmpty) {
-                  return EmptyState(
-                    icon: Icons.inventory_2_rounded,
-                    title: 'Δεν έχεις συλλογές',
-                    subtitle:
-                        'Δημιούργησε τη δική σου βάση δεδομένων.\nΔίσκοι, βιβλία, ταινίες — ό,τι θέλεις!',
-                    actionLabel: 'Νέα Συλλογή',
-                    onAction: _createCollection,
+                  return FilterAwareEmptyState(
+                    hasItems: hasInScope,
+                    fallback: EmptyState(
+                      icon: Icons.inventory_2_rounded,
+                      title: 'Δεν έχεις συλλογές',
+                      subtitle:
+                          'Δημιούργησε τη δική σου βάση δεδομένων.\nΔίσκοι, βιβλία, ταινίες — ό,τι θέλεις!',
+                      actionLabel: 'Νέα Συλλογή',
+                      onAction: _createCollection,
+                    ),
                   );
                 }
 

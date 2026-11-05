@@ -139,6 +139,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                     if (selectedFolderId != null) {
                       items = items.where((i) => i.folderId == selectedFolderId).toList();
                     }
+                    final hasInScope = items.isNotEmpty;
                     final viewMode = ref.watch(listViewModeProvider);
                     switch (viewMode) {
                       case ListViewMode.pinned:
@@ -152,7 +153,13 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                     }
 
                     if (items.isEmpty) {
-                      return EmptyState.forType(widget.itemType, onAction: _createItem);
+                      return FilterAwareEmptyState(
+                        hasItems: hasInScope,
+                        fallback: EmptyState.forType(
+                          widget.itemType,
+                          onAction: _createItem,
+                        ),
+                      );
                     }
                     return _ItemListBody(
                       items: items,

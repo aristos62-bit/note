@@ -106,6 +106,7 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                   if (selectedFolderId != null) {
                     habitsOnly = habitsOnly.where((h) => h.folderId == selectedFolderId).toList();
                   }
+                  final hasInScope = habitsOnly.isNotEmpty;
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
@@ -118,7 +119,13 @@ class _HabitListScreenState extends ConsumerState<HabitListScreen> {
                       break;
                   }
                   if (habitsOnly.isEmpty) {
-                    return EmptyState.forType(ItemType.habit, onAction: _createHabit);
+                    return FilterAwareEmptyState(
+                      hasItems: hasInScope,
+                      fallback: EmptyState.forType(
+                        ItemType.habit,
+                        onAction: _createHabit,
+                      ),
+                    );
                   }
 
                   return Column(

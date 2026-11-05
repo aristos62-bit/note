@@ -9,7 +9,11 @@ class ViewModeToggle extends ConsumerWidget {
   /// Το φίλτρο είναι ΚΑΘΟΛΙΚΟ (listViewModeProvider): μία αλλαγή ισχύει σε
   /// όλες τις λίστες. Ενημερώνουμε τον χρήστη για να μη διαβαστεί μια άδεια
   /// λίστα ως «χάθηκαν δεδομένα».
-  void _select(BuildContext context, WidgetRef ref, ListViewMode mode) {
+  ///
+  /// `static` + SPoT: το toggle και το filter-aware empty state
+  /// (`FilterAwareEmptyState`) αλλάζουν το φίλτρο με **μία** συμπεριφορά
+  /// (ίδιο snackbar), αντί για δύο σχεδόν-ίδια μονοπάτια.
+  static void select(BuildContext context, WidgetRef ref, ListViewMode mode) {
     ref.read(listViewModeProvider.notifier).state = mode;
     ScaffoldMessenger.of(context)
       ..removeCurrentSnackBar() // 3 διπλανά κουμπιά → ένα μήνυμα, όχι στοίβα
@@ -28,24 +32,24 @@ class ViewModeToggle extends ConsumerWidget {
         children: [
           CircleToggleButton(
             icon: Icons.push_pin_rounded,
-            tooltip: 'Καρφιτσωμένα',
+            tooltip: ListViewMode.pinned.label,
             isSelected: current == ListViewMode.pinned,
             activeColor: context.cError,
-            onTap: () => _select(context, ref, ListViewMode.pinned),
+            onTap: () => select(context, ref, ListViewMode.pinned),
           ),
           CircleToggleButton(
             icon: Icons.star_rounded,
-            tooltip: 'Αγαπημένα',
+            tooltip: ListViewMode.favorites.label,
             isSelected: current == ListViewMode.favorites,
             activeColor: context.cWarning,
-            onTap: () => _select(context, ref, ListViewMode.favorites),
+            onTap: () => select(context, ref, ListViewMode.favorites),
           ),
           CircleToggleButton(
             icon: Icons.merge_type_rounded,
-            tooltip: 'Όλα',
+            tooltip: ListViewMode.all.label,
             isSelected: current == ListViewMode.all,
             activeColor: context.cSuccess,
-            onTap: () => _select(context, ref, ListViewMode.all),
+            onTap: () => select(context, ref, ListViewMode.all),
           ),
         ],
       ),

@@ -218,7 +218,7 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
   }
 
   Widget _buildItemsList(BuildContext context, List<Item> items, {required List<Item> allItems}) {
-    if (items.isEmpty) return _buildEmptyState(context);
+    if (items.isEmpty) return _buildEmptyState(context, allItems);
 
     return ReorderableItemList(
       items: items,
@@ -248,7 +248,22 @@ class _HomeFolderViewState extends ConsumerState<HomeFolderView> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, List<Item> allItems) {
+    // Το «Όλα» του φακέλου ανοίγει το FolderBrowserScreen (βλ. toggle) —
+    // ίδιο μήνυμα με τις υπόλοιπες λίστες, ίδια ενέργεια με το toggle.
+    if (allItems.isNotEmpty) {
+      return EmptyState.filtered(
+        icon: switch (_viewMode) {
+          FolderViewMode.pinned => Icons.push_pin_rounded,
+          FolderViewMode.favorites => Icons.star_rounded,
+          _ => Icons.history_rounded,
+        },
+        onShowAll: () => Navigator.of(context).push(
+          AppTransitions.slideRoute(FolderBrowserScreen(folder: folder)),
+        ),
+      );
+    }
+
     final (icon, title, subtitle) = switch (_viewMode) {
       FolderViewMode.pinned    => (Icons.push_pin_outlined,    'Δεν υπάρχουν καρφιτσωμένα στοιχεία', 'Καρφίτσωσε στοιχεία για να τα βλέπεις εδώ.'),
       FolderViewMode.favorites => (Icons.star_outline_rounded, 'Δεν υπάρχουν αγαπημένα στοιχεία',    'Πρόσθεσε αγαπημένα για να τα βλέπεις εδώ.'),
