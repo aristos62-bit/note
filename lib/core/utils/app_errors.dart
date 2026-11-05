@@ -94,6 +94,12 @@ class AppErrors {
   static const noPastReminders = 'Δεν υπάρχουν παρελθούσες υπενθυμίσεις.';
   static const noArchivedItems = 'Δεν υπάρχουν αρχειοθετημένα στοιχεία.';
 
+  // Το φίλτρο pin/αγαπημένα είναι ΚΑΘΟΛΙΚΟ (listViewModeProvider) και ισχύει
+  // ταυτόχρονα σε όλες τις λίστες — ενημέρωση ώστε μια άδεια λίστα να μη
+  // διαβαστεί ως «χάθηκαν δεδομένα».
+  static const filterAppliedToAllLists =
+      'Η επιλογή εφαρμόστηκε σε όλες τις λίστες';
+
   // ── Notifications ──────────────────────────────────────────
   static const notificationsUnsupportedWindows =
       'Σε Windows οι υπενθυμίσεις αποθηκεύονται αλλά δεν χτυπούν (δεν υποστηρίζονται ειδοποιήσεις)';

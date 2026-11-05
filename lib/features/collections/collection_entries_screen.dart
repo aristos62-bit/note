@@ -1729,3 +1729,54 @@ class _SearchBar extends StatelessWidget {
     );
   }
 }
+
+// ════════════════════════════════════════════════════════════════
+// LOADER — άνοιγμα συλλογής από route (/collections/:id)
+// ════════════════════════════════════════════════════════════════
+
+/// Άνοιγμα συλλογής όταν υπάρχει μόνο το id (generic openers: home,
+/// folder view, folder browser, search, ειδοποίηση).
+///
+/// Επαναχρησιμοποιεί το [CollectionEntriesScreen]: το item έρχεται από το ίδιο
+/// [itemStreamProvider] που χρησιμοποιεί ήδη η οθόνη, άρα δεν διπλοφορτώνει.
+/// Ο editor (CollectionDetailScreen) μένει μόνο για isNew + «Επεξεργασία».
+class CollectionEntriesLoader extends ConsumerWidget {
+  final int collectionId;
+  const CollectionEntriesLoader({super.key, required this.collectionId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(itemStreamProvider(collectionId));
+
+    // Αρχική φόρτωση (ούτε value ούτε error ακόμη).
+    if (!async.hasValue && !async.hasError) {
+      return Scaffold(
+        backgroundColor: context.cBg,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final item = async.valueOrNull;
+    final valid = item != null &&
+        item.deletedAt == null &&
+        item.type == ItemType.project;
+
+    if (!valid) {
+      DebugConfig.nav(
+          'CollectionEntriesLoader: id=$collectionId not found/invalid');
+      return Scaffold(
+        backgroundColor: context.cBg,
+        appBar: AppBar(backgroundColor: context.cBg),
+        body: async.hasError
+            ? EmptyState.error()
+            : const EmptyState(
+                icon: Icons.inventory_2_rounded,
+                title: 'Η συλλογή δεν βρέθηκε',
+                subtitle: 'Μπορεί να έχει διαγραφεί.',
+              ),
+      );
+    }
+
+    return CollectionEntriesScreen(collection: item);
+  }
+}
