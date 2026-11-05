@@ -101,7 +101,10 @@ lib/
 │       ├── app_errors.dart       — Κεντρικά user-facing strings (AppErrors)
 │       ├── reorder_utils.dart    — SPoT moveAndMerge subset→full (S148)
 │       ├── composed_text_scaler.dart — system + app text scale σύνθεση με clamp 2.0 (S288, E01)
-│       └── serial_pass_queue.dart — SPoT σειριοποίησης passes (S246)
+│       ├── serial_pass_queue.dart — SPoT σειριοποίησης passes (S246)
+│       ├── block_numbering.dart   — Αρίθμηση numbered blocks O(n), καθαρή (S292, E39)
+│       ├── collection_fields.dart — FieldType/FieldDef σχήμα συλλογών, core (S292, E39)
+│       └── collection_id.dart     — collectionIdOf(props) καθαρή (S292, E39)
 ├── models/
 │   ├── models.dart               — Barrel export
 │   ├── item.dart                 — Item collection (core entity)
@@ -155,7 +158,15 @@ lib/
 │   ├── app_lock_service.dart     — PIN (SHA-256) + biometric
 │   ├── shared_intent_service.dart — Λήψη κοιν/νου content (share intent)
 │   ├── contact_import_service.dart — Import device contacts
-│   ├── share_service.dart        — Share items
+│   ├── share_service.dart        — Share orchestrator: Load → Choose → Render → Share (E39/S292)
+│   ├── share/
+│   │   ├── share_models.dart     — ShareContent/ShareRequest/ShareResult + όρια (E39)
+│   │   ├── share_loader.dart     — Item + entries + attachments, όρια D1 (E39)
+│   │   ├── share_text.dart       — Formatters κειμένου όλων των types (E39)
+│   │   ├── share_formatters.dart — Κοινές μορφοποιήσεις πεδίων (E39)
+│   │   ├── share_attachments.dart — Dedupe by id, missing→log, καθαρά ονόματα (E39)
+│   │   ├── share_content_builder.dart — Συναρμολόγηση {subject, text, files} (E39)
+│   │   └── share_options_sheet.dart — «Κείμενο + αρχεία» / «Μόνο κείμενο» (E39)
 │   └── security_service.dart     — FLAG_SECURE MethodChannel (S165)
 ├── helpers/
 │   ├── super_note_helper.dart    — Singleton + sub-repositories (ItemRepository, etc.)
@@ -1037,7 +1048,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (382/382 🟢) |
+| `flutter test` | Πλήρες suite (510/510 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

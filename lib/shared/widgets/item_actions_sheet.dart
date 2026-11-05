@@ -94,9 +94,15 @@ class ItemActionsSheet extends StatelessWidget {
     );
   }
 
+  /// Pop του sheet και εκτέλεση του action στο **επόμενο frame**.
+  ///
+  /// E39: το άμεσο `fn()` αμέσως μετά το `pop` έβαζε δύο routes στο ίδιο
+  /// frame όταν το action ανοίγει δικό του sheet/dialog (stacked sheet).
+  /// Το post-frame callback περιμένει να ολοκληρωθεί το pop πριν τρέξει το
+  /// action — ίδιο οπτικό αποτέλεσμα, χωρίς διπλό sheet.
   static void _popAnd(BuildContext ctx, VoidCallback fn) {
     Navigator.pop(ctx);
-    fn();
+    WidgetsBinding.instance.addPostFrameCallback((_) => fn());
   }
 
   @override
