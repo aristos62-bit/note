@@ -6,6 +6,18 @@ import '../../providers/ui_provider.dart';
 class ViewModeToggle extends ConsumerWidget {
   const ViewModeToggle({super.key});
 
+  /// Το φίλτρο είναι ΚΑΘΟΛΙΚΟ (listViewModeProvider): μία αλλαγή ισχύει σε
+  /// όλες τις λίστες. Ενημερώνουμε τον χρήστη για να μη διαβαστεί μια άδεια
+  /// λίστα ως «χάθηκαν δεδομένα».
+  void _select(BuildContext context, WidgetRef ref, ListViewMode mode) {
+    ref.read(listViewModeProvider.notifier).state = mode;
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar() // 3 διπλανά κουμπιά → ένα μήνυμα, όχι στοίβα
+      ..showSnackBar(const SnackBar(
+        content: Text(AppErrors.filterAppliedToAllLists),
+      ));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(listViewModeProvider);
@@ -19,21 +31,21 @@ class ViewModeToggle extends ConsumerWidget {
             tooltip: 'Καρφιτσωμένα',
             isSelected: current == ListViewMode.pinned,
             activeColor: context.cError,
-            onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.pinned,
+            onTap: () => _select(context, ref, ListViewMode.pinned),
           ),
           CircleToggleButton(
             icon: Icons.star_rounded,
             tooltip: 'Αγαπημένα',
             isSelected: current == ListViewMode.favorites,
             activeColor: context.cWarning,
-            onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.favorites,
+            onTap: () => _select(context, ref, ListViewMode.favorites),
           ),
           CircleToggleButton(
             icon: Icons.merge_type_rounded,
             tooltip: 'Όλα',
             isSelected: current == ListViewMode.all,
             activeColor: context.cSuccess,
-            onTap: () => ref.read(listViewModeProvider.notifier).state = ListViewMode.all,
+            onTap: () => _select(context, ref, ListViewMode.all),
           ),
         ],
       ),

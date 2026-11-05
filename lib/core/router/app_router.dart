@@ -236,9 +236,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 pageBuilder: (context, state) {
                   final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
                   final isNew = (state.extra as bool?) ?? false;
-                  DebugConfig.nav('Router → CollectionDetail id=$id isNew=$isNew');
+                  DebugConfig.nav('Router → Collection id=$id isNew=$isNew');
                   return AppTransitions.slideRight(
-                      state, CollectionDetailScreen(collectionId: id, isNew: isNew));
+                      state,
+                      isNew
+                          ? CollectionDetailScreen(collectionId: id, isNew: true)
+                          : CollectionEntriesLoader(collectionId: id));
                 },
               ),
             ],
