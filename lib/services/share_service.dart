@@ -1,458 +1,149 @@
 // lib/services/share_service.dart
-import 'dart:convert';
+//
+// E39 — Orchestrator της κοινοποίησης: Load → Choose → Render → Share.
+//
+// Η λογική ζει πλέον σε μικρά, testable αρχεία:
+//   share/share_models.dart            μοντέλα + όρια (D1)
+//   share/share_text.dart              κείμενο ανά τύπο (D2–D7)
+//   share/share_formatters.dart        μέγεθος / ονόματα / 📎 λίστα
+//   share/share_loader.dart            batch φόρτωση (χωρίς N+1)
+//   share/share_attachments.dart       φίλτρα + όρια + XFile
+//   share/share_content_builder.dart   σύνθεση bundle
+//   share/share_options_sheet.dart     επιλογή χρήστη
+//
+// Public API αμετάβλητο: `ShareService.shareItem(context, itemId)` (16 call sites).
+
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show ShareParams, SharePlus, XFile;
+
 import '../core/core.dart';
-import '../helpers/super_note_helper.dart';
-import '../models/models.dart';
+import 'share/share_attachments.dart';
+import 'share/share_content_builder.dart';
+import 'share/share_models.dart';
+import 'share/share_options_sheet.dart';
 
 class ShareService {
   ShareService._();
 
+  /// Re-entrancy guard: το `share_plus` επιστρέφει `unavailable` αν κληθεί
+  /// ξανά όσο εκκρεμεί system sheet — δεν θέλουμε ούτε δεύτερο sheet ούτε
+  /// «σβηστή» κοινοποίηση.
+  static bool _sharing = false;
+
   static Future<void> shareItem(BuildContext context, int itemId) async {
+    if (_sharing) {
+      DebugConfig.nav('ShareService: ignored re-entrant call itemId=$itemId');
+      return;
+    }
+    _sharing = true;
     try {
-      final helper = SuperNoteHelper.instance;
-      final item = await helper.items.getById(itemId);
-      if (item == null) return;
+      final bundle = await ShareContentBuilder.loadAndBuild(itemId);
+      if (bundle == null) return; // item δεν βρέθηκε (διαγραμμένο)
 
-      List<XFile> shareFiles = [];
-      String text;
+      // Guard: μετά το await το screen μπορεί να έχει φύγει (pop/route).
+      if (!context.mounted) return;
 
-      if (item.type == ItemType.knowledge) {
-        final result = await _buildKnowledgeShare(helper, item);
-        text = result.text;
-        shareFiles = result.files;
-      } else {
-        final results = await Future.wait([
-          helper.blocks.getByItem(itemId),
-          helper.properties.getAll(itemId),
-        ]);
-        final blocks = results[0] as List<ItemBlock>;
-        final properties = results[1] as List<ItemProperty>;
+      final mode = await _chooseMode(context, bundle);
+      if (mode == null) return; // ο χρήστης έκλεισε το sheet
 
-        List<Item> subtasks = [];
-        if (item.type == ItemType.task) {
-          final allTasks = await helper.items.getByWorkspace(
-            item.workspaceId,
-            type: ItemType.task,
-          );
-          for (final t in allTasks) {
-            final props = await helper.properties.getAll(t.id);
-            final pid = props
-                .where((p) => p.key == 'parent_id')
-                .firstOrNull
-                ?.value;
-            if (pid != null && int.tryParse(pid) == itemId) {
-              subtasks.add(t);
-            }
-          }
-          subtasks.sort((a, b) => a.id.compareTo(b.id));
-        }
+      // Το sheet έκλεισε — αν το screen έφυγε στο μεταξύ, σταματάμε.
+      if (!context.mounted) return;
 
-        text = _format(item, blocks, properties, subtasks);
-      }
-
-      DebugConfig.print('📤 Share itemId=$itemId type=${item.type.name} files=${shareFiles.length}');
-      await SharePlus.instance.share(ShareParams(
-        text: text,
-        subject: item.title ?? '',
-        files: shareFiles.isNotEmpty ? shareFiles : null,
-      ));
+      await _share(context, bundle, mode);
     } catch (e, stack) {
       DebugConfig.error('ShareService.shareItem', e, stack);
+      if (context.mounted) _showMessage(context, AppErrors.shareFailed);
+    } finally {
+      _sharing = false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // CHOOSE
+  // ─────────────────────────────────────────────────────────────
+
+  static Future<ShareMode?> _chooseMode(
+      BuildContext context,
+      ShareBundle bundle,
+      ) async {
+    // Χωρίς αρχεία — ή πλατφόρμα που δεν τα υποστηρίζει — καμία ερώτηση.
+    if (!ShareContentBuilder.canOfferFiles(bundle)) return ShareMode.textOnly;
+    return ShareOptionsSheet.show(context, bundle);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // RENDER + SHARE
+  // ─────────────────────────────────────────────────────────────
+
+  static Future<void> _share(
+      BuildContext context,
+      ShareBundle bundle,
+      ShareMode mode,
+      ) async {
+    final subject = bundle.item.title ?? '';
+    final text = ShareContentBuilder.textForMode(bundle, mode);
+    final files = mode == ShareMode.textAndFiles
+        ? ShareAttachments.toXFiles(bundle.files)
+        : const <XFile>[];
+
+    DebugConfig.print(
+        '📤 Share itemId=${bundle.item.id} type=${bundle.item.type.name} '
+            'mode=${mode.name} files=${files.length} skipped=${bundle.skippedFiles}');
+
+    final origin = _originFor(context);
+
+    try {
+      final result = await SharePlus.instance.share(ShareParams(
+        text: text,
+        subject: subject,
+        files: files.isNotEmpty ? files : null,
+        sharePositionOrigin: origin,
+      ));
+      // `unavailable` (Linux / παλιά Windows) = σιωπή, όχι σφάλμα (D2).
+      DebugConfig.nav('📤 Share result=${result.status.name}');
+    } on UnimplementedError catch (e) {
+      // Παλιά Windows: τα files δεν υποστηρίζονται → retry text-only.
+      DebugConfig.warning('ShareService: files unsupported ($e)');
+      if (files.isEmpty) rethrow;
+
+      await SharePlus.instance.share(ShareParams(
+        text: text,
+        subject: subject,
+        sharePositionOrigin: origin,
+      ));
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppErrors.shareFailed)),
+        _showMessage(context, AppErrors.shareFilesUnsupported);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────────────────────
+
+  /// iPad/macOS: το iOS plugin χρειάζεται **non-zero** origin, αλλιώς το
+  /// popover αποτυγχάνει. Παίρνουμε το RenderBox της οθόνης (όχι του sheet).
+  static Rect _originFor(BuildContext context) {
+    if (context.mounted) {
+      final box = context.findRenderObject();
+      if (box is RenderBox && box.hasSize) {
+        return box.localToGlobal(Offset.zero) & box.size;
+      }
+      final size = MediaQuery.maybeSizeOf(context);
+      if (size != null) {
+        return Rect.fromCenter(
+          center: Offset(size.width / 2, size.height / 2),
+          width: 1,
+          height: 1,
         );
       }
     }
+    return const Rect.fromLTWH(0, 0, 1, 1);
   }
 
-  static String _format(
-    Item item,
-    List<ItemBlock> blocks,
-    List<ItemProperty> properties,
-    List<Item> subtasks,
-  ) {
-    final lines = <String>[];
-
-    switch (item.type) {
-      case ItemType.note:
-        lines.addAll(_formatNote(item, blocks));
-      case ItemType.task:
-        lines.addAll(_formatTask(item, properties, subtasks));
-      case ItemType.appointment:
-        lines.addAll(_formatAppointment(item, properties));
-      case ItemType.contact:
-        lines.addAll(_formatContact(item, properties));
-      case ItemType.event:
-        lines.addAll(_formatEvent(item, properties));
-      case ItemType.journal:
-        lines.addAll(_formatJournal(item, blocks));
-      case ItemType.habit:
-        lines.addAll(_formatHabit(item));
-      case ItemType.knowledge:
-        lines.addAll(_boldTitle(item.title ?? ''));
-      default:
-        lines.addAll(_boldTitle(item.title ?? ''));
-    }
-
-    return lines.join('\n');
-  }
-
-  static List<String> _boldTitle(String title) => ['**$title**', ''];
-
-  static List<String> _section(String label) => ['', '── $label ──', ''];
-
-  static List<String> _formatNote(Item item, List<ItemBlock> blocks) {
-    final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς τίτλο')];
-    for (final block in blocks) {
-      switch (block.type) {
-        case BlockType.heading1:
-          lines.add('# ${block.text}');
-        case BlockType.heading2:
-          lines.add('## ${block.text}');
-        case BlockType.heading3:
-          lines.add('### ${block.text}');
-        case BlockType.checklist:
-          lines.add('• ${block.checked ? '☑' : '☐'} ${block.text ?? ''}');
-        case BlockType.bulletList:
-          lines.add('• ${block.text ?? ''}');
-        case BlockType.numbered:
-          lines.add('  ${lines.length}. ${block.text ?? ''}');
-        case BlockType.quote:
-          lines.add('> ${block.text ?? ''}');
-        case BlockType.code:
-          lines.add('```\n${block.text ?? ''}\n```');
-        case BlockType.divider:
-          lines.add('── ──');
-        default:
-          if (block.text != null && block.text!.isNotEmpty) {
-            lines.add(block.text!);
-          }
-      }
-    }
-    return lines;
-  }
-
-  static List<String> _formatTask(
-    Item item,
-    List<ItemProperty> properties,
-    List<Item> subtasks,
-  ) {
-    final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς τίτλο')];
-
-    if (item.priority != ItemPriority.none) {
-      lines.add('• 🔴 Προτεραιότητα: ${_priorityLabel(item.priority)}');
-    }
-
-    final dueDate =
-        properties.where((p) => p.key == 'due_date').firstOrNull?.dateValue;
-    if (dueDate != null) {
-      lines.add('• 📅 Προθεσμία: ${AppDateUtils.formatShort(dueDate)}');
-    }
-
-    final notes =
-        properties.where((p) => p.key == 'notes').firstOrNull?.value;
-    if (notes != null && notes.isNotEmpty) {
-      lines.addAll(_section('Σημειώσεις'));
-      lines.add(notes);
-    }
-
-    if (subtasks.isNotEmpty) {
-      lines.addAll(_section('Υποεργασίες'));
-      for (final st in subtasks) {
-        final done = st.status == ItemStatus.done;
-        lines.add('  ${done ? '✅' : '⬜'} ${st.title ?? ''}');
-      }
-    }
-
-    return lines;
-  }
-
-  static List<String> _formatAppointment(
-    Item item,
-    List<ItemProperty> properties,
-  ) {
-    final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς τίτλο')];
-
-    final startTime =
-        properties.where((p) => p.key == 'start_time').firstOrNull?.dateValue;
-    final endTime =
-        properties.where((p) => p.key == 'end_time').firstOrNull?.dateValue;
-    if (startTime != null) {
-      final timeStr = endTime != null
-          ? '${AppDateUtils.formatDateTime(startTime)} — ${AppDateUtils.formatTime(endTime)}'
-          : AppDateUtils.formatDateTime(startTime);
-      lines.add('• 📅 $timeStr');
-    }
-
-    final location =
-        properties.where((p) => p.key == 'location').firstOrNull?.value;
-    if (location != null && location.isNotEmpty) {
-      lines.add('• 📍 $location');
-    }
-
-    final notes =
-        properties.where((p) => p.key == 'notes').firstOrNull?.value;
-    if (notes != null && notes.isNotEmpty) {
-      lines.addAll(_section('Σημειώσεις'));
-      lines.add(notes);
-    }
-
-    return lines;
-  }
-
-  static List<String> _formatContact(
-    Item item,
-    List<ItemProperty> properties,
-  ) {
-    final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς όνομα')];
-
-    final contactProps = ContactProps.fromProperties(properties);
-    for (final phone in contactProps.phones) {
-      lines.add('• 📞 $phone');
-    }
-    if (contactProps.phones.isEmpty && contactProps.phoneFallback != null && contactProps.phoneFallback!.isNotEmpty) {
-      lines.add('• 📞 ${contactProps.phoneFallback}');
-    }
-
-    final email =
-        properties.where((p) => p.key == 'email').firstOrNull?.value;
-    if (email != null && email.isNotEmpty) {
-      lines.add('• 📧 $email');
-    }
-
-    final company =
-        properties.where((p) => p.key == 'company').firstOrNull?.value;
-    if (company != null && company.isNotEmpty) {
-      lines.add('• 🏢 $company');
-    }
-
-    final website =
-        properties.where((p) => p.key == 'website').firstOrNull?.value;
-    if (website != null && website.isNotEmpty) {
-      lines.add('• 🌐 $website');
-    }
-
-    final address =
-        properties.where((p) => p.key == 'address').firstOrNull?.value;
-    if (address != null && address.isNotEmpty) {
-      lines.add('• 📍 $address');
-    }
-
-    final birthday =
-        properties.where((p) => p.key == 'birthday').firstOrNull?.dateValue;
-    if (birthday != null) {
-      lines.add('• 🎂 ${AppDateUtils.formatShort(birthday)}');
-    }
-
-    final notes =
-        properties.where((p) => p.key == 'notes').firstOrNull?.value;
-    if (notes != null && notes.isNotEmpty) {
-      lines.addAll(_section('Σημειώσεις'));
-      lines.add(notes);
-    }
-
-    return lines;
-  }
-
-  static List<String> _formatEvent(
-    Item item,
-    List<ItemProperty> properties,
-  ) {
-    final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς τίτλο')];
-
-    final startTime =
-        properties.where((p) => p.key == PropertyKeys.startTime).firstOrNull?.dateValue;
-    final endTime =
-        properties.where((p) => p.key == PropertyKeys.endTime).firstOrNull?.dateValue;
-    final endDate =
-        properties.where((p) => p.key == PropertyKeys.endDate).firstOrNull?.dateValue;
-    if (startTime != null) {
-      // E41: πολυήμερο → εύρος (το `end_time` μένει η ώρα της 1ης ημέρας).
-      final endDay = endDate != null
-          ? DateTime(endDate.year, endDate.month, endDate.day)
-          : null;
-      final startDay =
-          DateTime(startTime.year, startTime.month, startTime.day);
-      final multiDay = endDay != null && endDay.isAfter(startDay);
-      final timeStr = multiDay
-          ? '${AppDateUtils.formatDateTime(startTime)} — ${AppDateUtils.formatShort(endDay)}'
-          : endTime != null
-              ? '${AppDateUtils.formatDateTime(startTime)} — ${AppDateUtils.formatTime(endTime)}'
-              : AppDateUtils.formatDateTime(startTime);
-      lines.add('• 📅 $timeStr');
-    }
-
-    final location =
-        properties.where((p) => p.key == 'location').firstOrNull?.value;
-    if (location != null && location.isNotEmpty) {
-      lines.add('• 📍 $location');
-    }
-
-    return lines;
-  }
-
-  static List<String> _formatJournal(Item item, List<ItemBlock> blocks) {
-    final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς τίτλο')];
-    for (final block in blocks) {
-      if (block.text != null && block.text!.isNotEmpty) {
-        lines.add(block.text!);
-      }
-    }
-    return lines;
-  }
-
-  static List<String> _formatHabit(Item item) {
-    final lines = <String>[..._boldTitle(item.title ?? 'Χωρίς τίτλο')];
-    final itemIcon = item.icon;
-    if (itemIcon != null && itemIcon.isNotEmpty) {
-      lines.add('$itemIcon **${item.title}**');
-    }
-    return lines;
-  }
-
-  /// Προετοιμασία knowledge item για share: φόρτωση schema, fields, attachments.
-  static Future<({String text, List<XFile> files})> _buildKnowledgeShare(
-    SuperNoteHelper helper,
-    Item item,
-  ) async {
-    final properties = await helper.properties.getAll(item.id);
-
-    // Βρες collection_id
-    final collectionIdProp =
-        properties.where((p) => p.key == 'collection_id').firstOrNull;
-    DebugConfig.print(
-        '📤 _buildKnowledgeShare itemId=${item.id} collectionId=${collectionIdProp?.value}');
-
-    if (collectionIdProp?.value == null) {
-      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
-    }
-
-    final collectionId = int.tryParse(collectionIdProp!.value!);
-    if (collectionId == null) {
-      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
-    }
-
-    // Φόρτωσε schema από το parent collection
-    final schemaProp = await helper.properties.get(collectionId, 'schema');
-    DebugConfig.print('📤 Schema loaded=${schemaProp?.value != null}');
-
-    if (schemaProp?.value == null || schemaProp!.value!.isEmpty) {
-      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
-    }
-
-    List<Map<String, dynamic>> fields;
-    try {
-      final raw = jsonDecode(schemaProp.value!) as List;
-      fields = raw.cast<Map<String, dynamic>>();
-    } catch (e) {
-      DebugConfig.error('📤 Schema parse failed', e);
-      return (text: _boldTitle(item.title ?? '').join('\n'), files: <XFile>[]);
-    }
-
-    DebugConfig.print('📤 Fields parsed count=${fields.length}');
-
-    // Συλλογή attachment files
-    final shareFiles = <XFile>[];
-    for (final f in fields) {
-      if (f['type'] != 'attachment') continue;
-      final key = f['key'] as String? ?? '';
-      if (key.isEmpty) continue;
-
-      final prop = properties.where((p) => p.key == key).firstOrNull;
-      if (prop?.value == null || prop!.value!.isEmpty) continue;
-
-      try {
-        final ids = jsonDecode(prop.value!) as List;
-        DebugConfig.print('📤 Attachment field "$key" ids=${ids.length}');
-        for (final id in ids) {
-          final attachment = await helper.attachments.getById(id as int);
-          if (attachment != null) {
-            DebugConfig.print(
-                '📤  + file id=${attachment.id} "${attachment.fileName}" path="${attachment.localPath}"');
-            shareFiles.add(XFile(
-              attachment.localPath,
-              mimeType: attachment.mimeType,
-              name: attachment.fileName,
-            ));
-          }
-        }
-      } catch (e) {
-        DebugConfig.print('📤  ⚠️ attachment parse error: $e');
-      }
-    }
-
-    final text = _formatCollectionEntry(item, properties, fields);
-    return (text: text, files: shareFiles);
-  }
-
-  /// Μορφοποίηση collection entry fields σε plain text.
-  static String _formatCollectionEntry(
-    Item item,
-    List<ItemProperty> properties,
-    List<Map<String, dynamic>> fields,
-  ) {
-    final lines = <String>[..._boldTitle(item.title ?? '(χωρίς τίτλο)')];
-
-    for (final f in fields) {
-      final key = f['key'] as String? ?? '';
-      final label = f['label'] as String? ?? '';
-      final typeName = f['type'] as String? ?? 'text';
-      if (key.isEmpty) continue;
-
-      final prop = properties.where((p) => p.key == key).firstOrNull;
-      if (prop?.value == null || prop!.value!.isEmpty) continue;
-
-      switch (typeName) {
-        case 'toggle':
-          lines.add('• $label: ${prop.value == 'true' ? '✅ Ναι' : '❌ Όχι'}');
-        case 'date':
-          final dt = DateTime.tryParse(prop.value!);
-          final dateStr =
-              dt != null ? AppDateUtils.formatShort(dt) : prop.value!;
-          lines.add('• 📅 $label: $dateStr');
-        case 'bulletList':
-          lines.add('• $label:');
-          try {
-            final list = jsonDecode(prop.value!) as List;
-            for (final item in list) {
-              lines.add('  • $item');
-            }
-          } catch (_) {
-            lines.add('  ${prop.value}');
-          }
-        case 'numberedList':
-          lines.add('• $label:');
-          try {
-            final list = jsonDecode(prop.value!) as List;
-            for (var i = 0; i < list.length; i++) {
-              lines.add('  ${i + 1}. ${list[i]}');
-            }
-          } catch (_) {
-            lines.add('  ${prop.value}');
-          }
-        case 'attachment':
-          try {
-            final ids = jsonDecode(prop.value!) as List;
-            if (ids.isNotEmpty) {
-              lines.add(
-                  '• 📎 $label: ${AppStringUtils.attachmentsCountLabel(ids.length)}');
-            }
-          } catch (e) {
-            DebugConfig.warning('📤 attachment field "$key" parse error: $e');
-          }
-        default:
-          lines.add('• $label: ${prop.value}');
-      }
-    }
-
-    return lines.join('\n');
-  }
-
-  static String _priorityLabel(ItemPriority p) {
-    if (p == ItemPriority.none) return '';
-    return AppStringUtils.priorityLabel(p.name);
+  static void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }

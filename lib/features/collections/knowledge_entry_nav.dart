@@ -19,15 +19,10 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import 'collection_entries_screen.dart';
-import 'collection_fields.dart' show FieldDef;
 
-/// Pure: collection_id από properties (null αν λείπει/άκυρο) — unit-testable.
-int? collectionIdOf(List<ItemProperty> props) {
-  final raw =
-      props.where((p) => p.key == 'collection_id').firstOrNull?.value;
-  if (raw == null) return null;
-  return int.tryParse(raw);
-}
+// E39: το `collectionIdOf` μετακόμισε στο core (καθαρή συνάρτηση).
+// Re-export ώστε το υπάρχον test/imports να δουλεύουν χωρίς αλλαγή.
+export '../../core/utils/collection_id.dart' show collectionIdOf;
 
 /// Ανοίγει CollectionEntryDetailScreen. Ορφανές → σιωπή + log (status quo).
 Future<void> openKnowledgeEntry(

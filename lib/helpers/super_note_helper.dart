@@ -1657,6 +1657,17 @@ class AttachmentRepository {
 
   Future<Attachment?> getById(int id) => _isar.attachments.get(id);
 
+  /// Batch: πολλά attachments με **μία** κλήση (E39 — αντί για N× `getById`).
+  ///
+  /// Επιστρέφει τα rows με τη σειρά των [ids] και παραλείπει όσα δεν
+  /// βρέθηκαν (π.χ. διαγραμμένο row → `null`). Κενή λίστα → κενό
+  /// αποτέλεσμα **χωρίς** DB call.
+  Future<List<Attachment>> getByIds(List<int> ids) async {
+    if (ids.isEmpty) return const [];
+    final rows = await _isar.attachments.getAll(ids);
+    return rows.whereType<Attachment>().toList(growable: false);
+  }
+
   Future<Attachment?> findDuplicate({
     required int itemId,
     required String fileName,

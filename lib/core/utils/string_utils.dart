@@ -154,13 +154,20 @@ class AppStringUtils {
     }
   }
 
+  /// E39: labels για όλες τις τιμές του `ItemStatus`
+  /// (active / done / cancelled / archived / draft / inProgress).
+  /// Άγνωστη τιμή → επιστρέφει το input (όπως πριν). Το `completed` μένει
+  /// ως legacy alias — δεν υπάρχει στο enum αλλά δεν βλάπτει.
   static String statusLabel(String status) {
     switch (status) {
-      case 'active':    return 'Ενεργό';
-      case 'completed': return 'Ολοκληρωμένο';
-      case 'cancelled': return 'Ακυρωμένο';
-      case 'archived':  return 'Αρχειοθετημένο';
-      default:          return status;
+      case 'active':     return 'Ενεργό';
+      case 'inProgress': return 'Σε εξέλιξη';
+      case 'done':
+      case 'completed':  return 'Ολοκληρωμένο';
+      case 'draft':      return 'Πρόχειρο';
+      case 'cancelled':  return 'Ακυρωμένο';
+      case 'archived':   return 'Αρχειοθετημένο';
+      default:           return status;
     }
   }
 

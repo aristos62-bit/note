@@ -6,21 +6,11 @@ import '../../providers/providers.dart';
 import 'content_field_widget.dart';
 import 'link_text.dart';
 
-/// Αρίθμηση αριθμημένων blocks σε ένα πέρασμα — O(n).
-///
-/// Επιστρέφει, για κάθε block, πόσα blocks τύπου [BlockType.numbered]
-/// προηγούνται. Το [BlockTileWidget] εμφανίζει `index + 1` μόνο στα numbered,
-/// οπότε η αρίθμηση είναι συνεχής σε όλη τη σημείωση (όπως πριν, αλλά χωρίς
-/// `sublist(0, i)` ανά block).
-List<int> numberedIndexesFor(List<ItemBlock> blocks) {
-  final indexes = <int>[];
-  var seen = 0;
-  for (final b in blocks) {
-    indexes.add(seen);
-    if (b.type == BlockType.numbered) seen++;
-  }
-  return indexes;
-}
+// E39: το `numberedIndexesFor` μετακόμισε στο core (καθαρή συνάρτηση).
+// Re-export ώστε τα υπάρχοντα imports (tests) να δουλεύουν χωρίς αλλαγή.
+export '../../core/utils/block_numbering.dart' show numberedIndexesFor;
+
+/// Full block editor for rich content (notes).
 
 /// Full block editor for rich content (notes).
 ///

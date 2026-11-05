@@ -20,6 +20,24 @@ class PropertyKeys {
   /// E41: χρώμα γραμμής πολυήμερου (`#RRGGBB`). Απουσία = default accent.
   static const String spanColor = 'span_color';
 
+  // ─── E39: keys που διαβάζει το share pipeline ─────────────────
+  // Μόνο constants. ΔΕΝ μπαίνουν στα `technical` / `calendar` παρακάτω:
+  //   • technical → θα εξαφάνιζε notes/due_date από τα search snippets
+  //   • calendar  → θα προκαλούσε άσκοπο bump του ημερολογίου
+  // Καμία αλλαγή σε σχήμα DB ή σε υπάρχον key.
+
+  /// E39: ημερομηνία ραντεβού (ISO 8601 string).
+  static const String date = 'date';
+
+  /// E39: ώρα ραντεβού (`HH:mm`).
+  static const String time = 'time';
+
+  /// E39: προθεσμία task (ISO 8601 string).
+  static const String dueDate = 'due_date';
+
+  /// E39: ελεύθερο κείμενο σημειώσεων (task / event / contact / appointment).
+  static const String notes = 'notes';
+
   /// Τεχνικά keys — ΔΕΝ συμμετέχουν στην αναζήτηση (θόρυβος + άχρηστα
   /// snippets: hex / ISO strings).
   static const Set<String> technical = {endDate, spanColor};
