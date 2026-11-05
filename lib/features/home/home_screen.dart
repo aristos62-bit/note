@@ -365,7 +365,7 @@ class _ViewModeToggle extends StatelessWidget {
           ),
           CircleToggleButton(
             icon: Icons.merge_type_rounded,
-            tooltip: 'Όλα',
+            tooltip: 'Και τα δύο',
             isSelected: current == ViewMode.both,
             activeColor: context.cSuccess,
             onTap: () => onChanged(ViewMode.both),

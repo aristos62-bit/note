@@ -168,6 +168,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                         .where((td) => td.task.deletedAt == null && td.parentId == null)
                         .toList();
 
+                    // Φάκελος πρώτα: το `hasInScope` μετριέται πριν το
+                    // καθολικό φίλτρο, ώστε το «Όλα» να δείχνει όντως όλα τα
+                    // στοιχεία του φακέλου (τα where είναι AND — ίδιο αποτέλεσμα).
+                    if (selectedFolderId != null) {
+                      tasks = tasks
+                          .where((td) => td.task.folderId == selectedFolderId)
+                          .toList();
+                    }
+
+                    final hasInScope = tasks.isNotEmpty;
                     final viewMode = ref.watch(listViewModeProvider);
                     switch (viewMode) {
                       case ListViewMode.pinned:
@@ -178,12 +188,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                         break;
                       case ListViewMode.all:
                         break;
-                    }
-
-                    if (selectedFolderId != null) {
-                      tasks = tasks
-                          .where((td) => td.task.folderId == selectedFolderId)
-                          .toList();
                     }
 
                     if (statusFilter != null) {
@@ -205,9 +209,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                       if (hasFilters) {
                         return EmptyState.search(query: '');
                       }
-                      return EmptyState.forType(
-                        ItemType.task,
-                        onAction: _createTask,
+                      return FilterAwareEmptyState(
+                        hasItems: hasInScope,
+                        fallback: EmptyState.forType(
+                          ItemType.task,
+                          onAction: _createTask,
+                        ),
                       );
                     }
 

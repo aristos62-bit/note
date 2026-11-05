@@ -89,6 +89,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
                         .toList();
                   }
 
+                  final hasInScope = contacts.isNotEmpty;
                   final viewMode = ref.watch(listViewModeProvider);
                   switch (viewMode) {
                     case ListViewMode.pinned:
@@ -107,7 +108,13 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
                   final contactProps = contactPropsAsync.valueOrNull ?? {};
 
                   if (contacts.isEmpty) {
-                    return EmptyState.forType(ItemType.contact, onAction: _createContact);
+                    return FilterAwareEmptyState(
+                      hasItems: hasInScope,
+                      fallback: EmptyState.forType(
+                        ItemType.contact,
+                        onAction: _createContact,
+                      ),
+                    );
                   }
 
                   return ResponsiveLayout(

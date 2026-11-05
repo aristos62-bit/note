@@ -232,6 +232,8 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                         'ItemListEmbedded day filter shown=${items.length}');
                   }
 
+                  final hasInScope = items.isNotEmpty;
+
                   switch (viewMode) {
                     case ListViewMode.pinned:
                       items = items.where((i) => i.pinned).toList();
@@ -268,12 +270,20 @@ class ItemListEmbeddedState extends ConsumerState<ItemListEmbedded> {
                   if (filtered.isEmpty) {
                     // Compact + scrollable: το panel κάτω από το grid
                     // έχει λίγο ύψος (overflow σε μικρές οθόνες).
+                    // Search/tags κερδίζουν: τότε δεν φταίει το φίλτρο.
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      child: EmptyState.forType(
-                        widget.itemType,
-                        onAction: null,
+                      child: FilterAwareEmptyState(
+                        hasItems: hasInScope &&
+                            searchQuery.isEmpty &&
+                            activeTags.isEmpty,
                         compact: true,
+                        showAction: false,
+                        fallback: EmptyState.forType(
+                          widget.itemType,
+                          onAction: null,
+                          compact: true,
+                        ),
                       ),
                     );
                   }

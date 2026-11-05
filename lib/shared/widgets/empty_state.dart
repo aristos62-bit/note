@@ -25,14 +25,21 @@
 //   )
 //
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
 import '../../models/item.dart';
+import '../../providers/ui_provider.dart';
+import 'view_mode_toggle.dart';
 
 class EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
   final String? actionLabel;
+
+  /// Εικονίδιο του action button (default «+» — δημιουργία νέου στοιχείου).
+  final IconData actionIcon;
+
   final VoidCallback? onAction;
 
   /// Αν true, εμφανίζεται πιο μικρό (για embedded χρήση μέσα σε panel)
@@ -44,6 +51,7 @@ class EmptyState extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.actionLabel,
+    this.actionIcon = Icons.add_rounded,
     this.onAction,
     this.compact = false,
   });
@@ -94,6 +102,27 @@ class EmptyState extends StatelessWidget {
       subtitle:    message ?? 'Παρουσιάστηκε σφάλμα κατά τη φόρτωση.',
       actionLabel: onRetry != null ? 'Δοκίμασε ξανά' : null,
       onAction:    onRetry,
+    );
+  }
+
+  // ── Factory για «άδεια λόγω φίλτρου» ──────────────────────────
+
+  /// Empty state όταν η λίστα άδειασε **μόνο** λόγω φίλτρου (pin/αγαπημένα)
+  /// ενώ υπάρχουν στοιχεία. Ένα κείμενο για όλες τις οθόνες (SPoT).
+  factory EmptyState.filtered({
+    required IconData icon,
+    required VoidCallback onShowAll,
+    bool compact = false,
+    bool showAction = true,
+  }) {
+    return EmptyState(
+      icon:        icon,
+      title:       _filteredTitle,
+      subtitle:    _filteredSubtitle,
+      actionLabel: showAction ? ListViewMode.all.label : null,
+      actionIcon:  Icons.done_all_rounded,
+      onAction:    showAction ? onShowAll : null,
+      compact:     compact,
     );
   }
 
@@ -161,7 +190,7 @@ class EmptyState extends StatelessWidget {
                           DebugConfig.print('EmptyState action: "$actionLabel"');
                           onAction!();
                         },
-                        icon: const Icon(Icons.add_rounded, size: 18),
+                        icon: Icon(actionIcon, size: 18),
                         label: Text(actionLabel!),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
@@ -347,3 +376,56 @@ const Map<ItemType, _EmptyData> _emptyStateData = {
     actionLabel: 'Νέα σημείωση γνώσης',
   ),
 };
+
+// ════════════════════════════════════════════════════════════════
+// FILTERED EMPTY STATE — κείμενα (SPoT) + filter-aware wrapper
+// ════════════════════════════════════════════════════════════════
+
+/// Ενιαίο μήνυμα όταν η λίστα άδειασε λόγω του καθολικού φίλτρου.
+const String _filteredTitle = 'Υπάρχουν φιλτραρισμένα στοιχεία';
+
+/// Το κουμπί λέγεται όπως το 3ο εικονίδιο της μπάρας («Όλα»).
+String get _filteredSubtitle =>
+    'Πάτησε «${ListViewMode.all.label}» για να δεις ολόκληρη τη λίστα.';
+
+/// Δείχνει το [fallback] (το σημερινό empty state της οθόνης) όταν η λίστα
+/// είναι πραγματικά άδεια ή όταν το φίλτρο είναι «Όλα». Αν άδειασε εξαιτίας
+/// pin/αγαπημένων ενώ υπάρχουν στοιχεία, δείχνει φίλτρο-ενημερωμένο μήνυμα
+/// με κουμπί «Όλα» (ίδια συμπεριφορά με το toggle, βλ. `ViewModeToggle.select`).
+class FilterAwareEmptyState extends ConsumerWidget {
+  /// Το empty state που θα έδειχνε η οθόνη χωρίς φίλτρο.
+  final Widget fallback;
+
+  /// Υπάρχουν στοιχεία στο scope της οθόνης (μετά φάκελο/τύπο/ημέρα)
+  /// **πριν** το καθολικό φίλτρο. Αν false → δεν φταίει το φίλτρο.
+  final bool hasItems;
+
+  final bool compact;
+
+  /// Σε πολύ μικρά panels (π.χ. ημέρα ημερολογίου) το κουμπί δεν χωράει —
+  /// το «Όλα» του toggle είναι ακριβώς από πάνω. Default: με κουμπί.
+  final bool showAction;
+
+  const FilterAwareEmptyState({
+    super.key,
+    required this.fallback,
+    required this.hasItems,
+    this.compact = false,
+    this.showAction = true,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(listViewModeProvider);
+    if (mode == ListViewMode.all || !hasItems) return fallback;
+
+    return EmptyState.filtered(
+      icon: mode == ListViewMode.pinned
+          ? Icons.push_pin_rounded
+          : Icons.star_rounded,
+      compact: compact,
+      showAction: showAction,
+      onShowAll: () => ViewModeToggle.select(context, ref, ListViewMode.all),
+    );
+  }
+}

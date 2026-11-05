@@ -4699,6 +4699,77 @@ if (!context.isShortScreen)
 
 **Κατάσταση:** ✅ και τα δύο fixes **CLOSED & DEVICE-VERIFIED 05/11/2026** · analyze clean · **510/510** · **1 νέο ανοιχτό** (E48, P2) → `error_list.md` **επαναδημιουργήθηκε** (κανόνας 6/9).
 
+---
+
+## Session 295 — 05/11/2026 (E48 CLOSED — filter-aware empty states)
+
+**Scope:** το καθολικό φίλτρο pin/αγαπημένα (`listViewModeProvider`) άδειαζε **8 λίστες + 1 folder view + 1 calendar panel** και τα empty states έλεγαν «Δεν υπάρχουν X» λες και χάθηκαν δεδομένα. Λύση **(γ)**: **ένα ενιαίο μήνυμα** όταν η λίστα άδειασε **μόνο** λόγω φίλτρου, με κουμπί «Όλα». **Καμία αλλαγή** σε state, DB, provider logic, routes.
+
+### Υλοποίηση (10 αρχεία κώδικα + 1 νέο test)
+
+| Αρχείο | Αλλαγή |
+|---|---|
+| `providers/ui_provider.dart` | extension `ListViewModeLabel` → `.label` («Καρφιτσωμένα/Αγαπημένα/Όλα») — SPoT, η 4η αντιγραφή των strings εξαλείφεται |
+| `shared/widgets/view_mode_toggle.dart` | `_select` → **`static select`** (ίδιο snackbar, ένα σημείο αλήθειας)· tooltips από `.label` |
+| `shared/widgets/empty_state.dart` | `actionIcon` (default `Icons.add_rounded` — ήταν hardcoded στο `:164`)· `EmptyState.filtered(icon, onShowAll, compact, showAction)`· `FilterAwareEmptyState(fallback, hasItems, compact, showAction)`· `_filteredTitle/_filteredSubtitle` (SPoT) |
+| `shared/widgets/item_list_screen.dart` | Σημειώσεις + Ραντεβού (1 σημείο, 2 οθόνες) |
+| `features/tasks/task_list_screen.dart` | φάκελος **πριν** το switch· status/priority (`hasFilters`) κερδίζουν |
+| `features/habits/habit_list_screen.dart` | pin/αγαπημένα |
+| `features/contacts/contact_list_screen.dart` | pin/αγαπημένα |
+| `features/journal/journal_list_screen.dart` | pin/αγαπημένα |
+| `features/collections/collections_screen.dart` | custom «Δεν έχεις συλλογές» → fallback |
+| `features/collections/collection_entries_screen.dart` | search/tags κερδίζουν |
+| `shared/widgets/item_list_embedded.dart` | calendar panel: `compact + showAction: false` (το κουμπί δεν χωράει — το «Όλα» toggle είναι από πάνω) |
+| `features/home/home_folder_view.dart` | `_buildEmptyState(context, allItems)`· «Όλα» = `FolderBrowserScreen` (όπως το toggle) |
+| `features/home/home_screen.dart` | 3ο κουμπί «Όλα» → **«Και τα δύο»** (`ViewMode.both` ≠ όλα τα στοιχεία) |
+| `test/filter_aware_empty_state_test.dart` | **νέο**, 6 tests: all→fallback · pinned+0→fallback · pinned+hasItems→μήνυμα+κουμπί · favorites→⭐ · showAction:false→χωρίς κουμπί · tap «Όλα»→all+fallback |
+
+### Κανόνες που κωδικοποιήθηκαν
+
+- `hasItems` = στοιχεία **μετά** φάκελο/τύπο/ημέρα, **πριν** το καθολικό φίλτρο → το «Όλα» δεν είναι ψέμα.
+- Άλλα φίλτρα (status/priority, search/tags) **κερδίζουν** — το μήνυμα εμφανίζεται μόνο όταν το **μοναδικό** ενεργό φίλτρο είναι το καθολικό.
+- Αρχική **εξαιρείται**· λίστα φακέλου **συμπεριλαμβάνεται** (Βήμα 4).
+- `EmptyState.filtered` / `FilterAwareEmptyState` κρατούν το `fallback` byte-identical όταν `mode = all` ή `!hasItems`.
+
+### Έλεγχοι
+
+`flutter analyze` → **No issues found** (×3) · `flutter test` → **516/516** (510 + 6 νέα).
+`empty_state.dart` **431** γρ. (<500) · `lib/` **45.972** γρ. / **174** αρχεία (+166) · αρχεία >500: **21** (αμετάβλητο).
+
+### Device pass (POCO X3 `9593c01e`, debug APK in-place `adb install -r`, 0 διαγραφές)
+
+| Σενάριο | Αποτέλεσμα |
+|---|---|
+| Επαφές (11, pin) | «Υπάρχουν φιλτραρισμένα στοιχεία» + «Πάτησε «Όλα»…» + κουμπί «✓ Όλα» 📌 — `e48_contacts_pin` |
+| «Όλα» από το empty state | 11 επαφές επέστρεψαν + snackbar (ίδια συμπεριφορά με toggle) — `e48_contacts_all` |
+| Συλλογές (pin· 0 pinned by design) | μήνυμα 📌 — `e48_collections_pin` |
+| Εργασίες (10, pin) | μήνυμα 📌 — `e48_tasks_pin2` |
+| Συνήθειες (pin) | μήνυμα 📌 — `e48_habits` |
+| Σημειώσεις (7, αστέρι) | μήνυμα **⭐** (εικονίδιο ανά φίλτρο) — `e48_notes_star` |
+| Ημερολόγιο (1, pin) | μήνυμα 📌 — `e48_journal_pin` |
+| Ραντεβού (2, pin) | μήνυμα 📌 (2η οθόνη του κοινού `ItemListScreen`) — `e48_appointments_pin` |
+| E39 εγγραφές (2, pin) | μήνυμα 📌 (custom empty state) — `e48_e39_pin` |
+| Ημερολόγιο ημέρας (compact panel) | μήνυμα **χωρίς κουμπί** + «Όλα» toggle — `e48_calendar_final` / restore `e48_calendar_restore` |
+| Λίστα φακέλου: pin | 3 καρφιτσωμένα — **κανένα ψευδο-μήνυμα** — `e48_folder_pin2` |
+| Λίστα φακέλου: «Όλα» | `FolderBrowserScreen` «Γενικά — Όλα τα Στοιχεία» — `e48_folder_all` |
+| Αρχική: long-press 3ου κουμπιού | tooltip **«Και τα δύο»** — `e48_home_tooltip2` |
+
+*Μη εκτελέσιμο με τα υπάρχοντα δεδομένα:* empty state **λίστας φακέλου** (ο φάκελος «Γενικά» έχει pinned+favorite στοιχεία) — καλύπτεται από unit tests· **κανένα** δεδομένο δεν δημιουργήθηκε μέσω adb (κανόνας 12).
+
+### Backups
+
+`backups/e48_filtered_empty_20261105_180802/` — 13 `.pre` (όλα τα αρχεία κώδικα) + `oldsessions.md` + `error_list.md` + `BASE_HEAD.txt`.
+
+**Κατάσταση:** ✅ **E48 CLOSED & DEVICE-VERIFIED 05/11/2026** · analyze clean · **516/516** · `error_list.md` **αρχειοθετήθηκε** (`backups/e48_filtered_empty_20261105_180802/error_list.md.final`) → **0 ανοιχτά**.
+
+**Μαθήματα:**
+
+- **Το «Όλα» δεν σημαίνει παντού το ίδιο:** 3 έννοιες (`ListViewMode.all`, `FolderViewMode.all` που *πλοηγεί* σε άλλη οθόνη, `ViewMode.both`) — η μετονομασία σε «Και τα δύο» εξάλειψε την παγίδα.
+- **Το μέτρημα πριν/μετά το φίλτρο είναι η ουσία:** `hasItems` μετά φάκελο/τύπο/ημέρα → αλλιώς το κουμπί «Όλα» θα υποσχόταν στοιχεία που δεν θα έδειχνε.
+- **Ένα widget-απόφαση αντί 9 αντιγραφών:** `FilterAwareEmptyState` κρατά την παλιά συμπεριφορά byte-identical στις άλλες περιπτώσεις — γι' αυτό το ρίσκο ήταν ≈ 0.
+- **Το hardcoded icon αποκαλύφθηκε από τη χρήση:** το `Icons.add_rounded` ήταν αόρατο όσο το κουμπί ήταν πάντα «νέο στοιχείο».
+
+
 
 
 

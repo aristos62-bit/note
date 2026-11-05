@@ -692,6 +692,7 @@ itemTypeCardColorOverrideProvider → Provider.family<Color?, ItemType>
 ```
 selectedFolderIdProvider → StateProvider<int?>               // null = «Όλοι» (καθολικό)
 listViewModeProvider → StateProvider<ListViewMode>           // pinned / favorites / all
+ListViewMode.label (extension ListViewModeLabel)            // «Καρφιτσωμένα» / «Αγαπημένα» / «Όλα» — SPoT για tooltips + κουμπιά
 isDraggingProvider → StateProvider<bool>                     // blocks back gesture during drag
 ```
 
@@ -862,7 +863,10 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - `EmptyState.forType(ItemType, onAction)` — auto icon + message per type
 - `EmptyState.search(query)` — search-specific
 - `EmptyState.error(message, onRetry)` — error state with retry
-- Compact mode for embedded use
+- `EmptyState.filtered(icon, onShowAll, compact, showAction)` — **filter-aware** (E48): «Υπάρχουν φιλτραρισμένα στοιχεία» + «Πάτησε «Όλα»…» + κουμπί «Όλα» (ίδιο `ViewModeToggle.select`, ίδιο snackbar)
+- `FilterAwareEmptyState(fallback, hasItems, compact, showAction)` — δείχνει το filtered state **μόνο** όταν το μοναδικό ενεργό φίλτρο είναι το καθολικό (`listViewModeProvider != all` **και** `hasItems`); αλλιώς το `fallback` byte-identical
+- `actionIcon` (default `Icons.add_rounded`) — το κουμπί δεν είναι πάντα «νέο στοιχείο»
+- Compact mode for embedded use (`showAction: false` σε πολύ μικρά panels — το «Όλα» του toggle είναι από πάνω)
 
 ### ArchiveHelper
 - Central function for archive/unarchive with consistent UX
