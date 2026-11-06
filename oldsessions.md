@@ -4769,6 +4769,30 @@ if (!context.isShortScreen)
 - **Ένα widget-απόφαση αντί 9 αντιγραφών:** `FilterAwareEmptyState` κρατά την παλιά συμπεριφορά byte-identical στις άλλες περιπτώσεις — γι' αυτό το ρίσκο ήταν ≈ 0.
 - **Το hardcoded icon αποκαλύφθηκε από τη χρήση:** το `Icons.add_rounded` ήταν αόρατο όσο το κουμπί ήταν πάντα «νέο στοιχείο».
 
+## Session 296 — 06/11/2026 (Share intent: επιλογή φακέλου — E38 parity)
+
+**Πρόβλημα:** κοινή χρήση από άλλη εφαρμογή → το sheet έδινε μόνο Σημείωση/Συμβάν· ο φάκελος επιλεγόταν σιωπηλά (`_resolveFolder` → system «Γενικά»), ανεξάρτητα από το πλήθος φακέλων. Το S272/E38 αφαίρεσε το `preferred` branch του share **αλλά δεν το αντικατέστησε** → η ροή έμεινε η μόνη δημιουργία item εκτός E38.
+
+**Τι άλλαξε (2 αρχεία κώδικα):**
+1. `services/shared_intent_service.dart` — `_resolveFolder(..., {int? preferred})` με early return· `saveAsNote`/`saveAsEvent` δέχονται `int? folderId`· local rename `folderId` → `resolvedFolderId` (η παράμετρος με ίδιο όνομα = compile error)· ενημερώθηκε το σχόλιο E38.
+2. `shared/widgets/shared_intent_sheet.dart` — `_save()`: `resolveFolderForNewItem(context, ref)` **μέσα** στο `try` (έτσι το `finally` καθαρίζει πάντα το `_saving`)· ακύρωση ⇒ το sheet μένει ανοιχτό· import `folder_picker_dialog.dart`· διόρθωση stale σχόλιου (cold ≠ auto-draft).
+
+**Γιατί έτσι:** reuse `resolveFolderForNewItem` (8 call sites, 3 tests) + `showFolderPickerDialog` — κανένα νέο widget, state, schema ή dependency. Απορρίφθηκαν τεκμηριωμένα: `preferredFolderId` (αντίθετο στην απόφαση E38), γραμμή φακέλου μέσα στο sheet (νέο UI pattern), υποφάκελοι (περιορισμός όλης της εφαρμογής, όχι του share), `FolderChipSelector` (περιέχει drag-reorder + long-press menu).
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** · `flutter test -j 1` → **516/516** (1:35) · στοχευμένα `folder_picker_resolve_test` + `shared_intent_mapper_test` → **17/17**.
+
+**Backups:** `backups/share_folder_20261106_222421/` — 2 αρχεία + `BASE_HEAD.txt`.
+
+**Μαθήματα:**
+- Η επιλογή φακέλου είναι **μία** σε όλη την εφαρμογή (E38)· το share ήταν η μόνη εξαίρεση.
+- `int? folderId` ως παράμετρος + `final folderId` local = **compile error** (`referenced_before_declaration`) — επιβεβαιώθηκε με `dart analyze` probe πριν το edit.
+- Early return **πριν** το `try` αφήνει το `_saving` stuck ⇒ κουμπί «Αποθήκευση» μόνιμα disabled· γι' αυτό το resolve μπαίνει μέσα στο `try`.
+- Καμία αλλαγή σε Isar/manifest/deps· ο system φάκελος «Γενικά» δεν διαγράφεται ⇒ ποτέ μηδέν φάκελοι ⇒ κανένα regression στο παλιό fallback.
+
+**Device:** δεν έγινε σε αυτό το session· προτείνεται σε επόμενη συσκευή-pass (2 φάκελοι: «Γενικά» + «Δοκιμή», share από «Όλοι» και από φάκελο, + ακύρωση).
+
+**Docs:** `supernote.md` — sync των bullets του `SharedIntentService` (φάκελος μέσω `resolveFolderForNewItem`).
+
 
 
 

@@ -571,8 +571,8 @@ final db = SuperNoteHelper.instance;
 
 ### SharedIntentService (`lib/services/shared_intent_service.dart`)
 - Singleton (S59) — stream `incoming` (warm+cold)· dedup 2s (`isDuplicate`)· `reset` μετά το initial
-- `saveAsNote()` / `saveAsEvent()` → `SharedSaveResult` — `onSaved` callback (αποφυγή κύκλου imports με providers)
-- UI: `SharedIntentListener` (queue ενώ locked → dequeue στο unlock) + `_ShareSheet` dialog (`ItemTypePicker[note,event]` + `showReminderPicker` reuse)
+- `saveAsNote()` / `saveAsEvent()` → `SharedSaveResult` — `onSaved` callback (αποφυγή κύκλου imports με providers)· δέχονται `int? folderId` (S296)
+- UI: `SharedIntentListener` (queue ενώ locked → dequeue στο unlock) + `_ShareSheet` dialog (`ItemTypePicker[note,event]` + `showReminderPicker` reuse) — **φάκελος:** `resolveFolderForNewItem` πριν το save (E38 parity· ακύρωση ⇒ sheet ανοιχτό· S296)
 - Κανόνας: share δημιουργεί **Items** (note: text block + attachments + 📎· event: `start/end/all_day/notes`) — **ΠΟΤΕ Reminder rows**· υπενθυμίσεις μόνο από καμπάνα
 - Android: 7 `SEND`/`SEND_MULTIPLE` filters· `singleTask` launchMode (ποτέ νέο instance ανά intent· χωρίς κενό `taskAffinity`)· χωρίς νέα runtime permissions (temp cache paths)
 - Deps: `receive_sharing_intent` (inbound)· `share_plus` μένει **outbound-only**
