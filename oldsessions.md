@@ -4781,15 +4781,21 @@ if (!context.isShortScreen)
 
 **Έλεγχοι:** `flutter analyze` → **No issues found** · `flutter test -j 1` → **516/516** (1:35) · στοχευμένα `folder_picker_resolve_test` + `shared_intent_mapper_test` → **17/17**.
 
-**Backups:** `backups/share_folder_20261106_222421/` — 2 αρχεία + `BASE_HEAD.txt`.
+**Backups:** `backups/share_folder_20261106_222421/` — 2 αρχεία + `BASE_HEAD.txt`· `backups/device_verify_s296_20261106_224300/` — `oldsessions.md` + `BASE_HEAD.txt` (πριν την εγγραφή του device pass).
 
 **Μαθήματα:**
 - Η επιλογή φακέλου είναι **μία** σε όλη την εφαρμογή (E38)· το share ήταν η μόνη εξαίρεση.
 - `int? folderId` ως παράμετρος + `final folderId` local = **compile error** (`referenced_before_declaration`) — επιβεβαιώθηκε με `dart analyze` probe πριν το edit.
 - Early return **πριν** το `try` αφήνει το `_saving` stuck ⇒ κουμπί «Αποθήκευση» μόνιμα disabled· γι' αυτό το resolve μπαίνει μέσα στο `try`.
 - Καμία αλλαγή σε Isar/manifest/deps· ο system φάκελος «Γενικά» δεν διαγράφεται ⇒ ποτέ μηδέν φάκελοι ⇒ κανένα regression στο παλιό fallback.
+- `DebugConfig._debug = false` σβήνει **όλους** τους logs ακόμη και σε debug build (μόνο `error`/`warning` βγαίνουν) ⇒ για device έλεγχο ροής χρειάζεται προσωρινό `true` + rebuild· αλλιώς η επιτυχία συνάγεται μόνο από timestamps αρχείων/DB.
 
-**Device:** δεν έγινε σε αυτό το session· προτείνεται σε επόμενη συσκευή-pass (2 φάκελοι: «Γενικά» + «Δοκιμή», share από «Όλοι» και από φάκελο, + ακύρωση).
+**Device — VERIFIED (06/11/2026 22:39, build `c0eb270`, pid 8270, Xiaomi M2007J20CG):** warm share από MIUI Gallery (`type=image/*`). Αλυσίδα από το logcat:
+`START u0 {act=SEND typ=image/*}` 22:39:20.144 → `SharedIntent warm n=1` → `showSafeSheet` → `ItemTypePicker selected: note` → `selected: event` → `Router didPush` 25.667 / `didPop` 27.498 (**folder picker**, 1.8s) → `saveFile: stored … size=91761` → `SharedIntent saved event id=509 start=2026-11-06 09:00 attachments=1 skipped=0` → `SharedIntent saved → /calendar/509`.
+Επαληθεύσεις: νέο `attachments/1793997567625_Screenshot_…jpg` = 91.761 bytes (= `size=91761`)· **0** `❌`/exception/`showFolderPickerDialog: timeout`· `folders count=2` (`id=2` «Γενικά», `id=3` «Δοκιμή»).
+**Περιορισμός απόδειξης:** το επιλεγμένο `folderId` δεν τυπώνεται (ούτε `_resolveFolder` ούτε ο picker κάνουν log το id)· η μη-ακύρωση συνάγεται από το ίδιο το `saved` (ακύρωση ⇒ `folderId == null` ⇒ early return στο `_save()` ⇒ κανένα save).
+**Δεν δοκιμάστηκαν (προαιρετικά):** share ενώ είναι ενεργός φάκελος (μη-«Όλοι») και ακύρωση του picker.
+**Logs:** ο έλεγχος απαίτησε προσωρινό `DebugConfig._debug = true` (`debug_config.dart:26`) — επαναφέρθηκε σε `false` μετά, χωρίς καμία άλλη αλλαγή συμπεριφοράς.
 
 **Docs:** `supernote.md` — sync των bullets του `SharedIntentService` (φάκελος μέσω `resolveFolderForNewItem`).
 
