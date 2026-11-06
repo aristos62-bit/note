@@ -1,8 +1,8 @@
 // lib/shared/widgets/shared_intent_sheet.dart
 //
-// Dialog ροής κοινοποίησης: επιλογή Σημείωση/Συμβάν (+ ημερομηνία)
-// + αποθήκευση μέσω SharedIntentService. Warm shares → sheet,
-// κλειδωμένο → ουρά μέχρι unlock, cold → auto-draft (χωρίς context).
+// Dialog ροής κοινοποίησης: επιλογή Σημείωση/Συμβάν (+ ημερομηνία) + φάκελος
+// + αποθήκευση μέσω SharedIntentService. Warm + cold shares → sheet,
+// κλειδωμένο → ουρά μέχρι unlock.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/shared_intent_service.dart';
+import 'folder_picker_dialog.dart';
 import 'item_type_icon.dart';
 import 'safe_sheet.dart';
 
@@ -145,17 +146,24 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
+      // E38: ίδιος κανόνας με τις 7 λίστες + Ημερολόγιο. Μέσα στο try ώστε
+      // το finally να καθαρίζει πάντα το _saving (ακύρωση → sheet μένει).
+      final folderId = await resolveFolderForNewItem(context, ref);
+      if (folderId == null || !mounted) return;
+
       final svc = SharedIntentService.instance;
       final SharedSaveResult res;
       if (_target == ItemType.event) {
         res = await svc.saveAsEvent(
           files: widget.files,
+          folderId: folderId,
           start: _eventStart,
           onSaved: () => ref.invalidate(itemNotifierProvider),
         );
       } else {
         res = await svc.saveAsNote(
           files: widget.files,
+          folderId: folderId,
           onSaved: () => ref.invalidate(itemNotifierProvider),
         );
       }

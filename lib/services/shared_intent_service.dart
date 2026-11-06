@@ -215,8 +215,11 @@ class SharedIntentService {
   /// system "Γενικά" → πρώτο root → null.
   ///
   /// S272 (E38): δεν λαμβάνεται πλέον υπόψη `preferredFolderId` — η εφαρμογή
-  /// ξεκινά σε «Όλοι» και το share intent χρειάζεται πάντα συγκεκριμένο φάκελο.
-  Future<int?> _resolveFolder(SuperNoteHelper helper, int wsId) async {
+  /// ξεκινά σε «Όλοι». Ο φάκελος δίνεται πλέον ρητά από το UI (`preferred`,
+  /// μέσω `resolveFolderForNewItem`)· το fallback μένει για ασφάλεια.
+  Future<int?> _resolveFolder(SuperNoteHelper helper, int wsId,
+      {int? preferred}) async {
+    if (preferred != null) return preferred;
     try {
       final folders = await helper.folders.getByWorkspace(wsId);
       if (folders.isEmpty) return null;
@@ -274,6 +277,7 @@ class SharedIntentService {
 
   Future<SharedSaveResult> saveAsNote({
     required List<SharedMediaFile> files,
+    int? folderId,
     void Function()? onSaved,
   }) async {
     try {
@@ -290,7 +294,8 @@ class SharedIntentService {
         return const SharedSaveResult(
             target: SharedTarget.note, error: 'Δεν βρέθηκε workspace');
       }
-      final folderId = await _resolveFolder(helper, wsId);
+      final resolvedFolderId =
+          await _resolveFolder(helper, wsId, preferred: folderId);
       final title =
           shareTitle(text: text, filePaths: media.map((f) => f.path).toList());
 
@@ -303,7 +308,7 @@ class SharedIntentService {
         type: ItemType.note,
         workspaceId: wsId,
         title: title,
-        folderId: folderId,
+        folderId: resolvedFolderId,
       );
 
       // Αρχεία → attachments/ (copy, sanitize, dedup — από το service).
@@ -361,6 +366,7 @@ class SharedIntentService {
 
   Future<SharedSaveResult> saveAsEvent({
     required List<SharedMediaFile> files,
+    int? folderId,
     required DateTime start,
     void Function()? onSaved,
   }) async {
@@ -378,7 +384,8 @@ class SharedIntentService {
         return const SharedSaveResult(
             target: SharedTarget.event, error: 'Δεν βρέθηκε workspace');
       }
-      final folderId = await _resolveFolder(helper, wsId);
+      final resolvedFolderId =
+          await _resolveFolder(helper, wsId, preferred: folderId);
       final title =
           shareTitle(text: text, filePaths: media.map((f) => f.path).toList());
 
@@ -395,7 +402,7 @@ class SharedIntentService {
         type: ItemType.event,
         workspaceId: wsId,
         title: title,
-        folderId: folderId,
+        folderId: resolvedFolderId,
       );
       await helper.properties.setDate(item.id, 'start_time', norm);
       await helper.properties.setDate(item.id, 'end_time', end);
