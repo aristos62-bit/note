@@ -73,6 +73,9 @@ class SuperNoteHelper {
 
     final dir = directory ?? (await getApplicationDocumentsDirectory()).path;
 
+    // S-18: SPoT του επιτρεπτού root για attachment paths (fail-closed).
+    AttachmentPathGuard.configure(documentsDir: dir);
+
     Isar? openedIsar;
     try {
       final isar = await Isar.open(
@@ -550,7 +553,13 @@ class ItemRepository {
               'hardDeleteMany: keep shared file (refs=$refs) "${att.fileName}"');
           continue;
         }
-        final file = File(att.localPath);
+        final safePath = AttachmentPathGuard.resolve(att.localPath);
+        if (safePath == null) {
+          DebugConfig.warning(
+              'hardDeleteMany: file outside attachments root — skipped (id=${att.id})');
+          continue;
+        }
+        final file = File(safePath);
         if (await file.exists()) {
           await file.delete();
           DebugConfig.db(

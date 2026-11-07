@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_note/core/core.dart';
 import 'package:super_note/models/attachment.dart';
 import 'package:super_note/models/item.dart';
 import 'package:super_note/services/share/share_content_builder.dart';
@@ -137,11 +138,18 @@ void main() {
 
     test('υπαρκτό συνημμένο → files + 📎 στο textAndFiles', () {
       final dir = Directory.systemTemp.createTempSync('sn_share_build_');
+      // S-18: το fixture πρέπει να ζει μέσα στο επιτρεπτό root.
+      AttachmentPathGuard.configure(documentsDir: dir.path);
       addTearDown(() {
+        AttachmentPathGuard.reset();
         if (dir.existsSync()) dir.deleteSync(recursive: true);
       });
 
-      final path = '${dir.path}${Platform.pathSeparator}έκθεση.pdf';
+      final attachmentsDir =
+          Directory('${dir.path}${Platform.pathSeparator}attachments')
+            ..createSync(recursive: true);
+      final path =
+          '${attachmentsDir.path}${Platform.pathSeparator}έκθεση.pdf';
       File(path).writeAsBytesSync([1, 2, 3, 4]);
 
       final att = Attachment()

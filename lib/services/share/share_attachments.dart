@@ -44,7 +44,13 @@ class ShareAttachments {
         continue;
       }
 
-      final path = attachment.localPath;
+      final path = AttachmentPathGuard.resolve(attachment.localPath);
+      if (path == null) {
+        skipped++;
+        DebugConfig.warning(
+            'ShareAttachments: outside attachments root id=${attachment.id}');
+        continue;
+      }
       if (!_exists(path)) {
         skipped++;
         DebugConfig.warning(

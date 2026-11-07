@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/attachment.dart';
 import '../core/utils/app_errors.dart';
+import '../core/utils/attachment_path_guard.dart';
 import '../core/utils/debug_config.dart';
 import '../core/utils/string_utils.dart';
 
@@ -16,7 +17,8 @@ class AttachmentService {
   static final AttachmentService instance = AttachmentService._internal();
 
   /// Υποφάκελος attachments μέσα στο app documents (κοινό const για backup).
-  static const String attachmentsDirName = 'attachments';
+  /// SPoT του ονόματος: `AttachmentPathGuard.dirName` (S-18).
+  static const String attachmentsDirName = AttachmentPathGuard.dirName;
 
   Future<Attachment?> pickAndSave({
     required int itemId,
@@ -152,7 +154,13 @@ class AttachmentService {
               '[AttachmentService] keep shared file (refs=$refs) id=$attachmentId');
           return;
         }
-        final file = File(attachment.localPath);
+        final safePath = AttachmentPathGuard.resolve(attachment.localPath);
+        if (safePath == null) {
+          DebugConfig.warning(
+              '[AttachmentService] file outside attachments root — skipped (id=$attachmentId)');
+          return;
+        }
+        final file = File(safePath);
         if (await file.exists()) await file.delete();
       } catch (e, stack) {
         DebugConfig.error(
