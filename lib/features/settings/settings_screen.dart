@@ -19,10 +19,10 @@ import '../../shared/widgets/widgets.dart';
 import '../trash/trash_screen.dart';
 import 'reminder_diagnostics_screen.dart';
 import 'settings_archived_dialog.dart';
+import 'settings_app_lock_section.dart';
 import 'settings_backup.dart';
 import 'settings_colors.dart';
 import 'settings_contacts_flow.dart';
-import 'settings_pin_dialogs.dart';
 import 'settings_reminders_dialog.dart';
 import 'settings_tiles.dart';
 
@@ -224,103 +224,15 @@ class _SystemGroupState extends State<_SystemGroup> {
             }),
           ),
           const SizedBox(height: Spacing.sm),
-          // ── App Lock ───────────────────────────────────────
-          _buildCard(
-            SettingsSwitchTile(
-              label: 'Κλείδωμα εφαρμογής',
-              subtitle: 'PIN ή βιομετρικό ξεκλείδωμα',
-              value: widget.settings.appLockEnabled,
-              onChanged: (v) async {
-                if (v && widget.settings.appLockPinHash == null) {
-                  final pin = await showSetPinDialog(context, widget.ref);
-                  if (pin == null) return;
-                  await widget.ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateSettings((s) {
-                    s.appLockEnabled = true;
-                    s.appLockPinHash = AppLockService.instance.hashPin(pin);
-                    s.appLockPinLength = pin.length;
-                  });
-                } else {
-                  await widget.ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateSettings((s) {
-                    s.appLockEnabled = v;
-                  });
-                }
-                await SecurityService.setSecure(v);
-                if (v && mounted) {
-                  AppLockService.instance.lock();
-                  widget.ref.read(appLockStateProvider.notifier).state = true;
-                }
-              },
-            ),
-          ),
-          if (widget.settings.appLockEnabled) ...[
-            const SizedBox(height: Spacing.sm),
-            _buildCard(
-              SettingsActionTile(
-                label: widget.settings.appLockPinHash != null ? 'Αλλαγή PIN' : 'Ορισμός PIN',
-                subtitle: '4-6ψήφιο PIN ασφαλείας',
-                icon: Icons.pin_rounded,
-                onTap: () async {
-                  if (widget.settings.appLockPinHash != null) {
-                    final ok = await showCurrentPinDialog(context, widget.ref);
-                    if (!ok || !context.mounted) return;
-                  }
-                  if (!context.mounted) return;
-                  final pin = await showSetPinDialog(context, widget.ref);
-                  if (pin != null) {
-                    widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
-                      s.appLockPinHash = AppLockService.instance.hashPin(pin);
-                      s.appLockPinLength = pin.length;
-                    });
-                  }
-                },
-              ),
-            ),
-            const SizedBox(height: Spacing.sm),
-            _buildCard(
-              SettingsSwitchTile(
-                label: 'Βιομετρικό ξεκλείδωμα',
-                subtitle: 'Αποτύπωμα / Face ID',
-                value: widget.settings.biometricEnabled,
-                onChanged: (v) async {
-                  if (v) {
-                    final ok = await AppLockService.instance.authenticate();
-                    if (!ok) return;
-                  }
-                  widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
-                    s.biometricEnabled = v;
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: Spacing.sm),
-            _buildCard(
-              SettingsLockTimeoutTile(
-                current: widget.settings.appLockTimeoutSeconds,
-                ref: widget.ref,
-              ),
-            ),
-          ],
+          // ── App Lock (S-24: ατομικό toggle, βλ. settings_app_lock_section) ──
+          SettingsAppLockSection(settings: widget.settings),
 
         ],
       ),
     );
   }
 
-  Widget _buildCard(Widget child) {
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBR, // ✅ απευθείας
-        side: BorderSide(color: ColorsUI.getBorder(context.brightness).withValues(alpha:0.3)),
-      ),
-      child: child,
-    );
-  }
+  Widget _buildCard(Widget child) => SettingsCard(child: child);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -427,17 +339,7 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
     );
   }
 
-  Widget _buildCard(Widget child) {
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBR,
-        side: BorderSide(color: ColorsUI.getBorder(context.brightness).withValues(alpha:0.3)),
-      ),
-      child: child,
-    );
-  }
+  Widget _buildCard(Widget child) => SettingsCard(child: child);
 }
 
 void navigateToTrash(BuildContext context) {

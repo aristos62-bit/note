@@ -4946,11 +4946,42 @@ if (!context.isShortScreen)
 - **Setup 4b** (`enabled && pinHash == null`): καλύπτεται από unit/widget tests — δεν δοκιμάστηκε σε device (θα απαιτούσε σκόπιμα σπασμένο state).
 - **Smoke με disabled lock** (πριν το lock pass): gate `ready`, `setSecure=false` + skip, **χωρίς** SECURE flag.
 
+---
 
+## Session 301 — 07/11/2026 (security v2 · S-24: ατομικό toggle lock)
 
+**Πρόβλημα:** Το toggle «Κλείδωμα εφαρμογής» (`settings_screen.dart:233-306`) εκτελούσε `SecurityService.setSecure(v)` + `AppLockService.lock()`/`appLockStateProvider` **ανεξάρτητα** από την έκβαση του write. Το `SettingsNotifier.updateSettings` κατέπινε το σφάλμα (`catch` → log) — άρα σε αποτυχία write η εφαρμογή κλειδωνόταν/ξεκλειδωνόταν **χωρίς** να έχει αποθηκευτεί η ρύθμιση (και το αντίστροφο στο επόμενο launch). Επιπλέον το χρονικό όριο (`SettingsLockTimeoutTile`) έδειχνε τη νέα τιμή ακόμη κι αν το write αποτύχει.
 
+**Λύση (11 αρχεία: 10 edits + 1 νέο + 1 test):**
+1. **`super_note_helper.dart`** — `SettingsRepository.update` → **atomic read-modify-write μέσα στο `writeTxn`** (`get(1) ?? AppSettings()` εκεί μέσα) και επιστρέφει το **committed** `AppSettings`. Κλείνει και lost update με το auto-backup (`backup_service.dart:490`, `lastAutoBackupAt`).
+2. **`settings_provider.dart`** — `updateSettings` → `Future<AppSettings?>`: write σε try, `null` σε αποτυχία, `invalidateSelf` **μόνο** σε επιτυχία και σε ξεχωριστό try (σφάλμα refresh ≠ σφάλμα write). Αφαιρέθηκε ο αμετάβλητος `settingsProvider`· νέο test seam `appLockSettingsWriterProvider` (`AppLockSettingsWriter`).
+3. **`app_lock_provider.dart`** — `LockGateController.applySettings(AppSettings)`: `_generation++` (ακυρώνει in-flight resolve) + `_apply(settings, pausedAt: null, wasLocked:)` → lock/unlock + `setSecure` από το **committed** snapshot, χωρίς 2η ανάγνωση DB και χωρίς ενδιάμεσο `resolving`.
+4. **`settings_app_lock_section.dart` (νέο)** — toggle/PIN/biometric/timeout με `_busy` guard (serialize), maintenance pre-check (`BackupService.instance.isMaintenanceActive` → `AppErrors.backupBusy`), PIN setup dialog στο πρώτο enable (ακύρωση = καμία αλλαγή), και security effects **μόνο** μετά επιτυχές write. Αποτυχία ⇒ `AppErrors.settingsSaveFailed` snackbar.
+5. **`settings_tiles.dart`** — νέο public `SettingsCard` (ένα styling σημείο)· `SettingsSwitchTile.busy` (switch ορατό/σωστή τιμή αλλά μη διαδραστικό — όχι `enabled:false` που δείχνει OFF)· `SettingsLockTimeoutTile` → **controlled** `DropdownButton` (καμία optimistic τιμή· αποτυχία ⇒ snackbar + παλιά τιμή).
+6. **`settings_screen.dart`** — το app-lock block (γρ. 227-306) αντικαταστάθηκε από `SettingsAppLockSection(settings: widget.settings)`· και τα δύο `_buildCard` delegate στο `SettingsCard` (κανένα αλλαγμένο call site)· αφαίρεση πλέον άχρηστων imports.
+7. **`settings_pin_dialogs.dart`** — `showCurrentPinDialog` διαβάζει `settingsNotifierProvider.future` (αντί του διαγραμμένου `settingsProvider.future`).
+8. **`lock_gate_screen.dart`** — αφαιρέθηκε το `ref.invalidate(settingsProvider)` (stale, δεν υπάρχει πια).
+9. **`app_errors.dart`** — `settingsSaveFailed = 'Δεν αποθηκεύτηκε η ρύθμιση. Δοκιμάστε ξανά.'` (η αλλαγή PIN reuse-άρει το `lockGatePinSetupFailed`).
+10. **`test/settings_app_lock_section_test.dart` (νέο)** — 7 tests.
 
+**Αποφάσεις (εγκεκριμένες Δ1/Δ2):**
+- **Δ1:** `updateSettings` επιστρέφει `Future<AppSettings?>` (committed snapshot ή `null`) ώστε το gate να μην ξαναδιαβάζει DB. Type-safety επιβεβαιώθηκε με `dart analyze` probes: `Future<AppSettings?>` αναθέτεται σε `Future<void>` — κανένας από τους 24 υπάρχοντες callers δεν αλλάζει.
+- **Δ2:** `applySettings` αντί `resolveAfterSetup()` στη ροή toggle: το `resolveAfterSetup` θα ξαναδιάβαζε DB και θα περνούσε από `resolving` (ορατό opaque overlay πάνω στις Ρυθμίσεις) — ακόμη και failure screen μετά από επιτυχές disable.
+- **Δ3:** χρονικό όριο = controlled dropdown (η τιμή έρχεται από τα committed settings).
+- **Εκτός scope (καταγράφηκε):** try/catch για αποτυχία `.future` στο `showCurrentPinDialog`· απευθείας repository write στο `lock_gate_screen` setup.
 
+**Τεχνική επαλήθευση πριν την υλοποίηση:** Flutter 3.47.8 / Dart 3.13.7 · isar 3.1.0+1 (read `get()` μέσα σε async `writeTxn` — επίσημο example + `reorderPinned` precedent) · riverpod 2.6.1 (`invalidateSelf` χωρίς post-dispose throw· **δεν** υπάρχει `Ref.mounted`).
 
+**Tests:** νέο `settings_app_lock_section_test.dart` (7/7): enable με PIN setup → write+lock · ακύρωση dialog → κανένα write · enable αποτυχία → snackbar χωρίς security effect · disable → write+unlock · disable αποτυχία → παραμένει κλειδωμένο · busy (2ο tap αγνοείται ενώ εκκρεμεί write) · timeout tile αποτυχία → snackbar + παλιά τιμή. Σύνολο **572/572** (36s).
 
+**Επαλήθευση:** `flutter analyze` → **No issues found** · `flutter test` → **572/572**.
 
+**Backups:** `backups/security_s24_20261107_191807/` — 11 `.pre` + `BASE_HEAD.txt` + `git status`.
+
+**Μαθήματα:**
+- Σε widget tests, `tester.enterText` **δεν** κάνει pump: το rebuild του `setState`/`setModal` δεν έχει εφαρμοστεί όταν πατάς το κουμπί → το παλιό closure κρατά stale τιμές (εδώ: `confirm=''` → «Τα PIN δεν ταιριάζουν»). Χρειάζεται `await tester.pump()` πριν το tap.
+- `find.byType(Switch)` είναι αμφίσημο όταν το section δείχνει και το βιομετρικό switch → `.first`.
+- Το Isar `get()` είναι async και επιτρέπεται μέσα σε async `writeTxn` (όχι sync `getSync`).
+- Ο διαχωρισμός «write επιτυχία» από «refresh επιτυχία» στο notifier αποφεύγει false-negative (το `invalidateSelf` δεν είναι μέρος του write).
+
+**Docs:** `supernote.md` — file tree (`settings_app_lock_section.dart`, `SettingsCard`), `SettingsRepository.update` contract, `applySettings` στο Lock Gate, Settings Providers (`settingsProvider` → `appLockSettingsWriterProvider`) · `security_v2.md` — S-24 «ΥΛΟΠΟΙΗΘΗΚΕ S301» + status line.

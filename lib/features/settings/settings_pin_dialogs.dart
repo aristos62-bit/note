@@ -156,7 +156,8 @@ Future<bool> showCurrentPinDialog(BuildContext context, WidgetRef ref) async {
             ),
             FilledButton(
               onPressed: () async {
-                final settings = await ref.read(settingsProvider.future);
+                final settings =
+                    await ref.read(settingsNotifierProvider.future);
                 final hash = settings.appLockPinHash;
                 if (hash != null && AppLockService.instance.verifyPin(ctrl.text, hash)) {
                   if (AppLockService.shouldUpgradeHash(hash)) {

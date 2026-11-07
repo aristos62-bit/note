@@ -146,7 +146,6 @@ class _PinSetupGateState extends ConsumerState<_PinSetupGate> {
         s.appLockPinLength = pin.length;
       });
       if (!mounted) return;
-      ref.invalidate(settingsProvider);
       ref.invalidate(settingsNotifierProvider);
       await ref.read(lockGateProvider.notifier).resolveAfterSetup();
     } catch (e, stack) {

@@ -122,6 +122,16 @@ class LockGateController extends Notifier<LockGateState> {
   /// Μετά το inline setup του PIN (Q6/4b): επανανάγνωση + lock.
   Future<void> resolveAfterSetup() => _resolve(_timeouts.retry);
 
+  /// S-24: εφαρμόζει ένα **committed** settings snapshot (αποτέλεσμα
+  /// επιτυχημένου write του lock toggle) χωρίς δεύτερη ανάγνωση DB.
+  /// Το generation bump ακυρώνει τυχόν in-flight resolve, ώστε ένα παλιό
+  /// snapshot να μην υπερισχύσει της νέας κατάστασης.
+  Future<void> applySettings(AppSettings settings) async {
+    _generation++;
+    final wasLocked = ref.read(appLockStateProvider);
+    await _apply(settings, pausedAt: null, wasLocked: wasLocked);
+  }
+
   /// Καλείται στο pause/detached πριν αλλάξει το lifecycle state.
   void markPaused() {
     _generation++;

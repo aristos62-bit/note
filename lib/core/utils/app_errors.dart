@@ -36,6 +36,12 @@ class AppErrors {
       'Αποτυχία αποθήκευσης PIN. Δοκιμάστε ξανά.';
   static const lockGateSetupAction = 'Ορισμός PIN';
 
+  // ── Settings (S-24) ──────────────────────────────────────────
+  /// Αποτυχία write ρύθμισης από τις Ρυθμίσεις (lock toggle, βιομετρικό).
+  /// Για αλλαγή PIN χρησιμοποιείται το `lockGatePinSetupFailed`.
+  static const settingsSaveFailed =
+      'Δεν αποθηκεύτηκε η ρύθμιση. Δοκιμάστε ξανά.';
+
   // ── Save ─────────────────────────────────────────────────────
   static const saveFailed = 'Σφάλμα κατά την αποθήκευση';
   static const attachSaveFailed = 'Αποτυχία αποθήκευσης';
