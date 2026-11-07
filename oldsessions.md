@@ -4859,6 +4859,15 @@ if (!context.isShortScreen)
 - `if (context.mounted)` στα call sites **δεν** ήταν περιττά: ο analyzer (`use_build_context_synchronously`) τα απαιτεί ακόμη και όταν ο guard υπάρχει **μέσα** στην top-level `_snack` (δεν βλέπει cross-function). Κρατήθηκαν + internal guard (defense in depth).
 - `File(path_φακέλου).exists()` = `false` → φάκελος εντός root δίνει `attachNotFound` χωρίς ειδική περίπτωση.
 
+**Device — VERIFIED (07/11/2026 13:16, build `fd77642`, release arm64, POCO X3 M2007J20CG, pid 21803):**
+- `adb install -r` OK (`versionName 1.0.4`) · cold start → `MainActivity` resumed, pid σταθερό σε όλη τη ροή.
+- **PDF** («s98 pdf» → `personal_term.pdf`): tap → `START u0 {act=VIEW dat=content://com.example.super_note.fileProvider.../attachments/…_personal_term.pdf typ=application/pdf}` → chooser «Άνοιγμα με» → **Mi Browser `PdfActivity`** (εξωτερικός viewer) → back → app resumed.
+- **Εικόνα** («E39 test»): tap → **fullscreen preview** (dialog με «Κλείσιμο», χωρίς «Αδυναμία προβολής»).
+- **Μη-εικόνα χωρίς handler** (`I2_BASE.zip`): tap → snackbar «Αδυναμία ανοίγματος» — καθαρή αποτυχία, χωρίς crash.
+- **Share ανέγγιχτο:** «E39 test» → «Κείμενο + αρχείο • 1 συνημμένο • 92.0KB» (ίδιο με S297) → ακυρώθηκε.
+- **0** `AttachmentPathGuard` warnings · **0** FATAL/exception · pid σταθερό.
+- **Δεν εκτελέστηκε:** Windows manual test με `&`/`%`/space/ελληνικά (απαιτεί desktop ροή — παραμένει για τον χρήστη· `grep Process.` → 0, το `cmd` δεν υπάρχει πλέον στον κώδικα).
+
 **Docs:** `supernote.md` — `open` bullet + Windows opener + 544/544· `security_v2.md` — S-16 υλοποιημένο (αφαίρεση απαίτησης sanitize), 1β ✅, διορθωμένα line numbers S-18.
 
 
