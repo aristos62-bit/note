@@ -4870,6 +4870,38 @@ if (!context.isShortScreen)
 
 **Docs:** `supernote.md` — `open` bullet + Windows opener + 544/544· `security_v2.md` — S-16 υλοποιημένο (αφαίρεση απαίτησης sanitize), 1β ✅, διορθωμένα line numbers S-18.
 
+## Session 299 — 07/11/2026 (security v2 · βήμα 3: permissions — S-22/S-12)
+
+**Πρόβλημα:** Το merged release manifest ζητούσε **4 άχρηστες** permissions από το `open_filex 4.7.0` (`READ_MEDIA_IMAGES/VIDEO/AUDIO` + `READ_EXTERNAL_STORAGE ≤32`) — η εφαρμογή ανοίγει μόνο `<dataDir>/app_flutter/attachments` — και το δικό μας `WRITE_CONTACTS`, ενώ ο κώδικας χρησιμοποιεί **μόνο** `PermissionType.read` (`contact_import_service.dart:70,75,88`).
+
+**Αλλαγή (μόνο `android/app/src/main/AndroidManifest.xml`):**
+1. `xmlns:tools="http://schemas.android.com/tools"` στο `<manifest>`.
+2. Διαγραφή `WRITE_CONTACTS` (S-12).
+3. `tools:node="remove"` για `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_EXTERNAL_STORAGE` (S-22).
+**0 αλλαγές** σε Dart/pubspec/DB.
+
+**Γιατί είναι ασφαλές (επανέλεγχος πριν την αλλαγή):**
+- `OpenFilePlugin.pathRequiresPermission()` (`:189-203`) → `false` για **κάθε** path κάτω από `dataDir`/`getExternalFilesDir` → `startActivity()` χωρίς runtime permission· ο S-18 guard δεν αφήνει ποτέ path εκτός root.
+- Κανένα άλλο plugin δεν δηλώνει storage/media permission (`image_picker`, `file_picker`, `share_plus`, `receive_sharing_intent`, `flutter_contacts` → καθαρά manifests).
+- `image_picker` = Photo Picker/`GET_CONTENT`, `file_picker` = SAF, save-as = `FilePicker.saveFile` (SAF) → permissionless.
+- `FlutterContacts`: μόνο `permissions.check/request(read)` + `getAll` → `WRITE_CONTACTS` άχρηστο.
+- Καμία `MANAGE_EXTERNAL_STORAGE`/`READ_MEDIA_VISUAL_USER_SELECTED`/άλλη κρυφή permission.
+
+**Επαλήθευση:**
+- `flutter build apk --release --target-platform android-arm64` OK.
+- Merged manifest (`merged_manifests/release/.../AndroidManifest.xml`): **0** `READ_MEDIA_*`, **0** `READ_EXTERNAL_STORAGE`, **0** `WRITE_CONTACTS`, **1** `READ_CONTACTS` (μένει για contact import).
+- `flutter analyze` → **No issues found** · `flutter test` → **544/544**.
+- `adb install -r` OK → `dumpsys package`: requested = `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `READ_CONTACTS`, `USE_BIOMETRIC`, `USE_FINGERPRINT` (καμία media/storage/write-contacts).
+- **Device smoke (POCO X3):** «s98 pdf» → `personal_term.pdf` → chooser «Άνοιγμα με» → **Mi Browser `PdfActivity`** (content:// FileProvider) — το open_filex δουλεύει κανονικά χωρίς τα permissions· **0** FATAL/`Permission denied`/guard warnings, pid σταθερό.
+
+**Backups:** `backups/security_s22_s12_permissions_20261107_132804/` — `AndroidManifest.xml` + `supernote.md` + `oldsessions.md` + `security_v2.md` + `BASE_HEAD.txt`.
+
+**Μαθήματα:**
+- Το `tools:node="remove"` αφαιρεί το permission **ανεξάρτητα** από `maxSdkVersion` του library (key = όνομα) — επιβεβαιώθηκε στο merged output.
+- Η αφαίρεση permission **δεν** σπάει το `open_filex` όταν όλα τα paths είναι app-private: ο plugin ελέγχει `dataDir` **πριν** ζητήσει οτιδήποτε.
+
+**Docs:** `security_v2.md` — S-22/S-12 «ΥΛΟΠΟΙΗΘΗΚΕ S299» + πλάνο βήμα 3 ✅· `supernote.md` — bullet manifest permissions στο `SecurityService`.
+
 
 
 
