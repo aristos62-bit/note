@@ -122,20 +122,11 @@ void main() async {
     DebugConfig.error('defaultWorkspace load', e, stack);
   }
 
-  // Pre-runApp lock: το καρέ-1 να είναι ήδη PIN (όχι Αρχική-μετά-PIN).
-  try {
-    final lockSettings = await SuperNoteHelper.instance.settings
-        .get()
-        .timeout(const Duration(seconds: 5));
-    if (lockSettings.appLockEnabled) {
-      AppLockService.instance.lock();
-      container.read(appLockStateProvider.notifier).state = true;
-      DebugConfig.print('🔒 AppLock: initial lock on startup');
-    }
-    await SecurityService.setSecure(lockSettings.appLockEnabled);
-  } catch (e, stack) {
-    DebugConfig.error('Pre-runApp app lock check failed', e, stack);
-  }
+  // Pre-runApp gate (S-17): fail-closed. Το πρώτο καρέ είναι ήδη ελεγμένο —
+  // κλειδωμένο ή καλυμμένο με failure UI· ποτέ «Αρχική-μετά-PIN».
+  await container.read(lockGateProvider.notifier).resolveCold();
+  DebugConfig.startup(
+      'LockGate cold: ${container.read(lockGateProvider).status.name}');
 
   DebugConfig.startup('runApp');
   runApp(
@@ -179,18 +170,13 @@ void main() async {
     }
 
     try {
-      DebugConfig.nav('postFrame: appLock check start...');
-      final settings = await SuperNoteHelper.instance.settings
-          .get()
-          .timeout(const Duration(seconds: 5));
-      if (settings.appLockEnabled && !AppLockService.instance.isLocked) {
-        AppLockService.instance.lock();
-        container.read(appLockStateProvider.notifier).state = true;
-      DebugConfig.print('🔒 AppLock: initial lock on startup');
-        }
-      DebugConfig.nav('postFrame: appLock check done');
+      DebugConfig.nav('postFrame: appLock reassert FLAG_SECURE start...');
+      // S164 safety-net χωρίς δεύτερη ανάγνωση DB (S-17): χρησιμοποιεί το
+      // cached `enabled` του gate — policy S165 (ON όσο είναι enabled).
+      container.read(lockGateProvider.notifier).reassertSecure();
+      DebugConfig.nav('postFrame: appLock reassert FLAG_SECURE done');
       } catch (e, stack) {
-        DebugConfig.error('PostFrameCallback: app lock check failed', e, stack);
+        DebugConfig.error('PostFrameCallback: app lock reassert failed', e, stack);
       }
 
     // ── Βαρύ μπλοκ scheduling (ίδια σειρά με πριν, αλλά ΤΕΛΕΥΤΑΙΟ) ──
@@ -285,17 +271,25 @@ class SuperNoteApp extends ConsumerWidget {
           ),
           child: Stack(
             children: [
-              child!,
               Consumer(
-                builder: (context, ref, _) {
-                  final locked = ref.watch(appLockStateProvider);
-                  if (!locked) return const SizedBox.shrink();
-                  return const PopScope(
-                    canPop: false,
-                    child: LockScreen(),
+                builder: (context, ref, child) {
+                  final blocked = ref.watch(appContentBlockedProvider);
+                  // S-05: όσο blocked, το περιεχόμενο κάτω από το gate δεν
+                  // δέχεται touch, accessibility semantics ή focus.
+                  return ExcludeFocus(
+                    excluding: blocked,
+                    child: ExcludeSemantics(
+                      excluding: blocked,
+                      child: IgnorePointer(
+                        ignoring: blocked,
+                        child: child,
+                      ),
+                    ),
                   );
                 },
+                child: child!,
               ),
+              const LockGateScreen(),
             ],
           ),
         );
@@ -351,6 +345,23 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
     return true;
   }
 
+  /// S-17: το `PopScope` μέσα στο `MaterialApp.builder` δεν εγγράφεται σε
+  /// route (`ModalRoute.of == null` → no-op). Το back μπλοκάρεται εδώ· το
+  /// binding σταματά στο πρώτο `true`, με σειρά εγγραφής observers.
+  @override
+  Future<bool> didPopRoute() async {
+    if (_disposed) return false;
+    try {
+      if (container.read(appContentBlockedProvider)) {
+        DebugConfig.nav('🔒 AppLock gate: back blocked');
+        return true;
+      }
+    } catch (e) {
+      // Container disposed κατά το teardown — άφησε το default behavior.
+    }
+    return false;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     // B11: κάθε event ακυρώνει ό,τι async δουλειά ξεκίνησε πριν από αυτό.
@@ -372,6 +383,8 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
 
       if (state == AppLifecycleState.paused) {
         _pausedAt = DateTime.now();
+        // S-17: ακύρωσε in-flight gate resolve — προστατεύει το `pausedAt`.
+        container.read(lockGateProvider.notifier).markPaused();
         final settings = await SuperNoteHelper.instance.settings
             .get()
             .timeout(const Duration(seconds: 5));
@@ -397,24 +410,21 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
       if (state == AppLifecycleState.resumed) {
         _lockTimer?.cancel();
         _lockTimer = null;
-        // L1: ο Timer μπορεί να μην έτρεξε (παγωμένο isolate) — σύγκριση ώρας.
+        // L1/S-17: ο Timer μπορεί να μην έτρεξε (παγωμένο isolate) — το gate
+        // συγκρίνει ώρα και κλειδώνει fail-closed αν η ανάγνωση αποτύχει.
         try {
-          final settings = await SuperNoteHelper.instance.settings
-              .get()
-              .timeout(const Duration(seconds: 5));
-          if (_isStale(seq, state)) return;
-          if (settings.appLockEnabled &&
-              AppLockService.shouldLockOnResume(
-                  _pausedAt, DateTime.now(), settings.appLockTimeoutSeconds)) {
-            AppLockService.instance.lock();
-            container.read(appLockStateProvider.notifier).state = true;
-            DebugConfig.print('🔒 AppLock: resumed past timeout — locked');
-          }
+          await container
+              .read(lockGateProvider.notifier)
+              .resolveResume(_pausedAt);
         } catch (e, stack) {
-          DebugConfig.error('AppLock resume-check', e, stack);
+          DebugConfig.error('AppLock resume-gate', e, stack);
         }
         if (_isStale(seq, state)) return;
-        _pausedAt = null;
+        // Καθαρισμός μόνο σε ready: σε failure κρατάμε το pausedAt ώστε το
+        // επόμενο resume να ξαναδοκιμάσει (ποτέ σιωπηλό fail-open).
+        if (container.read(lockGateProvider).status == LockGateStatus.ready) {
+          _pausedAt = null;
+        }
         // E08: η άδεια ειδοποιήσεων μπορεί να άλλαξε εκτός εφαρμογής
         // (ρυθμίσεις OS) — σύγχρονο invalidate, καμία νέα await.
         container.invalidate(notificationPermissionProvider);
@@ -441,6 +451,8 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
       if (!_disposed && state == AppLifecycleState.detached) {
         _disposed = true;
         _lockTimer?.cancel();
+        // S-17: ακύρωσε τυχόν in-flight gate resolve πριν κλείσει το container.
+        container.read(lockGateProvider.notifier).markPaused();
         WidgetsBinding.instance.removeObserver(this);
         SharedIntentService.instance.dispose();
         container.dispose();

@@ -4902,6 +4902,42 @@ if (!context.isShortScreen)
 
 **Docs:** `security_v2.md` — S-22/S-12 «ΥΛΟΠΟΙΗΘΗΚΕ S299» + πλάνο βήμα 3 ✅· `supernote.md` — bullet manifest permissions στο `SecurityService`.
 
+## Session 300 — 07/11/2026 (security v2 · βήμα 2: fail-closed lock gate — S-17/S-05)
+
+**Πρόβλημα:** Το app-lock ήταν **fail-open** σε 3 σημεία: pre-runApp (`main.dart:126-138`), pause timer (`:373-395`), resume (`:397-415`) — κάθε σφάλμα/timeout ανάγνωσης σήμαινε «ξεκλείδωτο + χωρίς FLAG_SECURE». Επιπλέον το `PopScope(canPop:false)` μέσα στο `MaterialApp.builder` ήταν **no-op** (το `ModalRoute.of(context)` είναι null πάνω από τον Navigator — SDK `pop_scope.dart:194-201`), άρα το back δεν μπλοκάρονταν, και το `showSetPinDialog` δεν μπορούσε να ανοίξει πάνω από το overlay (`useRootNavigator:true` → root Navigator κάτω από το gate).
+
+**Λύση (13 αρχεία: 12 edits + 1 νέο):**
+1. **`app_lock_provider.dart`** — `LockGateStatus {resolving, ready, failed}` · `LockGateFailure {readFailed, missingPinConfig}` · `LockGateController extends Notifier` + `lockGateProvider` · injectable `lockGateSettingsReaderProvider`/`lockGateTimeoutsProvider` (cold 5s / resume 2s / retry 5s) · `appContentBlockedProvider` · `markPaused()` (generation guard) · `reassertSecure()` (S164 safety-net χωρίς 2η ανάγνωση).
+2. **`lock_gate_screen.dart` (νέο, ~300 γρ.)** — precedence `failed > locked > resolving > child`· opaque resolving screen· failure UI με retry (`EmptyState.error`)· inline νέο PIN όταν `enabled && pinHash == null` (reuse `validatePinPair` + `hashPin`, write απευθείας από repository) — όχι dialog.
+3. **`main.dart`** — pre-runApp `resolveCold()` (αντί για το διπλό get/lock)· postFrame `reassertSecure()`· pause `markPaused()`· resume `resolveResume(_pausedAt)` (L1 timeout μέσα στο gate)· `_pausedAt = null` **μόνο** σε `ready`· detached `markPaused()` πριν το dispose· `didPopRoute` → `true` όσο blocked· `child` σε `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` όταν blocked (S-05).
+4. **`super_note_helper.dart`** — `SettingsRepository.getOrNull()`· `get()` delegate (`?? AppSettings()`)· null = διαφθορά/απώλεια row (το `_ensureDefaults` εγγυάται id=1).
+5. **`security_service.dart`** — idempotent `setSecure` (`_lastApplied`, skip ίδια τιμή, **όχι** cache αποτυχίας, 2s timeout, warn-once, `resetForTest`).
+6. **`app_errors.dart`** — 4 gate/PIN μηνύματα.
+7. **`settings_screen.dart`** — 2 `await` στα writes του lock toggle (ordering· το failure atomicity μένει **S-24**).
+8. **`lock.dart`** — export του gate.
+
+**Αποφάσεις που επιβεβαιώθηκαν στην πράξη (tests):**
+- **Reconciliation unlock:** χωρίς αυτό, failure lock + retry που επιστρέφει `enabled=false` άφηνε μόνιμο deadlock (LockScreen χωρίς hash). Το gate ξεκλειδώνει **μόνο** όταν τα settings είναι επιβεβαιωμένα disabled — ποτέ σε unknown/failure.
+- **Unlock-during-resolve guard:** αν ο χρήστης κάνει PIN/biometric unlock όσο τρέχει το resume resolve, δεν του ξανακλειδώνουμε την εφαρμογή (`wasLocked` snapshot).
+- **Back:** `didPopRoute` observers εκτελούνται με σειρά εγγραφής και σταματούν στο πρώτο `true` (SDK `binding.dart:1113-1118`)· ο observer μας εγγράφεται πριν το `runApp`.
+
+**Tests:** νέο `test/lock_gate_test.dart` (18: state machine, timeouts, generation guard, reconciliation, resume L1, blocked provider, overlay widget tests) · `security_service_test.dart` 2→4 (idempotency, failure-not-cached) · `app_errors_test.dart` +1. Σύνολο **565/565**.
+
+**Επαλήθευση:** `flutter analyze` → **No issues found** · `flutter test` → **565/565** (38s) · `git diff --check` clean.
+
+**Backups:** `backups/security_s17_lock_gate_20261107_143430/` — 12 `.pre` αρχεία + `BASE_HEAD.txt` + `git status`.
+
+**Μαθήματα:**
+- `PopScope` εκτός route = σιωπηλό no-op· το back απαιτεί `WidgetsBindingObserver.didPopRoute`.
+- `MaterialApp.builder` overlay είναι **πάνω** από τον root Navigator → dialogs με `useRootNavigator:true` δεν φαίνονται· χρειάζεται inline UI.
+- Το `SettingsRepository.get()` έκρυβε απουσία row πίσω από default `AppSettings()` — ακριβώς το fail-open που έκλεισε το `getOrNull()`.
+- Το `SecurityService` χρειάζεται idempotency ώστε το reassert σε κάθε resume να μη στέλνει περιττά channel calls (και warn-once για να μη γεμίζει logs).
+- `_debug = true` στο `debug_config.dart` ήταν **προϋπάρχουσα** τοπική αλλαγή χρήστη — δεν αγγίχτηκε.
+
+**Docs:** `supernote.md` — SecurityService idempotency + νέο subsection «Lock Gate (S-17)» + lifecycle pattern 10 + 565/565· `security_v2.md` — S-17/S-05 «ΥΛΟΠΟΙΗΘΗΚΕ S300», S-24 νέο finding, πλάνο βήμα 2 ✅.
+
+**Device:** Εκκρεμεί build + device pass στο POCO X3 (back, recents/FLAG_SECURE, resume, wrong PIN, setup 4b).
+
 
 
 

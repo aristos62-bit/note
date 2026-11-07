@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **544/544** (`flutter test`, 07/11/2026 — `flutter analyze` clean) |
+| Test suite | **565/565** (`flutter test`, 07/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -140,7 +140,7 @@ lib/
 │   ├── settings_provider.dart    — Settings CRUD, derived providers
 │   ├── app_info_provider.dart    — appVersionProvider (package_info_plus)
 │   ├── notification_permission_provider.dart — notificationPermissionProvider (E08)
-│   ├── app_lock_provider.dart    — appLockStateProvider (AppLockService)
+│   ├── app_lock_provider.dart    — appLockStateProvider + lockGateProvider (S-17 fail-closed)
 │   └── ui_provider.dart          — UI state (selectedFolder, viewMode, isDragging, dayTick)
 ├── services/
 │   ├── services.dart             — Barrel export
@@ -208,6 +208,7 @@ lib/
 │   │   └── journal_detail_screen.dart — Journal entry editor
 │   ├── lock/
 │   │   ├── lock.dart             — Barrel export
+│   │   ├── lock_gate_screen.dart — S-17 fail-closed gate overlay (failure/retry/PIN setup)
 │   │   └── lock_screen.dart      — App-lock screen (PIN hash + biometric, lockout)
 │   ├── collections/
 │   │   ├── collections.dart      — Barrel
@@ -581,8 +582,20 @@ final db = SuperNoteHelper.instance;
 
 ### SecurityService (`lib/services/security_service.dart`)
 - Android `MethodChannel("super_note/security")` → `FLAG_SECURE` — πρώτο MethodChannel (S165)
-- `setSecure(bool)` — catch→false· πολιτική: ON όσο lock-enabled (κλείνει την pre-timeout τρύπα)· OFF→clear· άλλες πλατφόρμες no-op· iOS parked
-- Hooks: `main()` pre-runApp + settings toggle (μετά update)
+- `setSecure(bool)` — **idempotent (S-17)**: ίδια τιμή ⇒ skip· οι αποτυχίες **δεν** cache-άρονται (retry)· 2s timeout· warn-once· `resetForTest()`
+- Πολιτική: ON όσο lock-enabled· OFF μόνο με επιβεβαιωμένο disabled· άγνωστο/σφάλμα ⇒ ON. Άλλες πλατφόρμες no-op· iOS parked
+- Hooks: gate cold/reassert (postFrame) + settings toggle (μετά update)
+- **Manifest permissions (S-22/S-12, S299):** μόνο `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `READ_CONTACTS` (+ plugin `USE_BIOMETRIC`/`USE_FINGERPRINT`). `tools:node="remove"` για `READ_MEDIA_*` + `READ_EXTERNAL_STORAGE` του `open_filex` — ανοίγουμε **μόνο** paths εντός `dataDir` (`AttachmentPathGuard`).
+
+### Lock Gate (S-17, `lib/providers/app_lock_provider.dart` + `lock_gate_screen.dart`)
+- `LockGateStatus {resolving, ready, failed}` · `LockGateFailure {readFailed, missingPinConfig}`
+- `lockGateSettingsReaderProvider` → `SettingsRepository.getOrNull()` (ποτέ σιωπηλό `AppSettings()`)
+- Timeouts: cold 5s · resume 2s · retry 5s (injectable `lockGateTimeoutsProvider`)
+- `resolveCold()` pre-runApp · `resolveResume(pausedAt)` στο resumed · `retry()` από failure UI · `markPaused()` ακυρώνει in-flight resolves
+- Fail-closed: `null`/σφάλμα/timeout ή `enabled && pinHash == null` ⇒ locked + `FLAG_SECURE(true)` + failure UI (retry / inline νέο PIN)
+- Έκθεση: `status != ready || appLockStateProvider` ⇒ `appContentBlockedProvider` — το `child` μπαίνει σε `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` (S-05)
+- Back: `didPopRoute` στον `_AppLifecycleObserver` (το `PopScope` στο `MaterialApp.builder` είναι no-op — δεν έχει `ModalRoute`)
+- Κανόνας: δεν ξεκλειδώνει σε unknown/failure· μόνο reconciliation όταν τα settings είναι **επιβεβαιωμένα** disabled
 - **Manifest permissions (S-22/S-12, S299):** μόνο `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `READ_CONTACTS` (+ plugin `USE_BIOMETRIC`/`USE_FINGERPRINT`). `tools:node="remove"` για `READ_MEDIA_*` + `READ_EXTERNAL_STORAGE` του `open_filex` — ανοίγουμε **μόνο** paths εντός `dataDir` (`AttachmentPathGuard`).
 
 ---
@@ -1035,7 +1048,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 7. **Grid responsive breakpoints**: mobile < 600, tablet 600-1024, desktop 1024+
 8. **Color overrides**: `itemTypeCardColorOverrideProvider` used inside `itemBuilder` for per-card granularity
 9. **Notification cold start**: `main()` checks `NotificationService.instance.getLaunchPayload()`, defers navigation after `runApp`
-10. **Lifecycle sequencing (E16/B10/B11)**: `_AppLifecycleObserver` αυξάνει `_lifecycleSeq` σε κάθε event· κάθε async continuation ελέγχει `_isStale(seq, state)` μετά από await και πριν από side effects (lock, auto-backup, refresh, topUp, rebake). Startup calls έχουν timeouts: launch payload 3s · `settings.get()` 5s (pre-runApp + postFrame) · `requestPermission()` 5s.
+10. **Lifecycle sequencing (E16/B10/B11/S-17)**: `_AppLifecycleObserver` αυξάνει `_lifecycleSeq` σε κάθε event· κάθε async continuation ελέγχει `_isStale(seq, state)` μετά από await και πριν από side effects (lock, auto-backup, refresh, topUp, rebake). Startup calls έχουν timeouts: launch payload 3s · gate cold 5s / resume 2s / retry 5s · `requestPermission()` 5s. Στο pause καλείται `gate.markPaused()` (ακυρώνει in-flight resolve)· το `_pausedAt` καθαρίζεται **μόνο** όταν το gate γίνει `ready`. Back: `didPopRoute` επιστρέφει `true` όσο `appContentBlockedProvider`.
 11. **Restore/wipe restart semantics (E33)**: μετά το `SuperNoteHelper.close()` δεν ξανα-ανοίγει η DB στο ίδιο process· η UI δείχνει restart dialog και καλεί `exit(0)`. Πριν το close, abort → `endDbMaintenance()` + snackbar.
 
 ---
@@ -1061,7 +1074,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (544/544 🟢) |
+| `flutter test` | Πλήρες suite (565/565 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |
