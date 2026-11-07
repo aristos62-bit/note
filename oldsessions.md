@@ -4985,3 +4985,12 @@ if (!context.isShortScreen)
 - Ο διαχωρισμός «write επιτυχία» από «refresh επιτυχία» στο notifier αποφεύγει false-negative (το `invalidateSelf` δεν είναι μέρος του write).
 
 **Docs:** `supernote.md` — file tree (`settings_app_lock_section.dart`, `SettingsCard`), `SettingsRepository.update` contract, `applySettings` στο Lock Gate, Settings Providers (`settingsProvider` → `appLockSettingsWriterProvider`) · `security_v2.md` — S-24 «ΥΛΟΠΟΙΗΘΗΚΕ S301» + status line.
+
+**Device (POCO X3 `9593c01e`, release APK 69.3MB πάνω από 1.0.4 build 2):**
+- **Cold start με lock OFF:** απευθείας Αρχική (κανένα LockScreen), `screencap` OK → FLAG_SECURE off.
+- **Enable (υπάρχον PIN hash):** χωρίς dialog setup (σωστό — το hash υπάρχει) → write → **αμέσως lock** (βιομετρικό prompt) = ακριβώς η νέα σειρά «commit → apply». Καμία οθόνη failure/resolving.
+- **Disable:** παραμένει στις Ρυθμίσεις (κανένα LockScreen/overlay/«Έλεγχος ασφαλείας…»), switch OFF, εξαφανίστηκαν τα enabled-only rows, `fl=SECURE` **εξαφανίστηκε** από `dumpsys window`, `screencap` 170KB/167KB (πριν 0 bytes) → `setSecure(false)` εφαρμόστηκε.
+- **Χρονικό όριο:** 5 λεπτά → 1 λεπτό → Αμέσως, με controlled dropdown και **κανένα snackbar** (επιτυχές write)· επαναφορά στην αρχική τιμή **5 λεπτά**. Σε αποτυχία η τιμή μένει στην παλιά (widget test).
+- **Cold start μετά το disable:** Αρχική ξανά χωρίς LockScreen → το disable **persist-άρεται** (atomic write).
+- **Δεν δοκιμάστηκαν σε device:** dialog setup PIN (απαιτεί `pinHash == null` — καλύπτεται από widget test), αλλαγή PIN 2η φορά (απαιτεί το τρέχον PIN του χρήστη — η διόρθωση είναι compile-level: `settingsNotifierProvider.future`), snackbar αποτυχίας write (απαιτεί DB failure — 4 widget tests).
+- **Επαναφορά κατάστασης:** app-lock **OFF** όπως βρέθηκε, timeout **5 λεπτά**, PIN/biometric ανέγγιχτα. Screenshots: `backups/security_s24_20261107_191807/s24_*.png` (untracked).
