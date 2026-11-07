@@ -4936,7 +4936,15 @@ if (!context.isShortScreen)
 
 **Docs:** `supernote.md` — SecurityService idempotency + νέο subsection «Lock Gate (S-17)» + lifecycle pattern 10 + 565/565· `security_v2.md` — S-17/S-05 «ΥΛΟΠΟΙΗΘΗΚΕ S300», S-24 νέο finding, πλάνο βήμα 2 ✅.
 
-**Device:** Εκκρεμεί build + device pass στο POCO X3 (back, recents/FLAG_SECURE, resume, wrong PIN, setup 4b).
+**Device (POCO X3, release APK, app-lock ON με PIN + timeout 0s):**
+- **Cold start** (force-stop → launch): `AppLock: locked` + `SecurityService.setSecure=true` (reassert skipped)· UI dump = LockScreen keypad.
+- **Back** όσο κλειδωμένο: `🔒 AppLock gate: back blocked` — παραμένει foreground (καμία επιστροφή στο launcher).
+- **Recents/FLAG_SECURE:** `fl=... SECURE ...` στο `dumpsys window`· `adb exec-out screencap` → **0 bytes** (μπλοκαρισμένο).
+- **Pause (Home):** `AppLock: locked` + `auto-lock after 0s timeout`· **Resume:** ξανακλειδώνει (`AppLock: locked`), LockScreen + biometric, **κανένα περιεχόμενο** στο dump.
+- **Λάθος PIN ×2:** `🔓 AppLock: wrong PIN`, παραμένει κλειδωμένο (σταμάτημα πριν το lockout των 5).
+- **Σωστό PIN (χειροκίνητο):** `PIN unlock ok` → `unlocked` → Αρχική με περιεχόμενο· Home → επιστροφή ⇒ αμέσως LockScreen ξανά.
+- **Setup 4b** (`enabled && pinHash == null`): καλύπτεται από unit/widget tests — δεν δοκιμάστηκε σε device (θα απαιτούσε σκόπιμα σπασμένο state).
+- **Smoke με disabled lock** (πριν το lock pass): gate `ready`, `setSecure=false` + skip, **χωρίς** SECURE flag.
 
 
 
