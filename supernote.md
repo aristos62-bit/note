@@ -583,6 +583,7 @@ final db = SuperNoteHelper.instance;
 - Android `MethodChannel("super_note/security")` → `FLAG_SECURE` — πρώτο MethodChannel (S165)
 - `setSecure(bool)` — catch→false· πολιτική: ON όσο lock-enabled (κλείνει την pre-timeout τρύπα)· OFF→clear· άλλες πλατφόρμες no-op· iOS parked
 - Hooks: `main()` pre-runApp + settings toggle (μετά update)
+- **Manifest permissions (S-22/S-12, S299):** μόνο `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `READ_CONTACTS` (+ plugin `USE_BIOMETRIC`/`USE_FINGERPRINT`). `tools:node="remove"` για `READ_MEDIA_*` + `READ_EXTERNAL_STORAGE` του `open_filex` — ανοίγουμε **μόνο** paths εντός `dataDir` (`AttachmentPathGuard`).
 
 ---
 
