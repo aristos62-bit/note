@@ -47,4 +47,19 @@ void main() {
     expect(AppErrors.birthdayReplaced('Νίκος'), contains('Νίκος'));
     expect(AppErrors.oversizeSkipped(2), contains('2'));
   });
+
+  test('S-17 lock gate: 4 μηνύματα, non-empty + ασφαλή νοήματα', () {
+    expect(AppErrors.lockGateReadFailed, contains('κλειδωμένη'));
+    expect(AppErrors.lockGatePinMissing, contains('PIN'));
+    expect(AppErrors.lockGatePinSetupFailed, contains('PIN'));
+    expect(AppErrors.lockGateSetupAction, 'Ορισμός PIN');
+    for (final msg in [
+      AppErrors.lockGateReadFailed,
+      AppErrors.lockGatePinMissing,
+      AppErrors.lockGatePinSetupFailed,
+      AppErrors.lockGateSetupAction,
+    ]) {
+      expect(msg, isNotEmpty);
+    }
+  });
 }

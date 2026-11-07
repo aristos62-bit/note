@@ -234,13 +234,17 @@ class _SystemGroupState extends State<_SystemGroup> {
                 if (v && widget.settings.appLockPinHash == null) {
                   final pin = await showSetPinDialog(context, widget.ref);
                   if (pin == null) return;
-                  widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
+                  await widget.ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateSettings((s) {
                     s.appLockEnabled = true;
                     s.appLockPinHash = AppLockService.instance.hashPin(pin);
                     s.appLockPinLength = pin.length;
                   });
                 } else {
-                  widget.ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
+                  await widget.ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateSettings((s) {
                     s.appLockEnabled = v;
                   });
                 }

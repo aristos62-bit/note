@@ -26,6 +26,16 @@ class AppErrors {
   static String pinLockedOut(int seconds) =>
       'Πολλές προσπάθειες — δοκιμάστε ξανά σε $seconds δ';
 
+  // ── Lock gate (S-17, fail-closed) ───────────────────────────
+  static const lockGateReadFailed =
+      'Δεν ήταν δυνατή η επαλήθευση της ασφάλειας. '
+      'Η εφαρμογή παραμένει κλειδωμένη.';
+  static const lockGatePinMissing =
+      'Το PIN δεν έχει ρυθμιστεί σωστά. Ορίστε νέο PIN για να συνεχίσετε.';
+  static const lockGatePinSetupFailed =
+      'Αποτυχία αποθήκευσης PIN. Δοκιμάστε ξανά.';
+  static const lockGateSetupAction = 'Ορισμός PIN';
+
   // ── Save ─────────────────────────────────────────────────────
   static const saveFailed = 'Σφάλμα κατά την αποθήκευση';
   static const attachSaveFailed = 'Αποτυχία αποθήκευσης';

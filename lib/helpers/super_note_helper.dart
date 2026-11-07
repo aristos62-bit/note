@@ -1715,9 +1715,17 @@ class SettingsRepository {
   SettingsRepository(this._isar);
   final Isar _isar;
 
-  /// Πάντα χρησιμοποιεί id=1 (singleton)
+  /// Πάντα χρησιμοποιεί id=1 (singleton).
+  ///
+  /// S-17: επιστρέφει **null** όταν η γραμμή λείπει — δεν την κρύβει πίσω από
+  /// default `AppSettings()`. Το lock gate χρειάζεται fail-closed semantics.
+  Future<AppSettings?> getOrNull() async {
+    return await _isar.appSettings.get(1);
+  }
+
+  /// Convenience για τους υπόλοιπους callers: ποτέ null.
   Future<AppSettings> get() async {
-    return await _isar.appSettings.get(1) ?? AppSettings();
+    return await getOrNull() ?? AppSettings();
   }
 
   Future<void> update(void Function(AppSettings) updater) async {
