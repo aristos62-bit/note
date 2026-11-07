@@ -544,6 +544,7 @@ final db = SuperNoteHelper.instance;
 - `saveFile(itemId, sourcePath, blockId)` → `Attachment`
 - `delete(attachmentId)` — file + DB deletion
 - Internal: copies to `attachments/` subdirectory in app documents
+- **S-18 (security v2, βήμα 1α):** SPoT για το «πού επιτρέπεται» ένα path = `AttachmentPathGuard` (`lib/core/utils/attachment_path_guard.dart`): `dirName = 'attachments'`, root = `<documents>/attachments`, **fail-closed** `resolve()` (λεξικός: `isAbsolute` + `normalize` + `isWithin`, χωρίς I/O) · `configure(documentsDir:)` στο `SuperNoteHelper.init()` (idempotent, re-init μετά restore) · `attachmentsDirName` = const delegate. Όλα τα open/preview/save-as/share/disk-delete περνούν από αυτό· εκτός root ⇒ `attachNotFound`/skip (ποτέ άνοιγμα, διαγραφή ή κοινοποίηση ξένου αρχείου).
 
 ### BackupService (`lib/services/backup_service.dart`)
 - `exportToDevice()` / `exportWithShare()` — zip (DB + attachments) μέσω `BackupArchive`· το DB snapshot γίνεται με `Isar.copyToFile` (consistent/compacted), όχι απευθείας από το live `.isar`.

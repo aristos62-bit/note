@@ -905,6 +905,11 @@ class _CollectionEntryDetailScreenState
 
   Future<void> _openAttachment(Attachment attachment) async {
     DebugConfig.db('_openAttachment id=${attachment.id} type=${attachment.mimeType}');
+    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
+    if (safePath == null) {
+      if (mounted) showSnackBar(AppErrors.attachNotFound);
+      return;
+    }
     if (attachment.isImage) {
       if (!mounted) return;
       await showDialog(
@@ -917,7 +922,7 @@ class _CollectionEntryDetailScreenState
               InteractiveViewer(
                 child: Center(
                   child: Image.file(
-                    File(attachment.localPath),
+                    File(safePath),
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const Center(
                       child: Column(
@@ -948,7 +953,13 @@ class _CollectionEntryDetailScreenState
       return;
     }
     try {
-      final result = await OpenFilex.open(attachment.localPath);
+      final file = File(safePath);
+      if (!await file.exists()) {
+        DebugConfig.db('_openAttachment file not found id=${attachment.id}');
+        if (mounted) showSnackBar(AppErrors.attachNotFound);
+        return;
+      }
+      final result = await OpenFilex.open(safePath);
       if (result.type != ResultType.done && mounted) {
         DebugConfig.db('_openAttachment failed: ${result.type} ${result.message}');
         showSnackBar(AppErrors.attachOpenFailed);
@@ -961,8 +972,13 @@ class _CollectionEntryDetailScreenState
 
   Future<void> _saveAttachment(Attachment attachment) async {
     DebugConfig.db('_saveAttachment id=${attachment.id} file=${AppStringUtils.redact(attachment.fileName, label: 'file')}');
+    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
+    if (safePath == null) {
+      if (mounted) showSnackBar(AppErrors.attachNotFound);
+      return;
+    }
     try {
-      final file = File(attachment.localPath);
+      final file = File(safePath);
       if (!await file.exists()) {
         DebugConfig.db('_saveAttachment file not found');
         if (mounted) showSnackBar(AppErrors.attachNotFound);
@@ -1607,6 +1623,7 @@ class _AttachmentField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...attachments.map((a) {
+          final safePath = AttachmentPathGuard.resolve(a.localPath);
           return Padding(
             padding: const EdgeInsets.only(bottom: Spacing.xs),
             child: Row(
@@ -1624,10 +1641,10 @@ class _AttachmentField extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          if (a.isImage)
+                          if (a.isImage && safePath != null)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(AppRadius.xs),
-                              child: ImageUtils.fileThumb(a.localPath),
+                              child: ImageUtils.fileThumb(safePath),
                             )
                           else
                             Icon(

@@ -108,6 +108,11 @@ class AttachmentsStrip extends ConsumerWidget {
   Future<void> _open(BuildContext context, Attachment attachment) async {
     DebugConfig.db(
         'AttachmentsStrip open id=${attachment.id} file=${AppStringUtils.redact(attachment.fileName, label: 'file')}');
+    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
+    if (safePath == null) {
+      if (context.mounted) _snack(context, AppErrors.attachNotFound);
+      return;
+    }
     if (attachment.isImage) {
       if (!context.mounted) return;
       await showDialog(
@@ -120,7 +125,7 @@ class AttachmentsStrip extends ConsumerWidget {
               InteractiveViewer(
                 child: Center(
                   child: Image.file(
-                    File(attachment.localPath),
+                    File(safePath),
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const Center(
                       child: Column(
@@ -153,7 +158,7 @@ class AttachmentsStrip extends ConsumerWidget {
       return;
     }
     try {
-      final file = File(attachment.localPath);
+      final file = File(safePath);
       if (!await file.exists()) {
         DebugConfig.db('AttachmentsStrip file not found id=${attachment.id}');
         if (context.mounted) {
@@ -163,7 +168,7 @@ class AttachmentsStrip extends ConsumerWidget {
         }
         return;
       }
-      final result = await OpenFilex.open(attachment.localPath);
+      final result = await OpenFilex.open(safePath);
       if (result.type != ResultType.done && context.mounted) {
         DebugConfig.db(
             'AttachmentsStrip open failed: ${result.type} ${result.message}');
@@ -249,11 +254,12 @@ class _AttachmentCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
     final Widget thumb;
-    if (attachment.isImage) {
+    if (attachment.isImage && safePath != null) {
       thumb = ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.xs),
-        child: ImageUtils.fileThumb(attachment.localPath, size: 56),
+        child: ImageUtils.fileThumb(safePath, size: 56),
       );
     } else {
       thumb = Icon(

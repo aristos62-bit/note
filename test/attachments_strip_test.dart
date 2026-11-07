@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_note/core/core.dart';
 import 'package:super_note/models/models.dart';
 import 'package:super_note/providers/providers.dart';
 import 'package:super_note/shared/widgets/attachments_strip.dart';
@@ -90,5 +91,23 @@ void main() {
     expect(find.text('Διαγραφή αρχείου;'), findsNothing);
     // Το κελί παραμένει — δεν έγινε delete.
     expect(find.text('a.pdf'), findsOneWidget);
+  });
+
+  testWidgets('S-18: image εκτός root → placeholder icon, χωρίς exception',
+      (tester) async {
+    AttachmentPathGuard.reset();
+    final att = Attachment()
+      ..id = 3
+      ..itemId = 1
+      ..fileName = 'evil.png'
+      ..localPath = '/outside/evil.png'
+      ..mimeType = 'image/png'
+      ..fileSize = 10;
+
+    await tester.pumpWidget(_wrap([att]));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.insert_drive_file_outlined), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

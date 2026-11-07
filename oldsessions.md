@@ -4799,6 +4799,35 @@ if (!context.isShortScreen)
 
 **Docs:** `supernote.md` — sync των bullets του `SharedIntentService` (φάκελος μέσω `resolveFolderForNewItem`).
 
+## Session 297 — 07/11/2026 (security v2 · P0 βήμα 1α: `AttachmentPathGuard` — S-18)
+
+**Πρόβλημα:** η γνώση «πού επιτρέπεται» ένα attachment path υπήρχε διάσπαρτη (γράφει `AttachmentService`, αντιγράφει `BackupService`, σβήνει `settings_backup`) αλλά **δεν επιβαλλόταν σε καμία ανάγνωση**. Ένα παραφθαρμένο `Attachment.localPath` (tampered `.isar` / restore) οδηγούσε σε: διαγραφή ξένου αρχείου στο «Διαγραφή οριστικά», κοινοποίηση ξένου αρχείου, `OpenFilex` σε οποιοδήποτε readable path (S-23), decode / «Αποθήκευση ως» εκτός sandbox.
+
+**Λύση — 1 νέο αρχείο + 10 σημεία σε 5 αρχεία:**
+1. `core/utils/attachment_path_guard.dart` (νέο, ~115 γρ.) — `dirName='attachments'`, `configure({documentsDir})` → `root=normalize(join(docs,dirName))`, `resolve(String?)` sync/fail-closed (`isAbsolute` → `normalize` → `isWithin`), `reset()`. Logging `DebugConfig` με flag 1/γενιά (τα `warning` γράφουν πάντα) + `AppStringUtils.redact`.
+2. `core/core.dart` — export (R5).
+3. `super_note_helper.dart` — `configure` στο `init()` μετά το `dir` (:74) · `hardDeleteMany` guard μετά το D5 refs check, πριν το `File` (απόρριψη ⇒ warning + `continue`).
+4. `attachment_service.dart` — `attachmentsDirName` = `const` delegate · `delete()` guard μετά το `countByLocalPath`, πριν το `File`.
+5. `attachments_strip.dart` — guard στο `_open` (snack `attachNotFound`), `File(safePath)` στο dialog + `OpenFilex.open(safePath)`, thumb `isImage && safePath != null` (αλλιώς **υπάρχον** Icon branch).
+6. `collection_entries_screen.dart` — `_openAttachment` guard + **νέος** έλεγχος ύπαρξης (έλειπε), `_saveAttachment` guard πριν το `readAsBytes`, thumb guard.
+7. `share_attachments.dart` — `collect`: `resolve` μετά το `maxFiles`, πριν το `_exists` · απόρριψη ⇒ `skipped++` + warning · όλο το flow με resolved path.
+
+**Γιατί έτσι:** reuse `p.isWithin/normalize` (κανένα custom path logic), υπάρχον Icon branch ως placeholder, υπάρχοντα `AppErrors`, `DebugConfig`, `redact` — **καμία** νέα string/widget/dependency/schema/provider/navigation. `ImageUtils.fileThumb` και `BackupArchive` **ανέγγιχτα** (το `attachmentsPrefix` είναι format constant της zip — σύζευξη θα έσπαγε restore). Το `configure(documentsDir:)` (όχι root) κάνει αδύνατο λάθος όνομα φακέλου.
+
+**Τεχνικά θεμέλια (probes, Dart 3.13.7 + path 1.9.1):** `isWithin` απορρίπτει όλα τα escapes **και χωρίς** normalize · sibling / `attachmentsX` / UNC / drive-relative / root==path → false · `..`-εντός → true · case-insensitive σε Windows, case-sensitive σε posix (ακολουθεί το FS) · `join == normalize` (ίδιο `ImageFile` cache key). **Νέο εύρημα:** το `isWithin` αυτο-απολυτοποιεί τη σχετική πλευρά με το **CWD** (`context.dart:615-620`) ⇒ ρητό `isAbsolute` gate και στο `resolve` και στο `configure` (fail-closed).
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** · `flutter test` → **535/535** (35s). Νέα tests: 14 (`attachment_path_guard_test`) + 4 (`share_attachments_test`) + 1 widget (`attachments_strip_test`) = **19**. Προσαρμόστηκαν fixtures σε `tmp/attachments`: `share_attachments_test` + `share_content_builder_test` (το 2ο **διέφυγε** στην αρχική απογραφή — το αποκάλυψε το full suite).
+
+**Backups:** `backups/security_s18_path_guard_20261107_103225/` — 7 κώδικα + 2 tests + `BASE_HEAD.txt`.
+
+**Μαθήματα:**
+- Το full `flutter test` **είναι** ο έλεγχος: ένα test file που καλεί έμμεσα το `collect` (`share_content_builder_test`) δεν φαινόταν σε grep του `collect`.
+- Το `isWithin` δεν είναι «pure lexical relative-reject» — αυτο-απολυτοποιεί με CWD· χωρίς `isAbsolute` gate η ασφάλεια εξαρτάται από το working directory.
+- Το `normalize` δεν είναι το όριο ασφαλείας (το `isWithin` κόβει τα escapes και raw)· είναι canonicalization + σταθερό cache key.
+- Global static config: `configure` πριν το `runApp` (μέσα στο `init`) + `reset()` σε `tearDown` — αλλιώς διαρρέει state μεταξύ tests.
+
+**Docs:** `supernote.md` — bullet `AttachmentPathGuard` στο `AttachmentService` (SPoT + fail-closed).
+
 
 
 

@@ -7,18 +7,26 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_note/core/core.dart';
 import 'package:super_note/models/attachment.dart';
 import 'package:super_note/services/share/share_attachments.dart';
 import 'package:super_note/services/share/share_models.dart';
 
 void main() {
   late Directory tmp;
+  late Directory attachmentsDir;
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('sn_share_test_');
+    // S-18: τα fixtures ζουν μέσα στο επιτρεπτό root (docs/attachments).
+    attachmentsDir =
+        Directory('${tmp.path}${Platform.pathSeparator}attachments')
+          ..createSync(recursive: true);
+    AttachmentPathGuard.configure(documentsDir: tmp.path);
   });
 
   tearDown(() {
+    AttachmentPathGuard.reset();
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
   });
 
@@ -35,9 +43,9 @@ void main() {
         ..mimeType = mime
         ..fileSize = size;
 
-  /// Γράφει [bytes] bytes στον temp φάκελο και επιστρέφει το path.
+  /// Γράφει [bytes] bytes μέσα στο attachments root και επιστρέφει το path.
   String write(String name, int bytes) {
-    final file = File('${tmp.path}${Platform.pathSeparator}$name')
+    final file = File('${attachmentsDir.path}${Platform.pathSeparator}$name')
       ..writeAsBytesSync(List<int>.filled(bytes, 65));
     return file.path;
   }
@@ -45,7 +53,9 @@ void main() {
   group('collect', () {
     test('αρχείο που δεν υπάρχει → skipped', () {
       final res = ShareAttachments.collect([
-        att(path: '${tmp.path}${Platform.pathSeparator}missing.bin'),
+        att(
+            path:
+                '${attachmentsDir.path}${Platform.pathSeparator}missing.bin'),
       ]);
       expect(res.files, isEmpty);
       expect(res.skipped, 1);
@@ -101,6 +111,47 @@ void main() {
         att(path: write('a.bin', 1), name: 'a'),
       ]);
       expect(res.files.map((f) => f.displayName).toList(), ['b', 'a']);
+    });
+
+    // ── S-18: containment guard ──────────────────────────────
+    test('εκτός attachments root → skipped', () {
+      final outside = File('${tmp.path}${Platform.pathSeparator}outside.bin')
+        ..writeAsBytesSync(List<int>.filled(4, 65));
+      final res = ShareAttachments.collect([att(path: outside.path)]);
+      expect(res.files, isEmpty);
+      expect(res.skipped, 1);
+    });
+
+    test('traversal .. → skipped', () {
+      final path =
+          '${attachmentsDir.path}${Platform.pathSeparator}..${Platform.pathSeparator}secret.bin';
+      File('${tmp.path}${Platform.pathSeparator}secret.bin')
+          .writeAsBytesSync(List<int>.filled(4, 65));
+      final res = ShareAttachments.collect([att(path: path)]);
+      expect(res.files, isEmpty);
+      expect(res.skipped, 1);
+    });
+
+    test('root unset → όλα skipped (fail-closed)', () {
+      final path = write('a.bin', 4);
+      AttachmentPathGuard.reset();
+      final res = ShareAttachments.collect([att(path: path)]);
+      expect(res.files, isEmpty);
+      expect(res.skipped, 1);
+    });
+
+    test('μίξη με όρια D1: νόμιμο περνά, εκτός root απορρίπτεται', () {
+      final outside = File('${tmp.path}${Platform.pathSeparator}outside.bin')
+        ..writeAsBytesSync(List<int>.filled(4, 65));
+      final res = ShareAttachments.collect(
+        [
+          att(path: write('ok.bin', 4), name: 'ok.bin'),
+          att(path: outside.path, name: 'outside.bin'),
+        ],
+        maxFiles: 2,
+      );
+      expect(res.files.single.displayName, 'ok.bin');
+      expect(res.skipped, 1);
     });
   });
 
