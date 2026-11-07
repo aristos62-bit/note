@@ -4866,7 +4866,7 @@ if (!context.isShortScreen)
 - **Μη-εικόνα χωρίς handler** (`I2_BASE.zip`): tap → snackbar «Αδυναμία ανοίγματος» — καθαρή αποτυχία, χωρίς crash.
 - **Share ανέγγιχτο:** «E39 test» → «Κείμενο + αρχείο • 1 συνημμένο • 92.0KB» (ίδιο με S297) → ακυρώθηκε.
 - **0** `AttachmentPathGuard` warnings · **0** FATAL/exception · pid σταθερό.
-- **Δεν εκτελέστηκε:** Windows manual test με `&`/`%`/space/ελληνικά (απαιτεί desktop ροή — παραμένει για τον χρήστη· `grep Process.` → 0, το `cmd` δεν υπάρχει πλέον στον κώδικα).
+- **Windows manual — VERIFIED (χρήστης, 07/11/2026):** άνοιγμα `A & B.pdf`, `100% τεστ.pdf`, `Ανάλυση (τελικό).xlsx` + εικόνας μέσω `launchUrl(Uri.file)` → default viewers, **καμία** κονσόλα/`cmd`, κανένα σφάλμα· `grep Process.` → 0.
 
 **Docs:** `supernote.md` — `open` bullet + Windows opener + 544/544· `security_v2.md` — S-16 υλοποιημένο (αφαίρεση απαίτησης sanitize), 1β ✅, διορθωμένα line numbers S-18.
 
