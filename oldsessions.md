@@ -4836,6 +4836,31 @@ if (!context.isShortScreen)
 
 **Docs:** `supernote.md` — bullet `AttachmentPathGuard` στο `AttachmentService` (SPoT + fail-closed).
 
+## Session 298 — 07/11/2026 (security v2 · βήμα 1β: Windows opener χωρίς `cmd` + μηδενισμός διπλής λογικής ανοίγματος — S-16/R5)
+
+**Πρόβλημα:** Το `open_filex` στο Windows ανοίγει με `Process.start('cmd', ['/c','start','',path])` **χωρίς quotes** (S-16) — όνομα με `&`/`^`/`%` εκτελεί δεύτερο τμήμα. Επιπλέον το «άνοιγμα» ήταν γραμμένο **δύο φορές** (`AttachmentsStrip._open` + `CollectionEntriesScreen._openAttachment`, ~80 γρ. το καθένα, ίδιο pattern, 2 imports `open_filex`).
+
+**Λύση (εγκεκριμένη 1β + R5):**
+1. `attachment_service.dart` — νέο `Future<String?> open(Attachment)` (SPoT ανοίγματος): `AttachmentPathGuard.resolve` → `File.exists` → **Windows:** `launchUrl(Uri.file(safePath), mode: LaunchMode.externalApplication)` (ShellExecuteW, χωρίς command line· `false` → `attachOpenFailed`) / **άλλα:** `OpenFilex.open` (`ResultType.done`, αλλιώς `attachOpenFailed`)· `null` = επιτυχία. Logs μόνο `result.type`/`e.runtimeType` (ποτέ path/exception object).
+2. `attachments_strip.dart` — top-level `openAttachment(context, attachment)` (exported από `widgets.dart`): εικόνες → `_showImagePreview` (private fullscreen dialog, D12), όλα τα άλλα → `AttachmentService.open` + `_snack`. Διαγραφή `_open` (81 γρ.)· `_snack` top-level με mounted guard.
+3. `collection_entries_screen.dart` — διαγραφή `_openAttachment` (66 γρ.), call site → `openAttachment(context, a)`, αφαίρεση import `open_filex`.
+
+**Αμετάβλητα:** `sanitizeFileName`, `open_filex` dependency (non-Windows), `dart:io` (save/thumb/preview) — **0** νέα αρχεία κώδικα/strings/exports/deps.
+
+**Γιατί όχι sanitize:** με το `cmd` εκτός εικόνας, `& ( ) ! ; ,` είναι ασφαλή· το `Uri.file` κάνει percent-encoding (space/`%`/`#`/ελληνικά) και το Windows plugin `UrlUnescapeA` πριν το `ShellExecuteW`. Επιβεβαιωμένο από `url_launcher` README (`file:` official) + platform interface (χωρίς `canLaunch` gate — `canLaunchUrl('file:')` θα ήταν false).
+
+**Tests:** νέο `test/attachment_open_test.dart` (6): unconfigured/κενό/σχετικό/εκτός root/sibling `attachments2`/λείπει/φάκελος → `attachNotFound` **πριν** από κάθε platform call. `attachments_strip_test.dart` +2 widget tests (μη-εικόνα & εικόνα εκτός root → snackbar, χωρίς dialog/exception).
+
+**Επαλήθευση:** `flutter analyze` → **No issues found** · `flutter test` → **544/544** (35s).
+
+**Backups:** `backups/security_s16_windows_opener_20261107_123830/` — 3 κώδικα + 2 tests + `supernote.md` + `oldsessions.md` + `security_v2.md` + `BASE_HEAD.txt`.
+
+**Μαθήματα:**
+- `if (context.mounted)` στα call sites **δεν** ήταν περιττά: ο analyzer (`use_build_context_synchronously`) τα απαιτεί ακόμη και όταν ο guard υπάρχει **μέσα** στην top-level `_snack` (δεν βλέπει cross-function). Κρατήθηκαν + internal guard (defense in depth).
+- `File(path_φακέλου).exists()` = `false` → φάκελος εντός root δίνει `attachNotFound` χωρίς ειδική περίπτωση.
+
+**Docs:** `supernote.md` — `open` bullet + Windows opener + 544/544· `security_v2.md` — S-16 υλοποιημένο (αφαίρεση απαίτησης sanitize), 1β ✅, διορθωμένα line numbers S-18.
+
 
 
 

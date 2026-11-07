@@ -8,7 +8,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
 
 import '../../core/core.dart';
 import '../../helpers/super_note_helper.dart';
@@ -66,7 +65,7 @@ class AttachmentsStrip extends ConsumerWidget {
                     for (final att in atts)
                       _AttachmentCell(
                         attachment: att,
-                        onOpen: () => _open(context, att),
+                        onOpen: () => openAttachment(context, att),
                         onDelete: () => _remove(context, att),
                       ),
                   ],
@@ -76,12 +75,6 @@ class AttachmentsStrip extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-
-  void _snack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
     );
   }
 
@@ -103,89 +96,6 @@ class AttachmentsStrip extends ConsumerWidget {
     }
   }
 
-  /// Προβολή: εικόνα → fullscreen dialog, αλλιώς system app.
-  /// (pattern collection_entries `_openAttachment`.)
-  Future<void> _open(BuildContext context, Attachment attachment) async {
-    DebugConfig.db(
-        'AttachmentsStrip open id=${attachment.id} file=${AppStringUtils.redact(attachment.fileName, label: 'file')}');
-    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
-    if (safePath == null) {
-      if (context.mounted) _snack(context, AppErrors.attachNotFound);
-      return;
-    }
-    if (attachment.isImage) {
-      if (!context.mounted) return;
-      await showDialog(
-        context: context,
-        builder: (ctx) => Dialog(
-          backgroundColor: Colors.black,
-          insetPadding: EdgeInsets.zero,
-          child: Stack(
-            children: [
-              InteractiveViewer(
-                child: Center(
-                  child: Image.file(
-                    File(safePath),
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.broken_image_rounded,
-                              size: 48, color: Colors.white54),
-                          SizedBox(height: 8),
-                          Text('Αδυναμία προβολής',
-                              style: TextStyle(color: Colors.white54)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white),
-                  tooltip: 'Κλείσιμο',
-                  onPressed: () => Navigator.of(ctx).pop(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-      return;
-    }
-    try {
-      final file = File(safePath);
-      if (!await file.exists()) {
-        DebugConfig.db('AttachmentsStrip file not found id=${attachment.id}');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(AppErrors.attachNotFound)),
-          );
-        }
-        return;
-      }
-      final result = await OpenFilex.open(safePath);
-      if (result.type != ResultType.done && context.mounted) {
-        DebugConfig.db(
-            'AttachmentsStrip open failed: ${result.type} ${result.message}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppErrors.attachOpenFailed)),
-        );
-      }
-    } catch (e, stack) {
-      DebugConfig.error('AttachmentsStrip _open', e, stack);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppErrors.attachOpenFailed)),
-        );
-      }
-    }
-  }
-
   /// Διαγραφή αρχείου + γραμμής (service: DB-first + disk + ref-guard).
   /// E09: επιβεβαίωση (μη αναστρέψιμη) + ορατό σφάλμα.
   Future<void> _remove(
@@ -203,6 +113,79 @@ class AttachmentsStrip extends ConsumerWidget {
       if (context.mounted) _snack(context, AppErrors.attachDeleteFailed);
     }
   }
+}
+
+void _snack(BuildContext context, String message) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
+/// Άνοιγμα συνημμένου (SPoT για note/event/collection).
+/// Εικόνα → fullscreen preview (private), αλλιώς system app μέσω
+/// [AttachmentService.open] — που κάνει τον guard + το platform opener.
+Future<void> openAttachment(
+    BuildContext context, Attachment attachment) async {
+  DebugConfig.db(
+      'openAttachment id=${attachment.id} file=${AppStringUtils.redact(attachment.fileName, label: 'file')}');
+  if (attachment.isImage) {
+    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
+    if (safePath == null) {
+      _snack(context, AppErrors.attachNotFound);
+      return;
+    }
+    await _showImagePreview(context, safePath);
+    return;
+  }
+  final error = await AttachmentService.instance.open(attachment);
+  if (error != null && context.mounted) _snack(context, error);
+}
+
+/// Fullscreen προβολή εικόνας (dialog) — μόνο για [openAttachment].
+Future<void> _showImagePreview(
+    BuildContext context, String safePath) async {
+  if (!context.mounted) return;
+  await showDialog(
+    context: context,
+    builder: (ctx) => Dialog(
+      backgroundColor: Colors.black,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          InteractiveViewer(
+            child: Center(
+              child: Image.file(
+                File(safePath),
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.broken_image_rounded,
+                          size: 48, color: Colors.white54),
+                      SizedBox(height: 8),
+                      Text('Αδυναμία προβολής',
+                          style: TextStyle(color: Colors.white54)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              tooltip: 'Κλείσιμο',
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Κουμπί προσθήκης: labeled όταν το strip είναι κενό, icon-only (48 dp)

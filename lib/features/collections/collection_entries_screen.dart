@@ -19,7 +19,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
-import 'package:open_filex/open_filex.dart';
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -903,73 +902,6 @@ class _CollectionEntryDetailScreenState
     }
   }
 
-  Future<void> _openAttachment(Attachment attachment) async {
-    DebugConfig.db('_openAttachment id=${attachment.id} type=${attachment.mimeType}');
-    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
-    if (safePath == null) {
-      if (mounted) showSnackBar(AppErrors.attachNotFound);
-      return;
-    }
-    if (attachment.isImage) {
-      if (!mounted) return;
-      await showDialog(
-        context: context,
-        builder: (ctx) => Dialog(
-          backgroundColor: Colors.black,
-          insetPadding: EdgeInsets.zero,
-          child: Stack(
-            children: [
-              InteractiveViewer(
-                child: Center(
-                  child: Image.file(
-                    File(safePath),
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.broken_image_rounded, size: 48, color: Colors.white54),
-                          SizedBox(height: 8),
-                          Text('Αδυναμία προβολής', style: TextStyle(color: Colors.white54)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white),
-                  tooltip: 'Κλείσιμο',
-                  onPressed: () => Navigator.of(ctx).pop(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-      return;
-    }
-    try {
-      final file = File(safePath);
-      if (!await file.exists()) {
-        DebugConfig.db('_openAttachment file not found id=${attachment.id}');
-        if (mounted) showSnackBar(AppErrors.attachNotFound);
-        return;
-      }
-      final result = await OpenFilex.open(safePath);
-      if (result.type != ResultType.done && mounted) {
-        DebugConfig.db('_openAttachment failed: ${result.type} ${result.message}');
-        showSnackBar(AppErrors.attachOpenFailed);
-      }
-    } catch (e) {
-      DebugConfig.error('_openAttachment', e);
-      if (mounted) showSnackBar(AppErrors.attachOpenFailed);
-    }
-  }
-
   Future<void> _saveAttachment(Attachment attachment) async {
     DebugConfig.db('_saveAttachment id=${attachment.id} file=${AppStringUtils.redact(attachment.fileName, label: 'file')}');
     final safePath = AttachmentPathGuard.resolve(attachment.localPath);
@@ -1190,7 +1122,7 @@ class _CollectionEntryDetailScreenState
                     onUpdateListItem: (index, val) => _updateListItem(f.key, index, val),
                     onAddAttachment: () => _addAttachment(f.key),
                     onRemoveAttachment: (id) => _removeAttachment(f.key, id),
-                    onOpenAttachment: (a) => _openAttachment(a),
+                    onOpenAttachment: (a) => openAttachment(context, a),
                     onSaveAttachment: (a) => _saveAttachment(a),
                   ),
                 )),

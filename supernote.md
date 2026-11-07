@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **510/510** (`flutter test`, 05/11/2026 — `flutter analyze` clean) |
+| Test suite | **544/544** (`flutter test`, 07/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -47,7 +47,7 @@
 ### Files & Import
 - `file_picker` (`^8.0.7`) — SAF file picker/save
 - `image_picker` (`^1.1.2`) — λήψη/επιλογή φωτογραφιών (κάμερα/gallery)
-- `open_filex` (`^4.5.0`) — άνοιγμα αρχείου με system app
+- `open_filex` (`^4.5.0`) — άνοιγμα αρχείου με system app (Android/iOS — **όχι** Windows, βλ. `AttachmentService.open`)
 - `mime` (`^1.0.5`) — MIME type lookup
 - `path` (`^1.9.0`) — path manipulation
 
@@ -67,7 +67,7 @@
 - `local_auth` (`^2.3.0`) — biometrics
 - `crypto` (`^3.0.6`) — SHA-256 (PIN hashing)
 - `receive_sharing_intent` (`^1.9.0`) — λήψη κοιν/νου content
-- `url_launcher` (`^6.3.3`) — άνοιγμα URLs
+- `url_launcher` (`^6.3.3`) — άνοιγμα URLs + Windows file opener (`Uri.file` → `ShellExecuteW`)
 - `archive` (`^4.3.0`) — zip backup/restore
 
 > Πηγή αλήθειας για dependencies: `pubspec.yaml`
@@ -543,6 +543,7 @@ final db = SuperNoteHelper.instance;
 - `pickAndSave(itemId, blockId, allowedExtensions)` → `Attachment?`
 - `saveFile(itemId, sourcePath, blockId)` → `Attachment`
 - `delete(attachmentId)` — file + DB deletion
+- `open(attachment)` → `Future<String?>` — `null` = OK, αλλιώς μήνυμα `AppErrors` (S-16/1β, S298): guard → ύπαρξη → **Windows:** `launchUrl(Uri.file(path), LaunchMode.externalApplication)` (ShellExecuteW, **χωρίς** `cmd`) / **άλλα:** `OpenFilex.open`. Μοναδικό UI entry point: `openAttachment()` στο `attachments_strip.dart` (exported από `widgets.dart`) — εικόνες → private fullscreen preview, όλα τα άλλα → `open`.
 - Internal: copies to `attachments/` subdirectory in app documents
 - **S-18 (security v2, βήμα 1α):** SPoT για το «πού επιτρέπεται» ένα path = `AttachmentPathGuard` (`lib/core/utils/attachment_path_guard.dart`): `dirName = 'attachments'`, root = `<documents>/attachments`, **fail-closed** `resolve()` (λεξικός: `isAbsolute` + `normalize` + `isWithin`, χωρίς I/O) · `configure(documentsDir:)` στο `SuperNoteHelper.init()` (idempotent, re-init μετά restore) · `attachmentsDirName` = const delegate. Όλα τα open/preview/save-as/share/disk-delete περνούν από αυτό· εκτός root ⇒ `attachNotFound`/skip (ποτέ άνοιγμα, διαγραφή ή κοινοποίηση ξένου αρχείου).
 
@@ -1059,7 +1060,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (510/510 🟢) |
+| `flutter test` | Πλήρες suite (544/544 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

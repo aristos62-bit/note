@@ -110,4 +110,48 @@ void main() {
     expect(find.byIcon(Icons.insert_drive_file_outlined), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('S-16: tap μη-εικόνας εκτός root → snackbar, χωρίς dialog',
+      (tester) async {
+    AttachmentPathGuard.reset();
+    final att = Attachment()
+      ..id = 4
+      ..itemId = 1
+      ..fileName = 'evil.pdf'
+      ..localPath = '/outside/evil.pdf'
+      ..mimeType = 'application/pdf'
+      ..fileSize = 10;
+
+    await tester.pumpWidget(_wrap([att]));
+    await tester.pump();
+
+    await tester.tap(find.text('evil.pdf'));
+    await tester.pump();
+
+    expect(find.text(AppErrors.attachNotFound), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('S-16: tap εικόνας εκτός root → snackbar, χωρίς preview dialog',
+      (tester) async {
+    AttachmentPathGuard.reset();
+    final att = Attachment()
+      ..id = 5
+      ..itemId = 1
+      ..fileName = 'evil.png'
+      ..localPath = '/outside/evil.png'
+      ..mimeType = 'image/png'
+      ..fileSize = 10;
+
+    await tester.pumpWidget(_wrap([att]));
+    await tester.pump();
+
+    await tester.tap(find.text('evil.png'));
+    await tester.pump();
+
+    expect(find.text(AppErrors.attachNotFound), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
