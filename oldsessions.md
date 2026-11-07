@@ -4826,6 +4826,14 @@ if (!context.isShortScreen)
 - Το `normalize` δεν είναι το όριο ασφαλείας (το `isWithin` κόβει τα escapes και raw)· είναι canonicalization + σταθερό cache key.
 - Global static config: `configure` πριν το `runApp` (μέσα στο `init`) + `reset()` σε `tearDown` — αλλιώς διαρρέει state μεταξύ tests.
 
+**Device — VERIFIED (07/11/2026 10:41, build `01727c0`, release arm64, POCO X3 M2007J20CG, pid 5199):**
+- `adb install -r` OK (`versionName 1.0.4`) · cold start → `MainActivity` resumed, pid σταθερό.
+- «E39 test» (1 εικόνα): thumbnail render OK · tap → **fullscreen εικόνα** (όχι «Αδυναμία προβολής») · share sheet «1 συνημμένο • 92.0KB» → Android chooser με το πραγματικό `.jpg`.
+- «e39 many» (25): sheet «20 συνημμένα • 70.4MB» + «5 αρχείο(α) παραλείφθηκαν (όριο κοινοποίησης)» → D1 όριο ανέγγιχτο.
+- Confirm dialog διαγραφής εμφανίστηκε σωστά (ακυρώθηκε· **καμία** διαγραφή/αλλαγή δεδομένων).
+- **0** `AttachmentPathGuard` warnings (καμία ψευδής απόρριψη) · **0** FATAL/exception.
+- Δεν εκτελέστηκαν (απαιτούν ροή/δεδομένα): collection attachment field (open/save-as), πραγματική διαγραφή, Windows opener (S-16).
+
 **Docs:** `supernote.md` — bullet `AttachmentPathGuard` στο `AttachmentService` (SPoT + fail-closed).
 
 
