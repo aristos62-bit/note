@@ -16,11 +16,37 @@ import 'settings_backup.dart';
 // REUSABLE TILES
 // ════════════════════════════════════════════════════════════════
 
+/// Κάρτα επιλογής — ένα σημείο για το Card styling των Ρυθμίσεων
+/// (S-24: αντικαθιστά τα δύο πανομοιότυπα `_buildCard` του settings_screen).
+class SettingsCard extends StatelessWidget {
+  final Widget child;
+  const SettingsCard({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.cardBR,
+        side: BorderSide(
+          color: ColorsUI.getBorder(context.brightness).withValues(alpha: 0.3),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 class SettingsSwitchTile extends StatelessWidget {
   final String label;
   final String? subtitle;
   final bool value;
   final bool enabled;
+  /// S-24: όσο αποθηκεύεται ασύγχρονη αλλαγή, το switch μένει ενεργό
+  /// (δείχνει τη σωστή τιμή) αλλά μη διαδραστικό — όχι `enabled:false`,
+  /// που θα το εμφάνιζε λανθασμένα OFF (`value: enabled ? value : false`).
+  final bool busy;
   final ValueChanged<bool> onChanged;
   const SettingsSwitchTile({
     super.key,
@@ -28,6 +54,7 @@ class SettingsSwitchTile extends StatelessWidget {
     this.subtitle,
     required this.value,
     this.enabled = true,
+    this.busy = false,
     required this.onChanged,
   });
 
@@ -38,7 +65,7 @@ class SettingsSwitchTile extends StatelessWidget {
       title: Text(label, style: context.bodyMd.withColor(enabled ? context.cText : context.cDisabled)),
       subtitle: subtitle != null ? Text(subtitle!, style: context.bodySm.withColor(context.cText2)) : null,
       value: enabled ? value : false,
-      onChanged: enabled ? onChanged : null,
+      onChanged: enabled && !busy ? onChanged : null,
       activeThumbColor: context.cPrimary,
     );
   }
@@ -251,8 +278,7 @@ class SettingsFontScaleTile extends ConsumerWidget {
 
 class SettingsLockTimeoutTile extends ConsumerWidget {
   final int current;
-  final WidgetRef ref;
-  const SettingsLockTimeoutTile({super.key, required this.current, required this.ref});
+  const SettingsLockTimeoutTile({super.key, required this.current});
 
   static const _options = [
     (0, 'Αμέσως'),
@@ -262,8 +288,25 @@ class SettingsLockTimeoutTile extends ConsumerWidget {
     (300, '5 λεπτά'),
   ];
 
+  Future<void> _onChanged(BuildContext context, WidgetRef ref, int v) async {
+    // S-24: write πριν την εμφάνιση — το `current` έρχεται από τα committed
+    // settings, άρα σε αποτυχία το dropdown μένει στην παλιά τιμή.
+    final updated = await ref
+        .read(appLockSettingsWriterProvider)((s) => s.appLockTimeoutSeconds = v);
+    if (!context.mounted) return;
+    if (updated == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(AppErrors.settingsSaveFailed),
+          backgroundColor: context.cError,
+        ),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef r) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = _options.any((o) => o.$1 == current) ? current : 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
       child: Column(
@@ -271,25 +314,26 @@ class SettingsLockTimeoutTile extends ConsumerWidget {
         children: [
           Text('Χρονικό όριο κλειδώματος', style: context.bodyMd),
           const SizedBox(height: Spacing.sm),
-          DropdownButtonFormField<int>(
-            initialValue: _options.any((o) => o.$1 == current) ? current : 0,
+          InputDecorator(
             decoration: InputDecoration(
               border: OutlineInputBorder(borderRadius: AppRadius.inputBR),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: Spacing.md, vertical: Spacing.sm,
               ),
             ),
-            items: _options.map((o) => DropdownMenuItem(
-              value: o.$1,
-              child: Text(o.$2, style: context.bodyMd),
-            )).toList(),
-            onChanged: (v) {
-              if (v != null) {
-                ref.read(settingsNotifierProvider.notifier).updateSettings(
-                  (s) => s.appLockTimeoutSeconds = v,
-                );
-              }
-            },
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                value: value,
+                isExpanded: true,
+                items: _options.map((o) => DropdownMenuItem(
+                  value: o.$1,
+                  child: Text(o.$2, style: context.bodyMd),
+                )).toList(),
+                onChanged: (v) {
+                  if (v != null && v != value) _onChanged(context, ref, v);
+                },
+              ),
+            ),
           ),
         ],
       ),

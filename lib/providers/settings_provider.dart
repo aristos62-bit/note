@@ -18,11 +18,6 @@ final settingsStreamProvider = StreamProvider<AppSettings?>((ref) {
   return ref.watch(dbProvider).settings.watch();
 });
 
-/// Future για αρχικό load
-final settingsProvider = FutureProvider<AppSettings>((ref) {
-  return ref.watch(dbProvider).settings.get();
-});
-
 // ── Helpers για itemTypeColorsJson ──────────────────────────────
 
 Map<String, String?> _itemTypeColorsFromJson(String? json) {
@@ -58,13 +53,27 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   /// Generic update — περνάς function που αλλάζει τα settings.
   /// ΣΗΜΑΝΤΙΚΟ: Ονομάζεται updateSettings() και ΟΧΙ update()
   /// γιατί το AsyncNotifier έχει built-in update() που θα συγκρουόταν.
-  Future<void> updateSettings(void Function(AppSettings) updater) async {
+  ///
+  /// S-24: επιστρέφει το **committed** snapshot ή `null` σε αποτυχία — έτσι ο
+  /// caller (π.χ. lock toggle) δεν εκτελεί security effects χωρίς write.
+  /// Το `invalidateSelf` γίνεται **μόνο** σε επιτυχία (όπως και πριν) και
+  /// χωριστά από το write, ώστε σφάλμα refresh να μη διαβαστεί ως σφάλμα write.
+  Future<AppSettings?> updateSettings(
+    void Function(AppSettings) updater,
+  ) async {
+    AppSettings? updated;
     try {
-      await ref.read(dbProvider).settings.update(updater);
-      ref.invalidateSelf();
+      updated = await ref.read(dbProvider).settings.update(updater);
     } catch (e, s) {
       DebugConfig.error('SettingsNotifier.updateSettings', e, s);
+      return null;
     }
+    try {
+      ref.invalidateSelf();
+    } catch (e, s) {
+      DebugConfig.error('SettingsNotifier.updateSettings.invalidate', e, s);
+    }
+    return updated;
   }
 
   // ── Convenience methods ─────────────────────────────────
@@ -150,9 +159,19 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
 }
 
 final settingsNotifierProvider =
-AsyncNotifierProvider<SettingsNotifier, AppSettings>(
+    AsyncNotifierProvider<SettingsNotifier, AppSettings>(
   SettingsNotifier.new,
 );
+
+/// S-24 test seam: ο writer του lock toggle. Ίδιο συμβόλαιο με
+/// `updateSettings` — committed snapshot ή `null` σε αποτυχία.
+typedef AppLockSettingsWriter =
+    Future<AppSettings?> Function(void Function(AppSettings) updater);
+
+final appLockSettingsWriterProvider = Provider<AppLockSettingsWriter>((ref) {
+  return (updater) =>
+      ref.read(settingsNotifierProvider.notifier).updateSettings(updater);
+});
 
 // ─────────────────────────────────────────────────────────────────
 // Convenience derived providers

@@ -1728,13 +1728,19 @@ class SettingsRepository {
     return await getOrNull() ?? AppSettings();
   }
 
-  Future<void> update(void Function(AppSettings) updater) async {
-    final settings = await get();
-    updater(settings);
-    settings.updatedAt = DateTime.now();
+  /// S-24: ατομικό read-modify-write — η ανάγνωση γίνεται **μέσα** στο
+  /// `writeTxn`, ώστε ταυτόχρονοι writers (π.χ. auto-backup
+  /// `lastAutoBackupAt`, `backup_service.dart:490`) να μην κάνουν lost update.
+  /// Επιστρέφει το **committed** snapshot (ή πετά — το χειρίζεται ο caller).
+  Future<AppSettings> update(void Function(AppSettings) updater) async {
+    late AppSettings settings;
     await _isar.writeTxn(() async {
+      settings = await _isar.appSettings.get(1) ?? AppSettings();
+      updater(settings);
+      settings.updatedAt = DateTime.now();
       await _isar.appSettings.put(settings);
     });
+    return settings;
   }
 
   Stream<AppSettings?> watch() {

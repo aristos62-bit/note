@@ -227,7 +227,8 @@ lib/
 │   ├── settings/
 │   │   ├── settings.dart                  — Barrel
 │   │   ├── settings_screen.dart           — Screen + System/DB groups (S253)
-│   │   ├── settings_tiles.dart            — Switch/Action/Info/theme/lock/backup tiles
+│   │   ├── settings_tiles.dart            — SettingsCard + Switch/Action/Info/theme/lock/backup tiles
+│   │   ├── settings_app_lock_section.dart — App-lock section: ατομικό toggle (S-24)
 │   │   ├── settings_colors.dart           — Item-type colors + color picker sheet
 │   │   ├── settings_backup.dart           — Export / import / wipe
 │   │   ├── settings_pin_dialogs.dart      — App-lock PIN dialogs + validation
@@ -447,7 +448,7 @@ final db = SuperNoteHelper.instance;
 | `FolderRepository` | create, getByWorkspace, delete, getById, update, reorder | watchByWorkspace, watchById |
 | `WorkspaceRepository` | create, getAll, getDefault | — |
 | `AttachmentRepository` | create, getForItem, getById, delete | — |
-| `SettingsRepository` | get, update | watch (object id=1) |
+| `SettingsRepository` | get, getOrNull, update *(S-24: atomic read-modify-write μέσα σε ένα `writeTxn`, επιστρέφει το committed snapshot)* | watch (object id=1) |
 
 ---
 
@@ -592,6 +593,7 @@ final db = SuperNoteHelper.instance;
 - `lockGateSettingsReaderProvider` → `SettingsRepository.getOrNull()` (ποτέ σιωπηλό `AppSettings()`)
 - Timeouts: cold 5s · resume 2s · retry 5s (injectable `lockGateTimeoutsProvider`)
 - `resolveCold()` pre-runApp · `resolveResume(pausedAt)` στο resumed · `retry()` από failure UI · `markPaused()` ακυρώνει in-flight resolves
+- `applySettings(AppSettings)` (S-24) — εφαρμόζει **committed** snapshot μετά επιτυχές write του toggle, χωρίς 2η ανάγνωση DB και χωρίς ενδιάμεσο `resolving` (generation bump → ακυρώνει τυχόν in-flight resolve)
 - Fail-closed: `null`/σφάλμα/timeout ή `enabled && pinHash == null` ⇒ locked + `FLAG_SECURE(true)` + failure UI (retry / inline νέο PIN)
 - Έκθεση: `status != ready || appLockStateProvider` ⇒ `appContentBlockedProvider` — το `child` μπαίνει σε `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` (S-05)
 - Back: `didPopRoute` στον `_AppLifecycleObserver` (το `PopScope` στο `MaterialApp.builder` είναι no-op — δεν έχει `ModalRoute`)
@@ -697,8 +699,8 @@ attachmentCountsProvider → StreamProvider.autoDispose<Map<int, int>>          
 ### Settings Providers
 ```
 settingsStreamProvider → StreamProvider<AppSettings?>        // real-time
-settingsProvider → FutureProvider<AppSettings>
 settingsNotifierProvider → AsyncNotifierProvider<SettingsNotifier, AppSettings>
+appLockSettingsWriterProvider → Provider<AppLockSettingsWriter> // S-24 test seam (committed snapshot ή null)
 appThemeProvider → Provider<AppTheme>
 onboardingCompleteProvider → Provider<bool>
 itemTypeCardColorOverrideProvider → Provider.family<Color?, ItemType>
