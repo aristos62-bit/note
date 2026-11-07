@@ -3,8 +3,10 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/attachment.dart';
 import '../core/utils/app_errors.dart';
@@ -169,6 +171,40 @@ class AttachmentService {
     } catch (e, stack) {
       DebugConfig.error('[AttachmentService] delete failed', e, stack);
       rethrow;
+    }
+  }
+
+  /// Άνοιγμα συνημμένου με την εφαρμογή του συστήματος (S-16/1β).
+  /// Επιστρέφει `null` σε επιτυχία, αλλιώς μήνυμα [AppErrors].
+  /// Το path περνά ΠΑΝΤΑ από [AttachmentPathGuard] (fail-closed).
+  Future<String?> open(Attachment attachment) async {
+    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
+    if (safePath == null) return AppErrors.attachNotFound;
+    if (!await File(safePath).exists()) {
+      DebugConfig.db('open: file not found id=${attachment.id}');
+      return AppErrors.attachNotFound;
+    }
+    try {
+      if (Platform.isWindows) {
+        // S-16: ShellExecuteW μέσω url_launcher — χωρίς cmd/command line.
+        final ok = await launchUrl(
+          Uri.file(safePath),
+          mode: LaunchMode.externalApplication,
+        );
+        DebugConfig.db('open (windows): launched=$ok id=${attachment.id}');
+        return ok ? null : AppErrors.attachOpenFailed;
+      }
+      final result = await OpenFilex.open(safePath);
+      if (result.type != ResultType.done) {
+        DebugConfig.db('open failed: ${result.type} id=${attachment.id}');
+        return AppErrors.attachOpenFailed;
+      }
+      return null;
+    } catch (e, stack) {
+      // Ποτέ το exception object: μπορεί να περιέχει path.
+      DebugConfig.error(
+          '[AttachmentService] open failed (${e.runtimeType})', null, stack);
+      return AppErrors.attachOpenFailed;
     }
   }
 
