@@ -106,7 +106,7 @@
   2. **Μονοτονικός χρόνος:** `elapsedRealtimeMs()` μέσω του υπάρχοντος `super_note/security` channel + anchor `appLockLockoutMonoMs`· wall fallback· `now < lastSeenWallMs` (ρολόι πίσω) ⇒ fail-closed (πλήρης διάρκεια).
   3. Ελάχιστο **6** ψηφία για νέο PIN + μπλοκάρισμα τετριμμένων (`isWeakPin`: all-same, διαδοχικά, επαναλαμβανόμενο block). 4-5 μόνο legacy verify.
   4. Μετά από 10 αποτυχίες: **όχι** μόνιμος αποκλεισμός — μεγάλο lockout (tiers έως 1 ώρα) + βιομετρική διαφυγή (bypass + reset).
-- **Κατάσταση:** `AppLockAttemptsStore` (`appLockAttemptsStoreProvider`) = μία πύλη `snapshot`/`verify`/`finishSuccess`· `LockScreen` δουλεύει από persisted snapshot (επιβιώνει kill/unlock)· unlock-first + best-effort reset/hash-upgrade. Tests: `lock_security_test`, `lockout_store_test`, `lock_screen_test` (**613/613**). **Device-verified 08/11/2026 (POCO X3):** lockout 30s μετά 5 αποτυχίες + επιβίωση μετά `force-stop`/relaunch (30→22s), FLAG_SECURE + 0-byte screencap, min-6/weak/mismatch, legacy 4ψήφιο verify.
+- **Κατάσταση:** `AppLockAttemptsStore` (`appLockAttemptsStoreProvider`) = μία πύλη `snapshot`/`verify`/`finishSuccess`· `LockScreen` δουλεύει από persisted snapshot (επιβιώνει kill/unlock)· unlock-first + best-effort reset/hash-upgrade. Tests: `lock_security_test`, `lockout_store_test`, `lock_screen_test` (**613/613** τότε — σήμερα **620/620**). **Device-verified 08/11/2026 (POCO X3):** lockout 30s μετά 5 αποτυχίες + επιβίωση μετά `force-stop`/relaunch (30→22s), FLAG_SECURE + 0-byte screencap, min-6/weak/mismatch, legacy 4ψήφιο verify.
 - **Αποδοχή:** kill+reopen δεν μηδενίζει το lockout· αλλαγή ρολογιού δεν το λύνει· tests για `nextLockoutSeconds` + persistence.
 
 ## S-16 — Πιθανή εκτέλεση εντολών στο Windows μέσω `open_filex` **(ΝΕΟ v2)**
@@ -117,7 +117,7 @@
 
 ---
 
-# Ευρήματα μεσαίας σοβαρότητας (12)
+# Ευρήματα μεσαίας σοβαρότητας (13)
 
 | ID | Εύρημα | Πού (HEAD) | Διόρθωση |
 |---|---|---|---|
@@ -165,7 +165,7 @@
 | | 3 | **Permissions**: αφαίρεση `READ_MEDIA_*`, `READ_EXTERNAL_STORAGE`, `WRITE_CONTACTS` + merged-manifest check — ✅ S299 | S-22, S-12 | Μικρό | Πολύ χαμηλό |
 | **P1 — Κλείδωμα** | 4 | **PIN hardening**: persistent counter + monotonic + min 6 + trivial block + migration bump — ✅ S302 | S-03 | Μικρό-μέτριο | Χαμηλό· migration test |
 | | 5 | **PIN gate** σε toggle-off/export/restore/wipe — ✅ S302 | S-04 | Μικρό | Χαμηλό |
-| | 6 | **Lock UI**: `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` όταν locked | S-05 | Μικρό | Χαμηλό (focus/state) |
+| | 6 | **Lock UI**: `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` όταν locked — ✅ S300 | S-05 | Μικρό | Χαμηλό (focus/state) |
 | | 7 | **Notifications**: `visibility: private` + generic `publicVersion` + ρύθμιση | S-06 | Μικρό | Χαμηλό |
 | | 8 | **Logs**: guard error/warning, redact URL | S-11 | Πολύ μικρό | Πολύ χαμηλό |
 | **P2 — Δεδομένα που φεύγουν** | 9 | **Backup encryption** (AES-256-GCM + PBKDF2) + legacy read + strip lock fields + **auto backup σε φάκελο χρήστη + first-run prompt** + **tag verify πριν το `Isar.open`** | S-02 | Μέτριο | Μέτριο· tests παλιών zip + restore· SAF/permissions ανά πλατφόρμα |
@@ -179,7 +179,7 @@
 | | 17 | **Android 12+ extraction rules** + τεκμηρίωση FLAG_SECURE scope | S-21 | Μικρό | Πολύ χαμηλό |
 | **P4 — Απόφαση** | 18 | **Κρυπτογράφηση βάσης**: (1) Windows path, (2) field encryption, (3) SQLCipher, ή (4) τεκμηρίωση limitation | S-01 | Μικρό → πολύ μεγάλο | Υψηλό για (2)/(3) |
 
-**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), καθώς και το **S-24** (S301, ατομικό toggle lock). Το παρόν παραμένει η έκθεση v2.3 + πλάνο για τα υπόλοιπα.
+**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302) και **6/S-05** (S300), καθώς και το **S-24** (S301, ατομικό toggle lock). Το παρόν παραμένει η έκθεση v2.3 + πλάνο για τα υπόλοιπα.
 
 ---
 
