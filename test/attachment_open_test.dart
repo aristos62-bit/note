@@ -70,4 +70,10 @@ void main() {
     final dir = Directory(p.join(root.path, 'folder'))..createSync();
     expect(await open(dir.path), AppErrors.attachNotFound);
   });
+
+  test('S-25: .bat εντός root χωρίς allowRisky → attachOpenBlocked', () async {
+    final f = File(p.join(root.path, '1_hello.bat'))
+      ..writeAsStringSync('@echo off');
+    expect(await open(f.path), AppErrors.attachOpenBlocked);
+  }, skip: !Platform.isWindows);
 }

@@ -26,6 +26,6 @@ flutter analyze
 flutter test -j 1 --reporter compact
 ```
 
-Τρέχουσα κατάσταση (05/11/2026): `flutter analyze` clean · tests **510/510** · `catch (_) {}` = 0 · εκκρεμότητες **0**.
+Τρέχουσα κατάσταση (08/11/2026): `flutter analyze` clean · tests **620/620** · `catch (_) {}` = 0 · εκκρεμότητες **0**.
 
 > Τα δεδομένα της συσκευής δεν δημιουργούνται/αλλάζουν ποτέ μέσω `adb` — μόνο in-app (AGENTS.md #12).
