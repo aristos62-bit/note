@@ -5036,3 +5036,29 @@ if (!context.isShortScreen)
 - Isar property ids = αλφαβητικά ⇒ τα νέα `appLock*` πεδία μετατοπίζουν ids· η auto-migration του Isar καλύπτει (precedent `3d8ba34`) — ποτέ χειροκίνητο `.g.dart`.
 
 **Docs:** `supernote.md` — file tree, AppSettings lockout πεδία, schema v4, SecurityService `elapsedRealtimeMs`, Lock Gate (persisted lockout + sensitive gate), Settings Providers (`appLockAttemptsStoreProvider`) · `security_v2.md` — S-03/S-04 status.
+
+**Commit:** `ebb4025` (24 files, +2573/−349) + push στο `main`.
+
+### Device test (POCO X3 `9593c01e`, release APK 69.4MB, `adb install -r`)
+
+**Αφετηρία:** app-lock **OFF** (όπως το βρήκαμε), υπάρχον **4ψήφιο legacy PIN** + βιομετρικό, timeout 5′.
+
+| Έλεγχος | Αποτέλεσμα |
+|---|---|
+| Ενεργοποίηση με υπάρχον 4ψήφιο PIN | ✅ ζήτησε βιομετρικό στην LockScreen και ξεκλείδωσε — **legacy 4ψήφιο λειτουργεί** |
+| Cold start / FLAG_SECURE | ✅ `fl=SECURE`, βιομετρικό prompt αυτόματα, `adb exec-out screencap` → **0 bytes** |
+| Lockout μετά από 5 λάθος PIN | ✅ «Δοκιμάστε ξανά σε **30** δευτερόλεπτα» |
+| **Persistence** (S-03 core) | ✅ `force-stop` + relaunch **εντός** lockout → μήνυμα **ακόμη ενεργό** («…σε **22** δευτερόλεπτα») ⇒ persisted counter + σωστή monotonic αφαίρεση (30→22 = −8s) |
+| Blocked input μέσα στο lockout | ✅ tap σε ψηφίο → καμία κουκκίδα, μήνυμα αμετάβλητο |
+| Λήξη lockout | ✅ μετά τα 30s το μήνυμα καθαρίζει, keypad ξανά ενεργό |
+| **S-04 export gate** | ✅ βιομετρικό/PIN **πριν** το dialog «Πώς θέλετε να αποθηκεύσετε…» |
+| **S-03 set-PIN** | ✅ `1234` → «τουλάχιστον 6 ψηφία»· mismatch «Τα PIN δεν ταιριάζουν»· επιτυχής αλλαγή σε **6ψήφιο** PIN |
+| **S-04 disable gate** | ✅ ζήτησε βιομετρικό/PIN πριν την απενεργοποίηση |
+| Αποκατάσταση κατάστασης | ✅ app-lock **OFF** (`Switch checked=false`), `screencap` ξανά >0 bytes (FLAG_SECURE off), PIN πλέον 6ψήφιο (από τον χρήστη) |
+
+**Δεν εκτελέστηκαν σε device (σκόπιμα):** import gate, wipe gate, «ρολόι πίσω» (χωρίς root) — ίδιος κώδικας `confirmSensitiveAction`/`remainingLockoutSeconds`, καλύπτονται από unit/widget tests· το wipe θα άγγιζε τα πραγματικά δεδομένα.
+
+**Μαθήματα (device):**
+- Το μήνυμα lockout είναι **στατικό** (δεν κάνει countdown): το «22» ήταν το string της στιγμής· η ορθότητα του χρόνου επιβεβαιώνεται από τη **λήξη** (30s → καθαρισμός).
+- Με βιομετρικό ενεργό το prompt εμφανίζεται **αυτόματα** σε κάθε cold start → για δοκιμή PIN χρειάζεται `adb shell input keyevent 4` (ακύρωση) πρώτα.
+- Σε release build τα `DebugConfig` logs είναι **OFF** (`_debug = false`) ⇒ η επαλήθευση γίνεται από UI dump (`content-desc`) + `dumpsys window` + μέγεθος screencap, όχι από logcat.
