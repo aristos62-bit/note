@@ -31,6 +31,14 @@ class _SettingsAppLockSectionState extends ConsumerState<SettingsAppLockSection>
     return ref.read(appLockSettingsWriterProvider)(updater);
   }
 
+  /// S-03: μηδενισμός lockout — στον ίδιο atomic updater με το νέο PIN/disable.
+  void _resetLockout(AppSettings s) {
+    s.appLockFailedAttempts = 0;
+    s.appLockLockoutUntilEpochMs = 0;
+    s.appLockLockoutDurationSeconds = 0;
+    s.appLockLockoutMonoMs = 0;
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -60,68 +68,89 @@ class _SettingsAppLockSectionState extends ConsumerState<SettingsAppLockSection>
       return;
     }
 
-    // Πρώτο enable χωρίς PIN → setup. Ακύρωση = καμία αλλαγή.
-    String? pin;
-    if (v && _s.appLockPinHash == null) {
-      pin = await showSetPinDialog(context, ref);
-      if (pin == null || !mounted) return;
-    }
-
+    // Το busy καλύπτει και τα dialogs (όχι μόνο το write).
     setState(() => _busy = true);
-    final updated = await _write((s) {
-      s.appLockEnabled = v;
-      if (pin != null) {
-        s.appLockPinHash = AppLockService.instance.hashPin(pin);
-        s.appLockPinLength = pin.length;
+    try {
+      // S-04: απενεργοποίηση = ευαίσθητη ενέργεια → βιομετρικό/PIN.
+      if (!v && _s.appLockEnabled && _s.appLockPinHash != null) {
+        final ok = await confirmSensitiveAction(
+          context,
+          ref,
+          reason:
+              'Επιβεβαιώστε την ταυτότητά σας για απενεργοποίηση του κλειδώματος',
+        );
+        if (!ok || !mounted) return;
       }
-    });
-    if (!mounted) return;
 
-    if (updated == null) {
-      setState(() => _busy = false);
-      _showError(AppErrors.settingsSaveFailed);
-      return;
+      // Πρώτο enable χωρίς PIN → setup. Ακύρωση = καμία αλλαγή.
+      String? pin;
+      if (v && _s.appLockPinHash == null) {
+        pin = await showSetPinDialog(context, ref);
+        if (pin == null || !mounted) return;
+      }
+
+      final updated = await _write((s) {
+        s.appLockEnabled = v;
+        if (pin != null) {
+          s.appLockPinHash = AppLockService.instance.hashPin(pin);
+          s.appLockPinLength = pin.length;
+          _resetLockout(s);
+        }
+        if (!v) _resetLockout(s);
+      });
+      if (!mounted) return;
+
+      if (updated == null) {
+        _showError(AppErrors.settingsSaveFailed);
+        return;
+      }
+
+      // Επιτυχές commit → το gate εφαρμόζει το committed snapshot
+      // (FLAG_SECURE + lock/unlock) χωρίς δεύτερη ανάγνωση DB.
+      await ref.read(lockGateProvider.notifier).applySettings(updated);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-
-    // Επιτυχές commit → το gate εφαρμόζει το committed snapshot
-    // (FLAG_SECURE + lock/unlock) χωρίς δεύτερη ανάγνωση DB.
-    await ref.read(lockGateProvider.notifier).applySettings(updated);
-    if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _changePin() async {
     if (_busy) return;
-    if (_s.appLockPinHash != null) {
-      final ok = await showCurrentPinDialog(context, ref);
-      if (!ok || !mounted) return;
-    }
-    final pin = await showSetPinDialog(context, ref);
-    if (pin == null || !mounted) return;
-
     setState(() => _busy = true);
-    final updated = await _write((s) {
-      s.appLockPinHash = AppLockService.instance.hashPin(pin);
-      s.appLockPinLength = pin.length;
-    });
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (updated == null) {
-      _showError(AppErrors.lockGatePinSetupFailed);
+    try {
+      if (_s.appLockPinHash != null) {
+        final ok = await showCurrentPinDialog(context, ref);
+        if (!ok || !mounted) return;
+      }
+      final pin = await showSetPinDialog(context, ref);
+      if (pin == null || !mounted) return;
+
+      final updated = await _write((s) {
+        s.appLockPinHash = AppLockService.instance.hashPin(pin);
+        s.appLockPinLength = pin.length;
+        _resetLockout(s);
+      });
+      if (!mounted) return;
+      if (updated == null) _showError(AppErrors.lockGatePinSetupFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _toggleBiometric(bool v) async {
     if (_busy) return;
-    if (v) {
-      final ok = await AppLockService.instance.authenticate();
-      if (!ok || !mounted) return;
-    }
-
     setState(() => _busy = true);
-    final updated = await _write((s) => s.biometricEnabled = v);
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (updated == null) _showError(AppErrors.settingsSaveFailed);
+    try {
+      if (v) {
+        final ok = await AppLockService.instance.authenticate();
+        if (!ok || !mounted) return;
+      }
+
+      final updated = await _write((s) => s.biometricEnabled = v);
+      if (!mounted) return;
+      if (updated == null) _showError(AppErrors.settingsSaveFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -143,7 +172,7 @@ class _SettingsAppLockSectionState extends ConsumerState<SettingsAppLockSection>
           SettingsCard(
             child: SettingsActionTile(
               label: _s.appLockPinHash != null ? 'Αλλαγή PIN' : 'Ορισμός PIN',
-              subtitle: '4-6ψήφιο PIN ασφαλείας',
+              subtitle: '6ψήφιο PIN ασφαλείας',
               icon: Icons.pin_rounded,
               onTap: _changePin,
             ),

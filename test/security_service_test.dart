@@ -76,4 +76,64 @@ void main() {
     expect(await SecurityService.setSecure(true), isTrue);
     expect(attempts, 2);
   });
+
+  group('elapsedRealtimeMs (S-03)', () {
+    test('επιστρέφει την τιμή και cache-άρει ~1s', () async {
+      var calls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ch, (call) async {
+        if (call.method == 'elapsedRealtime') {
+          calls++;
+          return 123456;
+        }
+        return null;
+      });
+
+      expect(await SecurityService.elapsedRealtimeMs(), 123456);
+      expect(await SecurityService.elapsedRealtimeMs(), 123456);
+      expect(calls, 1);
+
+      // force → νέα κλήση ακόμη και μέσα στο παράθυρο cache.
+      expect(await SecurityService.elapsedRealtimeMs(force: true), 123456);
+      expect(calls, 2);
+    });
+
+    test('missing plugin → null, χωρίς throw', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ch, null);
+      expect(await SecurityService.elapsedRealtimeMs(), isNull);
+    });
+
+    test('σφάλμα channel → null, χωρίς throw', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ch, (call) async {
+        throw PlatformException(code: 'boom');
+      });
+      expect(await SecurityService.elapsedRealtimeMs(), isNull);
+    });
+
+    test('null/αρνητική τιμή → null', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ch, (call) async => null);
+      expect(await SecurityService.elapsedRealtimeMs(), isNull);
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ch, (call) async => -1);
+      expect(await SecurityService.elapsedRealtimeMs(), isNull);
+    });
+
+    test('resetForTest καθαρίζει το cache', () async {
+      var calls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ch, (call) async {
+        calls++;
+        return 5000;
+      });
+
+      expect(await SecurityService.elapsedRealtimeMs(), 5000);
+      SecurityService.resetForTest();
+      expect(await SecurityService.elapsedRealtimeMs(), 5000);
+      expect(calls, 2);
+    });
+  });
 }

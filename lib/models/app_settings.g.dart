@@ -27,151 +27,181 @@ const AppSettingsSchema = CollectionSchema(
       name: r'appLockEnabled',
       type: IsarType.bool,
     ),
-    r'appLockPinHash': PropertySchema(
+    r'appLockFailedAttempts': PropertySchema(
       id: 2,
+      name: r'appLockFailedAttempts',
+      type: IsarType.long,
+    ),
+    r'appLockLastSeenWallMs': PropertySchema(
+      id: 3,
+      name: r'appLockLastSeenWallMs',
+      type: IsarType.long,
+    ),
+    r'appLockLockoutDurationSeconds': PropertySchema(
+      id: 4,
+      name: r'appLockLockoutDurationSeconds',
+      type: IsarType.long,
+    ),
+    r'appLockLockoutMonoMs': PropertySchema(
+      id: 5,
+      name: r'appLockLockoutMonoMs',
+      type: IsarType.long,
+    ),
+    r'appLockLockoutUntilEpochMs': PropertySchema(
+      id: 6,
+      name: r'appLockLockoutUntilEpochMs',
+      type: IsarType.long,
+    ),
+    r'appLockPinHash': PropertySchema(
+      id: 7,
       name: r'appLockPinHash',
       type: IsarType.string,
     ),
     r'appLockPinLength': PropertySchema(
-      id: 3,
+      id: 8,
       name: r'appLockPinLength',
       type: IsarType.long,
     ),
     r'appLockTimeoutSeconds': PropertySchema(
-      id: 4,
+      id: 9,
       name: r'appLockTimeoutSeconds',
       type: IsarType.long,
     ),
+    r'attachmentMaxBytes': PropertySchema(
+      id: 10,
+      name: r'attachmentMaxBytes',
+      type: IsarType.long,
+    ),
     r'autoBackupEnabled': PropertySchema(
-      id: 5,
+      id: 11,
       name: r'autoBackupEnabled',
       type: IsarType.bool,
     ),
     r'autoSave': PropertySchema(
-      id: 6,
+      id: 12,
       name: r'autoSave',
       type: IsarType.bool,
     ),
     r'autoSaveIntervalSeconds': PropertySchema(
-      id: 7,
+      id: 13,
       name: r'autoSaveIntervalSeconds',
       type: IsarType.long,
     ),
     r'biometricEnabled': PropertySchema(
-      id: 8,
+      id: 14,
       name: r'biometricEnabled',
       type: IsarType.bool,
     ),
     r'confirmBeforeDelete': PropertySchema(
-      id: 9,
+      id: 15,
       name: r'confirmBeforeDelete',
       type: IsarType.bool,
     ),
     r'defaultView': PropertySchema(
-      id: 10,
+      id: 16,
       name: r'defaultView',
       type: IsarType.string,
       enumMap: _AppSettingsdefaultViewEnumValueMap,
     ),
     r'defaultWorkspaceId': PropertySchema(
-      id: 11,
+      id: 17,
       name: r'defaultWorkspaceId',
       type: IsarType.long,
     ),
     r'fontScale': PropertySchema(
-      id: 12,
+      id: 18,
       name: r'fontScale',
       type: IsarType.double,
     ),
     r'hasCompletedOnboarding': PropertySchema(
-      id: 13,
+      id: 19,
       name: r'hasCompletedOnboarding',
       type: IsarType.bool,
     ),
     r'itemTypeColorsJson': PropertySchema(
-      id: 14,
+      id: 20,
       name: r'itemTypeColorsJson',
       type: IsarType.string,
     ),
     r'language': PropertySchema(
-      id: 15,
+      id: 21,
       name: r'language',
       type: IsarType.string,
       enumMap: _AppSettingslanguageEnumValueMap,
     ),
     r'lastAutoBackupAt': PropertySchema(
-      id: 16,
+      id: 22,
       name: r'lastAutoBackupAt',
       type: IsarType.dateTime,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 17,
+      id: 23,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'maxAttachmentSizeMB': PropertySchema(
-      id: 18,
+      id: 24,
       name: r'maxAttachmentSizeMB',
       type: IsarType.long,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 19,
+      id: 25,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'preferredFolderId': PropertySchema(
-      id: 20,
+      id: 26,
       name: r'preferredFolderId',
       type: IsarType.long,
     ),
     r'schemaVersion': PropertySchema(
-      id: 21,
+      id: 27,
       name: r'schemaVersion',
       type: IsarType.long,
     ),
     r'showArchivedItems': PropertySchema(
-      id: 22,
+      id: 28,
       name: r'showArchivedItems',
       type: IsarType.bool,
     ),
     r'showDeletedItems': PropertySchema(
-      id: 23,
+      id: 29,
       name: r'showDeletedItems',
       type: IsarType.bool,
     ),
     r'soundEnabled': PropertySchema(
-      id: 24,
+      id: 30,
       name: r'soundEnabled',
       type: IsarType.bool,
     ),
     r'syncEnabled': PropertySchema(
-      id: 25,
+      id: 31,
       name: r'syncEnabled',
       type: IsarType.bool,
     ),
     r'syncIntervalMinutes': PropertySchema(
-      id: 26,
+      id: 32,
       name: r'syncIntervalMinutes',
       type: IsarType.long,
     ),
     r'syncOnWifiOnly': PropertySchema(
-      id: 27,
+      id: 33,
       name: r'syncOnWifiOnly',
       type: IsarType.bool,
     ),
     r'theme': PropertySchema(
-      id: 28,
+      id: 34,
       name: r'theme',
       type: IsarType.string,
       enumMap: _AppSettingsthemeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 29,
+      id: 35,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'vibrationEnabled': PropertySchema(
-      id: 30,
+      id: 36,
       name: r'vibrationEnabled',
       type: IsarType.bool,
     )
@@ -228,35 +258,41 @@ void _appSettingsSerialize(
 ) {
   writer.writeString(offsets[0], object.accentColor);
   writer.writeBool(offsets[1], object.appLockEnabled);
-  writer.writeString(offsets[2], object.appLockPinHash);
-  writer.writeLong(offsets[3], object.appLockPinLength);
-  writer.writeLong(offsets[4], object.appLockTimeoutSeconds);
-  writer.writeBool(offsets[5], object.autoBackupEnabled);
-  writer.writeBool(offsets[6], object.autoSave);
-  writer.writeLong(offsets[7], object.autoSaveIntervalSeconds);
-  writer.writeBool(offsets[8], object.biometricEnabled);
-  writer.writeBool(offsets[9], object.confirmBeforeDelete);
-  writer.writeString(offsets[10], object.defaultView.name);
-  writer.writeLong(offsets[11], object.defaultWorkspaceId);
-  writer.writeDouble(offsets[12], object.fontScale);
-  writer.writeBool(offsets[13], object.hasCompletedOnboarding);
-  writer.writeString(offsets[14], object.itemTypeColorsJson);
-  writer.writeString(offsets[15], object.language.name);
-  writer.writeDateTime(offsets[16], object.lastAutoBackupAt);
-  writer.writeDateTime(offsets[17], object.lastSyncAt);
-  writer.writeLong(offsets[18], object.maxAttachmentSizeMB);
-  writer.writeBool(offsets[19], object.notificationsEnabled);
-  writer.writeLong(offsets[20], object.preferredFolderId);
-  writer.writeLong(offsets[21], object.schemaVersion);
-  writer.writeBool(offsets[22], object.showArchivedItems);
-  writer.writeBool(offsets[23], object.showDeletedItems);
-  writer.writeBool(offsets[24], object.soundEnabled);
-  writer.writeBool(offsets[25], object.syncEnabled);
-  writer.writeLong(offsets[26], object.syncIntervalMinutes);
-  writer.writeBool(offsets[27], object.syncOnWifiOnly);
-  writer.writeString(offsets[28], object.theme.name);
-  writer.writeDateTime(offsets[29], object.updatedAt);
-  writer.writeBool(offsets[30], object.vibrationEnabled);
+  writer.writeLong(offsets[2], object.appLockFailedAttempts);
+  writer.writeLong(offsets[3], object.appLockLastSeenWallMs);
+  writer.writeLong(offsets[4], object.appLockLockoutDurationSeconds);
+  writer.writeLong(offsets[5], object.appLockLockoutMonoMs);
+  writer.writeLong(offsets[6], object.appLockLockoutUntilEpochMs);
+  writer.writeString(offsets[7], object.appLockPinHash);
+  writer.writeLong(offsets[8], object.appLockPinLength);
+  writer.writeLong(offsets[9], object.appLockTimeoutSeconds);
+  writer.writeLong(offsets[10], object.attachmentMaxBytes);
+  writer.writeBool(offsets[11], object.autoBackupEnabled);
+  writer.writeBool(offsets[12], object.autoSave);
+  writer.writeLong(offsets[13], object.autoSaveIntervalSeconds);
+  writer.writeBool(offsets[14], object.biometricEnabled);
+  writer.writeBool(offsets[15], object.confirmBeforeDelete);
+  writer.writeString(offsets[16], object.defaultView.name);
+  writer.writeLong(offsets[17], object.defaultWorkspaceId);
+  writer.writeDouble(offsets[18], object.fontScale);
+  writer.writeBool(offsets[19], object.hasCompletedOnboarding);
+  writer.writeString(offsets[20], object.itemTypeColorsJson);
+  writer.writeString(offsets[21], object.language.name);
+  writer.writeDateTime(offsets[22], object.lastAutoBackupAt);
+  writer.writeDateTime(offsets[23], object.lastSyncAt);
+  writer.writeLong(offsets[24], object.maxAttachmentSizeMB);
+  writer.writeBool(offsets[25], object.notificationsEnabled);
+  writer.writeLong(offsets[26], object.preferredFolderId);
+  writer.writeLong(offsets[27], object.schemaVersion);
+  writer.writeBool(offsets[28], object.showArchivedItems);
+  writer.writeBool(offsets[29], object.showDeletedItems);
+  writer.writeBool(offsets[30], object.soundEnabled);
+  writer.writeBool(offsets[31], object.syncEnabled);
+  writer.writeLong(offsets[32], object.syncIntervalMinutes);
+  writer.writeBool(offsets[33], object.syncOnWifiOnly);
+  writer.writeString(offsets[34], object.theme.name);
+  writer.writeDateTime(offsets[35], object.updatedAt);
+  writer.writeBool(offsets[36], object.vibrationEnabled);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -268,42 +304,47 @@ AppSettings _appSettingsDeserialize(
   final object = AppSettings();
   object.accentColor = reader.readStringOrNull(offsets[0]);
   object.appLockEnabled = reader.readBool(offsets[1]);
-  object.appLockPinHash = reader.readStringOrNull(offsets[2]);
-  object.appLockPinLength = reader.readLong(offsets[3]);
-  object.appLockTimeoutSeconds = reader.readLong(offsets[4]);
-  object.autoBackupEnabled = reader.readBool(offsets[5]);
-  object.autoSave = reader.readBool(offsets[6]);
-  object.autoSaveIntervalSeconds = reader.readLong(offsets[7]);
-  object.biometricEnabled = reader.readBool(offsets[8]);
-  object.confirmBeforeDelete = reader.readBool(offsets[9]);
+  object.appLockFailedAttempts = reader.readLong(offsets[2]);
+  object.appLockLastSeenWallMs = reader.readLong(offsets[3]);
+  object.appLockLockoutDurationSeconds = reader.readLong(offsets[4]);
+  object.appLockLockoutMonoMs = reader.readLong(offsets[5]);
+  object.appLockLockoutUntilEpochMs = reader.readLong(offsets[6]);
+  object.appLockPinHash = reader.readStringOrNull(offsets[7]);
+  object.appLockPinLength = reader.readLong(offsets[8]);
+  object.appLockTimeoutSeconds = reader.readLong(offsets[9]);
+  object.autoBackupEnabled = reader.readBool(offsets[11]);
+  object.autoSave = reader.readBool(offsets[12]);
+  object.autoSaveIntervalSeconds = reader.readLong(offsets[13]);
+  object.biometricEnabled = reader.readBool(offsets[14]);
+  object.confirmBeforeDelete = reader.readBool(offsets[15]);
   object.defaultView = _AppSettingsdefaultViewValueEnumMap[
-          reader.readStringOrNull(offsets[10])] ??
+          reader.readStringOrNull(offsets[16])] ??
       DefaultView.list;
-  object.defaultWorkspaceId = reader.readLongOrNull(offsets[11]);
-  object.fontScale = reader.readDouble(offsets[12]);
-  object.hasCompletedOnboarding = reader.readBool(offsets[13]);
+  object.defaultWorkspaceId = reader.readLongOrNull(offsets[17]);
+  object.fontScale = reader.readDouble(offsets[18]);
+  object.hasCompletedOnboarding = reader.readBool(offsets[19]);
   object.id = id;
-  object.itemTypeColorsJson = reader.readStringOrNull(offsets[14]);
+  object.itemTypeColorsJson = reader.readStringOrNull(offsets[20]);
   object.language =
-      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[15])] ??
+      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[21])] ??
           AppLanguage.greek;
-  object.lastAutoBackupAt = reader.readDateTimeOrNull(offsets[16]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[17]);
-  object.maxAttachmentSizeMB = reader.readLong(offsets[18]);
-  object.notificationsEnabled = reader.readBool(offsets[19]);
-  object.preferredFolderId = reader.readLongOrNull(offsets[20]);
-  object.schemaVersion = reader.readLong(offsets[21]);
-  object.showArchivedItems = reader.readBool(offsets[22]);
-  object.showDeletedItems = reader.readBool(offsets[23]);
-  object.soundEnabled = reader.readBool(offsets[24]);
-  object.syncEnabled = reader.readBool(offsets[25]);
-  object.syncIntervalMinutes = reader.readLong(offsets[26]);
-  object.syncOnWifiOnly = reader.readBool(offsets[27]);
+  object.lastAutoBackupAt = reader.readDateTimeOrNull(offsets[22]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[23]);
+  object.maxAttachmentSizeMB = reader.readLong(offsets[24]);
+  object.notificationsEnabled = reader.readBool(offsets[25]);
+  object.preferredFolderId = reader.readLongOrNull(offsets[26]);
+  object.schemaVersion = reader.readLong(offsets[27]);
+  object.showArchivedItems = reader.readBool(offsets[28]);
+  object.showDeletedItems = reader.readBool(offsets[29]);
+  object.soundEnabled = reader.readBool(offsets[30]);
+  object.syncEnabled = reader.readBool(offsets[31]);
+  object.syncIntervalMinutes = reader.readLong(offsets[32]);
+  object.syncOnWifiOnly = reader.readBool(offsets[33]);
   object.theme =
-      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[28])] ??
+      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[34])] ??
           AppTheme.system;
-  object.updatedAt = reader.readDateTime(offsets[29]);
-  object.vibrationEnabled = reader.readBool(offsets[30]);
+  object.updatedAt = reader.readDateTime(offsets[35]);
+  object.vibrationEnabled = reader.readBool(offsets[36]);
   return object;
 }
 
@@ -319,67 +360,79 @@ P _appSettingsDeserializeProp<P>(
     case 1:
       return (reader.readBool(offset)) as P;
     case 2:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 3:
       return (reader.readLong(offset)) as P;
     case 4:
       return (reader.readLong(offset)) as P;
     case 5:
-      return (reader.readBool(offset)) as P;
-    case 6:
-      return (reader.readBool(offset)) as P;
-    case 7:
       return (reader.readLong(offset)) as P;
+    case 6:
+      return (reader.readLong(offset)) as P;
+    case 7:
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 9:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 10:
+      return (reader.readLongOrNull(offset)) as P;
+    case 11:
+      return (reader.readBool(offset)) as P;
+    case 12:
+      return (reader.readBool(offset)) as P;
+    case 13:
+      return (reader.readLong(offset)) as P;
+    case 14:
+      return (reader.readBool(offset)) as P;
+    case 15:
+      return (reader.readBool(offset)) as P;
+    case 16:
       return (_AppSettingsdefaultViewValueEnumMap[
               reader.readStringOrNull(offset)] ??
           DefaultView.list) as P;
-    case 11:
-      return (reader.readLongOrNull(offset)) as P;
-    case 12:
-      return (reader.readDouble(offset)) as P;
-    case 13:
-      return (reader.readBool(offset)) as P;
-    case 14:
-      return (reader.readStringOrNull(offset)) as P;
-    case 15:
-      return (_AppSettingslanguageValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          AppLanguage.greek) as P;
-    case 16:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 17:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 18:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 19:
       return (reader.readBool(offset)) as P;
     case 20:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
-      return (reader.readLong(offset)) as P;
+      return (_AppSettingslanguageValueEnumMap[
+              reader.readStringOrNull(offset)] ??
+          AppLanguage.greek) as P;
     case 22:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 23:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 24:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 25:
       return (reader.readBool(offset)) as P;
     case 26:
-      return (reader.readLong(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 27:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 28:
+      return (reader.readBool(offset)) as P;
+    case 29:
+      return (reader.readBool(offset)) as P;
+    case 30:
+      return (reader.readBool(offset)) as P;
+    case 31:
+      return (reader.readBool(offset)) as P;
+    case 32:
+      return (reader.readLong(offset)) as P;
+    case 33:
+      return (reader.readBool(offset)) as P;
+    case 34:
       return (_AppSettingsthemeValueEnumMap[reader.readStringOrNull(offset)] ??
           AppTheme.system) as P;
-    case 29:
+    case 35:
       return (reader.readDateTime(offset)) as P;
-    case 30:
+    case 36:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -677,6 +730,286 @@ extension AppSettingsQueryFilter
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockFailedAttemptsEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockFailedAttempts',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockFailedAttemptsGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockFailedAttempts',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockFailedAttemptsLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockFailedAttempts',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockFailedAttemptsBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockFailedAttempts',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLastSeenWallMsEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockLastSeenWallMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLastSeenWallMsGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockLastSeenWallMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLastSeenWallMsLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockLastSeenWallMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLastSeenWallMsBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockLastSeenWallMs',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutDurationSecondsEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockLockoutDurationSeconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutDurationSecondsGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockLockoutDurationSeconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutDurationSecondsLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockLockoutDurationSeconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutDurationSecondsBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockLockoutDurationSeconds',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutMonoMsEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockLockoutMonoMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutMonoMsGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockLockoutMonoMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutMonoMsLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockLockoutMonoMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutMonoMsBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockLockoutMonoMs',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutUntilEpochMsEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'appLockLockoutUntilEpochMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutUntilEpochMsGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'appLockLockoutUntilEpochMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutUntilEpochMsLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'appLockLockoutUntilEpochMs',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      appLockLockoutUntilEpochMsBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'appLockLockoutUntilEpochMs',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
       appLockPinHashIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -934,6 +1267,80 @@ extension AppSettingsQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'appLockTimeoutSeconds',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      attachmentMaxBytesIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'attachmentMaxBytes',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      attachmentMaxBytesIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'attachmentMaxBytes',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      attachmentMaxBytesEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'attachmentMaxBytes',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      attachmentMaxBytesGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'attachmentMaxBytes',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      attachmentMaxBytesLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'attachmentMaxBytes',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      attachmentMaxBytesBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'attachmentMaxBytes',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -2348,6 +2755,76 @@ extension AppSettingsQuerySortBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockFailedAttempts() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockFailedAttempts', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockFailedAttemptsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockFailedAttempts', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLastSeenWallMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLastSeenWallMs', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLastSeenWallMsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLastSeenWallMs', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLockoutDurationSeconds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutDurationSeconds', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLockoutDurationSecondsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutDurationSeconds', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLockoutMonoMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutMonoMs', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLockoutMonoMsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutMonoMs', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLockoutUntilEpochMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutUntilEpochMs', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAppLockLockoutUntilEpochMsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutUntilEpochMs', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByAppLockPinHash() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appLockPinHash', Sort.asc);
@@ -2386,6 +2863,20 @@ extension AppSettingsQuerySortBy
       sortByAppLockTimeoutSecondsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appLockTimeoutSeconds', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAttachmentMaxBytes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'attachmentMaxBytes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByAttachmentMaxBytesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'attachmentMaxBytes', Sort.desc);
     });
   }
 
@@ -2762,6 +3253,76 @@ extension AppSettingsQuerySortThenBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockFailedAttempts() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockFailedAttempts', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockFailedAttemptsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockFailedAttempts', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLastSeenWallMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLastSeenWallMs', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLastSeenWallMsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLastSeenWallMs', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLockoutDurationSeconds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutDurationSeconds', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLockoutDurationSecondsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutDurationSeconds', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLockoutMonoMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutMonoMs', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLockoutMonoMsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutMonoMs', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLockoutUntilEpochMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutUntilEpochMs', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAppLockLockoutUntilEpochMsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'appLockLockoutUntilEpochMs', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByAppLockPinHash() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appLockPinHash', Sort.asc);
@@ -2800,6 +3361,20 @@ extension AppSettingsQuerySortThenBy
       thenByAppLockTimeoutSecondsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appLockTimeoutSeconds', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAttachmentMaxBytes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'attachmentMaxBytes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByAttachmentMaxBytesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'attachmentMaxBytes', Sort.desc);
     });
   }
 
@@ -3176,6 +3751,41 @@ extension AppSettingsQueryWhereDistinct
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAppLockFailedAttempts() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockFailedAttempts');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAppLockLastSeenWallMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockLastSeenWallMs');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAppLockLockoutDurationSeconds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockLockoutDurationSeconds');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAppLockLockoutMonoMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockLockoutMonoMs');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAppLockLockoutUntilEpochMs() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'appLockLockoutUntilEpochMs');
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QDistinct> distinctByAppLockPinHash(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -3195,6 +3805,13 @@ extension AppSettingsQueryWhereDistinct
       distinctByAppLockTimeoutSeconds() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'appLockTimeoutSeconds');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByAttachmentMaxBytes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'attachmentMaxBytes');
     });
   }
 
@@ -3394,6 +4011,41 @@ extension AppSettingsQueryProperty
     });
   }
 
+  QueryBuilder<AppSettings, int, QQueryOperations>
+      appLockFailedAttemptsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockFailedAttempts');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations>
+      appLockLastSeenWallMsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockLastSeenWallMs');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations>
+      appLockLockoutDurationSecondsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockLockoutDurationSeconds');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations>
+      appLockLockoutMonoMsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockLockoutMonoMs');
+    });
+  }
+
+  QueryBuilder<AppSettings, int, QQueryOperations>
+      appLockLockoutUntilEpochMsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'appLockLockoutUntilEpochMs');
+    });
+  }
+
   QueryBuilder<AppSettings, String?, QQueryOperations>
       appLockPinHashProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -3411,6 +4063,13 @@ extension AppSettingsQueryProperty
       appLockTimeoutSecondsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'appLockTimeoutSeconds');
+    });
+  }
+
+  QueryBuilder<AppSettings, int?, QQueryOperations>
+      attachmentMaxBytesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'attachmentMaxBytes');
     });
   }
 

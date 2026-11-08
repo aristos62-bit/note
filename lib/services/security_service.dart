@@ -20,6 +20,45 @@ class SecurityService {
   /// Warn-once: το κάθε αποτυχημένο κανάλι δεν πρέπει να πλημμυρίζει logs.
   static bool _warned = false;
 
+  // ── S-03: monotonic clock ────────────────────────────────────
+  static int? _elapsedCacheMs;
+  static int _elapsedCacheAtWallMs = 0;
+  static bool _elapsedWarned = false;
+
+  /// ms από το boot (`SystemClock.elapsedRealtime` — περιλαμβάνει deep sleep).
+  /// `null` = μη διαθέσιμο (π.χ. desktop) → ο caller πέφτει σε wall ώρα.
+  /// Ποτέ δεν πετάει· μικρό cache (~1s) για αποφυγή διπλών κλήσεων.
+  static Future<int?> elapsedRealtimeMs({bool force = false}) async {
+    final nowWall = DateTime.now().millisecondsSinceEpoch;
+    final cacheAge = nowWall - _elapsedCacheAtWallMs;
+    if (!force &&
+        _elapsedCacheMs != null &&
+        cacheAge >= 0 &&
+        cacheAge <= 1000) {
+      return _elapsedCacheMs;
+    }
+    try {
+      final value = await _ch
+          .invokeMethod<int>('elapsedRealtime')
+          .timeout(const Duration(milliseconds: 500));
+      if (value != null && value >= 0) {
+        _elapsedCacheMs = value;
+        _elapsedCacheAtWallMs = nowWall;
+        _elapsedWarned = false;
+        return value;
+      }
+      _elapsedCacheMs = null;
+      return null;
+    } catch (e) {
+      _elapsedCacheMs = null;
+      if (!_elapsedWarned) {
+        _elapsedWarned = true;
+        DebugConfig.warning('SecurityService.elapsedRealtime failed: $e');
+      }
+      return null;
+    }
+  }
+
   /// true = ασφαλής οθόνη· false = επαναφορά. Ποτέ δεν πετάει.
   ///
   /// S-17: idempotent. Οι αποτυχίες **δεν** cache-άρονται — το επόμενο
@@ -53,5 +92,8 @@ class SecurityService {
   static void resetForTest() {
     _lastApplied = null;
     _warned = false;
+    _elapsedCacheMs = null;
+    _elapsedCacheAtWallMs = 0;
+    _elapsedWarned = false;
   }
 }

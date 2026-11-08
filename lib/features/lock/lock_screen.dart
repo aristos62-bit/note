@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/core.dart';
+import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/app_lock_service.dart';
+import '../../shared/widgets/empty_state.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
@@ -16,55 +18,84 @@ class LockScreen extends ConsumerStatefulWidget {
 class _LockScreenState extends ConsumerState<LockScreen> {
   String _pin = '';
   String? _error;
-  bool _biometricFailed = false;
 
-  int _failedAttempts = 0;
-  DateTime? _lockoutUntil;
+  /// S-03: τίποτα δεν γίνεται δεκτό πριν διαβαστεί το persisted snapshot.
+  bool _ready = false;
+  bool _loadFailed = false;
+  bool _verifying = false;
+
+  int _pinLength = 6;
+  bool _pinLengthTrusted = false;
+  bool _bioEnabled = false;
+
+  int _lockoutRemaining = 0;
   Timer? _lockoutTimer; // Καθαρίζει το μήνυμα στη λήξη (UI-only, cancel σε dispose).
 
-  int? _pinLength;
-  bool _bioEnabled = false;
-  String? _pinHash;
+  AppLockAttemptsStore get _store => ref.read(appLockAttemptsStoreProvider);
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _load();
   }
 
-  /// Μοναδικό φόρτωμα ρυθμίσεων (αντί 3): μήκος + hash + biometric.
-  Future<void> _loadSettings() async {
+  /// S-03: persisted snapshot (fail-closed) — χωρίς pre-auth writes.
+  Future<void> _load() async {
+    AppSettings? settings;
     try {
-      final settings = await ref.read(settingsNotifierProvider.future);
-      if (!mounted) return;
-      final raw = settings.appLockPinLength;
-      final valid = (raw >= 4 && raw <= 6) ? raw : 6;
-      if (valid != raw) {
-        ref.read(settingsNotifierProvider.notifier).updateSettings((s) {
-          s.appLockPinLength = valid;
-        });
-      }
-      _bioEnabled = settings.biometricEnabled;
-      _pinHash = settings.appLockPinHash;
-      setState(() => _pinLength = valid);
-      if (_pin.length == valid) {
-        _verifyPin();
-      }
-      await _tryBiometric();
+      settings = await ref.read(lockGateSettingsReaderProvider)();
     } catch (e, s) {
-      DebugConfig.error('LockScreen _loadSettings', e, s);
+      DebugConfig.error('LockScreen _load', e, s);
+      settings = null;
     }
+    if (!mounted) return;
+    if (settings == null) {
+      setState(() {
+        _ready = true;
+        _loadFailed = true;
+        _error = null;
+      });
+      return;
+    }
+
+    final snap = await _store.snapshot(settings: settings);
+    if (!mounted) return;
+    if (snap == null) {
+      setState(() {
+        _ready = true;
+        _loadFailed = true;
+      });
+      return;
+    }
+
+    _bioEnabled = settings.biometricEnabled;
+    _pinLength = snap.pinLength;
+    _pinLengthTrusted = snap.pinLengthTrusted;
+
+    setState(() {
+      _ready = true;
+      _loadFailed = false;
+      _lockoutRemaining = snap.remainingSeconds;
+      if (_lockoutRemaining > 0) {
+        _error = AppErrors.pinLockedOut(_lockoutRemaining);
+      }
+    });
+    if (_lockoutRemaining > 0) _scheduleLockoutClear();
+
+    // Βιομετρικό πάντα διαθέσιμο (και escape από lockout).
+    if (_bioEnabled) await _tryBiometric();
   }
 
   Future<void> _tryBiometric() async {
+    if (!_bioEnabled) return;
     try {
-      if (!_bioEnabled) return;
       final ok = await AppLockService.instance.authenticate();
-      if (ok && mounted) {
+      if (!mounted) return;
+      if (ok) {
         AppLockService.instance.unlock();
         ref.read(appLockStateProvider.notifier).state = false;
-      } else if (mounted) {
-        setState(() => _biometricFailed = true);
+        // Best-effort: bypass lockout + reset counter.
+        unawaited(_store.finishSuccess());
       }
     } catch (e, s) {
       DebugConfig.error('LockScreen _tryBiometric', e, s);
@@ -72,22 +103,31 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   void _onDigit(String digit) {
-    if (_lockoutRemaining() > 0) {
-      setState(() => _error = AppErrors.pinLockedOut(_lockoutRemaining()));
+    if (!_ready || _verifying) return;
+    if (_lockoutRemaining > 0) {
+      setState(() => _error = AppErrors.pinLockedOut(_lockoutRemaining));
       return;
     }
-    final maxLen = _pinLength ?? 6;
+    final maxLen = _pinLengthTrusted ? _pinLength : 6;
     if (_pin.length >= maxLen) return;
     setState(() {
       _error = null;
       _pin += digit;
     });
-    if (_pin.length == maxLen) {
+    // Trusted: αυτόματο submit στο ακριβές μήκος. Legacy: μόνο στα 6 (4-5
+    // με το κουμπί submit).
+    if ((_pinLengthTrusted && _pin.length == _pinLength) ||
+        (!_pinLengthTrusted && _pin.length == 6)) {
       _verifyPin();
     }
   }
 
   void _onSubmit() {
+    if (!_ready || _verifying) return;
+    if (_lockoutRemaining > 0) {
+      setState(() => _error = AppErrors.pinLockedOut(_lockoutRemaining));
+      return;
+    }
     if (_pin.length < 4) {
       setState(() => _error = AppErrors.pinTooShort);
       return;
@@ -96,73 +136,70 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   void _onBackspace() {
-    if (_pin.isEmpty) return;
+    if (_verifying || _pin.isEmpty) return;
     setState(() {
       _error = null;
       _pin = _pin.substring(0, _pin.length - 1);
     });
   }
 
-  /// Προγραμματίζει καθαρισμό του μηνύματος στη λήξη του lockout.
-  void _scheduleLockoutClear(int lockSecs) {
+  /// Προγραμματίζει επανέλεγχο στη λήξη του lockout (persisted snapshot).
+  void _scheduleLockoutClear() {
     _lockoutTimer?.cancel();
-    _lockoutTimer = Timer(Duration(seconds: lockSecs), () {
+    if (_lockoutRemaining <= 0) return;
+    _lockoutTimer =
+        Timer(Duration(seconds: _lockoutRemaining + 1), () async {
       if (!mounted) return;
-      // Μόνο αν όντως έληξε (όχι νεότερο lockout στο μεταξύ).
-      if (_lockoutRemaining() == 0) {
-        setState(() => _error = null);
-      }
+      final snap = await _store.snapshot();
+      if (!mounted) return;
+      setState(() {
+        _lockoutRemaining = snap?.remainingSeconds ?? 0;
+        if (_lockoutRemaining == 0) _error = null;
+      });
+      if (_lockoutRemaining > 0) _scheduleLockoutClear();
     });
-  }
-  /// Υπόλοιπο lockout σε δευτερόλεπτα (0 = ελεύθερο).
-  int _lockoutRemaining() {
-    if (_lockoutUntil == null) return 0;
-    final left = _lockoutUntil!.difference(DateTime.now()).inSeconds;
-    return left > 0 ? left : 0;
   }
 
   Future<void> _verifyPin() async {
-    if (_lockoutRemaining() > 0) {
-      if (mounted) {
-        setState(
-            () => _error = AppErrors.pinLockedOut(_lockoutRemaining()));
-      }
+    if (!_ready || _verifying) return;
+    if (_lockoutRemaining > 0) {
+      setState(() => _error = AppErrors.pinLockedOut(_lockoutRemaining));
       return;
     }
-    final hash = _pinHash;
-    if (hash == null) return;
-    if (AppLockService.instance.verifyPin(_pin, hash)) {
-      if (AppLockService.shouldUpgradeHash(hash)) {
-        final newHash = AppLockService.instance.hashPin(_pin);
-        await ref.read(settingsNotifierProvider.notifier).updateSettings(
-            (s) => s.appLockPinHash = newHash);
-        _pinHash = newHash;
-        DebugConfig.notif('AppLock: hash upgraded to v1 (lock)');
-      }
-      DebugConfig.print('🔓 AppLock: PIN unlock ok');
-      _failedAttempts = 0;
-      _lockoutUntil = null;
-      _lockoutTimer?.cancel();
-      AppLockService.instance.unlock();
-      ref.read(appLockStateProvider.notifier).state = false;
-    } else {
-      DebugConfig.print('🔓 AppLock: wrong PIN');
-      _failedAttempts++;
-      final lockSecs =
-          AppLockService.nextLockoutSeconds(_failedAttempts);
-      if (lockSecs > 0) {
-        _lockoutUntil = DateTime.now().add(Duration(seconds: lockSecs));
-        DebugConfig.print(
-            '🔒 AppLock: lockout $_failedAttempts fails ($lockSecs s)');
-        _scheduleLockoutClear(lockSecs);
-      }
-      if (!mounted) return;
-      setState(() {
-        _error = lockSecs > 0
-            ? AppErrors.pinLockedOut(lockSecs)
-            : AppErrors.pinWrong;
-        _pin = '';
-      });
+    final pin = _pin;
+    if (pin.length < 4) return;
+
+    setState(() => _verifying = true);
+    final result = await _store.verify(pin);
+    if (!mounted) return;
+
+    switch (result.status) {
+      case PinCheckStatus.ok:
+        // Ξεκλείδωμα ΠΡΙΝ από το write· reset/hash-upgrade best-effort.
+        DebugConfig.print('🔓 AppLock: PIN unlock ok');
+        AppLockService.instance.unlock();
+        ref.read(appLockStateProvider.notifier).state = false;
+        unawaited(
+          _store.finishSuccess(pin: pin, verifiedHash: result.verifiedHash),
+        );
+      case PinCheckStatus.lockedOut:
+      case PinCheckStatus.wrong:
+        final remaining = result.remainingSeconds;
+        setState(() {
+          _verifying = false;
+          _pin = '';
+          _lockoutRemaining = remaining;
+          _error = remaining > 0
+              ? AppErrors.pinLockedOut(remaining)
+              : AppErrors.pinWrong;
+        });
+        if (remaining > 0) _scheduleLockoutClear();
+      case PinCheckStatus.unavailable:
+        setState(() {
+          _verifying = false;
+          _pin = '';
+          _error = AppErrors.sensitiveAuthUnavailable;
+        });
     }
   }
 
@@ -174,6 +211,30 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_ready) {
+      return Scaffold(
+        backgroundColor: context.cBg,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_loadFailed) {
+      return Scaffold(
+        backgroundColor: context.cBg,
+        body: SafeArea(
+          child: EmptyState.error(
+            message: AppErrors.lockGateReadFailed,
+            onRetry: () {
+              setState(() {
+                _ready = false;
+                _loadFailed = false;
+              });
+              _load();
+            },
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: context.cBg,
       body: SafeArea(
@@ -203,7 +264,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
             // PIN dots
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_pinLength ?? 6, (i) {
+              children: List.generate(
+                  _pinLengthTrusted ? _pinLength : 6, (i) {
                 final filled = i < _pin.length;
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -218,7 +280,14 @@ class _LockScreenState extends ConsumerState<LockScreen> {
             ),
             if (_error != null) ...[
               const SizedBox(height: Spacing.sm),
-              Text(_error!, style: context.bodySm.withColor(context.cError)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                child: Text(
+                  _error!,
+                  style: context.bodySm.withColor(context.cError),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
             const SizedBox(height: Spacing.xl),
             // PIN pad
@@ -227,7 +296,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
               onBackspace: _onBackspace,
               onSubmit: _onSubmit,
               hasDigits: _pin.isNotEmpty,
-              showBiometric: _biometricFailed,
+              showBiometric: _bioEnabled,
               onBiometric: _tryBiometric,
             ),
           ],

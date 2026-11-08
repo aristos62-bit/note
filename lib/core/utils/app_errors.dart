@@ -12,6 +12,8 @@
 //     SnackBar(content: Text(AppErrors.saveFailed)),
 //   );
 //
+import 'date_utils.dart';
+
 class AppErrors {
   AppErrors._();
 
@@ -20,11 +22,20 @@ class AppErrors {
   static const dateRequired = 'Επιλέξτε ημερομηνία';
 
   // ── PIN ────────────────────────────────────────────────────
-  static const pinTooShort = 'Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία';
+  static const pinTooShort = 'Το PIN πρέπει να έχει τουλάχιστον 6 ψηφία';
   static const pinMismatch = 'Τα PIN δεν ταιριάζουν';
   static const pinWrong = 'Το PIN δεν είναι σωστό';
+  static const pinTooWeak =
+      'Το PIN είναι πολύ απλό — αποφύγετε επαναλαμβανόμενα ή διαδοχικά ψηφία';
   static String pinLockedOut(int seconds) =>
-      'Πολλές προσπάθειες — δοκιμάστε ξανά σε $seconds δ';
+      'Πολλές προσπάθειες — δοκιμάστε ξανά σε '
+      '${AppDateUtils.formatWaitSeconds(seconds)}';
+
+  // ── Sensitive actions gate (S-04) ───────────────────────────
+  static const sensitiveAuthRequired =
+      'Απαιτείται επιβεβαίωση ταυτότητας για αυτή την ενέργεια.';
+  static const sensitiveAuthUnavailable =
+      'Δεν ήταν δυνατή η επαλήθευση ταυτότητας. Δοκιμάστε ξανά.';
 
   // ── Lock gate (S-17, fail-closed) ───────────────────────────
   static const lockGateReadFailed =
