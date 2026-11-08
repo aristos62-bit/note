@@ -5103,4 +5103,26 @@ if (!context.isShortScreen)
 
 **Docs:** `supernote.md` — test counters (620/620 ×2), file tree (`+ open`), `open(..., {allowRisky})` + S-25 πολιτική/όρια · `security_v2.md` — v2.3 (25 ευρήματα: 13 μεσαίας), S-25 row, P0 **1γ**, threat model, χαμηλής (8), κατάσταση · `README.md` — 620/620.
 
-**Commit:** `755fb9e` (11 files, +233/−25) + push στο `main`.
+**Commit:** `755fb9e` (11 files, +233/−25) + push στο `main` (follow-up `87aec5f`: fix hash).
+
+**Device test (Android — POCO X3 NFC `9593c01e`, Android 12/API 31):**
+- Build: `flutter build apk --release --no-pub` → **69.4MB**, `adb install -r` **Success**, `lastUpdateTime=2026-11-08 21:08:36` (versionName 1.0.4).
+- Δεδομένα test **in-app** (AGENTS #12): σημείωση «S25test» στον φάκελο «Γενικά» με 2 συνημμένα (`test.pdf` 3.0MB + εικόνα `s25_photo.jpg` 2.6MB, pushed πριν μόνο ως αρχεία στο `/sdcard/Download/`).
+- **Non-regression PDF:** tap `test.pdf` → `mCurrentFocus=android/com.android.internal.app.MiuiResolverActivity` («Άνοιγμα με» → Mi Browser). **Κανένας** διάλογος S-25 (Platform gate) — σωστό handoff.
+- **Non-regression εικόνα:** tap εικόνας → private fullscreen preview (κλείσιμο «Κλείσιμο» πάνω δεξιά), `mCurrentFocus` παρέμεινε `com.example.super_note/.MainActivity`, **κανένας** διάλογος S-25.
+- Scratch note «S25test» διαγράφηκε in-app (soft delete) → «10 Σημειώσεις».
+- Screenshots: `%TEMP%\s25_*.png` (untracked).
+
+**Device test (Windows) — ΔΕΝ ολοκληρώθηκε (περιβαλλοντικό, όχι regression):**
+- Build: `flutter build windows --release --no-pub` → **OK** (`build\windows\x64\runner\Release\super_note.exe`, 130.9s).
+- Εκκίνηση → «Σφάλμα εκκίνησης» + `IsarError: Cannot open Environment: MdbxError (5): Access is denied`.
+- **Αιτία:** Windows Defender **Controlled folder access** (`(Get-MpPreference).EnableControlledFolderAccess = 1`) μπλοκάρει **κάθε** εγγραφή στο `%USERPROFILE%\Documents` — επιβεβαιώθηκε και από PowerShell (`New-Item`/`cmd echo` → «Could not find file»), ενώ το ίδιο αρχείο ανοίγει κανονικά αποκλειστικά (`FileShare.None`). Το Isar δεν μπορεί να δημιουργήσει lock/temp αρχείο δίπλα στο `super_note_db.isar` ⇒ access denied.
+- **Ίδιο** συμβαίνει και στην προϋπάρχουσα εγκατεστημένη έκδοση (`%LOCALAPPDATA%\SuperNote\super_note.exe`, 04/10) ⇒ **προϋπάρχον** περιβαλλοντικό θέμα, δεν προκλήθηκε από το S-25.
+- Λύση (απαιτεί **admin/χειροκίνητα**): Windows Security → Virus & threat protection → Ransomware protection → *Allow an app through Controlled folder access* → `super_note.exe`. Δεν έγινε (χωρίς elevation + αλλαγή ρυθμίσεων ασφαλείας χωρίς έγκριση χρήστη).
+- Κάλυψη S-25 στα Windows χωρίς GUI: το widget test «tap `.bat` → confirm dialog, Άκυρο → τίποτα» **εκτελέστηκε** στο 620/620 (είναι `skip: !Platform.isWindows`, άρα έτρεξε στο Windows host). **Δεν** επαληθεύτηκε end-to-end το «Εκτέλεση» → πραγματικό `ShellExecuteW` + `S25 executed`.
+
+**Μαθήματα (device):**
+- Σε landscape τα bounds του `uiautomator dump`, οι συντεταγμένες του screenshot **και** του `input tap` είναι στο **ίδιο** σύστημα (2400×1080, περιστραμμένο) — όχι στο φυσικό 1080×2400· γι' αυτό το tap βγαίνει πάντα από το dump, ποτέ οπτικά.
+- Το Flutter `AttachmentsStrip` είναι **sliver** στο `NoteDetailBody`: χρειάζεται scroll πριν το tap στο «Προσθήκη αρχείου» (αλλιώς «αόρατο» στοιχείο).
+- Το file picker (`com.android.documentsui`/MIUI) ζητά 2 taps (άνοιγμα φακέλου → επιλογή αρχείου)· το back επιστρέφει στην εφαρμογή χωρίς αλλαγή.
+- Defender CFA μπορεί να μπλοκάρει **σιωπηλά** μια Flutter desktop εφαρμογή που γράφει στα Documents — το μήνυμα του OS είναι «Could not find file»/`Access is denied`, όχι «blocked by policy».
