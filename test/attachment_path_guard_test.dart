@@ -95,4 +95,50 @@ void main() {
       expect(result, isNull);
     }
   });
+
+  group('S-25 isRiskyToLaunch', () {
+    test('εκτελέσιμοι τύποι (Windows) → true', () {
+      for (final n in [
+        'a.exe', 'A.EXE', 'a.Bat', 'a.cmd', 'a.ps1', 'a.lnk', 'a.msi',
+        'a.pdf.exe', 'a.exe.', 'a.exe ', '.exe', '1_report.vbs',
+        r'evil.exe::$DATA',
+      ]) {
+        expect(AttachmentPathGuard.isRiskyToLaunch(n, windows: true), isTrue,
+            reason: n);
+      }
+    });
+
+    test('ασφαλείς τύποι → false', () {
+      for (final n in [
+        'a.pdf', 'a.png', 'a.exe.pdf', 'a', 'a.txt', 'a.docx', 'exe',
+        'a.exe.txt',
+      ]) {
+        expect(AttachmentPathGuard.isRiskyToLaunch(n, windows: true), isFalse,
+            reason: n);
+      }
+    });
+
+    test('εκτός Windows → πάντα false', () {
+      expect(AttachmentPathGuard.isRiskyToLaunch('a.exe', windows: false),
+          isFalse);
+    });
+
+    test('null / κενό → false', () {
+      expect(AttachmentPathGuard.isRiskyToLaunch(null, windows: true), isFalse);
+      expect(AttachmentPathGuard.isRiskyToLaunch('', windows: true), isFalse);
+    });
+
+    test('πλήρες path → κρίνει μόνο το basename', () {
+      expect(
+          AttachmentPathGuard.isRiskyToLaunch(
+              p.join('docs', 'attachments', 'a.exe'),
+              windows: true),
+          isTrue);
+      expect(
+          AttachmentPathGuard.isRiskyToLaunch(
+              p.join('docs', 'attachments', 'a.pdf'),
+              windows: true),
+          isFalse);
+    });
+  });
 }

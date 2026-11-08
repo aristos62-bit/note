@@ -174,12 +174,21 @@ class AttachmentService {
     }
   }
 
-  /// Άνοιγμα συνημμένου με την εφαρμογή του συστήματος (S-16/1β).
+  /// Άνοιγμα συνημμένου με την εφαρμογή του συστήματος (S-16/1β, S-25).
   /// Επιστρέφει `null` σε επιτυχία, αλλιώς μήνυμα [AppErrors].
   /// Το path περνά ΠΑΝΤΑ από [AttachmentPathGuard] (fail-closed).
-  Future<String?> open(Attachment attachment) async {
+  /// S-25: εκτελέσιμος τύπος (Windows) → [AppErrors.attachOpenBlocked], εκτός
+  /// αν ο caller έχει ρητή επιβεβαίωση (`allowRisky: true`). Το μήνυμα δεν
+  /// εμφανίζεται από την τρέχουσα UI (το `openAttachment` ρωτά πρώτα) — μένει
+  /// ως δικτυωμένη ασφάλεια για μελλοντικούς callers.
+  Future<String?> open(Attachment attachment,
+      {bool allowRisky = false}) async {
     final safePath = AttachmentPathGuard.resolve(attachment.localPath);
     if (safePath == null) return AppErrors.attachNotFound;
+    if (!allowRisky && AttachmentPathGuard.isRiskyToLaunch(safePath)) {
+      DebugConfig.warning('open: risky type blocked id=${attachment.id}');
+      return AppErrors.attachOpenBlocked;
+    }
     if (!await File(safePath).exists()) {
       DebugConfig.db('open: file not found id=${attachment.id}');
       return AppErrors.attachNotFound;

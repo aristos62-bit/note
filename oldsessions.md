@@ -5062,3 +5062,45 @@ if (!context.isShortScreen)
 - Το μήνυμα lockout είναι **στατικό** (δεν κάνει countdown): το «22» ήταν το string της στιγμής· η ορθότητα του χρόνου επιβεβαιώνεται από τη **λήξη** (30s → καθαρισμός).
 - Με βιομετρικό ενεργό το prompt εμφανίζεται **αυτόματα** σε κάθε cold start → για δοκιμή PIN χρειάζεται `adb shell input keyevent 4` (ακύρωση) πρώτα.
 - Σε release build τα `DebugConfig` logs είναι **OFF** (`_debug = false`) ⇒ η επαλήθευση γίνεται από UI dump (`content-desc`) + `dumpsys window` + μέγεθος screencap, όχι από logcat.
+
+---
+
+## Session 303 — 08/11/2026 (security v2 — S-25: εκτελέσιμα συνημμένα στα Windows)
+
+**Scope (κατόπιν ρητής εντολής χρήστη — αναστολή AGENTS #4):** υλοποίηση της τελικής πρότασης S-25: **διάλογος επιβεβαίωσης** πριν το άνοιγμα εκτελέσιμου τύπου (`.exe`, `.bat`, `.cmd`, `.ps1`, `.lnk`, `.msi`, `.jar`, `.hta`, `.vbs`, `.settingcontent-ms` κ.λπ.) στα Windows, με fail-safe και στο service. Μηδέν νέα αρχεία, μηδέν αλλαγή σε models/DB/providers/barrels.
+
+**Εύρημα (γιατί χρειάστηκε):** το S-16/1β αντικατέστησε το `open_filex` (`cmd /c start`, injection) με `launchUrl(Uri.file)` → `ShellExecuteW`. Το `ShellExecuteW` **εκτελεί** εκτελέσιμους τύπους (verb `open` → `run`), άρα ένα `evil.bat` από restore zip (`backup_service.dart:816` αντιγράφει κάθε entry) ή share intent εκτελούνταν με **ένα tap**. Επιβεβαιώθηκε στην πηγή `url_launcher_windows-3.1.5` (`url_launcher_plugin.cpp:117` → `system_apis.cpp:31-34`).
+
+**Αποφάσεις:**
+- **Διάλογος, όχι πλήρης αποκλεισμός** — δεν υπάρχει save-as στο strip note/event, άρα ο αποκλεισμός θα έκανε το αρχείο μη προσβάσιμο.
+- **Denylist επεκτάσεων** (όχι allowlist — θα έκλεινε `.zip/.dwg/.epub`), σε **ένα** σημείο: `AttachmentPathGuard.launchRiskExtensions` (SPoT, ίδιο με S-18).
+- **`Platform.isWindows`** (όχι `defaultTargetPlatform`): στο `FLUTTER_TEST` το `defaultTargetPlatform` γίνεται `android` (`_platform_io.dart`) — θα απενεργοποιούσε τα tests.
+- **Διπλή εφαρμογή:** `openAttachment` (UX, resolve-once) + `open(..., allowRisky: false)` (fail-safe για μελλοντικούς callers, μοτίβο S-18).
+- **Καμία επαναχρησιμοποίηση `sanitizeFileName`** — αλλάζει το όνομα (`:` → `_`) και θα έκρυβε το `evil.exe::$DATA` (ADS).
+- **Μηνύματα σε `AppErrors`** (`supernote.md:1011` — όχι literals).
+
+**Αλλαγές (4 production):**
+1. `core/utils/app_errors.dart` — +4 strings: `attachOpenBlocked`, `attachRiskyTitle/Body/Confirm`.
+2. `core/utils/attachment_path_guard.dart` — `import 'dart:io' show Platform`· `launchRiskExtensions` (33 επεκτάσεις)· `isRiskyToLaunch(path, {windows})`: pure, basename-only, κόβει ADS (`:`), τελικές τελείες/κενά, lowercase, Windows-only gate.
+3. `services/attachment_service.dart` — `open(attachment, {allowRisky = false})`· πριν το `exists()`: risky χωρίς `allowRisky` → `attachOpenBlocked` + log **μόνο id**.
+4. `shared/widgets/attachments_strip.dart` — `openAttachment`: ένα `resolve()` για preview/πολιτική/open· εικόνες χωρίς διάλογο· risky → `ConfirmDialog.show` (destructive, `warning_amber_rounded`)· `context.mounted` μετά το await· `open(..., allowRisky:)`.
+
+**Tests (7 νέα → 620/620 από 613):**
+- `attachment_path_guard_test` (+5): risky/safe τύποι, gate εκτός Windows, null/κενό, πλήρες path (`p.join`, όχι raw `C:\`).
+- `attachment_open_test` (+1, `skip: !Platform.isWindows`): `.bat` εντός root χωρίς `allowRisky` → `attachOpenBlocked`.
+- `attachments_strip_test` (+1, `skip: !Platform.isWindows`): tap `.bat` → dialog «Εκτέλεση αρχείου;» → «Άκυρο» → τίποτα· helper `_att` επεκτάθηκε με named `localPath`/`mime` (6 υπάρχουσες κλήσεις ανέπαφες).
+
+**Επαλήθευση:** `flutter analyze --no-pub` → **No issues found** (5.6s) · `flutter test --no-pub` → **620/620** (41s) · targeted 3 files → 35/35.
+
+**Backups:** `backups/s25_20261108/` — 11 αρχεία (4 production + 3 tests + `security_v2.md`/`supernote.md`/`oldsessions.md`/`README.md`).
+
+**Μαθήματα:**
+- `testWidgets(..., skip:)` δέχεται **`bool?`** — String = compile error (το `test()` δέχεται `Object?`).
+- Σε POSIX context το `p.basename(r'C:\docs\a.exe')` επιστρέφει **όλο** το string και το `indexOf(':') == 1` → το test πλήρους path θέλει `p.join(...)`.
+- `DebugConfig.warning` γράφει **πάντα** (και σε release) ⇒ στα νέα logs μόνο `id`, ποτέ path/όνομα (S-11).
+- `ConfirmDialog.show` επιστρέφει **μη-null** `bool` (`result ?? false`) και επιλέγει sheet/dialog ανά `context.isMobile` — ίδιο περιεχόμενο, τα `find.text` είναι ανεξάρτητα.
+- Το `AttachmentPathGuard` έχει **global static** state: σε widget test που το `configure`-άρει, `reset()` σε `addTearDown` (διαφορετικά «μολύνει» τα επόμενα tests του αρχείου).
+
+**Docs:** `supernote.md` — test counters (620/620 ×2), file tree (`+ open`), `open(..., {allowRisky})` + S-25 πολιτική/όρια · `security_v2.md` — v2.3 (25 ευρήματα: 13 μεσαίας), S-25 row, P0 **1γ**, threat model, χαμηλής (8), κατάσταση · `README.md` — 620/620.
+
+**Commit:** `18f8f19` (11 files, +233/−25) + push στο `main`.

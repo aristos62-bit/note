@@ -4,21 +4,26 @@
 // - κενό → labeled «Προσθήκη»
 // - μη κενό → header «Συνημμένα (N)» + icon-only add (48 dp, tooltip)
 // - διαγραφή → confirm dialog (μη αναστρέψιμη) πριν το service call
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:super_note/core/core.dart';
 import 'package:super_note/models/models.dart';
 import 'package:super_note/providers/providers.dart';
 import 'package:super_note/shared/widgets/attachments_strip.dart';
 
-Attachment _att(int id, String name) => Attachment()
-  ..id = id
-  ..itemId = 1
-  ..fileName = name
-  ..localPath = '/tmp/$name'
-  ..mimeType = 'application/pdf'
-  ..fileSize = 10;
+Attachment _att(int id, String name,
+        {String? localPath, String mime = 'application/pdf'}) =>
+    Attachment()
+      ..id = id
+      ..itemId = 1
+      ..fileName = name
+      ..localPath = localPath ?? '/tmp/$name'
+      ..mimeType = mime
+      ..fileSize = 10;
 
 Widget _wrap(List<Attachment> atts) {
   return ProviderScope(
@@ -154,4 +159,31 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('S-25: tap .bat → confirm dialog, Άκυρο → τίποτα',
+      (tester) async {
+    final tmp = Directory.systemTemp.createTempSync('sn_s25_');
+    addTearDown(() {
+      AttachmentPathGuard.reset();
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
+    AttachmentPathGuard.configure(documentsDir: tmp.path);
+
+    final att = _att(6, 'hello.bat',
+        localPath: p.join(tmp.path, AttachmentPathGuard.dirName, '1_hello.bat'),
+        mime: 'application/octet-stream');
+
+    await tester.pumpWidget(_wrap([att]));
+    await tester.pump();
+    await tester.tap(find.text('hello.bat'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppErrors.attachRiskyTitle), findsOneWidget);
+    await tester.tap(find.text('Άκυρο'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppErrors.attachRiskyTitle), findsNothing);
+    expect(find.text(AppErrors.attachOpenFailed), findsNothing);
+    expect(tester.takeException(), isNull);
+  }, skip: !Platform.isWindows);
 }

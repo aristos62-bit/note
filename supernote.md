@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **565/565** (`flutter test`, 07/11/2026 — `flutter analyze` clean) |
+| Test suite | **620/620** (`flutter test`, 08/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -152,7 +152,7 @@ lib/
 │   ├── migration_service.dart    — Schema versioning + migrations
 │   ├── search_service.dart       — Full-text search
 │   ├── habit_service.dart        — Habit stats, streak, progress
-│   ├── attachment_service.dart   — File pick + save + delete
+│   ├── attachment_service.dart   — File pick + save + delete + open (S-25 policy)
 │   ├── backup_service.dart       — Export/import Isar DB (zip)
 │   ├── backup_archive.dart       — Zip archive helpers
 │   ├── app_lock_service.dart     — PIN hash (iterated SHA-256) + biometric + lockout/weak-PIN policy (S-03)
@@ -547,9 +547,10 @@ final db = SuperNoteHelper.instance;
 - `pickAndSave(itemId, blockId, allowedExtensions)` → `Attachment?`
 - `saveFile(itemId, sourcePath, blockId)` → `Attachment`
 - `delete(attachmentId)` — file + DB deletion
-- `open(attachment)` → `Future<String?>` — `null` = OK, αλλιώς μήνυμα `AppErrors` (S-16/1β, S298): guard → ύπαρξη → **Windows:** `launchUrl(Uri.file(path), LaunchMode.externalApplication)` (ShellExecuteW, **χωρίς** `cmd`) / **άλλα:** `OpenFilex.open`. Μοναδικό UI entry point: `openAttachment()` στο `attachments_strip.dart` (exported από `widgets.dart`) — εικόνες → private fullscreen preview, όλα τα άλλα → `open`.
+- `open(attachment, {allowRisky = false})` → `Future<String?>` — `null` = OK, αλλιώς μήνυμα `AppErrors` (S-16/1β, S298): guard → ύπαρξη → **Windows:** `launchUrl(Uri.file(path), LaunchMode.externalApplication)` (ShellExecuteW, **χωρίς** `cmd`) / **άλλα:** `OpenFilex.open`. **S-25:** εκτελέσιμος τύπος (Windows) χωρίς `allowRisky: true` → `attachOpenBlocked` (fail-safe). Μοναδικό UI entry point: `openAttachment()` στο `attachments_strip.dart` (exported από `widgets.dart`) — εικόνες → private fullscreen preview, όλα τα άλλα → `open`.
 - Internal: copies to `attachments/` subdirectory in app documents
 - **S-18 (security v2, βήμα 1α):** SPoT για το «πού επιτρέπεται» ένα path = `AttachmentPathGuard` (`lib/core/utils/attachment_path_guard.dart`): `dirName = 'attachments'`, root = `<documents>/attachments`, **fail-closed** `resolve()` (λεξικός: `isAbsolute` + `normalize` + `isWithin`, χωρίς I/O) · `configure(documentsDir:)` στο `SuperNoteHelper.init()` (idempotent, re-init μετά restore) · `attachmentsDirName` = const delegate. Όλα τα open/preview/save-as/share/disk-delete περνούν από αυτό· εκτός root ⇒ `attachNotFound`/skip (ποτέ άνοιγμα, διαγραφή ή κοινοποίηση ξένου αρχείου).
+- **S-25 (security v2, βήμα 1γ):** ίδιος guard, δεύτερη πολιτική — `isRiskyToLaunch(path, {windows})`: pure (μηδέν I/O), denylist `launchRiskExtensions` (`.exe`, `.bat`, `.cmd`, `.ps1`, `.lnk`, `.msi`, `.jar`, `.hta`, `.vbs`, `.settingcontent-ms` κ.λπ.), κρίνει **μόνο** το basename αφού κόψει ADS (`:` → `evil.exe::$DATA`) και τελικές τελείες/κενά (`evil.exe.`), lowercase. Εκτός Windows → πάντα false. `openAttachment` εμφανίζει `ConfirmDialog` (title/body/confirm από `AppErrors`) και περνά `allowRisky`· το `open()` ξαναελέγχει (fail-safe για μελλοντικούς callers). Οι εικόνες δεν ρωτούν (μόνο decode). **Όρια:** macOS/Linux (`.command`/`.sh`/`.app`), Office macros, όχι `IAttachmentExecute`/FFI, denylist όχι πλήρης, Android αμετάβλητο.
 
 ### BackupService (`lib/services/backup_service.dart`)
 - `exportToDevice()` / `exportWithShare()` — zip (DB + attachments) μέσω `BackupArchive`· το DB snapshot γίνεται με `Isar.copyToFile` (consistent/compacted), όχι απευθείας από το live `.isar`.
@@ -1082,7 +1083,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (565/565 🟢) |
+| `flutter test` | Πλήρες suite (620/620 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

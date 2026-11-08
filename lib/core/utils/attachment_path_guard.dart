@@ -1,6 +1,7 @@
 // lib/core/utils/attachment_path_guard.dart
 //
 // S-18 (security v2) — SPoT για το «πού επιτρέπεται» ένα attachment path.
+// S-25 (security v2) — και «αν το άνοιγμά του εκτελεί κώδικα» (Windows).
 //
 // Επιτρεπτό root: <documents>/attachments (βλ. [dirName]).
 // Ο έλεγχος είναι ΛΕΞΙΚΟΣ (normalize + isWithin) — χωρίς I/O και χωρίς
@@ -12,6 +13,8 @@
 // ΧΡΗΣΗ:
 //   AttachmentPathGuard.configure(documentsDir: dir);  // SuperNoteHelper.init()
 //   final path = AttachmentPathGuard.resolve(attachment.localPath);
+import 'dart:io' show Platform;
+
 import 'package:path/path.dart' as p;
 
 import 'debug_config.dart';
@@ -84,6 +87,36 @@ class AttachmentPathGuard {
       return null;
     }
     return normalized;
+  }
+
+  /// S-25 — επεκτάσεις που το ShellExecute (Windows) **εκτελεί** αντί να
+  /// προβάλει. Denylist (όχι πλήρης): συντηρείται εδώ, σε ένα σημείο.
+  /// Δεν γίνεται reuse του [AppStringUtils.sanitizeFileName]: εκείνο αλλάζει
+  /// το όνομα και κάνει `:` → `_`, κρύβοντας το `file.exe::$DATA` (ADS).
+  static const Set<String> launchRiskExtensions = {
+    '.exe', '.com', '.scr', '.pif', '.bat', '.cmd', '.msi', '.msp',
+    '.msix', '.appx', '.appinstaller', '.application', '.ps1', '.vbs',
+    '.vbe', '.js', '.jse', '.ws', '.wsf', '.wsh', '.hta', '.lnk', '.url',
+    '.scf', '.reg', '.cpl', '.msc', '.jar', '.chm', '.gadget', '.diagcab',
+    '.appref-ms', '.settingcontent-ms',
+  };
+
+  /// true όταν το άνοιγμα του [path] στα Windows θα εκτελούσε κώδικα.
+  /// Pure: μηδέν I/O, ποτέ exception. `null`/κενό → false (το [resolve]
+  /// είναι ήδη fail-closed). Εκτός Windows πάντα false (Android: καμία
+  /// αλλαγή). [windows] μόνο για tests — `Platform.isWindows` δεν είναι I/O.
+  static bool isRiskyToLaunch(String? path, {bool? windows}) {
+    if (path == null || path.isEmpty) return false;
+    if (!(windows ?? Platform.isWindows)) return false;
+    // Windows: τελικές τελείες/κενά αγνοούνται (`evil.exe.` ≡ `evil.exe`)
+    // και το `:` ξεκινά ADS (`evil.exe::$DATA` = ροή του `evil.exe`).
+    var name = p.basename(path);
+    final colon = name.indexOf(':');
+    if (colon != -1) name = name.substring(0, colon);
+    name = name.replaceAll(RegExp(r'[. ]+$'), '');
+    final dot = name.lastIndexOf('.');
+    if (dot == -1) return false;
+    return launchRiskExtensions.contains(name.substring(dot).toLowerCase());
   }
 
   /// Μόνο για tests (tearDown) — καθαρίζει root + flags.

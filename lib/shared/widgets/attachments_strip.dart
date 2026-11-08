@@ -125,20 +125,42 @@ void _snack(BuildContext context, String message) {
 /// Άνοιγμα συνημμένου (SPoT για note/event/collection).
 /// Εικόνα → fullscreen preview (private), αλλιώς system app μέσω
 /// [AttachmentService.open] — που κάνει τον guard + το platform opener.
+/// S-25: εκτελέσιμος τύπος (Windows) → ρητή επιβεβαίωση πριν το άνοιγμα.
 Future<void> openAttachment(
     BuildContext context, Attachment attachment) async {
   DebugConfig.db(
       'openAttachment id=${attachment.id} file=${AppStringUtils.redact(attachment.fileName, label: 'file')}');
+
+  // Ένα resolve για όλες τις διαδρομές (S-18): preview, πολιτική, open.
+  final safePath = AttachmentPathGuard.resolve(attachment.localPath);
+  if (safePath == null) {
+    _snack(context, AppErrors.attachNotFound);
+    return;
+  }
+
+  // Εικόνα: δεν εκτελείται ποτέ (Image.file μόνο decodes) → χωρίς διάλογο.
   if (attachment.isImage) {
-    final safePath = AttachmentPathGuard.resolve(attachment.localPath);
-    if (safePath == null) {
-      _snack(context, AppErrors.attachNotFound);
-      return;
-    }
     await _showImagePreview(context, safePath);
     return;
   }
-  final error = await AttachmentService.instance.open(attachment);
+
+  var allowRisky = false;
+  if (AttachmentPathGuard.isRiskyToLaunch(safePath)) {
+    allowRisky = await ConfirmDialog.show(
+      context,
+      title: AppErrors.attachRiskyTitle,
+      subtitle: AppErrors.attachRiskyBody,
+      confirmLabel: AppErrors.attachRiskyConfirm,
+      icon: Icons.warning_amber_rounded,
+      isDestructive: true,
+    );
+    DebugConfig.db(
+        'openAttachment: risky type confirmed=$allowRisky id=${attachment.id}');
+    if (!allowRisky || !context.mounted) return;
+  }
+
+  final error = await AttachmentService.instance
+      .open(attachment, allowRisky: allowRisky);
   if (error != null && context.mounted) _snack(context, error);
 }
 

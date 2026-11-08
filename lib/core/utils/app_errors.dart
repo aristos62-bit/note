@@ -81,6 +81,14 @@ class AppErrors {
       'Το αρχείο "$fileName" υπάρχει ήδη';
   static const attachOpenFailed = 'Αδυναμία ανοίγματος του αρχείου';
   static const attachNotFound = 'Το αρχείο δεν βρέθηκε';
+  // S-25 (security v2): εκτελέσιμοι τύποι (Windows).
+  static const attachOpenBlocked =
+      'Το αρχείο είναι εκτελέσιμου τύπου και δεν ανοίγει από την εφαρμογή';
+  static const attachRiskyTitle = 'Εκτέλεση αρχείου;';
+  static const attachRiskyConfirm = 'Εκτέλεση';
+  static const attachRiskyBody =
+      'Το αρχείο μπορεί να εκτελέσει κώδικα στον υπολογιστή σου. '
+      'Συνέχισε μόνο αν το εμπιστεύεσαι.';
   static String attachSaved(String fileName) => 'Αποθηκεύτηκε: $fileName';
   static String attachTooLarge(int mb) =>
       'Το αρχείο υπερβαίνει το όριο των $mb MB';

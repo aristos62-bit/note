@@ -6,11 +6,11 @@
 
 ## Σύνοψη
 
-Η SuperNote **δεν έχει απομακρυσμένη επιφάνεια επίθεσης** (καμία άδεια `INTERNET` στο release, κανένας κώδικας δικτύου στο `lib/`), αλλά τα δεδομένα της **δεν είναι κρυπτογραφημένα** και το PIN προστατεύει **μόνο την οθόνη**. Βρέθηκαν **24 ευρήματα: 0 κρίσιμα · 4 υψηλής · 12 μεσαίας · 8 χαμηλής** σοβαρότητας.
+Η SuperNote **δεν έχει απομακρυσμένη επιφάνεια επίθεσης** (καμία άδεια `INTERNET` στο release, κανένας κώδικας δικτύου στο `lib/`), αλλά τα δεδομένα της **δεν είναι κρυπτογραφημένα** και το PIN προστατεύει **μόνο την οθόνη**. Βρέθηκαν **25 ευρήματα: 0 κρίσιμα · 4 υψηλής · 13 μεσαίας · 8 χαμηλής** σοβαρότητας.
 
 Οι πέντε ενέργειες με το μεγαλύτερο όφελος ανά κόστος:
 
-1. **Ασφαλής άνοιγμα αρχείων** (S-16, S-18, S-23): το `open_filex` στο Windows περνά **unquoted** path σε `cmd /c start` και ο FileProvider του Android δηλώνει `root-path="."`. Μαζί με μη επικυρωμένο `Attachment.localPath` δίνουν **εκτέλεση εντολών (Windows)** και **αυθαίρετη ανάγνωση/διαγραφή/αποστολή** αρχείου. Φθηνή διόρθωση, μεγάλο κέρδος.
+1. **Ασφαλής άνοιγμα αρχείων** (S-16, S-18, S-23, S-25): το `open_filex` στο Windows περνά **unquoted** path σε `cmd /c start` και ο FileProvider του Android δηλώνει `root-path="."`. Μαζί με μη επικυρωμένο `Attachment.localPath` δίνουν **εκτέλεση εντολών (Windows)** και **αυθαίρετη ανάγνωση/διαγραφή/αποστολή** αρχείου. Επιπλέον το `ShellExecuteW` **εκτελεί** `.exe/.bat/.cmd/...` (S-25). Φθηνή διόρθωση, μεγάλο κέρδος.
 2. **Fail-closed κλείδωμα** (S-17): ✅ **S300** — gate με cold/resume/retry timeouts· `null`/σφάλμα/timeout ⇒ locked + `FLAG_SECURE(true)`· inline setup όταν `enabled && pinHash == null`.
 3. **Μόνιμος μετρητής PIN + μονοτονικός χρόνος** (S-03): ✅ **S302** — persisted `AppLockAttemptsStore`, monotonic `elapsedRealtime` + wall fallback, min-6/όχι τετριμμένο νέο PIN (4-5 μόνο legacy verify), tiers lockout έως 1 ώρα.
 4. **Επανάληψη PIN σε κρίσιμες ενέργειες + κρυφές ειδοποιήσεις** (S-04 ✅ **S302** — `confirmSensitiveAction` σε export/import/wipe/disable· S-06), και **μπλοκάρισμα της ζωντανής UI** κάτω από το lock (S-05 ✅ μηχανισμός S300).
@@ -45,6 +45,13 @@
 | 1 | **S-02.3 — auto backup**: αντικαταστάθηκε το «`getApplicationSupportDirectory()/backups`» με πλήρη επανασχεδιασμό: **φάκελος επιλογής χρήστη** (SAF / `Documents/SuperNote`) + **έλεγχος και prompt επαναφοράς στην πρώτη εκκίνηση** (`hasSeenRestorePrompt`, μέσω `importBackup(..., fromPath:)`) | Το `getApplicationSupportDirectory()` **δεν** επιβιώνει από uninstall (το `allowBackup="false"` κλείνει και το cloud restore) — κάλυπτε μόνο το clear-cache· ο χρήστης δεν είχε τρόπο να μάθει ότι υπάρχει αντίγραφο |
 | 2 | **P2 βήμα 9**: «auto backup εκτός cache» → «auto backup σε **φάκελο χρήστη** + **first-run prompt**» | Ευθυγράμμιση του πλάνου με το S-02.3 |
 
+### Διορθώσεις v2.3 (08/11/2026)
+
+| # | Διόρθωση | Λόγος |
+|---|---|---|
+| 1 | **S-25** — νέο εύρημα μεσαίας σοβαρότητας: το άνοιγμα στο Windows περνά στο `ShellExecuteW`, που **εκτελεί** εκτελέσιμους τύπους | Ο S-16/1β αφαίρεσε το `cmd` (injection) αλλά **όχι** την εκτέλεση: `.bat`/`.exe` από backup zip ή share intent εκτελούνταν με ένα tap |
+| 2 | **P0 βήμα 1γ** — `isRiskyToLaunch` στον `AttachmentPathGuard` + `ConfirmDialog` + fail-safe `allowRisky` | Ίδιο SPoT με S-18 (μηδέν νέο αρχείο), ρητή επιβεβαίωση αντί σιωπηλής εκτέλεσης |
+
 ### Επαληθεύσεις v2.1 (06/11/2026)
 
 - **S-22/S-23** επαληθεύτηκαν στην πηγή `open_filex 4.7.0` (pub cache): permissions στο `android/src/main/AndroidManifest.xml`, `filepaths.xml` με **`root-path="."`** + `external-*`, και `OpenFilePlugin.java:232` (`FileProvider.getUriForFile` χωρίς containment). Το plugin **ζητά** τα permissions runtime (`:142-150`) όταν το path είναι έξω από `dataDir`/`externalFilesDir` (`pathRequiresPermission()`, `:189-203`).
@@ -57,7 +64,7 @@
 |---|---|---|
 | Εσωτερική, από απροσεξία | Χάνει/μοιράζεται backup, αφήνει το app ξεκλείδωτο, πατά «Διαγραφή όλων» | S-02, S-04, S-06, S-19 |
 | Εσωτερική, κακόβουλη (γνωστός με φυσική πρόσβαση) | Μαντεύει το PIN, χρησιμοποιεί ξεκλείδωτο τηλέφωνο, διαβάζει ειδοποιήσεις | S-03, S-04, S-05, S-06, S-17 |
-| Εξωτερική, τοπική (άλλη εφαρμογή ή κακόβουλο αρχείο) | Στέλνει αρχεία μέσω share, δίνει κατεστραμμένο/κακόβουλο backup, εκμεταλλεύεται όνομα αρχείου | S-07, S-08, S-13, S-16, S-18, S-22, S-23 |
+| Εξωτερική, τοπική (άλλη εφαρμογή ή κακόβουλο αρχείο) | Στέλνει αρχεία μέσω share, δίνει κατεστραμμένο/κακόβουλο backup, εκμεταλλεύεται όνομα αρχείου, εκτελεί `.exe/.bat` μέσω ShellExecute | S-07, S-08, S-13, S-16, S-18, S-22, S-23, S-25 |
 | Εξωτερική, κλοπή ή ανάκτηση συσκευής/δίσκου | Διαβάζει βάση, συνημμένα, backups, cache | S-01, S-02, S-19 |
 | Εξωτερική, supply chain (εγκαταστάτης, υπογραφή, repo) | Αντικαθιστά APK/exe, εκμεταλλεύεται δικαιώματα φακέλων, βρίσκει keystore | S-09, S-10, S-14, S-20 |
 
@@ -123,13 +130,14 @@
 | S-10 | Εγκαταστάτης Windows: `users-full` σε app/data, χωρίς code signing, `vc_redist.x64.exe` + `SuperNoteSetup.exe` **committed** | `note_eco_new.iss:54-56` · `Dependencies/`, `InstallerOutput/` | Αφαίρεση `users-full`, SignTool, hash ελέγχου, binaries σε Releases (όχι git) |
 | S-17 | **Fail-open κλείδωμα**: αν το `settings.get()` πετά/timeout (5s) στο startup ή στο resume, συνεχίζει **ξεκλείδωτο** και **χωρίς** `FLAG_SECURE` **(ΝΕΟ v2)** | `main.dart:125-129` (pre-runApp), `:393-410` (resume) — **πριν** το S300 | ✅ **ΥΛΟΠΟΙΗΘΗΚΕ S300**: `LockGateController`/`lockGateProvider` (`app_lock_provider.dart`) + `lock_gate_screen.dart`· `getOrNull()` (ποτέ default `AppSettings()`)· cold 5s / resume 2s / retry 5s· `setSecure(true)` σε unknown/failure· retry + inline setup PIN. Device-verified 07/11/2026 (POCO X3) |
 | S-18 | **Μη επικυρωμένο `Attachment.localPath`**: ανάγνωση (thumbnail/fullscreen/save), **διαγραφή** αρχείου, αποστολή μέσω share — πέρα από το άνοιγμα **(ΝΕΟ v2)** | **Διαγραφή:** `super_note_helper.dart:553` (**`hardDeleteMany`** — μόνο shared-ref guard), `attachment_service.dart:159` · **Ανάγνωση/projection:** `attachments_strip.dart:158,245`, `collection_entries_screen.dart:1558-1579`, `image_utils.dart:39` (`Image.file`) · **Save:** `collection_entries_screen.dart:907-919` (`readAsBytes`) · **Share:** `services/share/share_attachments.dart:47` (`collect`, χωρίς `isWithin`) · **Άνοιγμα:** `attachment_service.dart:181` (`open` — μοναδικό σημείο) | **Ένας** helper `AttachmentPathGuard.resolve(a)` → path μόνο αν `p.isWithin(attachmentsDir, p.normalize(path))`· χρήση σε **όλα** τα παραπάνω (αλλιώς placeholder/άρνηση)· cached sync root για τα widgets (το `getApplicationDocumentsDirectory` είναι async)· προαιρετικά `resolveSymbolicLinks()` για symlink/junction (το `isWithin` είναι lexical — case-insensitive στο Windows) |
+| S-25 | **Εκτελέσιμο συνημμένο εκτελείται με ένα tap (Windows)**: το `open` περνά κάθε path στο `ShellExecuteW` (verb `open` → `run` για `.exe/.bat/.cmd/.ps1/.lnk/...`), ακόμη κι αν προήλθε από backup zip ή share intent **(ΝΕΟ v2.3)** | `attachment_service.dart:188-191` (risky check), `:197-206` (Windows `launchUrl` → ShellExecuteW) · `url_launcher_windows-3.1.5/windows/url_launcher_plugin.cpp:117` → `system_apis.cpp:31-34` (`::ShellExecuteW`) · `attachments_strip.dart:128-165` (μοναδικό UI entry `openAttachment`) · `backup_service.dart:816` (restore: κάθε αρχείο του zip στο `attachments/`) | ✅ **S303:** `AttachmentPathGuard.isRiskyToLaunch()` — pure, denylist `launchRiskExtensions`, μόνο basename, κόβει ADS (`evil.exe::$DATA`) + τελικές τελείες/κενά, Windows-only · `ConfirmDialog` (`AppErrors.attachRisky*`) στο `openAttachment` + fail-safe `allowRisky: true` στο `open()` · tests 7 (5 guard + 1 service + 1 widget). Όρια: macOS/Linux extensions, Office macros, denylist όχι πλήρης |
 | S-19 | **Απομεινάρια cache**: το `share_plus` αντιγράφει κάθε αρχείο σε `cache/share_plus/`· **καθαρίζει στην αρχή** κάθε share (`12.0.2 Share.kt:60`, main `13.x Share.kt:119`), άρα μένει μόνο το **τελευταίο** share — μαζί με ολόκληρο backup zip — μέχρι το επόμενο share ή το Wipe· pickers/intent αφήνουν temp αντίγραφα **(ΝΕΟ v2, διόρθωση v2.1)** | `share_plus-12.0.2/.../Share.kt:60,181,239-245` · `share_service.dart:96-101` (χωρίς cleanup) · `backup_service.dart:307-317` (καθαρίζει μόνο τον temp φάκελο) | **Delayed** cleanup των συγκεκριμένων αρχείων μετά το share (όχι άμεσο `finally` — ο παραλήπτης μπορεί να τα διαβάζει ακόμη, βλ. 10s του backup temp)· καθαρισμός temp των pickers μετά το `saveFile`· (το Wipe ήδη σβήνει όλο το cache — `settings_backup.dart:492-503`) |
 | S-22 | **Υπερ-δικαιώματα από merge**: το `open_filex 4.7.0` προσθέτει `READ_MEDIA_IMAGES/VIDEO/AUDIO` + `READ_EXTERNAL_STORAGE (≤32)` ενώ η εφαρμογή ανοίγει **μόνο** δικά της αρχεία **(ΝΕΟ v2, επιβεβαιωμένο v2.1)** | `open_filex-4.7.0/android/src/main/AndroidManifest.xml` (merged στο release — χωρίς `tools:node="remove"` στο app manifest) · `OpenFilePlugin.java:142-150` (τα **ζητά** runtime εκτός app dirs), `:189-203` (`pathRequiresPermission`) | `xmlns:tools` + `tools:node="remove"` για τα 4 permissions (**ΥΛΟΠΟΙΗΘΗΚΕ S299** — merged release: 0 `READ_MEDIA_*`/`READ_EXTERNAL_STORAGE`)· επαλήθευση merged manifest πριν το release· τα συνημμένα είναι εντός `dataDir` ⇒ δεν ενεργοποιείται το permission path |
 | S-23 | **FileProvider `root-path="."`**: το `open_filex` μπορεί να δώσει `content://` για **οποιοδήποτε** readable path (και `external-*`), με grant σε εξωτερική εφαρμογή **(ΝΕΟ v2, επιβεβαιωμένο v2.1)** | `open_filex-4.7.0/android/src/main/res/xml/filepaths.xml` (`root-path`, `external-*`, `files`, `cache`) · `OpenFilePlugin.java:232` (`getUriForFile` χωρίς containment)· provider `exported=false` + `grantUriPermissions=true` · Android 11+ gate: `MANAGE_EXTERNAL_STORAGE` εκτός MediaStore paths (`:135-138,168-187`) — **δεν** δηλώνεται | Με τον S-18 guard δεν φτάνει ποτέ path εκτός `attachments/`· εναλλακτικά αντικατάσταση με δικό μας στενό FileProvider ή copy-to-cache + `share_plus`. Σε chain με S-18/S-22 (granted `READ_MEDIA_*`) καλύπτει και media εκτός app dirs |
 
 ---
 
-# Ευρήματα χαμηλής σοβαρότητας (7)
+# Ευρήματα χαμηλής σοβαρότητας (8)
 
 | ID | Εύρημα | Πού | Διόρθωση |
 |---|---|---|---|
@@ -152,6 +160,7 @@
 |---|---|---|---|---|---|
 | **P0 — Άμεσα** | **1α** | **AttachmentPathGuard**: `isWithin` σε open/share/delete/save/thumb — **μαζί** με `hardDeleteMany` (`super_note_helper.dart:553`) | S-18, S-23 (μερικώς) | Μικρό (1 helper + 9 call sites) | Χαμηλό· tests για path εντός/εκτός, `..`, case, symlink |
 | | **1β** | **Windows opener χωρίς `cmd`** (`launchUrl(Uri.file)` → `ShellExecuteW`) — ✅ S298· **χωρίς** αλλαγή `sanitizeFileName` (περιττή: δεν υπάρχει πλέον `cmd`) | S-16 | Μικρό | Χαμηλό· Windows test με `&`/`^`/space |
+| | **1γ** | **Εκτελέσιμοι τύποι (Windows)**: `isRiskyToLaunch` (denylist, ADS-aware) + `ConfirmDialog` + fail-safe `allowRisky` στο `open()` — ✅ S303 | S-25 | Μικρό | Πολύ χαμηλό· μόνο Windows, dialog πριν το launch |
 | | 2 | **Fail-closed lock**: gate μέχρι να διαβαστούν ρυθμίσεις· `setSecure(true)` σε άγνωστη κατάσταση· retry — ✅ S300 | S-17 | Μικρό | Χαμηλό (startup UX) |
 | | 3 | **Permissions**: αφαίρεση `READ_MEDIA_*`, `READ_EXTERNAL_STORAGE`, `WRITE_CONTACTS` + merged-manifest check — ✅ S299 | S-22, S-12 | Μικρό | Πολύ χαμηλό |
 | **P1 — Κλείδωμα** | 4 | **PIN hardening**: persistent counter + monotonic + min 6 + trivial block + migration bump — ✅ S302 | S-03 | Μικρό-μέτριο | Χαμηλό· migration test |
@@ -170,7 +179,7 @@
 | | 17 | **Android 12+ extraction rules** + τεκμηρίωση FLAG_SECURE scope | S-21 | Μικρό | Πολύ χαμηλό |
 | **P4 — Απόφαση** | 18 | **Κρυπτογράφηση βάσης**: (1) Windows path, (2) field encryption, (3) SQLCipher, ή (4) τεκμηρίωση limitation | S-01 | Μικρό → πολύ μεγάλο | Υψηλό για (2)/(3) |
 
-**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **2/S-17** (S300) και **3/S-22/S-12** (S299), καθώς και το **S-24** (S301, ατομικό toggle lock). Το παρόν παραμένει η έκθεση v2.2 + πλάνο για τα υπόλοιπα.
+**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), καθώς και το **S-24** (S301, ατομικό toggle lock). Το παρόν παραμένει η έκθεση v2.3 + πλάνο για τα υπόλοιπα.
 
 ---
 
