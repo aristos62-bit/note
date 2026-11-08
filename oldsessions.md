@@ -5103,4 +5103,4 @@ if (!context.isShortScreen)
 
 **Docs:** `supernote.md` — test counters (620/620 ×2), file tree (`+ open`), `open(..., {allowRisky})` + S-25 πολιτική/όρια · `security_v2.md` — v2.3 (25 ευρήματα: 13 μεσαίας), S-25 row, P0 **1γ**, threat model, χαμηλής (8), κατάσταση · `README.md` — 620/620.
 
-**Commit:** `18f8f19` (11 files, +233/−25) + push στο `main`.
+**Commit:** `755fb9e` (11 files, +233/−25) + push στο `main`.
