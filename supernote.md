@@ -140,7 +140,7 @@ lib/
 │   ├── settings_provider.dart    — Settings CRUD, derived providers
 │   ├── app_info_provider.dart    — appVersionProvider (package_info_plus)
 │   ├── notification_permission_provider.dart — notificationPermissionProvider (E08)
-│   ├── app_lock_provider.dart    — appLockStateProvider + lockGateProvider (S-17 fail-closed)
+│   ├── app_lock_provider.dart    — appLockStateProvider + lockGateProvider (S-17) + persisted lockout store (S-03)
 │   └── ui_provider.dart          — UI state (selectedFolder, viewMode, isDragging, dayTick)
 ├── services/
 │   ├── services.dart             — Barrel export
@@ -155,7 +155,7 @@ lib/
 │   ├── attachment_service.dart   — File pick + save + delete
 │   ├── backup_service.dart       — Export/import Isar DB (zip)
 │   ├── backup_archive.dart       — Zip archive helpers
-│   ├── app_lock_service.dart     — PIN (SHA-256) + biometric
+│   ├── app_lock_service.dart     — PIN hash (iterated SHA-256) + biometric + lockout/weak-PIN policy (S-03)
 │   ├── shared_intent_service.dart — Λήψη κοιν/νου content (share intent)
 │   ├── contact_import_service.dart — Import device contacts
 │   ├── share_service.dart        — Share orchestrator: Load → Choose → Render → Share (E39/S292)
@@ -167,7 +167,7 @@ lib/
 │   │   ├── share_attachments.dart — Dedupe by id, missing→log, καθαρά ονόματα (E39)
 │   │   ├── share_content_builder.dart — Συναρμολόγηση {subject, text, files} (E39)
 │   │   └── share_options_sheet.dart — «Κείμενο + αρχεία» / «Μόνο κείμενο» (E39)
-│   └── security_service.dart     — FLAG_SECURE MethodChannel (S165)
+│   └── security_service.dart     — FLAG_SECURE + elapsedRealtime MethodChannel (S165/S-03)
 ├── helpers/
 │   ├── super_note_helper.dart    — Singleton + sub-repositories (ItemRepository, etc.)
 │   └── item_color_helper.dart    — Background/text colors per ItemType
@@ -209,7 +209,7 @@ lib/
 │   ├── lock/
 │   │   ├── lock.dart             — Barrel export
 │   │   ├── lock_gate_screen.dart — S-17 fail-closed gate overlay (failure/retry/PIN setup)
-│   │   └── lock_screen.dart      — App-lock screen (PIN hash + biometric, lockout)
+│   │   └── lock_screen.dart      — App-lock screen (persisted lockout, unlock-first, 4-6 legacy fallback)
 │   ├── collections/
 │   │   ├── collections.dart      — Barrel
 │   │   ├── collections_screen.dart — All collections
@@ -228,10 +228,10 @@ lib/
 │   │   ├── settings.dart                  — Barrel
 │   │   ├── settings_screen.dart           — Screen + System/DB groups (S253)
 │   │   ├── settings_tiles.dart            — SettingsCard + Switch/Action/Info/theme/lock/backup tiles
-│   │   ├── settings_app_lock_section.dart — App-lock section: ατομικό toggle (S-24)
+│   │   ├── settings_app_lock_section.dart — App-lock section: toggle/PIN/biometric + S-04 disable gate
 │   │   ├── settings_colors.dart           — Item-type colors + color picker sheet
-│   │   ├── settings_backup.dart           — Export / import / wipe
-│   │   ├── settings_pin_dialogs.dart      — App-lock PIN dialogs + validation
+│   │   ├── settings_backup.dart           — Export / import / wipe (+ S-04 auth gate)
+│   │   ├── settings_pin_dialogs.dart      — PIN dialogs + validation + confirmSensitiveAction (S-03/S-04)
 │   │   ├── settings_reminders_dialog.dart — Past reminders dialog
 │   │   ├── reminder_diagnostics_screen.dart — Διαγνωστικά υπενθυμίσεων (DB vs OS alarms)
 │   │   ├── settings_archived_dialog.dart  — Archived items dialog
@@ -423,6 +423,8 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - `preferredFolderId` — legacy πεδίο Isar (δεν χρησιμοποιείται από S272/E38)
 - `itemTypeColorsJson` — JSON map `{"typeName":"#RRGGBB"}` for per-type card colors
 - `hasCompletedOnboarding`
+- App lock (S-03/S-04): `appLockEnabled`, `appLockPinHash`, `appLockPinLength` (νέο PIN = 6· 4-5 μόνο legacy), `appLockTimeoutSeconds`, `biometricEnabled`
+- Persisted lockout: `appLockFailedAttempts`, `appLockLockoutUntilEpochMs`, `appLockLockoutDurationSeconds`, `appLockLockoutMonoMs` (άγκυρα `elapsedRealtime`), `appLockLastSeenWallMs` (ανίχνευση rollback)
 
 ---
 
@@ -455,7 +457,7 @@ final db = SuperNoteHelper.instance;
 ## Schema Migration (lib/services/migration_service.dart)
 
 - `MigrationService.ensureSchemaVersion(isar)` — καλείται στο `SuperNoteHelper.init()` μετά το `Isar.open()`.
-- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`).
+- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`) — τρέχον **v4** (S-03: sanitize/clamp των lockout πεδίων· additive, χωρίς μετασχηματισμό δεδομένων).
 - Safety backup (file copy) πριν από κάθε migration.
 - Batch pagination (50 records) για αποφυγή OOM.
 - Idempotent migrations — crash-safe.
@@ -584,6 +586,7 @@ final db = SuperNoteHelper.instance;
 ### SecurityService (`lib/services/security_service.dart`)
 - Android `MethodChannel("super_note/security")` → `FLAG_SECURE` — πρώτο MethodChannel (S165)
 - `setSecure(bool)` — **idempotent (S-17)**: ίδια τιμή ⇒ skip· οι αποτυχίες **δεν** cache-άρονται (retry)· 2s timeout· warn-once· `resetForTest()`
+- `elapsedRealtimeMs({force})` (S-03) — monotonic ms από boot (`SystemClock.elapsedRealtime`, περιλαμβάνει deep sleep)· ~1s cache· `null` σε αποτυχία/πλατφόρμα χωρίς API (fallback wall) — **ποτέ throw**
 - Πολιτική: ON όσο lock-enabled· OFF μόνο με επιβεβαιωμένο disabled· άγνωστο/σφάλμα ⇒ ON. Άλλες πλατφόρμες no-op· iOS parked
 - Hooks: gate cold/reassert (postFrame) + settings toggle (μετά update)
 - **Manifest permissions (S-22/S-12, S299):** μόνο `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `READ_CONTACTS` (+ plugin `USE_BIOMETRIC`/`USE_FINGERPRINT`). `tools:node="remove"` για `READ_MEDIA_*` + `READ_EXTERNAL_STORAGE` του `open_filex` — ανοίγουμε **μόνο** paths εντός `dataDir` (`AttachmentPathGuard`).
@@ -592,7 +595,9 @@ final db = SuperNoteHelper.instance;
 - `LockGateStatus {resolving, ready, failed}` · `LockGateFailure {readFailed, missingPinConfig}`
 - `lockGateSettingsReaderProvider` → `SettingsRepository.getOrNull()` (ποτέ σιωπηλό `AppSettings()`)
 - Timeouts: cold 5s · resume 2s · retry 5s (injectable `lockGateTimeoutsProvider`)
-- `resolveCold()` pre-runApp · `resolveResume(pausedAt)` στο resumed · `retry()` από failure UI · `markPaused()` ακυρώνει in-flight resolves
+- `resolveCold()` pre-runApp · `resolveResume(pausedAt, {elapsedSeconds})` στο resumed (S-03: προτιμά monotonic `elapsedRealtime`· wall fallback· αρνητική διαφορά ⇒ fail-closed) · `retry()` από failure UI · `markPaused()` ακυρώνει in-flight resolves
+- **Persisted lockout (S-03):** `AppLockAttemptsStore` / `appLockAttemptsStoreProvider` — μία πύλη `snapshot`/`verify`/`finishSuccess` (lockout → verify → καταγραφή αποτυχίας)· tiers 5→30δ, 6→60δ, 7→120δ, 8→240δ, 9-14→5λ, 15-19→15λ, 20-29→30λ, ≥30→1 ώρα· μηδενισμός μετρητών μόνο σε επιτυχία/νέο PIN/disable. Επιβιώνει kill/restart (Isar) — όχι in-memory.
+- **Sensitive gate (S-04):** `confirmSensitiveAction` (`settings_pin_dialogs.dart`) — βιομετρικό (αν ενεργό, bypass lockout) → PIN· πύλη **πριν** από dialogs/file picker σε export/import/wipe και disable lock· fail-closed όταν τα settings δεν διαβάζονται
 - `applySettings(AppSettings)` (S-24) — εφαρμόζει **committed** snapshot μετά επιτυχές write του toggle, χωρίς 2η ανάγνωση DB και χωρίς ενδιάμεσο `resolving` (generation bump → ακυρώνει τυχόν in-flight resolve)
 - Fail-closed: `null`/σφάλμα/timeout ή `enabled && pinHash == null` ⇒ locked + `FLAG_SECURE(true)` + failure UI (retry / inline νέο PIN)
 - Έκθεση: `status != ready || appLockStateProvider` ⇒ `appContentBlockedProvider` — το `child` μπαίνει σε `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` (S-05)
@@ -701,6 +706,7 @@ attachmentCountsProvider → StreamProvider.autoDispose<Map<int, int>>          
 settingsStreamProvider → StreamProvider<AppSettings?>        // real-time
 settingsNotifierProvider → AsyncNotifierProvider<SettingsNotifier, AppSettings>
 appLockSettingsWriterProvider → Provider<AppLockSettingsWriter> // S-24 test seam (committed snapshot ή null)
+appLockAttemptsStoreProvider → Provider<AppLockAttemptsStore>   // S-03 persisted lockout (snapshot/verify/finishSuccess)
 appThemeProvider → Provider<AppTheme>
 onboardingCompleteProvider → Provider<bool>
 itemTypeCardColorOverrideProvider → Provider.family<Color?, ItemType>

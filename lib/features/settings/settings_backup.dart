@@ -10,6 +10,7 @@ import '../../core/core.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
+import 'settings_pin_dialogs.dart';
 
 Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
   DebugConfig.db('Settings: export backup');
@@ -19,6 +20,16 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
     _showBusySnackBar(context, messenger);
     return;
   }
+
+  // S-04: ευαίσθητη ενέργεια — βιομετρικό/PIN πριν από dialogs/αρχεία.
+  if (!await confirmSensitiveAction(
+    context,
+    ref,
+    reason: 'Επιβεβαιώστε την ταυτότητά σας για εξαγωγή αντιγράφου',
+  )) {
+    return;
+  }
+  if (!context.mounted) return;
 
   final choice = await showDialog<String>(
     context: context,
@@ -88,6 +99,20 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     {String? fromPath}) async {
   DebugConfig.db('Settings: import backup');
   final messenger = ScaffoldMessenger.of(context);
+
+  // S-04: ευαίσθητη ενέργεια — πύλη πριν από file picker/validation/restore.
+  if (BackupService.instance.isMaintenanceActive) {
+    _showBusySnackBar(context, messenger);
+    return;
+  }
+  if (!await confirmSensitiveAction(
+    context,
+    ref,
+    reason: 'Επιβεβαιώστε την ταυτότητά σας για εισαγωγή αντιγράφου',
+  )) {
+    return;
+  }
+  if (!context.mounted) return;
 
   // 1. Επιλογή αρχείου (ή έτοιμο path από αυτόματα αντίγραφα)
   final srcPath = fromPath ?? await BackupService.instance.pickBackupFile();
@@ -236,6 +261,22 @@ Future<void> _showRestartDialog(
 const wipePhrase = 'ΔΙΑΓΡΑΦΗ ΟΛΩΝ';
 
 Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
+  final messenger = ScaffoldMessenger.of(context);
+
+  // S-04: ευαίσθητη ενέργεια — πύλη πριν από dialogs/wipe.
+  if (BackupService.instance.isMaintenanceActive) {
+    _showBusySnackBar(context, messenger);
+    return;
+  }
+  if (!await confirmSensitiveAction(
+    context,
+    ref,
+    reason: 'Επιβεβαιώστε την ταυτότητά σας για διαγραφή όλων των δεδομένων',
+  )) {
+    return;
+  }
+  if (!context.mounted) return;
+
   // Πρώτο βήμα: επιβεβαίωση διαγραφής
   final confirm = await ConfirmDialog.delete(
     context,
@@ -325,7 +366,6 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   DebugConfig.db('Settings: starting full database wipe');
 
-  final messenger = ScaffoldMessenger.of(context);
   final wipeNavigator = Navigator.of(context, rootNavigator: true);
   var wipeDialogOpen = true;
   showDialog(

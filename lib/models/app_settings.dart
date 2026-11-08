@@ -54,7 +54,7 @@ class AppSettings {
   bool appLockEnabled = false;
   String? appLockPinHash;
   bool biometricEnabled = false;
-  /// Πόσα ψηφία έχει το PIN (4-6)
+  /// Πόσα ψηφία έχει το PIN (4-6). Νέα PIN = 6· 4-5 μόνο legacy.
   int appLockPinLength = 6;
 
   /// Μέγιστο μέγεθος αρχείου σε MB για συνημμένα (0 = χωρίς όριο)
@@ -74,6 +74,24 @@ class AppSettings {
 
   /// 0 = άμεσο κλείδωμα, 300 = 5 λεπτά, κλπ.
   int appLockTimeoutSeconds = 0;
+
+  // ── App Lock: lockout (S-03, persistent) ────────────────────
+  /// Συνεχόμενες αποτυχημένες προσπάθειες PIN (persisted — επιβιώνει
+  /// kill/restart και lock/unlock).
+  int appLockFailedAttempts = 0;
+
+  /// Απόλυτη προθεσμία lockout σε epoch ms (0 = κανένα lockout).
+  int appLockLockoutUntilEpochMs = 0;
+
+  /// Διάρκεια του τρέχοντος lockout σε δευτερόλεπτα (0 = κανένα).
+  int appLockLockoutDurationSeconds = 0;
+
+  /// Άγκυρα `elapsedRealtime` (ms από boot) όταν ξεκίνησε το lockout.
+  /// 0 = μη διαθέσιμο (πλατφόρμα χωρίς monotonic).
+  int appLockLockoutMonoMs = 0;
+
+  /// Τελευταία γνωστή wall ώρα (epoch ms) — ανιχνεύει ρολόι που γύρισε πίσω.
+  int appLockLastSeenWallMs = 0;
 
   DateTime updatedAt = DateTime.now();
 }

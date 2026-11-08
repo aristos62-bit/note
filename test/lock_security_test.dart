@@ -70,16 +70,212 @@ void main() {
       final paused = DateTime(2026, 1, 1, 12, 0, 0);
       expect(AppLockService.shouldLockOnResume(paused, paused, 0), isTrue);
     });
+
+    test('S-03: αρνητική διαφορά ώρας (rollback) → fail-closed', () {
+      final now = DateTime(2026, 1, 1, 12, 0, 0);
+      final paused = now.add(const Duration(minutes: 5));
+      expect(AppLockService.shouldLockOnResume(paused, now, 300), isTrue);
+    });
+
+    test('S-03: monotonic elapsedSeconds προτιμάται του wall', () {
+      final paused = DateTime(2026, 1, 1, 12, 0, 0);
+      // Wall λέει 1 ώρα, monotonic λέει 10δ → κερδίζει το monotonic.
+      expect(
+          AppLockService.shouldLockOnResume(
+            paused,
+            paused.add(const Duration(hours: 1)),
+            60,
+            elapsedSeconds: 10,
+          ),
+          isFalse);
+      // Monotonic πάνω από το timeout → κλείδωμα.
+      expect(
+          AppLockService.shouldLockOnResume(
+            paused,
+            paused,
+            60,
+            elapsedSeconds: 60,
+          ),
+          isTrue);
+      // Αρνητικό elapsed (προστασία) → 0 → όχι κλείδωμα.
+      expect(
+          AppLockService.shouldLockOnResume(
+            paused,
+            paused,
+            60,
+            elapsedSeconds: -5,
+          ),
+          isFalse);
+    });
   });
 
-  group('nextLockoutSeconds (L3)', () {
-    test('<5 → 0, 5 → 30, διπλασιασμός, cap 300', () {
+  group('nextLockoutSeconds (L3/S-03)', () {
+    test('κλίμακα: 0-4→0, 5→30, 6→60, 7→120, 8→240', () {
       expect(AppLockService.nextLockoutSeconds(0), 0);
       expect(AppLockService.nextLockoutSeconds(4), 0);
       expect(AppLockService.nextLockoutSeconds(5), 30);
       expect(AppLockService.nextLockoutSeconds(6), 60);
       expect(AppLockService.nextLockoutSeconds(7), 120);
-      expect(AppLockService.nextLockoutSeconds(20), 300);
+      expect(AppLockService.nextLockoutSeconds(8), 240);
+    });
+
+    test('κλιμάκια: 9-14→300, 15-19→900, 20-29→1800, ≥30→3600', () {
+      expect(AppLockService.nextLockoutSeconds(9), 300);
+      expect(AppLockService.nextLockoutSeconds(14), 300);
+      expect(AppLockService.nextLockoutSeconds(15), 900);
+      expect(AppLockService.nextLockoutSeconds(19), 900);
+      expect(AppLockService.nextLockoutSeconds(20), 1800);
+      expect(AppLockService.nextLockoutSeconds(29), 1800);
+      expect(AppLockService.nextLockoutSeconds(30), 3600);
+      expect(AppLockService.nextLockoutSeconds(100), 3600);
+      expect(AppLockService.nextLockoutSeconds(100),
+          AppLockService.kMaxLockoutSeconds);
+    });
+  });
+
+  group('sanitize (persisted πεδία)', () {
+    test('attempts: <0→0, >10000→10000', () {
+      expect(AppLockService.sanitizeAttempts(-3), 0);
+      expect(AppLockService.sanitizeAttempts(0), 0);
+      expect(AppLockService.sanitizeAttempts(42), 42);
+      expect(AppLockService.sanitizeAttempts(99999), 10000);
+    });
+
+    test('lockout duration: ≤0→0, cap 3600', () {
+      expect(AppLockService.sanitizeLockoutDuration(-1), 0);
+      expect(AppLockService.sanitizeLockoutDuration(0), 0);
+      expect(AppLockService.sanitizeLockoutDuration(120), 120);
+      expect(AppLockService.sanitizeLockoutDuration(99999), 3600);
+    });
+  });
+
+  group('remainingLockoutSeconds (S-03)', () {
+    test('χωρίς ενεργό lockout → 0', () {
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 0,
+            lockoutUntilEpochMs: 0,
+            lockoutDurationSeconds: 0,
+            lockoutMonoMs: 0,
+            lastSeenWallMs: 0,
+            nowEpochMs: 1000000,
+          ),
+          0);
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 5,
+            lockoutUntilEpochMs: 0,
+            lockoutDurationSeconds: 0,
+            lockoutMonoMs: 0,
+            lastSeenWallMs: 0,
+            nowEpochMs: 1000000,
+          ),
+          0);
+    });
+
+    test('monotonic: αφαιρεί τον χρόνο που πέρασε', () {
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 5,
+            lockoutUntilEpochMs: 0,
+            lockoutDurationSeconds: 300,
+            lockoutMonoMs: 1000000,
+            lastSeenWallMs: 0,
+            nowMonoMs: 1000000 + 120000,
+            nowEpochMs: 999999999,
+          ),
+          180);
+    });
+
+    test('monotonic: λήξη → 0', () {
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 5,
+            lockoutUntilEpochMs: 0,
+            lockoutDurationSeconds: 300,
+            lockoutMonoMs: 1000000,
+            lastSeenWallMs: 0,
+            nowMonoMs: 1000000 + 300000,
+            nowEpochMs: 999999999,
+          ),
+          0);
+    });
+
+    test('reboot (mono < anchor) → πέφτει στο wall', () {
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 5,
+            lockoutUntilEpochMs: 1300000,
+            lockoutDurationSeconds: 300,
+            lockoutMonoMs: 1000000,
+            lastSeenWallMs: 1000000,
+            nowMonoMs: 500,
+            nowEpochMs: 1200000,
+          ),
+          100);
+    });
+
+    test('wall: στρογγυλοποίηση προς τα πάνω (ποτέ 0 όσο ενεργό)', () {
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 5,
+            lockoutUntilEpochMs: 1000001,
+            lockoutDurationSeconds: 300,
+            lockoutMonoMs: 0,
+            lastSeenWallMs: 0,
+            nowEpochMs: 1000000,
+          ),
+          1);
+    });
+
+    test('ρολόι γύρισε πίσω → πλήρης διάρκεια (fail-closed)', () {
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 5,
+            lockoutUntilEpochMs: 5000000,
+            lockoutDurationSeconds: 300,
+            lockoutMonoMs: 0,
+            lastSeenWallMs: 2000000,
+            nowEpochMs: 1000000,
+          ),
+          300);
+    });
+
+    test('clamp: ποτέ πάνω από τη διάρκεια', () {
+      expect(
+          AppLockService.remainingLockoutSeconds(
+            failedAttempts: 5,
+            lockoutUntilEpochMs: 9999999999,
+            lockoutDurationSeconds: 60,
+            lockoutMonoMs: 0,
+            lastSeenWallMs: 0,
+            nowEpochMs: 1000000,
+          ),
+          60);
+    });
+  });
+
+  group('isWeakPin (S-03)', () {
+    test('τετριμμένα → true', () {
+      for (final pin in [
+        '000000',
+        '111111',
+        '123456',
+        '654321',
+        '121212',
+        '123123',
+        '12341234',
+        '12',
+        '12a456',
+      ]) {
+        expect(AppLockService.isWeakPin(pin), isTrue, reason: pin);
+      }
+    });
+
+    test('μη τετριμμένα 6ψήφια → false', () {
+      for (final pin in ['582964', '934718', '206483']) {
+        expect(AppLockService.isWeakPin(pin), isFalse, reason: pin);
+      }
     });
   });
 

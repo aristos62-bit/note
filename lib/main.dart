@@ -334,6 +334,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
   Timer? _lockTimer;
   DateTime? _lastLifecycleEvent; // 🔍 DEBUG: για εντοπισμό γρήγορων resumed/paused κύκλων
   DateTime? _pausedAt; // L1: ώρα paused — fallback αν το OS παγώσει τον timer.
+  int? _pausedMonoMs; // S-03: monotonic (elapsedRealtime) στο pause.
 
   _AppLifecycleObserver(this.container);
 
@@ -383,6 +384,9 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
 
       if (state == AppLifecycleState.paused) {
         _pausedAt = DateTime.now();
+        // S-03: monotonic άγκυρα — αλώβητη σε αλλαγές ρολογιού. Best-effort:
+        // null (desktop) → το gate πέφτει στο wall `pausedAt`.
+        _pausedMonoMs = await SecurityService.elapsedRealtimeMs(force: true);
         // S-17: ακύρωσε in-flight gate resolve — προστατεύει το `pausedAt`.
         container.read(lockGateProvider.notifier).markPaused();
         final settings = await SuperNoteHelper.instance.settings
@@ -410,12 +414,21 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
       if (state == AppLifecycleState.resumed) {
         _lockTimer?.cancel();
         _lockTimer = null;
-        // L1/S-17: ο Timer μπορεί να μην έτρεξε (παγωμένο isolate) — το gate
-        // συγκρίνει ώρα και κλειδώνει fail-closed αν η ανάγνωση αποτύχει.
+        // L1/S-03: monotonic elapsed (αλώβητο σε αλλαγή ρολογιού) με fallback
+        // στο wall `pausedAt`. Αν το gate δεν γίνει ready, κρατάμε και τα δύο.
+        int? elapsedSeconds;
+        final pausedMono = _pausedMonoMs;
+        if (pausedMono != null) {
+          final nowMono = await SecurityService.elapsedRealtimeMs();
+          if (_isStale(seq, state)) return;
+          if (nowMono != null && nowMono >= pausedMono) {
+            elapsedSeconds = (nowMono - pausedMono) ~/ 1000;
+          }
+        }
         try {
           await container
               .read(lockGateProvider.notifier)
-              .resolveResume(_pausedAt);
+              .resolveResume(_pausedAt, elapsedSeconds: elapsedSeconds);
         } catch (e, stack) {
           DebugConfig.error('AppLock resume-gate', e, stack);
         }
@@ -424,6 +437,7 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
         // επόμενο resume να ξαναδοκιμάσει (ποτέ σιωπηλό fail-open).
         if (container.read(lockGateProvider).status == LockGateStatus.ready) {
           _pausedAt = null;
+          _pausedMonoMs = null;
         }
         // E08: η άδεια ειδοποιήσεων μπορεί να άλλαξε εκτός εφαρμογής
         // (ρυθμίσεις OS) — σύγχρονο invalidate, καμία νέα await.

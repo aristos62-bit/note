@@ -69,4 +69,28 @@ void main() {
       expect(AppDateUtils.earliestYear, 1900);
     });
   });
+
+  group('AppDateUtils.formatWaitSeconds (S-03 lockout)', () {
+    test('δευτερόλεπτα — ποτέ «0»', () {
+      expect(AppDateUtils.formatWaitSeconds(0), '1 δευτερόλεπτο');
+      expect(AppDateUtils.formatWaitSeconds(-5), '1 δευτερόλεπτο');
+      expect(AppDateUtils.formatWaitSeconds(1), '1 δευτερόλεπτο');
+      expect(AppDateUtils.formatWaitSeconds(30), '30 δευτερόλεπτα');
+      expect(AppDateUtils.formatWaitSeconds(59), '59 δευτερόλεπτα');
+    });
+
+    test('λεπτά — στρογγυλοποίηση προς τα πάνω', () {
+      expect(AppDateUtils.formatWaitSeconds(60), '1 λεπτό');
+      expect(AppDateUtils.formatWaitSeconds(61), '2 λεπτά');
+      expect(AppDateUtils.formatWaitSeconds(90), '2 λεπτά');
+      expect(AppDateUtils.formatWaitSeconds(300), '5 λεπτά');
+      expect(AppDateUtils.formatWaitSeconds(900), '15 λεπτά');
+    });
+
+    test('ώρες — στρογγυλοποίηση προς τα πάνω', () {
+      expect(AppDateUtils.formatWaitSeconds(3600), '1 ώρα');
+      expect(AppDateUtils.formatWaitSeconds(3601), '2 ώρες');
+      expect(AppDateUtils.formatWaitSeconds(7200), '2 ώρες');
+    });
+  });
 }

@@ -3,6 +3,7 @@ package com.example.super_note
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.os.SystemClock
 import android.view.WindowManager
 
 class MainActivity : FlutterFragmentActivity() {
@@ -22,6 +23,13 @@ class MainActivity : FlutterFragmentActivity() {
             }
           }
           result.success(null)
+        } catch (e: Exception) {
+          result.error("ERR", e.message, null)
+        }
+      } else if (call.method == "elapsedRealtime") {
+        // S-03: monotonic ρολόι (περιλαμβάνει deep sleep) για persisted lockout.
+        try {
+          result.success(SystemClock.elapsedRealtime())
         } catch (e: Exception) {
           result.error("ERR", e.message, null)
         }

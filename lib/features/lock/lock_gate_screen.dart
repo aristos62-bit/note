@@ -144,6 +144,11 @@ class _PinSetupGateState extends ConsumerState<_PinSetupGate> {
         s.appLockEnabled = true;
         s.appLockPinHash = hash;
         s.appLockPinLength = pin.length;
+        // S-03: νέο PIN → καθαρός lockout counter.
+        s.appLockFailedAttempts = 0;
+        s.appLockLockoutUntilEpochMs = 0;
+        s.appLockLockoutDurationSeconds = 0;
+        s.appLockLockoutMonoMs = 0;
       });
       if (!mounted) return;
       ref.invalidate(settingsNotifierProvider);
@@ -209,7 +214,7 @@ class _PinSetupGateState extends ConsumerState<_PinSetupGate> {
                             FilteringTextInputFormatter.digitsOnly,
                           ],
                           decoration: InputDecoration(
-                            labelText: 'Νέο PIN (4-6 ψηφία)',
+                            labelText: 'Νέο PIN (6 ψηφία)',
                             border: OutlineInputBorder(
                               borderRadius: AppRadius.inputBR,
                             ),

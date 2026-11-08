@@ -4,11 +4,12 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/models.dart';
 import '../core/utils/debug_config.dart';
+import 'app_lock_service.dart';
 
 class MigrationService {
   MigrationService._();
 
-  static const int _targetVersion = 3;
+  static const int _targetVersion = 4;
 
   static Future<void> ensureSchemaVersion(Isar isar) async {
     final settings = await isar.appSettings.get(1);
@@ -82,6 +83,9 @@ class MigrationService {
       case 2:
         await _v2ToV3(isar);
         break;
+      case 3:
+        await _v3ToV4(isar);
+        break;
     }
   }
 
@@ -103,5 +107,45 @@ class MigrationService {
   /// μετασχηματισμός δεδομένων, μόνο καταγραφή (safety-backup ήδη έγινε).
   static Future<void> _v2ToV3(Isar isar) async {
     DebugConfig.db('Migration v2→v3: autoBackup fields use safe defaults — no data transform');
+  }
+
+  /// v3→v4 (S-03): additive πεδία lockout — το Isar τα προσθέτει μόνο του.
+  /// Εδώ γίνεται **μόνο sanitize** (clamp) ώστε κατεστραμμένο/παλιό backup να
+  /// μην μπορεί να επιβάλει παράλογο lockout ή μήκος PIN.
+  static Future<void> _v3ToV4(Isar isar) async {
+    await isar.writeTxn(() async {
+      final s = await isar.appSettings.get(1) ?? AppSettings();
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+      final rawLen = s.appLockPinLength;
+      if (rawLen < 4 || rawLen > 6) s.appLockPinLength = 6;
+
+      s.appLockFailedAttempts =
+          AppLockService.sanitizeAttempts(s.appLockFailedAttempts);
+      s.appLockLockoutDurationSeconds =
+          AppLockService.sanitizeLockoutDuration(
+              s.appLockLockoutDurationSeconds);
+
+      if (s.appLockLockoutDurationSeconds == 0) {
+        s.appLockLockoutUntilEpochMs = 0;
+        s.appLockLockoutMonoMs = 0;
+      } else {
+        final maxUntil =
+            nowMs + s.appLockLockoutDurationSeconds * 1000;
+        if (s.appLockLockoutUntilEpochMs < 0) {
+          s.appLockLockoutUntilEpochMs = 0;
+        }
+        if (s.appLockLockoutUntilEpochMs > maxUntil) {
+          s.appLockLockoutUntilEpochMs = maxUntil;
+        }
+        if (s.appLockLockoutMonoMs < 0) s.appLockLockoutMonoMs = 0;
+      }
+
+      if (s.appLockLastSeenWallMs < 0) s.appLockLastSeenWallMs = 0;
+      if (s.appLockLastSeenWallMs > nowMs) s.appLockLastSeenWallMs = nowMs;
+
+      await isar.appSettings.put(s);
+      DebugConfig.db('Migration v3→v4: app-lock lockout fields sanitized');
+    });
   }
 }

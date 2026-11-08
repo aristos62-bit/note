@@ -24,12 +24,31 @@ AppSettings _base({
   return AppSettings()
     ..appLockEnabled = enabled
     ..appLockPinHash = hash
-    ..appLockTimeoutSeconds = timeoutSeconds;
+    ..appLockTimeoutSeconds = timeoutSeconds
+    ..appLockPinLength = 6;
 }
 
-ProviderContainer _container(AppLockSettingsWriter writer) {
+const _pin = '582964';
+
+/// Πραγματικό hash — το S-04 gate επαληθεύει με verifyPin.
+String _realHash() => AppLockService.instance.hashPin(_pin);
+
+AppSettings _lockedSettings() {
+  final hash = _realHash();
+  return AppSettings()
+    ..appLockEnabled = true
+    ..appLockPinLength = 6
+    ..appLockPinHash = hash;
+}
+
+ProviderContainer _container(
+  AppLockSettingsWriter writer, {
+  Future<AppSettings?> Function()? reader,
+}) {
   final container = ProviderContainer(overrides: [
     appLockSettingsWriterProvider.overrideWithValue(writer),
+    if (reader != null)
+      lockGateSettingsReaderProvider.overrideWithValue(reader),
   ]);
   addTearDown(container.dispose);
   return container;
@@ -86,8 +105,8 @@ void main() {
       expect(find.text('Ορισμός PIN'), findsOneWidget);
       expect(writes, isEmpty);
 
-      await tester.enterText(find.byType(TextField).at(0), '1234');
-      await tester.enterText(find.byType(TextField).at(1), '1234');
+      await tester.enterText(find.byType(TextField).at(0), _pin);
+      await tester.enterText(find.byType(TextField).at(1), _pin);
       await tester.pump(); // flush το onChanged/rebuild πριν το tap
 
       await tester.tap(find.text('Ορισμός'));
@@ -96,7 +115,7 @@ void main() {
       expect(writes, hasLength(1));
       expect(writes.single.appLockEnabled, isTrue);
       expect(writes.single.appLockPinHash, isNotNull);
-      expect(writes.single.appLockPinLength, 4);
+      expect(writes.single.appLockPinLength, 6);
 
       // Επιτυχές commit → το gate εφαρμόζει το committed snapshot.
       expect(c.read(lockGateProvider).status, LockGateStatus.ready);
@@ -138,8 +157,8 @@ void main() {
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(0), '1234');
-      await tester.enterText(find.byType(TextField).at(1), '1234');
+      await tester.enterText(find.byType(TextField).at(0), _pin);
+      await tester.enterText(find.byType(TextField).at(1), _pin);
       await tester.pump(); // flush το onChanged/rebuild πριν το tap
 
       await tester.tap(find.text('Ορισμός'));
@@ -151,40 +170,92 @@ void main() {
       expect(AppLockService.instance.isLocked, isFalse);
     });
 
-    testWidgets('disable → write(false) + unlock (χωρίς resolving flash)',
-        (tester) async {
+    testWidgets('disable → PIN gate → write(false) + unlock', (tester) async {
+      final locked = _lockedSettings();
       final writes = <AppSettings>[];
-      final c = _container((updater) async {
-        final s = _base(enabled: true, hash: 'v1\$1\$x\$y');
-        updater(s);
-        writes.add(s);
-        return s;
-      });
+      final c = _container(
+        (updater) async {
+          final s = _lockedSettings();
+          updater(s);
+          writes.add(s);
+          return s;
+        },
+        reader: () async => locked,
+      );
 
       // Προσομοίωση «κλειδωμένης» εφαρμογής πριν το disable.
       AppLockService.instance.lock();
       c.read(appLockStateProvider.notifier).state = true;
 
-      await tester.pumpWidget(_app(c, _base(enabled: true, hash: 'v1\$1\$x\$y')));
+      await tester.pumpWidget(_app(c, locked));
       await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      // S-04: απαιτείται PIN πριν το disable.
+      expect(find.text('Επιβεβαίωση'), findsOneWidget);
+      expect(writes, isEmpty);
+
+      await tester.enterText(find.byType(TextField).first, _pin);
+      await tester.pump();
+      await tester.tap(find.text('Επαλήθευση'));
       await tester.pumpAndSettle();
 
       expect(writes, hasLength(1));
       expect(writes.single.appLockEnabled, isFalse);
+      expect(writes.single.appLockFailedAttempts, 0);
+      expect(writes.single.appLockLockoutDurationSeconds, 0);
       expect(c.read(lockGateProvider).status, LockGateStatus.ready);
       expect(c.read(appLockStateProvider), isFalse);
       expect(AppLockService.instance.isLocked, isFalse);
     });
 
+    testWidgets('disable: λάθος PIN → κανένα write', (tester) async {
+      final locked = _lockedSettings();
+      final writes = <AppSettings>[];
+      final c = _container(
+        (updater) async {
+          final s = _lockedSettings();
+          updater(s);
+          writes.add(s);
+          return s;
+        },
+        reader: () async => locked,
+      );
+
+      await tester.pumpWidget(_app(c, locked));
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, '999999');
+      await tester.pump();
+      await tester.tap(find.text('Επαλήθευση'));
+      await tester.pumpAndSettle();
+
+      // Καταγράφηκε μόνο η αποτυχία (counter) — καμία απενεργοποίηση.
+      expect(writes, hasLength(1));
+      expect(writes.single.appLockEnabled, isTrue);
+      expect(writes.single.appLockFailedAttempts, 1);
+      expect(find.text(AppErrors.pinWrong), findsOneWidget);
+    });
+
     testWidgets('disable: αποτυχία write → snackbar, παραμένει κλειδωμένο',
         (tester) async {
-      final c = _container((updater) async => null);
+      final locked = _lockedSettings();
+      final c = _container(
+        (updater) async => null,
+        reader: () async => locked,
+      );
 
       AppLockService.instance.lock();
       c.read(appLockStateProvider.notifier).state = true;
 
-      await tester.pumpWidget(_app(c, _base(enabled: true, hash: 'v1\$1\$x\$y')));
+      await tester.pumpWidget(_app(c, locked));
       await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, _pin);
+      await tester.pump();
+      await tester.tap(find.text('Επαλήθευση'));
       await tester.pumpAndSettle();
 
       expect(find.text(AppErrors.settingsSaveFailed), findsOneWidget);
@@ -194,23 +265,34 @@ void main() {
 
     testWidgets('busy: δεύτερο tap όσο εκκρεμεί write αγνοείται',
         (tester) async {
+      final locked = _lockedSettings();
       final pending = Completer<AppSettings?>();
       var calls = 0;
-      final c = _container((updater) async {
-        calls++;
-        return pending.future;
-      });
+      final c = _container(
+        (updater) async {
+          calls++;
+          return pending.future;
+        },
+        reader: () async => locked,
+      );
 
-      await tester.pumpWidget(_app(c, _base(enabled: true, hash: 'v1\$1\$x\$y')));
+      await tester.pumpWidget(_app(c, locked));
       await tester.tap(find.byType(Switch).first);
-      await tester.pump(); // setState(busy) → switch μη διαδραστικό
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, _pin);
+      await tester.pump();
+      await tester.tap(find.text('Επαλήθευση'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      expect(calls, 1);
 
       await tester.tap(find.byType(Switch).first);
       await tester.pump();
       expect(calls, 1);
 
-      final done = _base(enabled: false);
-      pending.complete(done);
+      pending.complete(_base(enabled: false));
       await tester.pumpAndSettle();
       expect(calls, 1);
     });

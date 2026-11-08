@@ -4994,3 +4994,45 @@ if (!context.isShortScreen)
 - **Cold start μετά το disable:** Αρχική ξανά χωρίς LockScreen → το disable **persist-άρεται** (atomic write).
 - **Δεν δοκιμάστηκαν σε device:** dialog setup PIN (απαιτεί `pinHash == null` — καλύπτεται από widget test), αλλαγή PIN 2η φορά (απαιτεί το τρέχον PIN του χρήστη — η διόρθωση είναι compile-level: `settingsNotifierProvider.future`), snackbar αποτυχίας write (απαιτεί DB failure — 4 widget tests).
 - **Επαναφορά κατάστασης:** app-lock **OFF** όπως βρέθηκε, timeout **5 λεπτά**, PIN/biometric ανέγγιχτα. Screenshots: `backups/security_s24_20261107_191807/s24_*.png` (untracked).
+
+---
+
+## Session 302 — 08/11/2026 (security v2 — S-03 + S-04: persisted lockout, monotonic clock, min-6/weak PIN, gate ευαίσθητων ενεργειών)
+
+**Scope (αναστολή 2+4 εγκεκριμένη · edit-tool only):** ολόκληρη η εγκεκριμένη πρόταση **S-03** (persistent lockout + monotonic ρολόι + min-6/όχι τετριμμένο PIN) και **S-04** (βιομετρικό/PIN gate σε export/import/wipe/disable). Καμία νέα production-αρχείο/provider/collection/channel· μόνο επεκτάσεις υπαρχόντων. Ενημερώθηκαν και οι **δύο** διαδρομές ορισμού PIN (`showSetPinDialog` + inline `_PinSetupGate`).
+
+**Πρόβλημα:** (α) ο lockout ζούσε **μόνο in-memory** στο `_LockScreenState` ⇒ `LockGateScreen` ξαναχτίζει `LockScreen` σε κάθε unlock, kill/restart μηδένιζε τον μετρητή (5 αποτυχίες = 30δ, μετά τίποτα)· (β) το timeout resume βασιζόταν σε wall ρολόι (αλλαγή ώρας το παράκαμπτε)· (γ) νέα PIN 4ψήφια + δεκτά `0000`/`1234`· (δ) export/import/wipe/disable εκτελούνταν χωρίς επανεπιβεβαίωση ταυτότητας.
+
+**Αποφάσεις (Δ1–Δ16, όπως εγκρίθηκαν):**
+- **Tiers (cap 1 ώρα):** 5→30δ, 6→60δ, 7→120δ, 8→240δ, 9-14→300δ, 15-19→900δ, 20-29→1800δ, ≥30→3600δ. Καμία μόνιμη απαγόρευση — το βιομετρικό είναι πάντα διαφυγή.
+- **Monotonic:** `SystemClock.elapsedRealtime()` (περιλαμβάνει deep sleep) μέσω του υπάρχοντος `super_note/security` channel· ~1s cache· `null` ⇒ fallback wall. Anchor + `lastSeenWall` persisted· wall rollback ⇒ fail-closed (πλήρης διάρκεια).
+- **Min 6 + weak-PIN:** νέο PIN ≥6 ψηφία και όχι all-same / διαδοχικό / επαναλαμβανόμενο block (`000000`, `123456`, `121212`, `123123`, …). 4-5 παραμένουν **legacy** μόνο για επαλήθευση.
+- **Store:** `AppLockAttemptsStore` — `snapshot`/`verify`/`finishSuccess`· reset μετρητών **στον ίδιο atomic updater** με νέο PIN/disable· σε επιτυχία ξεκλειδώνει **πρώτα** και το reset/hash-upgrade τρέχει best-effort.
+- **Gate (S-04):** `confirmSensitiveAction` — βιομετρικό (αν ενεργό, bypass lockout) → PIN· **πριν** από dialogs/file picker· fail-closed σε αδυναμία ανάγνωσης· απενεργοποίηση lock = ευαίσθητη ενέργεια.
+
+**Αλλαγές (14 production αρχεία):**
+1. `models/app_settings.dart` — 5 πεδία lockout (`appLockFailedAttempts`, `appLockLockoutUntilEpochMs`, `appLockLockoutDurationSeconds`, `appLockLockoutMonoMs`, `appLockLastSeenWallMs`) + σχόλιο μήκους· `build_runner` αναγέννησε μόνο το `.g.dart`.
+2. `services/migration_service.dart` — `_targetVersion = 4` + `_v3ToV4` **sanitize-only** (clamp attempts/duration/until/mono/lastSeen, pinLength 4-6).
+3. `services/app_lock_service.dart` — `kMaxLockoutSeconds`, νέα κλίμακα, `sanitize*`, `remainingLockoutSeconds` (mono → wall → rollback), `isWeakPin`, `shouldLockOnResume(..., elapsedSeconds)` με fail-closed στο αρνητικό wall diff.
+4. `services/security_service.dart` + `MainActivity.kt` — `elapsedRealtimeMs({force})` + native branch `elapsedRealtime`.
+5. `providers/app_lock_provider.dart` — `PinCheckStatus`/`PinCheckResult`/`LockoutSnapshot`/`AppLockAttemptsStore`/`appLockAttemptsStoreProvider`· `resolveResume(..., elapsedSeconds)` σε όλη την αλυσίδα `_resolve`/`_apply`.
+6. `core/utils/app_errors.dart` + `date_utils.dart` — νέα μηνύματα (`pinTooWeak`, `sensitiveAuth*`), `pinTooShort` = 6, `pinLockedOut` με `formatWaitSeconds` (ceil).
+7. `features/lock/lock_screen.dart` — persisted snapshot (`_ready`/`_loadFailed`), lockout UI + timer επανελέγχου, βιομετρικό πάντα διαθέσιμο, auto-submit στο ακριβές μήκος (trusted) ή 4-6 fallback, unlock-first + `finishSuccess`, **καμία** pre-auth write.
+8. `features/lock/lock_gate_screen.dart` — label «6 ψηφία» + reset lockout στο setup write.
+9. `features/settings/settings_pin_dialogs.dart` — `showCurrentPinDialog` πάνω από το store (inline lockout/wrong), `confirmSensitiveAction`, `validatePinPair` min-6/weak.
+10. `features/settings/settings_backup.dart` — gate σε export/import/wipe (maintenance check πρώτα).
+11. `features/settings/settings_app_lock_section.dart` — `_busy` πριν από dialogs, PIN gate στο disable, reset lockout στον ίδιο updater, subtitle «6ψήφιο».
+12. `main.dart` — `_pausedMonoMs` στο pause, elapsed seconds στο resume, καθαρισμός μόνο σε ready.
+
+**Tests:** **613/613** (από 572) — ενημερώθηκαν `lock_security_test` (νέα tiers, sanitize, remaining monotonic/wall/rollback, weak PIN, elapsed resume), `settings_dialogs_test` (6ψήφιο/weak/lockout μήνυμα), `settings_app_lock_section_test` (6ψήφιο PIN, reader override, PIN gate στο disable, καταγραφή αποτυχίας), `security_service_test` (elapsed cache/missing/error/reset), `date_utils_numeric_test` (`formatWaitSeconds`)· **νέα** `lockout_store_test` (12) και `lock_screen_test` (3).
+**Επαλήθευση:** `flutter analyze` → **No issues found** · `flutter test` → **613/613**.
+
+**Backups:** `backups/s302_s03_s04_20261108_102910/` — 24 αρχεία (όλα τα παραπάνω + tests/docs).
+
+**Μαθήματα:**
+- Το `LockScreen` **δεν** επιβιώνει του unlock (`LockGateScreen` επιστρέφει `LockScreen` μόνο όσο `locked`) ⇒ κάθε lockout state **πρέπει** να είναι persisted, όχι State.
+- `123456` είναι weak PIN — τα widget tests του set-PIN χρειάζονται μη τετριμμένο (π.χ. `582964`).
+- Σε test του gate, η **αποτυχημένη** προσπάθεια κάνει write (counter) — το «κανένα write» ισχύει μόνο για επιτυχία/ακύρωση.
+- Isar property ids = αλφαβητικά ⇒ τα νέα `appLock*` πεδία μετατοπίζουν ids· η auto-migration του Isar καλύπτει (precedent `3d8ba34`) — ποτέ χειροκίνητο `.g.dart`.
+
+**Docs:** `supernote.md` — file tree, AppSettings lockout πεδία, schema v4, SecurityService `elapsedRealtimeMs`, Lock Gate (persisted lockout + sensitive gate), Settings Providers (`appLockAttemptsStoreProvider`) · `security_v2.md` — S-03/S-04 status.
