@@ -11,11 +11,12 @@ checklist, knowledge entry), real-time streams, υπενθυμίσεις (topUp 
 |---|---|
 | `AGENTS.md` | Κανόνες συνεργασίας (πάντα πρώτο) |
 | `supernote.md` | Αρχιτεκτονική (models, services, providers, routing, patterns) |
+| `security_v2.md` | Έκθεση ασφάλειας **v2.3** (25 ευρήματα) + ιεραρχημένο πλάνο P0–P4 |
 | `oldsessions.md` | Ιστορικό sessions (ενημερώνεται μόνο στο τελικό κλείσιμο) |
 | `code_refactor.md` | Ιστορικός οδηγός ποιότητας σελίδων (παγωμένο ως προς εκκρεμότητες) |
 | `a11y.md` | Σχέδιο accessibility — **ΟΛΟΚΛΗΡΩΘΗΚΕ 03/11/2026** (E01/S288) |
 
-> **Εκκρεμότητες:** **0 ανοιχτές** (05/11/2026, S293). Ο tracker `error_list.md` αρχειοθετήθηκε στο `backups/s293_e06_close/error_list.md.final` και διαγράφηκε· αν προκύψει **νέο εύρημα**, το `error_list.md` **επαναδημιουργείται** (AGENTS.md #6/#9).
+> **Εκκρεμότητες:** **0 ανοιχτές** (05/11/2026, S293). Ο tracker `error_list.md` αρχειοθετήθηκε στο `backups/e48_filtered_empty_20261105_180802/error_list.md.final` και διαγράφηκε (E26/S293 → τελικό E48/S295)· αν προκύψει **νέο εύρημα**, το `error_list.md` **επαναδημιουργείται** (AGENTS.md #6/#9).
 
 ## Ανάπτυξη
 
