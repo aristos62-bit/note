@@ -11,8 +11,7 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../models/item.dart';
-import '../models/item_block.dart';
+import '../models/item.dart';import '../models/item_block.dart';
 import '../models/item_property.dart';
 import '../models/tag.dart';
 import '../models/item_tag.dart';
@@ -21,9 +20,8 @@ import '../models/reminder.dart';
 import '../models/folder.dart';
 import '../models/workspace.dart';
 import '../models/attachment.dart';
-import '../models/user.dart';
-import '../models/device.dart';
 import '../models/app_settings.dart';
+import '../models/isar_schemas.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
@@ -79,21 +77,7 @@ class SuperNoteHelper {
     Isar? openedIsar;
     try {
       final isar = await Isar.open(
-        [
-          ItemSchema,
-          ItemBlockSchema,
-          ItemPropertySchema,
-          TagSchema,
-          ItemTagSchema,
-          RelationSchema,
-          ReminderSchema,
-          FolderSchema,
-          WorkspaceSchema,
-          AttachmentSchema,
-          UserSchema,
-          DeviceSchema,
-          AppSettingsSchema,
-        ],
+        isarSchemas,
         directory: dir,
         name: 'super_note_db',
         inspector: kDebugMode,

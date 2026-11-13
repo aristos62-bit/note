@@ -2,6 +2,7 @@
 // Barrel file — import αυτό για όλα τα core utilities:
 //   import 'package:super_note/core/core.dart';
 export 'router/app_router.dart';
+export 'crypto/crypto.dart';
 export 'theme/ui_tokens.dart';
 export 'theme/app_spacing.dart';
 export 'theme/app_theme.dart';

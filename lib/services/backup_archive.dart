@@ -24,6 +24,24 @@ class BackupArchive {
   static bool isBackupZip(String path) =>
       path.toLowerCase().endsWith('.zip');
 
+  /// S-02 (C7): allowlist zip entries.
+  ///
+  /// Δεχόμαστε ΜΟΝΟ:
+  ///  • `super_note_db.isar`
+  ///  • `attachments/<basename>` (ένα επίπεδο, χωρίς διαχωριστικά)
+  ///
+  /// Οτιδήποτε άλλο (path traversal, nested dirs, symlinks, άγνωστα entries)
+  /// αγνοείται — δεν γράφεται ποτέ στον δίσκο.
+  static bool isAllowedEntry(String name) {
+    if (name == dbEntryName) return true;
+    if (!name.startsWith(attachmentsPrefix)) return false;
+    final rest = name.substring(attachmentsPrefix.length);
+    if (rest.isEmpty) return false;
+    if (rest.contains('/') || rest.contains('\\')) return false;
+    if (rest == '.' || rest == '..') return false;
+    return true;
+  }
+
   /// Pure: ξαναβάζει absolute path μέσα στο νέο attachments dir.
   /// Επιστρέφει null αν το path δεν έχει basename (δεν πρέπει να συμβεί).
   static String? rebasePath(String oldAbsolutePath, String newDir) {
@@ -96,7 +114,9 @@ class BackupArchive {
     }
   }
 
-  /// Εξάγει το zip σε φάκελο εργασίας. Επιστρέφει τα ονόματα entries.
+  /// Εξάγει το zip σε φάκελο εργασίας. Επιστρέφει ΟΛΑ τα ονόματα entries
+  /// (και τα μη-επιτρεπτά — για διαγνωστικά), αλλά γράφει στον δίσκο μόνο
+  /// όσα περνούν το [isAllowedEntry] (C7).
   /// Προσοχή: κρατά το zip στη μνήμη (ZipDecoder) — καλείται ΜΟΝΟ
   /// μετά από size guard στο service.
   static Future<List<String>> extractBackupZip(
@@ -104,13 +124,25 @@ class BackupArchive {
     try {
       final bytes = await File(zipPath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
-      extractArchiveToDisk(archive, outDir);
       final names = <String>[];
+      var written = 0;
+      var skipped = 0;
       for (final f in archive.files) {
-        if (!f.isDirectory) names.add(f.name);
+        if (f.isDirectory) continue;
+        names.add(f.name);
+        if (!isAllowedEntry(f.name)) {
+          skipped++;
+          continue;
+        }
+        final segments = f.name.split('/');
+        final outPath = p.joinAll(<String>[outDir, ...segments]);
+        final outFile = File(outPath);
+        await outFile.parent.create(recursive: true);
+        await outFile.writeAsBytes(f.content as List<int>);
+        written++;
       }
-      DebugConfig.db(
-          'BackupArchive.extract: entries=${names.length} out=$outDir');
+      DebugConfig.db('BackupArchive.extract: entries=${names.length} '
+          'written=$written skipped=$skipped out=$outDir');
       return names;
     } catch (e, stack) {
       DebugConfig.error('BackupArchive.extract', e, stack);
@@ -129,8 +161,8 @@ class BackupArchive {
         if (!f.isDirectory) names.add(f.name);
       }
       final db = archive.findFile(dbEntryName);
-      if (db != null && !db.isDirectory) {
-        await File(p.join(outDir, dbEntryName)).writeAsBytes(db.content);
+      if (db != null && !db.isDirectory && isAllowedEntry(db.name)) {
+        await File(p.join(outDir, dbEntryName)).writeAsBytes(db.content as List<int>);
       }
       DebugConfig.db(
           'BackupArchive.extractDbOnly: entries=${names.length} out=$outDir');
