@@ -5187,3 +5187,23 @@ if (!context.isShortScreen)
 
 **Backups:** `backups/s02_encryption_20261113_110132/` — 15 αρχεία (flat `__` ονόματα).
 
+## Device tests (POCO X3 `9593c01e`, release APK 69,7 MB)
+
+**Δεδομένα test (in-app, με άδεια χρήστη):** σημείωση `S02test` (Γενικά) με text `line1-line2` + συνημμένο `s25_photo.jpg`.
+
+| Έλεγχος | Αποτέλεσμα |
+|---|---|
+| Export `.snb` | 91.170.244 B · header OK (`SNBK`, v1, kdf 1, 120k iters, salt 16, noncePrefix 8, chunk 1 MiB, `plaintextLength 0x056F2024`) · `48 + plaintext + 87·16 == μέγεθος` ✓ |
+| Λάθος κωδικός | `BackupAuthException` → επιστροφή στα Settings **χωρίς** confirm/restart, δεδομένα ανέπαφα ✓ |
+| Σωστός κωδικός | confirm «Το backup είναι έγκυρο…» + **σημείωση strip lock** → restore → restart dialog «Επιτυχής εισαγωγή» + «Το κλείδωμα εφαρμογής και τα βιομετρικά απενεργοποιήθηκαν από το αντίγραφο…» ✓ |
+| Strip lock (D6) | relaunch **χωρίς** LockScreen (app lock ήταν ON πριν, OFF μετά) ✓ |
+| Round-trip | `S02test` με `line1-line2` + «Συνημμένα (1) s25_photo.jpg» ✓ |
+| Auto-backup / rotation | `auto_2026-11-13T09-35-09.snb` + `...T11-01-05.snb`· σύνολο 5 (max 5, το `...05T14-18-52.zip` έφυγε) ✓ |
+| Interval 24h | επόμενο pause **δεν** δημιούργησε νέο αντίγραφο ✓ |
+| D8 gate | hint «Απαιτείται κωδικός αντιγράφου» + «Ορισμός» → εξαφανίστηκε μετά τον ορισμό· μετά από restart ξανά (κωδικός μόνο σε μνήμη) ✓ |
+| DB `lastAutoBackupAt` | μετά από force-stop + relaunch: «Τελευταίο: 13 Νοε 2026, 13:01» ✓ (η stale ένδειξη πριν το restart = E49) |
+
+**Καθαρισμός:** διαγράφηκε το export από `/sdcard/Download`· η `S02test` διαγράφηκε **και** οριστικά από τον κάδο· app lock/βιομετρικά έμειναν OFF (απόφαση χρήστη)· το `auto_2026-11-13T09-35-09.snb` δεν διαγράφεται μέσω adb (release non-debuggable, χωρίς root) — φεύγει με rotation.
+
+**Commit:** `2092eab` (feat(backup): S-02 …) → `main`.
+
