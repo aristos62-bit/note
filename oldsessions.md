@@ -5207,3 +5207,19 @@ if (!context.isShortScreen)
 
 **Commit:** `2092eab` (feat(backup): S-02 …) → `main`.
 
+## E49 — stale «Τελευταίο:» στο tile auto-backup (fix, `40b3fdf`)
+
+**Εύρημα:** μετά από auto-backup η DB είχε το σωστό `lastAutoBackupAt`, αλλά το tile έδειχνε την παλιά ώρα ως restart. Αιτία: το `BackupService.autoBackup()` γράφει **απευθείας** στη DB (`backup_service.dart:545-547`), ενώ το `settingsNotifierProvider` είναι get-once cache (`settings_provider.dart:50`).
+
+**Απόφαση (άλλαξε μετά από audit):** απορρίφθηκε το `invalidate(settingsNotifierProvider)` στο `main.dart` — επίσημα docs Riverpod 2.6.1: με invalidate διατηρείται μεν η προηγούμενη τιμή αλλά σημαίνονται `isLoading`/`isReloading` ⇒ spinner στο `SettingsScreen` (`.when` χωρίς `skipLoadingOnReload`) + rebuild του `itemTypeCardColorOverrideProvider`. Επιλέχθηκε **display-level fix** πάνω στον υπάρχοντα live μηχανισμό.
+
+**Υλοποίηση (μόνο `settings_tiles.dart`):** `ref.watch(settingsStreamProvider).valueOrNull ?? widget.settings` (fallback όσο δεν έχει τιμή), `ref.listen` στο `lastAutoBackupAt` → refresh λίστας, αφαίρεση `FutureBuilder` (state-held `_paths` ⇒ χωρίς flicker). Ίδιο pattern με `BackupPassphraseGate`/`appThemeProvider`· μηδέν αλλαγές σε `main.dart`/providers/DB/lifecycle.
+
+**Τεχνικά θεμέλια που επαληθεύτηκαν:** `flutter_riverpod`/`riverpod` **2.6.1**, `isar` **3.1.0+1** (`pubspec.lock`)· `settings.watch()` = `_isar.appSettings.watchObject(1, fireImmediately: true)` (`super_note_helper.dart:1730-1732`)· `dbProvider` → `SuperNoteHelper.instance` ⇒ **ίδιο** Isar instance με τον writer· Isar doc «Watch the object with id for changes».
+
+**Έλεγχοι:** `flutter analyze` clean · **651/651** (649 + 2 νέα `test/settings_auto_backup_tile_test.dart`) · APK install + άνοιγμα Ρυθμίσεων: «Τελευταίο: 13 Νοε 2026, 13:01», λίστα 5, D8 card, logcat καθαρό. Η ζωντανή ενημέρωση στη συσκευή θα φανεί στο επόμενο auto-backup (≤24h).
+
+**Backups:** `backups/s304_e49_20261113_133824/settings_tiles.dart` (pre-change) · `backups/s304_e49_close_20261113_135156/` (pre-docs).
+
+**Commit:** `40b3fdf` (fix(settings): E49 …) → `main`.
+
