@@ -26,7 +26,7 @@ void main() {
     tmp = Directory.systemTemp.createTempSync('sn_open_test_');
     root = Directory(p.join(tmp.path, AttachmentPathGuard.dirName))
       ..createSync(recursive: true);
-    AttachmentPathGuard.configure(documentsDir: tmp.path);
+    AttachmentPathGuard.configure(appDataDir: tmp.path);
   });
 
   tearDown(() {

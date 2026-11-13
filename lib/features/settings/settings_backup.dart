@@ -445,12 +445,25 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
     dbTouched = true;
     await SuperNoteHelper.instance.close();
 
-    final isarDir = await getApplicationDocumentsDirectory();
+    // S-01: η ενεργή ρίζα δεδομένων (legacy αν η μετανάστευση έκανε rollback).
+    final dataRootPath = await AppPaths.activeDataRoot();
+    final isarDir = Directory(dataRootPath);
     final isarFile = File('${isarDir.path}/${BackupService.dbFileName}');
     if (await isarFile.exists()) {
       await isarFile.delete();
       DebugConfig.db('Isar database file deleted');
     }
+
+    // S-01: lock αρχείο του Isar = `<db>-lck` (όχι `.isar.lock`).
+    try {
+      final isarLock = File('${isarFile.path}-lck');
+      if (await isarLock.exists()) await isarLock.delete();
+    } catch (e) {
+      DebugConfig.warning('Wipe: cleanup isar lock failed: $e');
+    }
+
+    // S-01: το legacy root (Documents στα Windows) — allowlist μόνο.
+    await _deleteLegacyLeftovers();
 
     // E33 cleanup: leftovers από restore/rollback.
     await _deleteRestoreLeftovers(isarDir);
@@ -612,5 +625,59 @@ Future<void> _deleteMigrationSafety(Directory dir) async {
     }
   } catch (e) {
     DebugConfig.warning('Wipe: cleanup .migration_safety failed: $e');
+  }
+}
+
+/// S-01: «Διαγραφή όλων» πρέπει να σβήνει και τα **legacy** δεδομένα
+/// (Documents στα Windows), αλλιώς μένει βάση/συνημμένα στο προφίλ του χρήστη.
+///
+/// **Allowlist μόνο** — ποτέ recursive delete του legacy root:
+///  • `<legacy>/super_note_db.isar`            (βάση)
+///  • `<legacy>/super_note_db.isar-lck`        (lock του Isar)
+///  • `<legacy>/.migration_safety/`            (snapshots της S-01 / schema)
+///  • `<legacy>/.staging/`                     (ημιτελής μετανάστευση)
+///  • `<legacy>/attachments/`                  (συνημμένα)
+/// Αν η ενεργή ρίζα **είναι** η legacy (rolled-back migration, Android), τα
+/// παραπάνω έχουν ήδη διαγραφεί από το κύριο flow — οι έλεγχοι ύπαρξης
+/// κάνουν την κλήση no-op.
+Future<void> _deleteLegacyLeftovers() async {
+  final String? legacy;
+  try {
+    legacy = await AppPaths.legacyDataRoot();
+  } catch (e) {
+    DebugConfig.warning('Wipe: legacy root unavailable: $e');
+    return;
+  }
+  if (legacy == null) return;
+
+  try {
+    final active = await AppPaths.activeDataRoot();
+    if (AppPaths.sameRoot(active, legacy)) return;
+    final legacyDir = Directory(legacy);
+    if (!await legacyDir.exists()) return;
+
+    final dbFile = File('${legacyDir.path}/${BackupService.dbFileName}');
+    if (await dbFile.exists()) {
+      await dbFile.delete();
+      DebugConfig.db('Wipe: deleted legacy DB');
+    }
+    final lockFile = File('${dbFile.path}-lck');
+    if (await lockFile.exists()) {
+      await lockFile.delete();
+      DebugConfig.db('Wipe: deleted legacy DB lock');
+    }
+    for (final name in <String>[
+      AppPaths.migrationSafetyDirName,
+      AppPaths.stagingDirName,
+      AttachmentService.attachmentsDirName,
+    ]) {
+      final dir = Directory('${legacyDir.path}/$name');
+      if (await dir.exists()) {
+        await dir.delete(recursive: true);
+        DebugConfig.db('Wipe: deleted legacy $name');
+      }
+    }
+  } catch (e) {
+    DebugConfig.warning('Wipe: legacy leftovers cleanup failed: $e');
   }
 }

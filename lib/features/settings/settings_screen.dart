@@ -23,6 +23,7 @@ import 'settings_app_lock_section.dart';
 import 'settings_backup.dart';
 import 'settings_colors.dart';
 import 'settings_contacts_flow.dart';
+import 'settings_data_location.dart';
 import 'settings_reminders_dialog.dart';
 import 'settings_tiles.dart';
 
@@ -324,6 +325,9 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
           _buildCard(
             SettingsAutoBackupTile(settings: widget.settings),
           ),
+          const SizedBox(height: Spacing.sm),
+          // S-01 (D6): read-only — πού ζουν βάση + συνημμένα.
+          _buildCard(const SettingsDataLocationTile()),
           const SizedBox(height: Spacing.sm),
           _buildCard(
             SettingsActionTile(

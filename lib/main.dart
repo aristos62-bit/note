@@ -41,6 +41,7 @@ void main() async {
   };
 
   // ✅ Παράλληλη εκτέλεση με error handling
+  String? initErrorDetail;
   try {
     await Future.wait([
       SuperNoteHelper.init(),
@@ -49,11 +50,14 @@ void main() async {
     DebugConfig.startup('DB and Notifications initialized');
   } catch (e, stack) {
     DebugConfig.error('Init failed', e, stack);
+    // S-01: μόνο για αποτυχία της ρίζας δεδομένων δίνουμε συγκεκριμένο μήνυμα·
+    // όλα τα άλλα σφάλματα κρατούν το γενικό κείμενο.
+    if (e is DataRootException) initErrorDetail = AppErrors.dataRootUnavailable;
   }
 
   // ❌ Αν απέτυχε η DB, δείχνουμε error screen
   if (!SuperNoteHelper.isInitialized) {
-    runApp(const _InitErrorApp());
+    runApp(_InitErrorApp(detail: initErrorDetail));
     return;
   }
 
@@ -490,24 +494,29 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
 
 /// Fallback error screen όταν αποτυγχάνει η αρχικοποίηση της DB.
 class _InitErrorApp extends StatelessWidget {
-  const _InitErrorApp();
+  /// S-01: προαιρετική λεπτομέρεια (π.χ. μη προσβάσιμος φάκελος δεδομένων)
+  /// ώστε ο χρήστης να ξέρει τι να διορθώσει.
+  final String? detail;
+
+  const _InitErrorApp({this.detail});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    final detail = this.detail;
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        backgroundColor: Color(0xFF1E1E2E),
+        backgroundColor: const Color(0xFF1E1E2E),
         body: Center(
           child: Padding(
-            padding: EdgeInsets.all(32),
+            padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline_rounded,
+                const Icon(Icons.error_outline_rounded,
                     size: 64, color: Colors.redAccent),
-                SizedBox(height: 24),
-                Text(
+                const SizedBox(height: 24),
+                const Text(
                   'Σφάλμα εκκίνησης',
                   style: TextStyle(
                     fontSize: 24,
@@ -515,13 +524,21 @@ class _InitErrorApp extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 12),
-                Text(
+                const SizedBox(height: 12),
+                const Text(
                   'Η εφαρμογή δεν μπόρεσε να αρχικοποιηθεί.\n'
                   'Παρακαλώ δοκιμάστε ξανά ή επικοινωνήστε με την υποστήριξη.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14, color: Colors.white70),
                 ),
+                if (detail != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    detail,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, color: Colors.white38),
+                  ),
+                ],
               ],
             ),
           ),

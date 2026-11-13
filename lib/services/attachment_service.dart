@@ -5,11 +5,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/attachment.dart';
 import '../core/utils/app_errors.dart';
+import '../core/utils/app_paths.dart';
 import '../core/utils/attachment_path_guard.dart';
 import '../core/utils/debug_config.dart';
 import '../core/utils/string_utils.dart';
@@ -18,7 +18,7 @@ class AttachmentService {
   AttachmentService._internal();
   static final AttachmentService instance = AttachmentService._internal();
 
-  /// Υποφάκελος attachments μέσα στο app documents (κοινό const για backup).
+  /// Υποφάκελος attachments μέσα στο app data root (κοινό const για backup).
   /// SPoT του ονόματος: `AttachmentPathGuard.dirName` (S-18).
   static const String attachmentsDirName = AttachmentPathGuard.dirName;
 
@@ -219,8 +219,8 @@ class AttachmentService {
 
   Future<Directory> _getAttachmentsDir() async {
     try {
-      final docs = await getApplicationDocumentsDirectory();
-      final dir = Directory(p.join(docs.path, attachmentsDirName));
+      final root = await AppPaths.activeDataRoot();
+      final dir = Directory(p.join(root, attachmentsDirName));
       if (!await dir.exists()) await dir.create(recursive: true);
       return dir;
     } catch (e, stack) {

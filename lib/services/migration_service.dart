@@ -3,6 +3,7 @@ import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/models.dart';
+import '../core/utils/app_paths.dart';
 import '../core/utils/debug_config.dart';
 import 'app_lock_service.dart';
 
@@ -44,10 +45,10 @@ class MigrationService {
   static Future<void> _createSafetyBackup(Isar isar) async {
     try {
       final dbDir = isar.directory ?? (await getApplicationDocumentsDirectory()).path;
-      final dbFile = File(p.join(dbDir, 'super_note_db.isar'));
+      final dbFile = File(p.join(dbDir, AppPaths.dbFileName));
       if (!await dbFile.exists()) return;
 
-      final backupDir = Directory(p.join(dbDir, '.migration_safety'));
+      final backupDir = Directory(p.join(dbDir, AppPaths.migrationSafetyDirName));
       if (!await backupDir.exists()) {
         await backupDir.create();
       }

@@ -184,4 +184,20 @@ class AppErrors {
 
   // ── Calendar ─────────────────────────────────────────────────
   static const eventCreateFailed = 'Σφάλμα δημιουργίας συμβάντος';
+
+  // ── S-01: τοποθεσία δεδομένων (D6) ───────────────────────────
+  /// Τίτλος του read-only tile «Ρυθμίσεις → Βάση».
+  static const dataLocationTitle = 'Τοποθεσία δεδομένων';
+  /// Επεξήγηση κάτω από τη διαδρομή (γιατί δεν είναι στα Documents).
+  static const dataLocationHint =
+      'Εδώ αποθηκεύονται η βάση και τα συνημμένα. Πατήστε για αντιγραφή.';
+  static const dataLocationCopied = 'Η διαδρομή αντιγράφηκε';
+  static const dataLocationUnavailable = 'Μη διαθέσιμη';
+  /// Υπάρχουν ακόμη βάση/συνημμένα στο legacy root (Documents στα Windows).
+  static const dataLocationLegacyLeft =
+      'Υπάρχουν αρχεία και στην παλιά τοποθεσία (Documents)';
+  /// Οθόνη σφάλματος εκκίνησης: ο φάκελος δεδομένων δεν είναι προσβάσιμος.
+  static const dataRootUnavailable =
+      'Ο φάκελος δεδομένων δεν είναι προσβάσιμος. Ελέγξτε τον ελεύθερο '
+      'χώρο και τα δικαιώματα δίσκου και δοκιμάστε ξανά.';
 }
