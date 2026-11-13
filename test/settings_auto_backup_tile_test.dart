@@ -89,4 +89,17 @@ void main() {
     expect(find.textContaining(_expectedLast(_oldAt)), findsOneWidget);
     expect(find.textContaining('Τελευταίο: Ποτέ'), findsNothing);
   });
+
+  testWidgets('E50: χωρίς αντίγραφα → καμία γραμμή πληροφορίας',
+      (tester) async {
+    final controller = StreamController<AppSettings?>();
+    addTearDown(controller.close);
+
+    // Στο test env δεν υπάρχει path_provider ⇒ listAutoBackups → [].
+    await _pump(tester, controller, _settingsWith(_oldAt));
+    await tester.pump();
+
+    expect(find.textContaining('Στη συσκευή'), findsNothing);
+    expect(find.textContaining('χάνονται με'), findsNothing);
+  });
 }

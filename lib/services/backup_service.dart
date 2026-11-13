@@ -123,8 +123,14 @@ class BackupService {
   /// Όριο για save-dialog με bytes (το plugin τα θέλει στη μνήμη).
   /// Πάνω από αυτό → κοινοποίηση (share sheet, path-based, χωρίς μνήμη).
   static const int maxDialogBytes = 100 * 1024 * 1024;
-  static const String _backupDirName = 'SuperNoteBackups';
-  static const int _maxAutoBackups = 5;
+  /// E50: όνομα του υποφακέλου των auto backups — **ίδιο** στο support dir
+  /// (νέο) και στο legacy cache dir, ώστε το adopt να είναι απλή μετακίνηση.
+  /// SPoT του ονόματος (το χρησιμοποιεί και το wipe).
+  static const String autoBackupDirName = 'SuperNoteBackups';
+
+  /// E50: πόσα auto backups κρατάμε **συνολικά** (support + legacy). Public
+  /// ώστε το UI να μη γράφει σκληρό «5» — SPoT της πολιτικής πλήθους.
+  static const int maxAutoBackups = 5;
 
   /// Διάστημα αυτόματων αντιγράφων (σταθερό — χωρίς UI επιλογής).
   static const int autoBackupIntervalHours = 24;
@@ -142,6 +148,12 @@ class BackupService {
   Future<void>? _autoBackupInFlight;
   Future<void>? _exportInFlight;
   Future<void>? _prepareInFlight;
+
+  /// E50: adopt των legacy auto backups (cache → support). Μία φορά ανά
+  /// process, **single-flight** (startup sweep + μετά restore μπορούν να
+  /// συμπέσουν) — ίδιο pattern με τα in-flight futures παραπάνω.
+  bool _legacyAdoptDone = false;
+  Future<void>? _legacyAdoptInFlight;
 
   // ─────────────────────────────────────────────────────────────────
   // Helpers
@@ -504,7 +516,14 @@ class BackupService {
       final backupDir = await _getAutoBackupDir();
       final timestamp = fileTimestamp();
       final destPath = p.join(backupDir.path, 'auto_$timestamp$snbSuffix');
-      final tempZip = p.join(backupDir.path, 'auto_$timestamp.tmp');
+      // E50: το temp zip είναι **plaintext** (DB + attachments) → ποτέ στον
+      // μόνιμο φάκελο. Ζει σε δικό του temp dir στον cache και διαγράφεται
+      // στο finally (ή από το `sweepStaleArtifacts` αν χαθεί το finally).
+      final tempRoot = await getTemporaryDirectory();
+      final workDir =
+          Directory(p.join(tempRoot.path, '_backup_auto_$timestamp'));
+      await workDir.create(recursive: true);
+      final tempZip = p.join(workDir.path, 'auto_$timestamp.tmp');
       final srcPath = await _dbPath();
       if (!await File(srcPath).exists()) {
         DebugConfig.db('autoBackup: FAIL — DB file not found: $srcPath');
@@ -528,10 +547,9 @@ class BackupService {
         );
       } finally {
         try {
-          final zip = File(tempZip);
-          if (await zip.exists()) await zip.delete();
+          if (await workDir.exists()) await workDir.delete(recursive: true);
         } catch (e) {
-          DebugConfig.warning('autoBackup: temp zip cleanup failed: $e');
+          DebugConfig.warning('autoBackup: temp dir cleanup failed: $e');
         }
       }
       if (_maintenanceActive || epoch != _maintenanceEpoch) {
@@ -547,7 +565,7 @@ class BackupService {
         });
       }
       DebugConfig.db('autoBackup: saved to $destPath');
-      await _rotateAutoBackups(backupDir);
+      await _rotateAutoBackups();
       DebugConfig.db('autoBackup: rotation done');
       return destPath;
     } catch (e, s) {
@@ -556,11 +574,15 @@ class BackupService {
     }
   }
 
+  /// E50: λίστα auto backups από **όλους** τους φακέλους (support + legacy),
+  /// dedupe κατά basename. Το dual-read μένει **μόνιμο**: αποτυχία
+  /// μετακίνησης/ανάγνωσης δεν εξαφανίζει τίποτα από το UI.
   Future<List<String>> listAutoBackups() async {
     try {
-      final dir = await _getAutoBackupDir();
-      return await BackupRotation.list(dir);
-    } catch (_) {
+      return await BackupRotation.listIn(await _autoBackupRoots());
+    } catch (e) {
+      // E50: ποτέ σιωπηλό (SPoT: κανένα `catch (_)`).
+      DebugConfig.warning('BackupService.listAutoBackups failed: $e');
       return [];
     }
   }
@@ -569,22 +591,121 @@ class BackupService {
   // Private helpers
   // ─────────────────────────────────────────────────────────────────
 
+  /// E50: ο **μόνιμος** φάκελος των auto backups —
+  /// `getApplicationSupportDirectory()` (= `filesDir` στο Android: επιβιώνει
+  /// σε «Εκκαθάριση cache» / OS purge). Fallback documents → temp, ώστε
+  /// αστοχία του path_provider να μη σπάει τη ροή (best-effort, ποτέ crash).
   Future<Directory> _getAutoBackupDir() async {
-    final dir = await getTemporaryDirectory();
-    final backupDir = Directory(p.join(dir.path, _backupDirName));
-    if (!await backupDir.exists()) {
-      await backupDir.create(recursive: true);
+    final dir = await _autoBackupSupportDir();
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
     }
-    return backupDir;
+    return dir;
   }
 
-  Future<void> _rotateAutoBackups(Directory dir) async {
-    await BackupRotation.rotate(dir, max: _maxAutoBackups);
+  /// E50: το root του μόνιμου φακέλου **χωρίς δημιουργία** — ώστε το startup
+  /// sweep / η λίστα να μην αφήνουν άδειο φάκελο σε χρήστες χωρίς auto-backup.
+  Future<Directory> _autoBackupSupportDir() async {
+    Directory? root;
+    try {
+      root = await getApplicationSupportDirectory();
+    } catch (e) {
+      DebugConfig.warning('autoBackup: support dir unavailable: $e');
+    }
+    if (root == null) {
+      try {
+        root = await getApplicationDocumentsDirectory();
+      } catch (e) {
+        DebugConfig.warning('autoBackup: documents dir unavailable: $e');
+      }
+    }
+    root ??= await getTemporaryDirectory();
+    return Directory(p.join(root.path, autoBackupDirName));
   }
 
-  /// S-02 (N6): καθαρισμός ημιτελών/εγκαταλελειμμένων temp artifacts.
-  /// Καλείται στην εκκίνηση και μετά από κάθε restore (kill/force-stop δεν
-  /// προλαβαίνει τα `finally`).
+  /// E50: ο legacy φάκελος (cache, pre-E50). Μόνο για ανάγνωση/μετακίνηση.
+  Future<Directory?> _getLegacyAutoBackupDir() async {
+    try {
+      final temp = await getTemporaryDirectory();
+      return Directory(p.join(temp.path, autoBackupDirName));
+    } catch (e) {
+      DebugConfig.warning('autoBackup: legacy dir unavailable: $e');
+      return null;
+    }
+  }
+
+  /// E50: φάκελοι που βλέπει το UI/rotation — **νέος πρώτος** (κερδίζει στο
+  /// dedupe του `listIn`), μετά ο legacy.
+  Future<List<Directory>> _autoBackupRoots() async {
+    final roots = <Directory>[await _autoBackupSupportDir()];
+    final legacy = await _getLegacyAutoBackupDir();
+    if (legacy != null) roots.add(legacy);
+    return roots;
+  }
+
+  /// E50: μετακίνηση των legacy auto backups στον μόνιμο φάκελο — **μία φορά
+  /// ανά process**, single-flight. Σκιπάρεται όσο maintenance είναι ενεργό
+  /// (E33: κανένα νέο file op μέσα στο παράθυρο restore/wipe) και
+  /// επαναλαμβάνεται στην επόμενη κλήση. Καλείται από το `sweepStaleArtifacts`
+  /// (startup + μετά restore) — **ποτέ** από UI read.
+  Future<void> _ensureLegacyAutoBackupsAdopted() async {
+    if (_legacyAdoptDone) return;
+    if (_maintenanceActive) {
+      DebugConfig.db('adoptLegacy: maintenance active — skipping');
+      return;
+    }
+    final inFlight = _legacyAdoptInFlight;
+    if (inFlight != null) {
+      try {
+        await inFlight;
+      } catch (e) {
+        DebugConfig.warning('BackupService.adoptLegacy (join): $e');
+      }
+      return;
+    }
+    final future = _adoptLegacyImpl();
+    _legacyAdoptInFlight = future;
+    try {
+      await future;
+    } finally {
+      _legacyAdoptInFlight = null;
+    }
+  }
+
+  Future<void> _adoptLegacyImpl() async {
+    try {
+      final legacy = await _getLegacyAutoBackupDir();
+      if (legacy == null || !await legacy.exists()) {
+        _legacyAdoptDone = true;
+        return;
+      }
+      final target = await _getAutoBackupDir();
+      final r =
+          await BackupRotation.adoptLegacy(target: target, legacy: legacy);
+      _legacyAdoptDone = true;
+      DebugConfig.db('adoptLegacy: done — moved=${r.moved} '
+          'skipped=${r.skipped} failed=${r.failed}');
+    } catch (e) {
+      // Best-effort: δεν σηματοδοτείται done → retry στην επόμενη κλήση.
+      DebugConfig.warning('BackupService.adoptLegacy: $e');
+    }
+  }
+
+  /// E50: merged rotation (support + legacy) με **συνολικό** όριο
+  /// (`maxAutoBackups`) — όχι 5 ανά φάκελο.
+  Future<void> _rotateAutoBackups() async {
+    try {
+      await BackupRotation.rotateIn(await _autoBackupRoots(),
+          max: maxAutoBackups);
+    } catch (e) {
+      DebugConfig.warning('BackupService.rotateAutoBackups: $e');
+    }
+  }
+
+  /// S-02 (N6) + E50: καθαρισμός ημιτελών/εγκαταλελειμμένων temp artifacts και
+  /// **μία φορά** adopt των legacy auto backups (cache → support).
+  /// Καλείται στην εκκίνηση (postFrame) και μετά από κάθε restore
+  /// (kill/force-stop δεν προλαβαίνει τα `finally`).
   Future<void> sweepStaleArtifacts() async {
     const prefixes = <String>[
       '_backup_export_',
@@ -593,27 +714,37 @@ class BackupService {
       '_backup_validate_',
       '_restore_zip_',
       '_restore_prepare_',
+      // E50: temp dir του auto-backup (plaintext zip — ζει μόνο στον cache).
+      '_backup_auto_',
     ];
     var removed = 0;
     try {
       final tempRoot = await getTemporaryDirectory();
-      if (!await tempRoot.exists()) return;
-      await for (final e in tempRoot.list()) {
-        final name = p.basename(e.path);
-        if (!prefixes.any(name.startsWith)) continue;
-        try {
-          await e.delete(recursive: true);
-          removed++;
-        } catch (err) {
-          DebugConfig.warning('sweepStaleArtifacts: delete failed: $err');
+      if (await tempRoot.exists()) {
+        await for (final e in tempRoot.list()) {
+          final name = p.basename(e.path);
+          if (!prefixes.any(name.startsWith)) continue;
+          try {
+            await e.delete(recursive: true);
+            removed++;
+          } catch (err) {
+            DebugConfig.warning('sweepStaleArtifacts: delete failed: $err');
+          }
         }
       }
-      final backupDir = Directory(p.join(tempRoot.path, _backupDirName));
-      removed += await BackupRotation.sweepPartials(backupDir);
-      DebugConfig.db('sweepStaleArtifacts: removed=$removed');
     } catch (e) {
       DebugConfig.warning('sweepStaleArtifacts failed: $e');
     }
+    // E50: adopt μία φορά (ποτέ σε maintenance) + partials σε όλους τους
+    // φακέλους. Καμία δημιουργία φακέλου αν δεν υπάρχει.
+    await _ensureLegacyAutoBackupsAdopted();
+    try {
+      removed +=
+          await BackupRotation.sweepPartialsIn(await _autoBackupRoots());
+    } catch (e) {
+      DebugConfig.warning('sweepStaleArtifacts (auto backups) failed: $e');
+    }
+    DebugConfig.db('sweepStaleArtifacts: removed=$removed');
   }
 
   /// S-02: στάδιο 1 του import — decrypt → allowlist extract → probe/sanitize
