@@ -1,6 +1,6 @@
-# error_list.md — Η ΜΟΝΑΔΙΚΗ λίστα εκκρεμοτήτων (2 ανοιχτά)
+# error_list.md — Η ΜΟΝΑΔΙΚΗ λίστα εκκρεμοτήτων (1 ανοιχτό)
 
-> **Επαναδημιουργήθηκε 13/11/2026 (S304)** λόγω 2 νέων ευρημάτων μετά το S-02 (κανόνες 6/9 `AGENTS.md`). Βάση: `backups/e48_filtered_empty_20261105_180802/error_list.md.final` (E01–E48, όλα CLOSED).
+> **Επαναδημιουργήθηκε 13/11/2026 (S304)** λόγω 2 νέων ευρημάτων μετά το S-02 (κανόνες 6/9 `AGENTS.md`). Βάση: `backups/e48_filtered_empty_20261105_180802/error_list.md.final` (E01–E48, όλα CLOSED). **E49 CLOSED 13/11/2026 (S304)** — fix + 2 regression tests + device render check.
 > **Ιστορικό/πρόοδος:** `oldsessions.md` (ενημερώνεται **μόνο** στο οριστικό κλείσιμο). **Αρχιτεκτονική:** `supernote.md`.
 > **Παράλληλες λίστες εκκρεμοτήτων απαγορεύονται.**
 
@@ -14,9 +14,9 @@
 
 | Μέτρηση | Τιμή |
 |---|---|
-| Git HEAD | `2092eab` (S-02 committed + pushed στο `main`) |
+| Git HEAD | `40b3fdf` (S-02 + E49 committed + pushed στο `main`) |
 | `flutter analyze` | **No issues found** |
-| `flutter test` | **649/649 PASS** (620 + 29 νέα/ενημερωμένα του S-02 συνολικά στα 4 αρχεία backup) |
+| `flutter test` | **651/651 PASS** (649 μετά το S-02 + 2 νέα του E49) |
 | Device pass | **S-02 OK** (POCO X3 `9593c01e`, release APK: export/import `.snb`, λάθος κωδικός, strip lock, round-trip συνημμένου, auto-backup + interval 24h, D8 gate) |
 
 ---
@@ -31,9 +31,9 @@
 
 > Κανένα ανοιχτό.
 
-### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (2)
+### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (1)
 
-> `E49` (stale «Τελευταίο:» στο tile auto-backup) · `E50` (auto-backups στο cache dir).
+> `E50` (auto-backups στο cache dir).
 
 **P4 — By-design / αποδεκτά (καμία ενέργεια)**
 - **Χρώμα συλλογής στην αρχική / λίστα φακέλου** = χρώμα **τύπου** (`home_screen.dart:862-863`, `home_folder_view.dart:451-452`), όχι το custom `item.color` που δείχνει η καρτέλα Συλλογές (`collections_screen.dart:294`). Αποδεκτό προσωρινά (απόφαση χρήστη S294).
@@ -44,12 +44,12 @@
 
 ## 2. Κάρτες εκκρεμοτήτων (στοιχεία + απόδειξη + αποδοχή)
 
-### E49 — «Τελευταίο:» στο tile auto-backup μένει stale ως το restart — 🔵 **OPEN (P3)**
+### E49 — «Τελευταίο:» στο tile auto-backup έμενε stale ως το restart — ✅ **CLOSED 13/11/2026 (S304)**
 
-- **Απόδειξη (S304, POCO X3):** μετά από auto-backup στις 11:01 και 13:01 η λίστα έδειχνε τα νέα `auto_*.snb`, αλλά το subtitle έλεγε ακόμη «Τελευταίο: 8 Νοε 2026, 20:57»· μετά από `force-stop` + relaunch → «Τελευταίο: 13 Νοε 2026, 13:01». Άρα **η DB είναι σωστή**, μόνο το UI μένει πίσω.
-- **Αιτία:** `BackupService.autoBackup()` γράφει απευθείας `SuperNoteHelper.instance.settings.update((s) => s.lastAutoBackupAt = DateTime.now())` (`backup_service.dart:545-547`), ενώ το `SettingsNotifier.build()` διαβάζει **μία φορά** (`settings_provider.dart:50` — `ref.watch(dbProvider).settings.get()`, χωρίς stream/invalidate). Προϋπάρχον (υπήρχε και με τα `.zip`), **όχι** regression του S-02.
-- **Πρόταση (προς έγκριση):** στο `main.dart:407` αλυσίδωση `unawaited(BackupService.instance.autoBackup().then((_) => container.invalidate(settingsNotifierProvider)))` — μία επιπλέον ανάγνωση settings ανά pause. Εναλλακτικές: invalidate στο `resumed` (πιο συχνό) ή `SettingsNotifier` να ακούει stream από τη DB (μεγαλύτερη αλλαγή).
-- **Side effects ελέγχθηκαν:** `container` υπάρχει ήδη στο `main.dart`· το invalidate δεν αγγίζει DB/αρχεία· κανένα άλλο σημείο δεν διαβάζει `lastAutoBackupAt`.
+- **Απόδειξη (S304, POCO X3):** μετά από auto-backup στις 11:01 και 13:01 η λίστα έδειχνε τα νέα `auto_*.snb`, αλλά το subtitle έλεγε ακόμη «Τελευταίο: 8 Νοε 2026, 20:57»· μετά από `force-stop` + relaunch → «Τελευταίο: 13 Νοε 2026, 13:01». Άρα **η DB ήταν σωστή**, μόνο το UI έμενε πίσω.
+- **Αιτία:** `BackupService.autoBackup()` γράφει απευθείας `SuperNoteHelper.instance.settings.update((s) => s.lastAutoBackupAt = DateTime.now())` (`backup_service.dart:545-547`), ενώ το `SettingsNotifier.build()` διαβάζει **μία φορά** (`settings_provider.dart:50` — `ref.watch(dbProvider).settings.get()`). Προϋπάρχον (και με τα `.zip`), **όχι** regression του S-02.
+- **Λύση (display-level, 1 αρχείο):** `settings_tiles.dart` → `SettingsAutoBackupTileState` διαβάζει `ref.watch(settingsStreamProvider)` (`= db.settings.watch()` → Isar `watchObject(1, fireImmediately: true)`) με fallback στο snapshot· `ref.listen` στο `lastAutoBackupAt` κάνει refresh της λίστας· αφαιρέθηκε το `FutureBuilder` (state-held `_paths`, χωρίς flicker). Ίδιο pattern με `BackupPassphraseGate`/`appThemeProvider`. **Καμία** αλλαγή σε `main.dart`/providers/DB (αποσύρθηκε η αρχική ιδέα `invalidate` — θα προκαλούσε loading state στο `SettingsScreen` και rebuild του `itemTypeCardColorOverrideProvider`).
+- **Επαλήθευση:** 2 regression tests (`test/settings_auto_backup_tile_test.dart`: stream emission με σταθερό snapshot αλλάζει το «Τελευταίο:» + fallback) · analyze clean · **651/651** · device: Ρυθμίσεις δείχνουν «13 Νοε 2026, 13:01», λίστα 5 αρχείων, D8 card, logcat καθαρό. Η ζωντανή ενημέρωση στη συσκευή επιβεβαιώνεται στο επόμενο auto-backup (≤24h) — αν αποτύχει, επανανοίγει.
 
 ### E50 — Τα auto-backups ζουν στο cache dir (μπορεί να σβηστούν από OS/«Εκκαθάριση cache») — 🔵 **OPEN (P3)**
 
@@ -65,6 +65,7 @@
 > **Ιστορικό:** `oldsessions.md` + `backups/s293_e06_close/error_list.md.final` (E01–E47) + `backups/e48_filtered_empty_20261105_180802/error_list.md.final` (E48).
 > **S295:** `E48` **CLOSED & DEVICE-VERIFIED** — filter-aware empty states σε 8 λίστες + λίστα φακέλου + compact calendar panel· 6 νέα tests.
 > **S303/S-25 & S-02 (S304):** χωρίς ID — εγκρίθηκαν ως features/fixes από τον χρήστη· S-02 **device-verified** (βλ. `oldsessions.md` «Session 304 — S-02», ενότητα Device tests).
+> **S304:** `E49` **CLOSED** — live `settingsStreamProvider` στο tile auto-backup + refresh λίστας· 2 regression tests· `commit 40b3fdf`.
 
 ---
 
@@ -73,4 +74,4 @@
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
 | **Ο11 — Φίλτρο λιστών** (✅ έκλεισε S295 με το E48) | απόφαση scope → **filter-aware empties** (χωρίς αλλαγή state) | `empty_state.dart` (`EmptyState.filtered` + `FilterAwareEmptyState`) + τα 8 screens + λίστα φακέλου + compact panel | **E48** (solo) |
-| **Ο12 — Auto-backup hardening** (ανοιχτή) | E50: `getApplicationSupportDirectory()` + ανάγνωση παλιού cache dir για 1 έκδοση | E49: invalidate `settingsNotifierProvider` μετά το `autoBackup()` | **E49 + E50** |
+| **Ο12 — Auto-backup hardening** (ανοιχτή: μένει το E50) | E50: `getApplicationSupportDirectory()` + ανάγνωση παλιού cache dir για 1 έκδοση | ✅ E49: live stream στο tile (`40b3fdf`) | **E50** |
