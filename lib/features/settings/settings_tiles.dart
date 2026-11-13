@@ -3,6 +3,8 @@
 // S253 (P2): tiles των Ρυθμίσεων (split από settings_screen.dart).
 // Public symbols + direct imports (<500 γρ.).
 //
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -352,22 +354,40 @@ class SettingsAutoBackupTile extends ConsumerStatefulWidget {
 }
 
 class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> {
-  late Future<List<String>> _future;
+  List<String> _paths = const [];
 
   @override
   void initState() {
     super.initState();
-    _future = BackupService.instance.listAutoBackups();
+    _reload();
   }
 
-  void _reload() {
-    if (!mounted) return;
-    setState(() => _future = BackupService.instance.listAutoBackups());
+  void _reload() => unawaited(_loadPaths());
+
+  Future<void> _loadPaths() async {
+    try {
+      final paths = await BackupService.instance.listAutoBackups();
+      if (!mounted) return;
+      setState(() => _paths = paths);
+    } catch (e, s) {
+      DebugConfig.error('SettingsAutoBackupTile.listAutoBackups', e, s);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final settings = widget.settings;
+    // E49: το `lastAutoBackupAt` γράφεται απευθείας στη DB από το
+    // `BackupService` (όχι μέσω του notifier) → live stream, με fallback
+    // στο snapshot όσο δεν έχει έρθει ακόμη τιμή.
+    final settings =
+        ref.watch(settingsStreamProvider).valueOrNull ?? widget.settings;
+    // Νέο auto-backup (νέο `lastAutoBackupAt`) ⇒ refresh της λίστας.
+    ref.listen<AsyncValue<AppSettings?>>(settingsStreamProvider, (prev, next) {
+      if (next.valueOrNull?.lastAutoBackupAt !=
+          prev?.valueOrNull?.lastAutoBackupAt) {
+        _reload();
+      }
+    });
     final lastRun = settings.lastAutoBackupAt == null
         ? 'Ποτέ'
         : AppDateUtils.formatDateTime(settings.lastAutoBackupAt!);
@@ -413,36 +433,29 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
               child: const Text('Ορισμός'),
             ),
           ),
-        if (settings.autoBackupEnabled)
-          FutureBuilder<List<String>>(
-            future: _future,
-            builder: (context, snap) {
-              final paths = snap.data ?? const <String>[];
-              if (paths.isEmpty) return const SizedBox.shrink();
-              return Column(
-                children: [
-                  for (final pth in paths.take(5))
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        p.basename(pth),
-                        style: context.bodySm,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: TextButton(
-                        onPressed: () async {
-                          await importBackup(context, ref,
-                              fromPath: pth);
-                          _reload();
-                        },
-                        child: const Text('Επαναφορά'),
-                      ),
-                    ),
-                ],
-              );
-            },
+        if (settings.autoBackupEnabled && _paths.isNotEmpty)
+          Column(
+            children: [
+              for (final pth in _paths.take(5))
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    p.basename(pth),
+                    style: context.bodySm,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      await importBackup(context, ref,
+                          fromPath: pth);
+                      _reload();
+                    },
+                    child: const Text('Επαναφορά'),
+                  ),
+                ),
+            ],
           ),
       ],
     );
