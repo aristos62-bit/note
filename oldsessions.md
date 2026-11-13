@@ -5265,3 +5265,59 @@ if (!context.isShortScreen)
 
 **Απόφαση χρήστη (S305, μετά τα device tests):** ο χρήστης **απέρριψε** το **E50-B** (SAF/εξωτερικός προορισμός για τα auto backups) — αφού υπάρχει η **χειροκίνητη** εξαγωγή `.snb` με φάκελο επιλογής χρήστη, το auto backup μένει **internal-only** (εσωτερικός μηχανισμός ασφάλειας της εφαρμογής). Off-device διαδρομές (αλλαγή συσκευής/uninstall/cloud) = **μόνο** χειροκίνητη εξαγωγή. Μηδέν αλλαγές κώδικα· καταγράφηκε στο `supernote.md` (By-design). Μένει μόνο το **E50-C** (iOS path, όταν επανέλθει iOS).
 
+---
+
+# Session 306 — S-01: τοποθεσία δεδομένων εκτός Documents (13/11/2026)
+
+## Απόφαση (εγκεκριμένη από τον χρήστη: Δ1–Δ10 + D3′)
+
+Η βάση και τα συνημμένα ζούσαν στο `getApplicationDocumentsDirectory()` = `%USERPROFILE%\Documents` στα Windows: φάκελος που συγχρονίζεται (OneDrive), σαρώνεται από Search/backup και είναι προσβάσιμος από κάθε διεργασία του χρήστη. Νέα ρίζα: **`%LOCALAPPDATA%\SuperNoteData`** (ρητή σταθερά — όχι support dir, όχι cache, όχι install dir, γιατί τα τρία τελευταία τα σβήνει installer/uninstall/OS). Android/iOS/desktop-εκτός-Windows: **αμετάβλητο** (`dataRoot == legacy` ⇒ no-op).
+
+## Τεχνικά θεμέλια (επαληθευμένα με πραγματικά στοιχεία, όχι υποθέσεις)
+
+| Στοιχείο | Πηγή | Αποτέλεσμα |
+|---|---|---|
+| Εκδόσεις | `pubspec.lock` | isar **3.1.0+1**, path_provider **2.1.5**, path_provider_windows **2.3.0**, path_provider_android **2.3.1**, path **1.9.1** |
+| Support/cache (Win) | `path_provider_windows_real.dart` | support = `RoamingAppData\company\product`, cache = `LocalAppData\company\product` |
+| Company/Product | `windows/runner/Runner.rc` | `com.example` / `super_note` |
+| Android paths | `path_provider_android_real.dart` | documents = `getDir('flutter')` = `filesDir/app_flutter`, support = `filesDir`, cache = `cacheDir` |
+| Isar DB path | `isar-3.1.0+1/lib/isar.dart:50` | `'$directory/$name.isar'` |
+| **Lock αρχείο** | πραγματικός δίσκος | **`super_note_db.isar-lck`** — το σχόλιο του isar γράφει λάθος `.isar.lock` |
+| `path` semantics | εκτέλεση probe (`dart --packages=…`) | `equals`/`isWithin` **case-insensitive** στα Windows· `canonicalize` → πεζά |
+| `File.create` / `Directory.rename` | Dart SDK `lib/io` | `create({exclusive})` ✓· rename πετά αν το target είναι μη-κενό |
+| Πραγματικά δεδομένα | `%USERPROFILE%\Documents` | DB **5.242.880 B**, **12 attachments**, 1 `.migration_safety` (5 MB), `-lck` |
+| Documents redirect | attributes/volume | `C:\Users\Vaggelis\Documents` τοπικό σε **C:** (όχι OneDrive, ίδιο volume με LOCALAPPDATA) ⇒ rename στιγμιαίο |
+| Baseline | `flutter analyze` / `flutter test` | No issues found · **663/663** |
+
+**Audit παρενεργειών:** όλα τα open/preview/save-as/share/disk-delete περνούν ήδη από `AttachmentPathGuard` (αλλάζει μόνο το root)· `ItemBlock.filePath`, `Attachment.thumbnailPath`, `User.avatarPath` αποδείχθηκαν **νεκρά πεδία** (κανένας writer) ⇒ μηδέν rebase· κανένα test δεν καλεί `SuperNoteHelper.init()` ή mock path_provider.
+
+## Αλλαγές κώδικα (17 αρχεία)
+
+1. **Νέο `lib/core/utils/app_paths.dart`** — SPoT ρίζας: `dataDirName='SuperNoteData'`, `dbName/dbFileName`, `stagingDirName='.staging'`, `migrationSafetyDirName='.migration_safety'`, `dataRoot()`, `activeDataRoot()`, `legacyDataRoot()` (μόνο Windows), `supportRoot()`, `sameRoot()`, `dbFileIn/attachmentsIn/stagingIn/migrationSafetyIn`, καθαρό `resolveRoot({isWindows, localAppData, documentsPath, supportPath})`. Το `dataRoot()` κάνει cache (μία φορά/process)· **degraded mode** αν λείπει `LOCALAPPDATA` (support → documents).
+2. **Νέο `lib/services/data_root_migration.dart`** — crash-safe state machine `DataRootState { fresh, existing, migrated, resumed, abortedLegacy }`:
+   - `ensure({root, legacyRoot})`: copy DB σε `.staging` (`.partial` → size check → rename) → μετακίνηση `attachments/` (rename· fallback copy **χωρίς** διαγραφή πηγής) → **commit point** = `rename(.staging/super_note_db.isar → <root>/super_note_db.isar)`.
+   - `rollbackAfterInvalidDb(plan)` (Δ2) και `commitAfterOpen(plan, rebased:, missing:)` (D3′ + allowlist cleanup).
+   - `rebasePath(oldPath, {fromDir, toDir})` — pure, basename-relative, μόνο εντός `fromDir`.
+3. `lib/helpers/super_note_helper.dart` — νέο `init()` (bypass με `directory:`), `_initAndOpen(dir, {requireAppSettings})` (guard configure + `setActiveRoot` + open + **gate `AppSettings(1)`**), `_finishMigration()` (rebase + commit), `_rebaseAttachments()` (idempotent, ελέγχει ύπαρξη αρχείου), exception `_MigratedDbInvalid`. Import `path_provider` → `package:path`.
+4. `lib/core/utils/attachment_path_guard.dart` — `configure(documentsDir:)` → `configure(appDataDir:)` (docs + μήνυμα log).
+5. `lib/services/attachment_service.dart` — `_getAttachmentsDir()` → `AppPaths.activeDataRoot()`.
+6. `lib/services/backup_service.dart` — `_dbPath()`, `_atomicRestoreDb()`, export/share/auto-backup attachments dir → `AppPaths.activeDataRoot()`· fallback του support dir → data root (ποτέ Documents).
+7. `lib/services/migration_service.dart` — `AppPaths.dbFileName` / `AppPaths.migrationSafetyDirName` αντί literals.
+8. `lib/features/settings/settings_backup.dart` — wipe στην **ενεργή ρίζα** + διαγραφή `-lck` + **νέο `_deleteLegacyLeftovers()`** (allowlist: db, `-lck`, `attachments/`, `.migration_safety/`, `.staging/` — ποτέ recursive delete του Documents).
+9. **Νέο `lib/features/settings/settings_data_location.dart`** (D6) — read-only tile «Τοποθεσία δεδομένων»: δείχνει την ενεργή διαδρομή, αντίληψη tap-to-copy, προειδοποίηση αν υπάρχουν ακόμη αρχεία στο legacy root. Μπαίνει στο `_DatabaseGroup` (`settings_screen.dart`) πριν το «Διαγραφή όλων».
+10. `lib/core/utils/app_errors.dart` — `dataLocationTitle/Hint/Copied/Unavailable/LegacyLeft`, `dataRootUnavailable`.
+11. `lib/main.dart` — `_InitErrorApp({String? detail})` + `DataRootException` → `AppErrors.dataRootUnavailable` στη θέση του `const _InitErrorApp()`.
+12. `lib/core/core.dart` / `lib/services/services.dart` — exports.
+
+## Tests
+
+- **Νέα `test/app_paths_test.dart`** (9): `resolveRoot` (LOCALAPPDATA/support/documents/null, εκτός Windows), σταθερές ονομάτων, `sameRoot` case-sensitivity ανά πλατφόρμα.
+- **Νέα `test/data_root_migration_test.dart`** (14): fresh / ίδια ρίζα no-op / existing / **resumed** / migrated (DB + 2 attachments, legacy ακέραιο) / **abortedLegacy** (φάκελος-εμπόδιο στο target ⇒ rollback) / D3′ (legacy DB → `.migration_safety/pre_s01_*.isar`, lock+attachments καθαρίζονται) / `missing>0` ⇒ legacy attachments **δεν** διαγράφονται / `rollbackAfterInvalidDb` ⇒ νέα DB σβήνεται, συνημμένα πίσω στο legacy / `rebasePath` (εντός, εκτός, ίδιο root, σχετικό, κενό).
+- **7 test sites** `documentsDir:` → `appDataDir:` (`attachment_path_guard_test`, `attachment_open_test`, `attachments_strip_test`, `share_attachments_test`, `share_content_builder_test`).
+- **Έλεγχοι:** `flutter analyze` → **No issues found** · `flutter test` → **686/686 All tests passed** (46s) — 663 + 23 νέα.
+
+## Backups
+
+`backups/s01_20261113_170655/` — 18 αρχεία (flat `__` ονόματα), πριν από κάθε αλλαγή.
+
+

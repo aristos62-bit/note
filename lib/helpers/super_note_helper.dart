@@ -9,7 +9,7 @@
 //   final note = await helper.items.create(type: ItemType.note, title: 'Hello');
 //
 import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../models/item.dart';import '../models/item_block.dart';
 import '../models/item_property.dart';
@@ -26,6 +26,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../core/core.dart';
 import '../services/migration_service.dart';
+import '../services/data_root_migration.dart';
 import '../services/reminder_bake_plan.dart';
 
 // ─────────────────────────────────────────────────────────────────
@@ -66,23 +67,72 @@ class SuperNoteHelper {
   // ─────────────────────────────────────────────────────────
 
   /// Αρχικοποίηση της DB. Κάλεσε μία φορά στο main().
+  ///
+  /// S-01: η τοποθεσία αποφασίζεται από το [AppPaths] και, στα Windows, τα
+  /// δεδομένα μεταναστεύουν από τα Documents στο `%LOCALAPPDATA%\SuperNoteData`
+  /// (βλ. [DataRootMigration]). Με [directory] (tests) γίνεται πλήρης bypass:
+  /// καμία μετανάστευση, κανένα path_provider.
   static Future<SuperNoteHelper> init({String? directory}) async {
     if (_instance != null) return _instance!;
 
-    final dir = directory ?? (await getApplicationDocumentsDirectory()).path;
+    if (directory != null) {
+      return _initAndOpen(directory);
+    }
 
+    var plan = await DataRootMigration.ensure(
+      root: await AppPaths.dataRoot(),
+      legacyRoot: await AppPaths.legacyDataRoot(),
+    );
+
+    try {
+      final helper = await _initAndOpen(
+        plan.activeRoot,
+        // Δ2: integrity gate σε **κάθε** βάση που προήλθε από μετανάστευση
+        // (και στην `resumed`, όπου το commit έγινε αλλά το άνοιγμα μπορεί να
+        // μην είχε ολοκληρωθεί ποτέ).
+        requireAppSettings: plan.needsCleanup,
+      );
+      if (plan.needsCleanup) {
+        await _finishMigration(plan);
+      }
+      return helper;
+    } on _MigratedDbInvalid catch (e) {
+      // Δ2: το Isar δημιουργεί σιωπηλά κενή DB πάνω σε άκυρο/κατεστραμμένο
+      // αρχείο (βλ. BackupDbProbe). Rollback στο legacy: τα δεδομένα του
+      // χρήστη μένουν ακέραια και η εφαρμογή δουλεύει όπως πριν.
+      if (plan.legacyRoot == null) rethrow;
+      DebugConfig.error(
+          'SuperNoteHelper.init: migrated DB invalid — rollback', e);
+      final rolled = await DataRootMigration.rollbackAfterInvalidDb(plan);
+      return _initAndOpen(rolled.activeRoot);
+    }
+  }
+
+  /// Ανοίγει/αρχικοποιεί τη βάση σε συγκεκριμένη ρίζα (B4: `_instance` μόνο
+  /// μετά την πλήρη αρχικοποίηση).
+  static Future<SuperNoteHelper> _initAndOpen(
+    String dir, {
+    bool requireAppSettings = false,
+  }) async {
     // S-18: SPoT του επιτρεπτού root για attachment paths (fail-closed).
-    AttachmentPathGuard.configure(documentsDir: dir);
+    AttachmentPathGuard.configure(appDataDir: dir);
+    AppPaths.setActiveRoot(dir);
 
     Isar? openedIsar;
     try {
       final isar = await Isar.open(
         isarSchemas,
         directory: dir,
-        name: 'super_note_db',
+        name: AppPaths.dbName,
         inspector: kDebugMode,
       );
       openedIsar = isar;
+
+      // Δ2: integrity gate — ΠΡΙΝ από κάθε write (schema/defaults), ώστε μια
+      // «σιωπηλά κενή» μεταναστευμένη βάση να μην προλάβει να γραφτεί.
+      if (requireAppSettings && await isar.appSettings.get(1) == null) {
+        throw const _MigratedDbInvalid();
+      }
 
       // B4: το singleton αποκτά _instance ΜΟΝΟ μετά την πλήρη αρχικοποίηση —
       // αποτυχία σε migration/defaults/cleanup δεν αφήνει μισο-έτοιμο instance.
@@ -112,6 +162,60 @@ class SuperNoteHelper {
       }
       rethrow;
     }
+  }
+
+  /// S-01: rebase των absolute paths + καθαρισμός legacy (μόνο μετά από
+  /// επιτυχές open). Καμία διαγραφή πριν από αυτό.
+  static Future<void> _finishMigration(DataRootPlan plan) async {
+    final legacy = plan.legacyRoot;
+    if (legacy == null) return;
+    final result = await _rebaseAttachments(
+      fromAtt: AppPaths.attachmentsIn(legacy),
+      toAtt: AppPaths.attachmentsIn(plan.activeRoot),
+    );
+    await DataRootMigration.commitAfterOpen(
+      plan,
+      rebased: result.rebased,
+      missing: result.missing,
+    );
+  }
+
+  /// S-01: ξαναγράφει τα `Attachment.localPath` που δείχνουν στο legacy
+  /// attachments dir. **Idempotent** (2η κλήση = 0 αλλαγές) — καλύπτει και
+  /// crash μετά το commit. Αγγίζει μόνο paths εντός legacy dir και μόνο όταν
+  /// το αρχείο υπάρχει στη νέα θέση.
+  static Future<({int rebased, int missing})> _rebaseAttachments({
+    required String fromAtt,
+    required String toAtt,
+  }) async {
+    final isar = _instance!.isar;
+    final all = await isar.attachments.where().findAll();
+    final changed = <Attachment>[];
+    var missing = 0;
+    for (final att in all) {
+      final next = DataRootMigration.rebasePath(
+        att.localPath,
+        fromDir: fromAtt,
+        toDir: toAtt,
+      );
+      if (next == null || p.equals(next, att.localPath)) continue;
+      if (!await File(next).exists()) {
+        missing++;
+        DebugConfig.warning(
+            'S-01: rebase target missing (id=${att.id}) — skipped');
+        continue;
+      }
+      att.localPath = next;
+      changed.add(att);
+    }
+    if (changed.isNotEmpty) {
+      await isar.writeTxn(() async {
+        await isar.attachments.putAll(changed);
+      });
+    }
+    DebugConfig.warning(
+        'S-01: rebase done (rebased=${changed.length} missing=$missing)');
+    return (rebased: changed.length, missing: missing);
   }
 
   /// Κλείσιμο DB (για testing ή app lifecycle).
@@ -171,6 +275,16 @@ class SuperNoteHelper {
       });
     }
   }
+}
+
+/// Δ2 (S-01): η μεταναστευμένη βάση άνοιξε αλλά δεν έχει `AppSettings(1)`
+/// ⇒ το Isar δημιούργησε σιωπηλά κενή DB πάνω σε άκυρο αρχείο. Ο caller
+/// κάνει rollback στο legacy root (καμία απώλεια δεδομένων).
+class _MigratedDbInvalid implements Exception {
+  const _MigratedDbInvalid();
+
+  @override
+  String toString() => 'migrated DB is empty/corrupt (no AppSettings)';
 }
 
 // ─────────────────────────────────────────────────────────────────

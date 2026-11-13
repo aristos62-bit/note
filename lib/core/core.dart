@@ -21,6 +21,7 @@ export 'utils/image_utils.dart';
 export 'utils/contact_props.dart';
 export 'utils/app_errors.dart';
 export 'utils/attachment_path_guard.dart';
+export 'utils/app_paths.dart';
 export 'utils/reorder_utils.dart';
 export 'utils/serial_pass_queue.dart';
 export 'utils/composed_text_scaler.dart';

@@ -22,7 +22,7 @@ void main() {
     attachmentsDir =
         Directory('${tmp.path}${Platform.pathSeparator}attachments')
           ..createSync(recursive: true);
-    AttachmentPathGuard.configure(documentsDir: tmp.path);
+    AttachmentPathGuard.configure(appDataDir: tmp.path);
   });
 
   tearDown(() {

@@ -167,7 +167,7 @@ void main() {
       AttachmentPathGuard.reset();
       if (tmp.existsSync()) tmp.deleteSync(recursive: true);
     });
-    AttachmentPathGuard.configure(documentsDir: tmp.path);
+    AttachmentPathGuard.configure(appDataDir: tmp.path);
 
     final att = _att(6, 'hello.bat',
         localPath: p.join(tmp.path, AttachmentPathGuard.dirName, '1_hello.bat'),

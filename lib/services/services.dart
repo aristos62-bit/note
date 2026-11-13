@@ -24,4 +24,5 @@ export 'share/share_formatters.dart';
 export 'shared_intent_service.dart';
 export 'app_lock_service.dart';
 export 'migration_service.dart';
+export 'data_root_migration.dart';
 export 'security_service.dart';

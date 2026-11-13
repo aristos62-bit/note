@@ -160,8 +160,9 @@ class BackupService {
   // ─────────────────────────────────────────────────────────────────
 
   Future<String> _dbPath() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return p.join(dir.path, dbFileName);
+    // S-01: SPoT της ρίζας δεδομένων (legacy μετά από rollback migration).
+    final dir = await AppPaths.activeDataRoot();
+    return p.join(dir, dbFileName);
   }
 
   /// S-02 (C5): sortable UTC timestamp για ονόματα αντιγράφων.
@@ -273,12 +274,12 @@ class BackupService {
       final fileName = 'super_note_backup_${fileTimestamp()}$snbSuffix';
       final tempZip = p.join(workDir.path, 'payload.zip');
       final tempSnb = p.join(workDir.path, fileName);
-      final docs = await getApplicationDocumentsDirectory();
+      final dataRoot = await AppPaths.activeDataRoot();
       await BackupArchive.createBackupZip(
         dbPath: srcPath,
         snapshotIsar: SuperNoteHelper.instance.isar,
         attachmentsDir: Directory(
-            p.join(docs.path, AttachmentService.attachmentsDirName)),
+            p.join(dataRoot, AttachmentService.attachmentsDirName)),
         destZipPath: tempZip,
       );
       // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ. Το container γράφει σε
@@ -361,12 +362,12 @@ class BackupService {
           'super_note_backup_${fileTimestamp()}$snbSuffix';
       final tempZip = p.join(workDir.path, 'payload.zip');
       final tempSnb = p.join(workDir.path, fileName);
-      final docs = await getApplicationDocumentsDirectory();
+      final dataRoot = await AppPaths.activeDataRoot();
       await BackupArchive.createBackupZip(
         dbPath: srcPath,
         snapshotIsar: SuperNoteHelper.instance.isar,
         attachmentsDir: Directory(
-            p.join(docs.path, AttachmentService.attachmentsDirName)),
+            p.join(dataRoot, AttachmentService.attachmentsDirName)),
         destZipPath: tempZip,
       );
       // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ και στη ροή κοινοποίησης.
@@ -529,13 +530,13 @@ class BackupService {
         DebugConfig.db('autoBackup: FAIL — DB file not found: $srcPath');
         return null;
       }
-      final docs = await getApplicationDocumentsDirectory();
+      final dataRoot = await AppPaths.activeDataRoot();
       try {
         await BackupArchive.createBackupZip(
           dbPath: srcPath,
           snapshotIsar: SuperNoteHelper.instance.isar,
           attachmentsDir: Directory(
-              p.join(docs.path, AttachmentService.attachmentsDirName)),
+              p.join(dataRoot, AttachmentService.attachmentsDirName)),
           destZipPath: tempZip,
         );
         // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ — `.partial` + rename εντός
@@ -614,9 +615,10 @@ class BackupService {
     }
     if (root == null) {
       try {
-        root = await getApplicationDocumentsDirectory();
+        // S-01: fallback στη ρίζα δεδομένων — ποτέ ξανά στα Documents.
+        root = Directory(await AppPaths.activeDataRoot());
       } catch (e) {
-        DebugConfig.warning('autoBackup: documents dir unavailable: $e');
+        DebugConfig.warning('autoBackup: data root unavailable: $e');
       }
     }
     root ??= await getTemporaryDirectory();
@@ -946,13 +948,14 @@ class BackupService {
   Future<BackupImportResult> _atomicRestoreDb(PreparedRestore prepared) async {
     final isZip = prepared.format != BackupFormat.isar;
     DebugConfig.db('_atomicRestoreDb: starting format=${prepared.format.name}');
-    final dbDir = await getApplicationDocumentsDirectory();
-    final livePath = p.join(dbDir.path, dbFileName);
-    final safetyPath = p.join(dbDir.path, '_pre_restore_backup.isar');
+    // S-01: η restore γράφει στη ρίζα που χρησιμοποιείται τώρα.
+    final dbDir = await AppPaths.activeDataRoot();
+    final livePath = p.join(dbDir, dbFileName);
+    final safetyPath = p.join(dbDir, '_pre_restore_backup.isar');
     final attLive =
-    Directory(p.join(dbDir.path, AttachmentService.attachmentsDirName));
+    Directory(p.join(dbDir, AttachmentService.attachmentsDirName));
     final attSafety =
-    Directory(p.join(dbDir.path, '_pre_restore_attachments'));
+    Directory(p.join(dbDir, '_pre_restore_attachments'));
 
     var maintenanceStarted = false;
     var dbTouched = false;

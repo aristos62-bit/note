@@ -139,7 +139,7 @@ void main() {
     test('υπαρκτό συνημμένο → files + 📎 στο textAndFiles', () {
       final dir = Directory.systemTemp.createTempSync('sn_share_build_');
       // S-18: το fixture πρέπει να ζει μέσα στο επιτρεπτό root.
-      AttachmentPathGuard.configure(documentsDir: dir.path);
+      AttachmentPathGuard.configure(appDataDir: dir.path);
       addTearDown(() {
         AttachmentPathGuard.reset();
         if (dir.existsSync()) dir.deleteSync(recursive: true);

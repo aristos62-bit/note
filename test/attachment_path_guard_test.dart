@@ -13,7 +13,7 @@ void main() {
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('sn_guard_test_');
-    AttachmentPathGuard.configure(documentsDir: tmp.path);
+    AttachmentPathGuard.configure(appDataDir: tmp.path);
     root = p.normalize(p.join(tmp.path, AttachmentPathGuard.dirName));
   });
 
@@ -65,9 +65,9 @@ void main() {
     expect(AttachmentPathGuard.resolve('attachments/a.png'), isNull);
   });
 
-  test('trailing separator στο documentsDir → καθαρίζεται', () {
+  test('trailing separator στο appDataDir → καθαρίζεται', () {
     AttachmentPathGuard.configure(
-        documentsDir: '${tmp.path}${p.separator}');
+        appDataDir: '${tmp.path}${p.separator}');
     final path = p.join(root, 'a.png');
     expect(AttachmentPathGuard.resolve(path), path);
   });
@@ -77,8 +77,8 @@ void main() {
     expect(AttachmentPathGuard.resolve(p.join(root, 'a.png')), isNull);
   });
 
-  test('μη-απόλυτο documentsDir → fail-closed (root null)', () {
-    AttachmentPathGuard.configure(documentsDir: 'relative/docs');
+  test('μη-απόλυτο appDataDir → fail-closed (root null)', () {
+    AttachmentPathGuard.configure(appDataDir: 'relative/docs');
     expect(AttachmentPathGuard.resolve(p.join(root, 'a.png')), isNull);
   });
 

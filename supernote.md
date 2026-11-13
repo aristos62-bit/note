@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **620/620** (`flutter test`, 08/11/2026 — `flutter analyze` clean) |
+| Test suite | **686/686** (`flutter test`, 13/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -25,7 +25,7 @@
 ### Database
 - **Isar v3** (`^3.1.0+1`) — embedded NoSQL DB, annotations `@Collection()`, `@Index()`, `@Enumerated()`
 - `isar_flutter_libs` + `isar_generator` + `build_runner` — code generation (`*.g.dart`)
-- `path_provider` — app documents directory για DB file
+- `path_provider` — πλατφόρμα-ειδικοί φάκελοι· **η τοποθεσία δεδομένων δεν είναι πλέον τα Documents** (S-01, βλ. «Τοποθεσία δεδομένων»)
 
 ### State Management
 - **Riverpod** (`flutter_riverpod ^2.5.1`, `riverpod ^2.5.1`)
@@ -448,6 +448,8 @@ final db = SuperNoteHelper.instance;
 ```
 - Το singleton δημοσιεύεται **μόνο** μετά από migration/defaults/cleanup· σε αποτυχία κλείνει το μισο-ανοιγμένο Isar και κάνει rethrow (B4).
 - `close()` είναι idempotent και καθαρίζει **πάντα** το singleton — ακόμη κι αν το `Isar.close()` αποτύχει — ώστε retry/rollback μετά από restore/wipe να μην κρατούν stale instance.
+- **S-01:** το `init()` δεν χρησιμοποιεί πλέον απευθείας documents dir. Σειρά: `AppPaths.dataRoot()` → `DataRootMigration.ensure()` → `AttachmentPathGuard.configure(appDataDir: activeRoot)` + `AppPaths.setActiveRoot()` → `Isar.open(activeRoot)` → **integrity gate** `AppSettings(1)` (μόνο για βάση που προήλθε από μετανάστευση) → `ensureSchemaVersion` → `_ensureDefaults` → `cleanupOldPending`. Με `init(directory: ...)` (tests) γίνεται bypass: καμία μετανάστευση, κανένα path_provider.
+- Σε αποτυχία του gate: close → `rollbackAfterInvalidDb` → άνοιγμα του **legacy** root (ο χρήστης βλέπει τα δεδομένα του, τίποτα δεν χάνεται). Σε αποτυχία δημιουργίας της ρίζας (`DataRootException`) η οθόνη σφάλματος δείχνει `AppErrors.dataRootUnavailable`.
 
 ### Sub-repositories
 | Repository | Key Methods | Stream Methods |
@@ -462,6 +464,30 @@ final db = SuperNoteHelper.instance;
 | `WorkspaceRepository` | create, getAll, getDefault | — |
 | `AttachmentRepository` | create, getForItem, getById, delete | — |
 | `SettingsRepository` | get, getOrNull, update *(S-24: atomic read-modify-write μέσα σε ένα `writeTxn`, επιστρέφει το committed snapshot)* | watch (object id=1) |
+
+---
+
+## Τοποθεσία δεδομένων (S-01)
+
+**SPoT:** `AppPaths` (`lib/core/utils/app_paths.dart`) — κανένας άλλος κώδικας δεν αποφασίζει πού ζουν τα δεδομένα.
+
+| Πλατφόρμα | Ρίζα δεδομένων (`dataRoot`) | Σημείωση |
+|---|---|---|
+| Windows | `%LOCALAPPDATA%\SuperNoteData` | ρητή σταθερά — **όχι** Documents, **όχι** support/cache dir, **όχι** install dir (τα τρία τελευταία τα σβήνει installer/uninstall/OS) |
+| Android / iOS / macOS / Linux | `getApplicationDocumentsDirectory()` | αμετάβλητο ⇒ `dataRoot == legacy` ⇒ **no-op** |
+
+- `AppPaths.activeDataRoot()` = η ρίζα που χρησιμοποιείται **τώρα** (μπορεί να είναι η legacy μετά από rollback). **Όλοι** οι call sites (`AttachmentService`, `BackupService`, wipe, migration snapshots) χρησιμοποιούν αυτό — ποτέ σκέτο `dataRoot()` μετά το init.
+- Περιεχόμενα ρίζας: `super_note_db.isar` (+ Isar lock `super_note_db.isar-lck`), `attachments/`, `.migration_safety/` (plaintext snapshots schema/S-01), `.staging/` (μόνο κατά τη μετανάστευση).
+
+### Μετανάστευση (`lib/services/data_root_migration.dart`)
+- **Commit point** = `rename(.staging/super_note_db.isar → <root>/super_note_db.isar)`, **τελευταίο** βήμα. Πριν από αυτό η legacy βάση είναι ακέραιη· κάθε αποτυχία (disk full, AV lock, cross-volume) καταλήγει σε `abortedLegacy` ⇒ η εφαρμογή ανοίγει όπως πριν.
+- Σειρά: αντιγραφή DB (`.partial` → size check → rename) → μετακίνηση `attachments/` (rename· fallback copy **χωρίς** διαγραφή πηγής) → commit rename DB.
+- **Crash-safe χωρίς marker file:** η κατάσταση συνάγεται από artifacts (`fresh`, `existing`, `migrated`, `resumed`, `abortedLegacy`) ⇒ επανάληψη στο επόμενο launch.
+- **D3′:** μετά το επιτυχές open, η legacy βάση **δεν διαγράφεται** — `rename` → `<root>/.migration_safety/pre_s01_<ts>.isar` (εκτός Documents). Καθαρίζεται από «Διαγραφή όλων» ή από επόμενη schema migration. Αν το rename αποτύχει → copy + delete.
+- **Rebase:** τα `Attachment.localPath` που δείχνουν στο legacy `attachments/` ξαναγράφονται με **basename-relative** αντιστοίχιση, **μόνο** αν το αρχείο υπάρχει στη νέα θέση· idempotent (2η κλήση = 0 αλλαγές). Αν κάποιο λείπει ⇒ `missing > 0` ⇒ τα legacy συνημμένα **δεν** διαγράφονται.
+- **Δ2 integrity gate:** το `Isar.open` δημιουργεί σιωπηλά κενή βάση πάνω σε άκυρο αρχείο (βλ. `BackupDbProbe`)· γι' αυτό ελέγχεται `AppSettings(1)` **μετά** το open και **πριν** από κάθε write, με rollback στο legacy.
+- **Wipe:** η «Διαγραφή όλων» καθαρίζει την ενεργή ρίζα **και** τα legacy leftovers (allowlist: `super_note_db.isar`, `-lck`, `attachments/`, `.migration_safety/`, `.staging/` — ποτέ recursive delete του Documents).
+- **Όρια (τεκμηριωμένα):** downgrade σε έκδοση pre-S-01 → «άδεια» εφαρμογή (τα δεδομένα μένουν στο `SuperNoteData` + snapshot)· `ItemBlock.filePath`, `Attachment.thumbnailPath`, `User.avatarPath` είναι **νεκρά πεδία** (κανένας writer) άρα δεν κάνουν rebase — αν ενεργοποιηθούν, θα χρειαστούν αντίστοιχο rebase.
 
 ---
 
@@ -559,8 +585,8 @@ final db = SuperNoteHelper.instance;
 - `saveFile(itemId, sourcePath, blockId)` → `Attachment`
 - `delete(attachmentId)` — file + DB deletion
 - `open(attachment, {allowRisky = false})` → `Future<String?>` — `null` = OK, αλλιώς μήνυμα `AppErrors` (S-16/1β, S298): guard → ύπαρξη → **Windows:** `launchUrl(Uri.file(path), LaunchMode.externalApplication)` (ShellExecuteW, **χωρίς** `cmd`) / **άλλα:** `OpenFilex.open`. **S-25:** εκτελέσιμος τύπος (Windows) χωρίς `allowRisky: true` → `attachOpenBlocked` (fail-safe). Μοναδικό UI entry point: `openAttachment()` στο `attachments_strip.dart` (exported από `widgets.dart`) — εικόνες → private fullscreen preview, όλα τα άλλα → `open`.
-- Internal: copies to `attachments/` subdirectory in app documents
-- **S-18 (security v2, βήμα 1α):** SPoT για το «πού επιτρέπεται» ένα path = `AttachmentPathGuard` (`lib/core/utils/attachment_path_guard.dart`): `dirName = 'attachments'`, root = `<documents>/attachments`, **fail-closed** `resolve()` (λεξικός: `isAbsolute` + `normalize` + `isWithin`, χωρίς I/O) · `configure(documentsDir:)` στο `SuperNoteHelper.init()` (idempotent, re-init μετά restore) · `attachmentsDirName` = const delegate. Όλα τα open/preview/save-as/share/disk-delete περνούν από αυτό· εκτός root ⇒ `attachNotFound`/skip (ποτέ άνοιγμα, διαγραφή ή κοινοποίηση ξένου αρχείου).
+- Internal: copies to `attachments/` subdirectory of the **active data root** (`AppPaths.activeDataRoot()`, S-01)
+- **S-18 (security v2, βήμα 1α):** SPoT για το «πού επιτρέπεται» ένα path = `AttachmentPathGuard` (`lib/core/utils/attachment_path_guard.dart`): `dirName = 'attachments'`, root = `<appDataDir>/attachments`, **fail-closed** `resolve()` (λεξικός: `isAbsolute` + `normalize` + `isWithin`, χωρίς I/O) · `configure(appDataDir:)` στο `SuperNoteHelper.init()` (idempotent, re-init μετά restore) · `attachmentsDirName` = const delegate. Όλα τα open/preview/save-as/share/disk-delete περνούν από αυτό· εκτός root ⇒ `attachNotFound`/skip (ποτέ άνοιγμα, διαγραφή ή κοινοποίηση ξένου αρχείου).
 - **S-25 (security v2, βήμα 1γ):** ίδιος guard, δεύτερη πολιτική — `isRiskyToLaunch(path, {windows})`: pure (μηδέν I/O), denylist `launchRiskExtensions` (`.exe`, `.bat`, `.cmd`, `.ps1`, `.lnk`, `.msi`, `.jar`, `.hta`, `.vbs`, `.settingcontent-ms` κ.λπ.), κρίνει **μόνο** το basename αφού κόψει ADS (`:` → `evil.exe::$DATA`) και τελικές τελείες/κενά (`evil.exe.`), lowercase. Εκτός Windows → πάντα false. `openAttachment` εμφανίζει `ConfirmDialog` (title/body/confirm από `AppErrors`) και περνά `allowRisky`· το `open()` ξαναελέγχει (fail-safe για μελλοντικούς callers). Οι εικόνες δεν ρωτούν (μόνο decode). **Όρια:** macOS/Linux (`.command`/`.sh`/`.app`), Office macros, όχι `IAttachmentExecute`/FFI, denylist όχι πλήρης, Android αμετάβλητο.
 
 ### BackupService (`lib/services/backup_service.dart`, S-02)
@@ -570,6 +596,7 @@ final db = SuperNoteHelper.instance;
 - `autoBackup()` — `.snb` στο background (1/24ωρο, rotation κρατά 5)· **χωρίς κλειδί συνεδρίας σκιπάρεται** (D8, ποτέ plaintext)· `listAutoBackups()` δείχνει `auto_*.<snb|zip>`.
 - **E50 (S305) — τοποθεσία:** τα auto backups ζουν στο **`getApplicationSupportDirectory()/SuperNoteBackups`** (= `filesDir` στο Android· επιβιώνει σε «Εκκαθάριση cache»/OS purge), **όχι** στον cache. Το temp zip είναι **plaintext** και ζει μόνο σε `cache/_backup_auto_<ts>/` (σβήνεται στο `finally` + από το sweep). Legacy ανάγνωση: `BackupRotation.listIn([support, legacy cache])` με **dedupe κατά basename** (μόνιμο dual-read — αποτυχία μετακίνησης δεν κρύβει αντίγραφα)· `rotateIn` με **συνολικό** `maxAutoBackups`· μία φορά adopt (`BackupRotation.adoptLegacy`, rename-first, copy ≤20 MB) από το `sweepStaleArtifacts` (startup + μετά restore), ποτέ από UI read και ποτέ σε maintenance.
 - `sweepStaleArtifacts()` — καθαρισμός `_backup_export_*`/`_backup_share_*`/`_restore_prepare_*`/`_backup_auto_*` temp dirs + `.partial/.tmp` σε support **και** legacy φάκελο (postFrame εκκίνησης + μετά από restore).
+- **S-01:** export / share / auto-backup / restore διαβάζουν και γράφουν στη **ρίζα δεδομένων** (`AppPaths.activeDataRoot()`), όχι στα Documents. Το auto-backup παραμένει στο support dir (E50) — η S-01 **δεν** αλλάζει την τοποθεσία των αντιγράφων.
 - **Απόφαση (S305) — By-design:** το auto backup είναι **εσωτερικός μηχανισμός** (undo σε λάθος διαγραφή / restore από κακή κατάσταση / update που χάλασε κάτι) και **δεν** αποκτά επιλογή προορισμού/SAF — η off-device διαδρομή (αλλαγή συσκευής, uninstall, cloud) καλύπτεται **μόνο** από τη χειροκίνητη εξαγωγή `.snb` με φάκελο επιλογής χρήστη. Άρα το «E50-B» απορρίπτεται by design.
 - `beginDbMaintenance()` / `endDbMaintenance({rearmRefresh})` — E33 orchestration: pause+drain scheduler/habit queues και in-flight **autoBackup/export/prepare** έως 65s· epoch guard ώστε autoBackup που ξεκίνησε πριν το restore να μην γράψει `lastAutoBackupAt` σε DB που αλλάζει.
 - `_atomicRestoreDb(PreparedRestore)` — drain → safety DB με `copyToFile` → `SuperNoteHelper.close()` → αντικατάσταση DB (πάντα copy από sanitized snapshot) + attachments (rename) → re-init. Μετά το close **δεν** γίνεται resume· success ή failure → `BackupImportResult.restartRequired = true`.
@@ -982,6 +1009,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Notification toggles
 - Data management: backup export/import + full wipe
 - Full wipe (E33/B13): DB + live `attachments/` + restore leftovers (`_pre_restore_*`) + app cache (`file_picker`/`_backup_zipval_*` temps) + auto backups (`files/SuperNoteBackups`, E50 — πλέον support dir, όχι cache) + `.migration_safety`· το migration ξαναφτιάχνει 1 snapshot στο restart.
+- **S-01:** wipe σε **ενεργή ρίζα** (`AppPaths.activeDataRoot()`) + `-lck` + **legacy leftovers** (allowlist `_deleteLegacyLeftovers`) — αλλιώς «όλα τα δεδομένα διαγράφηκαν» θα άφηνε βάση/συνημμένα στα Documents. Νέο read-only tile **«Τοποθεσία δεδομένων»** (`settings_data_location.dart`, D6): δείχνει τη διαδρομή, αντιγράφει με tap, προειδοποιεί αν υπάρχουν ακόμη αρχεία στην παλιά τοποθεσία. Καμία επιλογή τοποθεσίας από τον χρήστη (by design).
 - Restore/wipe UX (E33): barrier dialog (`PopScope(canPop:false)`)· success ή failure μετά το close → restart dialog + `exit(0)`· failure πριν το close → snackbar και η εφαρμογή συνεχίζει· export κατά maintenance → `AppErrors.backupBusy`.
 - Per-type card color picker (two-level: 19 Material color families → 10 shades)
 - Visible types filtered: note, task, event, contact, habit, journal, appointment (hidden: goal, bookmark, finance, checklist, knowledge)

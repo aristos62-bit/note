@@ -3,7 +3,7 @@
 // S-18 (security v2) — SPoT για το «πού επιτρέπεται» ένα attachment path.
 // S-25 (security v2) — και «αν το άνοιγμά του εκτελεί κώδικα» (Windows).
 //
-// Επιτρεπτό root: <documents>/attachments (βλ. [dirName]).
+// Επιτρεπτό root: <appDataDir>/attachments (βλ. [dirName]).
 // Ο έλεγχος είναι ΛΕΞΙΚΟΣ (normalize + isWithin) — χωρίς I/O και χωρίς
 // symlink resolution (residual R1), ώστε να καλείται άφοβα μέσα σε build().
 //
@@ -11,7 +11,7 @@
 // root → null. Ο caller δείχνει placeholder ή AppErrors.attachNotFound.
 //
 // ΧΡΗΣΗ:
-//   AttachmentPathGuard.configure(documentsDir: dir);  // SuperNoteHelper.init()
+//   AttachmentPathGuard.configure(appDataDir: dir);  // SuperNoteHelper.init()
 //   final path = AttachmentPathGuard.resolve(attachment.localPath);
 import 'dart:io' show Platform;
 
@@ -35,22 +35,22 @@ class AttachmentPathGuard {
   static bool _warnedUnconfigured = false;
   static bool _warnedRejected = false;
 
-  /// root = normalize(join(documentsDir, [dirName])).
+  /// root = normalize(join(appDataDir, [dirName])).
   /// Idempotent — ξανακαλείται μετά από restore/wipe.
-  static void configure({required String documentsDir}) {
+  static void configure({required String appDataDir}) {
     _warnedUnconfigured = false;
     _warnedRejected = false;
 
     // Το isWithin() αυτο-απολυτοποιεί τη σχετική πλευρά με το CWD
     // (path 1.9.x, context.dart) → ένα σχετικό root θα ήταν CWD-εξαρτώμενο.
-    if (!p.isAbsolute(documentsDir)) {
+    if (!p.isAbsolute(appDataDir)) {
       _root = null;
       DebugConfig.warning(
-          'AttachmentPathGuard: non-absolute documentsDir — fail-closed');
+          'AttachmentPathGuard: non-absolute appDataDir — fail-closed');
       return;
     }
 
-    final next = p.normalize(p.join(documentsDir, dirName));
+    final next = p.normalize(p.join(appDataDir, dirName));
     final wasConfigured = _root != null;
     _root = next;
     if (wasConfigured) {
