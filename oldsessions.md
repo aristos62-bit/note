@@ -5318,6 +5318,30 @@ if (!context.isShortScreen)
 
 ## Backups
 
-`backups/s01_20261113_170655/` — 18 αρχεία (flat `__` ονόματα), πριν από κάθε αλλαγή.
+`backups/s01_20261113_170655/` — 18 αρχεία (flat `__` ονόματα), πριν από κάθε αλλαγή + `super_note_prev_1.0.4.apk` (το APK πριν το S-01 build, 27.3MB).
+
+## Commit & Docs
+
+- **Commit:** `a5d8121` — `feat(storage): S-01 data root outside Documents (LOCALAPPDATA\SuperNoteData)` → `main` (εξαιρέθηκαν `backups/*`, `InstallerOutput/SuperNoteSetup.exe`, `security.md`, `device-test/`).
+- **Docs:** `supernote.md` — test suite 686/686, `path_provider` γραμμή, νέα ενότητα «Τοποθεσία δεδομένων (S-01)» (πίνακας πλατφορμών, `activeDataRoot`, migration/commit point/D3′/rebase/Δ2/wipe/όρια), ενημερώσεις σε `SuperNoteHelper`, `AttachmentService`, `BackupService`, `SettingsScreen`.
+
+## Device test (POCO X3 `9593c01e`)
+
+**Build:** `flutter build apk --release` (69.8MB) → `adb install -r` → **Success** (versionName 1.0.4, versionCode 2). Το προηγούμενο APK κρατήθηκε στο `backups/`.
+
+| Έλεγχος | Αποτέλεσμα |
+|---|---|
+| Cold start (force-stop → launch) | OK — 0 `FATAL EXCEPTION`, 0 `E/flutter` σε 3 launches |
+| Δεδομένα ακέραια μετά το update | Home folders + λίστα σημειώσεων: «s98 pdf» 1 συνημμένο, «IMG_20250324_100700.jpg» 1, «IMG_20260603_105152.jpg» 1, «e39 many» 25, «E39 test» 1, «E39 no files», «Δανεια» |
+| Auto backup (E50 ανέπαφο) | Tile «Στη συσκευή · 5 αντίγραφα · 327.3MB» + 5 εγγραφές με «Επαναφορά» |
+| Νέο tile «Τοποθεσία δεδομένων» (D6) | `/data/user/0/com.example.super_note/app_flutter`, **χωρίς** legacy warning |
+| Tap στο tile | Snackbar «Η διαδρομή αντιγράφηκε» |
+| Άνοιγμα note + thumbnail + fullscreen preview | OK, χωρίς σφάλμα (guard path OK) |
+| Εγγραφή στη DB | Toggle «Αγαπημένο» → «Αφαίρεση αγαπημένου» + «Τελ. τροποποίηση μόλις τώρα» ⇒ `Isar` γράφει κανονικά στην ενεργή ρίζα (μετά επαναφορά) |
+
+**Σημειώσεις:**
+- Στο Android `documents == app_flutter == legacy` ⇒ `dataRoot == legacy` ⇒ **no-op** — επιβεβαιώθηκε από το tile. Τα Windows-only τμήματα (migration, `.migration_safety`, D3′, rebase) καλύπτονται **μόνο** από τα 23 νέα unit tests, όχι από τη συσκευή.
+- **Δεν** εκτελέστηκε «Διαγραφή όλων»: καταστροφικό για τα πραγματικά δεδομένα του χρήστη (ίδια απόφαση με S305). Το `updatedAt` του note «IMG_20250324_100700.jpg» άλλαξε λόγω του toggle test (αναμενόμενο).
+- Screenshots + `summary.md`: `device-test/` (10 png). Τα `/sdcard/*.xml` του test διαγράφηκαν· η εφαρμογή force-stopped, η συσκευή επέστρεψε στον launcher.
 
 
