@@ -5223,3 +5223,24 @@ if (!context.isShortScreen)
 
 **Commit:** `40b3fdf` (fix(settings): E49 …) → `main`.
 
+## E50 — τα auto backups χάνονται με «Εκκαθάριση cache» (S305)
+
+**Εύρημα:** ο φάκελος των αυτόματων αντιγράφων ήταν `getTemporaryDirectory()/SuperNoteBackups` (Android `cacheDir`). «Εκκαθάριση cache» από τις Ρυθμίσεις Android ή OS purge στα **διέγραφε σιωπηλά** — ακριβώς τα αντίγραφα που προστατεύουν από λάθος/αποτυχημένο update. Επίσης το temp zip (DB + attachments **plaintext**) ζούσε στον ίδιο φάκελο, και το `listAutoBackups()` είχε `catch (_)` (σιωπηλή αποτυχία).
+
+**Απόφαση (A, αυτή η φάση):** μετακόμιση στον **μόνιμο** app χώρο — `getApplicationSupportDirectory()/SuperNoteBackups` (= `filesDir` στο Android: επιβιώνει σε clear-cache, σβήνεται μόνο με clear-data/uninstall). Τα E50-B (SAF/εξωτερικός προορισμός) και E50-C (iOS `Library/Application Support`) μένουν **ξεχωριστές** φάσεις. Μηδέν νέα αρχεία/provider/schema/dependency/message.
+
+**Υλοποίηση:**
+
+1. `backup_rotation.dart` — η **πολιτική** πολλαπλών φακέλων (καθαρό `dart:io`, unit-testable): `listIn(dirs)` (merged, **dedupe κατά basename** — ο πρώτος φάκελος κερδίζει, ταξινόμηση κατά basename φθίνουσα γιατί το όνομα είναι UTC), `rotateIn(dirs, max:)` (**ένα** συνολικό όριο, όχι 5 ανά φάκελο), `sweepPartialsIn(dirs)`, `totalBytes(paths)` (για τη γραμμή UI· λείπον αρχείο ⇒ skip), `adoptLegacy({target, legacy})`. Τα `list`/`rotate`/`sweepPartials` έγιναν **wrappers** (αμετάβλητο API, μηδέν αλλαγές στους callers). Στα logs: `AppStringUtils.redact` στα ονόματα αρχείων.
+2. `adoptLegacy` (μία φορά ανά process, **idempotent**): αγγίζει **μόνο** `auto_*.<snb|zip>`· **rename-first** (ίδιο volume = στιγμιαίο)· copy+delete **μόνο** αν το rename αποτύχει και το αρχείο είναι ≤ `adoptCopyMaxBytes` (20 MB — να μη μπλοκάρει το startup με 87 MB)· σύγκρουση ίδιου basename: ίδιο μέγεθος ⇒ διαγράφεται το legacy (αληθινό διπλότυπο), διαφορετικό ⇒ **μένουν και τα δύο** (καμία απώλεια)· άδειος legacy φάκελος διαγράφεται (ποτέ ο root).
+3. `backup_service.dart` — `maxAutoBackups` (5) + `autoBackupDirName` γίνονται **public** (SPoT· τα χρησιμοποιεί και το wipe)· `_autoBackupSupportDir()` (χωρίς δημιουργία φακέλου — ώστε το startup sweep να μην αφήνει άδειο φάκελο σε χρήστες χωρίς auto-backup) + `_getAutoBackupDir()` (με δημιουργία) + `_getLegacyAutoBackupDir()` + `_autoBackupRoots()` (νέος **πρώτος**)· `_ensureLegacyAutoBackupsAdopted()` με `_legacyAdoptDone`/`_legacyAdoptInFlight` (**single-flight**: startup sweep + μετά-restore μπορούν να συμπέσουν) και **skip σε maintenance** (E33: κανένα νέο file op μέσα στο παράθυρο restore/wipe)· `_rotateAutoBackups()` merged· `listAutoBackups()` → `listIn(roots)` + `DebugConfig.warning` αντί `catch (_)`· temp zip σε `cache/_backup_auto_<ts>/` (plaintext ποτέ στον μόνιμο φάκελο, `finally` + sweep)· `sweepStaleArtifacts()` = prefixes + adopt + `sweepPartialsIn`.
+4. `settings_tiles.dart` — `_bytes` (μέγεθος στην **ίδια** ανάγνωση με τη λίστα: μηδέν I/O στο build)· `_busy` (anti-double-tap, switch ενεργό αλλά μη διαδραστικό)· `_onToggle` με maintenance guard → `AppErrors.backupBusy`· `SettingsInfoTile` «Στη συσκευή · N αντίγραφα · X» (κρύβεται όταν δεν υπάρχει αντίγραφο) + `NotificationHintRow` (χάνονται με απεγκατάσταση/διαγραφή δεδομένων)· `.take(BackupService.maxAutoBackups)`.
+5. `settings_backup.dart` — `_deleteAutoBackups()` στο wipe: διαγράφει **μόνο** τον υποφάκελο `SuperNoteBackups` του support dir (ποτέ ολόκληρο το `files/`)· το `_deleteCacheArtifacts()` δεν αναφέρει πια auto backups.
+6. `services.dart` — `export 'share/share_formatters.dart';` (το `humanSize` δεν εξαγόταν από το barrel).
+
+**Έλεγχοι:** `flutter analyze` → **No issues found** · `flutter test` → **663/663 All tests passed** (41s) — 651 + 11 νέα στο `test/backup_rotation_test.dart` (group «E50 multi-dir»: dedupe/sort, ανύπαρκτοι φάκελοι, συνολικό rotation, partials, totalBytes, adopt move/idempotent/άδειος φάκελος/διπλότυπο/σύγκρουση/ανύπαρκτος, wrapper compatibility) + 1 στο `test/settings_auto_backup_tile_test.dart` (χωρίς αντίγραφα ⇒ καμία γραμμή).
+
+**Docs:** `supernote.md` — BackupService: νέα ενότητα E50 (τοποθεσία, dual-read, adopt, temp zip) + `sweepStaleArtifacts` + wipe (το `SuperNoteBackups` δεν είναι πια cache artifact).
+
+**Backups:** `backups/s305_e50_20261113_142733/` — 10 αρχεία (flat `__` ονόματα).
+

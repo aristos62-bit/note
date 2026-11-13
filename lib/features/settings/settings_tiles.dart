@@ -356,6 +356,14 @@ class SettingsAutoBackupTile extends ConsumerStatefulWidget {
 class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> {
   List<String> _paths = const [];
 
+  /// E50: συνολικό μέγεθος των αυτόματων αντιγράφων (υπολογισμένο στην ίδια
+  /// ανάγνωση με τη λίστα — κανένα I/O μέσα στο build).
+  int _bytes = 0;
+
+  /// S-24 pattern: όσο αποθηκεύεται η αλλαγή, το switch μένει ενεργό αλλά
+  /// μη διαδραστικό (όχι `enabled:false`, που θα το έδειχνε λανθασμένα OFF).
+  bool _busy = false;
+
   @override
   void initState() {
     super.initState();
@@ -367,10 +375,42 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
   Future<void> _loadPaths() async {
     try {
       final paths = await BackupService.instance.listAutoBackups();
+      final bytes = await BackupRotation.totalBytes(paths);
       if (!mounted) return;
-      setState(() => _paths = paths);
+      setState(() {
+        _paths = paths;
+        _bytes = bytes;
+      });
     } catch (e, s) {
       DebugConfig.error('SettingsAutoBackupTile.listAutoBackups', e, s);
+    }
+  }
+
+  /// E50: anti-double-tap + maintenance guard (E33). Το switch δείχνει την
+  /// τρέχουσα τιμή· μια αλλαγή τη φορά, ποτέ κατά τη διάρκεια restore/wipe.
+  Future<void> _onToggle(bool v) async {
+    if (_busy) return;
+    if (BackupService.instance.isMaintenanceActive) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppErrors.backupBusy)),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(settingsNotifierProvider.notifier)
+          .setAutoBackupEnabled(v);
+      if (!mounted) return;
+      _reload();
+      if (v && !BackupPassphraseCache.instance.hasPassphrase) {
+        await ensureBackupPassphrase(context, requireConfirmation: true);
+        if (!mounted) return;
+        _reload();
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -395,22 +435,37 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SettingsSwitchTile(
-          label: 'Αυτόματο αντίγραφο',
+          label: 'Αυτόματο αντίγραφο ',
           subtitle:
-              'Κρυπτογραφημένο .snb κατά την έξοδο (1/24ωρο) · Τελευταίο: $lastRun',
+              'Εάν ενεργοποιηθεί το auto-backup προστατεύει από αστοχίες μέσα στην εφαρμογή (λάθος διαγραφή, '
+                  'restore από κακή κατάσταση, update που χάλασε κάτι) — όχι από uninstall/αλλαγή συσκευής/καθαρισμό δεδομένων,'
+                  'που καλύπτονται ΜΟΝΟ απο την χειροκίνητη εξαγωγή δεδομένων - '
+                  'Κρυπτογραφημένο .snb κατά την έξοδο (Συχνότητα 1 ανά 24ωρο) · Τελευταίο: $lastRun',
           value: settings.autoBackupEnabled,
-          onChanged: (v) async {
-            ref
-                .read(settingsNotifierProvider.notifier)
-                .setAutoBackupEnabled(v);
-            _reload();
-            if (v && !BackupPassphraseCache.instance.hasPassphrase) {
-              await ensureBackupPassphrase(context,
-                  requireConfirmation: true);
-              _reload();
-            }
-          },
+          busy: _busy,
+          onChanged: _onToggle,
         ),
+        // E50: τοποθεσία/πλήθος/μέγεθος — μία γραμμή, χωρίς όριο/auto-delete.
+        if (settings.autoBackupEnabled && _paths.isNotEmpty)
+          SettingsInfoTile(
+            label: 'Στη συσκευή',
+            value:
+                '${_paths.length == 1 ? '1 αντίγραφο' : '${_paths.length} αντίγραφα'}'
+                ' · ${ShareFormatters.humanSize(_bytes)}',
+          ),
+        if (settings.autoBackupEnabled && _paths.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.xs,
+            ),
+            child: NotificationHintRow(
+              icon: Icons.info_outline_rounded,
+              text: 'Τα αντίγραφα μένουν στη συσκευή και χάνονται με '
+                  'απεγκατάσταση ή διαγραφή δεδομένων.',
+              compact: true,
+            ),
+          ),
         if (settings.autoBackupEnabled &&
             !BackupPassphraseCache.instance.hasPassphrase)
           ListTile(
@@ -436,7 +491,7 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
         if (settings.autoBackupEnabled && _paths.isNotEmpty)
           Column(
             children: [
-              for (final pth in _paths.take(5))
+              for (final pth in _paths.take(BackupService.maxAutoBackups))
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,

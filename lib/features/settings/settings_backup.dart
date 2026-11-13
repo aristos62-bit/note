@@ -461,6 +461,8 @@ Future<void> clearAllData(BuildContext context, WidgetRef ref) async {
     // T3/A: πλήρες wipe — app-owned cache artifacts + migration snapshots.
     await _deleteCacheArtifacts();
     await _deleteMigrationSafety(isarDir);
+    // E50: τα auto backups ΔΕΝ είναι πλέον cache artifacts (support dir).
+    await _deleteAutoBackups();
 
     // E29: durable καθαρισμός OS alarms/tray μετά τη διαγραφή της DB.
     // Reuse του υπάρχοντος primitive (E15-F2): tray + AlarmManager + boot
@@ -564,9 +566,12 @@ Future<void> _deleteLiveAttachments(Directory dir) async {
 }
 
 /// Best-effort καθαρισμός των app-owned cache artifacts μετά τη διαγραφή της
-/// DB: auto backups (SuperNoteBackups), file_picker αντίγραφα, παλιά
-/// validation temps κ.λπ. Ο temp φάκελος ξαναδημιουργείται ώστε να μην
-/// λείπει μέχρι το restart.
+/// DB: file_picker αντίγραφα, παλιά validation/export temps, temp zip του
+/// auto-backup κ.λπ. Ο temp φάκελος ξαναδημιουργείται ώστε να μην λείπει μέχρι
+/// το restart.
+///
+/// E50: τα auto backups (`SuperNoteBackups`) **δεν** ζουν πλέον εδώ — είναι
+/// στο support dir και καθαρίζονται ρητά από το [_deleteAutoBackups].
 Future<void> _deleteCacheArtifacts() async {
   try {
     final cacheDir = await getTemporaryDirectory();
@@ -577,6 +582,23 @@ Future<void> _deleteCacheArtifacts() async {
     await cacheDir.create(recursive: true);
   } catch (e) {
     DebugConfig.warning('Wipe: cleanup cache failed: $e');
+  }
+}
+
+/// E50: διαγραφή των auto backups του support dir (`files/` στο Android).
+/// **Μόνο** ο υποφάκελος `SuperNoteBackups` — ποτέ ολόκληρο το `files/`, που
+/// περιέχει και άλλα app-owned αρχεία. Best-effort: δεν αποτυγχάνει το wipe.
+Future<void> _deleteAutoBackups() async {
+  try {
+    final support = await getApplicationSupportDirectory();
+    final dir =
+        Directory('${support.path}/${BackupService.autoBackupDirName}');
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+      DebugConfig.db('Wipe: deleted auto backups directory');
+    }
+  } catch (e) {
+    DebugConfig.warning('Wipe: cleanup auto backups failed: $e');
   }
 }
 

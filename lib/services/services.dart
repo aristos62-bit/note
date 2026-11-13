@@ -18,6 +18,9 @@ export 'backup/backup_passphrase_cache.dart';
 export 'backup/backup_rotation.dart';
 export 'contact_import_service.dart';
 export 'share_service.dart';
+// E50: το `ShareFormatters` (humanSize) είναι πλέον κοινό SPoT μορφοποίησης
+// μεγέθους και για το UI (Ρυθμίσεις → auto backup).
+export 'share/share_formatters.dart';
 export 'shared_intent_service.dart';
 export 'app_lock_service.dart';
 export 'migration_service.dart';
