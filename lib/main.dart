@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'helpers/super_note_helper.dart';
 import 'features/lock/lock.dart';
+import 'features/settings/settings_backup_passphrase_gate.dart';
 import 'models/models.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
@@ -140,6 +141,14 @@ void main() async {
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     // PROBE S237: πρώτη γραμμή — αν λείπει, το callback δεν τρέχει καθόλου.
     DebugConfig.startup('postFrame ENTER');
+
+    // S-02 (N6): καθάρισε ημιτελή temp artifacts (kill/force-stop δεν
+    // προλαβαίνει τα `finally` των export/prepare).
+    try {
+      await BackupService.instance.sweepStaleArtifacts();
+    } catch (e, stack) {
+      DebugConfig.error('postFrame: sweepStaleArtifacts failed', e, stack);
+    }
     // Πρώτα τα «ελαφριά»/UI-κρίσιμα βήματα· το βαρύ scheduling είναι ΤΕΛΕΥΤΑΙΟ
     // (scheduleAll ~1.5s/177 alarms, ~20s/450 — μετρημένο PERF#9) ώστε να μη
     // καθυστερεί το SharedIntent / πλοήγηση από πάτημα ειδοποίησης.
@@ -290,6 +299,7 @@ class SuperNoteApp extends ConsumerWidget {
                 child: child!,
               ),
               const LockGateScreen(),
+              const BackupPassphraseGate(),
             ],
           ),
         );

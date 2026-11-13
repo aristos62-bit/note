@@ -1,7 +1,8 @@
 // lib/features/settings/settings_backup.dart
 //
 // S253 (P2): export / import / wipe (split από settings_screen.dart).
-//
+// S-02: κρυπτογραφημένα αντίγραφα (.snb) + δύο φάσεις import
+//       (prepare → confirm → restorePrepared).
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../core/core.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
+import 'settings_backup_passphrase.dart';
 import 'settings_pin_dialogs.dart';
 
 Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
@@ -31,12 +33,21 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
   }
   if (!context.mounted) return;
 
+  // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ. Μία προτροπή κωδικού ανά
+  // συνεδρία — αν υπάρχει ήδη κλειδί, χρησιμοποιείται.
+  final passphrase = await ensureBackupPassphrase(
+    context,
+    requireConfirmation: !BackupPassphraseCache.instance.hasPassphrase,
+  );
+  if (passphrase == null || !context.mounted) return;
+
   final choice = await showDialog<String>(
     context: context,
     useRootNavigator: true,
     builder: (ctx) => AlertDialog(
       title: const Text('Εξαγωγή αντιγράφου'),
-      content: const Text('Πώς θέλετε να αποθηκεύσετε το αντίγραφο ασφαλείας;'),
+      content: const Text('Το αντίγραφο θα κρυπτογραφηθεί (AES-256).\n\n'
+          'Πώς θέλετε να το αποθηκεύσετε;'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, 'device'),
@@ -62,9 +73,10 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
 
   final BackupExportResult result;
   if (choice == 'device') {
-    result = await BackupService.instance.exportToDevice();
+    result = await BackupService.instance.exportToDevice(passphrase: passphrase);
   } else {
-    result = await BackupService.instance.exportWithShare();
+    result =
+        await BackupService.instance.exportWithShare(passphrase: passphrase);
   }
 
   if (!context.mounted) return;
@@ -118,17 +130,23 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
   final srcPath = fromPath ?? await BackupService.instance.pickBackupFile();
   if (srcPath == null || !context.mounted) return;
 
-  // 2. Προέλεγχος (υπάρχει / μέγεθος)
-  final srcFile = File(srcPath);
-  if (!await srcFile.exists()) {
-    messenger.showSnackBar(const SnackBar(
-      content: Text(AppErrors.backupNotFound),
-      backgroundColor: Colors.red,
-    ));
-    return;
+  // 2. Μορφή από magic bytes — τα extensions δεν αρκούν (N1).
+  final format = await BackupContainer.detectFormat(srcPath);
+  if (!context.mounted) return;
+  String? passphrase;
+  if (format == BackupFormat.snb) {
+    passphrase = await showBackupPassphraseDialog(
+      context,
+      title: 'Κωδικός αντιγράφου',
+      message: 'Εισάγετε τον κωδικό που χρησιμοποιήθηκε κατά την εξαγωγή.',
+      confirmLabel: 'Έλεγχος',
+      initial: BackupPassphraseCache.instance.passphrase,
+    );
+    if (passphrase == null || !context.mounted) return;
   }
 
-  // 3. Deep validation (προσωρινό Isar instance)
+  // 3. Prepare (S-02): decrypt → allowlist extract → probe → strip lock.
+  //    Δεν αγγίζει τη live DB — μια αποτυχία είναι πλήρως ασφαλής.
   if (!context.mounted) return;
   // S253 (F11): αν ο χρήστης κλείσει το loading με back, ΜΗΝ ποπάρεις το Settings.
   final navigator = Navigator.of(context, rootNavigator: true);
@@ -147,32 +165,47 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     ),
   ).whenComplete(() => loadingOpen = false);
 
-  final validation = await BackupService.instance.validateBackupFile(srcPath);
+  final prep =
+      await BackupService.instance.prepare(srcPath, passphrase: passphrase);
 
   if (loadingOpen) {
     navigator.pop();
   }
 
-  if (!validation.valid || !context.mounted) {
+  if (!prep.success) {
     if (!context.mounted) return;
     messenger.showSnackBar(SnackBar(
-      content: Text(validation.reason ?? AppErrors.backupInvalid),
+      content: Text(prep.error ?? AppErrors.backupInvalid),
       backgroundColor: context.cError,
     ));
     return;
   }
 
+  final prepared = prep.prepared!;
+  if (!context.mounted) {
+    await BackupService.instance.discardPrepared(prepared);
+    return;
+  }
+
   // 4. Διάλογος επιβεβαίωσης
+  final lockNote = prepared.strippedAppLock
+      ? '\n\nΤο κλείδωμα εφαρμογής και τα βιομετρικά του αντιγράφου '
+          'δεν μεταφέρονται — θα χρειαστεί να τα ενεργοποιήσετε ξανά.'
+      : '';
   final confirm = await ConfirmDialog.show(
     context,
     title: 'Εισαγωγή δεδομένων;',
     subtitle: 'Το backup είναι έγκυρο.\n\n'
         'Τα υπάρχοντα δεδομένα θα αντικατασταθούν.\n'
-        'Η εφαρμογή θα τερματιστεί και θα χρειαστεί να την ξανανοίξετε.',
+        'Η εφαρμογή θα τερματιστεί και θα χρειαστεί να την ξανανοίξετε.'
+        '$lockNote',
     confirmLabel: 'Εισαγωγή',
     icon: Icons.download_rounded,
   );
-  if (!confirm || !context.mounted) return;
+  if (!confirm || !context.mounted) {
+    await BackupService.instance.discardPrepared(prepared);
+    return;
+  }
 
   // 5. Atomic restore — barrier dialog ώστε να μη γίνει write όσο κλείνει η DB.
   final restoreNavigator = Navigator.of(context, rootNavigator: true);
@@ -194,7 +227,7 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     ),
   ).whenComplete(() => restoreDialogOpen = false);
 
-  final result = await BackupService.instance.restoreBackup(srcPath);
+  final result = await BackupService.instance.restorePrepared(prepared);
 
   if (restoreDialogOpen) {
     restoreNavigator.pop();
@@ -205,12 +238,17 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     return;
   }
 
+  final lockStrippedNote = prepared.strippedAppLock
+      ? '\n\n${AppErrors.backupLockStripped}'
+      : '';
+
   if (result.success) {
     await _showRestartDialog(
       context,
       title: 'Επιτυχής εισαγωγή',
       message: 'Η εφαρμογή θα τερματιστεί τώρα.\n\n'
-          'Παρακαλώ ανοίξτε την ξανά για να συνεχίσετε.',
+          'Παρακαλώ ανοίξτε την ξανά για να συνεχίσετε.'
+          '$lockStrippedNote',
     );
   } else if (result.restartRequired) {
     await _showRestartDialog(

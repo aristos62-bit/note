@@ -5,12 +5,14 @@
 //
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
 import 'settings_backup.dart';
+import 'settings_backup_passphrase.dart';
 
 // ════════════════════════════════════════════════════════════════
 // REUSABLE TILES
@@ -374,15 +376,43 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
       children: [
         SettingsSwitchTile(
           label: 'Αυτόματο αντίγραφο',
-          subtitle: 'Zip κατά την έξοδο (1/24ωρο) · Τελευταίο: $lastRun',
+          subtitle:
+              'Κρυπτογραφημένο .snb κατά την έξοδο (1/24ωρο) · Τελευταίο: $lastRun',
           value: settings.autoBackupEnabled,
-          onChanged: (v) {
+          onChanged: (v) async {
             ref
                 .read(settingsNotifierProvider.notifier)
                 .setAutoBackupEnabled(v);
             _reload();
+            if (v && !BackupPassphraseCache.instance.hasPassphrase) {
+              await ensureBackupPassphrase(context,
+                  requireConfirmation: true);
+              _reload();
+            }
           },
         ),
+        if (settings.autoBackupEnabled &&
+            !BackupPassphraseCache.instance.hasPassphrase)
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.key_rounded, size: 20),
+            title: Text('Απαιτείται κωδικός αντιγράφου',
+                style: context.bodySm),
+            subtitle: Text(
+              'Τα αυτόματα αντίγραφα μένουν ανενεργά μέχρι να ορίσετε κωδικό '
+              'για αυτή τη συνεδρία.',
+              style: context.bodySm,
+            ),
+            trailing: TextButton(
+              onPressed: () async {
+                await ensureBackupPassphrase(context,
+                    requireConfirmation: true);
+                _reload();
+              },
+              child: const Text('Ορισμός'),
+            ),
+          ),
         if (settings.autoBackupEnabled)
           FutureBuilder<List<String>>(
             future: _future,
@@ -396,7 +426,7 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       title: Text(
-                        pth.split('/').last,
+                        p.basename(pth),
                         style: context.bodySm,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

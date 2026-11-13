@@ -5128,3 +5128,62 @@ if (!context.isShortScreen)
 - Στο desktop το `AttachmentsStrip` κάθεται ακριβώς κάτω από το `NewBlockBar` («+ Προσθήκη»)· με 0 blocks **δεν** χρειάζεται scroll — το «+» δεξιά στο «Συνημμένα (n)» ανοίγει τον native picker (θυμάται τον τελευταίο φάκελο· πληκτρολόγηση πλήρους διαδρομής στο «File name» + Enter δουλεύει).
 - Το file picker (`com.android.documentsui`/MIUI) ζητά 2 taps (άνοιγμα φακέλου → επιλογή αρχείου)· το back επιστρέφει στην εφαρμογή χωρίς αλλαγή.
 - Defender CFA μπορεί να μπλοκάρει **σιωπηλά** μια Flutter desktop εφαρμογή που γράφει στα Documents — το μήνυμα του OS είναι «Could not find file»/`Access is denied`, όχι «blocked by policy».
+
+---
+
+# Session 304 — S-02: κρυπτογραφημένο backup (AES-256-GCM)
+
+**Εντολή χρήστη:** υλοποίηση **ολόκληρης** της εγκεκριμένης πρότασης S-02 σε μία ροή (αναστολή κανόνα #4 ως προς τα βήματα). Μόνο edit-tool για κώδικα· backup πριν από κάθε επεξεργασία.
+
+**Αφετηρία:** `flutter analyze` clean · **620/620** tests (S303).
+
+## Αποφάσεις (εγκεκριμένες πριν τον κώδικα)
+
+| # | Απόφαση |
+|---|---|
+| D1=A | Νέο dependency `cryptography` (SPoT κρυπτογραφίας, όχι χειροποίητο AES) |
+| D2=i | Ο κωδικός ζει **μόνο στη μνήμη** της συνεδρίας (ούτε Keystore, ούτε DB) |
+| D3 | Νέα μορφή `.snb` για export/share/auto-backup· **read** και legacy `.zip`/`.isar` |
+| D4=α | Προειδοποίηση για legacy plaintext αντίγραφα για **1 έκδοση** |
+| D5=β | Πρώτα το 9α (in-app container), SAF/native storage μετά |
+| D6 | Wipe/restore αγγίζουν **μόνο** app-owned αρχεία |
+| D7 | Κρυπτογράφηση **υποχρεωτική** σε export/share/auto-backup |
+| D8 | Μία προτροπή κωδικού ανά εκκίνηση όταν auto-backup ON· ακύρωση = skip μόνο αυτής της συνεδρίας |
+
+**Construction (C1–C7):** C1 thin wrapper (`BackupKdf`) πάνω στο `Pbkdf2`· C2 μία λίστα schema (`isarSchemas`) για live DB **και** probe· C3 sanitizer = copy σε `<unique>.isar` + `Isar.open(name: unique)` (χωρίς rename)· C4 STREAM (nonce 8B prefix + 4B counter, AAD = header ‖ index, `plaintextLength` στο header)· C5 κανένα sidecar, UTC sortable timestamp, `mimeType` στο `XFile`· C6 `cryptography ^2.9.0` + `sdk >=3.3.0`· C7 allowlist entries (`super_note_db.isar` + επίπεδα `attachments/*`).
+
+## Μορφή `.snb` v1
+
+`SNBK` magic + version(1) + kdf(1) + iterations(4) + saltLen(1) + salt(16) + noncePrefixLen(1) + prefix(8) + chunkSize(4) + plaintextLength(8) = **48 bytes** header. Κάθε chunk: ciphertext + GCM tag(16). AAD = header ‖ index(4B)· nonce = prefix(8) ‖ counter(4B). Το `totalEncryptedLength` ελέγχεται **ακριβώς** ίσο με το μέγεθος αρχείου ⇒ truncation/extra bytes = `SnbFormatException`· λάθος κωδικός/αλλοίωση = `BackupAuthException`. Chunk 1 MiB (`defaultChunkSize`), PBKDF2 120k iterations (αποδεκτό εύρος 10k–2M).
+
+## Νέα αρχεία
+
+- `lib/core/crypto/kdf.dart` — `BackupKdf` (PBKDF2-HMAC-SHA256, isolate, `randomBytes`), guard ορίων.
+- `lib/core/crypto/crypto.dart` — barrel.
+- `lib/models/isar_schemas.dart` — `isarSchemas` (C2).
+- `lib/services/backup/backup_container.dart` — header parse/serialize, `detectFormat` (magic bytes), `encryptFileTo`/`decryptFileTo` σε `.partial`+rename.
+- `lib/services/backup/backup_db_probe.dart` — `openSanitizeAndSnapshot` (trial open → `AppSettings(1)` gate → strip lock/lockout → `copyToFile`).
+- `lib/services/backup/backup_rotation.dart` — `isAutoBackupFile`, `list`, `rotate`, `sweepPartials`.
+- `lib/services/backup/backup_passphrase_cache.dart` — κωδικός συνεδρίας + generation.
+- `lib/features/settings/settings_backup_passphrase.dart` — dialog κωδικού (min 8, επιβεβαίωση, ορατότητα).
+- `lib/features/settings/settings_backup_passphrase_gate.dart` — gate εκκίνησης (D8).
+
+## Αλλαγές σε υπάρχοντα
+
+- `pubspec.yaml`: `sdk: '>=3.3.0 <4.0.0'` + `cryptography: ^2.9.0` (Changed 1 dependency).
+- `backup_service.dart`: `prepare`/`restorePrepared`/`discardPrepared`, `_atomicRestoreDb(PreparedRestore)`, passphrase σε export/share, auto-backup `.snb` + skip χωρίς κλειδί, `sweepStaleArtifacts`, 5ο in-flight (`_prepareInFlight`), `pickBackupFile` → `FileType.any` (το `FileType.custom` με `.snb` σπάει στο Android), `fileTimestamp()`, αφαίρεση `_checkIsarInDir`/παλιού validation.
+- `backup_archive.dart`: `isAllowedEntry` + allowlist extraction (traversal/nested/άγνωστα entries **δεν** γράφονται).
+- `settings_backup.dart`: κωδικός πριν την επιλογή προορισμού, δύο φάσεις import (prepare → confirm με σημείωση strip → restorePrepared), `discardPrepared` σε κάθε abort.
+- `settings_tiles.dart`: subtitle auto-backup `.snb`, `p.basename`, hint + κουμπί «Ορισμός» όταν λείπει κλειδί.
+- `settings_screen.dart`: «Δημιουργία κρυπτογραφημένου αντιγράφου .snb».
+- `app_errors.dart`: 7 νέα strings (passphrase required/wrong/too short/mismatch/hint/encrypt failed/lock stripped).
+- `super_note_helper.dart`: `isarSchemas` + αφαίρεση unused imports· `main.dart`: `sweepStaleArtifacts` στο postFrame + `BackupPassphraseGate` στο `builder` Stack.
+
+## Έλεγχοι
+
+- `flutter analyze` → **No issues found**.
+- Νέα tests: `backup_kdf_test.dart` (referenced PBKDF2 vectors cross-check με `crypto`, isolate, guards), `backup_container_test.dart` (round-trip 1/πολλά chunks/κενό, λάθος κωδικός, αλλοίωση, truncation, extra bytes, header, detectFormat), `backup_rotation_test.dart` (list/rotate/partials/ξένα αρχεία), `backup_archive_test.dart` (+allowlist: traversal/nested/windows separator).
+- `flutter test` → **649/649 All tests passed** (47s).
+
+**Backups:** `backups/s02_encryption_20261113_110132/` — 15 αρχεία (flat `__` ονόματα).
+

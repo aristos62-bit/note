@@ -69,6 +69,7 @@
 - `receive_sharing_intent` (`^1.9.0`) — λήψη κοιν/νου content
 - `url_launcher` (`^6.3.3`) — άνοιγμα URLs + Windows file opener (`Uri.file` → `ShellExecuteW`)
 - `archive` (`^4.3.0`) — zip backup/restore
+- `cryptography` (`^2.9.0`) — AES-256-GCM + PBKDF2 (κρυπτογραφημένο backup `.snb`, S-02)
 
 > Πηγή αλήθειας για dependencies: `pubspec.yaml`
 
@@ -81,6 +82,8 @@ lib/
 ├── main.dart                     — Entrypoint, init, ProviderContainer setup
 ├── core/
 │   ├── core.dart                 — Barrel export
+│   ├── crypto/
+│   │   └── kdf.dart              — BackupKdf: PBKDF2-HMAC-SHA256 wrapper + randomBytes (S-02)
 │   ├── router/
 │   │   └── app_router.dart       — GoRouter + ShellRoute + AppShell
 │   └── theme/
@@ -120,6 +123,7 @@ lib/
 │   ├── user.dart                 — User collection
 │   ├── device.dart               — Device collection
 │   ├── app_settings.dart         — AppSettings singleton
+│   ├── isar_schemas.dart         — isarSchemas: μία λίστα schema για helper + backup probe (S-02/C2)
 │   ├── recurrence.dart           — Recurrence (not Isar, plain Dart class)
 │   └── item_type_label.dart      — ItemTypeX.labelGr SPoT (S70)
 ├── providers/
@@ -153,8 +157,13 @@ lib/
 │   ├── search_service.dart       — Full-text search
 │   ├── habit_service.dart        — Habit stats, streak, progress
 │   ├── attachment_service.dart   — File pick + save + delete + open (S-25 policy)
-│   ├── backup_service.dart       — Export/import Isar DB (zip)
-│   ├── backup_archive.dart       — Zip archive helpers
+│   ├── backup_service.dart       — Export/import Isar DB (κρυπτογραφημένο .snb, S-02)
+│   ├── backup_archive.dart       — Zip archive helpers + allowlist entries (C7)
+│   ├── backup/
+│   │   ├── backup_container.dart  — `.snb` header + STREAM AES-256-GCM encrypt/decrypt (S-02)
+│   │   ├── backup_db_probe.dart   — Trial open + strip lock fields + consistent snapshot (S-02)
+│   │   ├── backup_rotation.dart   — auto_* listing/rotation + partial sweep (S-02)
+│   │   └── backup_passphrase_cache.dart — Κωδικός αντιγράφου ΜΟΝΟ σε μνήμη συνεδρίας (D2=i)
 │   ├── app_lock_service.dart     — PIN hash (iterated SHA-256) + biometric + lockout/weak-PIN policy (S-03)
 │   ├── shared_intent_service.dart — Λήψη κοιν/νου content (share intent)
 │   ├── contact_import_service.dart — Import device contacts
@@ -230,7 +239,9 @@ lib/
 │   │   ├── settings_tiles.dart            — SettingsCard + Switch/Action/Info/theme/lock/backup tiles
 │   │   ├── settings_app_lock_section.dart — App-lock section: toggle/PIN/biometric + S-04 disable gate
 │   │   ├── settings_colors.dart           — Item-type colors + color picker sheet
-│   │   ├── settings_backup.dart           — Export / import / wipe (+ S-04 auth gate)
+│   │   ├── settings_backup.dart           — Export / import / wipe (+ S-04 auth gate, S-02 two-phase)
+│   │   ├── settings_backup_passphrase.dart — Dialog κωδικού αντιγράφου (AES-256) (S-02)
+│   │   ├── settings_backup_passphrase_gate.dart — Μία προτροπή/εκκίνηση όταν auto-backup ON (D8)
 │   │   ├── settings_pin_dialogs.dart      — PIN dialogs + validation + confirmSensitiveAction (S-03/S-04)
 │   │   ├── settings_reminders_dialog.dart — Past reminders dialog
 │   │   ├── reminder_diagnostics_screen.dart — Διαγνωστικά υπενθυμίσεων (DB vs OS alarms)
@@ -552,14 +563,17 @@ final db = SuperNoteHelper.instance;
 - **S-18 (security v2, βήμα 1α):** SPoT για το «πού επιτρέπεται» ένα path = `AttachmentPathGuard` (`lib/core/utils/attachment_path_guard.dart`): `dirName = 'attachments'`, root = `<documents>/attachments`, **fail-closed** `resolve()` (λεξικός: `isAbsolute` + `normalize` + `isWithin`, χωρίς I/O) · `configure(documentsDir:)` στο `SuperNoteHelper.init()` (idempotent, re-init μετά restore) · `attachmentsDirName` = const delegate. Όλα τα open/preview/save-as/share/disk-delete περνούν από αυτό· εκτός root ⇒ `attachNotFound`/skip (ποτέ άνοιγμα, διαγραφή ή κοινοποίηση ξένου αρχείου).
 - **S-25 (security v2, βήμα 1γ):** ίδιος guard, δεύτερη πολιτική — `isRiskyToLaunch(path, {windows})`: pure (μηδέν I/O), denylist `launchRiskExtensions` (`.exe`, `.bat`, `.cmd`, `.ps1`, `.lnk`, `.msi`, `.jar`, `.hta`, `.vbs`, `.settingcontent-ms` κ.λπ.), κρίνει **μόνο** το basename αφού κόψει ADS (`:` → `evil.exe::$DATA`) και τελικές τελείες/κενά (`evil.exe.`), lowercase. Εκτός Windows → πάντα false. `openAttachment` εμφανίζει `ConfirmDialog` (title/body/confirm από `AppErrors`) και περνά `allowRisky`· το `open()` ξαναελέγχει (fail-safe για μελλοντικούς callers). Οι εικόνες δεν ρωτούν (μόνο decode). **Όρια:** macOS/Linux (`.command`/`.sh`/`.app`), Office macros, όχι `IAttachmentExecute`/FFI, denylist όχι πλήρης, Android αμετάβλητο.
 
-### BackupService (`lib/services/backup_service.dart`)
-- `exportToDevice()` / `exportWithShare()` — zip (DB + attachments) μέσω `BackupArchive`· το DB snapshot γίνεται με `Isar.copyToFile` (consistent/compacted), όχι απευθείας από το live `.isar`.
-- `import({fromPath})` — `validateBackupFile()` + atomic restore (zip ή legacy `.isar`)· το validation ανοίγει το **πραγματικό** `super_note_db` του backup (trial Isar instance), όχι νέα κενή DB· εξάγει **μόνο** το DB entry (`extractBackupZipDbOnly`, χωρίς attachments) και απαιτεί `AppSettings(1)` (το trial `Isar.open` δημιουργεί σιωπηλά κενή DB σε άκυρο αρχείο).
-- `autoBackup()` — zip στο background (pause, 1/24ωρο, rotation 5) + `listAutoBackups()`· όταν maintenance είναι ενεργό, σκιπάρεται.
-- `beginDbMaintenance()` / `endDbMaintenance({rearmRefresh})` — E33 orchestration: pause+drain scheduler/habit queues και in-flight autoBackup/export έως 65s· epoch guard ώστε autoBackup που ξεκίνησε πριν το restore να μην γράψει `lastAutoBackupAt` σε DB που αλλάζει.
-- `_atomicRestoreDb()` — unified restore: extract/copy εκτός maintenance → drain → safety DB με `copyToFile` → `SuperNoteHelper.close()` → αντικατάσταση DB/attachments → re-init. Μετά το close **δεν** γίνεται resume· success ή failure → `BackupImportResult.restartRequired = true` (best-effort rollback μόνο μετά το close).
-- `AppSettings.autoBackupEnabled/lastAutoBackupAt` · schema v3 (additive, no-op migration)
-- Android: `allowBackup=false` (S174) — επίσημη οδός backup = in-app zip export (το cloud auto-backup αντέγραφε DB + attachments + PIN hash· iOS parked)
+### BackupService (`lib/services/backup_service.dart`, S-02)
+- **Μορφή:** export/share/auto-backup γράφουν **κρυπτογραφημένο `.snb`** (AES-256-GCM, υποχρεωτικό — D7). Το payload είναι το παλιό zip (DB + attachments) που κρυπτογραφείται ως σύνολο· read υποστηρίζει `.snb` **και** legacy `.zip`/`.isar`, μορφή από magic bytes (`BackupContainer.detectFormat`) — ποτέ από extension.
+- `prepare(path, {passphrase})` / `restorePrepared(prepared)` / `discardPrepared(prepared)` — **verify-before-open**: decrypt → allowlist extract (`BackupArchive.isAllowedEntry`: μόνο `super_note_db.isar` + επίπεδα `attachments/*`) → `BackupDbProbe` (trial Isar με unique name, απαιτεί `AppSettings(1)`, **strip** lock/lockout πεδίων, `copyToFile` snapshot) σε temp dir **πριν** αγγίξει η ροή τη live DB· το work dir καθαρίζεται πάντα.
+- `exportToDevice({required passphrase})` / `exportWithShare({required passphrase})` — DB snapshot με `Isar.copyToFile` → zip → `BackupContainer.encryptFileTo` (γράφει `.partial` + rename, ποτέ μισό αρχείο) → save/share (`mimeType` στο `XFile`).
+- `autoBackup()` — `.snb` στο background (1/24ωρο, rotation κρατά 5)· **χωρίς κλειδί συνεδρίας σκιπάρεται** (D8, ποτέ plaintext)· `listAutoBackups()` δείχνει `auto_*.<snb|zip>`.
+- `sweepStaleArtifacts()` — καθαρισμός `_backup_export_*`/`_backup_share_*`/`_restore_prepare_*` temp dirs + `.partial/.tmp` (postFrame εκκίνησης + μετά από restore).
+- `beginDbMaintenance()` / `endDbMaintenance({rearmRefresh})` — E33 orchestration: pause+drain scheduler/habit queues και in-flight **autoBackup/export/prepare** έως 65s· epoch guard ώστε autoBackup που ξεκίνησε πριν το restore να μην γράψει `lastAutoBackupAt` σε DB που αλλάζει.
+- `_atomicRestoreDb(PreparedRestore)` — drain → safety DB με `copyToFile` → `SuperNoteHelper.close()` → αντικατάσταση DB (πάντα copy από sanitized snapshot) + attachments (rename) → re-init. Μετά το close **δεν** γίνεται resume· success ή failure → `BackupImportResult.restartRequired = true`.
+- **Κωδικός:** `BackupPassphraseCache` (μόνο μνήμη, ανά συνεδρία) + `BackupPassphraseGate` (μία προτροπή/εκκίνηση όταν auto-backup ON· ακύρωση = skip μόνο αυτής της συνεδρίας). Ποτέ Keystore/secure storage/DB.
+- `AppSettings.autoBackupEnabled/lastAutoBackupAt` · schema v4 (additive, no-op migration)
+- Android: `allowBackup=false` (S174) — επίσημη οδός backup = in-app export `.snb` (το cloud auto-backup αντέγραφε DB + attachments + PIN hash· iOS parked)
 
 ### SearchService (`lib/services/search_service.dart`)
 - Full-text search on Item title: `search(query, workspaceId)` → `List<Item>`

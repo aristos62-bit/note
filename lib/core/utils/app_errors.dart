@@ -116,6 +116,22 @@ class AppErrors {
   static const wipeConfirmMismatch =
       'Η φράση επιβεβαίωσης δεν είναι σωστή. Η διαγραφή ακυρώθηκε.';
 
+  // ── S-02: κρυπτογραφημένο αντίγραφο (.snb) ──────────────────
+  static const backupPassphraseRequired =
+      'Απαιτείται κωδικός για το κρυπτογραφημένο αντίγραφο';
+  static const backupWrongPassphrase =
+      'Λάθος κωδικός ή κατεστραμμένο αρχείο αντιγράφου';
+  static const backupPassphraseTooShort =
+      'Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες';
+  static const backupPassphraseMismatch = 'Οι κωδικοί δεν ταιριάζουν';
+  static const backupPassphraseHint =
+      'Αν ξεχάσετε τον κωδικό, το αντίγραφο δεν μπορεί να ανακτηθεί.';
+  static const backupEncryptFailed =
+      'Σφάλμα κρυπτογράφησης αντιγράφου';
+  static const backupLockStripped =
+      'Το κλείδωμα εφαρμογής και τα βιομετρικά απενεργοποιήθηκαν από το '
+      'αντίγραφο — ενεργοποιήστε τα ξανά από τις Ρυθμίσεις.';
+
   // ── Contacts / import ────────────────────────────────────────
   static const contactsPermission = 'Χρειάζεται άδεια πρόσβασης στις επαφές';
   static const contactsReadFailed = 'Σφάλμα ανάγνωσης επαφών';

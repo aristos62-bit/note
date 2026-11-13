@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
-import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -10,6 +9,10 @@ import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
 import '../core/core.dart';
 import 'attachment_service.dart';
+import 'backup/backup_container.dart';
+import 'backup/backup_db_probe.dart';
+import 'backup/backup_passphrase_cache.dart';
+import 'backup/backup_rotation.dart';
 import 'backup_archive.dart';
 import 'habit_service.dart';
 import 'reminder_scheduler.dart';
@@ -68,6 +71,43 @@ class ValidationResult {
   bool get invalid => !valid;
 }
 
+/// S-02: αποτέλεσμα του σταδίου «prepare» (decrypt → allowlist extract →
+/// probe/sanitize) — ΠΡΙΝ αγγίξει οτιδήποτε τη live DB.
+///
+/// Το [workDir] ανήκει στο αποτέλεσμα: ο caller οφείλει να καλέσει
+/// [BackupService.restorePrepared] ή [BackupService.discardPrepared].
+class PreparedRestore {
+  final BackupFormat format;
+  final Directory workDir;
+  final File dbFile;
+  final Directory? attachmentsDir;
+  final int entryCount;
+  final int attachmentCount;
+  final int plaintextBytes;
+
+  /// true όταν το αντίγραφο περιείχε ενεργό κλείδωμα και καθαρίστηκε.
+  final bool strippedAppLock;
+
+  const PreparedRestore({
+    required this.format,
+    required this.workDir,
+    required this.dbFile,
+    required this.attachmentsDir,
+    required this.entryCount,
+    required this.attachmentCount,
+    required this.plaintextBytes,
+    required this.strippedAppLock,
+  });
+}
+
+class BackupPrepareResult {
+  final PreparedRestore? prepared;
+  final String? error;
+  const BackupPrepareResult.success(PreparedRestore this.prepared) : error = null;
+  const BackupPrepareResult.failure(String this.error) : prepared = null;
+  bool get success => prepared != null;
+}
+
 class BackupService {
   BackupService._internal();
   static final BackupService instance = BackupService._internal();
@@ -75,6 +115,7 @@ class BackupService {
   static const String dbFileName = 'super_note_db.isar';
   static const String zipSuffix = '.zip';
   static const String isarSuffix = '.isar';
+  static const String snbSuffix = BackupContainer.suffix;
 
   /// Μέγιστο μέγεθος zip προς επαναφορά (o decoder κρατά μνήμη).
   static const int maxRestoreBytes = 500 * 1024 * 1024;
@@ -96,10 +137,11 @@ class BackupService {
   /// πριν το restore δεν γράφει lastAutoBackupAt σε DB που αλλάζει.
   int _maintenanceEpoch = 0;
 
-  /// Πραγματικά in-flight autoBackup/export — το drain τα περιμένει πριν
-  /// το close της DB (F7).
+  /// Πραγματικά in-flight autoBackup/export/prepare — το drain τα περιμένει
+  /// πριν το close της DB (F7). Το prepare (S-02) είναι 5ο.
   Future<void>? _autoBackupInFlight;
   Future<void>? _exportInFlight;
+  Future<void>? _prepareInFlight;
 
   // ─────────────────────────────────────────────────────────────────
   // Helpers
@@ -108,6 +150,17 @@ class BackupService {
   Future<String> _dbPath() async {
     final dir = await getApplicationDocumentsDirectory();
     return p.join(dir.path, dbFileName);
+  }
+
+  /// S-02 (C5): sortable UTC timestamp για ονόματα αντιγράφων.
+  static String fileTimestamp([DateTime? now]) {
+    final ts = (now ?? DateTime.now())
+        .toUtc()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .split('.')
+        .first;
+    return ts;
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -139,6 +192,7 @@ class BackupService {
       HabitService.instance.drainForMaintenance(maxWait),
       _waitForInFlight(_autoBackupInFlight, maxWait, 'autoBackup'),
       _waitForInFlight(_exportInFlight, maxWait, 'export'),
+      _waitForInFlight(_prepareInFlight, maxWait, 'prepare'),
     ]);
 
     if (results.every((ok) => ok)) {
@@ -181,9 +235,9 @@ class BackupService {
   // ─────────────────────────────────────────────────────────────────
 
   /// Δημόσιο entry point — καταγράφει το in-flight future για το drain του
-  /// restore/wipe (F7). Το impl μένει αναλλοίωτο.
-  Future<BackupExportResult> exportToDevice() {
-    final future = _exportToDeviceImpl();
+  /// restore/wipe (F7). Το [passphrase] είναι ΥΠΟΧΡΕΩΤΙΚΟ (D7).
+  Future<BackupExportResult> exportToDevice({required String passphrase}) {
+    final future = _exportToDeviceImpl(passphrase);
     _exportInFlight = future.then<void>(
           (_) {},
       onError: (Object _, StackTrace __) {},
@@ -191,7 +245,7 @@ class BackupService {
     return future;
   }
 
-  Future<BackupExportResult> _exportToDeviceImpl() async {
+  Future<BackupExportResult> _exportToDeviceImpl(String passphrase) async {
     DebugConfig.db('exportToDevice: starting');
     Directory? workDir;
     try {
@@ -204,13 +258,9 @@ class BackupService {
         DebugConfig.db('exportToDevice: FAIL — DB file not found: $srcPath');
         throw Exception('Δεν βρέθηκε η βάση δεδομένων');
       }
-      final timestamp = DateTime.now()
-          .toIso8601String()
-          .replaceAll(':', '-')
-          .split('.')
-          .first;
-      final fileName = 'super_note_backup_$timestamp.zip';
-      final tempZip = p.join(workDir.path, fileName);
+      final fileName = 'super_note_backup_${fileTimestamp()}$snbSuffix';
+      final tempZip = p.join(workDir.path, 'payload.zip');
+      final tempSnb = p.join(workDir.path, fileName);
       final docs = await getApplicationDocumentsDirectory();
       await BackupArchive.createBackupZip(
         dbPath: srcPath,
@@ -219,19 +269,26 @@ class BackupService {
             p.join(docs.path, AttachmentService.attachmentsDirName)),
         destZipPath: tempZip,
       );
-      DebugConfig.db('exportToDevice: zip ready');
+      // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ. Το container γράφει σε
+      // `.partial` και μετονομάζει μόνο μετά την ολοκλήρωση.
+      await BackupContainer.encryptFileTo(
+        source: File(tempZip),
+        destPath: tempSnb,
+        passphrase: passphrase,
+      );
+      DebugConfig.db('exportToDevice: snb ready');
       try {
         // Android/iOS: το saveFile ΓΡΑΦΕΙ μόνο του (απαιτεί bytes) —
         // δεν επιστρέφει path για File.copy (file_picker_io).
-        final zipSize = await File(tempZip).length();
-        if (zipSize > maxDialogBytes) {
+        final snbSize = await File(tempSnb).length();
+        if (snbSize > maxDialogBytes) {
           return BackupExportResult.failure(
               'Το αντίγραφο είναι πολύ μεγάλο — χρησιμοποίησε Κοινοποίηση');
         }
         final savedPath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Αποθήκευση αντιγράφου ασφαλείας',
+          dialogTitle: 'Αποθήκευση κρυπτογραφημένου αντιγράφου',
           fileName: fileName,
-          bytes: await File(tempZip).readAsBytes(),
+          bytes: await File(tempSnb).readAsBytes(),
         );
         if (savedPath == null) {
           DebugConfig.db('exportToDevice: user cancelled');
@@ -267,8 +324,8 @@ class BackupService {
   // ─────────────────────────────────────────────────────────────────
 
   /// Δημόσιο entry point — ίδιο F7 tracking με το exportToDevice.
-  Future<BackupExportResult> exportWithShare() {
-    final future = _exportWithShareImpl();
+  Future<BackupExportResult> exportWithShare({required String passphrase}) {
+    final future = _exportWithShareImpl(passphrase);
     _exportInFlight = future.then<void>(
           (_) {},
       onError: (Object _, StackTrace __) {},
@@ -276,7 +333,7 @@ class BackupService {
     return future;
   }
 
-  Future<BackupExportResult> _exportWithShareImpl() async {
+  Future<BackupExportResult> _exportWithShareImpl(String passphrase) async {
     DebugConfig.db('exportWithShare: starting');
     Directory? workDir;
     try {
@@ -288,7 +345,10 @@ class BackupService {
       if (!await File(srcPath).exists()) {
         throw Exception('Δεν βρέθηκε η βάση δεδομένων');
       }
-      final tempZip = p.join(workDir.path, 'super_note_backup_share.zip');
+      final fileName =
+          'super_note_backup_${fileTimestamp()}$snbSuffix';
+      final tempZip = p.join(workDir.path, 'payload.zip');
+      final tempSnb = p.join(workDir.path, fileName);
       final docs = await getApplicationDocumentsDirectory();
       await BackupArchive.createBackupZip(
         dbPath: srcPath,
@@ -297,12 +357,20 @@ class BackupService {
             p.join(docs.path, AttachmentService.attachmentsDirName)),
         destZipPath: tempZip,
       );
-      DebugConfig.db('exportWithShare: zip ready, opening share sheet');
+      // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ και στη ροή κοινοποίησης.
+      await BackupContainer.encryptFileTo(
+        source: File(tempZip),
+        destPath: tempSnb,
+        passphrase: passphrase,
+      );
+      DebugConfig.db('exportWithShare: snb ready, opening share sheet');
       try {
         await SharePlus.instance.share(ShareParams(
-          files: [XFile(tempZip)],
+          files: [
+            XFile(tempSnb, mimeType: 'application/octet-stream'),
+          ],
           subject: 'SuperNote Backup',
-          text: 'Αντίγραφο ασφαλείας SuperNote',
+          text: 'Κρυπτογραφημένο αντίγραφο ασφαλείας SuperNote',
         ));
         DebugConfig.db('exportWithShare: share sheet closed, scheduling temp cleanup');
         final dirToClean = workDir;
@@ -315,7 +383,7 @@ class BackupService {
                 'exportWithShare: delayed temp cleanup failed: $e');
           }
         });
-        return BackupExportResult.success(tempZip);
+        return BackupExportResult.success(tempSnb);
       } catch (_) {
         DebugConfig.db('exportWithShare: share failed, cleaning up temp');
         try {
@@ -340,9 +408,11 @@ class BackupService {
   Future<String?> pickBackupFile() async {
     DebugConfig.db('pickBackupFile: opening file picker');
     try {
+      // S-02 (N1): `FileType.custom` + άγνωστο extension (`.snb`) κάνει το
+      // plugin να πετά (getMimeTypes) ή να κρύβει το αρχείο στο Android.
+      // Διαλέγουμε με `FileType.any` και ανιχνεύουμε μορφή από magic bytes.
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['zip', 'isar'],
+        type: FileType.any,
         withData: false,
         allowMultiple: false,
       );
@@ -359,47 +429,20 @@ class BackupService {
     }
   }
 
-  Future<BackupImportResult> restoreBackup(String backupPath) async {
+  /// Πλήρης ροή (prepare + restore). Χρησιμοποιείται από tests/εσωτερικά·
+  /// το UI κάνει τα δύο βήματα ξεχωριστά για να μεσολαβήσει επιβεβαίωση.
+  Future<BackupImportResult> restoreBackup(String backupPath,
+      {String? passphrase}) async {
     DebugConfig.db('restoreBackup: starting, path=$backupPath');
-    try {
-      final file = File(backupPath);
-      if (!await file.exists()) {
-        DebugConfig.db('restoreBackup: FAIL — file not found');
-        return BackupImportResult.failure('Το αρχείο backup δεν βρέθηκε');
-      }
-      final size = await file.length();
-      DebugConfig.db('restoreBackup: file exists, size=$size bytes');
-      final isZip = BackupArchive.isBackupZip(backupPath);
-      if (isZip) {
-        if (size > maxRestoreBytes) {
-          return BackupImportResult.failure(
-              'Το αρχείο είναι πολύ μεγάλο για επαναφορά');
-        }
-      } else {
-        if (size < 1024) {
-          DebugConfig.db('restoreBackup: FAIL — too small');
-          return BackupImportResult.failure(
-              'Το αρχείο backup είναι πολύ μικρό (πιθανά κατεστραμμένο)');
-        }
-      }
-      DebugConfig.db(
-          'restoreBackup: ${isZip ? 'zip' : 'legacy .isar'} → _atomicRestoreDb');
-      final result = await _atomicRestoreDb(backupPath, isZip: isZip);
-      if (result.success) {
-        DebugConfig.db('restoreBackup: SUCCESS — '
-            'restartRequired=${result.restartRequired}');
-      } else {
-        DebugConfig.warning('restoreBackup: FAILED — '
-            'restartRequired=${result.restartRequired} error=${result.error}');
-      }
-      return result;
-    } catch (e, s) {
-      DebugConfig.error('BackupService.restoreBackup', e, s);
-      return BackupImportResult.failure('Σφάλμα επαναφοράς: $e');
+    final prep = await prepare(backupPath, passphrase: passphrase);
+    if (!prep.success) {
+      DebugConfig.warning('restoreBackup: prepare FAILED — ${prep.error}');
+      return BackupImportResult.failure(prep.error ?? AppErrors.backupInvalid);
     }
+    return restorePrepared(prep.prepared!);
   }
 
-  Future<BackupImportResult> import({String? fromPath}) async {
+  Future<BackupImportResult> import({String? fromPath, String? passphrase}) async {
     DebugConfig.db('import: starting${fromPath != null ? ", fromPath=$fromPath" : ""}');
     try {
       final srcPath = fromPath ?? await pickBackupFile();
@@ -407,15 +450,7 @@ class BackupService {
         DebugConfig.db('import: cancelled by user');
         return BackupImportResult.cancelled();
       }
-      DebugConfig.db('import: validating backup');
-      final validation = await validateBackupFile(srcPath);
-      if (!validation.valid) {
-        DebugConfig.db('import: validation FAILED: ${validation.reason}');
-        return BackupImportResult.failure(
-            validation.reason ?? 'Μη έγκυρο αρχείο backup');
-      }
-      DebugConfig.db('import: validation passed, proceeding to restore');
-      return await restoreBackup(srcPath);
+      return await restoreBackup(srcPath, passphrase: passphrase);
     } catch (e, s) {
       DebugConfig.error('BackupService.import', e, s);
       return BackupImportResult.failure('Σφάλμα επαναφοράς: $e');
@@ -459,33 +494,53 @@ class BackupService {
         DebugConfig.db('autoBackup: interval not due, skipping');
         return null;
       }
+      // S-02 (D8): χωρίς κλειδί συνεδρίας ΔΕΝ γράφουμε αντίγραφο (ποτέ
+      // plaintext). Η προτροπή γίνεται μία φορά ανά εκκίνηση από το gate.
+      final passphrase = BackupPassphraseCache.instance.passphrase;
+      if (passphrase == null || passphrase.isEmpty) {
+        DebugConfig.db('autoBackup: no session passphrase — skipping (D8)');
+        return null;
+      }
       final backupDir = await _getAutoBackupDir();
-      final timestamp = DateTime.now()
-          .toIso8601String()
-          .replaceAll(':', '-')
-          .split('.')
-          .first;
-      final destPath = p.join(backupDir.path, 'auto_$timestamp.zip');
+      final timestamp = fileTimestamp();
+      final destPath = p.join(backupDir.path, 'auto_$timestamp$snbSuffix');
+      final tempZip = p.join(backupDir.path, 'auto_$timestamp.tmp');
       final srcPath = await _dbPath();
       if (!await File(srcPath).exists()) {
         DebugConfig.db('autoBackup: FAIL — DB file not found: $srcPath');
         return null;
       }
       final docs = await getApplicationDocumentsDirectory();
-      await BackupArchive.createBackupZip(
-        dbPath: srcPath,
-        snapshotIsar: SuperNoteHelper.instance.isar,
-        attachmentsDir: Directory(
-            p.join(docs.path, AttachmentService.attachmentsDirName)),
-        destZipPath: destPath,
-      );
+      try {
+        await BackupArchive.createBackupZip(
+          dbPath: srcPath,
+          snapshotIsar: SuperNoteHelper.instance.isar,
+          attachmentsDir: Directory(
+              p.join(docs.path, AttachmentService.attachmentsDirName)),
+          destZipPath: tempZip,
+        );
+        // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ — `.partial` + rename εντός
+        // του container, άρα ποτέ μισό `.snb` με τελικό όνομα.
+        await BackupContainer.encryptFileTo(
+          source: File(tempZip),
+          destPath: destPath,
+          passphrase: passphrase,
+        );
+      } finally {
+        try {
+          final zip = File(tempZip);
+          if (await zip.exists()) await zip.delete();
+        } catch (e) {
+          DebugConfig.warning('autoBackup: temp zip cleanup failed: $e');
+        }
+      }
       if (_maintenanceActive || epoch != _maintenanceEpoch) {
-        // F5: restore/wipe ξεκίνησε όσο φτιάχναμε το zip — η DB μπορεί να
-        // κλείσει/αντικατασταθεί· κρατάμε το (έγκυρο) zip και σκιπάρουμε
-        // ΜΟΝΟ το settings.update.
+        // F5: restore/wipe ξεκίνησε όσο φτιάχναμε το αντίγραφο — η DB μπορεί
+        // να κλείσει/αντικατασταθεί· κρατάμε το (έγκυρο) αρχείο και
+        // σκιπάρουμε ΜΟΝΟ το settings.update.
         DebugConfig.warning(
             'autoBackup: maintenance/epoch changed '
-                '(epoch=$epoch now=$_maintenanceEpoch) — zip kept, settings.update skipped');
+                '(epoch=$epoch now=$_maintenanceEpoch) — backup kept, settings.update skipped');
       } else {
         await SuperNoteHelper.instance.settings.update((s) {
           s.lastAutoBackupAt = DateTime.now();
@@ -504,13 +559,7 @@ class BackupService {
   Future<List<String>> listAutoBackups() async {
     try {
       final dir = await _getAutoBackupDir();
-      final files = await dir.list().toList();
-      return files
-          .whereType<File>()
-          .map((f) => f.path)
-          .where((p) => BackupArchive.isBackupZip(p))
-          .toList()
-        ..sort((a, b) => b.compareTo(a));
+      return await BackupRotation.list(dir);
     } catch (_) {
       return [];
     }
@@ -530,198 +579,250 @@ class BackupService {
   }
 
   Future<void> _rotateAutoBackups(Directory dir) async {
-    final files = await dir.list().toList();
-    final zipFiles = files
-        .whereType<File>()
-        .where((f) => BackupArchive.isBackupZip(f.path))
-        .toList()
-      ..sort((a, b) => b.path.compareTo(a.path));
-    while (zipFiles.length > _maxAutoBackups) {
-      final file = zipFiles.removeLast();
-      try {
-        await file.delete();
-      } catch (e) {
-        DebugConfig.warning(
-            'rotateAutoBackups: delete failed (${file.path}): $e');
-      }
-    }
+    await BackupRotation.rotate(dir, max: _maxAutoBackups);
   }
 
-  /// Trial open Isar σε φάκελο (κοινό για .isar και .zip validation).
-  Future<bool> _checkIsarInDir(Directory dir) async {
-    Isar? isar;
+  /// S-02 (N6): καθαρισμός ημιτελών/εγκαταλελειμμένων temp artifacts.
+  /// Καλείται στην εκκίνηση και μετά από κάθε restore (kill/force-stop δεν
+  /// προλαβαίνει τα `finally`).
+  Future<void> sweepStaleArtifacts() async {
+    const prefixes = <String>[
+      '_backup_export_',
+      '_backup_share_',
+      '_backup_zipval_',
+      '_backup_validate_',
+      '_restore_zip_',
+      '_restore_prepare_',
+    ];
+    var removed = 0;
     try {
-      final source = File(p.join(dir.path, dbFileName));
-      if (!await source.exists()) {
-        return false;
+      final tempRoot = await getTemporaryDirectory();
+      if (!await tempRoot.exists()) return;
+      await for (final e in tempRoot.list()) {
+        final name = p.basename(e.path);
+        if (!prefixes.any(name.startsWith)) continue;
+        try {
+          await e.delete(recursive: true);
+          removed++;
+        } catch (err) {
+          DebugConfig.warning('sweepStaleArtifacts: delete failed: $err');
+        }
       }
-
-      // Το live Isar είναι ήδη ανοιχτό με όνομα `super_note_db`. Το Isar
-      // δεν επιτρέπει δεύτερο instance με το ίδιο όνομα, οπότε ανοίγουμε
-      // το backup με μοναδικό όνομα· το αρχείο πρέπει να έχει το ίδιο
-      // basename (`<name>.isar`).
-      final validationName =
-          'backup_validate_${DateTime.now().microsecondsSinceEpoch}';
-      final validationPath = p.join(dir.path, '$validationName.isar');
-      await source.rename(validationPath);
-
-      final opened = await Isar.open(
-        [
-          ItemSchema,
-          ItemBlockSchema,
-          ItemPropertySchema,
-          TagSchema,
-          ItemTagSchema,
-          RelationSchema,
-          ReminderSchema,
-          FolderSchema,
-          WorkspaceSchema,
-          AttachmentSchema,
-          UserSchema,
-          DeviceSchema,
-          AppSettingsSchema,
-        ],
-        directory: dir.path,
-        name: validationName,
-      );
-      isar = opened;
-
-      // ΚΡΙΣΙΜΟ: Το Isar.open δημιουργεί σιωπηλά νέα κενή DB πάνω σε
-      // άκυρο/κατεστραμμένο αρχείο. Απαιτούμε το singleton AppSettings
-      // (id=1) που γράφει πάντα το SuperNoteHelper.init(), ώστε ένα
-      // τέτοιο αρχείο να μην περνά ως valid backup.
-      final settings = await opened.appSettings.get(1);
-      if (settings == null) {
-        DebugConfig.warning(
-            'validateBackupFile: λείπει AppSettings(1) — δεν είναι '
-                'έγκυρο SuperNote backup');
-        return false;
-      }
-      return true;
+      final backupDir = Directory(p.join(tempRoot.path, _backupDirName));
+      removed += await BackupRotation.sweepPartials(backupDir);
+      DebugConfig.db('sweepStaleArtifacts: removed=$removed');
     } catch (e) {
-      DebugConfig.warning('validateBackupFile: Isar validation failed: $e');
-      return false;
-    } finally {
-      try {
-        await isar?.close();
-      } catch (e) {
-        DebugConfig.warning('validateBackupFile: Isar close failed: $e');
-      }
+      DebugConfig.warning('sweepStaleArtifacts failed: $e');
     }
   }
 
-  Future<ValidationResult> validateBackupFile(String path) async {
-    DebugConfig.db('validateBackupFile: validating path=$path');
+  /// S-02: στάδιο 1 του import — decrypt → allowlist extract → probe/sanitize
+  /// σε temp work dir, ΧΩΡΙΣ να αγγίξει η live DB (verify-before-open).
+  ///
+  /// Καταγράφεται ως in-flight ώστε το drain του restore/wipe να το περιμένει.
+  Future<BackupPrepareResult> prepare(String backupPath, {String? passphrase}) {
+    final future = _prepareImpl(backupPath, passphrase);
+    _prepareInFlight = future.then<void>(
+          (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return future;
+  }
+
+  Future<BackupPrepareResult> _prepareImpl(
+      String backupPath, String? passphrase) async {
+    DebugConfig.db('prepare: starting path=$backupPath');
+    Directory? workDir;
     try {
-      final file = File(path);
+      final file = File(backupPath);
       if (!await file.exists()) {
-        DebugConfig.db('validateBackupFile: FAIL — file not found');
-        return ValidationResult(
-            valid: false, reason: 'Το αρχείο δεν βρέθηκε');
+        return const BackupPrepareResult.failure(AppErrors.backupNotFound);
       }
-
       final size = await file.length();
-      DebugConfig.db('validateBackupFile: file size=$size bytes');
-
-      // ── ZIP: size guard (o decoder κρατά μνήμη) + trial extract ──
-      if (BackupArchive.isBackupZip(path)) {
-        if (size > maxRestoreBytes) {
-          DebugConfig.db('validateBackupFile: FAIL — too large for restore');
-          return ValidationResult(
-              valid: false,
-              reason: 'Το αρχείο είναι πολύ μεγάλο για επαναφορά');
+      final format = await BackupContainer.detectFormat(backupPath);
+      DebugConfig.db('prepare: format=${format.name} size=$size');
+      if (format == BackupFormat.unknown) {
+        return const BackupPrepareResult.failure(AppErrors.backupInvalid);
+      }
+      if (format == BackupFormat.isar) {
+        if (size < 1024) {
+          return const BackupPrepareResult.failure(
+              'Το αρχείο backup είναι πολύ μικρό (πιθανά κατεστραμμένο)');
         }
-        final zipTemp = Directory(p.join(
-          (await getTemporaryDirectory()).path,
-          '_backup_zipval_${DateTime.now().millisecondsSinceEpoch}',
-        ));
-        await zipTemp.create(recursive: true);
+      } else if (size > maxRestoreBytes) {
+        return const BackupPrepareResult.failure(
+            'Το αρχείο είναι πολύ μεγάλο για επαναφορά');
+      }
+
+      final tempRoot = await getTemporaryDirectory();
+      workDir = await Directory(p.join(tempRoot.path,
+              '_restore_prepare_${DateTime.now().millisecondsSinceEpoch}'))
+          .create(recursive: true);
+      final unpackDir = Directory(p.join(workDir.path, 'unpacked'));
+      await unpackDir.create();
+
+      late final File dbSource;
+      var entries = 0;
+      var attachments = 0;
+      var plaintextBytes = size;
+      var payloadFormat = format;
+
+      if (format == BackupFormat.snb) {
+        if (passphrase == null || passphrase.isEmpty) {
+          await _cleanupDir(workDir);
+          return const BackupPrepareResult.failure(
+              AppErrors.backupPassphraseRequired);
+        }
+        final payload = File(p.join(workDir.path, 'payload.zip'));
         try {
-          final entries =
-          await BackupArchive.extractBackupZipDbOnly(path, zipTemp.path);
-          if (!entries.contains(BackupArchive.dbEntryName)) {
-            return ValidationResult(
-                valid: false, reason: 'Το zip δεν περιέχει βάση δεδομένων');
-          }
-          if (!await _checkIsarInDir(zipTemp)) {
-            return ValidationResult(
-                valid: false,
-                reason: 'Μη έγκυρο ή κατεστραμμένο αρχείο backup');
-          }
-          DebugConfig.db('validateBackupFile: zip VALID');
-          return ValidationResult(valid: true, sizeBytes: size);
-        } finally {
-          try {
-            await zipTemp.delete(recursive: true);
-          } catch (e) {
-            DebugConfig.warning(
-                'validateBackupFile: zip temp cleanup failed: $e');
-          }
+          plaintextBytes = await BackupContainer.decryptFileTo(
+            source: file,
+            destPath: payload.path,
+            passphrase: passphrase,
+            maxPlaintextBytes: maxRestoreBytes,
+          );
+        } on BackupAuthException {
+          await _cleanupDir(workDir);
+          return const BackupPrepareResult.failure(
+              AppErrors.backupWrongPassphrase);
+        } on SnbFormatException catch (e) {
+          await _cleanupDir(workDir);
+          return BackupPrepareResult.failure(e.message);
+        }
+        final names =
+            await BackupArchive.extractBackupZip(payload.path, unpackDir.path);
+        if (!names.contains(BackupArchive.dbEntryName)) {
+          await _cleanupDir(workDir);
+          return const BackupPrepareResult.failure(
+              'Το αντίγραφο δεν περιέχει βάση δεδομένων');
+        }
+        entries = names.length;
+        dbSource = File(p.join(unpackDir.path, BackupArchive.dbEntryName));
+        await _deleteFileSilently(payload);
+        payloadFormat = BackupFormat.zip;
+      } else if (format == BackupFormat.zip) {
+        final names =
+            await BackupArchive.extractBackupZip(backupPath, unpackDir.path);
+        if (!names.contains(BackupArchive.dbEntryName)) {
+          await _cleanupDir(workDir);
+          return const BackupPrepareResult.failure(
+              'Το zip δεν περιέχει βάση δεδομένων');
+        }
+        entries = names.length;
+        dbSource = File(p.join(unpackDir.path, BackupArchive.dbEntryName));
+      } else {
+        final copy = File(p.join(unpackDir.path, BackupArchive.dbEntryName));
+        await file.copy(copy.path);
+        dbSource = copy;
+        entries = 1;
+      }
+
+      // Probe + strip lock/lockout + consistent snapshot (S-02).
+      final snapshotPath = p.join(workDir.path, 'restore_db.isar');
+      final sanitize = await BackupDbProbe.openSanitizeAndSnapshot(
+        dbFile: dbSource,
+        workDir: workDir,
+        destSnapshotPath: snapshotPath,
+      );
+      if (sanitize == null) {
+        await _cleanupDir(workDir);
+        return const BackupPrepareResult.failure(AppErrors.backupInvalid);
+      }
+
+      final attDir =
+          Directory(p.join(unpackDir.path, BackupArchive.attachmentsPrefix));
+      if (payloadFormat != BackupFormat.isar && await attDir.exists()) {
+        await for (final e in attDir.list()) {
+          if (e is File) attachments++;
         }
       }
 
-      if (size < 1024) {
-        DebugConfig.db('validateBackupFile: FAIL — too small');
-        return ValidationResult(
-            valid: false, reason: 'Το αρχείο είναι πολύ μικρό');
-      }
-
-      final tempDir = Directory(p.join(
-        (await getTemporaryDirectory()).path,
-        '_backup_validate_${DateTime.now().millisecondsSinceEpoch}',
+      DebugConfig.db('prepare: OK entries=$entries attachments=$attachments '
+          'strippedLock=${sanitize.strippedAppLock}');
+      return BackupPrepareResult.success(PreparedRestore(
+        format: payloadFormat,
+        workDir: workDir,
+        dbFile: File(snapshotPath),
+        attachmentsDir: payloadFormat == BackupFormat.isar ? null : attDir,
+        entryCount: entries,
+        attachmentCount: attachments,
+        plaintextBytes: plaintextBytes,
+        strippedAppLock: sanitize.strippedAppLock,
       ));
-      await tempDir.create(recursive: true);
-      DebugConfig.db('validateBackupFile: temp dir created at ${tempDir.path}');
-
-      try {
-        final copyPath = p.join(tempDir.path, dbFileName);
-        await file.copy(copyPath);
-        DebugConfig.db('validateBackupFile: copied to temp for Isar open');
-
-        if (!await _checkIsarInDir(tempDir)) {
-          DebugConfig.db('validateBackupFile: FAIL — Isar could not open backup');
-          return ValidationResult(
-              valid: false,
-              reason: 'Μη έγκυρο ή κατεστραμμένο αρχείο backup');
-        }
-        DebugConfig.db('validateBackupFile: Isar closed — VALID backup');
-        return ValidationResult(valid: true, sizeBytes: size);
-      } finally {
-        try {
-          await tempDir.delete(recursive: true);
-          DebugConfig.db('validateBackupFile: temp dir cleaned up');
-        } catch (e) {
-          DebugConfig.warning(
-              'validateBackupFile: temp dir cleanup failed: $e');
-        }
-      }
-    } catch (e) {
-      DebugConfig.db('validateBackupFile: unexpected error: $e');
-      return ValidationResult(valid: false, reason: 'Σφάλμα επικύρωσης: $e');
+    } catch (e, s) {
+      DebugConfig.error('BackupService.prepare', e, s);
+      await _cleanupDir(workDir);
+      return BackupPrepareResult.failure('Σφάλμα επικύρωσης: $e');
     }
   }
 
-  /// Ενιαίο atomic restore για .zip (DB + attachments) και legacy .isar.
+  /// Πετάει τα temp artifacts ενός prepare που δεν θα χρησιμοποιηθεί.
+  Future<void> discardPrepared(PreparedRestore prepared) =>
+      _cleanupDir(prepared.workDir);
+
+  /// Στάδιο 2: atomic restore από έτοιμο (και sanitized) prepare.
+  Future<BackupImportResult> restorePrepared(PreparedRestore prepared) async {
+    DebugConfig.db('restorePrepared: starting format=${prepared.format.name}');
+    final result = await _atomicRestoreDb(prepared);
+    if (result.success) {
+      DebugConfig.db('restorePrepared: SUCCESS — '
+          'restartRequired=${result.restartRequired}');
+    } else {
+      DebugConfig.warning('restorePrepared: FAILED — '
+          'restartRequired=${result.restartRequired} error=${result.error}');
+    }
+    await sweepStaleArtifacts();
+    return result;
+  }
+
+  /// Legacy-compatible validation (χωρίς UI). Πλέον είναι «prepare + discard».
+  Future<ValidationResult> validateBackupFile(String path,
+      {String? passphrase}) async {
+    DebugConfig.db('validateBackupFile: validating path=$path');
+    final prep = await prepare(path, passphrase: passphrase);
+    if (!prep.success) {
+      return ValidationResult(valid: false, reason: prep.error);
+    }
+    final size = prep.prepared!.plaintextBytes;
+    await discardPrepared(prep.prepared!);
+    DebugConfig.db('validateBackupFile: VALID (size=$size)');
+    return ValidationResult(valid: true, sizeBytes: size);
+  }
+
+  Future<void> _cleanupDir(Directory? dir) async {
+    if (dir == null) return;
+    try {
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } catch (e) {
+      DebugConfig.warning('BackupService: temp dir cleanup failed: $e');
+    }
+  }
+
+  Future<void> _deleteFileSilently(File file) async {
+    try {
+      if (await file.exists()) await file.delete();
+    } catch (e) {
+      DebugConfig.warning('BackupService: temp file cleanup failed: $e');
+    }
+  }
+
+  /// Ενιαίο atomic restore από έτοιμο (ελεγμένο + sanitized) [prepared].
   ///
   /// E33: πριν κλείσει η DB → beginDbMaintenance() (gates + drain 65s).
   /// Αποτυχία drain → abort ΧΩΡΙΣ close· το begin έχει ήδη κάνει resume.
   /// Safety DB με copyToFile (consistent snapshot), attachments με rename.
   /// Μετά το close ΔΕΝ κάνουμε resume — success ή failure → restartRequired.
-  Future<BackupImportResult> _atomicRestoreDb(
-      String backupPath, {
-        required bool isZip,
-      }) async {
-    DebugConfig.db('_atomicRestoreDb: starting isZip=$isZip');
+  Future<BackupImportResult> _atomicRestoreDb(PreparedRestore prepared) async {
+    final isZip = prepared.format != BackupFormat.isar;
+    DebugConfig.db('_atomicRestoreDb: starting format=${prepared.format.name}');
     final dbDir = await getApplicationDocumentsDirectory();
     final livePath = p.join(dbDir.path, dbFileName);
-    final swapPath = p.join(dbDir.path, '_restore_swap.isar');
     final safetyPath = p.join(dbDir.path, '_pre_restore_backup.isar');
     final attLive =
     Directory(p.join(dbDir.path, AttachmentService.attachmentsDirName));
     final attSafety =
     Directory(p.join(dbDir.path, '_pre_restore_attachments'));
 
-    Directory? extractDir;
     var maintenanceStarted = false;
     var dbTouched = false;
     var dbClosed = false;
@@ -731,22 +832,10 @@ class BackupService {
     var attSafetyTaken = false;
 
     try {
-      // 1) Πηγή εκτός maintenance: μόνο read-only / temp writes.
-      final File dbSrc;
-      if (isZip) {
-        final tempRoot = await getTemporaryDirectory();
-        extractDir = await Directory(p.join(tempRoot.path,
-            '_restore_zip_${DateTime.now().millisecondsSinceEpoch}'))
-            .create(recursive: true);
-        final entries =
-        await BackupArchive.extractBackupZip(backupPath, extractDir.path);
-        if (!entries.contains(BackupArchive.dbEntryName)) {
-          throw Exception('Το zip δεν περιέχει βάση δεδομένων');
-        }
-        dbSrc = File(p.join(extractDir.path, BackupArchive.dbEntryName));
-      } else {
-        await File(backupPath).copy(swapPath);
-        dbSrc = File(swapPath);
+      // 1) Η πηγή είναι ήδη ελεγμένη (probe) και sanitized (strip lock).
+      final dbSrc = prepared.dbFile;
+      if (!await dbSrc.exists()) {
+        throw Exception('Το έτοιμο αντίγραφο δεν βρέθηκε');
       }
 
       if (!SuperNoteHelper.isInitialized ||
@@ -788,14 +877,10 @@ class BackupService {
         dbClosed = true;
         DebugConfig.db('_atomicRestoreDb: Isar closed');
 
-        // 5) Αντικατάσταση live DB.
-        if (isZip) {
-          await dbSrc.copy(livePath);
-        } else {
-          await dbSrc.rename(livePath);
-        }
+        // 5) Αντικατάσταση live DB (πάντα copy από το sanitized snapshot).
+        await dbSrc.copy(livePath);
 
-        // 6) Attachments (zip) — μετά το close, για καθαρό pre-close abort.
+        // 6) Attachments (zip/snb) — μετά το close, για καθαρό pre-close abort.
         if (isZip) {
           hadLiveAttachments = await attLive.exists();
           attPhaseStarted = true;
@@ -807,10 +892,9 @@ class BackupService {
             attSafetyTaken = true;
           }
           await attLive.create(recursive: true);
-          final srcAttDir = Directory(
-              p.join(extractDir!.path, BackupArchive.attachmentsPrefix));
+          final srcAttDir = prepared.attachmentsDir;
           var moved = 0;
-          if (await srcAttDir.exists()) {
+          if (srcAttDir != null && await srcAttDir.exists()) {
             await for (final e in srcAttDir.list()) {
               if (e is File) {
                 await e.rename(p.join(attLive.path, p.basename(e.path)));
@@ -894,23 +978,9 @@ class BackupService {
       return BackupImportResult.failure(
           'Σφάλμα επαναφοράς: $e', restartRequired: dbTouched);
     } finally {
-      if (await File(swapPath).exists()) {
-        try {
-          await File(swapPath).delete();
-        } catch (e) {
-          DebugConfig.warning('_atomicRestoreDb: swap cleanup failed: $e');
-        }
-      }
-      if (extractDir != null) {
-        try {
-          if (await extractDir.exists()) {
-            await extractDir.delete(recursive: true);
-          }
-        } catch (e) {
-          DebugConfig.warning(
-              '_atomicRestoreDb: extract dir cleanup failed: $e');
-        }
-      }
+      // S-02: το work dir του prepare περιέχει plaintext DB/attachments —
+      // καθαρίζεται ΠΑΝΤΑ (και μετά από abort).
+      await _cleanupDir(prepared.workDir);
     }
   }
 

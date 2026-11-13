@@ -306,7 +306,7 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
           _buildCard(
             SettingsActionTile(
               label: 'Εξαγωγή δεδομένων',
-              subtitle: 'Δημιουργία αντιγράφου .zip',
+              subtitle: 'Δημιουργία κρυπτογραφημένου αντιγράφου .snb',
               icon: Icons.upload_rounded,
               onTap: () => exportBackup(context, widget.ref),
             ),

@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.4+2
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -46,6 +46,9 @@ dependencies:
     sdk: flutter
   share_plus: ^12.0.2
   package_info_plus: ^9.0.1
+
+  # ─── CRYPTO (S-02: κρυπτογραφημένο backup .snb) ─────────
+  cryptography: ^2.9.0
 
   # ─── APP LOCK ───────────────────────────────────────────
   local_auth: ^2.3.0
