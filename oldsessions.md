@@ -5440,6 +5440,13 @@ if (!context.isShortScreen)
 - Επαναφορά των παλιών: `summary.md` (ενότητες S-01 + S-307) + screenshots `01`–`43` — παραμένουν τοπικά, εκτός git.
 - Διόρθωση `SNBU`→`SNBK` στο κεφάλαιο S-307.
 
+### Version bump & UI (συνέχεια)
+- **`pubspec.yaml`: `1.0.4+2` → `1.1.0+3`** (minor: νέο backup format/UX S-307 + fix S-308) · συγχρονίστηκε το `supernote.md:10` (`| Version |`).
+- **Ρυθμίσεις → Σύστημα:** η κάρτα «Έκδοση» μετακινήθηκε **τελευταία** (μετά το «Κλείδωμα εφαρμογής») — `settings_screen.dart`, μόνο σειρά/σχόλιο, καμία λογική.
+- **Γιατί δεν αφαιρέθηκε η κάρτα:** διαβάζει runtime `PackageInfo` (`appVersionProvider`) ⇒ δείχνει πάντα το εγκατεστημένο build, μηδέν κίνδυνος ασυγχρονισμού.
+- **Build/device:** 70.0MB → `adb install -r` Success · **versionName `1.1.0`, versionCode `3`** · σειρά επιβεβαιωμένη: «Διάγνωση Υπενθυμίσεων → Κλείδωμα εφαρμογής → **Έκδοση / 1.1.0 (build 3)**» τελευταία πριν την «Βάση» ✅ · `analyze` clean · **700/700** · 0 `E/flutter`/`FATAL` · screenshot `device-test/13_system_version_last.png` (τοπικό).
+- **Ανοιχτό (εκτός scope):** `note_eco_new.iss:8` `AppVersion=1.0.0` (Windows installer label — το `.exe` παίρνει σωστά `FLUTTER_VERSION` από CMake).
+
 ### Κατάσταση
 Τα **2 device tests της S-307 έκλεισαν** (device-verified), **και το F1 διορθώθηκε + device-verified** (snackbar «Εξαγωγή επιτυχής» αντί «Αντίγραφο αποθηκεύτηκε»). `flutter analyze` clean · **700/700** tests. Καμία ανοιχτή εκκρεμότητα από S-307/S-308· το `error_list.md` παραμένει αρχειοθετημένο (απόφαση χρήστη: όχι νέος tracker για το F1).
 

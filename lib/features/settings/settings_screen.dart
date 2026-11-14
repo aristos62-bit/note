@@ -215,6 +215,10 @@ class _SystemGroupState extends State<_SystemGroup> {
             onTap: () => navigateToReminderDiagnostics(context),
           )),
           const SizedBox(height: Spacing.sm),
+          // ── App Lock (S-24: ατομικό toggle, βλ. settings_app_lock_section) ──
+          SettingsAppLockSection(settings: widget.settings),
+          const SizedBox(height: Spacing.sm),
+          // S-308: η κάρτα «Έκδοση» μένει ΠΑΝΤΑ τελευταία στην ενότητα «Σύστημα».
           _buildCard(
             Consumer(builder: (_, ref, __) {
               final v = ref.watch(appVersionProvider);
@@ -224,9 +228,6 @@ class _SystemGroupState extends State<_SystemGroup> {
               );
             }),
           ),
-          const SizedBox(height: Spacing.sm),
-          // ── App Lock (S-24: ατομικό toggle, βλ. settings_app_lock_section) ──
-          SettingsAppLockSection(settings: widget.settings),
 
         ],
       ),
