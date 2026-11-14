@@ -67,9 +67,9 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; C
 Filename: "{app}\super_note.exe"; Description: "Εκκίνηση Προσωπικός Βοηθός"; Flags: nowait postinstall skipifsilent; WorkingDir: "{app}"
 
 [UninstallDelete]
+; Μόνο ο φάκελος εγκατάστασης. Τα δεδομένα (βλ. [Code]) διαγράφονται ΜΟΝΟ αν ο
+; χρήστης απαντήσει «Ναι» στο prompt του InitializeUninstall.
 Type: filesandordirs; Name: "{app}"
-Type: filesandordirs; Name: "{userappdata}\super_note"
-Type: filesandordirs; Name: "{localappdata}\super_note"
 
 [Code]
 var
@@ -112,16 +112,43 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  AppDataPath, LocalAppDataPath: string;
+  DataRoot, SupportRoot, LegacyAppData: string;
+  Removed: Boolean;
 begin
   if (CurUninstallStep = usPostUninstall) and DeleteUserData then
   begin
-    AppDataPath := ExpandConstant('{userappdata}\super_note');
-    if DirExists(AppDataPath) then DelTree(AppDataPath, True, True, True);
+    Removed := False;
 
-    LocalAppDataPath := ExpandConstant('{localappdata}\super_note');
-    if DirExists(LocalAppDataPath) then DelTree(LocalAppDataPath, True, True, True);
-    
-    MsgBox('Τα δεδομένα χρήστη διαγράφηκαν.', mbInformation, MB_OK);
+    // S-01: η πραγματική ρίζα δεδομένων (βάση, συνημμένα, ρυθμίσεις)
+    DataRoot := ExpandConstant('{localappdata}\SuperNoteData');
+    if DirExists(DataRoot) then
+    begin
+      DelTree(DataRoot, True, True, True);
+      Removed := True;
+    end;
+
+    // E50: support dir του path_provider (auto backups: SuperNoteBackups)
+    SupportRoot := ExpandConstant('{userappdata}\com.example\super_note');
+    if DirExists(SupportRoot) then
+    begin
+      DelTree(SupportRoot, True, True, True);
+      Removed := True;
+    end;
+
+    // Legacy: το έφτιαχνε το [Dirs] παλιότερων εκδόσεων (η εφαρμογή δεν γράφει εδώ)
+    LegacyAppData := ExpandConstant('{userappdata}\super_note');
+    if DirExists(LegacyAppData) then
+    begin
+      DelTree(LegacyAppData, True, True, True);
+      Removed := True;
+    end;
+
+    // Το legacy root (app documents) ΔΕΝ αγγίζεται: είναι ο Documents του χρήστη
+    // και το `attachments` είναι γενικό όνομα — θα έσβηνε ξένα αρχεία.
+
+    if Removed then
+      MsgBox('Τα δεδομένα της εφαρμογής διαγράφηκαν.', mbInformation, MB_OK)
+    else
+      MsgBox('Δεν βρέθηκαν δεδομένα της εφαρμογής προς διαγραφή.', mbInformation, MB_OK);
   end;
 end;
