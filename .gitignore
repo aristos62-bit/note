@@ -53,3 +53,11 @@ app.*.map.json
 /InstallerOutput/
 /Dependencies/
 /android/build/
+
+# S-20 — μυστικά/κλειδιά: να μην commitαριστεί ΠΟΤΕ keystore ή credentials
+key.properties
+*.jks
+*.keystore
+*.p12
+.env
+.env.*

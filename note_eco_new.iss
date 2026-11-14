@@ -7,10 +7,9 @@ AppId={{A13E92D4-7F5B-4A5F-8C11-2B7D99887766}}
 AppName=Προσωπικός Βοηθός
 AppVersion=1.0.0
 AppPublisher=Aris Gavrielatos
-AppPublisherURL=https://www.example.com
-AppSupportURL=https://www.example.com/support
-AppUpdatesURL=https://www.example.com/updates
-AppContact=support@example.com
+AppPublisherURL=https://github.com/aristos62-bit/note
+AppSupportURL=https://github.com/aristos62-bit/note/issues
+AppUpdatesURL=https://github.com/aristos62-bit/note/releases
 
 ; Εμποδίζει την εγκατάσταση αν η εφαρμογή είναι ανοιχτή
 AppMutex=SuperNote_Flutter_Mutex
@@ -24,12 +23,12 @@ DisableProgramGroupPage=no
 AllowNoIcons=yes
 
 ; Output
-OutputDir=C:\Users\Vaggelis\Flutter Projects\super_note\InstallerOutput
+OutputDir={#SourcePath}InstallerOutput
 OutputBaseFilename=SuperNoteSetup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=C:\Users\Vaggelis\Flutter Projects\super_note\windows\runner\resources\app_icon.ico
+SetupIconFile={#SourcePath}windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\super_note.exe
 
 ; Permissions
@@ -46,9 +45,9 @@ Name: "desktopicon"; Description: "Δημιουργία συντόμευσης �
 
 [Files]
 ; Η εφαρμογή (Release build)
-Source: "C:\Users\Vaggelis\Flutter Projects\super_note\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourcePath}build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Το VC++ Redistributable
-Source: "C:\Users\Vaggelis\Flutter Projects\super_note\Dependencies\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+Source: "{#SourcePath}Dependencies\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Dirs]
 Name: "{app}"; Permissions: users-full

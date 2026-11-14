@@ -967,7 +967,7 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 
 ### Αποτελέσματα
 - `flutter analyze` — **No issues found**
-- File `C:\Users\Vaggelis\Flutter Projects\super_note\oldsessions.md` — ενημερώθηκε
+- File `<project root>\oldsessions.md` — ενημερώθηκε
 
 ### Εκκρεμότητες
 - [ ] Δοκιμή share σε πραγματική συσκευή για όλες τις οθόνες
@@ -1881,7 +1881,7 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 
 ### Στόχος
 1. Έλεγχος κατάστασης try-catch σε providers (από AGENTS.md Remaining list)
-2. Διόρθωση recurring reminder "Χάπι Χοληστερίνης" που δεν ήρθε 10/6
+2. Διόρθωση recurring reminder "Χάπι Α" που δεν ήρθε 10/6
 
 ### Μέρος 1: Provider status check
 
@@ -1899,7 +1899,7 @@ To share icon εμφανιζόταν μόνο σε Notes, Tasks, Appointments (I
 
 ### Μέρος 2: Recurring reminder gap bug
 
-**Πρόβλημα:** Το καθημερινό reminder "Χάπι Χοληστερίνης" (itemId=124, root id=233, FREQ=DAILY) δεν δημιούργησε child για 10/6. Από logs: τα παιδιά ήταν:
+**Πρόβλημα:** Το καθημερινό reminder "Χάπι Α" (itemId=124, root id=233, FREQ=DAILY) δεν δημιούργησε child για 10/6. Από logs: τα παιδιά ήταν:
 - 6/6 (root), 8/6, 9/6, **10/6 ❌ λείπει**, 11/6, 12/6
 
 **Αιτία:** Στο `refreshRecurringReminders()`, όταν όλα τα παιδιά ήταν στο παρελθόν (π.χ. τρέξιμο 10/6 πριν τις 22:30), δημιουργούσε νέο batch ξεκινώντας από `todayAtTriggerTime` και καλώντας `recurrence.nextOccurrence(current)`. Η `nextOccurrence` για daily **πάντα επιστρέφει επόμενη μέρα** (ποτέ ίδια). Έτσι:
