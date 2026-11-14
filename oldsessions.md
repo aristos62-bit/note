@@ -5386,7 +5386,7 @@ if (!context.isShortScreen)
 `supernote.md` — δέντρο (`backup_progress.dart`, `file_save_channel.dart`, `backup_progress_dialog.dart`, αφαίρεση gate), `BackupService` ενότητα (embedded key, μηδέν όρια, streaming, SAF, `isBusy`, v5), schema v5, `SettingsScreen` (νέες ροές/tiles), `SecurityService` (`super_note/files` channel), test suite 700/700.
 
 ### Device test (POCO X3 `9593c01e`, 14/11/2026)
-**Build:** `flutter build apk --release` (70.0MB) → `adb install -r` Success · versionName 1.0.4+2 (χωρίς bump) · commits `ae80bc4` + `81da311`.
+**Build:** `flutter build apk --release` (70.0MB) → `adb install -r` Success · versionName 1.0.4+2 (χωρίς bump) · commits `ae80bc4` (κώδικας) + `81da311` (docs) + `ab91b90` (device test) + `a399245` (γλωσσικό polish: μήνυμα μήκους κωδικού + subtitle «Κλείδωμα αντιγράφου» — cosmetic, μετά το build).
 
 - **Cold start:** καμία προτροπή κωδικού (gate καταργημένο).
 - **Εξαγωγή (embedded):** progress «Δημιουργία αρχείου αντιγράφου...» 19.8/103.4MB → «Κρυπτογράφηση...» → SAF picker → «ΑΠΟΘΗΚΕΥΣΗ» → snackbar «Αντίγραφο αποθηκεύτηκε» → **103,485,230 B**. Header (`od`): `SNBU`, v2, **keyMode 2 (embedded)**, iterations 0, saltLen 0, keyLen 32 — επιβεβαίωση Δ1.
