@@ -94,6 +94,10 @@ class PreparedRestore {
   /// true όταν το αντίγραφο περιείχε ενεργό κλείδωμα και καθαρίστηκε.
   final bool strippedAppLock;
 
+  /// true όταν το αντίγραφο είχε «Κλείδωμα αντιγράφου» (S-307). Ο κωδικός δεν
+  /// μεταφέρεται, άρα το UI εξηγεί πότε ξαναρχίζει το auto-backup (S-07).
+  final bool backupLockEnabled;
+
   const PreparedRestore({
     required this.format,
     required this.workDir,
@@ -103,6 +107,7 @@ class PreparedRestore {
     required this.attachmentCount,
     required this.plaintextBytes,
     required this.strippedAppLock,
+    required this.backupLockEnabled,
   });
 }
 
@@ -1126,6 +1131,13 @@ class BackupService {
         await _cleanupDir(workDir);
         return const BackupPrepareResult.failure(AppErrors.backupInvalid);
       }
+      // S-07: το αντίγραφο απορρίφθηκε με συγκεκριμένο λόγο (π.χ. νεότερη
+      // έκδοση schema). Η live DB δεν αγγίχτηκε — καθαρισμός temp + μήνυμα.
+      final blockedReason = sanitize.failureReason;
+      if (blockedReason != null) {
+        await _cleanupDir(workDir);
+        return BackupPrepareResult.failure(blockedReason);
+      }
 
       final attDir =
           Directory(p.join(unpackDir.path, BackupArchive.attachmentsPrefix));
@@ -1146,6 +1158,7 @@ class BackupService {
         attachmentCount: attachments,
         plaintextBytes: plaintextBytes,
         strippedAppLock: sanitize.strippedAppLock,
+        backupLockEnabled: sanitize.backupLockEnabled,
       ));
     } on BackupCancelledException {
       DebugConfig.db('prepare: cancelled by user');

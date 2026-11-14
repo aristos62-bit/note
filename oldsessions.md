@@ -5707,5 +5707,54 @@ ISCC **exit 0**, warnings **1** (μόνο το cosmetic «x64 deprecated»), ins
 (+ `[Dirs] users-full` = S-10 · arch id `x64` deprecated · προαιρετικό history rewrite S-14 · iOS/macOS/Linux
 bundle ids).
 
+## Session 313 — 14/11/2026 (S-07: πολιτική πεδίων στην επαναφορά — guard έκδοσης, strip timeout, normalize auto-backup)
+
+### Πρόβλημα (πραγματικά παραδείγματα)
+Η επαναφορά αντικαθιστά **όλη** τη βάση, άρα «συσκευακά» πεδία έρχονται από άλλη συσκευή/χρόνο:
+PIN + βιομετρικά σβήνονταν σωστά (S-02), αλλά (α) **αντίγραφο από νεότερη έκδοση** καρφίτσωνε σιωπηλά
+`schemaVersion` στο 6 και το Isar auto-migrate **έσβηνε** τα άγνωστα πεδία· (β) `lastAutoBackupAt` από
+συσκευή με λάθος ρολόι (μέλλον) έκανε το `difference().inHours < 24` **αρνητικό** ⇒ auto-backup **ποτέ**,
+χωρίς μήνυμα· (γ) το `appLockTimeoutSeconds` έμπαινε από το αντίγραφο χωρίς lock· (δ) με «Κλείδωμα
+αντιγράφου» ON το auto-backup **σιωπούσε** για πάντα (ο κωδικός δεν μεταφέρεται ποτέ, άρα το
+`BackupPassphraseCache` μένει κενό και το `autoBackup` κάνει skip).
+
+### Τεχνικά θεμέλια (επαληθευμένα, όχι υποθέσεις)
+- `isar 3.1.0+1` (`pubspec.lock`)· τεκμηρίωση Isar: auto-migrate σε προσθήκη/αφαίρεση πεδίων/collections,
+  «existing properties cannot be removed or altered» ⇒ επιβεβαιώνει τη σιωπηλή απώλεια σε downgrade.
+- Το `.snb` **δεν** έχει manifest έκδοσης εφαρμογής (`backup_container.dart:175-187`: μόνο container v1/v2)
+  ⇒ ο έλεγχος γίνεται **μόνο** από τη βάση, στο probe, **πριν** το `copyToFile`.
+- `prepare` έχει **1** caller (`settings_backup.dart:190`)· `BackupDbProbe` **δεν** είναι στο barrel·
+  **0** tests αγγίζουν probe/prepare ⇒ μηδενικό ρίσκο διάδοσης.
+- `dbProvider` = `Provider` με cached instance ⇒ **απορρίφθηκε** post-init overlay (θα χτυπούσε κλειστή DB).
+- `appLockTimeoutSeconds` διαβάζεται **μόνο** όταν `appLockEnabled` (`main.dart:410`, `app_lock_provider.dart:425`)·
+  0 = άμεσο κλείδωμα (`appLockSettings` doc, `shouldLockOnResume`: `elapsed >= 0`) ⇒ strip = αυστηρότερο.
+- `lastAutoBackupAt`: 1 reader / 1 writer (`backup_service.dart:743, 792`).
+- Το startup κάνει `scheduleAll()` = cancelAll + πλήρες re-bake ⇒ **καμία** νέα εργασία για OS alarms.
+
+### Αλλαγές (5 αρχεία)
+1. `lib/services/backup/backup_db_probe.dart` — `BackupSanitizeResult` +`backupLockEnabled` +`failureReason`·
+   guard `settings.schemaVersion > MigrationService.currentSchemaVersion` → απόρριψη **πριν** strip/snapshot·
+   strip +`appLockTimeoutSeconds`· normalize μελλοντικού `lastAutoBackupAt` → `null`· **ένα** writeTxn.
+2. `lib/services/migration_service.dart` — δημόσιο getter `currentSchemaVersion` (SPoT, χωρίς διπλό «6»).
+3. `lib/services/backup_service.dart` — `PreparedRestore` +`backupLockEnabled`· `_prepareImpl` χαρτογραφεί
+   `failureReason` σε `BackupPrepareResult.failure` **με** `_cleanupDir` (καμία διαρροή temp).
+4. `lib/core/utils/app_errors.dart` — `backupFromNewerVersion`, `backupAutoResumeNote`.
+5. `lib/features/settings/settings_backup.dart` — ο διάλογος επιτυχίας εξηγεί πότε ξαναρχίζει το auto-backup
+   (μόνο όταν το αντίγραφο είχε κλείδωμα).
+
+### Τι απορρίφθηκε (τεκμηριωμένα)
+Post-init overlay μέσω providers (κλειστή DB) · νέα πεδία σε `BackupImportResult` (η εφαρμογή κάνει exit —
+κανείς δεν θα το έβλεπε) · `syncChannel`/νέα εργασία alarms (λάθος μοντέλο: `hideNotificationContent` =
+`discreet` ανά alarm· startup re-bake) · διπλό μήνυμα κλειδώματος (υπάρχει ήδη ×2) · reset
+`backupLockEnabled=false` (θα υποβάθμιζε τα επόμενα αντίγραφα σε ενσωματωμένο κλειδί).
+
+### Έλεγχοι
+`flutter analyze` → **No issues found** (4,5s) · `flutter test` → **708/708** (42s) · μηδέν αλλαγή σε
+schema/migration/codegen/dependencies.
+
+### Backups
+`backups/s313_s07_20261114_210758/` (5 κώδικας + `oldsessions.md`, `security_v2.md`, `supernote.md`).
+
+
 
 
