@@ -5585,13 +5585,59 @@ tracked αρχεία — ανάμεσά τους 148 κάτω από `backups/`,
 ### Νέα ευρήματα που **δεν** διορθώθηκαν
 - `[UninstallDelete]` διαγράφει `{userappdata}\super_note` **unconditionally**, άρα το prompt
   «Να διαγραφούν ΟΛΑ τα δεδομένα;» είναι **παραπλανητικό** (τα δεδομένα φεύγουν ό,τι κι αν απαντήσει ο
-  χρήστης). Θέλει απόφαση (π.χ. `[Code]` check + conditional `DelTree`).
+  χρήστης). → **διορθώθηκε αμέσως μετά, στο S-311** (και αποδείχθηκε χειρότερο: τα πραγματικά δεδομένα
+  δεν διαγράφονταν ποτέ).
 - `[Dirs]` με `users-full` σε `{app}`/`{userappdata}\super_note` → **S-10 παραμένει ανοιχτό**.
 - `AppPublisher=Aris Gavrielatos` αφέθηκε (branding, όχι διαπιστευτήριο).
 
 ### Κατάσταση
 **S-14 ✅** (στο HEAD) · **S-20 ✅** · 3 διορθώσεις installer ✅. Ανοιχτά security: S-01 (απόφαση), S-07,
 S-08, S-09, S-10, S-11, S-13, S-15, S-19, S-21 (+ προαιρετικό history rewrite του S-14).
+
+---
+
+## Session 311 — 14/11/2026 (uninstaller: σωστή διαγραφή δεδομένων)
+
+### Αφορμή
+Το S-310 άφησε ανοιχτό το `[UninstallDelete]`: το prompt «Επιθυμείτε να διαγραφούν ΟΛΑ τα δεδομένα;»
+δεν μπορούσε να απαντηθεί με «Όχι». Πριν γραφτεί κώδικας ελέγχθηκε **ποιο path χρησιμοποιεί
+πραγματικά η εφαρμογή** (SPoT: `lib/core/utils/app_paths.dart`), γιατί το `.iss` δούλευε με παλιά ονόματα.
+
+### Τι βρέθηκε (χειρότερο από το αρχικό εύρημα)
+| Path | Χρήση | Πριν | Μετά |
+|---|---|---|---|
+| `%LOCALAPPDATA%\SuperNoteData` | βάση, `attachments/`, ρυθμίσεις (`AppPaths.dataDirName`) | **ποτέ** | «Ναι» |
+| `%APPDATA%\com.example\super_note` | support dir `path_provider` + auto backups `SuperNoteBackups` (E50) | **ποτέ** | «Ναι» |
+| `%APPDATA%\super_note` | legacy του `[Dirs]` — η εφαρμογή **δεν** γράφει εκεί | **πάντα** (και με «Όχι») | «Ναι» |
+| `%LOCALAPPDATA%\SuperNote` = `{app}` | φάκελος εγκατάστασης | σωστά (διπλή εγγραφή `{localappdata}\super_note`, case-insensitive) | μόνο `{app}` |
+
+Συνέπεια: με «Ναι» το μήνυμα έλεγε «Τα δεδομένα χρήστη διαγράφηκαν» **ενώ τα δεδομένα έμεναν**· με «Όχι»
+εξαφανιζόταν ένας φάκελος που κανείς δεν χρησιμοποιεί. Λάθος και στις δύο απαντήσεις.
+
+### Αλλαγές (`note_eco_new.iss`)
+1. `[UninstallDelete]`: μόνο `{app}` + σχόλιο ότι τα δεδομένα τα χειρίζεται το `[Code]`.
+2. `CurUninstallStepChanged`: `DelTree` σε **3** paths (`SuperNoteData`, support dir, legacy
+   `%APPDATA%\super_note`) **μόνο** όταν `DeleteUserData`; νέες μεταβλητές `DataRoot`/`SupportRoot`/
+   `LegacyAppData` + `Removed`, ώστε το τελικό μήνυμα να λέει την αλήθεια («διαγράφηκαν» vs «δεν βρέθηκαν
+   δεδομένα προς διαγραφή»).
+3. **Δεν** αγγίζεται το legacy root (app documents): είναι ο **`Documents`** του χρήστη και το `attachments`
+   είναι γενικό όνομα ⇒ θα έσβηνε ξένα αρχεία. Καταγράφηκε ως σχόλιο μέσα στον κώδικα.
+
+### Επαλήθευση
+- **ISCC exit 0** (10,98s), warnings **1** (μόνο το καλλωπιστικό «x64 deprecated») · exe 30.999.159 bytes,
+  `1.2.0.4`/`1.2.0`, στο `InstallerOutput/` (gitignored).
+- **Δεν** έγινε end-to-end device test απεγκατάστασης: απαιτεί πραγματική εγκατάσταση + δεδομένα, και θα
+  έσβηνε τα δικά σου. Αν θέλουμε απόδειξη, γίνεται σε throwaway VM/χρήστη.
+- Rollback: `backups/s311_uninstall_20261114_181826/` (`note_eco_new.iss`, `oldsessions.md`).
+
+### Σημείωση για το S-09
+Το support dir εξαρτάται από `CompanyName`/`ProductName` του `windows/runner/Runner.rc`
+(σήμερα `com.example` / `super_note`) ⇒ **όταν αλλάξουν στο rebrand του S-09, πρέπει να αλλάξει μαζί και το
+`SupportRoot` του uninstaller**, αλλιώς θα μένει ορφανός φάκελος με backups.
+
+### Κατάσταση
+Uninstaller ✅ (compile-verified). Ανοιχτά: S-01, S-07, S-08, S-09, S-10, S-11, S-13, S-15, S-19, S-21
+(+ `[Dirs] users-full` = S-10 · arch id `x64` deprecated = καλλωπιστικό · προαιρετικό history rewrite S-14).
 
 
 
