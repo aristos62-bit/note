@@ -33,7 +33,10 @@ class BackupExportResult {
     this.cancelled = false,
     this.error,
   });
-  factory BackupExportResult.success(String path) =>
+  /// S-308 (F1): το [path] είναι προαιρετικό — η ροή «Κοινοποίηση» δεν
+  /// αποθηκεύει σε προορισμό (το `.snb` μένει temp και διαγράφεται), οπότε
+  /// δεν πρέπει να αναφέρεται ως «αποθηκευμένο».
+  factory BackupExportResult.success([String? path]) =>
       BackupExportResult._(success: true, path: path);
   factory BackupExportResult.cancelled() =>
       const BackupExportResult._(cancelled: true);
@@ -523,7 +526,9 @@ class BackupService {
         final dirToClean = workDir;
         workDir = null;
         _scheduleTempCleanup(dirToClean);
-        return BackupExportResult.success(tempSnb);
+        // S-308 (F1): κανένα path — το μήνυμα γίνεται «Εξαγωγή επιτυχής» και
+        // όχι «Αντίγραφο αποθηκεύτηκε» (δεν υπάρχει προορισμός· μόνο temp).
+        return BackupExportResult.success();
       } catch (_) {
         DebugConfig.db('exportWithShare: share failed, cleaning up temp');
         try {
