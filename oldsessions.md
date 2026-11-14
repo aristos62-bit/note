@@ -5344,4 +5344,45 @@ if (!context.isShortScreen)
 - **Δεν** εκτελέστηκε «Διαγραφή όλων»: καταστροφικό για τα πραγματικά δεδομένα του χρήστη (ίδια απόφαση με S305). Το `updatedAt` του note «IMG_20250324_100700.jpg» άλλαξε λόγω του toggle test (αναμενόμενο).
 - Screenshots + `summary.md`: `device-test/` (10 png). Τα `/sdcard/*.xml` του test διαγράφηκαν· η εφαρμογή force-stopped, η συσκευή επέστρεψε στον launcher.
 
+## Session 307 — 14-15/11/2026 (S-307: ριζικός επανασχεδιασμός backup/restore)
+
+### Στόχος
+Κατάργηση των κωδικών χρήστη από την καθημερινή ροή backup/restore, ένδειξη προόδου σε κάθε αργή φάση (ποτέ πάγωμα χωρίς ενημέρωση), και **μηδέν όρια μεγέθους** — το αντίγραφο ακολουθεί το μέγεθος της βάσης.
+
+### Αποφάσεις (εγκεκριμένες: «Έγκριση Δ1–Δ6»)
+- **Δ1 — Ενσωματωμένο κλειδί:** κάθε `.snb` παίρνει 32 τυχαία bytes **μέσα στο header** (`keyMode = embedded`, v2). Μηδέν PBKDF2, μηδέν προτροπή. Το αρχείο μένει ακέραιο/anti-tamper (GCM) αλλά **δεν** είναι εμπιστευτικό απέναντι σε όποιον το κατέχει — ρητά αποδεκτό trade-off· ο κωδικός επιστρέφει μόνο ως opt-in («Κλείδωμα αντιγράφου»).
+- **Δ2 — Ροές UI:** export = tile → system picker φακέλου → progress → done· «Κοινοποίηση» = **ξεχωριστό tile** (share_plus ανέπαφο)· import = tile → picker → progress ελέγχου → **1** `ConfirmDialog` → progress → restart dialog (E33).
+- **Δ3 — Μηδέν όρια:** κατάργηση `maxDialogBytes`/`maxRestoreBytes`/`defaultMaxPlaintextBytes`· streaming παντού· zip συνημμένων `ZipFileEncoder.store` (JPEG/PDF δεν συμπιέζονται), βάση με default deflate· έλεγχος ελεύθερου χώρου πριν το γράψιμο.
+- **Δ4 — Progress dialog:** `BackupProgressDialog` στο μοτίβο του `SettingsImportProgressDialog` (φάση + % + «x / y MB» + Ακύρωση)· chunk 256 KiB· χωρίς isolate (αρχικά)· busy από `BackupService.isBusy` (`_exportInFlight`/`_prepareInFlight`/`_autoBackupInFlight`) — **όχι** από `_maintenanceActive` (θα πάγωνε τις queues όσο είναι ανοιχτό το share sheet).
+- **Δ5 — Κατάργηση gate:** αφαιρέθηκε το `BackupPassphraseGate` από το `main.dart` και διαγράφηκε το αρχείο· μηδέν προτροπές στο auto-backup (embedded key), σιωπηλό skip αν είναι ON το κλείδωμα και λείπει κλειδί συνεδρίας (ποτέ plaintext).
+- **Δ6 — «Κλείδωμα αντιγράφου»:** `SettingsSwitchTile`, default **OFF** → `AppSettings.backupLockEnabled` + migration v4→v5 + `build_runner`. ON = ζητείται κωδικός και το `.snb` κρυπτογραφείται με PBKDF2.
+
+### Αλλαγές κώδικα
+1. **Νέο `lib/services/backup/backup_progress.dart`** — `BackupPhase` (snapshot/zip/encrypt/copy/decrypt/extract/verify/restore) με ελληνικές ετικέτες, `BackupProgress{done,total,fraction}`, `BackupProgressCallback`, `BackupCancelledException`, `BackupSpaceException`.
+2. `lib/services/backup/backup_container.dart` — header **v2**: `keyMode` (1=PBKDF2, 2=embedded), `iteration`, `salt`, key block, nonce, chunk, plaintext· ανάγνωση **v1 + v2**· `requiresPassphrase`/`hasPassphrase`· `encryptFileTo(passphrase:)` με embedded key όταν `null`/κενό· `decryptFileTo` χωρίς caps· progress + cancel ανά chunk· `defaultChunkSize = 256 KiB`.
+3. `lib/services/backup_archive.dart` — `estimateSourceBytes`, `createBackupZip(onProgress, isCancelled)` (store για συνημμένα), **streaming** `extractBackupZip`/`extractBackupZipDbOnly` με `InputFileStream`/`OutputFileStream` + progress + cancel.
+4. **Νέο `lib/platform/file_save_channel.dart`** — `isSupported` (Android), `saveDocument` (progress μέσω `copyProgress` handler), `freeSpace(path)`.
+5. `android/.../MainActivity.kt` — `FlutterFragmentActivity` + νέο channel **`super_note/files`**: `saveDocument` (`ActivityResultContracts.CreateDocument` + streaming copy 1 MB + `copyProgress`), `freeSpace` (`StatFs`). Το `super_note/security` έμεινε ανέπαφο.
+6. `lib/services/backup_service.dart` — αφαίρεση caps· `isBusy` + `_trackExport`/`_trackPrepare` (καθαρισμός in-flight)· `_checkFreeSpace` (+15%)· κοινό `_buildBackupSnb` (zip → encrypt)· `_exportPassphraseOrThrow` (null όταν το κλείδωμα είναι OFF)· export platform-split (Android SAF / iOS share / desktop picker + `_copyWithProgress`)· `_friendlyExportError` (ENOSPC → `backupNoSpace`)· `prepare(onProgress, isCancelled)` + `BackupPrepareResult.cancelled`· `restorePrepared(onProgress)`.
+7. `lib/models/app_settings.dart` + `app_settings.g.dart` + `lib/services/migration_service.dart` — `backupLockEnabled = false`, `_targetVersion = 5`, `_v4ToV5` (additive, no-op).
+8. `lib/providers/settings_provider.dart` — `setBackupLockEnabled`.
+9. `lib/core/utils/app_errors.dart` — `backupNoSpace`, `backupSaveFailed`, `backupExportSubtitle`, `backupShareSubtitle`, `backupImportSubtitle`.
+10. **Νέο `lib/features/settings/backup_progress_dialog.dart`** — `BackupProgressController` (`ValueNotifier` + cancel), `showBackupProgressDialog<T>`, `PopScope(canPop:false)`, `SafeDialogBody`, φάση + humanSize + «Ακύρωση».
+11. `lib/features/settings/settings_backup.dart` — `exportBackup`/`shareBackup` → `_runExport` (busy → S-04 gate → κωδικός **μόνο** αν `backupLockEnabled` → progress + export)· `importBackup` (detectFormat → `requiresPassphrase` για κωδικό → progress prepare → confirm → progress restore, μη ακυρώσιμο)· `_isBusyNow()`.
+12. `lib/features/settings/settings_tiles.dart` — αφαίρεση προτροπών passphrase από το auto-backup tile· νέο `SettingsBackupLockTile` (ON ζητά κωδικό ΠΡΙΝ το save· OFF καθαρίζει το cache).
+13. `lib/features/settings/settings_screen.dart` — νέα subtitles, tile «Κοινοποίηση δεδομένων», tile «Κλείδωμα αντιγράφου» μετά το auto-backup.
+14. `lib/main.dart` — αφαίρεση `const BackupPassphraseGate()` + import· **διαγράφηκε** το `settings_backup_passphrase_gate.dart`.
+
+### Tests
+- `test/backup_container_test.dart` — προσαρμογή σε `keyMode`/`requiresPassphrase` + νέα groups: **embedded key** (round-trip χωρίς κωδικό, κενός κωδικός ⇒ embedded, αλλοιωμένο embedded key ⇒ `BackupAuthException`), **progress + cancel** (πρόοδος έως 100%, ακύρωση encrypt/decrypt χωρίς τελικό αρχείο), **v1 legacy header** (parse + `toBytes` αναπαράγει τα ίδια 48 bytes).
+- `test/backup_archive_test.dart` — νέο group streaming: create+extract round-trip με πρόοδο, `extractBackupZipDbOnly`, **μεγάλο zip 3MB**, ακύρωση, `estimateSourceBytes` (με/χωρίς attachments).
+- **Εύρημα από τα tests (διορθώθηκε):** το `SnbHeader.headerLength`/`toBytes()` μετρούσαν πάντα το key-length byte — για **v1** (48-byte header, χωρίς key block) αυτό θα έσπαγε τόσο το μέγεθος (`totalEncryptedLength`) όσο και το AAD ⇒ αδυναμία ανάγνωσης παλιών `.snb`. Τώρα το byte μπαίνει **μόνο** για `version >= currentVersion`.
+- **Έλεγχοι:** `flutter analyze` → **No issues found** · `flutter test` → **700/700 All tests passed** (45s) — 686 + 14 νέα.
+
+### Backups
+`backups/s307_backup_ux_20261113_185020/` — 17 αρχεία (flat `__` ονόματα) πριν τις αλλαγές + `base_head_missing_files.zip` (`git archive HEAD` για `settings_provider.dart`/`backup_archive.dart` που δεν είχαν μεμονωμένο αντίγραφο). BASE_HEAD `8a6abaf`.
+
+### Docs
+`supernote.md` — δέντρο (`backup_progress.dart`, `file_save_channel.dart`, `backup_progress_dialog.dart`, αφαίρεση gate), `BackupService` ενότητα (embedded key, μηδέν όρια, streaming, SAF, `isBusy`, v5), schema v5, `SettingsScreen` (νέες ροές/tiles), `SecurityService` (`super_note/files` channel), test suite 700/700.
+
 

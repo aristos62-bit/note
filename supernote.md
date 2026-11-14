@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **686/686** (`flutter test`, 13/11/2026 — `flutter analyze` clean) |
+| Test suite | **700/700** (`flutter test`, 14/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -69,7 +69,7 @@
 - `receive_sharing_intent` (`^1.9.0`) — λήψη κοιν/νου content
 - `url_launcher` (`^6.3.3`) — άνοιγμα URLs + Windows file opener (`Uri.file` → `ShellExecuteW`)
 - `archive` (`^4.3.0`) — zip backup/restore
-- `cryptography` (`^2.9.0`) — AES-256-GCM + PBKDF2 (κρυπτογραφημένο backup `.snb`, S-02)
+- `cryptography` (`^2.9.0`) — AES-256-GCM + PBKDF2 (κρυπτογραφημένο backup `.snb`· S-307: προεπιλογή = **ενσωματωμένο κλειδί** στο header, PBKDF2 μόνο με «Κλείδωμα αντιγράφου»)
 
 > Πηγή αλήθειας για dependencies: `pubspec.yaml`
 
@@ -126,6 +126,8 @@ lib/
 │   ├── isar_schemas.dart         — isarSchemas: μία λίστα schema για helper + backup probe (S-02/C2)
 │   ├── recurrence.dart           — Recurrence (not Isar, plain Dart class)
 │   └── item_type_label.dart      — ItemTypeX.labelGr SPoT (S70)
+├── platform/
+│   └── file_save_channel.dart    — `super_note/files` MethodChannel: SAF streaming save + freeSpace (S-307)
 ├── providers/
 │   ├── providers.dart            — Barrel export
 │   ├── db_provider.dart          — SuperNoteHelper instance
@@ -157,10 +159,11 @@ lib/
 │   ├── search_service.dart       — Full-text search
 │   ├── habit_service.dart        — Habit stats, streak, progress
 │   ├── attachment_service.dart   — File pick + save + delete + open (S-25 policy)
-│   ├── backup_service.dart       — Export/import Isar DB (κρυπτογραφημένο .snb, S-02)
-│   ├── backup_archive.dart       — Zip archive helpers + allowlist entries (C7)
+│   ├── backup_service.dart       — Export/import Isar DB (`.snb` χωρίς όρια μεγέθους, progress + cancel, S-307)
+│   ├── backup_archive.dart       — Zip create/extract **streaming** + allowlist entries (C7/S-307)
 │   ├── backup/
-│   │   ├── backup_container.dart  — `.snb` header + STREAM AES-256-GCM encrypt/decrypt (S-02)
+│   │   ├── backup_container.dart  — `.snb` header v2 (`keyMode`: embedded/pbkdf2) + STREAM AES-256-GCM (S-02/S-307)
+│   │   ├── backup_progress.dart   — BackupPhase/BackupProgress + cancel/space exceptions (S-307)
 │   │   ├── backup_db_probe.dart   — Trial open + strip lock fields + consistent snapshot (S-02)
 │   │   ├── backup_rotation.dart   — auto_* listing/rotation + partial sweep (S-02)
 │   │   └── backup_passphrase_cache.dart — Κωδικός αντιγράφου ΜΟΝΟ σε μνήμη συνεδρίας (D2=i)
@@ -239,9 +242,9 @@ lib/
 │   │   ├── settings_tiles.dart            — SettingsCard + Switch/Action/Info/theme/lock/backup tiles
 │   │   ├── settings_app_lock_section.dart — App-lock section: toggle/PIN/biometric + S-04 disable gate
 │   │   ├── settings_colors.dart           — Item-type colors + color picker sheet
-│   │   ├── settings_backup.dart           — Export / import / wipe (+ S-04 auth gate, S-02 two-phase)
-│   │   ├── settings_backup_passphrase.dart — Dialog κωδικού αντιγράφου (AES-256) (S-02)
-│   │   ├── settings_backup_passphrase_gate.dart — Μία προτροπή/εκκίνηση όταν auto-backup ON (D8)
+│   │   ├── settings_backup.dart           — Export / share / import / wipe (+ S-04 auth gate, progress dialogs S-307)
+│   │   ├── backup_progress_dialog.dart    — Progress dialog (φάση + % + Ακύρωση) για export/restore (S-307)
+│   │   ├── settings_backup_passphrase.dart — Dialog κωδικού αντιγράφου (PBKDF2 — μόνο «Κλείδωμα αντιγράφου»)
 │   │   ├── settings_pin_dialogs.dart      — PIN dialogs + validation + confirmSensitiveAction (S-03/S-04)
 │   │   ├── settings_reminders_dialog.dart — Past reminders dialog
 │   │   ├── reminder_diagnostics_screen.dart — Διαγνωστικά υπενθυμίσεων (DB vs OS alarms)
@@ -494,7 +497,7 @@ final db = SuperNoteHelper.instance;
 ## Schema Migration (lib/services/migration_service.dart)
 
 - `MigrationService.ensureSchemaVersion(isar)` — καλείται στο `SuperNoteHelper.init()` μετά το `Isar.open()`.
-- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`) — τρέχον **v4** (S-03: sanitize/clamp των lockout πεδίων· additive, χωρίς μετασχηματισμό δεδομένων).
+- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`) — τρέχον **v5** (S-03: sanitize/clamp των lockout πεδίων· S-307: additive `backupLockEnabled`, και τα δύο χωρίς μετασχηματισμό δεδομένων).
 - Safety backup (file copy) πριν από κάθε migration.
 - Batch pagination (50 records) για αποφυγή OOM.
 - Idempotent migrations — crash-safe.
@@ -589,19 +592,20 @@ final db = SuperNoteHelper.instance;
 - **S-18 (security v2, βήμα 1α):** SPoT για το «πού επιτρέπεται» ένα path = `AttachmentPathGuard` (`lib/core/utils/attachment_path_guard.dart`): `dirName = 'attachments'`, root = `<appDataDir>/attachments`, **fail-closed** `resolve()` (λεξικός: `isAbsolute` + `normalize` + `isWithin`, χωρίς I/O) · `configure(appDataDir:)` στο `SuperNoteHelper.init()` (idempotent, re-init μετά restore) · `attachmentsDirName` = const delegate. Όλα τα open/preview/save-as/share/disk-delete περνούν από αυτό· εκτός root ⇒ `attachNotFound`/skip (ποτέ άνοιγμα, διαγραφή ή κοινοποίηση ξένου αρχείου).
 - **S-25 (security v2, βήμα 1γ):** ίδιος guard, δεύτερη πολιτική — `isRiskyToLaunch(path, {windows})`: pure (μηδέν I/O), denylist `launchRiskExtensions` (`.exe`, `.bat`, `.cmd`, `.ps1`, `.lnk`, `.msi`, `.jar`, `.hta`, `.vbs`, `.settingcontent-ms` κ.λπ.), κρίνει **μόνο** το basename αφού κόψει ADS (`:` → `evil.exe::$DATA`) και τελικές τελείες/κενά (`evil.exe.`), lowercase. Εκτός Windows → πάντα false. `openAttachment` εμφανίζει `ConfirmDialog` (title/body/confirm από `AppErrors`) και περνά `allowRisky`· το `open()` ξαναελέγχει (fail-safe για μελλοντικούς callers). Οι εικόνες δεν ρωτούν (μόνο decode). **Όρια:** macOS/Linux (`.command`/`.sh`/`.app`), Office macros, όχι `IAttachmentExecute`/FFI, denylist όχι πλήρης, Android αμετάβλητο.
 
-### BackupService (`lib/services/backup_service.dart`, S-02)
-- **Μορφή:** export/share/auto-backup γράφουν **κρυπτογραφημένο `.snb`** (AES-256-GCM, υποχρεωτικό — D7). Το payload είναι το παλιό zip (DB + attachments) που κρυπτογραφείται ως σύνολο· read υποστηρίζει `.snb` **και** legacy `.zip`/`.isar`, μορφή από magic bytes (`BackupContainer.detectFormat`) — ποτέ από extension.
-- `prepare(path, {passphrase})` / `restorePrepared(prepared)` / `discardPrepared(prepared)` — **verify-before-open**: decrypt → allowlist extract (`BackupArchive.isAllowedEntry`: μόνο `super_note_db.isar` + επίπεδα `attachments/*`) → `BackupDbProbe` (trial Isar με unique name, απαιτεί `AppSettings(1)`, **strip** lock/lockout πεδίων, `copyToFile` snapshot) σε temp dir **πριν** αγγίξει η ροή τη live DB· το work dir καθαρίζεται πάντα.
-- `exportToDevice({required passphrase})` / `exportWithShare({required passphrase})` — DB snapshot με `Isar.copyToFile` → zip → `BackupContainer.encryptFileTo` (γράφει `.partial` + rename, ποτέ μισό αρχείο) → save/share (`mimeType` στο `XFile`).
-- `autoBackup()` — `.snb` στο background (1/24ωρο, rotation κρατά 5)· **χωρίς κλειδί συνεδρίας σκιπάρεται** (D8, ποτέ plaintext)· `listAutoBackups()` δείχνει `auto_*.<snb|zip>`.
+### BackupService (`lib/services/backup_service.dart`, S-02 / S-307)
+- **Μορφή:** export/share/auto-backup γράφουν πάντα `.snb` (AES-256-GCM, STREAM chunks 256 KiB). **S-307 (Δ1):** default `keyMode = embedded` — 32 τυχαία bytes **μέσα στο header**, μηδέν κωδικός/PBKDF2, μηδέν προτροπή· το αρχείο μένει ακέραιο/anti-tamper αλλά **όχι εμπιστευτικό** (αποδεκτό trade-off). `keyMode = pbkdf2` μόνο όταν είναι ON το «Κλείδωμα αντιγράφου». Read: `.snb` v2 (embedded/pbkdf2) + v1 (legacy PBKDF2, 48-byte header) + legacy `.zip`/`.isar`, μορφή από magic bytes (`BackupContainer.detectFormat`) — ποτέ από extension.
+- **Χωρίς όρια μεγέθους (Δ3):** αφαιρέθηκαν `maxDialogBytes`/`maxRestoreBytes`/`defaultMaxPlaintextBytes`· zip create/extract και encrypt/decrypt είναι **streaming** (`ZipFileEncoder`/`ZipDecoder.decodeStream` + `ArchiveFile.writeContent`, chunked `RandomAccessFile`) ⇒ μηδέν full-file buffers· το μέγεθος ακολουθεί τη βάση. Free-space πριν το γράψιμο (`FileSaveChannel.freeSpace` = Android `StatFs`, +15% περιθώριο· desktop → try/catch του write).
+- `prepare(path, {passphrase, onProgress, isCancelled})` / `restorePrepared(prepared, {onProgress})` / `discardPrepared(prepared)` — **verify-before-open**: decrypt → allowlist extract (`BackupArchive.isAllowedEntry`: μόνο `super_note_db.isar` + επίπεδα `attachments/*`) → `BackupDbProbe` (trial Isar με unique name, απαιτεί `AppSettings(1)`, **strip** lock/lockout πεδίων, `copyToFile` snapshot) σε temp dir **πριν** αγγίξει η ροή τη live DB· το work dir καθαρίζεται πάντα. Επιστρέφουν `cancelled` flag (όχι σφάλμα) σε ακύρωση.
+- `exportToDevice({onProgress, isCancelled})` / `exportWithShare(...)` — `_buildBackupSnb`: snapshot `Isar.copyToFile` → zip → `BackupContainer.encryptFileTo` (`.partial` + rename). **Android:** `FileSaveChannel.saveDocument` = SAF `ACTION_CREATE_DOCUMENT` (`super_note/files` channel) + streaming copy 1 MB με `copyProgress` events — **ποτέ** bytes μέσω channel. iOS → share fallback (εκτός scope). Desktop → `FilePicker.saveFile` + streaming copy.
+- `autoBackup()` — `.snb` στο background (1/24ωρο, rotation κρατά 5)· με ενσωματωμένο κλειδί **καμία προτροπή**· αν «Κλείδωμα αντιγράφου» ON και λείπει κλειδί συνεδρίας → **skip** σιωπηλά (ποτέ plaintext)· `listAutoBackups()` δείχνει `auto_*.<snb|zip>`.
 - **E50 (S305) — τοποθεσία:** τα auto backups ζουν στο **`getApplicationSupportDirectory()/SuperNoteBackups`** (= `filesDir` στο Android· επιβιώνει σε «Εκκαθάριση cache»/OS purge), **όχι** στον cache. Το temp zip είναι **plaintext** και ζει μόνο σε `cache/_backup_auto_<ts>/` (σβήνεται στο `finally` + από το sweep). Legacy ανάγνωση: `BackupRotation.listIn([support, legacy cache])` με **dedupe κατά basename** (μόνιμο dual-read — αποτυχία μετακίνησης δεν κρύβει αντίγραφα)· `rotateIn` με **συνολικό** `maxAutoBackups`· μία φορά adopt (`BackupRotation.adoptLegacy`, rename-first, copy ≤20 MB) από το `sweepStaleArtifacts` (startup + μετά restore), ποτέ από UI read και ποτέ σε maintenance.
 - `sweepStaleArtifacts()` — καθαρισμός `_backup_export_*`/`_backup_share_*`/`_restore_prepare_*`/`_backup_auto_*` temp dirs + `.partial/.tmp` σε support **και** legacy φάκελο (postFrame εκκίνησης + μετά από restore).
 - **S-01:** export / share / auto-backup / restore διαβάζουν και γράφουν στη **ρίζα δεδομένων** (`AppPaths.activeDataRoot()`), όχι στα Documents. Το auto-backup παραμένει στο support dir (E50) — η S-01 **δεν** αλλάζει την τοποθεσία των αντιγράφων.
 - **Απόφαση (S305) — By-design:** το auto backup είναι **εσωτερικός μηχανισμός** (undo σε λάθος διαγραφή / restore από κακή κατάσταση / update που χάλασε κάτι) και **δεν** αποκτά επιλογή προορισμού/SAF — η off-device διαδρομή (αλλαγή συσκευής, uninstall, cloud) καλύπτεται **μόνο** από τη χειροκίνητη εξαγωγή `.snb` με φάκελο επιλογής χρήστη. Άρα το «E50-B» απορρίπτεται by design.
-- `beginDbMaintenance()` / `endDbMaintenance({rearmRefresh})` — E33 orchestration: pause+drain scheduler/habit queues και in-flight **autoBackup/export/prepare** έως 65s· epoch guard ώστε autoBackup που ξεκίνησε πριν το restore να μην γράψει `lastAutoBackupAt` σε DB που αλλάζει.
+- `isBusy` (S-307/Δ4) = export/share/prepare/autoBackup in-flight (drain F7)· **όχι** `_maintenanceActive` (αυτό μένει μόνο για restore/wipe ώστε το ανοιχτό share sheet να μην παγώνει queues). `beginDbMaintenance()` / `endDbMaintenance({rearmRefresh})` — E33 orchestration: pause+drain scheduler/habit queues και in-flight **autoBackup/export/prepare** έως 65s· epoch guard ώστε autoBackup που ξεκίνησε πριν το restore να μην γράψει `lastAutoBackupAt` σε DB που αλλάζει.
 - `_atomicRestoreDb(PreparedRestore)` — drain → safety DB με `copyToFile` → `SuperNoteHelper.close()` → αντικατάσταση DB (πάντα copy από sanitized snapshot) + attachments (rename) → re-init. Μετά το close **δεν** γίνεται resume· success ή failure → `BackupImportResult.restartRequired = true`.
-- **Κωδικός:** `BackupPassphraseCache` (μόνο μνήμη, ανά συνεδρία) + `BackupPassphraseGate` (μία προτροπή/εκκίνηση όταν auto-backup ON· ακύρωση = skip μόνο αυτής της συνεδρίας). Ποτέ Keystore/secure storage/DB.
-- `AppSettings.autoBackupEnabled/lastAutoBackupAt` · schema v4 (additive, no-op migration)
+- **Κωδικός (S-307/Δ5–Δ6):** `BackupPassphraseCache` (μόνο μνήμη, ανά συνεδρία) χρησιμοποιείται **μόνο** όταν `AppSettings.backupLockEnabled` είναι ON· το startup gate `BackupPassphraseGate` **καταργήθηκε**. Default export/restore: μηδέν κωδικοί. Ποτέ Keystore/secure storage/DB.
+- `AppSettings.autoBackupEnabled/lastAutoBackupAt/backupLockEnabled` · schema v5 (additive, no-op migration)
 - Android: `allowBackup=false` (S174) — επίσημη οδός backup = in-app export `.snb` (το cloud auto-backup αντέγραφε DB + attachments + PIN hash· iOS parked)
 
 ### SearchService (`lib/services/search_service.dart`)
@@ -629,6 +633,7 @@ final db = SuperNoteHelper.instance;
 
 ### SecurityService (`lib/services/security_service.dart`)
 - Android `MethodChannel("super_note/security")` → `FLAG_SECURE` — πρώτο MethodChannel (S165)
+- **S-307:** δεύτερο channel `super_note/files` (`FileSaveChannel` → `MainActivity`): `saveDocument` (SAF `ACTION_CREATE_DOCUMENT` μέσω `registerForActivityResult` + streaming copy 1 MB + `copyProgress` events) και `freeSpace` (`StatFs.availableBytes`). `FlutterFragmentActivity` (αντί `FlutterActivity`) απαιτείται για το contract.
 - `setSecure(bool)` — **idempotent (S-17)**: ίδια τιμή ⇒ skip· οι αποτυχίες **δεν** cache-άρονται (retry)· 2s timeout· warn-once· `resetForTest()`
 - `elapsedRealtimeMs({force})` (S-03) — monotonic ms από boot (`SystemClock.elapsedRealtime`, περιλαμβάνει deep sleep)· ~1s cache· `null` σε αποτυχία/πλατφόρμα χωρίς API (fallback wall) — **ποτέ throw**
 - Πολιτική: ON όσο lock-enabled· OFF μόνο με επιβεβαιωμένο disabled· άγνωστο/σφάλμα ⇒ ON. Άλλες πλατφόρμες no-op· iOS parked
@@ -1007,10 +1012,11 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Font scale slider
 - Default view, language
 - Notification toggles
-- Data management: backup export/import + full wipe
+- Data management: export / **share** / import αντιγράφου + full wipe
+- Backup UX (S-307/Δ2–Δ6): «Εξαγωγή δεδομένων» = tile → system picker φακέλου (SAF) → progress dialog (φάση + % + «Ακύρωση») → done· «Κοινοποίηση δεδομένων» = ξεχωριστό tile (share sheet)· «Εισαγωγή» = picker αρχείου → progress («Έλεγχος αρχείου») → **1** `ConfirmDialog` → progress («Επαναφορά») → restart dialog. Κωδικός ζητείται **μόνο** για legacy `.snb` ή όταν είναι ON το «Κλείδωμα αντιγράφου» (`SettingsSwitchTile`, default OFF → `AppSettings.backupLockEnabled`, schema v5).
 - Full wipe (E33/B13): DB + live `attachments/` + restore leftovers (`_pre_restore_*`) + app cache (`file_picker`/`_backup_zipval_*` temps) + auto backups (`files/SuperNoteBackups`, E50 — πλέον support dir, όχι cache) + `.migration_safety`· το migration ξαναφτιάχνει 1 snapshot στο restart.
 - **S-01:** wipe σε **ενεργή ρίζα** (`AppPaths.activeDataRoot()`) + `-lck` + **legacy leftovers** (allowlist `_deleteLegacyLeftovers`) — αλλιώς «όλα τα δεδομένα διαγράφηκαν» θα άφηνε βάση/συνημμένα στα Documents. Νέο read-only tile **«Τοποθεσία δεδομένων»** (`settings_data_location.dart`, D6): δείχνει τη διαδρομή, αντιγράφει με tap, προειδοποιεί αν υπάρχουν ακόμη αρχεία στην παλιά τοποθεσία. Καμία επιλογή τοποθεσίας από τον χρήστη (by design).
-- Restore/wipe UX (E33): barrier dialog (`PopScope(canPop:false)`)· success ή failure μετά το close → restart dialog + `exit(0)`· failure πριν το close → snackbar και η εφαρμογή συνεχίζει· export κατά maintenance → `AppErrors.backupBusy`.
+- Restore/wipe UX (E33): restore = `showBackupProgressDialog(cancellable: false)`· success ή failure μετά το close → restart dialog + `exit(0)`· failure πριν το close → snackbar και η εφαρμογή συνεχίζει· export/import κατά maintenance ή όσο τρέχει άλλη ροή αντιγράφου (`BackupService.isBusy`) → `AppErrors.backupBusy`.
 - Per-type card color picker (two-level: 19 Material color families → 10 shades)
 - Visible types filtered: note, task, event, contact, habit, journal, appointment (hidden: goal, bookmark, finance, checklist, knowledge)
 
