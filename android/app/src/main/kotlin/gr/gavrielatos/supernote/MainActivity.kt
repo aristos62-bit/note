@@ -1,4 +1,4 @@
-package com.example.super_note
+package gr.gavrielatos.supernote
 
 import android.net.Uri
 import android.os.StatFs
