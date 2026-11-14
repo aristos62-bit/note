@@ -271,6 +271,11 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
   final lockStrippedNote = prepared.strippedAppLock
       ? '\n\n${AppErrors.backupLockStripped}'
       : '';
+  // S-07: ο κωδικός αντιγράφου δεν μεταφέρεται ποτέ μεταξύ συσκευών, άρα το
+  // auto-backup θα σιωπούσε — πες πότε ξαναρχίζει (ίσχυε πριν την επαναφορά).
+  final autoResumeNote = prepared.backupLockEnabled
+      ? '\n\n${AppErrors.backupAutoResumeNote}'
+      : '';
 
   if (result.success) {
     await _showRestartDialog(
@@ -278,7 +283,7 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
       title: 'Επιτυχής εισαγωγή',
       message: 'Η εφαρμογή θα τερματιστεί τώρα.\n\n'
           'Παρακαλώ ανοίξτε την ξανά για να συνεχίσετε.'
-          '$lockStrippedNote',
+          '$lockStrippedNote$autoResumeNote',
     );
   } else if (result.restartRequired) {
     await _showRestartDialog(

@@ -12,6 +12,11 @@ class MigrationService {
 
   static const int _targetVersion = 6;
 
+  /// S-07: τρέχουσα έκδοση schema — SPoT για ελέγχους συμβατότητας
+  /// αντιγράφου (ο probe απορρίπτει αντίγραφο από **νεότερη** έκδοση πριν
+  /// αγγίξει οτιδήποτε· το Isar auto-migrate θα έσβηνε σιωπηλά άγνωστα πεδία).
+  static int get currentSchemaVersion => _targetVersion;
+
   static Future<void> ensureSchemaVersion(Isar isar) async {
     final settings = await isar.appSettings.get(1);
     final currentVersion = settings?.schemaVersion ?? 1;
