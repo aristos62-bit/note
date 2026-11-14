@@ -5385,4 +5385,15 @@ if (!context.isShortScreen)
 ### Docs
 `supernote.md` — δέντρο (`backup_progress.dart`, `file_save_channel.dart`, `backup_progress_dialog.dart`, αφαίρεση gate), `BackupService` ενότητα (embedded key, μηδέν όρια, streaming, SAF, `isBusy`, v5), schema v5, `SettingsScreen` (νέες ροές/tiles), `SecurityService` (`super_note/files` channel), test suite 700/700.
 
+### Device test (POCO X3 `9593c01e`, 14/11/2026)
+**Build:** `flutter build apk --release` (70.0MB) → `adb install -r` Success · versionName 1.0.4+2 (χωρίς bump) · commits `ae80bc4` + `81da311`.
+
+- **Cold start:** καμία προτροπή κωδικού (gate καταργημένο).
+- **Εξαγωγή (embedded):** progress «Δημιουργία αρχείου αντιγράφου...» 19.8/103.4MB → «Κρυπτογράφηση...» → SAF picker → «ΑΠΟΘΗΚΕΥΣΗ» → snackbar «Αντίγραφο αποθηκεύτηκε» → **103,485,230 B**. Header (`od`): `SNBU`, v2, **keyMode 2 (embedded)**, iterations 0, saltLen 0, keyLen 32 — επιβεβαίωση Δ1.
+- **Επαναφορά (embedded):** picker → «Έλεγχος αρχείου»/«Αποκρυπτογράφηση...» 2.0→98.7MB → **1** ConfirmDialog → «Επαναφορά αντιγράφου» → «Επιτυχής εισαγωγή» → `exit(0)`· μετά από relaunch: δεδομένα ακέραια, 0 `FATAL`/`E/flutter`, DB σε **schema v5**, auto-backup λίστα 5 εγγραφών.
+- **«Κλείδωμα αντιγράφου» ON (Δ6):** διάλογος κωδικού (2 πεδία) → toggle ON· εξαγωγή με κλειδί συνεδρίας **χωρίς** νέα προτροπή → **103,485,180 B**, header v2 **keyMode 1 (PBKDF2)**, iterations 120000, saltLen 16. Επαναφορά του ίδιου αρχείου: «Το αντίγραφο είναι κλειδωμένο» → decrypt 11.3→50.0→98.7MB → confirm dialog (OK) → «Άκυρο» ⇒ `discardPrepared` χωρίς αλλαγή DB. Μετά: toggle OFF + καθαρισμός cache.
+- **Legacy v1** (`.snb` 13/11): header version 1/keyMode 1 — η συμβατότητα ανάγνωσης επιβεβαιώθηκε και στη συσκευή.
+- **Δεν εκτελέστηκαν:** auto-backup σε device (24h παράθυρο· ίδιος κώδικας με τη χειροκίνητη εξαγωγή), «Διαγραφή όλων» (καταστροφικό), screenshot του snackbar λάθος κωδικού (4s διάρκεια — η ροή επέστρεψε σωστά).
+- **Καθαρισμός:** διαγράφηκαν τα 2 test `.snb` (10:15, 10:24) και τα `/sdcard/ui*.xml`, επαναφορά περιστροφής (`accelerometer_rotation=1`, `user_rotation=0`), force-stop → launcher. Screenshots 12–43 + πίνακες: `device-test/summary.md`.
+
 
