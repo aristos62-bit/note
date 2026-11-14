@@ -5550,7 +5550,7 @@ tracked αρχεία — ανάμεσά τους 148 κάτω από `backups/`,
 - **ISCC compile exit 0** (10,9s) με τα νέα relative paths ⇒ τα `{#SourcePath}`/OutputDir/Source
   δουλεύουν (το προϊόν γράφεται στο `InstallerOutput/`, πλέον gitignored).
 - GitHub API: `contents/backups`, `contents/InstallerOutput`, `contents/Dependencies` → **404**.
-- `git grep Vaggelis` → **0** · `git grep Χοληστερίνης` → **0** · `git status` καθαρό (όλα σωστά ignored).
+- `git grep` για το όνομα χρήστη → **0** · για το όνομα της συνήθειας → **0** · `git status` καθαρό (όλα σωστά ignored).
 - Το repo παραμένει **122 MB** γιατί το history δεν ξαναγράφηκε.
 
 ### Απόφαση χρήστη για history
