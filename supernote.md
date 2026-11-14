@@ -1,6 +1,6 @@
 # SuperNote — Πλήρης Τεκμηρίωση Εφαρμογής
 
-> **⚠️ ΕΚΚΡΕΜΟΤΗΤΕΣ & ΠΡΟΟΔΟΣ (05/11/2026):** **0 ανοιχτές εκκρεμότητες** — ο tracker **`error_list.md`** αρχειοθετήθηκε στο `backups/e48_filtered_empty_20261105_180802/error_list.md.final` και διαγράφηκε (E26/S293 → τελικό E48/S295)· αν προκύψει **νέο εύρημα**, το `error_list.md` **επαναδημιουργείται** (μοναδική πηγή, AGENTS.md #6/#9). Η **πρόοδος** καταγράφεται στο **`oldsessions.md`** — και εδώ **μόνο** αν άλλαξε αρχιτεκτονική — όταν μια εκκρεμότητα κλείσει **οριστικά** (AGENTS.md #9). Το παρόν αρχείο περιέχει **μόνο αρχιτεκτονική**· τυχόν status/lists εδώ (Error Handling, Performance Notes, test counter κ.λπ.) είναι **ενδεικτικά και πιθανόν stale** — δεν αποτελούν tracker και **δεν** ενημερώνονται για εκκρεμότητες.
+> **⚠️ ΕΚΚΡΕΜΟΤΗΤΕΣ & ΠΡΟΟΔΟΣ (13/11/2026, S305):** **0 ανοιχτές εκκρεμότητες** — ο tracker **`error_list.md`** αρχειοθετήθηκε στο `backups/s305_e50_20261113_142733/error_list.md.final` και διαγράφηκε (τελικό: E49/S304, E50/S305)· αν προκύψει **νέο εύρημα**, το `error_list.md` **επαναδημιουργείται** (μοναδική πηγή, AGENTS.md #6/#9). Η **πρόοδος** καταγράφεται στο **`oldsessions.md`** — και εδώ **μόνο** αν άλλαξε αρχιτεκτονική — όταν μια εκκρεμότητα κλείσει **οριστικά** (AGENTS.md #9). Το παρόν αρχείο περιέχει **μόνο αρχιτεκτονική**· τυχόν status/lists εδώ (Error Handling, Performance Notes, test counter κ.λπ.) είναι **ενδεικτικά και πιθανόν stale** — δεν αποτελούν tracker και **δεν** ενημερώνονται για εκκρεμότητες.
 
 ## Στοιχεία Έργου
 
@@ -1133,7 +1133,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (620/620 🟢) |
+| `flutter test` | Πλήρες suite (700/700 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |
