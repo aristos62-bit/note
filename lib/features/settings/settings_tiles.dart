@@ -546,7 +546,7 @@ class SettingsBackupLockTileState
         ref.watch(settingsStreamProvider).valueOrNull ?? widget.settings;
     return SettingsSwitchTile(
       label: 'Κλείδωμα αντιγράφου',
-      subtitle: 'Με κωδικό: το αντίγραφο ζητά κωδικό για επαναφορά. '
+      subtitle: 'Με κωδικό: το αντίγραφο ζητά τον ίδιο κωδικό για επαναφορά. '
           'Χωρίς: αποθηκεύεται και επαναφέρεται χωρίς κωδικό.',
       value: settings.backupLockEnabled,
       busy: _busy,
