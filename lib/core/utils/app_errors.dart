@@ -116,6 +116,17 @@ class AppErrors {
   static const wipeConfirmMismatch =
       'Η φράση επιβεβαίωσης δεν είναι σωστή. Η διαγραφή ακυρώθηκε.';
 
+  // ── S-307: ροή αντιγράφου χωρίς όρια ─────────────────────────
+  /// Δεν χωράει το αντίγραφο στον δίσκο (έλεγχος πριν ή ENOSPC κατά το write).
+  static const backupNoSpace =
+      'Δεν υπάρχει αρκετός ελεύθερος χώρος για το αντίγραφο';
+  static const backupSaveFailed = 'Αποτυχία αποθήκευσης αντιγράφου';
+  static const backupExportSubtitle =
+      'Δημιουργία αντιγράφου .snb στον φάκελο που θα επιλέξετε';
+  static const backupShareSubtitle =
+      'Αποστολή αντιγράφου .snb μέσω άλλης εφαρμογής';
+  static const backupImportSubtitle = 'Επαναφορά από αρχείο .snb, .zip ή .isar';
+
   // ── S-02: κρυπτογραφημένο αντίγραφο (.snb) ──────────────────
   static const backupPassphraseRequired =
       'Απαιτείται κωδικός για το κρυπτογραφημένο αντίγραφο';

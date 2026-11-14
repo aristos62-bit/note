@@ -1,21 +1,28 @@
 // lib/services/backup/backup_container.dart
 //
-// S-02: κρυπτογραφημένο container αντιγράφου ασφαλείας (.snb).
+// S-02 / S-307: container αντιγράφου ασφαλείας (.snb).
 //
 // Δομή:
-//   header (48 bytes για v1)  ← AAD για ΟΛΑ τα chunks
+//   header (v1 = 48 bytes, v2 = 49/65 bytes)  ← AAD για ΟΛΑ τα chunks
 //   chunk_0 ciphertext || tag
 //   chunk_1 ciphertext || tag
 //   ...
 //
-// Σχεδιαστικές αποφάσεις (εγκεκριμένες):
-//  • AES-256-GCM (AesGcm.with256bits του `cryptography`).
-//  • Κλειδί = PBKDF2-HMAC-SHA256(κωδικός, salt, iterations, 256 bits).
+// Σχεδιαστικές αποφάσεις:
+//  • AES-256-GCM (AesGcm.with256bits του `cryptography`) — ΠΑΝΤΑ. Το container
+//    δεν είναι ποτέ plaintext, ανεξάρτητα από τον τρόπο κλειδιού.
 //  • STREAM construction: nonce = 8-byte τυχαίο prefix + 4-byte BE counter.
 //  • AAD ανά chunk = header bytes ‖ 4-byte BE index. Το `plaintextLength`
 //    βρίσκεται ΜΕΣΑ στο header → truncation/reordering ανιχνεύονται.
 //  • Γράφουμε ΠΑΝΤΑ σε `<dest>.partial` και κάνουμε rename → ποτέ μισό
 //    αρχείο με το τελικό όνομα.
+//
+// S-307 (Δ1): δύο τρόποι κλειδιού (`keyMode`):
+//  • `embedded` (νέο default): 32 τυχαία bytes ΜΕΣΑ στο header. Μηδέν κωδικός
+//    χρήστη, μηδέν PBKDF2. Το αρχείο παραμένει ακέραιο/anti-tamper (GCM),
+//    αλλά δεν είναι εμπιστευτικό απέναντι σε όποιον το κατέχει (εγκεκριμένο).
+//  • `pbkdf2` (legacy v1 + προαιρετικό «Κλείδωμα αντιγράφου»): κλειδί =
+//    PBKDF2-HMAC-SHA256(κωδικός, salt, iterations).
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -25,6 +32,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/crypto/kdf.dart';
 import '../../core/utils/debug_config.dart';
+import 'backup_progress.dart';
 
 /// Μορφή αρχείου αντιγράφου.
 enum BackupFormat { snb, zip, isar, unknown }
@@ -45,37 +53,63 @@ class SnbFormatException implements Exception {
   String toString() => 'SnbFormatException: $message';
 }
 
-/// Header του `.snb` (v1).
+/// Header του `.snb` (v1 legacy + v2 με `keyMode`).
 class SnbHeader {
   static const List<int> magic = <int>[0x53, 0x4E, 0x42, 0x4B]; // 'SNBK'
-  static const int currentVersion = 1;
-  static const int kdfPbkdf2HmacSha256 = 1;
+
+  /// Τρέχουσα έκδοση που γράφουμε.
+  static const int currentVersion = 2;
+
+  /// Έκδοση που διαβάζουμε για συμβατότητα (πάντα PBKDF2).
+  static const int legacyVersion = 1;
+
+  /// Μέθοδοι κλειδιού (`keyMode`).
+  static const int keyModePbkdf2 = 1;
+  static const int keyModeEmbedded = 2;
+
   static const int maxHeaderRead = 128;
 
+  /// Ελάχιστο λογικό μέγεθος αρχείου (magic + version + keyMode + ...).
+  static const int minFileLength = 32;
+
   final int version;
-  final int kdf;
+  final int keyMode;
+
+  /// Επαναλήψεις PBKDF2 (0 για embedded).
   final int iterations;
+
+  /// Salt PBKDF2 (άδειο για embedded).
   final Uint8List salt;
+
+  /// Κλειδί 32 bytes για embedded (null για PBKDF2).
+  final Uint8List? embeddedKey;
+
   final Uint8List noncePrefix;
   final int chunkSize;
   final int plaintextLength;
 
   const SnbHeader({
     required this.version,
-    required this.kdf,
+    required this.keyMode,
     required this.iterations,
     required this.salt,
+    required this.embeddedKey,
     required this.noncePrefix,
     required this.chunkSize,
     required this.plaintextLength,
   });
 
+  /// true όταν απαιτείται κωδικός χρήστη για το κλειδί.
+  bool get requiresPassphrase => keyMode == keyModePbkdf2;
+
   int get headerLength =>
       4 + // magic
       1 + // version
-      1 + // kdf
+      1 + // keyMode
       4 + // iterations
       1 + salt.length +
+      // Το v1 ΔΕΝ είχε key-length byte (μόνο το v2).
+      (version >= currentVersion ? 1 + (embeddedKey?.length ?? 0) : 0) +
       1 + noncePrefix.length +
       4 + // chunkSize
       8; // plaintextLength
@@ -91,18 +125,24 @@ class SnbHeader {
       BackupContainer.macLength * chunkCount;
 
   Uint8List toBytes() {
+    final keyBytes = embeddedKey ?? const <int>[];
     final out = Uint8List(headerLength);
     final data = ByteData.sublistView(out);
     var o = 0;
     out.setRange(o, o + 4, magic);
     o += 4;
     out[o++] = version;
-    out[o++] = kdf;
+    out[o++] = keyMode;
     data.setUint32(o, iterations, Endian.big);
     o += 4;
     out[o++] = salt.length;
     out.setRange(o, o + salt.length, salt);
     o += salt.length;
+    if (version >= currentVersion) {
+      out[o++] = keyBytes.length;
+      out.setRange(o, o + keyBytes.length, keyBytes);
+      o += keyBytes.length;
+    }
     out[o++] = noncePrefix.length;
     out.setRange(o, o + noncePrefix.length, noncePrefix);
     o += noncePrefix.length;
@@ -134,27 +174,58 @@ class SnbHeader {
 
     final version = bytes[need(1)];
     o += 1;
-    if (version != currentVersion) {
+    if (version != legacyVersion && version != currentVersion) {
       throw SnbFormatException('Μη υποστηριζόμενη έκδοση container: $version');
     }
-    final kdf = bytes[need(1)];
+
+    final keyMode = bytes[need(1)];
     o += 1;
-    if (kdf != kdfPbkdf2HmacSha256) {
-      throw SnbFormatException('Μη υποστηριζόμενη μέθοδος κλειδιού: $kdf');
+    if (keyMode != keyModePbkdf2 && keyMode != keyModeEmbedded) {
+      throw SnbFormatException('Μη υποστηριζόμενη μέθοδος κλειδιού: $keyMode');
     }
+    // Το v1 είχε ΠΑΝΤΑ PBKDF2 (το πεδίο λεγόταν `kdf`).
+    if (version == legacyVersion && keyMode != keyModePbkdf2) {
+      throw const SnbFormatException('Μη έγκυρη μέθοδος κλειδιού για v1');
+    }
+
     final iterations = data.getUint32(need(4), Endian.big);
     o += 4;
-    if (!BackupKdf.isValidIterations(iterations)) {
+    if (keyMode == keyModePbkdf2 &&
+        !BackupKdf.isValidIterations(iterations)) {
       throw const SnbFormatException('Μη έγκυρες επαναλήψεις PBKDF2');
     }
+
     final saltLength = bytes[need(1)];
     o += 1;
-    if (saltLength < 8 || saltLength > 64) {
-      throw const SnbFormatException('Μη έγκυρο μήκος salt');
+    if (keyMode == keyModePbkdf2) {
+      if (saltLength < 8 || saltLength > 64) {
+        throw const SnbFormatException('Μη έγκυρο μήκος salt');
+      }
+    } else if (saltLength != 0) {
+      throw const SnbFormatException('Μη έγκυρο salt για ενσωματωμένο κλειδί');
     }
     need(saltLength);
     final salt = Uint8List.fromList(bytes.sublist(o, o + saltLength));
     o += saltLength;
+
+    Uint8List? embeddedKey;
+    if (version >= currentVersion) {
+      final keyLength = bytes[need(1)];
+      o += 1;
+      if (keyMode == keyModeEmbedded) {
+        if (keyLength != BackupKdf.keyLengthBytes) {
+          throw const SnbFormatException('Μη έγκυρο μήκος κλειδιού');
+        }
+      } else if (keyLength != 0) {
+        throw const SnbFormatException('Μη έγκυρο μήκος κλειδιού');
+      }
+      need(keyLength);
+      if (keyLength > 0) {
+        embeddedKey = Uint8List.fromList(bytes.sublist(o, o + keyLength));
+      }
+      o += keyLength;
+    }
+
     final nonceLength = bytes[need(1)];
     o += 1;
     if (nonceLength != BackupContainer.noncePrefixLength) {
@@ -176,9 +247,10 @@ class SnbHeader {
     }
     return SnbHeader(
       version: version,
-      kdf: kdf,
+      keyMode: keyMode,
       iterations: iterations,
       salt: salt,
+      embeddedKey: embeddedKey,
       noncePrefix: noncePrefix,
       chunkSize: chunkSize,
       plaintextLength: plaintextLength,
@@ -193,12 +265,11 @@ class BackupContainer {
   static const int noncePrefixLength = 8;
   static const int nonceLength = 12; // 8-byte prefix + 4-byte counter
   static const int macLength = 16;
-  static const int defaultChunkSize = 1 << 20; // 1 MiB
+
+  /// S-307 (Δ4): 256 KiB — μικρότερο chunk = ομαλότερη πρόοδος/απόκριση.
+  static const int defaultChunkSize = 256 * 1024;
   static const int minChunkSize = 4 * 1024;
   static const int maxChunkSize = 8 * 1024 * 1024;
-
-  /// Default όριο plaintext (το ίδιο με το restore guard του service).
-  static const int defaultMaxPlaintextBytes = 500 * 1024 * 1024;
 
   static bool isSnbPath(String path) => path.toLowerCase().endsWith(suffix);
 
@@ -230,12 +301,11 @@ class BackupContainer {
   }
 
   /// Διαβάζει/επικυρώνει το header χωρίς να αποκρυπτογραφήσει τίποτα.
-  static Future<SnbHeader> readHeader(
-    File file, {
-    int maxPlaintextBytes = defaultMaxPlaintextBytes,
-  }) async {
+  ///
+  /// S-307: χωρίς όριο plaintext — το μέγεθος ακολουθεί τη βάση.
+  static Future<SnbHeader> readHeader(File file) async {
     final length = await file.length();
-    if (length < 48) {
+    if (length < SnbHeader.minFileLength) {
       throw const SnbFormatException('Πολύ μικρό αρχείο container');
     }
     RandomAccessFile? raf;
@@ -243,9 +313,6 @@ class BackupContainer {
       raf = await file.open();
       final raw = await raf.read(SnbHeader.maxHeaderRead);
       final header = SnbHeader.parse(raw);
-      if (header.plaintextLength > maxPlaintextBytes) {
-        throw const SnbFormatException('Το περιεχόμενο υπερβαίνει το όριο');
-      }
       if (header.totalEncryptedLength != length) {
         throw const SnbFormatException('Μη έγκυρο μέγεθος container');
       }
@@ -257,39 +324,55 @@ class BackupContainer {
     }
   }
 
+  /// true όταν το `.snb` απαιτεί κωδικό (legacy v1 ή «Κλείδωμα αντιγράφου»).
+  static Future<bool> requiresPassphrase(String path) async {
+    final header = await readHeader(File(path));
+    return header.requiresPassphrase;
+  }
+
   /// Κρυπτογραφεί το [source] σε [destPath] (AES-256-GCM, chunked).
+  ///
+  /// [passphrase] null/κενό → ενσωματωμένο τυχαίο κλειδί στο header (Δ1).
   /// Επιστρέφει το μέγεθος του τελικού αρχείου σε bytes.
   static Future<int> encryptFileTo({
     required File source,
     required String destPath,
-    required String passphrase,
+    String? passphrase,
     int iterations = BackupKdf.defaultIterations,
     int chunkSize = defaultChunkSize,
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
   }) async {
-    if (passphrase.isEmpty) {
-      throw const BackupKdfException('Κενός κωδικός');
-    }
     if (chunkSize < minChunkSize || chunkSize > maxChunkSize) {
       throw const SnbFormatException('Μη έγκυρο μέγεθος chunk');
     }
+    final useEmbedded = passphrase == null || passphrase.isEmpty;
     final plaintextLength = await source.length();
-    final salt = BackupKdf.randomBytes(BackupKdf.saltLength);
+    final salt = useEmbedded
+        ? Uint8List(0)
+        : BackupKdf.randomBytes(BackupKdf.saltLength);
+    final embeddedKey =
+        useEmbedded ? BackupKdf.randomBytes(BackupKdf.keyLengthBytes) : null;
     final noncePrefix = BackupKdf.randomBytes(noncePrefixLength);
     final header = SnbHeader(
       version: SnbHeader.currentVersion,
-      kdf: SnbHeader.kdfPbkdf2HmacSha256,
-      iterations: iterations,
+      keyMode:
+          useEmbedded ? SnbHeader.keyModeEmbedded : SnbHeader.keyModePbkdf2,
+      iterations: useEmbedded ? 0 : iterations,
       salt: salt,
+      embeddedKey: embeddedKey,
       noncePrefix: noncePrefix,
       chunkSize: chunkSize,
       plaintextLength: plaintextLength,
     );
     final headerBytes = header.toBytes();
-    final key = await BackupKdf.deriveKey(
-      password: passphrase,
-      salt: salt,
-      iterations: iterations,
-    );
+    final key = useEmbedded
+        ? embeddedKey!
+        : await BackupKdf.deriveKey(
+            password: passphrase,
+            salt: salt,
+            iterations: iterations,
+          );
     final algorithm = AesGcm.with256bits();
     final secretKey = SecretKey(key);
 
@@ -302,7 +385,11 @@ class BackupContainer {
       input = await source.open();
       var offset = 0;
       var index = 0;
+      onProgress?.call(BackupProgress(BackupPhase.encrypt, 0, plaintextLength));
       while (offset < plaintextLength) {
+        if (isCancelled?.call() ?? false) {
+          throw const BackupCancelledException();
+        }
         final len = min(chunkSize, plaintextLength - offset);
         final chunk = await _readFully(input, len);
         final box = await algorithm.encrypt(
@@ -315,6 +402,8 @@ class BackupContainer {
         await out.writeFrom(box.mac.bytes);
         offset += len;
         index++;
+        onProgress
+            ?.call(BackupProgress(BackupPhase.encrypt, offset, plaintextLength));
       }
       if (plaintextLength == 0) {
         // Ένα κενό chunk ώστε να επαληθεύεται το κλειδί πάντα.
@@ -336,11 +425,13 @@ class BackupContainer {
       if (await dest.exists()) await dest.delete();
       await partial.rename(destPath);
       final size = await dest.length();
-      DebugConfig.db('BackupContainer.encrypt: plaintext=$plaintextLength '
-          'snb=$size chunks=${header.chunkCount}');
+      DebugConfig.db('BackupContainer.encrypt: mode=${header.keyMode} '
+          'plaintext=$plaintextLength snb=$size chunks=${header.chunkCount}');
       return size;
     } catch (e, stack) {
-      DebugConfig.error('BackupContainer.encrypt', e, stack);
+      if (e is! BackupCancelledException) {
+        DebugConfig.error('BackupContainer.encrypt', e, stack);
+      }
       try {
         await out?.close();
       } catch (_) {}
@@ -357,23 +448,29 @@ class BackupContainer {
   /// Αποκρυπτογραφεί το [source] σε [destPath]. Επιστρέφει το μέγεθος.
   ///
   /// Λάθος κωδικός/αλλοίωση → [BackupAuthException]. Δομικό πρόβλημα →
-  /// [SnbFormatException].
+  /// [SnbFormatException]. Ακύρωση → [BackupCancelledException].
   static Future<int> decryptFileTo({
     required File source,
     required String destPath,
-    required String passphrase,
-    int maxPlaintextBytes = defaultMaxPlaintextBytes,
+    String? passphrase,
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
   }) async {
-    if (passphrase.isEmpty) {
-      throw const BackupAuthException('Απαιτείται κωδικός');
+    final header = await readHeader(source);
+    final Uint8List key;
+    if (header.requiresPassphrase) {
+      if (passphrase == null || passphrase.isEmpty) {
+        throw const BackupAuthException('Απαιτείται κωδικός');
+      }
+      key = await BackupKdf.deriveKey(
+        password: passphrase,
+        salt: header.salt,
+        iterations: header.iterations,
+      );
+    } else {
+      key = header.embeddedKey!;
     }
-    final header = await readHeader(source, maxPlaintextBytes: maxPlaintextBytes);
     final headerBytes = header.toBytes();
-    final key = await BackupKdf.deriveKey(
-      password: passphrase,
-      salt: header.salt,
-      iterations: header.iterations,
-    );
     final algorithm = AesGcm.with256bits();
     final secretKey = SecretKey(key);
 
@@ -385,7 +482,12 @@ class BackupContainer {
       await input.setPosition(header.headerLength);
       out = await partial.open(mode: FileMode.writeOnly);
       var written = 0;
+      onProgress
+          ?.call(BackupProgress(BackupPhase.decrypt, 0, header.plaintextLength));
       for (var index = 0; index < header.chunkCount; index++) {
+        if (isCancelled?.call() ?? false) {
+          throw const BackupCancelledException();
+        }
         final len = min(header.chunkSize, header.plaintextLength - written);
         final raw = await _readFully(input, len + macLength);
         final cipherText = Uint8List.sublistView(raw, 0, len);
@@ -393,7 +495,8 @@ class BackupContainer {
         final List<int> clear;
         try {
           clear = await algorithm.decrypt(
-            SecretBox(cipherText, nonce: _nonce(header.noncePrefix, index), mac: Mac(macBytes)),
+            SecretBox(cipherText,
+                nonce: _nonce(header.noncePrefix, index), mac: Mac(macBytes)),
             secretKey: secretKey,
             aad: _aad(headerBytes, index),
           );
@@ -403,6 +506,8 @@ class BackupContainer {
         }
         await out.writeFrom(clear);
         written += len;
+        onProgress?.call(
+            BackupProgress(BackupPhase.decrypt, written, header.plaintextLength));
       }
       await out.flush();
       await out.close();
@@ -429,7 +534,11 @@ class BackupContainer {
       try {
         if (await partial.exists()) await partial.delete();
       } catch (_) {}
-      if (e is BackupAuthException || e is SnbFormatException) rethrow;
+      if (e is BackupAuthException ||
+          e is SnbFormatException ||
+          e is BackupCancelledException) {
+        rethrow;
+      }
       DebugConfig.warning('BackupContainer.decrypt failed: $e');
       rethrow;
     }

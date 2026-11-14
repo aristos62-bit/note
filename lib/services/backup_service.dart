@@ -2,16 +2,19 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
 import '../core/core.dart';
+import '../platform/file_save_channel.dart';
 import 'attachment_service.dart';
 import 'backup/backup_container.dart';
 import 'backup/backup_db_probe.dart';
 import 'backup/backup_passphrase_cache.dart';
+import 'backup/backup_progress.dart';
 import 'backup/backup_rotation.dart';
 import 'backup_archive.dart';
 import 'habit_service.dart';
@@ -59,7 +62,7 @@ class BackupImportResult {
   factory BackupImportResult.cancelled() =>
       const BackupImportResult._(cancelled: true);
   factory BackupImportResult.failure(String error,
-      {bool restartRequired = false}) =>
+          {bool restartRequired = false}) =>
       BackupImportResult._(error: error, restartRequired: restartRequired);
 }
 
@@ -103,8 +106,20 @@ class PreparedRestore {
 class BackupPrepareResult {
   final PreparedRestore? prepared;
   final String? error;
-  const BackupPrepareResult.success(PreparedRestore this.prepared) : error = null;
-  const BackupPrepareResult.failure(String this.error) : prepared = null;
+
+  /// true όταν ο χρήστης ακύρωσε από το progress dialog (όχι σφάλμα).
+  final bool cancelled;
+
+  const BackupPrepareResult.success(PreparedRestore this.prepared)
+      : error = null,
+        cancelled = false;
+  const BackupPrepareResult.failure(String this.error)
+      : prepared = null,
+        cancelled = false;
+  const BackupPrepareResult.cancelled()
+      : prepared = null,
+        error = null,
+        cancelled = true;
   bool get success => prepared != null;
 }
 
@@ -117,12 +132,9 @@ class BackupService {
   static const String isarSuffix = '.isar';
   static const String snbSuffix = BackupContainer.suffix;
 
-  /// Μέγιστο μέγεθος zip προς επαναφορά (o decoder κρατά μνήμη).
-  static const int maxRestoreBytes = 500 * 1024 * 1024;
+  /// S-307: περιθώριο ασφαλείας στον έλεγχο ελεύθερου χώρου (+15%).
+  static const double freeSpaceMargin = 1.15;
 
-  /// Όριο για save-dialog με bytes (το plugin τα θέλει στη μνήμη).
-  /// Πάνω από αυτό → κοινοποίηση (share sheet, path-based, χωρίς μνήμη).
-  static const int maxDialogBytes = 100 * 1024 * 1024;
   /// E50: όνομα του υποφακέλου των auto backups — **ίδιο** στο support dir
   /// (νέο) και στο legacy cache dir, ώστε το adopt να είναι απλή μετακίνηση.
   /// SPoT του ονόματος (το χρησιμοποιεί και το wipe).
@@ -174,6 +186,55 @@ class BackupService {
         .split('.')
         .first;
     return ts;
+  }
+
+  /// S-307 (Δ4): true όταν τρέχει κάποια ροή αντιγράφου (για disabling tiles).
+  /// ΔΕΝ χρησιμοποιείται το `_maintenanceActive` — αυτό μένει μόνο για
+  /// restore/wipe (θα πάγωνε queues όσο είναι ανοιχτό το share sheet).
+  bool get isBusy =>
+      _exportInFlight != null ||
+      _prepareInFlight != null ||
+      _autoBackupInFlight != null;
+
+  /// Καταγράφει ένα in-flight future και το καθαρίζει όταν ολοκληρωθεί
+  /// (ώστε το [isBusy] να μη μένει «κολλημένο» μετά την πρώτη ροή).
+  Future<void> _trackExport(Future<BackupExportResult> future) {
+    late final Future<void> tracked;
+    tracked = future.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    ).whenComplete(() {
+      if (identical(_exportInFlight, tracked)) _exportInFlight = null;
+    });
+    _exportInFlight = tracked;
+    return tracked;
+  }
+
+  Future<void> _trackPrepare(Future<BackupPrepareResult> future) {
+    late final Future<void> tracked;
+    tracked = future.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    ).whenComplete(() {
+      if (identical(_prepareInFlight, tracked)) _prepareInFlight = null;
+    });
+    _prepareInFlight = tracked;
+    return tracked;
+  }
+
+  /// S-307: έλεγχος ελεύθερου χώρου. null = OK/άγνωστο (desktop → try/catch).
+  Future<BackupSpaceException?> _checkFreeSpace(
+      String dirPath, int requiredBytes) async {
+    if (requiredBytes <= 0) return null;
+    final free = await FileSaveChannel.freeSpace(dirPath);
+    if (free == null) return null;
+    final needed = (requiredBytes * freeSpaceMargin).ceil();
+    if (free < needed) {
+      DebugConfig.warning('BackupService: no space free=$free '
+          'needed=$needed dir=$dirPath');
+      return const BackupSpaceException(AppErrors.backupNoSpace);
+    }
+    return null;
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -244,87 +305,172 @@ class BackupService {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // 1. EXPORT: Αποθήκευση στη συσκευή (με system save dialog)
+  // Κοινό χτίσιμο .snb (zip → encrypt) — export/Share/autoBackup
+  // ─────────────────────────────────────────────────────────────────
+
+  /// Κωδικός εξαγωγής: null = ενσωματωμένο κλειδί (Δ1), αλλιώς Δ6.
+  Future<String?> _exportPassphraseOrThrow() async {
+    final settings = await SuperNoteHelper.instance.settings.get();
+    if (!settings.backupLockEnabled) return null;
+    final cached = BackupPassphraseCache.instance.passphrase;
+    if (cached == null || cached.isEmpty) {
+      throw const BackupAuthException(AppErrors.backupPassphraseRequired);
+    }
+    return cached;
+  }
+
+  /// Φτιάχνει το `.snb` στο [destSnbPath] (temp zip στο [workDir]).
+  /// Επιστρέφει το path του τελικού container.
+  Future<String> _buildBackupSnb({
+    required Directory workDir,
+    required String destSnbPath,
+    required String? passphrase,
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    final srcPath = await _dbPath();
+    if (!await File(srcPath).exists()) {
+      throw Exception('Δεν βρέθηκε η βάση δεδομένων');
+    }
+    final dataRoot = await AppPaths.activeDataRoot();
+    final attachmentsDir =
+        Directory(p.join(dataRoot, AttachmentService.attachmentsDirName));
+
+    // S-307: χώρος ΠΡΙΝ το γράψιμο (temp zip ≈ πηγή, snb ≈ πηγή).
+    final estimate = await BackupArchive.estimateSourceBytes(
+      dbPath: srcPath,
+      attachmentsDir: attachmentsDir,
+    );
+    final tempNoSpace = await _checkFreeSpace(workDir.path, estimate * 2);
+    if (tempNoSpace != null) throw tempNoSpace;
+    final destDir = p.dirname(destSnbPath);
+    if (!p.equals(destDir, workDir.path)) {
+      final destNoSpace = await _checkFreeSpace(destDir, estimate);
+      if (destNoSpace != null) throw destNoSpace;
+    }
+
+    final tempZip = p.join(workDir.path, 'payload.zip');
+    await BackupArchive.createBackupZip(
+      dbPath: srcPath,
+      snapshotIsar: SuperNoteHelper.instance.isar,
+      attachmentsDir: attachmentsDir,
+      destZipPath: tempZip,
+      onProgress: onProgress,
+      isCancelled: isCancelled,
+    );
+    // S-02 (D7): το container γράφει σε `.partial` και μετονομάζει μόνο
+    // μετά την ολοκλήρωση — ποτέ μισό `.snb` με τελικό όνομα.
+    await BackupContainer.encryptFileTo(
+      source: File(tempZip),
+      destPath: destSnbPath,
+      passphrase: passphrase,
+      onProgress: onProgress,
+      isCancelled: isCancelled,
+    );
+    // Ελευθερώνει χώρο πριν το αντιγράφημα στον προορισμό.
+    await _deleteFileSilently(File(tempZip));
+    return destSnbPath;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // 1. EXPORT: Αποθήκευση στη συσκευή (system save dialog)
   // ─────────────────────────────────────────────────────────────────
 
   /// Δημόσιο entry point — καταγράφει το in-flight future για το drain του
-  /// restore/wipe (F7). Το [passphrase] είναι ΥΠΟΧΡΕΩΤΙΚΟ (D7).
-  Future<BackupExportResult> exportToDevice({required String passphrase}) {
-    final future = _exportToDeviceImpl(passphrase);
-    _exportInFlight = future.then<void>(
-          (_) {},
-      onError: (Object _, StackTrace __) {},
+  /// restore/wipe (F7).
+  Future<BackupExportResult> exportToDevice({
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  }) {
+    final future = _exportToDeviceImpl(
+      onProgress: onProgress,
+      isCancelled: isCancelled,
     );
+    unawaited(_trackExport(future));
     return future;
   }
 
-  Future<BackupExportResult> _exportToDeviceImpl(String passphrase) async {
+  Future<BackupExportResult> _exportToDeviceImpl({
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     DebugConfig.db('exportToDevice: starting');
     Directory? workDir;
     try {
+      final passphrase = await _exportPassphraseOrThrow();
       final tempRoot = await getTemporaryDirectory();
       workDir = await Directory(p.join(tempRoot.path,
               '_backup_export_${DateTime.now().millisecondsSinceEpoch}'))
           .create(recursive: true);
-      final srcPath = await _dbPath();
-      if (!await File(srcPath).exists()) {
-        DebugConfig.db('exportToDevice: FAIL — DB file not found: $srcPath');
-        throw Exception('Δεν βρέθηκε η βάση δεδομένων');
-      }
       final fileName = 'super_note_backup_${fileTimestamp()}$snbSuffix';
-      final tempZip = p.join(workDir.path, 'payload.zip');
-      final tempSnb = p.join(workDir.path, fileName);
-      final dataRoot = await AppPaths.activeDataRoot();
-      await BackupArchive.createBackupZip(
-        dbPath: srcPath,
-        snapshotIsar: SuperNoteHelper.instance.isar,
-        attachmentsDir: Directory(
-            p.join(dataRoot, AttachmentService.attachmentsDirName)),
-        destZipPath: tempZip,
-      );
-      // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ. Το container γράφει σε
-      // `.partial` και μετονομάζει μόνο μετά την ολοκλήρωση.
-      await BackupContainer.encryptFileTo(
-        source: File(tempZip),
-        destPath: tempSnb,
+      final tempSnb = await _buildBackupSnb(
+        workDir: workDir,
+        destSnbPath: p.join(workDir.path, fileName),
         passphrase: passphrase,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
       );
       DebugConfig.db('exportToDevice: snb ready');
-      try {
-        // Android/iOS: το saveFile ΓΡΑΦΕΙ μόνο του (απαιτεί bytes) —
-        // δεν επιστρέφει path για File.copy (file_picker_io).
-        final snbSize = await File(tempSnb).length();
-        if (snbSize > maxDialogBytes) {
-          return BackupExportResult.failure(
-              'Το αντίγραφο είναι πολύ μεγάλο — χρησιμοποίησε Κοινοποίηση');
-        }
-        final savedPath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Αποθήκευση κρυπτογραφημένου αντιγράφου',
+
+      // S-307 (Δ3): Android → SAF streaming (χωρίς bytes μέσω channel).
+      if (Platform.isAndroid) {
+        final saved = await FileSaveChannel.saveDocument(
+          sourcePath: tempSnb,
           fileName: fileName,
-          bytes: await File(tempSnb).readAsBytes(),
+          onProgress: onProgress,
         );
-        if (savedPath == null) {
+        if (saved == null) {
           DebugConfig.db('exportToDevice: user cancelled');
           return BackupExportResult.cancelled();
         }
-        DebugConfig.db('exportToDevice: SUCCESS — dest=$savedPath');
-        return BackupExportResult.success(savedPath);
-      } finally {
-        DebugConfig.db('exportToDevice: cleaning up temp dir');
-        try {
-          await workDir.delete(recursive: true);
-          DebugConfig.db('exportToDevice: temp dir deleted');
-        } catch (e) {
-          DebugConfig.warning('exportToDevice: temp dir cleanup failed: $e');
-        }
+        DebugConfig.db('exportToDevice: SUCCESS — dest=$saved');
+        return BackupExportResult.success(saved);
       }
+
+      // iOS εκτός scope (S-307): ίδια ροή με «Κοινοποίηση».
+      if (Platform.isIOS) {
+        await _shareFile(tempSnb);
+        final dirToClean = workDir;
+        workDir = null;
+        _scheduleTempCleanup(dirToClean);
+        return BackupExportResult.success(tempSnb);
+      }
+
+      // Desktop: το file_picker επιστρέφει path (αγνοεί τα bytes) → copy με
+      // streaming, χωρίς readAsBytes (fix του παλιού 88MB στο heap).
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Αποθήκευση αντιγράφου SuperNote',
+        fileName: fileName,
+        type: FileType.any,
+      );
+      if (savedPath == null) {
+        DebugConfig.db('exportToDevice: user cancelled');
+        return BackupExportResult.cancelled();
+      }
+      await _copyWithProgress(
+        File(tempSnb),
+        savedPath,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
+      );
+      DebugConfig.db('exportToDevice: SUCCESS — dest=$savedPath');
+      return BackupExportResult.success(savedPath);
+    } on BackupCancelledException {
+      DebugConfig.db('exportToDevice: cancelled by user');
+      return BackupExportResult.cancelled();
+    } on BackupSpaceException catch (e) {
+      DebugConfig.warning('exportToDevice: no space — ${e.message}');
+      return BackupExportResult.failure(e.message);
+    } on BackupAuthException catch (e) {
+      return BackupExportResult.failure(e.message);
     } catch (e, s) {
       DebugConfig.error('BackupService.exportToDevice', e, s);
-      return BackupExportResult.failure('Αποτυχία αποθήκευσης: $e');
+      return BackupExportResult.failure(_friendlyExportError(e));
     } finally {
       if (workDir != null) {
         try {
           if (await workDir.exists()) await workDir.delete(recursive: true);
+          DebugConfig.db('exportToDevice: temp dir deleted');
         } catch (e) {
           DebugConfig.warning('exportToDevice: workDir cleanup failed: $e');
         }
@@ -337,81 +483,163 @@ class BackupService {
   // ─────────────────────────────────────────────────────────────────
 
   /// Δημόσιο entry point — ίδιο F7 tracking με το exportToDevice.
-  Future<BackupExportResult> exportWithShare({required String passphrase}) {
-    final future = _exportWithShareImpl(passphrase);
-    _exportInFlight = future.then<void>(
-          (_) {},
-      onError: (Object _, StackTrace __) {},
+  Future<BackupExportResult> exportWithShare({
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  }) {
+    final future = _exportWithShareImpl(
+      onProgress: onProgress,
+      isCancelled: isCancelled,
     );
+    unawaited(_trackExport(future));
     return future;
   }
 
-  Future<BackupExportResult> _exportWithShareImpl(String passphrase) async {
+  Future<BackupExportResult> _exportWithShareImpl({
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     DebugConfig.db('exportWithShare: starting');
     Directory? workDir;
     try {
+      final passphrase = await _exportPassphraseOrThrow();
       final tempRoot = await getTemporaryDirectory();
       workDir = await Directory(p.join(tempRoot.path,
               '_backup_share_${DateTime.now().millisecondsSinceEpoch}'))
           .create(recursive: true);
-      final srcPath = await _dbPath();
-      if (!await File(srcPath).exists()) {
-        throw Exception('Δεν βρέθηκε η βάση δεδομένων');
-      }
-      final fileName =
-          'super_note_backup_${fileTimestamp()}$snbSuffix';
-      final tempZip = p.join(workDir.path, 'payload.zip');
-      final tempSnb = p.join(workDir.path, fileName);
-      final dataRoot = await AppPaths.activeDataRoot();
-      await BackupArchive.createBackupZip(
-        dbPath: srcPath,
-        snapshotIsar: SuperNoteHelper.instance.isar,
-        attachmentsDir: Directory(
-            p.join(dataRoot, AttachmentService.attachmentsDirName)),
-        destZipPath: tempZip,
-      );
-      // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ και στη ροή κοινοποίησης.
-      await BackupContainer.encryptFileTo(
-        source: File(tempZip),
-        destPath: tempSnb,
+      final fileName = 'super_note_backup_${fileTimestamp()}$snbSuffix';
+      final tempSnb = await _buildBackupSnb(
+        workDir: workDir,
+        destSnbPath: p.join(workDir.path, fileName),
         passphrase: passphrase,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
       );
       DebugConfig.db('exportWithShare: snb ready, opening share sheet');
       try {
-        await SharePlus.instance.share(ShareParams(
-          files: [
-            XFile(tempSnb, mimeType: 'application/octet-stream'),
-          ],
-          subject: 'SuperNote Backup',
-          text: 'Κρυπτογραφημένο αντίγραφο ασφαλείας SuperNote',
-        ));
-        DebugConfig.db('exportWithShare: share sheet closed, scheduling temp cleanup');
+        await _shareFile(tempSnb);
+        DebugConfig.db(
+            'exportWithShare: share sheet closed, scheduling temp cleanup');
         final dirToClean = workDir;
-        Future.delayed(const Duration(seconds: 10), () async {
-          try {
-            await dirToClean.delete(recursive: true);
-            DebugConfig.db('exportWithShare: delayed temp dir deleted');
-          } catch (e) {
-            DebugConfig.warning(
-                'exportWithShare: delayed temp cleanup failed: $e');
-          }
-        });
+        workDir = null;
+        _scheduleTempCleanup(dirToClean);
         return BackupExportResult.success(tempSnb);
       } catch (_) {
         DebugConfig.db('exportWithShare: share failed, cleaning up temp');
         try {
-          await workDir.delete(recursive: true);
+          final dir = workDir;
+          if (dir != null && await dir.exists()) {
+            await dir.delete(recursive: true);
+          }
         } catch (cleanupError) {
           DebugConfig.warning(
               'exportWithShare: cleanup after share failure failed: '
-                  '$cleanupError');
+              '$cleanupError');
         }
         rethrow;
       }
+    } on BackupCancelledException {
+      DebugConfig.db('exportWithShare: cancelled by user');
+      return BackupExportResult.cancelled();
+    } on BackupSpaceException catch (e) {
+      return BackupExportResult.failure(e.message);
+    } on BackupAuthException catch (e) {
+      return BackupExportResult.failure(e.message);
     } catch (e, s) {
       DebugConfig.error('BackupService.exportWithShare', e, s);
       return BackupExportResult.failure('${AppErrors.shareFailed}: $e');
+    } finally {
+      if (workDir != null) {
+        try {
+          if (await workDir.exists()) await workDir.delete(recursive: true);
+        } catch (e) {
+          DebugConfig.warning('exportWithShare: workDir cleanup failed: $e');
+        }
+      }
     }
+  }
+
+  Future<void> _shareFile(String path) async {
+    await SharePlus.instance.share(ShareParams(
+      files: [
+        XFile(path, mimeType: 'application/octet-stream'),
+      ],
+      subject: 'SuperNote Backup',
+      text: 'Αντίγραφο ασφαλείας SuperNote',
+    ));
+  }
+
+  /// Το share sheet χρειάζεται το αρχείο ανοιχτό· καθαρισμός μετά.
+  void _scheduleTempCleanup(Directory dir) {
+    Future.delayed(const Duration(seconds: 10), () async {
+      try {
+        await dir.delete(recursive: true);
+        DebugConfig.db('export: delayed temp dir deleted');
+      } catch (e) {
+        DebugConfig.warning('export: delayed temp cleanup failed: $e');
+      }
+    });
+  }
+
+  /// Desktop copy με πρόοδο (256 KiB chunks) + partial + rename.
+  Future<void> _copyWithProgress(
+    File source,
+    String destPath, {
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    final total = await source.length();
+    final partial = File('$destPath.partial');
+    RandomAccessFile? input;
+    RandomAccessFile? out;
+    try {
+      input = await source.open();
+      out = await partial.open(mode: FileMode.write);
+      var done = 0;
+      onProgress?.call(BackupProgress(BackupPhase.copy, 0, total));
+      while (true) {
+        if (isCancelled?.call() ?? false) {
+          throw const BackupCancelledException();
+        }
+        final bytes = await input.read(256 * 1024);
+        if (bytes.isEmpty) break;
+        await out.writeFrom(bytes);
+        done += bytes.length;
+        onProgress?.call(BackupProgress(BackupPhase.copy, done, total));
+      }
+      await out.flush();
+      await out.close();
+      out = null;
+      await input.close();
+      input = null;
+      final dest = File(destPath);
+      if (await dest.exists()) await dest.delete();
+      await partial.rename(destPath);
+    } catch (e) {
+      try {
+        await out?.close();
+      } catch (_) {}
+      try {
+        await input?.close();
+      } catch (_) {}
+      try {
+        if (await partial.exists()) await partial.delete();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  String _friendlyExportError(Object e) {
+    final text = e.toString();
+    if (text.contains('ENOSPC') ||
+        text.contains('No space left') ||
+        text.contains('No space')) {
+      return AppErrors.backupNoSpace;
+    }
+    if (e is PlatformException) {
+      return '${AppErrors.backupSaveFailed}: ${e.message ?? e.code}';
+    }
+    return 'Αποτυχία αποθήκευσης: $e';
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -449,6 +677,7 @@ class BackupService {
     DebugConfig.db('restoreBackup: starting, path=$backupPath');
     final prep = await prepare(backupPath, passphrase: passphrase);
     if (!prep.success) {
+      if (prep.cancelled) return BackupImportResult.cancelled();
       DebugConfig.warning('restoreBackup: prepare FAILED — ${prep.error}');
       return BackupImportResult.failure(prep.error ?? AppErrors.backupInvalid);
     }
@@ -477,18 +706,23 @@ class BackupService {
   /// AUTO-BACKUP — zip (DB + attachments), όπως το export.
   /// Trigger: app-pause με `autoBackupEnabled` + διάστημα 24h (βλ. main).
   /// Σιωπηλό (background, χωρίς context) — μόνο DebugConfig logs.
-  /// Δημόσιο entry point (main:378): καταγράφει το in-flight future για το
-  /// drain του restore/wipe και σκιπάρει όσο maintenance είναι ενεργό.
+  /// S-307 (Δ5): χωρίς ενσωματωμένο κλειδί δεν χρειάζεται session passphrase.
+  /// Αν το «Κλείδωμα αντιγράφου» είναι ON, απαιτείται session passphrase —
+  /// αλλιώς το αντίγραφο σκιπάρεται (ποτέ plaintext, όπως D8).
   Future<String?> autoBackup() {
     if (_maintenanceActive) {
       DebugConfig.db('autoBackup: maintenance active — skipping');
       return Future<String?>.value(null);
     }
     final future = _autoBackupImpl();
-    _autoBackupInFlight = future.then<void>(
-          (_) {},
+    late final Future<void> tracked;
+    tracked = future.then<void>(
+      (_) {},
       onError: (Object _, StackTrace __) {},
-    );
+    ).whenComplete(() {
+      if (identical(_autoBackupInFlight, tracked)) _autoBackupInFlight = null;
+    });
+    _autoBackupInFlight = tracked;
     return future;
   }
 
@@ -507,12 +741,16 @@ class BackupService {
         DebugConfig.db('autoBackup: interval not due, skipping');
         return null;
       }
-      // S-02 (D8): χωρίς κλειδί συνεδρίας ΔΕΝ γράφουμε αντίγραφο (ποτέ
-      // plaintext). Η προτροπή γίνεται μία φορά ανά εκκίνηση από το gate.
-      final passphrase = BackupPassphraseCache.instance.passphrase;
-      if (passphrase == null || passphrase.isEmpty) {
-        DebugConfig.db('autoBackup: no session passphrase — skipping (D8)');
-        return null;
+      // S-307 (Δ5/Δ6): embedded key από προεπιλογή· με «Κλείδωμα αντιγράφου»
+      // χρειάζεται ο κωδικός της συνεδρίας (αλλιώς skip — ποτέ plaintext).
+      String? passphrase;
+      if (settings.backupLockEnabled) {
+        passphrase = BackupPassphraseCache.instance.passphrase;
+        if (passphrase == null || passphrase.isEmpty) {
+          DebugConfig.db(
+              'autoBackup: lock enabled without session passphrase — skipping');
+          return null;
+        }
       }
       final backupDir = await _getAutoBackupDir();
       final timestamp = fileTimestamp();
@@ -524,26 +762,10 @@ class BackupService {
       final workDir =
           Directory(p.join(tempRoot.path, '_backup_auto_$timestamp'));
       await workDir.create(recursive: true);
-      final tempZip = p.join(workDir.path, 'auto_$timestamp.tmp');
-      final srcPath = await _dbPath();
-      if (!await File(srcPath).exists()) {
-        DebugConfig.db('autoBackup: FAIL — DB file not found: $srcPath');
-        return null;
-      }
-      final dataRoot = await AppPaths.activeDataRoot();
       try {
-        await BackupArchive.createBackupZip(
-          dbPath: srcPath,
-          snapshotIsar: SuperNoteHelper.instance.isar,
-          attachmentsDir: Directory(
-              p.join(dataRoot, AttachmentService.attachmentsDirName)),
-          destZipPath: tempZip,
-        );
-        // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ — `.partial` + rename εντός
-        // του container, άρα ποτέ μισό `.snb` με τελικό όνομα.
-        await BackupContainer.encryptFileTo(
-          source: File(tempZip),
-          destPath: destPath,
+        await _buildBackupSnb(
+          workDir: workDir,
+          destSnbPath: destPath,
           passphrase: passphrase,
         );
       } finally {
@@ -752,18 +974,29 @@ class BackupService {
   /// S-02: στάδιο 1 του import — decrypt → allowlist extract → probe/sanitize
   /// σε temp work dir, ΧΩΡΙΣ να αγγίξει η live DB (verify-before-open).
   ///
-  /// Καταγράφεται ως in-flight ώστε το drain του restore/wipe να το περιμένει.
-  Future<BackupPrepareResult> prepare(String backupPath, {String? passphrase}) {
-    final future = _prepareImpl(backupPath, passphrase);
-    _prepareInFlight = future.then<void>(
-          (_) {},
-      onError: (Object _, StackTrace __) {},
+  /// S-307: streaming (χωρίς όρια μεγέθους) + πρόοδος + ακύρωση.
+  Future<BackupPrepareResult> prepare(
+    String backupPath, {
+    String? passphrase,
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  }) {
+    final future = _prepareImpl(
+      backupPath,
+      passphrase,
+      onProgress,
+      isCancelled,
     );
+    unawaited(_trackPrepare(future));
     return future;
   }
 
   Future<BackupPrepareResult> _prepareImpl(
-      String backupPath, String? passphrase) async {
+    String backupPath,
+    String? passphrase,
+    BackupProgressCallback? onProgress,
+    bool Function()? isCancelled,
+  ) async {
     DebugConfig.db('prepare: starting path=$backupPath');
     Directory? workDir;
     try {
@@ -782,15 +1015,37 @@ class BackupService {
           return const BackupPrepareResult.failure(
               'Το αρχείο backup είναι πολύ μικρό (πιθανά κατεστραμμένο)');
         }
-      } else if (size > maxRestoreBytes) {
-        return const BackupPrepareResult.failure(
-            'Το αρχείο είναι πολύ μεγάλο για επαναφορά');
+      }
+
+      // S-307: το plaintext μέγεθος έρχεται από το header (snb) ή το zip.
+      var plaintextEstimate = size;
+      if (format == BackupFormat.snb) {
+        try {
+          final header = await BackupContainer.readHeader(file);
+          plaintextEstimate = header.plaintextLength;
+          if (header.requiresPassphrase &&
+              (passphrase == null || passphrase.isEmpty)) {
+            return const BackupPrepareResult.failure(
+                AppErrors.backupPassphraseRequired);
+          }
+        } on SnbFormatException catch (e) {
+          return BackupPrepareResult.failure(e.message);
+        }
       }
 
       final tempRoot = await getTemporaryDirectory();
       workDir = await Directory(p.join(tempRoot.path,
               '_restore_prepare_${DateTime.now().millisecondsSinceEpoch}'))
           .create(recursive: true);
+      // Temp: payload + unpacked ≈ 2× plaintext (+ snapshot της βάσης).
+      final noSpace = await _checkFreeSpace(
+        workDir.path,
+        plaintextEstimate * 2 + 32 * 1024 * 1024,
+      );
+      if (noSpace != null) {
+        await _cleanupDir(workDir);
+        return BackupPrepareResult.failure(noSpace.message);
+      }
       final unpackDir = Directory(p.join(workDir.path, 'unpacked'));
       await unpackDir.create();
 
@@ -801,18 +1056,14 @@ class BackupService {
       var payloadFormat = format;
 
       if (format == BackupFormat.snb) {
-        if (passphrase == null || passphrase.isEmpty) {
-          await _cleanupDir(workDir);
-          return const BackupPrepareResult.failure(
-              AppErrors.backupPassphraseRequired);
-        }
         final payload = File(p.join(workDir.path, 'payload.zip'));
         try {
           plaintextBytes = await BackupContainer.decryptFileTo(
             source: file,
             destPath: payload.path,
             passphrase: passphrase,
-            maxPlaintextBytes: maxRestoreBytes,
+            onProgress: onProgress,
+            isCancelled: isCancelled,
           );
         } on BackupAuthException {
           await _cleanupDir(workDir);
@@ -822,8 +1073,12 @@ class BackupService {
           await _cleanupDir(workDir);
           return BackupPrepareResult.failure(e.message);
         }
-        final names =
-            await BackupArchive.extractBackupZip(payload.path, unpackDir.path);
+        final names = await BackupArchive.extractBackupZip(
+          payload.path,
+          unpackDir.path,
+          onProgress: onProgress,
+          isCancelled: isCancelled,
+        );
         if (!names.contains(BackupArchive.dbEntryName)) {
           await _cleanupDir(workDir);
           return const BackupPrepareResult.failure(
@@ -834,8 +1089,12 @@ class BackupService {
         await _deleteFileSilently(payload);
         payloadFormat = BackupFormat.zip;
       } else if (format == BackupFormat.zip) {
-        final names =
-            await BackupArchive.extractBackupZip(backupPath, unpackDir.path);
+        final names = await BackupArchive.extractBackupZip(
+          backupPath,
+          unpackDir.path,
+          onProgress: onProgress,
+          isCancelled: isCancelled,
+        );
         if (!names.contains(BackupArchive.dbEntryName)) {
           await _cleanupDir(workDir);
           return const BackupPrepareResult.failure(
@@ -851,6 +1110,7 @@ class BackupService {
       }
 
       // Probe + strip lock/lockout + consistent snapshot (S-02).
+      onProgress?.call(const BackupProgress(BackupPhase.verify, 0, 0));
       final snapshotPath = p.join(workDir.path, 'restore_db.isar');
       final sanitize = await BackupDbProbe.openSanitizeAndSnapshot(
         dbFile: dbSource,
@@ -882,6 +1142,13 @@ class BackupService {
         plaintextBytes: plaintextBytes,
         strippedAppLock: sanitize.strippedAppLock,
       ));
+    } on BackupCancelledException {
+      DebugConfig.db('prepare: cancelled by user');
+      await _cleanupDir(workDir);
+      return const BackupPrepareResult.cancelled();
+    } on BackupSpaceException catch (e) {
+      await _cleanupDir(workDir);
+      return BackupPrepareResult.failure(e.message);
     } catch (e, s) {
       DebugConfig.error('BackupService.prepare', e, s);
       await _cleanupDir(workDir);
@@ -894,8 +1161,12 @@ class BackupService {
       _cleanupDir(prepared.workDir);
 
   /// Στάδιο 2: atomic restore από έτοιμο (και sanitized) prepare.
-  Future<BackupImportResult> restorePrepared(PreparedRestore prepared) async {
+  Future<BackupImportResult> restorePrepared(
+    PreparedRestore prepared, {
+    BackupProgressCallback? onProgress,
+  }) async {
     DebugConfig.db('restorePrepared: starting format=${prepared.format.name}');
+    onProgress?.call(const BackupProgress(BackupPhase.restore, 0, 0));
     final result = await _atomicRestoreDb(prepared);
     if (result.success) {
       DebugConfig.db('restorePrepared: SUCCESS — '
@@ -904,6 +1175,7 @@ class BackupService {
       DebugConfig.warning('restorePrepared: FAILED — '
           'restartRequired=${result.restartRequired} error=${result.error}');
     }
+    onProgress?.call(const BackupProgress(BackupPhase.restore, 1, 1));
     await sweepStaleArtifacts();
     return result;
   }

@@ -8,17 +8,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/core.dart';
+import '../../providers/providers.dart';
 import '../../helpers/super_note_helper.dart';
 import '../../services/services.dart';
 import '../../shared/widgets/widgets.dart';
+import 'backup_progress_dialog.dart';
 import 'settings_backup_passphrase.dart';
 import 'settings_pin_dialogs.dart';
 
-Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
-  DebugConfig.db('Settings: export backup');
+Future<void> exportBackup(BuildContext context, WidgetRef ref) =>
+    _runExport(context, ref, share: false);
+
+/// S-307 (Δ2): ξεχωριστό tile «Κοινοποίηση» — ίδιο χτίσιμο, share sheet.
+Future<void> shareBackup(BuildContext context, WidgetRef ref) =>
+    _runExport(context, ref, share: true);
+
+Future<void> _runExport(
+  BuildContext context,
+  WidgetRef ref, {
+  required bool share,
+}) async {
+  DebugConfig.db('Settings: ${share ? 'share' : 'export'} backup');
   final messenger = ScaffoldMessenger.of(context);
 
-  if (BackupService.instance.isMaintenanceActive) {
+  if (_isBusyNow()) {
     _showBusySnackBar(context, messenger);
     return;
   }
@@ -27,59 +40,55 @@ Future<void> exportBackup(BuildContext context, WidgetRef ref) async {
   if (!await confirmSensitiveAction(
     context,
     ref,
-    reason: 'Επιβεβαιώστε την ταυτότητά σας για εξαγωγή αντιγράφου',
+    reason: share
+        ? 'Επιβεβαιώστε την ταυτότητά σας για κοινοποίηση αντιγράφου'
+        : 'Επιβεβαιώστε την ταυτότητά σας για εξαγωγή αντιγράφου',
   )) {
     return;
   }
   if (!context.mounted) return;
 
-  // S-02 (D7): κρυπτογράφηση ΥΠΟΧΡΕΩΤΙΚΗ. Μία προτροπή κωδικού ανά
-  // συνεδρία — αν υπάρχει ήδη κλειδί, χρησιμοποιείται.
-  final passphrase = await ensureBackupPassphrase(
-    context,
-    requireConfirmation: !BackupPassphraseCache.instance.hasPassphrase,
-  );
-  if (passphrase == null || !context.mounted) return;
+  // Δ6: κωδικός ΜΟΝΟ όταν είναι ON το «Κλείδωμα αντιγράφου». Αλλιώς το
+  // container χρησιμοποιεί το ενσωματωμένο κλειδί (Δ1) — μηδέν προτροπές.
+  final settings = ref.read(settingsStreamProvider).valueOrNull;
+  if (settings?.backupLockEnabled ?? false) {
+    final passphrase = await ensureBackupPassphrase(
+      context,
+      requireConfirmation: !BackupPassphraseCache.instance.hasPassphrase,
+    );
+    if (passphrase == null || !context.mounted) return;
+  }
 
-  final choice = await showDialog<String>(
-    context: context,
-    useRootNavigator: true,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Εξαγωγή αντιγράφου'),
-      content: const Text('Το αντίγραφο θα κρυπτογραφηθεί (AES-256).\n\n'
-          'Πώς θέλετε να το αποθηκεύσετε;'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, 'device'),
-          child: const Text('Αποθήκευση στη συσκευή'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, 'share'),
-          child: const Text('Κοινοποίηση'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, null),
-          child: const Text('Ακύρωση'),
-        ),
-      ],
-    ),
-  );
-  if (choice == null || !context.mounted) return;
-
-  if (BackupService.instance.isMaintenanceActive) {
+  if (_isBusyNow()) {
     _showBusySnackBar(context, messenger);
     return;
   }
 
-  final BackupExportResult result;
-  if (choice == 'device') {
-    result = await BackupService.instance.exportToDevice(passphrase: passphrase);
-  } else {
-    result =
-        await BackupService.instance.exportWithShare(passphrase: passphrase);
-  }
+  final result = await showBackupProgressDialog<BackupExportResult>(
+    context: context,
+    title: share ? 'Κοινοποίηση αντιγράφου' : 'Εξαγωγή αντιγράφου',
+    task: (controller) {
+      bool isCancelled() => controller.isCancelled;
+      return share
+          ? BackupService.instance.exportWithShare(
+              onProgress: controller.report,
+              isCancelled: isCancelled,
+            )
+          : BackupService.instance.exportToDevice(
+              onProgress: controller.report,
+              isCancelled: isCancelled,
+            );
+    },
+  );
 
   if (!context.mounted) return;
+  if (result == null) {
+    messenger.showSnackBar(SnackBar(
+      content: const Text(AppErrors.exportFailed),
+      backgroundColor: context.cError,
+    ));
+    return;
+  }
   if (result.cancelled) return;
   if (result.success) {
     final msg =
@@ -107,13 +116,17 @@ void _showBusySnackBar(
   ));
 }
 
+/// S-307 (Δ4): busy = ροή αντιγράφου σε εξέλιξη ή restore/wipe (E33).
+bool _isBusyNow() =>
+    BackupService.instance.isBusy || BackupService.instance.isMaintenanceActive;
+
 Future<void> importBackup(BuildContext context, WidgetRef ref,
     {String? fromPath}) async {
   DebugConfig.db('Settings: import backup');
   final messenger = ScaffoldMessenger.of(context);
 
   // S-04: ευαίσθητη ενέργεια — πύλη πριν από file picker/validation/restore.
-  if (BackupService.instance.isMaintenanceActive) {
+  if (_isBusyNow()) {
     _showBusySnackBar(context, messenger);
     return;
   }
@@ -133,47 +146,71 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
   // 2. Μορφή από magic bytes — τα extensions δεν αρκούν (N1).
   final format = await BackupContainer.detectFormat(srcPath);
   if (!context.mounted) return;
+  if (format == BackupFormat.unknown) {
+    messenger.showSnackBar(SnackBar(
+      content: const Text(AppErrors.backupInvalid),
+      backgroundColor: context.cError,
+    ));
+    return;
+  }
+
+  // 3. Κωδικός ΜΟΝΟ για legacy/κλειδωμένα `.snb` (Δ1: τα νέα δεν τον έχουν).
   String? passphrase;
   if (format == BackupFormat.snb) {
-    passphrase = await showBackupPassphraseDialog(
-      context,
-      title: 'Κωδικός αντιγράφου',
-      message: 'Εισάγετε τον κωδικό που χρησιμοποιήθηκε κατά την εξαγωγή.',
-      confirmLabel: 'Έλεγχος',
-      initial: BackupPassphraseCache.instance.passphrase,
-    );
-    if (passphrase == null || !context.mounted) return;
-  }
-
-  // 3. Prepare (S-02): decrypt → allowlist extract → probe → strip lock.
-  //    Δεν αγγίζει τη live DB — μια αποτυχία είναι πλήρως ασφαλής.
-  if (!context.mounted) return;
-  // S253 (F11): αν ο χρήστης κλείσει το loading με back, ΜΗΝ ποπάρεις το Settings.
-  final navigator = Navigator.of(context, rootNavigator: true);
-  var loadingOpen = true;
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const AlertDialog(
-      content: Row(
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(width: Spacing.md),
-          Text('Έλεγχος αρχείου backup...'),
-        ],
-      ),
-    ),
-  ).whenComplete(() => loadingOpen = false);
-
-  final prep =
-      await BackupService.instance.prepare(srcPath, passphrase: passphrase);
-
-  if (loadingOpen) {
-    navigator.pop();
-  }
-
-  if (!prep.success) {
+    var requires = false;
+    try {
+      requires = await BackupContainer.requiresPassphrase(srcPath);
+    } on SnbFormatException catch (e) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(e.message),
+        backgroundColor: context.cError,
+      ));
+      return;
+    }
     if (!context.mounted) return;
+    if (requires) {
+      passphrase = await showBackupPassphraseDialog(
+        context,
+        title: 'Κωδικός αντιγράφου',
+        message: 'Το αντίγραφο είναι κλειδωμένο.\n'
+            'Εισάγετε τον κωδικό που χρησιμοποιήθηκε κατά την εξαγωγή.',
+        confirmLabel: 'Έλεγχος',
+        initial: BackupPassphraseCache.instance.passphrase,
+      );
+      if (passphrase == null || !context.mounted) return;
+    }
+  }
+
+  // 4. Prepare (S-02): decrypt → allowlist extract → probe → strip lock.
+  //    Δεν αγγίζει τη live DB — μια αποτυχία είναι πλήρως ασφαλής.
+  final prep = await showBackupProgressDialog<BackupPrepareResult>(
+    context: context,
+    title: 'Έλεγχος αρχείου',
+    task: (controller) => BackupService.instance.prepare(
+      srcPath,
+      passphrase: passphrase,
+      onProgress: controller.report,
+      isCancelled: () => controller.isCancelled,
+    ),
+  );
+
+  if (!context.mounted) {
+    final prepared = prep?.prepared;
+    if (prepared != null) {
+      await BackupService.instance.discardPrepared(prepared);
+    }
+    return;
+  }
+  if (prep == null) {
+    messenger.showSnackBar(SnackBar(
+      content: const Text(AppErrors.backupInvalid),
+      backgroundColor: context.cError,
+    ));
+    return;
+  }
+  if (prep.cancelled) return;
+  if (!prep.success) {
     messenger.showSnackBar(SnackBar(
       content: Text(prep.error ?? AppErrors.backupInvalid),
       backgroundColor: context.cError,
@@ -187,7 +224,7 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     return;
   }
 
-  // 4. Διάλογος επιβεβαίωσης
+  // 5. Διάλογος επιβεβαίωσης
   final lockNote = prepared.strippedAppLock
       ? '\n\nΤο κλείδωμα εφαρμογής και τα βιομετρικά του αντιγράφου '
           'δεν μεταφέρονται — θα χρειαστεί να τα ενεργοποιήσετε ξανά.'
@@ -207,34 +244,27 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     return;
   }
 
-  // 5. Atomic restore — barrier dialog ώστε να μη γίνει write όσο κλείνει η DB.
-  final restoreNavigator = Navigator.of(context, rootNavigator: true);
-  var restoreDialogOpen = true;
-  showDialog(
+  // 6. Atomic restore — progress dialog (μη ακυρώσιμο: μισο-επαναφορά =
+  //    restartRequired, οπότε δεν επιτρέπουμε ακύρωση στη μέση).
+  final result = await showBackupProgressDialog<BackupImportResult>(
     context: context,
-    barrierDismissible: false,
-    builder: (_) => const PopScope(
-      canPop: false,
-      child: AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: Spacing.md),
-            Expanded(child: Text('Επαναφορά αντιγράφου ασφαλείας...')),
-          ],
-        ),
-      ),
+    title: 'Επαναφορά αντιγράφου',
+    task: (controller) => BackupService.instance.restorePrepared(
+      prepared,
+      onProgress: controller.report,
     ),
-  ).whenComplete(() => restoreDialogOpen = false);
-
-  final result = await BackupService.instance.restorePrepared(prepared);
-
-  if (restoreDialogOpen) {
-    restoreNavigator.pop();
-  }
+    cancellable: false,
+  );
 
   if (!context.mounted) {
-    if (result.success || result.restartRequired) exit(0);
+    if (result != null && (result.success || result.restartRequired)) exit(0);
+    return;
+  }
+  if (result == null) {
+    messenger.showSnackBar(SnackBar(
+      content: const Text(AppErrors.restoreFailed),
+      backgroundColor: context.cError,
+    ));
     return;
   }
 

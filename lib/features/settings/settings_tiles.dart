@@ -404,11 +404,6 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
           .setAutoBackupEnabled(v);
       if (!mounted) return;
       _reload();
-      if (v && !BackupPassphraseCache.instance.hasPassphrase) {
-        await ensureBackupPassphrase(context, requireConfirmation: true);
-        if (!mounted) return;
-        _reload();
-      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -466,28 +461,6 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
               compact: true,
             ),
           ),
-        if (settings.autoBackupEnabled &&
-            !BackupPassphraseCache.instance.hasPassphrase)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.key_rounded, size: 20),
-            title: Text('Απαιτείται κωδικός αντιγράφου',
-                style: context.bodySm),
-            subtitle: Text(
-              'Τα αυτόματα αντίγραφα μένουν ανενεργά μέχρι να ορίσετε κωδικό '
-              'για αυτή τη συνεδρία.',
-              style: context.bodySm,
-            ),
-            trailing: TextButton(
-              onPressed: () async {
-                await ensureBackupPassphrase(context,
-                    requireConfirmation: true);
-                _reload();
-              },
-              child: const Text('Ορισμός'),
-            ),
-          ),
         if (settings.autoBackupEnabled && _paths.isNotEmpty)
           Column(
             children: [
@@ -516,3 +489,69 @@ class SettingsAutoBackupTileState extends ConsumerState<SettingsAutoBackupTile> 
     );
   }
 }
+
+/// S-307 (Δ6): «Κλείδωμα αντιγράφου».
+///
+/// OFF (default) → τα `.snb` χρησιμοποιούν ενσωματωμένο κλειδί (μηδέν
+/// κωδικός). ON → ζητείται κωδικός και το `.snb` κρυπτογραφείται με PBKDF2.
+class SettingsBackupLockTile extends ConsumerStatefulWidget {
+  final AppSettings settings;
+  const SettingsBackupLockTile({super.key, required this.settings});
+
+  @override
+  ConsumerState<SettingsBackupLockTile> createState() =>
+      SettingsBackupLockTileState();
+}
+
+class SettingsBackupLockTileState
+    extends ConsumerState<SettingsBackupLockTile> {
+  bool _busy = false;
+
+  Future<void> _onToggle(bool value) async {
+    if (_busy) return;
+    if (BackupService.instance.isBusy ||
+        BackupService.instance.isMaintenanceActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppErrors.backupBusy)),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      if (value) {
+        // ON χωρίς κωδικό δεν έχει νόημα — ο κωδικός ζητείται ΠΡΙΝ το save.
+        final passphrase = await ensureBackupPassphrase(
+          context,
+          requireConfirmation: !BackupPassphraseCache.instance.hasPassphrase,
+        );
+        if (passphrase == null || !mounted) return;
+        await ref
+            .read(settingsNotifierProvider.notifier)
+            .setBackupLockEnabled(true);
+      } else {
+        await ref
+            .read(settingsNotifierProvider.notifier)
+            .setBackupLockEnabled(false);
+        // Επιστροφή στο ενσωματωμένο κλειδί — ο κωδικός δεν χρειάζεται πια.
+        BackupPassphraseCache.instance.clear();
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings =
+        ref.watch(settingsStreamProvider).valueOrNull ?? widget.settings;
+    return SettingsSwitchTile(
+      label: 'Κλείδωμα αντιγράφου',
+      subtitle: 'Με κωδικό: το αντίγραφο ζητά κωδικό για επαναφορά. '
+          'Χωρίς: αποθηκεύεται και επαναφέρεται χωρίς κωδικό.',
+      value: settings.backupLockEnabled,
+      busy: _busy,
+      onChanged: _onToggle,
+    );
+  }
+}
+

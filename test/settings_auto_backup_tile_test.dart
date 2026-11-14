@@ -41,7 +41,7 @@ Future<void> _pump(
 ) async {
   await tester.pumpWidget(
     ProviderScope(
-      // Το ίδιο stream που ακούει και το `BackupPassphraseGate`.
+      // Το ίδιο stream που ακούει και το tile (live `lastAutoBackupAt`).
       overrides: [
         settingsStreamProvider.overrideWith((ref) => controller.stream),
       ],
