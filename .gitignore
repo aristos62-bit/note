@@ -46,3 +46,10 @@ app.*.map.json
 
 # Device-test evidence (screenshots + summaries) — τοπικό, δεν ανεβαίνει
 /device-test/
+
+# S-14 — τοπικά μόνο: rollback snapshots, εγκαταστάτης και build artifacts
+# (δεν ανεβαίνουν σε δημόσιο repo· ο εγκαταστάτης πάει σε Releases)
+/backups/
+/InstallerOutput/
+/Dependencies/
+/android/build/
