@@ -208,6 +208,17 @@ class _SystemGroupState extends State<_SystemGroup> {
             ),
           ),
           const SizedBox(height: Spacing.sm),
+          _buildCard(
+            SettingsSwitchTile(
+              label: 'Απόκρυψη περιεχομένου',
+              subtitle: 'Οι ειδοποιήσεις δείχνουν μόνο τον τύπο (π.χ. «Εργασία»)',
+              value: widget.settings.hideNotificationContent,
+              onChanged: (v) => widget.ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setHideNotificationContent(v),
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
           _buildCard(SettingsActionTile(
             label: 'Διάγνωση Υπενθυμίσεων',
             subtitle: 'Κατάσταση επαναλαμβανόμενων και επόμενες ειδοποιήσεις',

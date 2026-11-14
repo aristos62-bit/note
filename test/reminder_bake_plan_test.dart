@@ -52,6 +52,17 @@ OsReminderSnapshot _os(Reminder r, Item? item) {
   );
 }
 
+/// S-06: OS snapshot όπως το γράφει το discreet bake.
+OsReminderSnapshot _osMasked(Reminder r, Item? item) {
+  final text = resolveReminderNotificationText(r, item, discreet: true);
+  return OsReminderSnapshot(
+    id: r.id,
+    title: text.title,
+    body: text.body,
+    payload: r.itemId.toString(),
+  );
+}
+
 void main() {
   group('buildReminderBakePlan', () {
     test('full bake is oldest-first and truncates at limit', () {
@@ -68,6 +79,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
       );
       expect(plan.cancelIds, isEmpty);
       expect(plan.schedule.map((r) => r.id), [1, 2]);
@@ -95,6 +107,7 @@ void main() {
         now: _now,
         incremental: true,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
       );
       expect(plan.keepIds, [1]);
       expect(plan.schedule.map((r) => r.id), [2, 3]);
@@ -120,6 +133,7 @@ void main() {
         now: _now,
         incremental: true,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
       );
       expect(plan.keepIds, [1, 2]);
       expect(plan.schedule, isEmpty);
@@ -141,6 +155,7 @@ void main() {
         now: _now,
         incremental: true,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
         cancelableOsIds: {2},
       );
       expect(plan.cancelIds, [2]);
@@ -165,6 +180,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
       );
       expect(plan.desiredCount, 0);
       expect(plan.skippedCount, 3);
@@ -183,6 +199,7 @@ void main() {
         now: _now,
         incremental: true,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
         forceSchedule: true,
       );
       expect(plan.keepIds, isEmpty);
@@ -202,9 +219,64 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
       );
       expect(plan.desiredCount, 0);
       expect(plan.schedule, isEmpty);
+    });
+
+    // ── S-06: discreet (masking) ───────────────────────────────────────
+    test('discreet replaces a real-text OS alarm (masking on)', () {
+      final rows = [_reminder(id: 1, minutes: 60)];
+      final item = _item(type: ItemType.task, title: 'Μυστικό');
+      final os = {1: _os(rows[0], item)}; // OS έχει ΠΡΑΓΜΑΤΙΚΟ κείμενο
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: {1: item},
+        osById: os,
+        limit: 450,
+        now: _now,
+        incremental: true,
+        habitOsWindow: false,
+        discreet: true,
+      );
+      expect(plan.keepIds, isEmpty);
+      expect(plan.schedule.map((r) => r.id), [1]);
+      expect(plan.truncated, isFalse);
+    });
+
+    test('discreet keeps an already-masked OS alarm (no re-bake loop)', () {
+      final rows = [_reminder(id: 1, minutes: 60)];
+      final item = _item(type: ItemType.task, title: 'Μυστικό');
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: {1: item},
+        osById: {1: _osMasked(rows[0], item)},
+        limit: 450,
+        now: _now,
+        incremental: true,
+        habitOsWindow: false,
+        discreet: true,
+      );
+      expect(plan.keepIds, [1]);
+      expect(plan.schedule, isEmpty);
+    });
+
+    test('discreet off + masked OS alarm → replacement (masking off)', () {
+      final rows = [_reminder(id: 1, minutes: 60)];
+      final item = _item(type: ItemType.task, title: 'Μυστικό');
+      final plan = buildReminderBakePlan(
+        rows: rows,
+        items: {1: item},
+        osById: {1: _osMasked(rows[0], item)},
+        limit: 450,
+        now: _now,
+        incremental: true,
+        habitOsWindow: false,
+        discreet: false,
+      );
+      expect(plan.keepIds, isEmpty);
+      expect(plan.schedule.map((r) => r.id), [1]);
     });
   });
 
@@ -235,6 +307,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: false,
+        discreet: false, // S-06: unmasked (default παραγωγής πριν το toggle)
       );
       expect(plan.desiredCount, 3);
       expect(plan.deferredCount, 0);
@@ -250,6 +323,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(plan.desiredCount, 1);
       expect(plan.deferredCount, 0);
@@ -269,6 +343,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(plan.desiredCount, 5);
       expect(plan.deferredCount, 1);
@@ -286,6 +361,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(plan.desiredCount, 1);
       expect(plan.deferredCount, 0);
@@ -301,6 +377,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(plan.desiredCount, 5);
       expect(plan.deferredCount, 2);
@@ -315,6 +392,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(sparse.desiredCount, 4);
       expect(sparse.deferredCount, 0);
@@ -341,6 +419,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       // 4 × 52 habit occurrences μέσα στο 14ήμερο + 56 non-habit.
       expect(plan.desiredCount, 264);
@@ -360,6 +439,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(atCutoff.deferredCount, 1);
       expect(atCutoff.desiredCount, 5);
@@ -372,6 +452,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(justInside.deferredCount, 0);
       expect(justInside.desiredCount, 6);
@@ -409,6 +490,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(plan.beyondHorizonCount, 2);
       expect(plan.skippedCount, 0);
@@ -433,6 +515,7 @@ void main() {
         now: _now,
         incremental: false,
         habitOsWindow: true,
+        discreet: false, // S-06
       );
       expect(plan.beyondHorizonCount, 1);
       expect(plan.deferredCount, 6);

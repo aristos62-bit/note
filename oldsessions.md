@@ -5450,5 +5450,73 @@ if (!context.isShortScreen)
 ### Κατάσταση
 Τα **2 device tests της S-307 έκλεισαν** (device-verified), **και το F1 διορθώθηκε + device-verified** (snackbar «Εξαγωγή επιτυχής» αντί «Αντίγραφο αποθηκεύτηκε»). `flutter analyze` clean · **700/700** tests. Καμία ανοιχτή εκκρεμότητα από S-307/S-308· το `error_list.md` παραμένει αρχειοθετημένο (απόφαση χρήστη: όχι νέος tracker για το F1).
 
+---
+
+## Session 309 — 14/11/2026 (S-06: απόκρυψη περιεχομένου ειδοποιήσεων — masking στο OS)
+
+### Στόχος
+Κλείσιμο του security finding **S-06** («οι ειδοποιήσεις δείχνουν τίτλο στην κλειδωμένη οθόνη»): το κείμενο
+που στέλνεται στο **OS** (lockscreen + tray) να μην περιέχει τίτλο/περιεχόμενο item, **χωρίς** να αλλάξει
+ό,τι κρατά η DB.
+
+### Απόφαση (τελική πρόταση, εγκεκριμένη)
+- **Masking μόνο στο OS:** title πάντα «Υπενθύμιση», body = `ItemTypeX.labelGr` (π.χ. «Εργασία»,
+  «Σημείωση»), fallback «Έχεις μια υπενθύμιση» όταν `item == null`. Σταθερό κείμενο ⇒ deterministic ⇒
+  το keep/replacement του plan μένει σταθερό (κανένα ατέρμονο re-bake).
+- **DB πάντα πραγματικό κείμενο:** το `discreet` είναι **προαιρετικό (default `false`)** στη
+  `resolveReminderNotificationText` ⇒ `syncableReminderNotificationText` και τα παιδιά recurring
+  καλούν όπως πριν. **Required** στα OS paths (`buildReminderBakePlan`, `_runBakePlan`, `_scheduleOne`).
+- **Toggle «Απόκρυψη περιεχομένου»** (default **ON**, privacy-first) μετά τη «Δόνηση», πριν τη «Διάγνωση»·
+  enabled ανεξάρτητα από το «Ειδοποιήσεις». Αλλαγή ⇒ `scheduleAll(incremental: true)` (keep → replacement,
+  όχι πλήρες cancelAll/bake).
+- **Migration v5→v6 με ρητό write:** το Isar διαβάζει νέο πεδίο σε υπάρχουσα εγγραφή ως `false` (το
+  static size της εγγραφής < offset του πεδίου, `isar_core/format.md`) — χωρίς ρητό `put()` το
+  privacy-first default θα ήταν σιωπηλά OFF σε κάθε upgrade.
+- **`visibility: NotificationVisibility.private`** διατηρείται ως 2ο επίπεδο· **δεν** υπάρχει
+  `publicVersion` στο `flutter_local_notifications` 17.2.4 (επιβεβαιώθηκε στον Java κώδικα του plugin:
+  μόνο `setVisibility`). Με `lock_screen_allow_private_notifications=1` (POCO X3) το `private` **δεν**
+  αρκεί — η πραγματική άμυνα είναι το masked κείμενο.
+- Διαγραφή νεκρής `NotificationService.showImmediate` (0 refs).
+
+### Αλλαγές κώδικα
+1. `lib/models/app_settings.dart` + `.g.dart` — `hideNotificationContent = true` (offset 21, build_runner).
+2. `lib/services/migration_service.dart` — `_targetVersion = 6`, `_v5ToV6` (ρητό write `true` + σχόλιο γιατί).
+3. `lib/services/reminder_text.dart` — branch `discreet` **πρώτο** (πριν από κάθε κανόνα live title/body).
+4. `lib/services/reminder_bake_plan.dart` — required `discreet`, πέρασμα στη resolve.
+5. `lib/services/reminder_scheduler.dart` — 4 call sites (`scheduleAll`, `rescheduleForItem`, batch,
+   `_scheduleOne`) + `_runBakePlan(discreet:)` + `_scheduleOne(discreet:)`.
+6. `lib/providers/settings_provider.dart` — `setHideNotificationContent` (update + incremental rebake).
+7. `lib/features/settings/settings_screen.dart` — κάρτα «Απόκρυψη περιεχομένου».
+8. `lib/services/notification_service.dart` — διαγραφή `showImmediate` + σχόλιο στο `visibility`.
+9. `pubspec.yaml` — **1.2.0+4**.
+
+### Tests
+- +8 νέα: 5 στο `reminder_text_test.dart` (mask title/body με τύπο, null-title rows, birthday/contact
+  χωρίς διαρροή ονόματος, fallback χωρίς item, «δεν αγγίζει το syncable/DB κείμενο») και 3 στο
+  `reminder_bake_plan_test.dart` (real→masked ⇒ replacement, ήδη masked ⇒ keep (no loop), masked→real
+  όταν OFF) + helper `_osMasked`· 18 υπάρχοντα plan calls πήραν `discreet: false`.
+- `flutter analyze` → **No issues found!** · targeted 36/36 · **full suite 708/708**.
+
+### Device test (POCO X3 `9593c01e`, 14/11/2026) — ✅
+- Build `1.2.0+4` (70.0MB) → `adb install -r` Success · `versionName=1.2.0`, `versionCode=4`.
+- **Migration v5→v6:** η κάρτα εμφανίστηκε στη σωστή θέση με **checked=true** (απόδειξη του ρητού write)·
+  «Έκδοση 1.2.0 (build 4)» παραμένει τελευταία στο «Σύστημα».
+- **Masking ON** (υπενθύμιση σε item «TEDT S06 SECRET»): `dumpsys notification --noredact` →
+  `android.title=(Υπενθύμιση)`, `android.text=(Σημείωση)` — κανένα ίχνος τίτλου. Shade screenshot.
+- **Masking OFF** (2η υπενθύμιση, ίδιο item): `android.text=(TEDT S06 SECRET)` — και screenshot με τις
+  **δύο μαζί** στην ίδια ομάδα (άμεση σύγκριση). Μετά το toggle ξαναγύρισε **ON** (incremental rebake).
+- **Διάγνωση:** δείχνει πραγματικά κείμενα από τη DB (habits κ.λπ.) ⇒ το masking είναι μόνο OS.
+- **Τεχνική λεπτομέρεια:** `screencap` της οθόνης Ρυθμίσεων επιστρέφει **0 bytes** (secure window) ⇒
+  η κατάσταση switches τεκμηριώνεται από `uiautomator` dumps (`checked=`). Για να μη περιμένουμε λεπτά,
+  η ώρα προωθήθηκε με `cmd alarm set-time` (+`auto_time=0`) και **επαναφέρθηκε** (`auto_time=1`).
+- **Καθαρισμός:** διαγράφηκε το item, καθαρίστηκαν οι ειδοποιήσεις, `/sdcard/s06_*` + `ui.xml` + `cur.png`
+  + `tp.png` διαγράφηκαν, ώρα συσκευής σωστή, screen timeout/rotation αμετάβλητα.
+- Evidence: `device-test/summary_S-309.md` (τοπικό).
+
+### Docs
+`supernote.md` — AppSettings (`hideNotificationContent`), schema **v6**, `NotificationService`
+(`_details` σχόλιο, χωρίς `showImmediate`), `SettingsScreen` (νέα κάρτα), `ReminderScheduler`
+(`discreet` σε όλα τα bake paths). `security_v2.md` — S-06 → **ΟΛΟΚΛΗΡΩΘΗΚΕ**.
+
 
 

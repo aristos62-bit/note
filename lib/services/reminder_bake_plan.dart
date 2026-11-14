@@ -186,6 +186,7 @@ ReminderBakePlan buildReminderBakePlan({
   required DateTime now,
   required bool incremental,
   required bool habitOsWindow,
+  required bool discreet,
   Set<int>? cancelableOsIds,
   bool forceSchedule = false,
 }) {
@@ -265,7 +266,11 @@ ReminderBakePlan buildReminderBakePlan({
 
   for (final r in wanted) {
     final os = osById[r.id];
-    final text = resolveReminderNotificationText(r, items[r.itemId]);
+    final text = resolveReminderNotificationText(
+      r,
+      items[r.itemId],
+      discreet: discreet,
+    );
     if (os != null) {
       if (!forceSchedule && os.matches(text)) {
         keepIds.add(r.id);

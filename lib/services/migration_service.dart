@@ -10,7 +10,7 @@ import 'app_lock_service.dart';
 class MigrationService {
   MigrationService._();
 
-  static const int _targetVersion = 5;
+  static const int _targetVersion = 6;
 
   static Future<void> ensureSchemaVersion(Isar isar) async {
     final settings = await isar.appSettings.get(1);
@@ -90,6 +90,9 @@ class MigrationService {
       case 4:
         await _v4ToV5(isar);
         break;
+      case 5:
+        await _v5ToV6(isar);
+        break;
     }
   }
 
@@ -158,5 +161,22 @@ class MigrationService {
   static Future<void> _v4ToV5(Isar isar) async {
     DebugConfig.db(
         'Migration v4→v5: backupLockEnabled uses safe default (false) — no data transform');
+  }
+
+  /// v5→v6 (S-06): additive `hideNotificationContent` (default `true`).
+  ///
+  /// **Γιατί ρητό write:** το Isar αποθηκεύει το static size στην αρχή κάθε
+  /// εγγραφής και ο reader προσπερνά properties με offset > static size
+  /// (`isar_core/format.md`). Άρα σε υπάρχουσα εγγραφή το νέο bool διαβάζεται
+  /// `false` — ΟΧΙ το Dart default `true`. Χωρίς αυτό το write το
+  /// privacy-first default θα ήταν σιωπηλά OFF σε κάθε upgrade.
+  static Future<void> _v5ToV6(Isar isar) async {
+    await isar.writeTxn(() async {
+      final s = await isar.appSettings.get(1) ?? AppSettings();
+      s.hideNotificationContent = true;
+      await isar.appSettings.put(s);
+    });
+    DebugConfig.db(
+        'Migration v5→v6: hideNotificationContent defaulted to true (explicit write)');
   }
 }

@@ -123,90 +123,95 @@ const AppSettingsSchema = CollectionSchema(
       name: r'hasCompletedOnboarding',
       type: IsarType.bool,
     ),
-    r'itemTypeColorsJson': PropertySchema(
+    r'hideNotificationContent': PropertySchema(
       id: 21,
+      name: r'hideNotificationContent',
+      type: IsarType.bool,
+    ),
+    r'itemTypeColorsJson': PropertySchema(
+      id: 22,
       name: r'itemTypeColorsJson',
       type: IsarType.string,
     ),
     r'language': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'language',
       type: IsarType.string,
       enumMap: _AppSettingslanguageEnumValueMap,
     ),
     r'lastAutoBackupAt': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'lastAutoBackupAt',
       type: IsarType.dateTime,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'maxAttachmentSizeMB': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'maxAttachmentSizeMB',
       type: IsarType.long,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'preferredFolderId': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'preferredFolderId',
       type: IsarType.long,
     ),
     r'schemaVersion': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'schemaVersion',
       type: IsarType.long,
     ),
     r'showArchivedItems': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'showArchivedItems',
       type: IsarType.bool,
     ),
     r'showDeletedItems': PropertySchema(
-      id: 30,
+      id: 31,
       name: r'showDeletedItems',
       type: IsarType.bool,
     ),
     r'soundEnabled': PropertySchema(
-      id: 31,
+      id: 32,
       name: r'soundEnabled',
       type: IsarType.bool,
     ),
     r'syncEnabled': PropertySchema(
-      id: 32,
+      id: 33,
       name: r'syncEnabled',
       type: IsarType.bool,
     ),
     r'syncIntervalMinutes': PropertySchema(
-      id: 33,
+      id: 34,
       name: r'syncIntervalMinutes',
       type: IsarType.long,
     ),
     r'syncOnWifiOnly': PropertySchema(
-      id: 34,
+      id: 35,
       name: r'syncOnWifiOnly',
       type: IsarType.bool,
     ),
     r'theme': PropertySchema(
-      id: 35,
+      id: 36,
       name: r'theme',
       type: IsarType.string,
       enumMap: _AppSettingsthemeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 36,
+      id: 37,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'vibrationEnabled': PropertySchema(
-      id: 37,
+      id: 38,
       name: r'vibrationEnabled',
       type: IsarType.bool,
     )
@@ -282,23 +287,24 @@ void _appSettingsSerialize(
   writer.writeLong(offsets[18], object.defaultWorkspaceId);
   writer.writeDouble(offsets[19], object.fontScale);
   writer.writeBool(offsets[20], object.hasCompletedOnboarding);
-  writer.writeString(offsets[21], object.itemTypeColorsJson);
-  writer.writeString(offsets[22], object.language.name);
-  writer.writeDateTime(offsets[23], object.lastAutoBackupAt);
-  writer.writeDateTime(offsets[24], object.lastSyncAt);
-  writer.writeLong(offsets[25], object.maxAttachmentSizeMB);
-  writer.writeBool(offsets[26], object.notificationsEnabled);
-  writer.writeLong(offsets[27], object.preferredFolderId);
-  writer.writeLong(offsets[28], object.schemaVersion);
-  writer.writeBool(offsets[29], object.showArchivedItems);
-  writer.writeBool(offsets[30], object.showDeletedItems);
-  writer.writeBool(offsets[31], object.soundEnabled);
-  writer.writeBool(offsets[32], object.syncEnabled);
-  writer.writeLong(offsets[33], object.syncIntervalMinutes);
-  writer.writeBool(offsets[34], object.syncOnWifiOnly);
-  writer.writeString(offsets[35], object.theme.name);
-  writer.writeDateTime(offsets[36], object.updatedAt);
-  writer.writeBool(offsets[37], object.vibrationEnabled);
+  writer.writeBool(offsets[21], object.hideNotificationContent);
+  writer.writeString(offsets[22], object.itemTypeColorsJson);
+  writer.writeString(offsets[23], object.language.name);
+  writer.writeDateTime(offsets[24], object.lastAutoBackupAt);
+  writer.writeDateTime(offsets[25], object.lastSyncAt);
+  writer.writeLong(offsets[26], object.maxAttachmentSizeMB);
+  writer.writeBool(offsets[27], object.notificationsEnabled);
+  writer.writeLong(offsets[28], object.preferredFolderId);
+  writer.writeLong(offsets[29], object.schemaVersion);
+  writer.writeBool(offsets[30], object.showArchivedItems);
+  writer.writeBool(offsets[31], object.showDeletedItems);
+  writer.writeBool(offsets[32], object.soundEnabled);
+  writer.writeBool(offsets[33], object.syncEnabled);
+  writer.writeLong(offsets[34], object.syncIntervalMinutes);
+  writer.writeBool(offsets[35], object.syncOnWifiOnly);
+  writer.writeString(offsets[36], object.theme.name);
+  writer.writeDateTime(offsets[37], object.updatedAt);
+  writer.writeBool(offsets[38], object.vibrationEnabled);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -330,28 +336,29 @@ AppSettings _appSettingsDeserialize(
   object.defaultWorkspaceId = reader.readLongOrNull(offsets[18]);
   object.fontScale = reader.readDouble(offsets[19]);
   object.hasCompletedOnboarding = reader.readBool(offsets[20]);
+  object.hideNotificationContent = reader.readBool(offsets[21]);
   object.id = id;
-  object.itemTypeColorsJson = reader.readStringOrNull(offsets[21]);
+  object.itemTypeColorsJson = reader.readStringOrNull(offsets[22]);
   object.language =
-      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[22])] ??
+      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[23])] ??
           AppLanguage.greek;
-  object.lastAutoBackupAt = reader.readDateTimeOrNull(offsets[23]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[24]);
-  object.maxAttachmentSizeMB = reader.readLong(offsets[25]);
-  object.notificationsEnabled = reader.readBool(offsets[26]);
-  object.preferredFolderId = reader.readLongOrNull(offsets[27]);
-  object.schemaVersion = reader.readLong(offsets[28]);
-  object.showArchivedItems = reader.readBool(offsets[29]);
-  object.showDeletedItems = reader.readBool(offsets[30]);
-  object.soundEnabled = reader.readBool(offsets[31]);
-  object.syncEnabled = reader.readBool(offsets[32]);
-  object.syncIntervalMinutes = reader.readLong(offsets[33]);
-  object.syncOnWifiOnly = reader.readBool(offsets[34]);
+  object.lastAutoBackupAt = reader.readDateTimeOrNull(offsets[24]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[25]);
+  object.maxAttachmentSizeMB = reader.readLong(offsets[26]);
+  object.notificationsEnabled = reader.readBool(offsets[27]);
+  object.preferredFolderId = reader.readLongOrNull(offsets[28]);
+  object.schemaVersion = reader.readLong(offsets[29]);
+  object.showArchivedItems = reader.readBool(offsets[30]);
+  object.showDeletedItems = reader.readBool(offsets[31]);
+  object.soundEnabled = reader.readBool(offsets[32]);
+  object.syncEnabled = reader.readBool(offsets[33]);
+  object.syncIntervalMinutes = reader.readLong(offsets[34]);
+  object.syncOnWifiOnly = reader.readBool(offsets[35]);
   object.theme =
-      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[35])] ??
+      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[36])] ??
           AppTheme.system;
-  object.updatedAt = reader.readDateTime(offsets[36]);
-  object.vibrationEnabled = reader.readBool(offsets[37]);
+  object.updatedAt = reader.readDateTime(offsets[37]);
+  object.vibrationEnabled = reader.readBool(offsets[38]);
   return object;
 }
 
@@ -407,25 +414,25 @@ P _appSettingsDeserializeProp<P>(
     case 20:
       return (reader.readBool(offset)) as P;
     case 21:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 22:
+      return (reader.readStringOrNull(offset)) as P;
+    case 23:
       return (_AppSettingslanguageValueEnumMap[
               reader.readStringOrNull(offset)] ??
           AppLanguage.greek) as P;
-    case 23:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 24:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 25:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 26:
-      return (reader.readBool(offset)) as P;
-    case 27:
-      return (reader.readLongOrNull(offset)) as P;
-    case 28:
       return (reader.readLong(offset)) as P;
-    case 29:
+    case 27:
       return (reader.readBool(offset)) as P;
+    case 28:
+      return (reader.readLongOrNull(offset)) as P;
+    case 29:
+      return (reader.readLong(offset)) as P;
     case 30:
       return (reader.readBool(offset)) as P;
     case 31:
@@ -433,15 +440,17 @@ P _appSettingsDeserializeProp<P>(
     case 32:
       return (reader.readBool(offset)) as P;
     case 33:
-      return (reader.readLong(offset)) as P;
-    case 34:
       return (reader.readBool(offset)) as P;
+    case 34:
+      return (reader.readLong(offset)) as P;
     case 35:
+      return (reader.readBool(offset)) as P;
+    case 36:
       return (_AppSettingsthemeValueEnumMap[reader.readStringOrNull(offset)] ??
           AppTheme.system) as P;
-    case 36:
-      return (reader.readDateTime(offset)) as P;
     case 37:
+      return (reader.readDateTime(offset)) as P;
+    case 38:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1750,6 +1759,16 @@ extension AppSettingsQueryFilter
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      hideNotificationContentEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'hideNotificationContent',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition> idEqualTo(
       Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -3034,6 +3053,20 @@ extension AppSettingsQuerySortBy
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByHideNotificationContent() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hideNotificationContent', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByHideNotificationContentDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hideNotificationContent', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       sortByItemTypeColorsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'itemTypeColorsJson', Sort.asc);
@@ -3545,6 +3578,20 @@ extension AppSettingsQuerySortThenBy
     });
   }
 
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByHideNotificationContent() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hideNotificationContent', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByHideNotificationContentDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hideNotificationContent', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -3931,6 +3978,13 @@ extension AppSettingsQueryWhereDistinct
   }
 
   QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByHideNotificationContent() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'hideNotificationContent');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
       distinctByItemTypeColorsJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'itemTypeColorsJson',
@@ -4191,6 +4245,13 @@ extension AppSettingsQueryProperty
       hasCompletedOnboardingProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'hasCompletedOnboarding');
+    });
+  }
+
+  QueryBuilder<AppSettings, bool, QQueryOperations>
+      hideNotificationContentProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'hideNotificationContent');
     });
   }
 

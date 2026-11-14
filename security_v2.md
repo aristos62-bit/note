@@ -123,7 +123,7 @@
 |---|---|---|---|
 | S-04 | Κρίσιμες ενέργειες χωρίς PIN: **απενεργοποίηση lock**, export/share backup, restore, «Διαγραφή όλων» (η αλλαγή PIN ζητά) | `settings_screen.dart:242-246` · `settings_backup.dart:14-80, 87-206, 238-420` | ✅ **ΥΛΟΠΟΙΗΘΗΚΕ S302** (+ **Device-verified 08/11/2026** POCO X3: export gate πριν το dialog, disable gate): `confirmSensitiveAction` (βιομετρικό → PIN, bypass lockout)· gate **πριν** από dialogs/file picker σε export/import/wipe (`settings_backup.dart`) και disable (`settings_app_lock_section.dart`)· fail-closed σε αδυναμία ανάγνωσης· PIN με inline lockout (`AppLockAttemptsStore`) |
 | S-05 | Η UI «ζει» κάτω από το lock: accessibility service και hardware keyboard φτάνουν στο περιεχόμενο | `main.dart:286-299` | ✅ **Μηχανισμός S300**: `IgnorePointer` + `ExcludeSemantics` + `ExcludeFocus` γύρω από το `child!` όταν `appContentBlockedProvider` (διατήρηση state). Device-verified 07/11/2026 (POCO X3) |
-| S-06 | Ειδοποιήσεις δείχνουν τίτλο στην κλειδωμένη οθόνη (κανένα `visibility`)· το payload είναι σωστά μόνο id | `notification_service.dart:451-469` | `visibility: NotificationVisibility.private` + `publicVersion` γενικό όταν `appLockEnabled`· ρύθμιση «Απόκρυψη περιεχομένου» |
+| S-06 | Ειδοποιήσεις δείχνουν τίτλο στην κλειδωμένη οθόνη (κανένα `visibility`)· το payload είναι σωστά μόνο id | `notification_service.dart:451-469` | ✅ **ΥΛΟΠΟΙΗΘΗΚΕ S309** (+ **Device-verified 14/11/2026** POCO X3 — dumpsys `--noredact`: `android.title=(Υπενθύμιση)`, `android.text=(Σημείωση)`· με OFF `android.text=(<πραγματικός τίτλος>)`): **masking στο OS** — `hideNotificationContent` (default ON, schema v6) ⇒ `discreet` ⇒ title «Υπενθύμιση» + body `ItemTypeX.labelGr`· η DB κρατά πάντα πραγματικό κείμενο· `visibility: private` παραμένει ως 2ο επίπεδο (`publicVersion` **δεν** υπάρχει στο plugin 17.2.4, και με `lock_screen_allow_private_notifications=1` το `private` **δεν** αρκεί) |
 | S-07 | Επαναφορά = πλήρης αντικατάσταση: **PIN/lock από το backup**, χωρίς authenticity. **Διόρθωση v1:** το zip **κάνει** rebase· το κενό αφορά **raw `.isar`** | `backup_service.dart:582-596` (μόνο `AppSettings(1)`), `:822-833` (rebase zip), `:836-838` (**χωρίς** rebase raw isar), `:752-838` (atomic restore) | Διατήρηση **τοπικών** lock ρυθμίσεων μετά το restore· απόρριψη `localPath` εκτός `attachmentsDir`· προαιρετικά MAC (βλ. S-02.4) |
 | S-08 | Zip bomb / μνήμη: `archive 4.3.0`, `readAsBytes` + `decodeBytes`, guard **μόνο** συμπιεσμένου μεγέθους (500 MB)· το traversal/symlink **είναι** καλυμμένο (`extract_archive_to_disk.dart:108-125`) | `pubspec.lock:20-27` · `backup_archive.dart:100-142` · `backup_service.dart:80, 613-661` | `archive ≥4.5` + όρια εξόδου (έλεγχος API πριν το edit), allowlist entries (`super_note_db.isar`, `attachments/*`), per-entry & total output limit, μείωση `maxRestoreBytes` |
 | S-09 | Release APK με **debug key** και `applicationId=com.example.super_note` | `android/app/build.gradle.kts:24, 33-38` | Release keystore εκτός repo + `key.properties` (S-20), σταθερό δικό σας `applicationId` (νέα εγκατάσταση + μεταφορά με backup) |
@@ -168,7 +168,7 @@
 | **P1 — Κλείδωμα** | 4 | **PIN hardening**: persistent counter + monotonic + min 6 + trivial block + migration bump — ✅ S302 | S-03 | Μικρό-μέτριο | Χαμηλό· migration test |
 | | 5 | **PIN gate** σε toggle-off/export/restore/wipe — ✅ S302 | S-04 | Μικρό | Χαμηλό |
 | | 6 | **Lock UI**: `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` όταν locked — ✅ S300 | S-05 | Μικρό | Χαμηλό (focus/state) |
-| | 7 | **Notifications**: `visibility: private` + generic `publicVersion` + ρύθμιση | S-06 | Μικρό | Χαμηλό |
+| | 7 | **Notifications**: masking OS κειμένου (title «Υπενθύμιση» + τύπος item) + toggle «Απόκρυψη περιεχομένου» + `visibility: private` — ✅ S309 | S-06 | Μικρό | Χαμηλό |
 | | 8 | **Logs**: guard error/warning, redact URL | S-11 | Πολύ μικρό | Πολύ χαμηλό |
 | **P2 — Δεδομένα που φεύγουν** | 9 | **Backup encryption** (AES-256-GCM + PBKDF2) + legacy read + strip lock fields + **auto backup σε φάκελο χρήστη + first-run prompt** + **tag verify πριν το `Isar.open`** | S-02 | Μέτριο | Μέτριο· tests παλιών zip + restore· SAF/permissions ανά πλατφόρμα |
 | | 10 | **Cache cleanup** μετά το share (**delayed**) + picker temp | S-19 | Μικρό | Χαμηλό |
@@ -181,7 +181,7 @@
 | | 17 | **Android 12+ extraction rules** + τεκμηρίωση FLAG_SECURE scope | S-21 | Μικρό | Πολύ χαμηλό |
 | **P4 — Απόφαση** | 18 | **Κρυπτογράφηση βάσης**: (1) Windows path, (2) field encryption, (3) SQLCipher, ή (4) τεκμηρίωση limitation | S-01 | Μικρό → πολύ μεγάλο | Υψηλό για (2)/(3) |
 
-**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302) και **6/S-05** (S300), καθώς και το **S-24** (S301, ατομικό toggle lock). Το παρόν παραμένει η έκθεση v2.3 + πλάνο για τα υπόλοιπα.
+**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302), **6/S-05** (S300) και **7/S-06** (S309, masking OS κειμένου + toggle «Απόκρυψη περιεχομένου»), καθώς και το **S-24** (S301, ατομικό toggle lock). Το παρόν παραμένει η έκθεση v2.3 + πλάνο για τα υπόλοιπα.
 
 ---
 
@@ -194,7 +194,7 @@
 - **Zip ασφάλεια:** path traversal/symlink φιλτράρονται (`archive 4.3.0`, `_isWithinOutputPath`)· allowlist de facto (db + attachments)· atomic restore με safety copy + rollback.
 - **PII redaction:** titles/queries/ονόματα/διαδρομές περνούν από `AppStringUtils.redact` (search, collection, folder, contacts, attachments)· **κανένα** raw `print(`· **καμία** χρήση clipboard.
 - **Share (E39):** όρια 20 αρχείων/100 MB/100.000 χαρ., re-entrancy guard, `context.mounted` μετά από await, text-only fallback, μόνο http/https links.
-- **Ειδοποιήσεις:** payload = **μόνο** ακέραιο id, ελέγχεται (`main.dart:63-98`).
+- **Ειδοποιήσεις:** payload = **μόνο** ακέραιο id, ελέγχεται (`main.dart:63-98`)· το κείμενο προς το OS είναι masked («Υπενθύμιση» + τύπος item) όσο είναι ON το «Απόκρυψη περιεχομένου» (S309).
 - **Συνημμένα:** `sanitizeFileName` + timestamp prefix· dedupe ανά item· DB-first διαγραφή.
 - **Wipe:** διαγράφει βάση, συνημμένα, restore leftovers, migration snapshots **και όλο το cache** (άρα και auto backups + share copies).
 - **Δεν βρέθηκαν** κλειδιά, κωδικοί ή tokens στο repo.

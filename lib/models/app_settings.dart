@@ -33,6 +33,11 @@ class AppSettings {
   bool soundEnabled = true;
   bool vibrationEnabled = true;
 
+  /// S-06: απόκρυψη περιεχομένου στις OS ειδοποιήσεις (lockscreen + tray).
+  /// Default ON (privacy-first). Η DB κρατά ΠΑΝΤΑ το πραγματικό κείμενο —
+  /// κρύβεται μόνο το κείμενο που στέλνεται στο OS.
+  bool hideNotificationContent = true;
+
   bool syncEnabled = false;
   bool syncOnWifiOnly = false;
   int syncIntervalMinutes = 15;
