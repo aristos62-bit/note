@@ -1,6 +1,6 @@
 # SuperNote — Έκθεση Ασφάλειας (v2.3)
 
-**Έκδοση:** v2.3 · 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
+**Έκδοση:** v2.4 · 14/11/2026 · **v2.3:** 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
 **Βάση ελέγχου:** `2cf7df6` (main), επαληθευμένη ξανά στο `b1bb623` (S295). Η v1 ελέγχθηκε στο `7f4f6f5`· τα commits `6da3ba7`/`e3c9ab3`/`a14a3e6`/`2cf7df6` είναι κώδικας E39 + docs και **δεν** αλλάζουν ευρήματα· από το `2cf7df6` έως το `b1bb623` άλλαξαν μόνο UI/docs (S294/S295) — κανένα security finding δεν άλλαξε.
 **Μέθοδος:** ανάγνωση κώδικα, manifest, gradle, installer, git history **και πηγής πακέτων** (`open_filex 4.7.0`, `share_plus 12.0.2`, `archive 4.3.0`). **Καμία** εκτέλεση σε συσκευή σε αυτόν τον κύκλο.
 
@@ -135,6 +135,8 @@
 | S-22 | **Υπερ-δικαιώματα από merge**: το `open_filex 4.7.0` προσθέτει `READ_MEDIA_IMAGES/VIDEO/AUDIO` + `READ_EXTERNAL_STORAGE (≤32)` ενώ η εφαρμογή ανοίγει **μόνο** δικά της αρχεία **(ΝΕΟ v2, επιβεβαιωμένο v2.1)** | `open_filex-4.7.0/android/src/main/AndroidManifest.xml` (merged στο release — χωρίς `tools:node="remove"` στο app manifest) · `OpenFilePlugin.java:142-150` (τα **ζητά** runtime εκτός app dirs), `:189-203` (`pathRequiresPermission`) | `xmlns:tools` + `tools:node="remove"` για τα 4 permissions (**ΥΛΟΠΟΙΗΘΗΚΕ S299** — merged release: 0 `READ_MEDIA_*`/`READ_EXTERNAL_STORAGE`)· επαλήθευση merged manifest πριν το release· τα συνημμένα είναι εντός `dataDir` ⇒ δεν ενεργοποιείται το permission path |
 | S-23 | **FileProvider `root-path="."`**: το `open_filex` μπορεί να δώσει `content://` για **οποιοδήποτε** readable path (και `external-*`), με grant σε εξωτερική εφαρμογή **(ΝΕΟ v2, επιβεβαιωμένο v2.1)** | `open_filex-4.7.0/android/src/main/res/xml/filepaths.xml` (`root-path`, `external-*`, `files`, `cache`) · `OpenFilePlugin.java:232` (`getUriForFile` χωρίς containment)· provider `exported=false` + `grantUriPermissions=true` · Android 11+ gate: `MANAGE_EXTERNAL_STORAGE` εκτός MediaStore paths (`:135-138,168-187`) — **δεν** δηλώνεται | Με τον S-18 guard δεν φτάνει ποτέ path εκτός `attachments/`· εναλλακτικά αντικατάσταση με δικό μας στενό FileProvider ή copy-to-cache + `share_plus`. Σε chain με S-18/S-22 (granted `READ_MEDIA_*`) καλύπτει και media εκτός app dirs |
 
+**⚠️ Ενημέρωση v2.4 (S-307, 14/11/2026) — S-08:** ο πίνακας περιγράφει το snapshot `b1bb623` (πριν το S-307). Σήμερα το zip create/extract είναι **streaming** (`ZipFileEncoder` / `ZipDecoder().decodeStream` + `ArchiveFile.writeContent`) με **allowlist** entries και **μηδέν όρια μεγέθους** — Δ3: αφαιρέθηκαν `maxRestoreBytes`/`maxDialogBytes`/`defaultMaxPlaintextBytes` (βλ. `supernote.md` §BackupService). Άρα: (α) `readAsBytes`/`decodeBytes` **δεν** υπάρχουν πλέον, (β) το «guard 500 MB» και η σύσταση «μείωση `maxRestoreBytes`» **δεν ισχύουν**, (γ) `archive` παραμένει **4.3.0** — η αναβάθμιση ≥4.5 μένει **προαιρετική**. Υπολειπόμενος κίνδυνος: πλήρωση **δίσκου** (όχι RAM) από κακόβουλο zip — μετριάζεται μερικώς από τον έλεγχο free space της εξαγωγής.
+
 ---
 
 # Ευρήματα χαμηλής σοβαρότητας (8)
@@ -170,7 +172,7 @@
 | | 8 | **Logs**: guard error/warning, redact URL | S-11 | Πολύ μικρό | Πολύ χαμηλό |
 | **P2 — Δεδομένα που φεύγουν** | 9 | **Backup encryption** (AES-256-GCM + PBKDF2) + legacy read + strip lock fields + **auto backup σε φάκελο χρήστη + first-run prompt** + **tag verify πριν το `Isar.open`** | S-02 | Μέτριο | Μέτριο· tests παλιών zip + restore· SAF/permissions ανά πλατφόρμα |
 | | 10 | **Cache cleanup** μετά το share (**delayed**) + picker temp | S-19 | Μικρό | Χαμηλό |
-| | 11 | **Archive ≥4.5** + output limits + entry allowlist + χαμηλότερο `maxRestoreBytes` | S-08 | Μικρό-μέτριο | Μέτριο (restore E33) |
+| | 11 | **Archive ≥4.5** + output limits + entry allowlist + χαμηλότερο `maxRestoreBytes` *(v2.4: δεν ισχύει — S-307 streaming/allowlist, μηδέν caps)* | S-08 | Μικρό-μέτριο | Μέτριο (restore E33) |
 | **P3 — Release & repo** | 12 | **Keystore + applicationId** + `.gitignore` | S-09, S-20 | Μέτριο (διαδικαστικό) | Νέα εγκατάσταση + μεταφορά |
 | | 13 | **Installer**: ACL, SignTool, hashes, binaries εκτός git | S-10 | Μέτριο | Χαμηλό |
 | | 14 | **Repo cleanup**: untrack `backups/`, `Dependencies/`, `InstallerOutput/`, παραμετροποίηση paths | S-14 | Μικρό | Χαμηλό (history παραμένει) |

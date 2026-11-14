@@ -5407,6 +5407,7 @@ if (!context.isShortScreen)
 - `flutter build apk --release` από **HEAD `f973ad3`** → 70.0MB → `adb install -r` → **Success** · `1.0.4+2` (χωρίς bump) · `flutter analyze` → **No issues found!**
 - **Γιατί rebuild:** το εγκατεστημένο APK ήταν από τις 10:39, ενώ το `a399245` (γλωσσικό polish) μπήκε 10:44 ⇒ η συσκευή δεν είχε HEAD κώδικα.
 - **Δεύτερο build** (μετά τη διόρθωση F1): `flutter build apk --release` → 70.0MB → `adb install -r` Success, για device επιβεβαίωση του νέου snackbar.
+- **Τελικό commit:** `7895933` — «fix(backup): share flow reports success, not 'saved' (S-308 F1)» → `main` (**force-push** μετά το rewrite που έβγαλε το `device-test/` από το history· περιέχει μόνο `.gitignore`, `lib/services/backup_service.dart`, `oldsessions.md`).
 
 ### Δεδομένα δοκιμής (κανόνας 12)
 - **Κλειδωμένο `.snb` fixture 262.209 B** με τον ίδιο container κώδικα (`BackupContainer.encryptFileTo`, passphrase `correct-horse-9`): header `SNBK` v2, **keyMode 1 (PBKDF2)**, iterations **120000**, salt 16 B, chunk 256 KiB → push στο `/sdcard/Download/`.
