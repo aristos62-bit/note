@@ -112,7 +112,7 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  DataRoot, SupportRoot, LegacyAppData: string;
+  DataRoot, SupportRoot, LegacySupportRoot, LegacyAppData: string;
   Removed: Boolean;
 begin
   if (CurUninstallStep = usPostUninstall) and DeleteUserData then
@@ -127,11 +127,20 @@ begin
       Removed := True;
     end;
 
-    // E50: support dir του path_provider (auto backups: SuperNoteBackups)
-    SupportRoot := ExpandConstant('{userappdata}\com.example\super_note');
+    // E50: support dir του path_provider = {appdata}\<CompanyName>\<ProductName>
+    // του Runner.rc (Gavrielatos / SuperNote) — εκεί ζουν τα SuperNoteBackups.
+    SupportRoot := ExpandConstant('{userappdata}\Gavrielatos\SuperNote');
     if DirExists(SupportRoot) then
     begin
       DelTree(SupportRoot, True, True, True);
+      Removed := True;
+    end;
+
+    // Legacy support dir (πριν το S-09: CompanyName «com.example», ProductName «super_note»)
+    LegacySupportRoot := ExpandConstant('{userappdata}\com.example\super_note');
+    if DirExists(LegacySupportRoot) then
+    begin
+      DelTree(LegacySupportRoot, True, True, True);
       Removed := True;
     end;
 

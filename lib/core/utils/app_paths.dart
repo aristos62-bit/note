@@ -10,7 +10,7 @@
 // Κανόνες (εγκεκριμένοι S-01):
 //  • Windows: σταθερή, ρητή ρίζα `%LOCALAPPDATA%\SuperNoteData`.
 //    - ΔΕΝ είναι το support dir (εξαρτάται από CompanyName/ProductName του exe).
-//    - ΔΕΝ είναι το cache dir (`%LOCALAPPDATA%\com.example\super_note`) — είναι
+//    - ΔΕΝ είναι το cache dir (`%LOCALAPPDATA%\Gavrielatos\SuperNote`) — είναι
 //      «αναλώσιμο» από ορισμό.
 //    - ΔΕΝ είναι ο φάκελος εγκατάστασης (`%LOCALAPPDATA%\SuperNote`), που τον
 //      διαγράφει το uninstall.

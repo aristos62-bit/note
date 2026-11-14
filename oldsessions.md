@@ -5632,12 +5632,80 @@ S-08, S-09, S-10, S-11, S-13, S-15, S-19, S-21 (+ προαιρετικό history
 
 ### Σημείωση για το S-09
 Το support dir εξαρτάται από `CompanyName`/`ProductName` του `windows/runner/Runner.rc`
-(σήμερα `com.example` / `super_note`) ⇒ **όταν αλλάξουν στο rebrand του S-09, πρέπει να αλλάξει μαζί και το
-`SupportRoot` του uninstaller**, αλλιώς θα μένει ορφανός φάκελος με backups.
+(τότε `com.example` / `super_note`) ⇒ **όταν αλλάξουν στο rebrand του S-09, πρέπει να αλλάξει μαζί και το
+`SupportRoot` του uninstaller**, αλλιώς θα μένει ορφανός φάκελος με backups. → **Έγινε στο S-312.**
 
 ### Κατάσταση
 Uninstaller ✅ (compile-verified). Ανοιχτά: S-01, S-07, S-08, S-09, S-10, S-11, S-13, S-15, S-19, S-21
 (+ `[Dirs] users-full` = S-10 · arch id `x64` deprecated = καλλωπιστικό · προαιρετικό history rewrite S-14).
+
+---
+
+## Session 312 — 14/11/2026 (S-09: release keystore + applicationId)
+
+### Απόφαση χρήστη
+`applicationId = gr.gavrielatos.supernote` **και** αλλαγή του `com.example` και στα Windows (όχι μόνο Android).
+
+### Βήμα 1 — Android
+1. **Keystore** (νέο, έξω από το repo): `C:\Users\Vaggelis\AndroidKeys\supernote-release.jks` —
+   PKCS12, RSA 2048, `SHA384withRSA`, ισχύς 14/11/2026 → 01/04/2054,
+   `CN=Aris Gavrielatos, OU=Mobile, O=Gavrielatos, L=Athens, ST=Attica, C=GR`, alias `supernote`.
+   Τυχαίος 32-χαρακτήρων κωδικός (ίδιος store/key) — τον κρατά ο χρήστης, **δεν** γράφτηκε στο repo.
+2. **`android/key.properties`** (untracked — το πιάνει και το `android/.gitignore:12` και ο κανόνας S-20):
+   `storePassword/keyPassword/keyAlias/storeFile` (το `storeFile` με **forward slashes**, γιατί το
+   `Properties.load` τρώει τα `\` ως escapes).
+3. **`android/app/build.gradle.kts`**: `import` + φόρτωση του `key.properties` στην κορυφή·
+   `signingConfigs.create("release")`· `buildTypes.release` → release config **αν** υπάρχει το
+   `key.properties`, αλλιώς debug (για να δουλεύει `flutter run --release` σε fresh clone).
+4. **`namespace` + `applicationId`** → `gr.gavrielatos.supernote`· `AndroidManifest.xml` `package=...`·
+   `MainActivity.kt`: `git mv` σε `kotlin/gr/gavrielatos/supernote/` + νέο `package` (το `git mv` κράτησε
+   τα ελληνικά σχόλια byte-για-byte — **κανένα** edit περιεχομένου), διαγράφηκαν τα άδεια `com/example/...`.
+
+**Επαλήθευση:** `flutter build apk --release` **OK** (70,0 MB) · `apksigner verify --print-certs` →
+signer = το νέο cert, SHA-256 `691865bd…55bd71` (όχι `CN=Android Debug`) · `aapt dump badging` →
+`package: name='gr.gavrielatos.supernote' versionCode='4' versionName='1.2.0'`, launchable
+`gr.gavrielatos.supernote.MainActivity`.
+
+### Βήμα 2 — Windows + installer
+- **`windows/runner/Runner.rc`**: `CompanyName` `com.example` → **`Gavrielatos`** · `ProductName` +
+  `FileDescription` → **`SuperNote`** · `LegalCopyright` → `Copyright (C) 2026 Gavrielatos.`
+  (`InternalName`/`OriginalFilename` έμειναν `super_note`/`super_note.exe` — πρέπει να ταιριάζουν με το exe).
+- **Νέα paths** (επιβεβαιωμένα από `path_provider_windows-2.3.0`: support = RoamingAppData + Company +
+  Product, cache = LocalAppData + Company + Product): support/auto-backups →
+  `%APPDATA%\Gavrielatos\SuperNote`, cache → `%LOCALAPPDATA%\Gavrielatos\SuperNote`.
+  Η **ρίζα δεδομένων μένει** `%LOCALAPPDATA%\SuperNoteData` (δεν εξαρτάται από version info) ⇒ **τα δεδομένα
+  δεν μετακινούνται**.
+- **`note_eco_new.iss`** `[Code]`: `SupportRoot` → `{userappdata}\Gavrielatos\SuperNote` **+ νέο
+  `LegacySupportRoot`** (`{userappdata}\com.example\super_note`) ώστε το «Ναι» να καθαρίζει και τα παλιά
+  auto backups (διαφορετικά θα έμεναν ορφανά μετά το rename).
+- **`lib/core/utils/app_paths.dart`**: σχόλιο cache dir → νέο path.
+
+**Επαλήθευση:** `flutter build windows --release` **OK** (64,7s) · exe version info: `CompanyName=Gavrielatos`,
+`ProductName=SuperNote`, `FileDescription=SuperNote` · `flutter analyze` → **No issues found** ·
+ISCC **exit 0**, warnings **1** (μόνο το cosmetic «x64 deprecated»), installer 31.070.503 bytes.
+
+### Επιπτώσεις / τι πρέπει να ξέρει ο χρήστης
+- **Android: νέα εφαρμογή.** Το παλιό `com.example.super_note` δεν ενημερώνεται — export backup από το
+  παλιό → εγκατάσταση νέου → restore. Μην απεγκαταστήσεις το παλιό πριν το backup.
+- **Windows: καμία μετακίνηση δεδομένων** (ρίζα ανέγγιχτη). Τα auto backups (E50) ξεκινούν σε νέο φάκελο·
+  τα παλιά φαίνονται μόνο χειροκίνητα και διαγράφονται από το uninstaller με «Ναι».
+- **`.jks` + `key.properties` = κρίσιμα.** Αντίγραφο εκτός μηχανής (password manager/USB)· αν χαθούν,
+  τέλος οι ενημερώσεις (ίδια υπογραφή απαιτείται).
+
+### Υπολειπόμενα (δεν έγιναν — εκτός συμφωνημένου scope)
+- `ios/Runner.xcodeproj` + `macos/.../AppInfo.xcconfig` (`com.example.superNote`), `linux/CMakeLists.txt`
+  (`APPLICATION_ID`) → ανέγγιχτα.
+- Window title του Windows app: `main.cpp` → `window.Create(L"super_note", ...)` (branding, όχι security).
+- `FileVersion` του exe = `1.2.0+4` (το `+4` μπαίνει από το `VERSION_AS_STRING` — προϋπάρχον).
+- Flutter warnings: Gradle 8.14.0 / AGP 8.11.1 / Kotlin 2.2.20 «will soon be dropped» (προϋπάρχοντα).
+- Στο `C:\Users\Vaggelis\keys\upload-keystore.jks` (26/8/2026) υπάρχει **παλιότερο** keystore του χρήστη —
+  **δεν** χρησιμοποιήθηκε και δεν αγγίχτηκε· αν ανήκει σε παλιά προσπάθεια της ίδιας εφαρμογής, χρειάζεται
+  απόφαση (η υπογραφή που μετράει τώρα είναι το `supernote-release.jks`).
+
+### Κατάσταση
+**S-09 ✅** (Android + Windows, build-verified). Ανοιχτά: S-01, S-07, S-08, S-10, S-11, S-13, S-15, S-19, S-21
+(+ `[Dirs] users-full` = S-10 · arch id `x64` deprecated · προαιρετικό history rewrite S-14 · iOS/macOS/Linux
+bundle ids).
 
 
 
