@@ -5,7 +5,8 @@
 [Setup]
 AppId={{A13E92D4-7F5B-4A5F-8C11-2B7D99887766}}
 AppName=Προσωπικός Βοηθός
-AppVersion=1.0.0
+AppVersion=1.2.0
+VersionInfoVersion=1.2.0.4
 AppPublisher=Aris Gavrielatos
 AppPublisherURL=https://github.com/aristos62-bit/note
 AppSupportURL=https://github.com/aristos62-bit/note/issues
@@ -115,10 +116,10 @@ var
 begin
   if (CurUninstallStep = usPostUninstall) and DeleteUserData then
   begin
-    AppDataPath := ExpandConstant('{userappdata}\f_budget');
+    AppDataPath := ExpandConstant('{userappdata}\super_note');
     if DirExists(AppDataPath) then DelTree(AppDataPath, True, True, True);
 
-    LocalAppDataPath := ExpandConstant('{localappdata}\f_budget');
+    LocalAppDataPath := ExpandConstant('{localappdata}\super_note');
     if DirExists(LocalAppDataPath) then DelTree(LocalAppDataPath, True, True, True);
     
     MsgBox('Τα δεδομένα χρήστη διαγράφηκαν.', mbInformation, MB_OK);

@@ -5534,7 +5534,7 @@ tracked αρχεία — ανάμεσά τους 148 κάτω από `backups/`,
   3 docs), **1** όνομα συνήθειας (health) στο `total_oldsessions.md`, `AppPublisher=Aris Gavrielatos`,
   placeholder URLs `example.com`.
 
-### Αλλαγές (2 commits)
+### Αλλαγές (3 commits)
 1. **Untrack (commit `fc94400`)**: `git rm -r --cached backups/` + `InstallerOutput/SuperNoteSetup.exe`
    + `Dependencies/VC_redist.x64.exe` + `android/build/reports/problems/problems-report.html` ⇒
    tracked **596 → 445**. **Μόνο `--cached`:** όλα τα αρχεία μένουν στον δίσκο (343 φάκελοι backups).
@@ -5543,8 +5543,10 @@ tracked αρχεία — ανάμεσά τους 148 κάτω από `backups/`,
 3. **Path παραμετροποίηση**: `%~dp0` στο `.bat` (ISS_PATH)· `{#SourcePath}` σε 4 σημεία του
    `note_eco_new.iss` (OutputDir, SetupIconFile, 2× Source)· URLs → GitHub repo/issues/releases,
    αφαίρεση ψευδούς `AppContact`.
-4. **Docs**: `supernote.md` «Τοπικό path» → `<project root>`, `oldsessions.md`/`total_oldsessions.md`
-   paths → `%USERPROFILE%`/`<project root>`, όνομα συνήθειας → «Χάπι Α».
+4. **Docs** (commit `d30a0f3`, follow-up `99ebdf6`): `supernote.md` «Τοπικό path» → `<project root>`,
+   `oldsessions.md`/`total_oldsessions.md` paths → `%USERPROFILE%`/`<project root>`, όνομα συνήθειας →
+   «Χάπι Α». Το follow-up αφαίρεσε από το ίδιο το log τις λέξεις που έλεγχε (τις είχα γράψει ως «απόδειξη»
+   μέσα στο repo).
 
 ### Επαλήθευση
 - **ISCC compile exit 0** (10,9s) με τα νέα relative paths ⇒ τα `{#SourcePath}`/OutputDir/Source
@@ -5557,18 +5559,39 @@ tracked αρχεία — ανάμεσά τους 148 κάτω από `backups/`,
 **Δεν** έγινε `filter-repo`/force-push. Προαιρετικό μέλλον: repo 122 MB → ~40 MB και τα παλιά blobs
 δεν κατεβαίνουν από το UI. Η διαρροή που έγινε δεν αναιρείται — απλώς σταματά η πρόσβαση.
 
-### Νέα ευρήματα (δεν διορθώθηκαν — εκτός S-14)
-- `note_eco_new.iss`: `AppVersion=1.0.0` (η εφαρμογή είναι 1.2.0+4) ⇒ λάθος έκδοση στον installer.
-- `note_eco_new.iss` `[Code] CurUninstallStepChanged`: διαγράφει `{userappdata}\f_budget` και
-  `{localappdata}\f_budget` — **λάθος όνομα** (leftover άλλου project)· το σωστό καθάρισμα γίνεται
-  ήδη από `[UninstallDelete]`.
-- `Greek.isl`: 30 missing messages ⇒ αγγλικά fallback σε σπάνια dialogs του installer.
+### Νέα ευρήματα του installer (βρέθηκαν εδώ, **διορθώθηκαν** στο ίδιο session)
+1. **Λάθος έκδοση:** `AppVersion=1.0.0` ενώ η εφαρμογή είναι **1.2.0+4**. Διορθώθηκε:
+   `AppVersion=1.2.0` + **`VersionInfoVersion=1.2.0.4`** (νέα γραμμή). Το `AppId` **δεν** άλλαξε, άρα
+   το upgrade path από παλιότερες εγκαταστάσεις μένει σωστό.
+2. **Uninstall bug:** το `[Code] CurUninstallStepChanged` έσβηνε `{userappdata}\f_budget` και
+   `{localappdata}\f_budget` — **όνομα άλλου project**. Διορθώθηκε σε `super_note` (2 σημεία).
+3. **`Greek.isl` ελλιπές:** 23 μηνύματα του Inno 6.4/6.5 έλειπαν (αγγλικό fallback) και 3 απαρχαιωμένα
+   (`DownloadingLabel`, `ErrorFileHash1`, `ErrorFileHash2`) προκαλούσαν «not recognized» warnings.
+   Διορθώθηκαν: +23 μεταφρασμένα **μέσα στο `[Messages]`** (γρ. 352-371 — **όχι** στο
+   `[CustomMessages]`, αλλιώς «has not been defined») και −3 απαρχαιωμένα. `Greek.isl`: 366 → **388** γραμμές.
+
+### Επαλήθευση installer (μετά τις διορθώσεις)
+- **ISCC compile exit 0**, warnings **50 → 1**: μένει μόνο «Architecture identifier `x64` is deprecated»
+  (καλλωπιστικό· δεν αγγίχτηκε, γιατί `x64` → `x64compatible` αλλάζει το `ArchitecturesInstallIn64BitMode`).
+- **0** «has not been defined for the greek language» · **0** «is not recognized».
+- Exe: `FileVersion=1.2.0.4`, `ProductVersion=1.2.0`, μέγεθος 30.999.141 bytes, στο `InstallerOutput/`
+  (gitignored — επιβεβαιώθηκε με `git check-ignore`).
+- **Encoding:** το `Greek.isl` είναι UTF-8 **χωρίς BOM** και διαβάζεται σωστά γιατί ο compiler
+  (`Compiler.SetupCompiler.pas`, `ReadTextFile` γρ. 2463) ανιχνεύει UTF-8-no-BOM και προσθέτει BOM μόνος του
+  ⇒ το `LanguageCodePage=1253` είναι αδιάφορο. **Αποτυχημένη απόπειρα** binary-grep των ελληνικών μέσα στο
+  exe: ούτε το ASCII `TestGreek` δεν βρίσκεται, γιατί το Inno αποθηκεύει τα πάντα σε **συμπιεσμένο data
+  block** — η μέθοδος δεν αποδεικνύει τίποτα (ούτε OK ούτε MISS), εγκαταλείφθηκε.
+
+### Νέα ευρήματα που **δεν** διορθώθηκαν
+- `[UninstallDelete]` διαγράφει `{userappdata}\super_note` **unconditionally**, άρα το prompt
+  «Να διαγραφούν ΟΛΑ τα δεδομένα;» είναι **παραπλανητικό** (τα δεδομένα φεύγουν ό,τι κι αν απαντήσει ο
+  χρήστης). Θέλει απόφαση (π.χ. `[Code]` check + conditional `DelTree`).
 - `[Dirs]` με `users-full` σε `{app}`/`{userappdata}\super_note` → **S-10 παραμένει ανοιχτό**.
 - `AppPublisher=Aris Gavrielatos` αφέθηκε (branding, όχι διαπιστευτήριο).
 
 ### Κατάσταση
-**S-14 ✅** (στο HEAD) · **S-20 ✅**. Ανοιχτά security: S-01 (απόφαση), S-07, S-08, S-09, S-10, S-11,
-S-13, S-15, S-19, S-21 (+ προαιρετικό history rewrite του S-14).
+**S-14 ✅** (στο HEAD) · **S-20 ✅** · 3 διορθώσεις installer ✅. Ανοιχτά security: S-01 (απόφαση), S-07,
+S-08, S-09, S-10, S-11, S-13, S-15, S-19, S-21 (+ προαιρετικό history rewrite του S-14).
 
 
 
