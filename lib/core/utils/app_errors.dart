@@ -133,7 +133,7 @@ class AppErrors {
   static const backupWrongPassphrase =
       'Λάθος κωδικός ή κατεστραμμένο αρχείο αντιγράφου';
   static const backupPassphraseTooShort =
-      'Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες';
+      'Απαιτούνται τουλάχιστον 8 χαρακτήρες';
   static const backupPassphraseMismatch = 'Οι κωδικοί δεν ταιριάζουν';
   static const backupPassphraseHint =
       'Αν ξεχάσετε τον κωδικό, το αντίγραφο δεν μπορεί να ανακτηθεί.';
