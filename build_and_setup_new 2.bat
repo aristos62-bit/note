@@ -6,7 +6,7 @@ title SuperNote - Universal Build Tool
 :: Ρυθμίσεις
 :: =========================
 set "INNO_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-set "ISS_PATH=C:\Users\Vaggelis\Flutter Projects\super_note\note_eco_new.iss"
+set "ISS_PATH=%~dp0note_eco_new.iss"
 set "NEW_APK_NAME=SuperNote_v1.0.apk"
 
 set "APK_FLAG=%temp%\apk_done.flag"

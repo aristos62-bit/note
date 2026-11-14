@@ -11,7 +11,7 @@
 | Flutter | 3.47.8 (stable) |
 | Dart | 3.13.7 |
 | GitHub | https://github.com/aristos62-bit/note |
-| Τοπικό path | `C:\Users\Vaggelis\Flutter Projects\super_note` |
+| Τοπικό path | `<project root>` (π.χ. `C:\dev\super_note`) |
 | IDE | Android Studio Panda 4 \| 2025.3.4 Patch 1 |
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
