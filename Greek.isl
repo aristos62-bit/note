@@ -198,14 +198,11 @@ ReadyMemoGroup=Φάκελος μενού Έναρξη:
 ReadyMemoTasks=Πρόσθετες εργασίες:
 
 ; *** TDownloadWizardPage wizard page and DownloadTemporaryFile
-DownloadingLabel=Λήψη πρόσθετων αρχείων...
 ButtonStopDownload=&Διακοπή λήψης
 StopDownload=Είστε βέβαιοι ότι θέλετε να σταματήσετε τη λήψη;
 ErrorDownloadAborted=Η λήψη ματαιώθηκε
 ErrorDownloadFailed=Αποτυχία λήψης: %1 %2
 ErrorDownloadSizeFailed=Αποτυχία λήψης μεγέθους: %1 %2
-ErrorFileHash1=Αποτυχία κατακερματισμού αρχείου: %1
-ErrorFileHash2=Μη έγκυρος κατακερματισμός αρχείου: αναμενόμενο %1, βρέθηκε %2
 ErrorProgress=Μη έγκυρη πρόοδος: %1 από %2
 ErrorFileSize=Μη έγκυρο μέγεθος αρχείου: αναμενόμενο %1, βρέθηκε %2
 
@@ -350,6 +347,31 @@ ShutdownBlockReasonUninstallingApp=Απεγκατάσταση %1.
 
 ; The custom wizard page names that are also used in the standard wizard
 FinishedLabel=Η εγκατάσταση ολοκληρώθηκε επιτυχώς.
+
+; *** Μηνύματα 6.4–6.5 (προστέθηκαν S310 — πριν έλειπαν και έβγαιναν στα αγγλικά)
+VerificationFileHashIncorrect=Το hash του αρχείου είναι λανθασμένο
+VerificationFileNameIncorrect=Το όνομα του αρχείου είναι λανθασμένο
+VerificationFileSizeIncorrect=Το μέγεθος του αρχείου είναι λανθασμένο
+VerificationFileTagIncorrect=Η ετικέτα του αρχείου είναι λανθασμένη
+VerificationSignatureDoesntExist=Το αρχείο υπογραφής "%1" δεν υπάρχει
+VerificationSignatureInvalid=Το αρχείο υπογραφής "%1" δεν είναι έγκυρο
+VerificationKeyNotFound=Το αρχείο υπογραφής "%1" χρησιμοποιεί άγνωστο κλειδί
+SourceVerificationFailed=Η επαλήθευση του αρχείου προέλευσης απέτυχε: %1
+DownloadingLabel2=Λήψη αρχείων...
+StatusDownloadFiles=Λήψη αρχείων...
+ErrorDownloading=Παρουσιάστηκε σφάλμα κατά τη λήψη αρχείου:
+ExtractingLabel=Εξαγωγή αρχείων...
+ErrorExtracting=Παρουσιάστηκε σφάλμα κατά την εξαγωγή αρχείου:
+ErrorExtractionFailed=Η εξαγωγή απέτυχε: %1
+ErrorExtractionAborted=Η εξαγωγή ματαιώθηκε
+StopExtraction=Θέλετε σίγουρα να διακόψετε την εξαγωγή;
+ButtonStopExtraction=&Διακοπή εξαγωγής
+ArchiveIncorrectPassword=Ο κωδικός πρόσβασης είναι λανθασμένος
+ArchiveIsCorrupted=Το αρχείο είναι κατεστραμμένο
+ArchiveUnsupportedFormat=Η μορφή του αρχείου δεν υποστηρίζεται
+RetryCancelRetry=&Δοκιμή ξανά
+RetryCancelCancel=Άκυρο
+RetryCancelSelectAction=Επιλέξτε ενέργεια
 
 [CustomMessages]
 NameAndVersion=%1 έκδοση %2
