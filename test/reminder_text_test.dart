@@ -119,5 +119,61 @@ void main() {
         isNotNull,
       );
     });
+
+    // ── S-06: discreet (OS masking) ──────────────────────────────────
+    test('discreet masks title and body with the item type', () {
+      final text = resolveReminderNotificationText(
+        _reminder(title: 'Υπενθύμιση', body: 'Παλιό'),
+        _item(type: ItemType.task, title: 'Μυστικό'),
+        discreet: true,
+      );
+      expect(text.title, 'Υπενθύμιση');
+      expect(text.body, 'Εργασία');
+      expect(text.body.contains('Μυστικό'), isFalse);
+    });
+
+    test('discreet masks null-title rows (live icon/title) too', () {
+      final reminder = _reminder(title: null, body: 'Μυστικό');
+      final text = resolveReminderNotificationText(
+        reminder,
+        _item(icon: '📝', title: 'Μυστικό'),
+        discreet: true,
+      );
+      expect(text.title, 'Υπενθύμιση');
+      expect(text.body, 'Σημείωση');
+      expect(text.body.contains('Μυστικό'), isFalse);
+    });
+
+    test('discreet masks birthday/contact rows (no name leak)', () {
+      final text = resolveReminderNotificationText(
+        _reminder(title: 'Γενέθλια Μυστικό', body: 'Γενέθλια Μυστικό'),
+        _item(type: ItemType.contact, title: 'Μυστικό'),
+        discreet: true,
+      );
+      expect(text.title, 'Υπενθύμιση');
+      expect(text.body, 'Επαφή');
+      expect('${text.title}${text.body}'.contains('Μυστικό'), isFalse);
+    });
+
+    test('discreet without item falls back to generic text', () {
+      final text = resolveReminderNotificationText(
+        _reminder(title: 'Πλύσιμο', body: 'Μυστικό'),
+        null,
+        discreet: true,
+      );
+      expect(text.title, 'Υπενθύμιση');
+      expect(text.body, 'Έχεις μια υπενθύμιση');
+    });
+
+    test('discreet never touches syncable (DB) text', () {
+      final contact = _reminder(title: 'Γενέθλια Παλιό', body: 'Γενέθλια Παλιό');
+      final item = _item(type: ItemType.contact, title: 'Νέο');
+      final os = resolveReminderNotificationText(contact, item, discreet: true);
+      final db = syncableReminderNotificationText(contact, item);
+      expect(os.title, 'Υπενθύμιση');
+      expect(db, isNotNull);
+      expect(db!.title, 'Γενέθλια Νέο');
+      expect(db.body, 'Γενέθλια Νέο');
+    });
   });
 }

@@ -432,6 +432,7 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - Font scale, default view, archived/deleted visibility
   - Το `fontScale` (0.8–1.4) **συντίθεται** πλέον με το system text scale (`ComposedTextScaler`, `main.dart` builder) και clamp-άρεται στο 2.0 — πριν το system scale αντικαθίστατο (S288, E01).
 - Notifications toggle, sound, vibration
+- `hideNotificationContent` (default **`true`**, schema **v6**, S-06/S309) — «Απόκρυψη περιεχομένου»: masking **μόνο** στο κείμενο που πάει στο OS (title «Υπενθύμιση» + body = `ItemTypeX.labelGr`, fallback «Έχεις μια υπενθύμιση»). Η DB κρατά **πάντα** το πραγματικό κείμενο.
 - Sync settings (syncEnabled, wifiOnly, interval)
 - `defaultWorkspaceId`
 - `preferredFolderId` — legacy πεδίο Isar (δεν χρησιμοποιείται από S272/E38)
@@ -497,7 +498,7 @@ final db = SuperNoteHelper.instance;
 ## Schema Migration (lib/services/migration_service.dart)
 
 - `MigrationService.ensureSchemaVersion(isar)` — καλείται στο `SuperNoteHelper.init()` μετά το `Isar.open()`.
-- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`) — τρέχον **v5** (S-03: sanitize/clamp των lockout πεδίων· S-307: additive `backupLockEnabled`, και τα δύο χωρίς μετασχηματισμό δεδομένων).
+- Version αποθηκεύεται στο `AppSettings.schemaVersion` (default `1`) — τρέχον **v6** (S-03: sanitize/clamp των lockout πεδίων· S-307: additive `backupLockEnabled`· **S-06/S309: `_v5ToV6` γράφει ρητά `hideNotificationContent = true`** — χωρίς ρητό `put()` το νέο πεδίο διαβάζεται `false` σε υπάρχουσα εγγραφή (static size < offset), άρα το privacy-first default θα ήταν σιωπηλά OFF μετά από κάθε upgrade).
 - Safety backup (file copy) πριν από κάθε migration.
 - Batch pagination (50 records) για αποφυγή OOM.
 - Idempotent migrations — crash-safe.
@@ -515,7 +516,7 @@ final db = SuperNoteHelper.instance;
 - Singleton pattern
 - `init()` — initialize flutter_local_notifications
 - `requestPermission()` — Android notification permission
-- `showNotification(id, title, body, payload)` — display notification
+- `_details({sound, vibration})` — SPoT για το `NotificationDetails` (Android κανάλι + iOS/Mac present options) σε **όλα** τα σημεία· σταθερό `visibility: NotificationVisibility.private` (2ο επίπεδο μετά το masking του S-06/S309· το `publicVersion` δεν υπάρχει στο `flutter_local_notifications` 17.2.4)
 - `cancel(id)`, `cancelAll()` — cancel notifications
 - `getLaunchPayload()` — cold start payload
 - `onNotificationTap` — static callback for tap handling (set in `main()`)
@@ -536,9 +537,10 @@ final db = SuperNoteHelper.instance;
 
 ### ReminderScheduler (`lib/services/reminder_scheduler.dart`)
 - `scheduleAll({incremental})` — full/incremental bake· `scheduleReminders(Iterable<Reminder>)` — batch (refresh/top-up/repair)· `scheduleReminder`, `rescheduleReminder` (snooze/trigger change), `rescheduleForItem` (rename/status/archive/restore).
+- **Masking (S-06/S309):** όλα τα OS paths περνούν `discreet: settings.hideNotificationContent` — `scheduleAll`, `rescheduleForItem`, batch (`scheduleReminders`) και `_scheduleOne` (+ `_runBakePlan`). Το toggle κάνει `scheduleAll(incremental: true)` (keep → replacement), ποτέ πλήρες `cancelAll`/bake.
 - Cancel/delete API: `cancelReminderIds`, `cancelAllForItem`, `deleteSingleReminder`, `deleteReminderThread`, `deleteAllRemindersForItem`, `deleteAllRemindersForItems` (batch — E05), `refreshRecurringReminders`, `debouncedRefreshRecurringReminders`.
-- Text SPoT (`reminder_text.dart`): generic «Υπενθύμιση» → live body· event birthday → live body· contact birthday → live title+body· habit generated → σταθερό title + «Υπενθύμιση: <όνομα>»· `title == null` → live title από item.
-- Planner (`reminder_bake_plan.dart`): oldest-first· keep μόνο όταν OS title/body == resolved· replacements δεν παίρνουν νέο slot· νέα rows μόνο σε ελεύθερα slots· scoped stale cancel· `forceSchedule` για item-wide rebake· `truncated`.
+- Text SPoT (`reminder_text.dart`): generic «Υπενθύμιση» → live body· event birthday → live body· contact birthday → live title+body· habit generated → σταθερό title + «Υπενθύμιση: <όνομα>»· `title == null` → live title από item. **`discreet` branch πρώτο (S-06/S309):** όταν `discreet == true` επιστρέφει title «Υπενθύμιση» + body `ItemTypeX.labelGr` (fallback «Έχεις μια υπενθύμιση») και **δεν** αγγίζει κανέναν άλλο κανόνα· το flag είναι **προαιρετικό, default `false`** ώστε τα DB-write paths (`syncableReminderNotificationText`, παιδιά recurring) να γράφουν πάντα πραγματικό κείμενο.
+- Planner (`reminder_bake_plan.dart`): oldest-first· keep μόνο όταν OS title/body == resolved· replacements δεν παίρνουν νέο slot· νέα rows μόνο σε ελεύθερα slots· scoped stale cancel· `forceSchedule` για item-wide rebake· `truncated`. Το `discreet` είναι **required** και φτάνει στη resolve ⇒ σταθερό masked κείμενο = deterministic keep (κανένα ατέρμονο re-bake).
 - Race/queue (E17/E34): cancel/delete/schedule mutations μέσω `_bakeQueue`· DB-first delete + `finally` OS cancel· unconditional wipe με scan `payload == itemId`· `_scheduleOne` φρέσκα row/item/settings guards (orphan, archived, κάδος, done/cancelled, past).
 - One-shot κανόνας (S51): κάθε προγραμματισμένη εμφάνιση = one-shot (`rrule:null`)· roots (`rrule!=null`, `parent==null`) μόνο anchors για refresh· habits = δικά τους one-shots (η recurrence ζει στα props).
 - Σίγαση semantics: archived (S143) · done/cancelled (S194) · κάδος (S213) — `_scheduleOne` + refresh σκιπάρουν· τα rows **μένουν**, φεύγουν μόνο τα OS alarms· επιστροφή σε ενεργό → reschedule.
@@ -1011,7 +1013,7 @@ AppRoutes.note(id), .task(id), .habit(id), .event(id), .appointment(id),
 - Theme (System/Light/Dark), accent color
 - Font scale slider
 - Default view, language
-- Notification toggles
+- Notification toggles: «Ειδοποιήσεις» · «Ήχος» · «Δόνηση» · **«Απόκρυψη περιεχομένου»** (S-06/S309, default ON, enabled ανεξάρτητα από το «Ειδοποιήσεις», πριν τη «Διάγνωση») · η κάρτα «Έκδοση» μένει **πάντα τελευταία** στο group «Σύστημα»
 - Data management: export / **share** / import αντιγράφου + full wipe
 - Backup UX (S-307/Δ2–Δ6): «Εξαγωγή δεδομένων» = tile → system picker φακέλου (SAF) → progress dialog (φάση + % + «Ακύρωση») → done· «Κοινοποίηση δεδομένων» = ξεχωριστό tile (share sheet)· «Εισαγωγή» = picker αρχείου → progress («Έλεγχος αρχείου») → **1** `ConfirmDialog` → progress («Επαναφορά») → restart dialog. Κωδικός ζητείται **μόνο** για legacy `.snb` ή όταν είναι ON το «Κλείδωμα αντιγράφου» (`SettingsSwitchTile`, default OFF → `AppSettings.backupLockEnabled`, schema v5).
 - Full wipe (E33/B13): DB + live `attachments/` + restore leftovers (`_pre_restore_*`) + app cache (`file_picker`/`_backup_zipval_*` temps) + auto backups (`files/SuperNoteBackups`, E50 — πλέον support dir, όχι cache) + `.migration_safety`· το migration ξαναφτιάχνει 1 snapshot στο restart.

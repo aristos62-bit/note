@@ -152,6 +152,7 @@ class ReminderScheduler {
         now: DateTime.now(),
         incremental: effectiveIncremental,
         habitOsWindow: true, // E45/A: OS κρατά 14ημ. για habits (DB 60)
+        discreet: settings.hideNotificationContent, // S-06
         cancelableOsIds:
             effectiveIncremental ? osById.keys.toSet() : const <int>{},
       );
@@ -164,6 +165,7 @@ class ReminderScheduler {
         plan,
         sound: settings.soundEnabled,
         vibration: settings.vibrationEnabled,
+        discreet: settings.hideNotificationContent, // S-06
         mode: batchMode,
       );
       loopSw.stop(); // PERF#9 (S224)
@@ -224,6 +226,7 @@ class ReminderScheduler {
     ReminderBakePlan plan, {
     required bool sound,
     required bool vibration,
+    required bool discreet,
     required AndroidScheduleMode mode,
   }) async {
     _accumNativeUs = 0; // Φ0/E45: καθαρή μέτρηση για αυτό το bake
@@ -248,6 +251,7 @@ class ReminderScheduler {
         reminder,
         sound: sound,
         vibration: vibration,
+        discreet: discreet,
         mode: mode,
       );
       if (outcome == ScheduleOutcome.baked) {
@@ -922,6 +926,7 @@ class ReminderScheduler {
         fresh,
         sound: settings.soundEnabled,
         vibration: settings.vibrationEnabled,
+        discreet: settings.hideNotificationContent, // S-06
       );
       if (outcome == ScheduleOutcome.skipped) {
         // Orphan/archived/done/past row: μην αφήσεις παλιό alarm στο OS.
@@ -955,6 +960,7 @@ class ReminderScheduler {
         now: DateTime.now(),
         incremental: true,
         habitOsWindow: true, // E45/A
+        discreet: settings.hideNotificationContent, // S-06
         // Καμία stale ακύρωση εδώ: το batch δεν είναι υπεύθυνο για ghosts
         // άλλων rows· το scheduleAll/rescheduleForItem το κάνει scoped.
         cancelableOsIds: const <int>{},
@@ -967,6 +973,7 @@ class ReminderScheduler {
         plan,
         sound: settings.soundEnabled,
         vibration: settings.vibrationEnabled,
+        discreet: settings.hideNotificationContent, // S-06
         mode: mode,
       );
       if (plan.truncated) _osWindowTruncated = true;
@@ -1049,6 +1056,7 @@ class ReminderScheduler {
         now: DateTime.now(),
         incremental: true,
         habitOsWindow: true, // E45/A
+        discreet: settings.hideNotificationContent, // S-06
         cancelableOsIds: cancelable,
         forceSchedule: true,
       );
@@ -1057,6 +1065,7 @@ class ReminderScheduler {
         plan,
         sound: settings.soundEnabled,
         vibration: settings.vibrationEnabled,
+        discreet: settings.hideNotificationContent, // S-06
         mode: mode,
       );
       if (plan.truncated) _osWindowTruncated = true;
@@ -1145,6 +1154,7 @@ class ReminderScheduler {
     Reminder reminder, {
     bool sound = true,
     bool vibration = true,
+    required bool discreet, // S-06: masking του OS text
     AndroidScheduleMode? mode, // batch-override· null = resolve per-call (ως πριν)
   }) async {
     try {
@@ -1196,7 +1206,11 @@ class ReminderScheduler {
         return ScheduleOutcome.skipped;
       }
 
-      final text = resolveReminderNotificationText(fresh, item);
+      final text = resolveReminderNotificationText(
+        fresh,
+        item,
+        discreet: discreet, // S-06
+      );
       DebugConfig.notif(
           '_scheduleOne: itemId=${fresh.itemId} archived=${item.archived} title=${AppStringUtils.redact(item.title)}');
 

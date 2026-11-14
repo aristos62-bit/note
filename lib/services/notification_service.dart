@@ -264,28 +264,8 @@ class NotificationService {
   }
 
   // ─────────────────────────────────────────────────────────
-  // SHOW / SCHEDULE / CANCEL
+  // SCHEDULE / CANCEL
   // ─────────────────────────────────────────────────────────
-
-  Future<void> showImmediate({
-    required int id,
-    required String title,
-    required String body,
-    String? payload,
-    bool sound     = true,
-    bool vibration = true,
-  }) async {
-    if (!_initialized) return;
-    try {
-      await _plugin.show(
-        id, title, body,
-        _details(sound: sound, vibration: vibration),
-        payload: payload,
-      );
-    } catch (e, stack) {
-      DebugConfig.error('NotificationService.showImmediate', e, stack);
-    }
-  }
 
   /// Batch-resolve του schedule mode (1 platform-call ανά batch αντί για
   /// 1/alarm). Μεταφορά as-is της παρακάτω λογικής — singles συνεχίζουν
@@ -460,6 +440,11 @@ class NotificationService {
       enableVibration: vibration,
       playSound:       sound,
       silent:          !sound,
+      // S-06: το `visibility` είναι ΜΟΝΟ 2ο επίπεδο. Όταν το OS έχει
+      // «allow private notifications» (POCO X3: lock_screen_allow_private_
+      // notifications=1) δείχνει το πλήρες κείμενο — δεν υπάρχει `publicVersion`
+      // στο 17.2.4. Η πραγματική άμυνα είναι το masked κείμενο (discreet).
+      visibility: NotificationVisibility.private,
     ),
     iOS: DarwinNotificationDetails(
       presentAlert: true,

@@ -124,6 +124,21 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     }
   }
 
+  /// S-06: απόκρυψη περιεχομένου στις OS ειδοποιήσεις (lockscreen + tray).
+  ///
+  /// Incremental re-bake: αλλάζει ΜΟΝΟ το κείμενο των υπαρχόντων alarms
+  /// (keep → replacement, χωρίς νέο slot), αντί για cancelAll/πλήρες bake.
+  /// Το `visibility: private` παραμένει 2ο επίπεδο — μόνο του δεν αρκεί όταν
+  /// το OS είναι «allow private notifications».
+  Future<void> setHideNotificationContent(bool enabled) async {
+    try {
+      await updateSettings((s) => s.hideNotificationContent = enabled);
+      await ReminderScheduler.instance.scheduleAll(incremental: true);
+    } catch (e, s) {
+      DebugConfig.error('SettingsNotifier.setHideNotificationContent', e, s);
+    }
+  }
+
   Future<void> setAutoBackupEnabled(bool enabled) async {
     try {
       await updateSettings((s) => s.autoBackupEnabled = enabled);

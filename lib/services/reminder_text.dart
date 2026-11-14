@@ -26,6 +26,8 @@ class ReminderNotificationText {
 /// Resolve του τελικού κειμένου μιας reminder row.
 ///
 /// Η σειρά των κανόνων είναι σημαντική:
+/// 0. [discreet] → μόνο τύπος item (S-06, OS privacy) — ΠΡΙΝ από κάθε άλλο
+///    κανόνα, ώστε να μη διαρρεύσει τίτλος/περιεχόμενο.
 /// 1. title == null → live title από item (icon + title). Το body μένει ως έχει.
 /// 2. generic «Υπενθύμιση» ή event-γενέθλια → live body από item.title.
 /// 3. habit-generated → live body «Υπενθύμιση: <όνομα>».
@@ -33,10 +35,25 @@ class ReminderNotificationText {
 ///
 /// Δεν αλλάζει custom title/body. Αν το item title είναι κενό, κρατά τα
 /// αποθηκευμένα (καμία σιωπηλή διαγραφή).
+///
+/// [discreet] είναι **προαιρετικό** (default `false`): τα DB-write paths
+/// (`syncableReminderNotificationText`, παιδιά recurring) πρέπει να βλέπουν το
+/// πραγματικό κείμενο. Μόνο τα OS bake paths το ενεργοποιούν.
 ReminderNotificationText resolveReminderNotificationText(
   Reminder reminder,
-  Item? item,
-) {
+  Item? item, {
+  bool discreet = false,
+}) {
+  // S-06: ποτέ τίτλος/περιεχόμενο στο OS — μόνο ο τύπος (π.χ. «Εργασία»).
+  // Σταθερό κείμενο ⇒ deterministic, άρα το keep/replacement του plan
+  // παραμένει σταθερό (χωρίς ατέρμονο re-bake).
+  if (discreet) {
+    return ReminderNotificationText(
+      title: 'Υπενθύμιση',
+      body: item?.type.labelGr ?? 'Έχεις μια υπενθύμιση',
+    );
+  }
+
   var title = reminder.title ?? 'SuperNote';
   var body = reminder.body ?? 'Έχεις μια υπενθύμιση';
 
