@@ -132,6 +132,15 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     }
   }
 
+  /// S-307 (Δ6): «Κλείδωμα αντιγράφου» — ON = κωδικός χρήστη (PBKDF2).
+  Future<void> setBackupLockEnabled(bool enabled) async {
+    try {
+      await updateSettings((s) => s.backupLockEnabled = enabled);
+    } catch (e, s) {
+      DebugConfig.error('SettingsNotifier.setBackupLockEnabled', e, s);
+    }
+  }
+
   Future<void> setVibration(bool enabled) async {
     try {
       await updateSettings((s) => s.vibrationEnabled = enabled);

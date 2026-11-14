@@ -10,7 +10,7 @@ import 'app_lock_service.dart';
 class MigrationService {
   MigrationService._();
 
-  static const int _targetVersion = 4;
+  static const int _targetVersion = 5;
 
   static Future<void> ensureSchemaVersion(Isar isar) async {
     final settings = await isar.appSettings.get(1);
@@ -87,6 +87,9 @@ class MigrationService {
       case 3:
         await _v3ToV4(isar);
         break;
+      case 4:
+        await _v4ToV5(isar);
+        break;
     }
   }
 
@@ -148,5 +151,12 @@ class MigrationService {
       await isar.appSettings.put(s);
       DebugConfig.db('Migration v3→v4: app-lock lockout fields sanitized');
     });
+  }
+
+  /// v4→v5 (S-307): additive `backupLockEnabled` (default `false`) — το Isar
+  /// το προσθέτει μόνο του. Κανένας μετασχηματισμός δεδομένων.
+  static Future<void> _v4ToV5(Isar isar) async {
+    DebugConfig.db(
+        'Migration v4→v5: backupLockEnabled uses safe default (false) — no data transform');
   }
 }

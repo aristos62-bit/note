@@ -87,121 +87,126 @@ const AppSettingsSchema = CollectionSchema(
       name: r'autoSaveIntervalSeconds',
       type: IsarType.long,
     ),
-    r'biometricEnabled': PropertySchema(
+    r'backupLockEnabled': PropertySchema(
       id: 14,
+      name: r'backupLockEnabled',
+      type: IsarType.bool,
+    ),
+    r'biometricEnabled': PropertySchema(
+      id: 15,
       name: r'biometricEnabled',
       type: IsarType.bool,
     ),
     r'confirmBeforeDelete': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'confirmBeforeDelete',
       type: IsarType.bool,
     ),
     r'defaultView': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'defaultView',
       type: IsarType.string,
       enumMap: _AppSettingsdefaultViewEnumValueMap,
     ),
     r'defaultWorkspaceId': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'defaultWorkspaceId',
       type: IsarType.long,
     ),
     r'fontScale': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'fontScale',
       type: IsarType.double,
     ),
     r'hasCompletedOnboarding': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'hasCompletedOnboarding',
       type: IsarType.bool,
     ),
     r'itemTypeColorsJson': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'itemTypeColorsJson',
       type: IsarType.string,
     ),
     r'language': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'language',
       type: IsarType.string,
       enumMap: _AppSettingslanguageEnumValueMap,
     ),
     r'lastAutoBackupAt': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'lastAutoBackupAt',
       type: IsarType.dateTime,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'maxAttachmentSizeMB': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'maxAttachmentSizeMB',
       type: IsarType.long,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'preferredFolderId': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'preferredFolderId',
       type: IsarType.long,
     ),
     r'schemaVersion': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'schemaVersion',
       type: IsarType.long,
     ),
     r'showArchivedItems': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'showArchivedItems',
       type: IsarType.bool,
     ),
     r'showDeletedItems': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'showDeletedItems',
       type: IsarType.bool,
     ),
     r'soundEnabled': PropertySchema(
-      id: 30,
+      id: 31,
       name: r'soundEnabled',
       type: IsarType.bool,
     ),
     r'syncEnabled': PropertySchema(
-      id: 31,
+      id: 32,
       name: r'syncEnabled',
       type: IsarType.bool,
     ),
     r'syncIntervalMinutes': PropertySchema(
-      id: 32,
+      id: 33,
       name: r'syncIntervalMinutes',
       type: IsarType.long,
     ),
     r'syncOnWifiOnly': PropertySchema(
-      id: 33,
+      id: 34,
       name: r'syncOnWifiOnly',
       type: IsarType.bool,
     ),
     r'theme': PropertySchema(
-      id: 34,
+      id: 35,
       name: r'theme',
       type: IsarType.string,
       enumMap: _AppSettingsthemeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 35,
+      id: 36,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'vibrationEnabled': PropertySchema(
-      id: 36,
+      id: 37,
       name: r'vibrationEnabled',
       type: IsarType.bool,
     )
@@ -270,29 +275,30 @@ void _appSettingsSerialize(
   writer.writeBool(offsets[11], object.autoBackupEnabled);
   writer.writeBool(offsets[12], object.autoSave);
   writer.writeLong(offsets[13], object.autoSaveIntervalSeconds);
-  writer.writeBool(offsets[14], object.biometricEnabled);
-  writer.writeBool(offsets[15], object.confirmBeforeDelete);
-  writer.writeString(offsets[16], object.defaultView.name);
-  writer.writeLong(offsets[17], object.defaultWorkspaceId);
-  writer.writeDouble(offsets[18], object.fontScale);
-  writer.writeBool(offsets[19], object.hasCompletedOnboarding);
-  writer.writeString(offsets[20], object.itemTypeColorsJson);
-  writer.writeString(offsets[21], object.language.name);
-  writer.writeDateTime(offsets[22], object.lastAutoBackupAt);
-  writer.writeDateTime(offsets[23], object.lastSyncAt);
-  writer.writeLong(offsets[24], object.maxAttachmentSizeMB);
-  writer.writeBool(offsets[25], object.notificationsEnabled);
-  writer.writeLong(offsets[26], object.preferredFolderId);
-  writer.writeLong(offsets[27], object.schemaVersion);
-  writer.writeBool(offsets[28], object.showArchivedItems);
-  writer.writeBool(offsets[29], object.showDeletedItems);
-  writer.writeBool(offsets[30], object.soundEnabled);
-  writer.writeBool(offsets[31], object.syncEnabled);
-  writer.writeLong(offsets[32], object.syncIntervalMinutes);
-  writer.writeBool(offsets[33], object.syncOnWifiOnly);
-  writer.writeString(offsets[34], object.theme.name);
-  writer.writeDateTime(offsets[35], object.updatedAt);
-  writer.writeBool(offsets[36], object.vibrationEnabled);
+  writer.writeBool(offsets[14], object.backupLockEnabled);
+  writer.writeBool(offsets[15], object.biometricEnabled);
+  writer.writeBool(offsets[16], object.confirmBeforeDelete);
+  writer.writeString(offsets[17], object.defaultView.name);
+  writer.writeLong(offsets[18], object.defaultWorkspaceId);
+  writer.writeDouble(offsets[19], object.fontScale);
+  writer.writeBool(offsets[20], object.hasCompletedOnboarding);
+  writer.writeString(offsets[21], object.itemTypeColorsJson);
+  writer.writeString(offsets[22], object.language.name);
+  writer.writeDateTime(offsets[23], object.lastAutoBackupAt);
+  writer.writeDateTime(offsets[24], object.lastSyncAt);
+  writer.writeLong(offsets[25], object.maxAttachmentSizeMB);
+  writer.writeBool(offsets[26], object.notificationsEnabled);
+  writer.writeLong(offsets[27], object.preferredFolderId);
+  writer.writeLong(offsets[28], object.schemaVersion);
+  writer.writeBool(offsets[29], object.showArchivedItems);
+  writer.writeBool(offsets[30], object.showDeletedItems);
+  writer.writeBool(offsets[31], object.soundEnabled);
+  writer.writeBool(offsets[32], object.syncEnabled);
+  writer.writeLong(offsets[33], object.syncIntervalMinutes);
+  writer.writeBool(offsets[34], object.syncOnWifiOnly);
+  writer.writeString(offsets[35], object.theme.name);
+  writer.writeDateTime(offsets[36], object.updatedAt);
+  writer.writeBool(offsets[37], object.vibrationEnabled);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -315,36 +321,37 @@ AppSettings _appSettingsDeserialize(
   object.autoBackupEnabled = reader.readBool(offsets[11]);
   object.autoSave = reader.readBool(offsets[12]);
   object.autoSaveIntervalSeconds = reader.readLong(offsets[13]);
-  object.biometricEnabled = reader.readBool(offsets[14]);
-  object.confirmBeforeDelete = reader.readBool(offsets[15]);
+  object.backupLockEnabled = reader.readBool(offsets[14]);
+  object.biometricEnabled = reader.readBool(offsets[15]);
+  object.confirmBeforeDelete = reader.readBool(offsets[16]);
   object.defaultView = _AppSettingsdefaultViewValueEnumMap[
-          reader.readStringOrNull(offsets[16])] ??
+          reader.readStringOrNull(offsets[17])] ??
       DefaultView.list;
-  object.defaultWorkspaceId = reader.readLongOrNull(offsets[17]);
-  object.fontScale = reader.readDouble(offsets[18]);
-  object.hasCompletedOnboarding = reader.readBool(offsets[19]);
+  object.defaultWorkspaceId = reader.readLongOrNull(offsets[18]);
+  object.fontScale = reader.readDouble(offsets[19]);
+  object.hasCompletedOnboarding = reader.readBool(offsets[20]);
   object.id = id;
-  object.itemTypeColorsJson = reader.readStringOrNull(offsets[20]);
+  object.itemTypeColorsJson = reader.readStringOrNull(offsets[21]);
   object.language =
-      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[21])] ??
+      _AppSettingslanguageValueEnumMap[reader.readStringOrNull(offsets[22])] ??
           AppLanguage.greek;
-  object.lastAutoBackupAt = reader.readDateTimeOrNull(offsets[22]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[23]);
-  object.maxAttachmentSizeMB = reader.readLong(offsets[24]);
-  object.notificationsEnabled = reader.readBool(offsets[25]);
-  object.preferredFolderId = reader.readLongOrNull(offsets[26]);
-  object.schemaVersion = reader.readLong(offsets[27]);
-  object.showArchivedItems = reader.readBool(offsets[28]);
-  object.showDeletedItems = reader.readBool(offsets[29]);
-  object.soundEnabled = reader.readBool(offsets[30]);
-  object.syncEnabled = reader.readBool(offsets[31]);
-  object.syncIntervalMinutes = reader.readLong(offsets[32]);
-  object.syncOnWifiOnly = reader.readBool(offsets[33]);
+  object.lastAutoBackupAt = reader.readDateTimeOrNull(offsets[23]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[24]);
+  object.maxAttachmentSizeMB = reader.readLong(offsets[25]);
+  object.notificationsEnabled = reader.readBool(offsets[26]);
+  object.preferredFolderId = reader.readLongOrNull(offsets[27]);
+  object.schemaVersion = reader.readLong(offsets[28]);
+  object.showArchivedItems = reader.readBool(offsets[29]);
+  object.showDeletedItems = reader.readBool(offsets[30]);
+  object.soundEnabled = reader.readBool(offsets[31]);
+  object.syncEnabled = reader.readBool(offsets[32]);
+  object.syncIntervalMinutes = reader.readLong(offsets[33]);
+  object.syncOnWifiOnly = reader.readBool(offsets[34]);
   object.theme =
-      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[34])] ??
+      _AppSettingsthemeValueEnumMap[reader.readStringOrNull(offsets[35])] ??
           AppTheme.system;
-  object.updatedAt = reader.readDateTime(offsets[35]);
-  object.vibrationEnabled = reader.readBool(offsets[36]);
+  object.updatedAt = reader.readDateTime(offsets[36]);
+  object.vibrationEnabled = reader.readBool(offsets[37]);
   return object;
 }
 
@@ -388,35 +395,35 @@ P _appSettingsDeserializeProp<P>(
     case 15:
       return (reader.readBool(offset)) as P;
     case 16:
+      return (reader.readBool(offset)) as P;
+    case 17:
       return (_AppSettingsdefaultViewValueEnumMap[
               reader.readStringOrNull(offset)] ??
           DefaultView.list) as P;
-    case 17:
-      return (reader.readLongOrNull(offset)) as P;
     case 18:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 19:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 20:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 21:
+      return (reader.readStringOrNull(offset)) as P;
+    case 22:
       return (_AppSettingslanguageValueEnumMap[
               reader.readStringOrNull(offset)] ??
           AppLanguage.greek) as P;
-    case 22:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 23:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 24:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 25:
-      return (reader.readBool(offset)) as P;
-    case 26:
-      return (reader.readLongOrNull(offset)) as P;
-    case 27:
       return (reader.readLong(offset)) as P;
-    case 28:
+    case 26:
       return (reader.readBool(offset)) as P;
+    case 27:
+      return (reader.readLongOrNull(offset)) as P;
+    case 28:
+      return (reader.readLong(offset)) as P;
     case 29:
       return (reader.readBool(offset)) as P;
     case 30:
@@ -424,15 +431,17 @@ P _appSettingsDeserializeProp<P>(
     case 31:
       return (reader.readBool(offset)) as P;
     case 32:
-      return (reader.readLong(offset)) as P;
-    case 33:
       return (reader.readBool(offset)) as P;
+    case 33:
+      return (reader.readLong(offset)) as P;
     case 34:
+      return (reader.readBool(offset)) as P;
+    case 35:
       return (_AppSettingsthemeValueEnumMap[reader.readStringOrNull(offset)] ??
           AppTheme.system) as P;
-    case 35:
-      return (reader.readDateTime(offset)) as P;
     case 36:
+      return (reader.readDateTime(offset)) as P;
+    case 37:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1421,6 +1430,16 @@ extension AppSettingsQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+      backupLockEnabledEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'backupLockEnabled',
+        value: value,
       ));
     });
   }
@@ -2921,6 +2940,20 @@ extension AppSettingsQuerySortBy
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByBackupLockEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backupLockEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      sortByBackupLockEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backupLockEnabled', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       sortByBiometricEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'biometricEnabled', Sort.asc);
@@ -3419,6 +3452,20 @@ extension AppSettingsQuerySortThenBy
   }
 
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByBackupLockEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backupLockEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
+      thenByBackupLockEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backupLockEnabled', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy>
       thenByBiometricEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'biometricEnabled', Sort.asc);
@@ -3836,6 +3883,13 @@ extension AppSettingsQueryWhereDistinct
   }
 
   QueryBuilder<AppSettings, AppSettings, QDistinct>
+      distinctByBackupLockEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'backupLockEnabled');
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QDistinct>
       distinctByBiometricEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'biometricEnabled');
@@ -4090,6 +4144,13 @@ extension AppSettingsQueryProperty
       autoSaveIntervalSecondsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'autoSaveIntervalSeconds');
+    });
+  }
+
+  QueryBuilder<AppSettings, bool, QQueryOperations>
+      backupLockEnabledProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'backupLockEnabled');
     });
   }
 

@@ -307,7 +307,7 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
           _buildCard(
             SettingsActionTile(
               label: 'Εξαγωγή δεδομένων',
-              subtitle: 'Δημιουργία κρυπτογραφημένου αντιγράφου .snb',
+              subtitle: AppErrors.backupExportSubtitle,
               icon: Icons.upload_rounded,
               onTap: () => exportBackup(context, widget.ref),
             ),
@@ -315,8 +315,17 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
           const SizedBox(height: Spacing.sm),
           _buildCard(
             SettingsActionTile(
+              label: 'Κοινοποίηση δεδομένων',
+              subtitle: AppErrors.backupShareSubtitle,
+              icon: Icons.share_rounded,
+              onTap: () => shareBackup(context, widget.ref),
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          _buildCard(
+            SettingsActionTile(
               label: 'Εισαγωγή δεδομένων',
-              subtitle: 'Επαναφορά από αντίγραφο',
+              subtitle: AppErrors.backupImportSubtitle,
               icon: Icons.download_rounded,
               onTap: () => importBackup(context, widget.ref),
             ),
@@ -324,6 +333,10 @@ class _DatabaseGroupState extends State<_DatabaseGroup> {
           const SizedBox(height: Spacing.sm),
           _buildCard(
             SettingsAutoBackupTile(settings: widget.settings),
+          ),
+          const SizedBox(height: Spacing.sm),
+          _buildCard(
+            SettingsBackupLockTile(settings: widget.settings),
           ),
           const SizedBox(height: Spacing.sm),
           // S-01 (D6): read-only — πού ζουν βάση + συνημμένα.

@@ -72,6 +72,10 @@ class AppSettings {
   /// Τελευταίο επιτυχημένο αυτόματο αντίγραφο (null = ποτέ).
   DateTime? lastAutoBackupAt;
 
+  /// S-307 (Δ6): «Κλείδωμα αντιγράφου» — όταν είναι ON, το `.snb` κρυπτογραφείται
+  /// με κωδικό χρήστη (PBKDF2) αντί για ενσωματωμένο κλειδί. Default OFF.
+  bool backupLockEnabled = false;
+
   /// 0 = άμεσο κλείδωμα, 300 = 5 λεπτά, κλπ.
   int appLockTimeoutSeconds = 0;
 

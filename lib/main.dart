@@ -6,7 +6,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'helpers/super_note_helper.dart';
 import 'features/lock/lock.dart';
-import 'features/settings/settings_backup_passphrase_gate.dart';
 import 'models/models.dart';
 import 'providers/providers.dart';
 import 'services/services.dart';
@@ -303,7 +302,6 @@ class SuperNoteApp extends ConsumerWidget {
                 child: child!,
               ),
               const LockGateScreen(),
-              const BackupPassphraseGate(),
             ],
           ),
         );
