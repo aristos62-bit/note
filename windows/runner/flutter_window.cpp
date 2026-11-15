@@ -97,9 +97,20 @@ bool FlutterWindow::OnCreate() {
           return;
         }
         const flutter::EncodableValue* arguments = call.arguments();
+        // Το Dart στέλνει map `{'secure': bool}` — όπως στο Android
+        // (`call.argument<Boolean>("secure")`). Διαβάζουμε το **πεδίο**, όχι όλο
+        // το arguments (αλλιώς κάθε κλήση καταλήγει invalid_args).
         // std::get_if (όχι std::get): χτίζουμε με _HAS_EXCEPTIONS=0 + /WX.
-        const bool* secure =
-            arguments == nullptr ? nullptr : std::get_if<bool>(arguments);
+        const bool* secure = nullptr;
+        if (arguments != nullptr) {
+          const auto* args = std::get_if<flutter::EncodableMap>(arguments);
+          if (args != nullptr) {
+            const auto it = args->find(flutter::EncodableValue("secure"));
+            if (it != args->end()) {
+              secure = std::get_if<bool>(&it->second);
+            }
+          }
+        }
         if (secure == nullptr) {
           // Fail-closed: χωρίς ρητό bool δεν αλλάζει καμία κατάσταση
           // (σκόπιμη απόκλιση από Android, που προεπιλέγει false).

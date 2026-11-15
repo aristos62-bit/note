@@ -6033,10 +6033,10 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 |---|---|---|
 | W1 | Build Release `/W4 /WX` | ✔ exit 0 |
 | W2 | Fail-closed default | ✔ `56ms affinity=0x11 visible=False` — πριν το `Show()` και πριν το Dart |
-| W3 | Lock enabled | ✔ `0x11` συνεχώς, καμία στιγμή `0x0` |
-| W4 | Capture με `0x11` | ✔ `capture_on*.png`: PrintWindow `center=0,0,0 distinct=1` (αποκλεισμένο) |
-| W5 | Capture με `0x0` | ⏳ Απαιτεί `appLockEnabled=false` + PIN (βλ. παρακάτω) |
-| W6 | Toggle χωρίς restart | ⏳ Μαζί με W5 |
+| W3 | Lock enabled | ⚠ **Μη έγκυρο μετά το bug fix** (πριν το fix OFF/ON έμοιαζαν) — απαιτεί `appLockEnabled=true` |
+| W4 | Capture με `0x11` | ✔ `capture_on*.png`, `probe_state.png`: PrintWindow `center=0,0,0 distinct=1` (αποκλεισμένο) |
+| W5 | Capture με `0x0` (lock OFF) | ✔ `capture_lockoff.png`: `center=255,238,88 distinct=20` (περιεχόμενο) |
+| W6 | Μετάβαση χωρίς restart | ✔ `affinity_timeline_lockoff.txt`: `44ms 0x11` → `1788ms 0x0` σε **μία** διεργασία (Dart) · αντίστροφο (UI → ON) ⏳ |
 | W7 | Resize/maximize | ✔ affinity επιβιώνει (`0x11` μετά από resize & maximize) |
 | W8 | Alt-Tab/Task View | ⚠ Ασαφές (παρατήρηση, όχι εγγύηση) |
 | W9 | Snipping Tool | ⏳ Χειροκίνητο |
@@ -6049,6 +6049,21 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
   `bmgr backupnow` → «**Backup is not allowed**» · `dumpsys backup` χωρίς την εφαρμογή · με lock **OFF**
   (τρέχουσα κατάσταση συσκευής): **κανένα** `SECURE` flag + `screencap` 208 KB (σωστό). Η enabled-path
   **δεν** επαναλήφθηκε (θα άλλαζε settings χρήστη· ο Android κώδικας δεν άλλαξε — S316: `fl=SECURE` + 0-byte screencap).
+
+### Bug που βρήκε το W5/W6 (και διορθώθηκε)
+Το Dart στέλνει `invokeMethod('setSecure', {'secure': bool})`, αλλά ο Windows handler διάβαζε **ολόκληρο** το
+`arguments()` ως `bool` ⇒ κάθε κλήση γύριζε `PlatformException(invalid_args, setSecure requires a bool 'secure')`
+(φάνηκε στο `debug_run.log` όταν έτρεξε το dev build σε debug πάνω σε **αντίγραφο** της βάσης) και η affinity
+έμενε **μόνιμα** `0x11`. Διόρθωση: ανάγνωση του πεδίου `secure` από `EncodableMap` (parity με Android
+`call.argument<Boolean>("secure")`), `std::get_if` και για map και για value.
+Μετά το fix: `44ms 0x11` → `1788ms 0x0` στην ίδια διεργασία + `capture_lockoff.png` με περιεχόμενο.
+**Γιατί δεν φάνηκε νωρίτερα:** το fail-closed default κρατά `0x11` — το σφάλμα ήταν αόρατο όσο η εφαρμογή
+ήταν κλειδωμένη.
+
+### Πώς έγινε το W5/W6 χωρίς αλλαγή δεδομένων
+Αντίγραφο του DB σε sandbox root + εκκίνηση του exe με `LOCALAPPDATA=<sandbox>` (legacy διαδρομή ήδη κενή ⇒
+καμία μετανάστευση)· η παρακολούθηση affinity/capture έγινε από δεύτερη διεργασία. Hash της πραγματικής βάσης
+**ίδιο** πριν/μετά (`0C422229…`).
 
 ### Παγίδα (και διόρθωση)
 Το sandbox `LOCALAPPDATA` **δεν** απομονώνει το S-01 migration: legacy root = `getApplicationDocumentsDirectory()`
@@ -6070,11 +6085,16 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 `backups/s317_s21w_20261115_195007/` (3 αρχεία κώδικα) · `backups/s317_docs_20261115_201801/` (3 docs).
 
 ### Κατάσταση
-**S-21 Φ2 (Windows) ✅ CLOSED** — fail-closed default, capture exclusion, resize/maximize, clean exit: **device-verified**.
-**Εκκρεμότητες:** (α) W5/W6 device test με `appLockEnabled=false` (2λεπτη ενέργεια χρήστη· κώδικας ίδιος με Android)·
-(β) W8/W9 δεν αποδεικνύονται εργαλεία-εξωτερικά· (γ) macOS/Linux → **S-318**. Σειρά εκκρεμοτήτων: S-13 → S-19 → S-15 → S-10 → S-01.
+**S-21 Φ2 (Windows) ✅ CLOSED** — fail-closed default, capture exclusion (`0x11`), **αποκατάσταση με lock OFF (`0x0` + περιεχόμενο)**,
+μετάβαση χωρίς restart, resize/maximize, clean exit: **device-verified** (όλα τα runs σε αντίγραφο της βάσης).
+**Εκκρεμότητες:** (α) W3 με `appLockEnabled=true` (σταθερό `0x11`) και το αντίστροφο του W6 (UI toggle → ON)·
+(β) W8/W9 δεν αποδεικνύονται εργαλειακά· (γ) macOS/Linux → **S-318**. Σειρά εκκρεμοτήτων: S-13 → S-19 → S-15 → S-10 → S-01.
 
 ### Μαθήματα
+- **Το fail-closed κρύβει σπασμένο OFF path:** όσο η εφαρμογή ήταν κλειδωμένη, ένας handler που αποτύγχανε σε
+  *κάθε* κλήση φαινόταν σωστός (`0x11`, screenshots κενά). Το OFF case είναι το μόνο που αποδεικνύει ότι το κανάλι δουλεύει.
+- **Το payload του `MethodChannel` είναι map, όχι το value:** `invokeMethod(name, {'secure': v})` ⇒ native `EncodableMap`·
+  διαβάζεις πεδίο, όπως το `call.argument` στο Android.
 - **Το «fail-closed» ανήκει στο native όταν το Dart έρχεται αργότερα:** με default OFF θα υπήρχε παράθυρο
   διαρροής από το πρώτο frame μέχρι το πρώτο `setSecure`.
 - **Ο destructor του `MethodChannel` δεν αποσυνδέει handler** — χωρίς ρητό unregister μένει εγγραφή στον messenger.
