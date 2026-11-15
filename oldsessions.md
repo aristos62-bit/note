@@ -5755,6 +5755,31 @@ schema/migration/codegen/dependencies.
 ### Backups
 `backups/s313_s07_20261114_210758/` (5 κώδικας + `oldsessions.md`, `security_v2.md`, `supernote.md`).
 
+### Device tests (15/11/2026, POCO X3 NFC)
+Build: release **1.2.0 (build 4)**, commit `039f53a` (χειροκίνητη εγκατάσταση — MIUI μπλοκάρει
+`adb install`). Δεδομένα: το πραγματικό `.snb` του χρήστη (3 σημειώσεις + 1 εργασία).
+Evidence: `device-test/s313_s07/` (`summary.md`, dumps `ui_*.xml`, `guard_dump1.txt`). Screenshots
+0-byte μετά την ενεργοποίηση app lock (`FLAG_SECURE`, S165) ⇒ μόνο `uiautomator` dumps.
+
+- **Strip lock (+βιομετρικά)**: restore του `super_note_backup_2026-11-15T07-26-25.snb`
+  (103.485.526 B, `SNBK 2.1`, κλειδωμένο) → διάλογος επιτυχίας με «Το κλείδωμα εφαρμογής και τα
+  βιομετρικά απενεργοποιήθηκαν από το αντίγραφο — ενεργοποιήστε τα ξανά από τις Ρυθμίσεις.» και
+  «Το αυτόματο αντίγραφο θα συνεχιστεί μόλις κάνετε μία εξαγωγή με τον κωδικό του αντιγράφου.»
+  (`backupAutoResumeNote`). Μετά το relaunch: **χωρίς** PIN prompt, ενότητα «Κλείδωμα εφαρμογής» =
+  μόνο master toggle (χωρίς «Αλλαγή PIN»/«Βιομετρικό»/«Χρονικό όριο»).
+- **Strip `appLockTimeoutSeconds`**: επανενεργοποίηση lock με PIN → «Χρονικό όριο κλειδώματος:
+  **Αμέσως**» (πριν το restore «5 λεπτά»).
+- **Guard νεότερης έκδοσης**: DB `AppSettings.schemaVersion = 99` (> target 6) σε plaintext
+  `newer_v99.isar` (Isar core από `isar_flutter_libs-3.1.0+1\windows`) → εισαγωγή ⇒ snackbar
+  «Το αντίγραφο δημιουργήθηκε από νεότερη έκδοση της εφαρμογής… δεν άλλαξε τίποτα στα δεδομένα σας.»
+  με **καμία** έξοδο/confirm dialog, ίδιο pid, και τα 4 items παρόντα μετά ⇒ live DB άθικτη.
+- Δεδομένα ακέραια σε όλα τα βήματα· `DebugConfig` δεν γράφει σε release (κανένα `BackupDbProbe` log).
+- UX finding (δεν διορθώθηκε εδώ): με «Χρονικό όριο: Αμέσως» (0) η επιστροφή από τον SAF picker
+  κλειδώνει την εφαρμογή και η επιλεγμένη διαδρομή χάνεται.
+- Καθαρισμός: uninstall `gr.gavrielatos.supernote`, διαγραφή export/`newer_v99.isar`/APK από τη
+  συσκευή, επαναφορά `verifier_verify_adb_installs`/`package_verifier_enable` = 1· τα
+  `com.example.super_note`, `gr.nearme.app` και τα `.snb` του χρήστη έμειναν ανέγγιχτα.
+
 
 
 
