@@ -5843,8 +5843,9 @@ Debug build (in-place update, firstInstall αμετάβλητο, δεδομέν�
 `backups/s314d_docs_20261115_110147/` (oldsessions).
 
 ### Κατάσταση
-**Κλειστό** (device-verified). Εκκρεμεί μόνο καθαρισμός συσκευής (test `.snb` 08-14-49 & 08-52-18,
-`SuperNote-ux-debug.apk`, uninstall debug build, επαναφορά lock στην αρχική κατάσταση του χρήστη).
+**Κλειστό** (device-verified + analyze/tests). Καθαρισμός συσκευής **ολοκληρώθηκε**: διαγράφηκαν τα test
+`.snb` (`08-14-49`, `08-52-18`) και το `SuperNote-ux-debug.apk`· το `.snb` του χρήστη (13/11) έμεινε
+ανέγγιχτο. Εγκατάσταση/απεγκατάσταση build και επαναφορά του χρονικού ορίου lock έγιναν από τον χρήστη.
 
 
 
