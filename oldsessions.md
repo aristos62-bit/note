@@ -6038,7 +6038,7 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 | W5 | Capture με `0x0` (lock OFF) | ✔ `capture_lockoff.png`: `center=255,238,88 distinct=20` (περιεχόμενο) |
 | W6 | Toggle χωρίς restart (και οι δύο κατευθύνσεις) | ✔ `affinity_timeline_lockoff.txt`: `44ms 0x11` → `1788ms 0x0` (Dart) · **απενεργοποίηση από Ρυθμίσεις με την εφαρμογή ανοιχτή**: ίδιο `pid=16164`, `0x0` σε **6/6** δείγματα, `capture_off_toggle.png` = Ρυθμίσεις με switch **OFF** (`affinity_timeline_toggle_off.txt`) |
 | W7 | Resize/maximize | ✔ affinity επιβιώνει (`0x11` μετά από resize & maximize) |
-| W8 | Alt-Tab/Task View | ⚠ **Παρατήρηση χρήστη:** με lock ON το thumbnail δείχνει **περιεχόμενο**· δεν αναπαράχθηκε εργαλειακά και **δεν** συμφωνεί με την τεκμηρίωση της Microsoft ⇒ προς επανέλεγχο με καθαρή ακολουθία |
+| W8 | Alt-Tab/Task View | ✔ **Εργαλειακά:** με lock ON (`0x11`) και Alt+Tab ανοιχτό, το screenshot οθόνης (`w8_altab_open*.png`) δείχνει το tile της εφαρμογής **μαύρο/κενό**· η «με περιεχόμενο» εικόνα ήταν το **Android Studio** (project window με τίτλο `super_note`, affinity `0x0`) |
 | W9 | Snipping Tool (`Win+Shift+S`) | ✔ **Χειροκίνητο (χρήστης):** με lock ON το snipping βλέπει ό,τι είναι **πίσω** από το παράθυρο — η εφαρμογή δεν περιλαμβάνεται |
 | W10 | Επίπτωση σε δεδομένα | ⚠ **Διορθώθηκε** — βλ. «Παγίδα» |
 | W11 | Καθαρό κλείσιμο | ✔ `WM_CLOSE` → `exit_code=0` (και στα 2 runs) |
@@ -6088,7 +6088,7 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 **S-21 Φ2 (Windows) ✅ CLOSED** — fail-closed default, capture exclusion (`0x11`), **αποκατάσταση με lock OFF (`0x0` + περιεχόμενο)**,
 **live toggle και στις δύο κατευθύνσεις από τις Ρυθμίσεις** (ίδιο pid), resize/maximize, clean exit: **device-verified**
 (W2–W7 + W10/W11· τα runs με lock OFF έγιναν σε αντίγραφο της βάσης, οι έλεγχοι ON/OFF με κανονική εκκίνηση).
-**Εκκρεμότητες:** (α) W8/W9 δεν αποδεικνύονται εργαλειακά· (β) macOS/Linux → **S-318**· (γ) εύρημα UX (enable με
+**Εκκρεμότητες:** (α) macOS/Linux → **S-318**· (β) εύρημα UX (enable με
 υπάρχον `appLockPinHash` δεν ζητά νέο PIN) → περιμένει απόφαση χρήστη για νέα εκκρεμότητα. Σειρά εκκρεμοτήτων:
 S-13 → S-19 → S-15 → S-10 → S-01.
 
@@ -6113,6 +6113,7 @@ S-13 → S-19 → S-15 → S-10 → S-01.
   διαβάζει `Documents`.
 - **Τα Windows APIs είναι φίλτρα, όχι DRM:** in-process hooks/drivers παρακάμπτουν — τεκμηριώθηκε ρητά στο code comment.
 - **Το `enable` χωρίς νέο PIN είναι παγίδα:** αν υπάρχει ήδη hash, ο χρήστης νομίζει ότι όρισε νέο PIN αλλά ισχύει το παλιό.
+- **Ίδιος τίτλος παραθύρου = λάθος συμπέρασμα:** το Android Studio έχει project window με τίτλο `super_note`· η «διαρροή» στο Alt+Tab ήταν αυτό, όχι η εφαρμογή. Πριν βγει συμπέρασμα, ταυτοποίησε το παράθυρο με `pid`/`hwnd` (όχι με τον τίτλο).
 
 
 

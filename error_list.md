@@ -28,12 +28,11 @@
 
 > Κανένα ανοιχτό.
 
-### 🟠 P2 — Βελτιώσεις λειτουργιών (2)
+### 🟠 P2 — Βελτιώσεις λειτουργιών (1)
 
 | ID | Τίτλος |
 |---|---|
 | **E51** | Ενεργοποίηση κλειδώματος με υπάρχον `appLockPinHash` **δεν** ζητά νέο PIN (παραπλανητικό· ο χρήστης νομίζει ότι όρισε νέο) |
-| **E52** | Windows S-21: αναφορά χρήστη ότι το **Alt+Tab / Task View thumbnail** δείχνει περιεχόμενο με lock ON (**προς επιβεβαίωση** — δεν αναπαράχθηκε εργαλειακά) |
 
 ### 🔵 P3 — Μελλοντικές προσθήκες / αναβαθμίσεις + καθαριότητα (0)
 
@@ -58,13 +57,12 @@
 - **Πρόταση (καμία αλλαγή κώδικα ακόμη):** στο enable, αν `pinHash != null` → dialog με ρητή επιλογή **«Όρισε νέο PIN» / «Χρήση υπάρχοντος»** (default: νέο)· εναλλακτικά πάντα dialog ορίσμου. **Side effects προς έλεγχο:** `appLockPinLength`, `appLockFailedAttempts`/lockout reset, `LockGateController.applySettings` (S-17), βιομετρικό path, tests του `settings_app_lock_section`.
 - **Κατάσταση:** ⏳ ανοιχτό (απόφαση χρήστη S317: καταγραφή).
 
-### E52 — Alt+Tab / Task View thumbnail με lock ON (Windows)
+### E52 — Alt+Tab / Task View thumbnail με lock ON (Windows) — ✅ **CLOSED 15/11/2026 (S317, διάψευση)**
 
-- **Απόδειξη (S317, χειροκίνητη παρατήρηση χρήστη):** με lock ενεργό, το thumbnail του SuperNote στο Alt+Tab / Task View έδειχνε **περιεχόμενο**. Δεν αναπαράχθηκε εργαλειακά· τα εργαλειακά probes έδειξαν `0x11` σταθερό, PrintWindow κενό και πραγματικό screen capture χωρίς την εφαρμογή (W3).
-- **Γιατί μετράει:** η τεκμηρίωση `SetWindowDisplayAffinity` λέει για `WDA_EXCLUDEFROMCAPTURE` «The window is displayed only on a monitor. Everywhere else, the window does not appear at all» — άρα thumbnail με περιεχόμενο θα ήταν **διαρροή** του app-lock περιεχομένου.
-- **Πιθανές αιτίες προς έλεγχο:** (α) η δοκιμή έγινε με lock **OFF** (η εφαρμογή έμεινε ανοιχτή μετά το W6) · (β) η εφαρμογή ήταν η **παλιά εγκατεστημένη** έκδοση (χωρίς S317) · (γ) όντως το DWM thumbnail δεν εφαρμόζει την affinity σε αυτό το build (26100).
-- **Επόμενο βήμα (προτεινόμενο):** επανέλεγχος με καθαρή ακολουθία (lock ON → Alt+Tab) και capture της οθόνης κατά την ώρα που ο switcher είναι ανοιχτός· αν επιβεβαιωθεί → νέα πρόταση (πιθανές κατευθύνσεις: `WDA_MONITOR`, έλεγχος DWM, τεκμηρίωση περιορισμού).
-- **Κατάσταση:** ⏳ ανοιχτό (προς επιβεβαίωση).
+- **Αρχική αναφορά (χρήστης):** με lock ON το thumbnail έδειχνε περιεχόμενο.
+- **Έλεγχος (`device-test/s317_windows/probe_altab_w8.ps1`):** με `affinity=0x11` (pid 14288), Alt+Tab κρατήθηκε ανοιχτό και τραβήχτηκε screenshot οθόνης → το tile της εφαρμογής είναι **μαύρο/κενό** (`w8_altab_open*.png`, `altab_w8_result.txt`).
+- **Αιτία της σύγχυσης:** το **Android Studio** έχει project window με τίτλο `super_note` (`studio64`, `affinity=0x0`) — αυτό έδειχνε περιεχόμενο (`list_windows.ps1`). Άρα **καμία διαρροή**· η affinity καλύπτει και τα DWM thumbnails.
+- **Απόφαση:** κλείνει χωρίς αλλαγή κώδικα (P4/καμία ενέργεια).
 
 ---
 
@@ -72,7 +70,8 @@
 
 > **Ιστορικό:** `oldsessions.md` + `backups/s293_e06_close/error_list.md.final` (E01–E47) + `backups/e48_filtered_empty_20261105_180802/error_list.md.final` (E48) + `backups/s305_e50_20261113_142733/error_list.md.final` (E49, E50).
 > **S304/S305:** `E49` ✅ CLOSED · `E50` ✅ CLOSED & DEVICE-VERIFIED.
-> **S317 (χωρίς E-ID, security):** S-21 Φ2 **Windows ✅ CLOSED** — `WDA_EXCLUDEFROMCAPTURE` fail-closed + live toggle ON/OFF, device-verified (W3/W6/W9)· Android regression OK· macOS/Linux = **S-318**. Διορθώθηκε bug parsing του `{'secure': bool}` (commit `18b2d7c`).
+> **S317 (χωρίς E-ID, security):** S-21 Φ2 **Windows ✅ CLOSED** — `WDA_EXCLUDEFROMCAPTURE` fail-closed + live toggle ON/OFF, device-verified (W3/W6/W8/W9)· Android regression OK· macOS/Linux = **S-318**. Διορθώθηκε bug parsing του `{'secure': bool}` (commit `18b2d7c`).
+> **S317:** `E52` ✅ **CLOSED (διάψευση)** — Alt+Tab thumbnail **κενό** με `0x11`· η «διαρροή» ήταν το Android Studio (ίδιος τίτλος `super_note`).
 
 ---
 
@@ -81,4 +80,4 @@
 | Ομάδα | Η μία πρόταση | Το ένα fix | Απορροφά |
 |---|---|---|---|
 | **Ο13 — App-lock setup UX** (⏳ ανοιχτή) | enable ⇒ ρητή επιλογή «νέο PIN» / «υπάρχον» | `settings_app_lock_section.dart` + dialog | **E51** |
-| **Ο14 — Windows capture parity** (⏳ προς επιβεβαίωση) | επανέλεγχος Alt+Tab/Task View με lock ON | (αν επιβεβαιωθεί) στρατηγική affinity | **E52** |
+| **Ο14 — Windows capture parity** (✅ έκλεισε S317 με διάψευση, 0 κώδικας) | επανέλεγχος Alt+Tab/Task View με lock ON | — | **E52** |
