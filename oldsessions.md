@@ -6116,6 +6116,48 @@ S-13 → S-19 → S-15 → S-10 → S-01.
 - **Ίδιος τίτλος παραθύρου = λάθος συμπέρασμα:** το Android Studio έχει project window με τίτλο `super_note`· πριν βγει συμπέρασμα, ταυτοποίησε το παράθυρο με `pid`/`hwnd`.
 - **Screenshot ≠ τι βλέπει ο χρήστης:** το `WDA_EXCLUDEFROMCAPTURE` κόβει τα **capture APIs**, όχι το DWM preview που ζωγραφίζεται στην οθόνη. Άρα Alt+Tab/Task View δείχνουν ζωντανό περιεχόμενο **στο μόνιτορ**, ενώ το screenshot της ίδιας στιγμής το δείχνει μαύρο — μη βγάζεις συμπέρασμα για την οθόνη από screenshot.
 
+---
+
+## Session 318 — 15/11/2026 (κανόνας #13 στο AGENTS: πότε/πώς ανεβαίνει η έκδοση)
+
+### Αφορμή
+Ζήτηση χρήστη: **γραπτός κανόνας** για το πότε και πώς γίνεται bump έκδοσης. Έλεγχος πριν την πρόταση
+(πραγματικά δεδομένα, όχι υπόθεση): `pubspec.yaml` = **1.2.0+4**, `note_eco_new.iss` = `AppVersion=1.2.0` +
+`VersionInfoVersion=1.2.0.4` ✔, αλλά `supernote.md:10` = **1.1.0+3** ⇒ **stale** (ξεχάστηκε στο S309, ενώ το
+`8329a03` είχε κάνει καθαρό `chore(release)` bump). Επιπλέον το ιστορικό έδειχνε **ad-hoc** bumps (`16ad18e`
+κρυφό μέσα σε feature commit) και το S308 χρειάστηκε **rebuild** γιατί το εγκατεστημένο APK ήταν παλαιότερο
+από το HEAD.
+
+### Αλλαγές (2 αρχεία, **0 γραμμές κώδικα**)
+1. `AGENTS.md` — νέος **κανόνας 13 «Εκδόσεις (versioning)»** (γραμμές 20-26) + πίνακας **«Ποιο ψηφίο»**
+   (γραμμές 30-35): SPoT = `pubspec.yaml` (`X.Y.Z+N`)· Android `versionName/versionCode` + Windows exe
+   **αυτόματα**· bump **μόνο** σε ολοκληρωμένη/επαληθευμένη αλλαγή (**ποτέ** docs-only/refactor)· `+N`
+   **πάντα +1, ποτέ μείωση**· 3 σημεία συγχρονισμού (`pubspec` / `supernote.md` / `.iss`)· **ποτέ** αλλαγή
+   `AppId`/`applicationId` σε bump· ξεχωριστό `chore(release): bump X.Y.Z+N` + 1 γραμμή στο `oldsessions.md`·
+   επαλήθευση με `aapt dump badging` / `dumpsys package` / `FileVersion` του exe.
+2. `supernote.md:10` — `| Version | 1.1.0+3 |` → **`1.2.0+4`** (συγχρονισμός με SPoT).
+
+### Έλεγχοι
+- 3 σημεία συγχρονισμού **συμφωνούν** τώρα: `pubspec.yaml:4` = `supernote.md:10` = **1.2.0+4** ·
+  `AppVersion=1.2.0` + `VersionInfoVersion=1.2.0.4`.
+- **Κανένα bump** σε αυτή τη συνεδρία — docs-only, που ο ίδιος ο κανόνας 13 απαγορεύει (μένει **1.2.0+4**).
+- `flutter analyze`/`flutter test` **δεν** εκτελέστηκαν: 0 γραμμές Dart, 0 αλλαγή σε κώδικα/manifest/schema.
+
+### Backups
+`backups/s318_versioning_20261115_211450/` — `AGENTS.md`, `supernote.md`, `oldsessions.md` (πριν από κάθε edit).
+
+### Commit
+`chore(docs): versioning rule in AGENTS + sync supernote version` (χωρίς bump).
+
+### Μαθήματα
+- **Ο κανόνας χρειάστηκε επειδή ο συγχρονισμός ήταν «προαιρετικός»:** η ασυμφωνία `supernote.md` vs `pubspec`
+  έζησε από το S309 χωρίς να το πιάσει τίποτα (καμία δοκιμή/analyze δεν κοιτά docs).
+- **Λίγα σημεία, ρητά ονόματα:** 3 σημεία συγχρονισμού αρκούν· οτιδήποτε άλλο (Android/Windows) παράγεται
+  από το `pubspec` και δεν πρέπει να το αγγίζεις χειροκίνητα.
+- **Το `+N` είναι το μόνο μονότονο κριτήριο** που βλέπουν τα stores/`adb install -r` ⇒ «ποτέ μείωση».
+- **Δεν έγινε δεύτερος tracker:** ο κανόνας ζει στο `AGENTS.md`, η πρόοδος εδώ — καμία παράλληλη λίστα (κανόνας 9).
+
+
 
 
 
