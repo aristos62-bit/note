@@ -875,7 +875,7 @@ class _CollectionEntryDetailScreenState
       );
       if (attachment != null && mounted) {
         if (_fieldAttachmentIds.values.any((ids) => ids.contains(attachment.id))) {
-          if (mounted) showSnackBar(AppErrors.attachExists(attachment.fileName));
+          if (mounted) await _notifyAfterExternal(AppErrors.attachExists(attachment.fileName));
           return;
         }
         setState(() {
@@ -886,7 +886,7 @@ class _CollectionEntryDetailScreenState
       }
     } on FormatException catch (e) {
       DebugConfig.warning('_addAttachment validation: ${e.message}');
-      if (mounted) showSnackBar(e.message);
+      if (mounted) await _notifyAfterExternal(e.message);
     } catch (e) {
       DebugConfig.error('_addAttachment', e);
     }
@@ -900,6 +900,18 @@ class _CollectionEntryDetailScreenState
         _hasChanges = true;
       });
     }
+  }
+
+  /// S-314: terminal μήνυμα ροής που πέρασε από εξωτερικό activity (SAF).
+  ///
+  /// Αν η εφαρμογή κλειδώσει όσο τρέχει ο picker, ένα `showSnackBar` ζωγραφίζεται
+  /// **κάτω** από το lock overlay και λήγει αόρατο (default 4s). Γι' αυτό
+  /// περιμένουμε πρώτα ξεκλείδωμα ([waitUntilContentUnblocked]) και μετά
+  /// δείχνουμε το μήνυμα.
+  Future<void> _notifyAfterExternal(String message) async {
+    if (!await waitUntilContentUnblocked(ref)) return;
+    if (!mounted) return;
+    showSnackBar(message);
   }
 
   Future<void> _saveAttachment(Attachment attachment) async {
@@ -924,13 +936,13 @@ class _CollectionEntryDetailScreenState
       );
       if (path != null && mounted) {
         DebugConfig.db('_saveAttachment saved to path=${AppStringUtils.redact(path, label: 'path')}');
-        showSnackBar(AppErrors.attachSaved(attachment.fileName));
+        await _notifyAfterExternal(AppErrors.attachSaved(attachment.fileName));
       } else {
         DebugConfig.db('_saveAttachment cancelled');
       }
     } catch (e) {
       DebugConfig.error('_saveAttachment', e);
-      if (mounted) showSnackBar(AppErrors.attachSaveFailed);
+      if (mounted) await _notifyAfterExternal(AppErrors.attachSaveFailed);
     }
   }
 

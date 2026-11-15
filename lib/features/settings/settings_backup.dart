@@ -83,26 +83,18 @@ Future<void> _runExport(
 
   if (!context.mounted) return;
   if (result == null) {
-    messenger.showSnackBar(SnackBar(
-      content: const Text(AppErrors.exportFailed),
-      backgroundColor: context.cError,
-    ));
+    await _notify(ref, messenger, AppErrors.exportFailed,
+        color: context.cError);
     return;
   }
   if (result.cancelled) return;
   if (result.success) {
     final msg =
         result.path != null ? AppErrors.exportSaved : AppErrors.exportOk;
-    messenger.showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: context.cSuccess,
-      duration: const Duration(seconds: 4),
-    ));
+    await _notify(ref, messenger, msg, color: context.cSuccess);
   } else {
-    messenger.showSnackBar(SnackBar(
-      content: Text(result.error ?? AppErrors.exportFailed),
-      backgroundColor: context.cError,
-    ));
+    await _notify(ref, messenger, result.error ?? AppErrors.exportFailed,
+        color: context.cError);
   }
 }
 
@@ -113,6 +105,26 @@ void _showBusySnackBar(
   messenger.showSnackBar(SnackBar(
     content: const Text(AppErrors.backupBusy),
     backgroundColor: context.cError,
+  ));
+}
+
+/// S-314: terminal μήνυμα της ροής αντιγράφου.
+///
+/// Αν η εφαρμογή κλειδώσει όσο τρέχει ο SAF picker ή το share sheet, ένα
+/// `showSnackBar` ζωγραφίζεται **κάτω** από το lock overlay και λήγει αόρατο
+/// (default 4s) — ο χρήστης δεν μαθαίνει ποτέ το αποτέλεσμα. Γι' αυτό τα
+/// terminal μηνύματα περιμένουν ξεκλείδωμα ([waitUntilContentUnblocked]).
+/// Τα transient μηνύματα (busy, wipe validation) μένουν άμεσα.
+Future<void> _notify(
+  WidgetRef ref,
+  ScaffoldMessengerState messenger,
+  String message, {
+  required Color? color,
+}) async {
+  if (!await waitUntilContentUnblocked(ref)) return;
+  messenger.showSnackBar(SnackBar(
+    content: Text(message),
+    backgroundColor: color,
   ));
 }
 
@@ -147,10 +159,8 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
   final format = await BackupContainer.detectFormat(srcPath);
   if (!context.mounted) return;
   if (format == BackupFormat.unknown) {
-    messenger.showSnackBar(SnackBar(
-      content: const Text(AppErrors.backupInvalid),
-      backgroundColor: context.cError,
-    ));
+    await _notify(ref, messenger, AppErrors.backupInvalid,
+        color: context.cError);
     return;
   }
 
@@ -162,10 +172,7 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
       requires = await BackupContainer.requiresPassphrase(srcPath);
     } on SnbFormatException catch (e) {
       if (!context.mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(e.message),
-        backgroundColor: context.cError,
-      ));
+      await _notify(ref, messenger, e.message, color: context.cError);
       return;
     }
     if (!context.mounted) return;
@@ -203,18 +210,14 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     return;
   }
   if (prep == null) {
-    messenger.showSnackBar(SnackBar(
-      content: const Text(AppErrors.backupInvalid),
-      backgroundColor: context.cError,
-    ));
+    await _notify(ref, messenger, AppErrors.backupInvalid,
+        color: context.cError);
     return;
   }
   if (prep.cancelled) return;
   if (!prep.success) {
-    messenger.showSnackBar(SnackBar(
-      content: Text(prep.error ?? AppErrors.backupInvalid),
-      backgroundColor: context.cError,
-    ));
+    await _notify(ref, messenger, prep.error ?? AppErrors.backupInvalid,
+        color: context.cError);
     return;
   }
 
@@ -261,10 +264,8 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
     return;
   }
   if (result == null) {
-    messenger.showSnackBar(SnackBar(
-      content: const Text(AppErrors.restoreFailed),
-      backgroundColor: context.cError,
-    ));
+    await _notify(ref, messenger, AppErrors.restoreFailed,
+        color: context.cError);
     return;
   }
 
@@ -295,10 +296,8 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
           'Παρακαλώ ανοίξτε την ξανά.',
     );
   } else {
-    messenger.showSnackBar(SnackBar(
-      content: Text(result.error ?? AppErrors.restoreFailed),
-      backgroundColor: context.cError,
-    ));
+    await _notify(ref, messenger, result.error ?? AppErrors.restoreFailed,
+        color: context.cError);
   }
 }
 

@@ -5774,11 +5774,78 @@ Evidence: `device-test/s313_s07/` (`summary.md`, dumps `ui_*.xml`, `guard_dump1.
   «Το αντίγραφο δημιουργήθηκε από νεότερη έκδοση της εφαρμογής… δεν άλλαξε τίποτα στα δεδομένα σας.»
   με **καμία** έξοδο/confirm dialog, ίδιο pid, και τα 4 items παρόντα μετά ⇒ live DB άθικτη.
 - Δεδομένα ακέραια σε όλα τα βήματα· `DebugConfig` δεν γράφει σε release (κανένα `BackupDbProbe` log).
-- UX finding (δεν διορθώθηκε εδώ): με «Χρονικό όριο: Αμέσως» (0) η επιστροφή από τον SAF picker
-  κλειδώνει την εφαρμογή και η επιλεγμένη διαδρομή χάνεται.
+- UX finding (διορθώθηκε στο S-314): με «Χρονικό όριο: Αμέσως» (0) η επιστροφή από τον SAF picker
+  κλειδώνει την εφαρμογή· **η ροή και η επιλεγμένη διαδρομή ΔΕΝ χάνονται** — χάνεται μόνο το
+  **snackbar** (ζωγραφίζεται κάτω από το lock overlay και λήγει αόρατο στα 4s). Βλ. Session 314.
 - Καθαρισμός: uninstall `gr.gavrielatos.supernote`, διαγραφή export/`newer_v99.isar`/APK από τη
   συσκευή, επαναφορά `verifier_verify_adb_installs`/`package_verifier_enable` = 1· τα
   `com.example.super_note`, `gr.nearme.app` και τα `.snb` του χρήστη έμειναν ανέγγιχτα.
+
+## Session 314 — 15/11/2026 (S-314: snackbars κάτω από το lock overlay — αναμονή unlock)
+
+### Πρόβλημα
+Με «Χρονικό όριο κλειδώματος: **Αμέσως**» (0), όταν η εφαρμογή κλειδώνει όσο τρέχει ο SAF picker /
+share sheet, τα **terminal snackbars** των ροών (export/import/attachment save) εμφανίζονται **κάτω**
+από το opaque lock overlay και λήγουν αόρατα (default 4s). Ο χρήστης δεν μαθαίνει ποτέ το αποτέλεσμα.
+
+### Αιτία (μετρημένη, όχι υπόθεση)
+Instrumented debug build με `[UXTRACE]` σε κάθε βήμα της ροής import:
+`picker returned mounted=true locked=true` → `format=…` → `prep ok=true` → `show confirm locked=true`.
+Δηλαδή η ροή **συνεχίζει κανονικά** και τα dialogs (passphrase/ConfirmDialog) **επιβιώνουν** και
+φαίνονται μετά το unlock· χάνονται **μόνο** τα snackbars, επειδή είναι transient (4s timer) κάτω από
+overlay που ζωγραφίζεται πάνω τους. Άρα **δεν** χάνεται η επιλεγμένη διαδρομή/αρχείο — μόνο το μήνυμα
+(διόρθωση της διατύπωσης του S-313 finding).
+
+### Τι ΔΕΝ έφταιγε (απορρίφθηκε με στοιχεία)
+- **Gate/policy**: καμία fail-open συμπεριφορά· το `confirmSensitiveAction` διαβάζει fail-closed
+  (`getOrNull`, `null` ⇒ άρνηση). Η «παράλειψη» PIN στα πρώτα tests εξηγήθηκε από **απενεργοποίηση
+  του lock από τον χρήστη**, όχι από bypass.
+- **Δεν χρειάζεται re-queue της ροής** (τα traces δείχνουν ότι συνεχίζει) — άρα το fix αγγίζει μόνο
+  την **εμφάνιση** μηνυμάτων, όχι τη λογική import/export.
+- Δεν υπάρχει έτοιμος κοινός snackbar helper: το `showSnackBar` του `detail_screen_mixin.dart` είναι
+  mixin-local (detail screens) και χωρίς deferral.
+
+### Αλλαγές (4 αρχεία, μόνο UI)
+1. `lib/providers/app_lock_provider.dart` — νέος `waitUntilContentUnblocked(WidgetRef, {timeout})` δίπλα
+   στο `appContentBlockedProvider` (το σωστό σήμα: gate όχι ready **ή** PIN lock). Επιστρέφει `false`
+   μετά από timeout (2′) ⇒ δεν δείχνεται τίποτα (θα ήταν παραπλανητικό).
+2. `lib/features/settings/settings_backup.dart` — `_notify(...)` που περιμένει unblock και μετά δείχνει
+   το snackbar· αντικατάσταση **8 terminal** call sites (export ok/fail, unknown format,
+   `SnbFormatException`, `backupInvalid` σε prep null/fail, `restoreFailed` ×2). Τα **busy**/wipe
+   validation μηνύματα μένουν **άμεσα** (θα ήταν stale μετά το unlock).
+3. `lib/features/collections/collection_entries_screen.dart` — `_notifyAfterExternal(...)` για τα
+   terminal μηνύματα μετά τον SAF picker: `attachSaved`, `attachSaveFailed`, `attachExists`,
+   `FormatException.message`. Το `attachMaxFiles` (πριν τον picker) μένει άμεσο.
+4. `test/backup_snack_after_unlock_test.dart` — 3 cases πάνω στο σήμα
+   `appContentBlockedProvider`: (α) blocked → δεν εμφανίζεται, unlock → μία φορά· (β) timeout → τίποτα
+   και δεν κρεμάει· (γ) ελεύθερο → αμέσως.
+
+Δεν άλλαξαν: gate/policy/timeouts/DB/backup format/dialogs/progress. Καμία παράκαμψη κλειδώματος —
+**μόνο αναβολή εμφάνισης**.
+
+### Έλεγχοι
+`flutter analyze` → **No issues found** · `flutter test` → **711/711** (708 + 3 νέα).
+
+### Device tests (15/11/2026, POCO X3 NFC)
+Debug build (in-place update, firstInstall αμετάβλητο, δεδομένα άθικτα). Lock **ON + «Αμέσως»**.
+Επιβεβαίωση νέου build: **0** `[UXTRACE]` στο logcat.
+- **Test 1 — import άκυρου αρχείου** (`personal_term.pdf`): picker → lock overlay → **10s κλειδωμένο**
+  → unlock ⇒ κόκκινο **«Μη έγκυρο αρχείο backup»**. ✅ (πριν το fix: τίποτα)
+- **Test 2 — export**: PIN → SAF (Λήψεις) → lock overlay → **10s κλειδωμένο** → unlock ⇒ πράσινο
+  **«Αντίγραφο αποθηκεύτηκε»**. ✅
+- **Test 3 — attachment save**: **παραλείφθηκε** (απόφαση χρήστη· ίδιος helper, καλύπτεται από tests).
+- Evidence: `device-test/s314_snack_after_unlock/summary.md` (local, gitignored).
+
+### Backups
+`backups/s314_ux_lockpicker_20261115_100127/` (instrumentation) ·
+`backups/s314b_ux_lockmsg_20261115_102913/` (3 κώδικας, πριν το fix) ·
+`backups/s314c_attach_notify_20261115_105928/` (collection_entries, πριν το `_addAttachment`) ·
+`backups/s314d_docs_20261115_110147/` (oldsessions).
+
+### Κατάσταση
+**Κλειστό** (device-verified). Εκκρεμεί μόνο καθαρισμός συσκευής (test `.snb` 08-14-49 & 08-52-18,
+`SuperNote-ux-debug.apk`, uninstall debug build, επαναφορά lock στην αρχική κατάσταση του χρήστη).
+
 
 
 

@@ -504,3 +504,30 @@ final appContentBlockedProvider = Provider<bool>((ref) {
   final locked = ref.watch(appLockStateProvider);
   return gate.status != LockGateStatus.ready || locked;
 });
+
+/// S-314: περιμένει ώσπου το περιεχόμενο να μην είναι καλυμμένο.
+///
+/// Όσο ισχύει το [appContentBlockedProvider] (lock gate όχι ready **ή** PIN
+/// lock), ό,τι εμφανιστεί με `showSnackBar` ζωγραφίζεται **κάτω** από το
+/// overlay και λήγει αόρατο (default 4s). Όσες ροές τελειώνουν μετά από
+/// εξωτερικό activity (SAF picker, share sheet, κάμερα) το χρησιμοποιούν για
+/// να δείξουν το μήνυμά τους **αφού** ξεκλειδώσει ο χρήστης.
+///
+/// Επιστρέφει `true` αν το περιεχόμενο είναι (ή γίνει) ελεύθερο, `false` αν
+/// περάσει το [timeout] — σε αυτή την περίπτωση το μήνυμα δεν πρέπει να δειχθεί
+/// (θα ήταν πια παραπλανητικό).
+Future<bool> waitUntilContentUnblocked(
+  WidgetRef ref, {
+  Duration timeout = const Duration(minutes: 2),
+}) async {
+  if (!ref.read(appContentBlockedProvider)) return true;
+  final done = Completer<bool>();
+  final sub = ref.listenManual<bool>(appContentBlockedProvider, (_, next) {
+    if (!next && !done.isCompleted) done.complete(true);
+  });
+  try {
+    return await done.future.timeout(timeout, onTimeout: () => false);
+  } finally {
+    sub.close();
+  }
+}
