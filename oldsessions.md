@@ -5847,6 +5847,52 @@ Debug build (in-place update, firstInstall αμετάβλητο, δεδομέν�
 `.snb` (`08-14-49`, `08-52-18`) και το `SuperNote-ux-debug.apk`· το `.snb` του χρήστη (13/11) έμεινε
 ανέγγιχτο. Εγκατάσταση/απεγκατάσταση build και επαναφορά του χρονικού ορίου lock έγιναν από τον χρήστη.
 
+## Session 315 — 15/11/2026 (S-11: σίγαση error/warning στο release — compile-time `SN_RELEASE_LOGS`)
+
+### Πρόβλημα
+Το `DebugConfig.error`/`warning` καλούσαν `debugPrint` **χωρίς κανένα φίλτρο** ⇒ σε release build έγραφαν στο
+logcat πλήρεις διαδρομές αρχείων (`.../app_flutter/attachments/...`), μηνύματα εξαίρεσης και **stack traces**·
+επιπλέον το `link_text.dart` λόγαρε **ολόκληρο το URL**. Το σχόλιο πάνω από το `_debug` («αν false, ΟΛΟΙ οι
+logs είναι OFF») ήταν **παραπλανητικό**: τα verbose logs ήταν ήδη off, τα error/warning ποτέ.
+
+### Απόφαση χρήστη (αντί για σκέτο `kDebugMode`)
+Ζητήθηκε δυνατότητα να βλέπει logs και σε release όταν το χρειάζεται ⇒ **Επιλογή Β**: compile-time flag από το
+build. Απορρίφθηκε ρητά ο διακόπτης σε `AppSettings`/UI: (α) η βάση είναι απλή/μη κρυπτογραφημένη (S-01) ⇒ δεν
+είναι όριο ασφαλείας, (β) θα έκανε τη διαρροή **feature** για όποιον έχει τη συσκευή, (γ) runtime `bool` **δεν**
+tree-shake-άρεται, (δ) θα απαιτούσε migration v7 + νέο tile για κάτι που λύνεται με 1 flag στο build.
+
+### Αλλαγές (2 αρχεία, +23/−4)
+1. `lib/core/utils/debug_config.dart` — νέο `static const bool _releaseLogs = bool.fromEnvironment('SN_RELEASE_LOGS')`
+   (default `false`)· `error`/`warning` → `if (!kDebugMode && !_releaseLogs) return;`· διόρθωση σχολίου `_debug`
+   (επηρεάζει **μόνο** verbose) + επικεφαλίδα ERRORS.
+2. `lib/shared/widgets/link_text.dart` — γραμμές 43/50 (πλέον): `AppStringUtils.redact(raw, label: 'url')`
+   αντί για `$raw` (ίδια πολιτική PII με την υπόλοιπη εφαρμογή· μηδέν νέο import, το `core.dart` το εξάγει).
+
+Χρήση: `flutter build apk --release --dart-define=SN_RELEASE_LOGS=true` ⇒ κανονικά `❌ ERR`/`⚠️ WRN` στο logcat
+(release) για device tests· **χωρίς** το flag απόλυτα σιωπηλό release.
+
+### Έλεγχοι
+- **Side effects audit πριν το edit:** `DebugConfig.isDebug` → 0 callers· `DebugConfig.error/warning` → **0** αναφορές
+  σε `test/` ⇒ μηδέν test impact. Τα user-facing μηνύματα (snackbars/`EmptyState.error`) **δεν** αλλάζουν.
+- `flutter analyze` → **No issues found!** (4,3s) · `flutter test` → **711/711 All tests passed** (43s).
+- Χωρίς device test: δεν αλλάζει συμπεριφορά (μόνο έξοδος logs).
+
+### Backups
+`backups/s315_s11_20261115_183317/` (2 αρχεία, πριν τα edits) · `backups/s315_docs_20261115_184216/`
+(`security_v2.md`, `supernote.md`, `oldsessions.md`).
+
+### Docs
+`security_v2.md` → **v2.5**: S-11 ✅ (με τον διακόπτη και την αιτιολόγηση), πλάνο P1 βήμα 8 ✅, νέα ενότητα
+«Διορθώσεις v2.5» (S-11 + αποσαφήνιση S-13/S-19 από έλεγχο κώδικα) · `supernote.md` → §DebugConfig: πίνακας
+«Πότε γράφονται» + `SN_RELEASE_LOGS` (και test counter 700→**711**) · `error_list.md` παραμένει αρχειοθετημένο
+(η S-11 ήταν εύρημα της έκθεσης, όχι του tracker).
+
+### Κατάσταση
+**S-11 ✅ CLOSED** (analyze+tests). Ανοιχτά security: S-01 (απόφαση), S-08 (προαιρετικό archive ≥4.5),
+S-10 (installer), S-13 (εισερχόμενο share cap + όριο κειμένου), S-15 (PIN KDF v2), S-19 (`cache/share_plus/`),
+S-21 (`dataExtractionRules`) — σειρά που συμφωνήθηκε: S-21 → S-13 → S-19 → S-15 → S-10 → S-01.
+
+
 
 
 

@@ -21,9 +21,19 @@ class DebugConfig {
   // ΔΙΑΚΟΠΤΕΣ
   // ─────────────────────────────────────────────────────────
 
-  /// Κεντρικός διακόπτης — αν false, ΟΛΟΙ οι logs είναι OFF
+  /// Κεντρικός διακόπτης για τα *verbose* logs (startup/db/nav/provider/notif/
+  /// sync/search/print). Αν false, αυτά είναι OFF.
+  /// ΠΡΟΣΟΧΗ: ΔΕΝ επηρεάζει τα `error`/`warning` — αυτά τα φιλτράρει το
+  /// `kDebugMode` ή το `_releaseLogs` (S-11: καμία διαρροή paths/stack traces
+  /// σε release build).
   // static const bool _debug = kDebugMode; // Αυτόματα OFF στο release build
   static const bool _debug = false; // true ON στο release build false OFF
+
+  /// S-11: κανάλι εξόδου για τα `error`/`warning` σε **release** build.
+  /// Default `false` = απόλυτα σιωπηλό release (και tree-shaken από τον compiler).
+  /// Άναμμα μόνο από το build, χωρίς αλλαγή κώδικα:
+  ///   flutter build apk --release --dart-define=SN_RELEASE_LOGS=true
+  static const bool _releaseLogs = bool.fromEnvironment('SN_RELEASE_LOGS');
 
   // Μεμονωμένες κατηγορίες — χρήσιμο για να βλέπεις μόνο ό,τι θες
   static const bool _logDb       = true;  // Database operations
@@ -95,16 +105,21 @@ class DebugConfig {
   }
 
   // ─────────────────────────────────────────────────────────
-  // ERRORS — εμφανίζονται ΠΑΝΤΑ στο debug mode
+  // ERRORS — ΠΑΝΤΑ στο debug build· στο release ΜΟΝΟ με SN_RELEASE_LOGS=true
   // ─────────────────────────────────────────────────────────
 
+  /// Πάντα ON στο debug build· στο release μόνο με `SN_RELEASE_LOGS=true` (S-11):
+  /// τα μηνύματα/stack traces περιέχουν διαδρομές αρχείων και λεπτομέρειες συσκευής.
   static void error(String message, [Object? error, StackTrace? stack]) {
+    if (!kDebugMode && !_releaseLogs) return;
     debugPrint('❌ ERR | $message');
     if (error != null) debugPrint('   → $error');
     if (stack != null) debugPrint('   → $stack');
   }
 
+  /// Πάντα ON στο debug build· στο release μόνο με `SN_RELEASE_LOGS=true` (S-11).
   static void warning(String message) {
+    if (!kDebugMode && !_releaseLogs) return;
     debugPrint('⚠️  WRN | $message');
   }
 

@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **700/700** (`flutter test`, 14/11/2026 — `flutter analyze` clean) |
+| Test suite | **711/711** (`flutter test`, 15/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -1127,6 +1127,18 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 | `DebugConfig.warning(...)` | ⚠️ WRN |
 | `DebugConfig.print(...)` | 💬 |
 
+### Πότε γράφονται (S-11/S315)
+
+| Ομάδα | Debug build | Release build |
+|---|---|---|
+| `startup` / `db` / `nav` / `provider` / `notif` / `sync` / `search` / `print` | αν `_debug == true` (σήμερα `false`) | **ποτέ** |
+| `error` / `warning` | **πάντα** | **μόνο** αν το build έχει `--dart-define=SN_RELEASE_LOGS=true` (default `false`) |
+
+- SPoT: `static const bool _releaseLogs = bool.fromEnvironment('SN_RELEASE_LOGS')` — compile-time, άρα όταν είναι `false` ο compiler **αφαιρεί** τον κώδικα (tree-shaking). «Release build με logs» για device tests: `flutter build apk --release --dart-define=SN_RELEASE_LOGS=true`.
+- Καμία επιλογή σε `AppSettings`/UI και κανένα runtime flag: το `AppSettings` ζει σε απλή βάση και μια τέτοια επιλογή θα έκανε τη διαρροή feature (αιτιολόγηση: `security_v2.md` S-11).
+- Το `_debug` επηρεάζει **μόνο** τα verbose logs, **όχι** τα `error`/`warning`.
+- Στα logs δεν περνούν ποτέ raw PII: `AppStringUtils.redact(...)` (π.χ. `LinkLauncher` → `[url 45ch]`).
+
 ---
 
 ## Commands
@@ -1135,7 +1147,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (700/700 🟢) |
+| `flutter test` | Πλήρες suite (711/711 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

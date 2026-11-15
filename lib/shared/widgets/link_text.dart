@@ -40,11 +40,15 @@ class LinkLauncher {
       if (uri == null ||
           !(uri.scheme == 'http' || uri.scheme == 'https') ||
           uri.host.isEmpty) {
-        DebugConfig.warning('LinkLauncher rejected non-http url: $raw');
+        DebugConfig.warning(
+            'LinkLauncher rejected non-http url: ${AppStringUtils.redact(raw, label: 'url')}');
         return false;
       }
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) DebugConfig.warning('LinkLauncher launch failed: $raw');
+      if (!ok) {
+        DebugConfig.warning(
+            'LinkLauncher launch failed: ${AppStringUtils.redact(raw, label: 'url')}');
+      }
       return ok;
     } catch (e, stack) {
       DebugConfig.error('LinkLauncher.openUrl', e, stack);

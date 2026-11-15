@@ -1,6 +1,6 @@
-# SuperNote — Έκθεση Ασφάλειας (v2.3)
+# SuperNote — Έκθεση Ασφάλειας (v2.5)
 
-**Έκδοση:** v2.4 · 14/11/2026 · **v2.3:** 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
+**Έκδοση:** v2.5 · 15/11/2026 · **v2.4:** 14/11/2026 · **v2.3:** 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
 **Βάση ελέγχου:** `2cf7df6` (main), επαληθευμένη ξανά στο `b1bb623` (S295). Η v1 ελέγχθηκε στο `7f4f6f5`· τα commits `6da3ba7`/`e3c9ab3`/`a14a3e6`/`2cf7df6` είναι κώδικας E39 + docs και **δεν** αλλάζουν ευρήματα· από το `2cf7df6` έως το `b1bb623` άλλαξαν μόνο UI/docs (S294/S295) — κανένα security finding δεν άλλαξε.
 **Μέθοδος:** ανάγνωση κώδικα, manifest, gradle, installer, git history **και πηγής πακέτων** (`open_filex 4.7.0`, `share_plus 12.0.2`, `archive 4.3.0`). **Καμία** εκτέλεση σε συσκευή σε αυτόν τον κύκλο.
 
@@ -51,6 +51,14 @@
 |---|---|---|
 | 1 | **S-25** — νέο εύρημα μεσαίας σοβαρότητας: το άνοιγμα στο Windows περνά στο `ShellExecuteW`, που **εκτελεί** εκτελέσιμους τύπους | Ο S-16/1β αφαίρεσε το `cmd` (injection) αλλά **όχι** την εκτέλεση: `.bat`/`.exe` από backup zip ή share intent εκτελούνταν με ένα tap |
 | 2 | **P0 βήμα 1γ** — `isRiskyToLaunch` στον `AttachmentPathGuard` + `ConfirmDialog` + fail-safe `allowRisky` | Ίδιο SPoT με S-18 (μηδέν νέο αρχείο), ρητή επιβεβαίωση αντί σιωπηλής εκτέλεσης |
+
+### Διορθώσεις v2.5 (15/11/2026)
+
+| # | Διόρθωση | Λόγος |
+|---|---|---|
+| 1 | **S-11** — κλεισμένο (S315): `error`/`warning` περνούν πλέον από `if (!kDebugMode && !_releaseLogs) return;` όπου `_releaseLogs = bool.fromEnvironment('SN_RELEASE_LOGS')` (default `false`, compile-time ⇒ tree-shaken)· το raw URL του `link_text` περνά `AppStringUtils.redact`· διορθώθηκε το σχόλιο του `_debug` | Αντί για σκέτο `kDebugMode`, κρατάμε δυνατότητα **release build με logs** χωρίς αλλαγή κώδικα (`--dart-define=SN_RELEASE_LOGS=true`) — χρήσιμο σε device tests· ο διακόπτης **δεν** μπαίνει σε `AppSettings`/UI (η βάση είναι απλή και θα γινόταν feature η διαρροή) |
+| 2 | **S-13** — αποσαφήνιση κατάστασης: το **εξερχόμενο** share έχει όρια (`ShareLimits` 20 αρχ./100 MB/100.000 χαρ.)· **ανοιχτό** μένει το **εισερχόμενο** share intent (`maxAttachmentSizeMB ≤ 0 ⇒ maxBytes = null`) και το όριο κειμένου | Έλεγχος κώδικα 15/11/2026 (`shared_intent_service.dart:303,393` · `collection_entries_screen.dart:868`) |
+| 3 | **S-19** — αποσαφήνιση κατάστασης: το temp του **backup** καθαρίζεται (`_scheduleTempCleanup` + `sweepStaleArtifacts`)· **ανοιχτό** μένει το `cache/share_plus/` της **κοινοποίησης item** | Έλεγχος κώδικα 15/11/2026 (`backup_service.dart:443,533,583,943` · 0 cleanup στο `share_service.dart`) |
 
 ### Επαληθεύσεις v2.1 (06/11/2026)
 
@@ -143,7 +151,7 @@
 
 | ID | Εύρημα | Πού | Διόρθωση |
 |---|---|---|---|
-| S-11 | `DebugConfig.error`/`warning` γράφουν **πάντα** σε release (paths, exceptions, stack traces)· το `link_text` λογάρει **raw URL**· σχόλιο `_debug` παραπλανητικό | `debug_config.dart:26, 101-109` · `link_text.dart:43` | `if (!kDebugMode) return;` σε error/warning· redact URL· διόρθωση σχολίου. *(Τα titles/queries είναι ήδη redacted — επιβεβαιώθηκε.)* |
+| S-11 | `DebugConfig.error`/`warning` έγραφαν **πάντα** σε release (paths, exceptions, stack traces)· το `link_text` λογάρει **raw URL**· σχόλιο `_debug` παραπλανητικό | `debug_config.dart:26, 101-109` · `link_text.dart:43` | ✅ **ΥΛΟΠΟΙΗΘΗΚΕ S315:** `if (!kDebugMode && !_releaseLogs) return;` σε `error`/`warning`, όπου `_releaseLogs = bool.fromEnvironment('SN_RELEASE_LOGS')` (default **`false`**, compile-time ⇒ tree-shaken στο release)· «release build με logs» μόνο με `--dart-define=SN_RELEASE_LOGS=true`· `link_text` → `AppStringUtils.redact(raw, label: 'url')`· διόρθωση σχολίων `_debug`/ERRORS. analyze clean · 711/711. *(Τα titles/queries είναι ήδη redacted — επιβεβαιώθηκε.)* |
 | S-12 | Δηλώνεται `WRITE_CONTACTS`, ο κώδικας ζητά **μόνο** `PermissionType.read` **(ΥΛΟΠΟΙΗΘΗΚΕ S299)** | `android/app/src/main/AndroidManifest.xml:12` · `contact_import_service.dart:70-77` | Αφαίρεση της άδειας + έλεγχος merged manifest |
 | S-13 | Το share intent δέχεται `*/*` και με `maxAttachmentSizeMB ≤ 0` **δεν** υπάρχει όριο· ίδιο σε collection entries· το shared κείμενο δεν έχει όριο | `AndroidManifest.xml:54-88` · `shared_intent_service.dart:298-300, 386-388` · `collection_entries_screen.dart:863` | Σκληρό cap (π.χ. 50 MB) ακόμη και στο 0· όριο κειμένου· ονόματα ήδη sanitized |
 | S-14 | PII/artifacts στο δημόσιο repo: **148** tracked αρχεία `backups/`, `Dependencies/VC_redist.x64.exe`, `InstallerOutput/SuperNoteSetup.exe`, `.bat`/`.iss` με τοπικά paths, placeholder `AppPublisherURL` | `git ls-files`, `note_eco_new.iss:10`, `build_and_setup_new 2.bat` | ✅ **ΥΛΟΠΟΙΗΘΗΚΕ S310** (δεδομένα: repo **public** επιβεβαιωμένο μέσω GitHub API): `git rm --cached` σε **151** αρχεία (148 snapshots κώδικα — **καμία** βάση/συνημμένο/αρχείο χρήστη — + 2 binaries + 1 build artifact) ⇒ tracked **596 → 445**· νέοι κανόνες `/backups/`, `/InstallerOutput/`, `/Dependencies/`, `/android/build/` (τα αρχεία **μένουν** τοπικά)· paths: `%~dp0` στο `.bat` + `{#SourcePath}` στο `.iss` (ISCC compile **exit 0**)· URLs → GitHub repo/issues/releases, αφαίρεση ψευδούς `AppContact`· 0 εμφανίσεις ονόματος χρήστη/προσωπικών δεδομένων σε tracked αρχεία. **Υπολειπόμενο:** τα blobs ζουν σε παλιά commits (history **δεν** ξαναγράφηκε — απόφαση χρήστη: προαιρετικό `filter-repo` + force-push, repo 122 MB → ~40 MB) |
@@ -169,7 +177,7 @@
 | | 5 | **PIN gate** σε toggle-off/export/restore/wipe — ✅ S302 | S-04 | Μικρό | Χαμηλό |
 | | 6 | **Lock UI**: `IgnorePointer`+`ExcludeSemantics`+`ExcludeFocus` όταν locked — ✅ S300 | S-05 | Μικρό | Χαμηλό (focus/state) |
 | | 7 | **Notifications**: masking OS κειμένου (title «Υπενθύμιση» + τύπος item) + toggle «Απόκρυψη περιεχομένου» + `visibility: private` — ✅ S309 | S-06 | Μικρό | Χαμηλό |
-| | 8 | **Logs**: guard error/warning, redact URL | S-11 | Πολύ μικρό | Πολύ χαμηλό |
+| | 8 | **Logs**: guard error/warning, redact URL — ✅ S315 (`SN_RELEASE_LOGS`, default off) | S-11 | Πολύ μικρό | Πολύ χαμηλό |
 | **P2 — Δεδομένα που φεύγουν** | 9 | **Backup encryption** (AES-256-GCM + PBKDF2) + legacy read + strip lock fields + **auto backup σε φάκελο χρήστη + first-run prompt** + **tag verify πριν το `Isar.open`** | S-02 | Μέτριο | Μέτριο· tests παλιών zip + restore· SAF/permissions ανά πλατφόρμα |
 | | 10 | **Cache cleanup** μετά το share (**delayed**) + picker temp | S-19 | Μικρό | Χαμηλό |
 | | 11 | **Archive ≥4.5** + output limits + entry allowlist + χαμηλότερο `maxRestoreBytes` *(v2.4: δεν ισχύει — S-307 streaming/allowlist, μηδέν caps)* | S-08 | Μικρό-μέτριο | Μέτριο (restore E33) |
@@ -181,7 +189,7 @@
 | | 17 | **Android 12+ extraction rules** + τεκμηρίωση FLAG_SECURE scope | S-21 | Μικρό | Πολύ χαμηλό |
 | **P4 — Απόφαση** | 18 | **Κρυπτογράφηση βάσης**: (1) Windows path, (2) field encryption, (3) SQLCipher, ή (4) τεκμηρίωση limitation | S-01 | Μικρό → πολύ μεγάλο | Υψηλό για (2)/(3) |
 
-**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302), **6/S-05** (S300) και **7/S-06** (S309, masking OS κειμένου + toggle «Απόκρυψη περιεχομένου»), καθώς και το **S-24** (S301, ατομικό toggle lock) και τα **S-14/S-20** (S310, repo hygiene: untrack 151 αρχείων + relative paths εγκαταστάτη + `.gitignore` για keystore) και το **S-09** (S312, release keystore + `gr.gavrielatos.supernote` + Windows `Gavrielatos`/`SuperNote`) και το **S-07** (S313: guard έκδοσης schema πριν την επαναφορά + strip `appLockTimeoutSeconds` + normalize μελλοντικού `lastAutoBackupAt` + ενημέρωση για το «Κλείδωμα αντιγράφου»). Το παρόν παραμένει η έκθεση v2.3 + πλάνο για τα υπόλοιπα.
+**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302), **6/S-05** (S300) και **7/S-06** (S309, masking OS κειμένου + toggle «Απόκρυψη περιεχομένου»), καθώς και το **S-24** (S301, ατομικό toggle lock) και τα **S-14/S-20** (S310, repo hygiene: untrack 151 αρχείων + relative paths εγκαταστάτη + `.gitignore` για keystore) και το **S-09** (S312, release keystore + `gr.gavrielatos.supernote` + Windows `Gavrielatos`/`SuperNote`) και το **S-07** (S313: guard έκδοσης schema πριν την επαναφορά + strip `appLockTimeoutSeconds` + normalize μελλοντικού `lastAutoBackupAt` + ενημέρωση για το «Κλείδωμα αντιγράφου») και το **S-11** (S315: σίγαση `error`/`warning` στο release με compile-time `SN_RELEASE_LOGS` + redact URL). Το παρόν παραμένει η έκθεση v2.5 + πλάνο για τα υπόλοιπα.
 
 ---
 
