@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  S-21 (S316): Android 12+ — «κανένα δεδομένο δεν φεύγει».
+
+  Γιατί υπάρχει: με targetSdk >= 31, το `android:allowBackup="false"` κλείνει το
+  cloud backup, αλλά σε ορισμένους κατασκευαστές ΔΕΝ κλείνει το device-to-device
+  (D2D) transfer. Επιπλέον, αν λείπει ένα section (π.χ. <device-transfer>), το
+  Android θεωρεί ότι **εκείνο το mode είναι πλήρως ενεργό**.
+
+  Τι καλύπτεται: εξαιρούνται ΟΛΑ τα domains που ορίζουν τα Android docs, σε ΚΑΙ
+  ΤΑ ΔΥΟ sections. Το `root` είναι το κρίσιμο: περιέχει το `<dataDir>/app_flutter`
+  όπου ζουν η βάση (super_note_db.isar) και τα συνημμένα — το `file` domain
+  (filesDir) ΔΕΝ τα καλύπτει, γιατί το app_flutter είναι αδελφός φάκελος.
+  Τα υπόλοιπα (file/database/sharedpref/external/device_*) είναι πρόσθετη
+  ασφάλεια ώστε να μην εξαρτόμαστε από ερμηνείες των docs.
+
+  Δεν προστίθεται <cross-platform-transfer>: είναι διαθέσιμο από Android 16 QPR2
+  (API 36.1) και απαιτεί αντίστοιχη iOS εφαρμογή (bundleId/teamId) — δεν υπάρχει.
+
+  Καμία <include>: με exclude σε όλα τα domains, το αποτέλεσμα είναι άδειο.
+-->
+<data-extraction-rules>
+
+    <!-- Cloud backup (Google Drive). Είναι ήδη κλειστό από allowBackup="false"·
+         μένει για άμυνα σε βάθος. -->
+    <cloud-backup>
+        <exclude domain="root" path="."/>
+        <exclude domain="file" path="."/>
+        <exclude domain="database" path="."/>
+        <exclude domain="sharedpref" path="."/>
+        <exclude domain="external" path="."/>
+        <exclude domain="device_root" path="."/>
+        <exclude domain="device_file" path="."/>
+        <exclude domain="device_database" path="."/>
+        <exclude domain="device_sharedpref" path="."/>
+    </cloud-backup>
+
+    <!-- Device-to-device transfer (νέο κινητό / κλωνοποίηση): ο στόχος του S-21. -->
+    <device-transfer>
+        <exclude domain="root" path="."/>
+        <exclude domain="file" path="."/>
+        <exclude domain="database" path="."/>
+        <exclude domain="sharedpref" path="."/>
+        <exclude domain="external" path="."/>
+        <exclude domain="device_root" path="."/>
+        <exclude domain="device_file" path="."/>
+        <exclude domain="device_database" path="."/>
+        <exclude domain="device_sharedpref" path="."/>
+    </device-transfer>
+
+</data-extraction-rules>

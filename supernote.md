@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **711/711** (`flutter test`, 15/11/2026 — `flutter analyze` clean) |
+| Test suite | **717/717** (`flutter test`, 15/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -609,6 +609,7 @@ final db = SuperNoteHelper.instance;
 - **Κωδικός (S-307/Δ5–Δ6):** `BackupPassphraseCache` (μόνο μνήμη, ανά συνεδρία) χρησιμοποιείται **μόνο** όταν `AppSettings.backupLockEnabled` είναι ON· το startup gate `BackupPassphraseGate` **καταργήθηκε**. Default export/restore: μηδέν κωδικοί. Ποτέ Keystore/secure storage/DB.
 - `AppSettings.autoBackupEnabled/lastAutoBackupAt/backupLockEnabled` · schema v5 (additive, no-op migration)
 - Android: `allowBackup=false` (S174) — επίσημη οδός backup = in-app export `.snb` (το cloud auto-backup αντέγραφε DB + attachments + PIN hash· iOS parked)
+- **S-21 (S316):** `allowBackup=false` **+** `android:dataExtractionRules="@xml/data_extraction_rules"` + `android:fullBackupContent="false"` — κλείνει **και** το device-to-device transfer (Android 12+), που σε ορισμένους OEM δεν το έκλεινε το `allowBackup`. Το rules xml εξαιρεί **9 domains** (`root` = `<dataDir>/app_flutter` με βάση + συνημμένα, `file`, `database`, `sharedpref`, `external`, `device_*`) σε **και** τα δύο sections (`cloud-backup`, `device-transfer`)· **0** `<include>`. Regression test: `test/android_backup_policy_test.dart`. Επαλήθευση: `aapt2` στο APK + `bmgr backupnow` → «Backup is not allowed». **Δεν** επηρεάζει export/restore `.snb` (SAF, εκτός backup framework). Windows capture protection → **S317**.
 
 ### SearchService (`lib/services/search_service.dart`)
 - Full-text search on Item title: `search(query, workspaceId)` → `List<Item>`
@@ -1147,7 +1148,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (711/711 🟢) |
+| `flutter test` | Πλήρες suite (717/717 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

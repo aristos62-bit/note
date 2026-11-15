@@ -5893,6 +5893,98 @@ S-10 (installer), S-13 (εισερχόμενο share cap + όριο κειμέν
 S-21 (`dataExtractionRules`) — σειρά που συμφωνήθηκε: S-21 → S-13 → S-19 → S-15 → S-10 → S-01.
 
 
+## Session 316 — 15/11/2026 (S-21 Φ1: Android 12+ D2D backup exclusions — manifest + rules xml, device-verified)
+
+### Πρόβλημα
+Το `android:allowBackup="false"` (S174) έκλεινε το **cloud** backup, αλλά **όχι** το device-to-device (D2D)
+transfer: από `targetSdk 31` το Android εφαρμόζει τα `dataExtractionRules` **αντί** του `fullBackupContent`, και
+αν ένα section λείπει (π.χ. `<device-transfer>`) το θεωρεί **πλήρως ενεργό**. Επιπλέον, σε ορισμένους OEM το
+`allowBackup="false"` δεν αρκεί για το D2D (τεκμηριωμένη συμπεριφορά). Δηλαδή σε «νέο κινητό» η βάση
+(`super_note_db.isar`), τα συνημμένα και το `.migration_safety` (plaintext DB) μπορούσαν να ταξιδέψουν.
+
+### Θεμέλια (πραγματικά στοιχεία, πριν γραφτεί κώδικας)
+- **Πού ζει η βάση:** `app_paths.dart:159-160` (non-Windows) → `getApplicationDocumentsDirectory()`, που στο
+  `path_provider_android` είναι `PathUtils.getDataDirectory` = `getDir("flutter")` ⇒ **`<dataDir>/app_flutter`**.
+  Είναι **αδελφός** του `files/`, άρα το `domain="file"` **δεν** το καλύπτει ⇒ το **`root` είναι το υποχρεωτικό exclude**.
+- **Τα auto-backups** (`SuperNoteBackups`) ζουν στο `getApplicationSupportPath` = `<dataDir>/files` ⇒ καλύπτονται
+  από `root` **και** `file`.
+- **`fullBackupContent="false"` είναι έγκυρο:** δοκιμάστηκε με `aapt2 link` (build-tools 36.0.0, `android-36`) σε
+  απομονωμένο probe ⇒ EXIT=0, dump: `fullBackupContent(0x010104eb)=false`, `dataExtractionRules(0x0101063e)=@ref`.
+- **Baseline του shipped APK:** `aapt2 dump xmltree app-release.apk` ⇒ **μόνο** `allowBackup=false` — πουθενά
+  `fullBackupContent`/`dataExtractionRules`/`backupAgent`. Το εύρημα επιβεβαιωνόταν **στο artifact**, όχι μόνο στο source.
+- **`res/xml` ήταν ήδη γεμάτο** από plugins (`filepaths`, `flutter_image_picker_file_paths`,
+  `flutter_share_file_paths`, `image_share_filepaths`) ⇒ το νέο μπαίνει ως `0x7f110000` του release, **καμία σύγκρουση**
+  (0 hits `data_extraction_rules` σε `android/**`).
+- **Κανένας custom `BackupAgent`** (0 hits στο merged manifest) ⇒ κανείς δεν παρακάμπτει τα XML rules.
+- **`directBootAware="false"`** υπάρχει **μόνο** στον `androidx.profileinstaller.ProfileInstallReceiver`· **0** hits
+  `deviceProtected`/`directBoot` στα `android/app/src` ⇒ τα `device_*` domains είναι άδεια (καθαρή πρόσθετη αμύνα).
+
+### Απόφαση χρήστη
+**Φ1 όπως το εγκρίνει** (9 domains × 2 sections, `root` το κρίσιμο, `allowBackup="false"` διατηρείται,
+`fullBackupContent="false"`, regression test root-agnostic) · **Φ2 (`WDA_EXCLUDEFROMCAPTURE` στα Windows) =
+ξεχωριστό βήμα S317** (native C++, fallback Win <10 2004, **χωρίς** `GetTickCount64()` για να μη αλλάξει το
+lockout semantics). Ρητή αναστολή του κανόνα #4 (ένα βήμα τη φορά) για όλη τη ροή.
+
+### Αλλαγές (3 αρχεία, 0 γραμμές Dart runtime)
+1. **Νέο** `android/app/src/main/res/xml/data_extraction_rules.xml` — `<cloud-backup>` **και** `<device-transfer>`,
+   από **9 `<exclude>`** ανά section (`root`, `file`, `database`, `sharedpref`, `external`, `device_root`,
+   `device_file`, `device_database`, `device_sharedpref`) με `path="."`, **0 `<include>`**. Ρητά **χωρίς**
+   `<cross-platform-transfer>` (API 36.1, απαιτεί iOS app — δεν υπάρχει). Σχόλια εξηγούν γιατί το `root` είναι το
+   load-bearing exclude.
+2. `android/app/src/main/AndroidManifest.xml` — `+android:fullBackupContent="false"` (:35),
+   `+android:dataExtractionRules="@xml/data_extraction_rules"` (:36), **διατήρηση** `allowBackup="false"` (:34) +
+   ελληνικό σχόλιο (:23-29).
+3. **Νέο** `test/android_backup_policy_test.dart` — 6 tests: `allowBackup=false` · `fullBackupContent=false` ·
+   `dataExtractionRules` target · ύπαρξη xml · ύπαρξη **και των δύο** sections + 0 `<include>`/`<cross-platform-transfer>` ·
+   9 excludes με `path="."` ανά section.
+
+### Τι ΔΕΝ άλλαξε (audit παρενεργειών)
+Export/restore `.snb` (SAF, εκτός backup framework — `backup_service.dart:424-435`, `settings_backup.dart:135-302`) ·
+επαναφορά από auto backup (`fromPath`) · διαγραφή όλων (ρητά paths) · PIN/lock/lockout (Isar state εντός `root` —
+**όφελος**: δεν μεταφέρεται ξένο lockout) · συνημμένα · AlarmManager/υπενθυμίσεις · contacts/share intent/notifications ·
+Windows build. Καμία νέα permission, καμία migration, ίδια υπογραφή ⇒ `adb install -r` χωρίς απώλεια δεδομένων.
+
+### Έλεγχοι
+- **Bug στο ίδιο το test:** τα XML **σχόλια** περιέχουν `<device-transfer>`/`<include>` ⇒ το parsing διάβαζε το
+  σχόλιο (18 «excludes»). Διορθώθηκε με `stripComments()` — μαθήματα: *parser πάνω σε XML με σχόλια που αναφέρουν tags*.
+- `flutter analyze` → **No issues found** (4,5s) · `flutter test` → **717/717** (711 + 6).
+- `flutter build apk --release` → **Built app-release.apk (69.9MB)** · `lintVitalRelease` → **No issues found**
+  (κανένα `UnusedAttribute` — δεν χρειάστηκε `tools:targetApi="31"`).
+- **APK:** `allowBackup=false` · `fullBackupContent=false` · `dataExtractionRules=@0x7f110000` → resource
+  `xml/data_extraction_rules` = **`res/4j.xml`** (resource path shortening) → dump: **9 excludes × 2 sections, 0 includes**.
+- **Device (POCO X3 `9593c01e`, Android 12):** `adb install -r` → **Success** (`1.2.0`/versionCode 4,
+  `lastUpdateTime 19:23:52`) · app τρέχει (`pid 17726`, `mResumedActivity`) · δεδομένα **ακέραια** (screenshot) ·
+  **0** `FATAL`/`E/flutter` · HOME→relaunch **ίδιο pid** · `flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]` (**χωρίς**
+  `ALLOW_BACKUP`) · `bmgr backupnow` → «**Backup is not allowed**» · `dumpsys backup` **δεν** εμφανίζει την εφαρμογή.
+- Evidence: `device-test/s316_s21/summary.md` + `after_install.png` (gitignored).
+
+### Backups
+`backups/s316_s21_20261115_191819/` (`AndroidManifest.xml`) · `backups/s316_docs_20261115_192654/`
+(`oldsessions.md`, `security_v2.md`, `supernote.md`).
+
+### Docs
+`security_v2.md` → **v2.6** (header, ενότητα «Διορθώσεις v2.6» με S-21 ✅ + S317, γραμμή S-21 ✅, πλάνο βήμα 17 ✅,
+Σύνοψη, «Τι ήδη λειτουργεί σωστά», Περιορισμοί) · `supernote.md` → νέο bullet S-21 μετά το `allowBackup=false`
+(+ test counter 711→**717** σε 2 σημεία) · `error_list.md` παραμένει αρχειοθετημένο (εύρημα έκθεσης, όχι tracker).
+
+### Μαθήματα
+- **«Λείπει section» ≠ «κλειστό»:** στα `dataExtractionRules` η *απουσία* `<device-transfer>` σημαίνει **fully
+  enabled** — η σιωπή ήταν το bug, όχι μόνο η τιμή.
+- **Το `file` domain δεν είναι «όλα τα αρχεία»:** το `app_flutter` (βάση + συνημμένα) είναι **αδελφός** του
+  `files/` ⇒ μόνο το `root` το πιάνει. Ο έλεγχος έγινε στην πηγή του `path_provider_android`, όχι στα docs.
+- **Επαλήθευση στο artifact, όχι στο source:** το baseline `aapt2` έδειξε ότι τα attributes **έλειπαν** από το
+  shipped APK, και το resource path shortening (`res/4j.xml`) απέδειξε ότι δεν επιτρέπεται να ψάχνεις σταθερό path —
+  πας **μέσω resource id**.
+- **Γράψε το regression test πριν το device:** το fix είναι δηλωτικό· μια σιωπηλή διαγραφή γραμμής δεν θα την έπιανε
+  τίποτα άλλο. Και το πρώτο run του test έπιασε **πραγματικό** bug (στα σχόλια του XML).
+- **Όριο που δεν κλείνει από εδώ:** πραγματικό D2D θέλει **2 συσκευές** και είναι OEM-dependent — τεκμηριώθηκε ως
+  όριο, δεν προσποιηθήκαμε ότι το «επαληθεύσαμε».
+
+### Κατάσταση
+**S-21 Φ1 (D2D) ✅ CLOSED** — manifest/APK/συσκευή επαληθευμένα · analyze clean · **717/717** · lintVital clean.
+**Ανοιχτό:** S-21 Φ2 (Windows `WDA_EXCLUDEFROMCAPTURE`) → **S317** · σειρά: S-13 → S-19 → S-15 → S-10 → S-01.
+
+
 
 
 
