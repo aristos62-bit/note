@@ -6033,10 +6033,10 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 |---|---|---|
 | W1 | Build Release `/W4 /WX` | ✔ exit 0 |
 | W2 | Fail-closed default | ✔ `56ms affinity=0x11 visible=False` — πριν το `Show()` και πριν το Dart |
-| W3 | Lock enabled | ⚠ **Μη έγκυρο μετά το bug fix** (πριν το fix OFF/ON έμοιαζαν) — απαιτεί `appLockEnabled=true` |
-| W4 | Capture με `0x11` | ✔ `capture_on*.png`, `probe_state.png`: PrintWindow `center=0,0,0 distinct=1` (αποκλεισμένο) |
+| W3 | Lock enabled (ενεργοποίηση από Ρυθμίσεις, χωρίς restart) | ✔ `affinity_timeline_lockon.txt`: `0x11` σε **10/10** δείγματα (4,5s) · PrintWindow `center=0,0,0 distinct=1` · πραγματικό screen capture (`CopyFromScreen`) δείχνει **ό,τι είναι πίσω** από το παράθυρο (Explorer), όχι την εφαρμογή |
+| W4 | Capture με `0x11` | ✔ `capture_on*.png`, `probe_state.png`, `capture_lockon.png`: PrintWindow `center=0,0,0 distinct=1` (αποκλεισμένο) |
 | W5 | Capture με `0x0` (lock OFF) | ✔ `capture_lockoff.png`: `center=255,238,88 distinct=20` (περιεχόμενο) |
-| W6 | Μετάβαση χωρίς restart | ✔ `affinity_timeline_lockoff.txt`: `44ms 0x11` → `1788ms 0x0` σε **μία** διεργασία (Dart) · αντίστροφο (UI → ON) ⏳ |
+| W6 | Toggle χωρίς restart (και οι δύο κατευθύνσεις) | ✔ `affinity_timeline_lockoff.txt`: `44ms 0x11` → `1788ms 0x0` (Dart) · **απενεργοποίηση από Ρυθμίσεις με την εφαρμογή ανοιχτή**: ίδιο `pid=16164`, `0x0` σε **6/6** δείγματα, `capture_off_toggle.png` = Ρυθμίσεις με switch **OFF** (`affinity_timeline_toggle_off.txt`) |
 | W7 | Resize/maximize | ✔ affinity επιβιώνει (`0x11` μετά από resize & maximize) |
 | W8 | Alt-Tab/Task View | ⚠ Ασαφές (παρατήρηση, όχι εγγύηση) |
 | W9 | Snipping Tool | ⏳ Χειροκίνητο |
@@ -6086,9 +6086,19 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 
 ### Κατάσταση
 **S-21 Φ2 (Windows) ✅ CLOSED** — fail-closed default, capture exclusion (`0x11`), **αποκατάσταση με lock OFF (`0x0` + περιεχόμενο)**,
-μετάβαση χωρίς restart, resize/maximize, clean exit: **device-verified** (όλα τα runs σε αντίγραφο της βάσης).
-**Εκκρεμότητες:** (α) W3 με `appLockEnabled=true` (σταθερό `0x11`) και το αντίστροφο του W6 (UI toggle → ON)·
-(β) W8/W9 δεν αποδεικνύονται εργαλειακά· (γ) macOS/Linux → **S-318**. Σειρά εκκρεμοτήτων: S-13 → S-19 → S-15 → S-10 → S-01.
+**live toggle και στις δύο κατευθύνσεις από τις Ρυθμίσεις** (ίδιο pid), resize/maximize, clean exit: **device-verified**
+(W2–W7 + W10/W11· τα runs με lock OFF έγιναν σε αντίγραφο της βάσης, οι έλεγχοι ON/OFF με κανονική εκκίνηση).
+**Εκκρεμότητες:** (α) W8/W9 δεν αποδεικνύονται εργαλειακά· (β) macOS/Linux → **S-318**· (γ) εύρημα UX (enable με
+υπάρχον `appLockPinHash` δεν ζητά νέο PIN) → περιμένει απόφαση χρήστη για νέα εκκρεμότητα. Σειρά εκκρεμοτήτων:
+S-13 → S-19 → S-15 → S-10 → S-01.
+
+### Περιστατικό PIN (κατά το device test)
+Κατά την ενεργοποίηση του lock, η εφαρμογή **δεν** ζήτησε νέο PIN επειδή υπήρχε ήδη `appLockPinHash` από παλιότερη
+συνεδρία (`settings_app_lock_section.dart:87`: dialog μόνο όταν `pinHash == null`) ⇒ το νέο PIN απορριπτόταν και
+το `appLockFailedAttempts` έφτασε 3. Επαναφορά: backup DB (`backups/s317_lockreset_20261115_203731/`) και μηδενισμός
+**μόνο** των πεδίων κλειδώματος (`enabled=false`, `pinHash=null`, `attempts=0`, lockout=0) μέσω προσωρινού test με
+`Isar.initializeIsarCore(libraries: {Abi.current(): .../isar.dll})` — το test-εργαλείο διαγράφηκε μετά. Μετά ο χρήστης
+όρισε νέο PIN, έγιναν τα W3/W6 και το lock έμεινε **OFF** όπως αρχικά.
 
 ### Μαθήματα
 - **Το fail-closed κρύβει σπασμένο OFF path:** όσο η εφαρμογή ήταν κλειδωμένη, ένας handler που αποτύγχανε σε
@@ -6102,6 +6112,7 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 - **Έλεγξε τι *πραγματικά* απομονώνει το sandbox:** μία μεταβλητή περιβάλλοντος δεν σταματά migration που
   διαβάζει `Documents`.
 - **Τα Windows APIs είναι φίλτρα, όχι DRM:** in-process hooks/drivers παρακάμπτουν — τεκμηριώθηκε ρητά στο code comment.
+- **Το `enable` χωρίς νέο PIN είναι παγίδα:** αν υπάρχει ήδη hash, ο χρήστης νομίζει ότι όρισε νέο PIN αλλά ισχύει το παλιό.
 
 
 
