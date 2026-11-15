@@ -5984,6 +5984,106 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 **S-21 Φ1 (D2D) ✅ CLOSED** — manifest/APK/συσκευή επαληθευμένα · analyze clean · **717/717** · lintVital clean.
 **Ανοιχτό:** S-21 Φ2 (Windows `WDA_EXCLUDEFROMCAPTURE`) → **S317** · σειρά: S-13 → S-19 → S-15 → S-10 → S-01.
 
+## Session 317 — 15/11/2026 (S-21 Φ2: Windows capture protection — `WDA_EXCLUDEFROMCAPTURE` + fail-closed native default, device-verified)
+
+### Πρόβλημα
+Το `FLAG_SECURE` (S165) προστατεύει **μόνο** Android. Στα Windows το παράθυρο ήταν ορατό σε screenshots,
+`PrintWindow`, screen share/Game Bar/Recall και taskbar previews — ακόμη και με κλειδωμένη εφαρμογή. Το S-21
+είχε κλείσει μόνο το D2D σκέλος (S316)· το δεύτερο σκέλος έμεινε ανοιχτό ως **S317**.
+
+### Αποφάσεις χρήστη
+- **Δ1 = πρόταση Γ:** native **fail-closed αρχική κατάσταση** (`0x11` στο `OnCreate`, πριν το `Show()` και πριν
+  τρέξει το Dart) + κανάλι `super_note/security` (parity Android). Η **πολιτική** ON/OFF μένει αποκλειστικά
+  στο Dart (`LockGateController`, S165/S-17) — το native είναι «χαζός εκτελεστής».
+- **Δ2:** κανένα UI hint/ειδοποίηση (καμία νέα οθόνη, κανένα string).
+- **Δ3:** macOS/Linux εκτός εμβέλειας ⇒ residual **S-318**.
+- **Δ4:** πλήρης εκτέλεση χωρίς στάσεις (αναστολή κανόνα #4), edits **μόνο** με edit/write tools, backup πριν
+  από κάθε edit, device tests με adb + καθαρισμός στο τέλος.
+
+### Θεμέλια (πραγματικός επανέλεγχος πριν γραφτεί κώδικας)
+- **SDK:** `10.0.26100.0` — τα `WDA_EXCLUDEFROMCAPTURE`/`WDA_NONE` υπάρχουν στο `winuser.h` ✔.
+- **Συμβατότητα flags:** το `apply_standard_settings(flutter_wrapper_app)` δίνει τα **ίδια** flags με το
+  runner ⇒ standalone compile με `/W4 /WX /wd4100 /EHsc /D_HAS_EXCEPTIONS=0 /std:c++17` → **exit 0**.
+- **Παγίδες που βρέθηκαν πριν το build:** (α) forward declaration ως `struct EncodableValue` → **C4099/C2220**
+  (διορθώθηκε σε `class` + `#include <flutter/encodable_value.h>`)· (β) ο destructor του `MethodChannel` είναι
+  `= default` και **δεν** κάνει unregister τον handler (`method_channel.h:96-98`) ⇒ χρειάζεται **ρητό**
+  `SetMethodCallHandler(nullptr)`· (γ) το `OnDestroy` καλείται **δύο φορές** (`WM_DESTROY` + destructor) και μετά
+  το `GetHandle()` είναι `nullptr` ⇒ idempotent καθαρισμός.
+- **`std::get_if` αντί `std::get`:** χτίζουμε με `_HAS_EXCEPTIONS=0`· το `std::get` σε λάθος τύπο πετά (bad_variant_access).
+
+### Αλλαγές (3 αρχεία — 0 γραμμές Dart runtime)
+1. `windows/runner/flutter_window.h` — `#include <flutter/encodable_value.h>` + `<flutter/method_channel.h>`·
+   member `std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> security_channel_` **μετά** τον
+   `flutter_controller_` (καταστρέφεται πριν από αυτόν).
+2. `windows/runner/flutter_window.cpp` — helper `ApplyCaptureAffinity(HWND, DWORD)` (μία πράξη: `Set…` + readback
+   **διαγνωστικό μόνο**) + `TraceSecurity` (`[S317]` μέσω `OutputDebugString`, χωρίς PII)· `kAffinityExcluded/None`·
+   **default ON** στο `OnCreate` πριν το `Show()`· κανάλι `super_note/security` μετά το `RegisterPlugins`·
+   `setSecure(bool)` → `0x11`/`0x0`· `elapsedRealtime` → `NotImplemented` (S-03, ίδια συμπεριφορά με πριν)·
+   **λάθος/απόν όρισμα → `Error`** χωρίς αλλαγή κατάστασης (σκόπιμη απόκλιση από Android)· handler κρατά
+   **`HWND` by value** (καμία εξάρτηση από `this`)· `OnDestroy` → `SetMethodCallHandler(nullptr)` + `reset()`.
+3. `lib/services/security_service.dart` — **μόνο σχόλιο** (πλατφόρμες: Android `FLAG_SECURE` · Windows
+   `WDA_EXCLUDEFROMCAPTURE` · macOS/Linux no-op).
+**Δεν άλλαξαν:** CMake, Dart logic/UI, deps, manifest, Android. iOS parked, macOS/Linux no-op (S-318).
+
+### Έλεγχοι
+- `flutter analyze` → **No issues found** · `flutter build windows --release` → **OK** (warning-clean).
+- **Windows 11 25H2 / build 26100 (`device-test/s317_windows/summary.md`):**
+
+| # | Έλεγχος | Αποτέλεσμα |
+|---|---|---|
+| W1 | Build Release `/W4 /WX` | ✔ exit 0 |
+| W2 | Fail-closed default | ✔ `56ms affinity=0x11 visible=False` — πριν το `Show()` και πριν το Dart |
+| W3 | Lock enabled | ✔ `0x11` συνεχώς, καμία στιγμή `0x0` |
+| W4 | Capture με `0x11` | ✔ `capture_on*.png`: PrintWindow `center=0,0,0 distinct=1` (αποκλεισμένο) |
+| W5 | Capture με `0x0` | ⏳ Απαιτεί `appLockEnabled=false` + PIN (βλ. παρακάτω) |
+| W6 | Toggle χωρίς restart | ⏳ Μαζί με W5 |
+| W7 | Resize/maximize | ✔ affinity επιβιώνει (`0x11` μετά από resize & maximize) |
+| W8 | Alt-Tab/Task View | ⚠ Ασαφές (παρατήρηση, όχι εγγύηση) |
+| W9 | Snipping Tool | ⏳ Χειροκίνητο |
+| W10 | Επίπτωση σε δεδομένα | ⚠ **Διορθώθηκε** — βλ. «Παγίδα» |
+| W11 | Καθαρό κλείσιμο | ✔ `WM_CLOSE` → `exit_code=0` (και στα 2 runs) |
+
+- **Android regression (POCO X3 `9593c01e`, `device-test/s317_android/summary.md`):** `adb install -r` → Success
+  χωρίς απώλεια δεδομένων · app τρέχει (Αρχική με τα υπάρχοντα workspace) · **0** `FATAL`/`E/flutter` ·
+  HOME→relaunch **ίδιο pid** · `flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]` (**χωρίς** `ALLOW_BACKUP`) ·
+  `bmgr backupnow` → «**Backup is not allowed**» · `dumpsys backup` χωρίς την εφαρμογή · με lock **OFF**
+  (τρέχουσα κατάσταση συσκευής): **κανένα** `SECURE` flag + `screencap` 208 KB (σωστό). Η enabled-path
+  **δεν** επαναλήφθηκε (θα άλλαζε settings χρήστη· ο Android κώδικας δεν άλλαξε — S316: `fl=SECURE` + 0-byte screencap).
+
+### Παγίδα (και διόρθωση)
+Το sandbox `LOCALAPPDATA` **δεν** απομονώνει το S-01 migration: legacy root = `getApplicationDocumentsDirectory()`
+(`C:\Users\Vaggelis\Documents`), ανεξάρτητο από τη μεταβλητή. Το πρώτο run **μετέφερε** (rename) τα πραγματικά
+δεδομένα (DB + 12 συνημμένα) μέσα στο sandbox. Αποκατάσταση: εντοπίστηκαν στο `.migration_safety/pre_s01_*.isar`
+(byte-identical), επαναφέρθηκαν στη **σωστή** θέση `%LOCALAPPDATA%\SuperNoteData` (DB 5.242.880 B, hash ✔·
+12/12 συνημμένων hash ✔), `Documents` καθαρό, sandbox/αντίγραφα/άδειος support dir διαγράφηκαν.
+Το `Documents` είναι **Controlled Folder Access** (Defender) ⇒ εγγραφές από PowerShell μπλοκάρονται — η
+επαναφορά στο Documents απέτυχε και **δεν** επιμείναμε εκεί (θα ήταν και λάθος θέση).
+**Μάθημα:** για Windows tests χρειάζεται αντιγραφή/επαναφορά του `%LOCALAPPDATA%\SuperNoteData` **πριν** το run.
+
+### Docs
+`security_v2.md` → **v2.7** (header/μέθοδος, «Διορθώσεις v2.7» με S317 + evidence + S-318, γραμμή S-21 ✅,
+πλάνο βήμα 17 ✅, Κατάσταση υλοποίησης, Περιορισμοί) + διόρθωση **stale** paths του S-01 (πλέον
+`AppPaths.dataRoot()`/`data_root_migration.dart`, όχι Documents/`getApplicationSupportDirectory()`) ·
+`supernote.md` → §SecurityService (νέο bullet Windows S317 + «macOS/Linux no-op (S-318)»).
+
+### Backups
+`backups/s317_s21w_20261115_195007/` (3 αρχεία κώδικα) · `backups/s317_docs_20261115_201801/` (3 docs).
+
+### Κατάσταση
+**S-21 Φ2 (Windows) ✅ CLOSED** — fail-closed default, capture exclusion, resize/maximize, clean exit: **device-verified**.
+**Εκκρεμότητες:** (α) W5/W6 device test με `appLockEnabled=false` (2λεπτη ενέργεια χρήστη· κώδικας ίδιος με Android)·
+(β) W8/W9 δεν αποδεικνύονται εργαλεία-εξωτερικά· (γ) macOS/Linux → **S-318**. Σειρά εκκρεμοτήτων: S-13 → S-19 → S-15 → S-10 → S-01.
+
+### Μαθήματα
+- **Το «fail-closed» ανήκει στο native όταν το Dart έρχεται αργότερα:** με default OFF θα υπήρχε παράθυρο
+  διαρροής από το πρώτο frame μέχρι το πρώτο `setSecure`.
+- **Ο destructor του `MethodChannel` δεν αποσυνδέει handler** — χωρίς ρητό unregister μένει εγγραφή στον messenger.
+- **`std::get` + `_HAS_EXCEPTIONS=0` = arm παγίδα**· `std::get_if` δίνει καθαρό `nullptr` και fail-closed `Error`.
+- **Έλεγξε τι *πραγματικά* απομονώνει το sandbox:** μία μεταβλητή περιβάλλοντος δεν σταματά migration που
+  διαβάζει `Documents`.
+- **Τα Windows APIs είναι φίλτρα, όχι DRM:** in-process hooks/drivers παρακάμπτουν — τεκμηριώθηκε ρητά στο code comment.
+
+
 
 
 

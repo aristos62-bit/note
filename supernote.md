@@ -636,10 +636,11 @@ final db = SuperNoteHelper.instance;
 
 ### SecurityService (`lib/services/security_service.dart`)
 - Android `MethodChannel("super_note/security")` → `FLAG_SECURE` — πρώτο MethodChannel (S165)
+- **Windows (S317):** `windows/runner/flutter_window.cpp` → `SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)`: αποκλείει το παράθυρο από screenshots/PrintWindow/screen share/Game Bar/Recall (δεν είναι DRM)· **fail-closed default στο `OnCreate`** (πριν το `Show()` και πριν τρέξει το Dart) + κανάλι `super_note/security` (parity Android): `setSecure` → `0x11`/`0x0`, `elapsedRealtime` `notImplemented`· handler κρατά `HWND` **by value**· ρητό `SetMethodCallHandler(nullptr)` + reset στο `OnDestroy` (ο destructor του `MethodChannel` δεν κάνει unregister)· λάθος τύπος ορίσματος ⇒ `Error` χωρίς αλλαγή κατάστασης· readback = διαγνωστικό· Windows <10 2004 ⇒ `WDA_MONITOR` (μαύρο)
 - **S-307:** δεύτερο channel `super_note/files` (`FileSaveChannel` → `MainActivity`): `saveDocument` (SAF `ACTION_CREATE_DOCUMENT` μέσω `registerForActivityResult` + streaming copy 1 MB + `copyProgress` events) και `freeSpace` (`StatFs.availableBytes`). `FlutterFragmentActivity` (αντί `FlutterActivity`) απαιτείται για το contract.
 - `setSecure(bool)` — **idempotent (S-17)**: ίδια τιμή ⇒ skip· οι αποτυχίες **δεν** cache-άρονται (retry)· 2s timeout· warn-once· `resetForTest()`
 - `elapsedRealtimeMs({force})` (S-03) — monotonic ms από boot (`SystemClock.elapsedRealtime`, περιλαμβάνει deep sleep)· ~1s cache· `null` σε αποτυχία/πλατφόρμα χωρίς API (fallback wall) — **ποτέ throw**
-- Πολιτική: ON όσο lock-enabled· OFF μόνο με επιβεβαιωμένο disabled· άγνωστο/σφάλμα ⇒ ON. Άλλες πλατφόρμες no-op· iOS parked
+- Πολιτική: ON όσο lock-enabled· OFF μόνο με επιβεβαιωμένο disabled· άγνωστο/σφάλμα ⇒ ON. macOS/Linux no-op (**S-318**)· iOS parked
 - Hooks: gate cold/reassert (postFrame) + settings toggle (μετά update)
 - **Manifest permissions (S-22/S-12, S299):** μόνο `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `READ_CONTACTS` (+ plugin `USE_BIOMETRIC`/`USE_FINGERPRINT`). `tools:node="remove"` για `READ_MEDIA_*` + `READ_EXTERNAL_STORAGE` του `open_filex` — ανοίγουμε **μόνο** paths εντός `dataDir` (`AttachmentPathGuard`).
 

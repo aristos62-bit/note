@@ -1,8 +1,14 @@
 // lib/services/security_service.dart
 //
-// Πρώτο MethodChannel του project (Android FLAG_SECURE):
-// μπλοκάρει recents-thumbnail + screenshots/screen-record όσο το
-// app-lock είναι ενεργό. Άλλες πλατφόρμες → no-op (MissingPlugin).
+// Πρώτο MethodChannel του project — προστασία περιεχομένου όσο το app-lock
+// είναι ενεργό. Η πολιτική ON/OFF είναι αποκλειστικά του Dart (S165/S-17,
+// LockGateController): το native είναι «χαζός εκτελεστής» και στα Windows
+// ξεκινά fail-closed (ON), ώστε να μην υπάρχει παράθυρο διαρροής.
+//   • Android: FLAG_SECURE — μπλοκάρει recents-thumbnail + screenshots/record.
+//   • Windows (S317): WDA_EXCLUDEFROMCAPTURE — αποκλείει το παράθυρο από τα
+//     capture APIs (screenshots, PrintWindow, screen share, Game Bar, Recall).
+//     Δεν είναι DRM· Windows < 2004 συμπεριφέρεται ως WDA_MONITOR (μαύρο).
+//   • macOS/Linux: no-op (MissingPlugin) — residual.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
