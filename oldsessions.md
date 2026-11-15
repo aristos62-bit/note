@@ -6038,7 +6038,7 @@ Windows build. Καμία νέα permission, καμία migration, ίδια υπ
 | W5 | Capture με `0x0` (lock OFF) | ✔ `capture_lockoff.png`: `center=255,238,88 distinct=20` (περιεχόμενο) |
 | W6 | Toggle χωρίς restart (και οι δύο κατευθύνσεις) | ✔ `affinity_timeline_lockoff.txt`: `44ms 0x11` → `1788ms 0x0` (Dart) · **απενεργοποίηση από Ρυθμίσεις με την εφαρμογή ανοιχτή**: ίδιο `pid=16164`, `0x0` σε **6/6** δείγματα, `capture_off_toggle.png` = Ρυθμίσεις με switch **OFF** (`affinity_timeline_toggle_off.txt`) |
 | W7 | Resize/maximize | ✔ affinity επιβιώνει (`0x11` μετά από resize & maximize) |
-| W8 | Alt-Tab/Task View | ✔ **Εργαλειακά:** με lock ON (`0x11`) και Alt+Tab ανοιχτό, το screenshot οθόνης (`w8_altab_open*.png`) δείχνει το tile της εφαρμογής **μαύρο/κενό**· η «με περιεχόμενο» εικόνα ήταν το **Android Studio** (project window με τίτλο `super_note`, affinity `0x0`) |
+| W8 | Alt-Tab/Task View | ⚠ **Παρατήρηση χρήστη (ισχύει):** στην οθόνη το tile δείχνει **ζωντανό περιεχόμενο** — φυσιολογικό, γιατί το DWM preview ζωγραφίζεται στην οθόνη και η affinity κόβει μόνο τα **capture APIs** (το ίδιο tile στο screenshot είναι μαύρο, φωτεινότητα 5/255). Δεν είναι διαρροή εκτός οθόνης· καταγράφηκε ως περιορισμός (P4). |
 | W9 | Snipping Tool (`Win+Shift+S`) | ✔ **Χειροκίνητο (χρήστης):** με lock ON το snipping βλέπει ό,τι είναι **πίσω** από το παράθυρο — η εφαρμογή δεν περιλαμβάνεται |
 | W10 | Επίπτωση σε δεδομένα | ⚠ **Διορθώθηκε** — βλ. «Παγίδα» |
 | W11 | Καθαρό κλείσιμο | ✔ `WM_CLOSE` → `exit_code=0` (και στα 2 runs) |
@@ -6113,7 +6113,8 @@ S-13 → S-19 → S-15 → S-10 → S-01.
   διαβάζει `Documents`.
 - **Τα Windows APIs είναι φίλτρα, όχι DRM:** in-process hooks/drivers παρακάμπτουν — τεκμηριώθηκε ρητά στο code comment.
 - **Το `enable` χωρίς νέο PIN είναι παγίδα:** αν υπάρχει ήδη hash, ο χρήστης νομίζει ότι όρισε νέο PIN αλλά ισχύει το παλιό.
-- **Ίδιος τίτλος παραθύρου = λάθος συμπέρασμα:** το Android Studio έχει project window με τίτλο `super_note`· η «διαρροή» στο Alt+Tab ήταν αυτό, όχι η εφαρμογή. Πριν βγει συμπέρασμα, ταυτοποίησε το παράθυρο με `pid`/`hwnd` (όχι με τον τίτλο).
+- **Ίδιος τίτλος παραθύρου = λάθος συμπέρασμα:** το Android Studio έχει project window με τίτλο `super_note`· πριν βγει συμπέρασμα, ταυτοποίησε το παράθυρο με `pid`/`hwnd`.
+- **Screenshot ≠ τι βλέπει ο χρήστης:** το `WDA_EXCLUDEFROMCAPTURE` κόβει τα **capture APIs**, όχι το DWM preview που ζωγραφίζεται στην οθόνη. Άρα Alt+Tab/Task View δείχνουν ζωντανό περιεχόμενο **στο μόνιτορ**, ενώ το screenshot της ίδιας στιγμής το δείχνει μαύρο — μη βγάζεις συμπέρασμα για την οθόνη από screenshot.
 
 
 

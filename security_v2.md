@@ -230,5 +230,6 @@
 - **S-18/S-23** χρειάζονται device test: restore raw `.isar` με `localPath` εκτός `attachments/` και απόπειρα open/share/delete/save/thumb.
 - **S-09/S-10:** αν το APK/exe διανεμηθεί σε τρίτους, η σοβαρότητα ανεβαίνει.
 - **S-21 (D2D)** — ✅ S316 σε επίπεδο **manifest/APK/συσκευής** (`aapt2` + `bmgr backupnow` → «Backup is not allowed»)· η **πραγματική μεταφορά** σε νέο κινητό (2 συσκευές, π.χ. Pixel/Samsung) παραμένει **OEM-dependent** και δεν είναι επαληθεύσιμη εδώ. **S317:** το σκέλος **Windows** έκλεισε (`WDA_EXCLUDEFROMCAPTURE`)· macOS/Linux μένουν no-op ⇒ **S-318**.
+- **S-21 Windows — Alt+Tab / Task View:** το preview ζωγραφίζεται από το DWM **στην οθόνη** και δείχνει **ζωντανό περιεχόμενο** με lock ON· τα capture APIs (screenshot, PrintWindow, screen share, Snipping Tool, Game Bar) είναι **αποκλεισμένα** (device-verified W3/W8/W9 — το ίδιο tile στο screenshot είναι μαύρο). Δεν είναι διαρροή εκτός οθόνης· περιορισμός, όχι bug (E52).
 - **iOS:** υπάρχουν `NSContactsUsageDescription` + `NSFaceIDUsageDescription`, αλλά **λείπουν** `NSPhotoLibraryUsageDescription`/`NSCameraUsageDescription` για `image_picker` (crash, όχι κενό ασφάλειας)· iOS παραμένει parked.
 - **Backups:** 148 tracked αρχεία στο repo (S-14) περιέχουν παλιό κώδικα/docs — όχι δεδομένα χρήστη, αλλά παραμένουν δημόσια.

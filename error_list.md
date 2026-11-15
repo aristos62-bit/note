@@ -45,6 +45,7 @@
 - **E50-B** (SAF/εξωτερικός προορισμός auto backups) · **E50-C** (iOS path) — χωρίς ID.
 - **macOS/Linux προστασία περιεχομένου = no-op** (`MissingPlugin`) — ακολουθείται ως **S-318** στο `security_v2.md`, όχι ως κάρτα εδώ.
 - **W8 Reminder:** η εγγραφή S-21 στα docs αναφέρει «φίλτρα, όχι DRM» — in-process hooks/drivers παρακάμπτουν.
+- **Alt+Tab / Task View με lock ON:** το preview δείχνει ζωντανό περιεχόμενο **στην οθόνη** (DWM, όχι capture API)· τα capture APIs παραμένουν κλειστά. Περιορισμός, όχι bug (`E52`).
 
 ---
 
@@ -57,12 +58,12 @@
 - **Πρόταση (καμία αλλαγή κώδικα ακόμη):** στο enable, αν `pinHash != null` → dialog με ρητή επιλογή **«Όρισε νέο PIN» / «Χρήση υπάρχοντος»** (default: νέο)· εναλλακτικά πάντα dialog ορίσμου. **Side effects προς έλεγχο:** `appLockPinLength`, `appLockFailedAttempts`/lockout reset, `LockGateController.applySettings` (S-17), βιομετρικό path, tests του `settings_app_lock_section`.
 - **Κατάσταση:** ⏳ ανοιχτό (απόφαση χρήστη S317: καταγραφή).
 
-### E52 — Alt+Tab / Task View thumbnail με lock ON (Windows) — ✅ **CLOSED 15/11/2026 (S317, διάψευση)**
+### E52 — Alt+Tab / Task View thumbnail με lock ON (Windows) — ✅ **CLOSED 15/11/2026 (S317, περιορισμός by design)**
 
-- **Αρχική αναφορά (χρήστης):** με lock ON το thumbnail έδειχνε περιεχόμενο.
-- **Έλεγχος (`device-test/s317_windows/probe_altab_w8.ps1`):** με `affinity=0x11` (pid 14288), Alt+Tab κρατήθηκε ανοιχτό και τραβήχτηκε screenshot οθόνης → το tile της εφαρμογής είναι **μαύρο/κενό** (`w8_altab_open*.png`, `altab_w8_result.txt`).
-- **Αιτία της σύγχυσης:** το **Android Studio** έχει project window με τίτλο `super_note` (`studio64`, `affinity=0x0`) — αυτό έδειχνε περιεχόμενο (`list_windows.ps1`). Άρα **καμία διαρροή**· η affinity καλύπτει και τα DWM thumbnails.
-- **Απόφαση:** κλείνει χωρίς αλλαγή κώδικα (P4/καμία ενέργεια).
+- **Παρατήρηση χρήστη (ισχύει):** στην οθόνη το tile της εφαρμογής δείχνει **ζωντανό περιεχόμενο** με lock ON.
+- **Μηχανισμός:** το `WDA_EXCLUDEFROMCAPTURE` αποκλείει το παράθυρο από τα **capture APIs** (screenshot, PrintWindow, screen share, Snipping Tool — όλα device-verified κενά/αποκλεισμένα). Το Alt+Tab / Task View preview **δεν** είναι capture: ζωγραφίζεται από το DWM **στην οθόνη** και δείχνει ό,τι ήδη φαίνεται στο μόνιτορ. Το ίδιο tile στο screenshot βγαίνει **μαύρο** (`w8_on_altab_open.png`, φωτεινότητα 5/255).
+- **Δεν είναι διαρροή εκτός οθόνης** — είναι ορατότητα στην ίδια οθόνη, όπου η εφαρμογή είναι ξεκλείδωτη όσο τρέχει (το lock εφαρμόζεται σε cold start/resume).
+- **Απόφαση:** κλείνει ως **P4/περιορισμός** χωρίς αλλαγή κώδικα. Αν ποτέ ζητηθεί απόκρυψη και στο preview, χρειάζεται διαφορετική προσέγγιση (π.χ. blur/overlay όταν χάνει focus) — νέα πρόταση, όχι αυτό το εύρημα.
 
 ---
 
@@ -71,7 +72,7 @@
 > **Ιστορικό:** `oldsessions.md` + `backups/s293_e06_close/error_list.md.final` (E01–E47) + `backups/e48_filtered_empty_20261105_180802/error_list.md.final` (E48) + `backups/s305_e50_20261113_142733/error_list.md.final` (E49, E50).
 > **S304/S305:** `E49` ✅ CLOSED · `E50` ✅ CLOSED & DEVICE-VERIFIED.
 > **S317 (χωρίς E-ID, security):** S-21 Φ2 **Windows ✅ CLOSED** — `WDA_EXCLUDEFROMCAPTURE` fail-closed + live toggle ON/OFF, device-verified (W3/W6/W8/W9)· Android regression OK· macOS/Linux = **S-318**. Διορθώθηκε bug parsing του `{'secure': bool}` (commit `18b2d7c`).
-> **S317:** `E52` ✅ **CLOSED (διάψευση)** — Alt+Tab thumbnail **κενό** με `0x11`· η «διαρροή» ήταν το Android Studio (ίδιος τίτλος `super_note`).
+> **S317:** `E52` ✅ **CLOSED (περιορισμός)** — Alt+Tab/Task View preview = ζωντανό περιεχόμενο στην οθόνη (DWM), τα capture APIs παραμένουν αποκλεισμένα· δεν είναι bug.
 
 ---
 
