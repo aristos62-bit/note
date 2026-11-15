@@ -6157,6 +6157,80 @@ S-13 → S-19 → S-15 → S-10 → S-01.
 - **Το `+N` είναι το μόνο μονότονο κριτήριο** που βλέπουν τα stores/`adb install -r` ⇒ «ποτέ μείωση».
 - **Δεν έγινε δεύτερος tracker:** ο κανόνας ζει στο `AGENTS.md`, η πρόοδος εδώ — καμία παράλληλη λίστα (κανόνας 9).
 
+---
+
+## Session 319 — 15/11/2026 (E51/Ο13: ρητή επιλογή PIN στο enable του app-lock)
+
+### Στόχος
+Το **E51**: με υπάρχον `appLockPinHash` το enable του κλειδώματος **δεν** ζητούσε PIN —
+κρατούσε σιωπηλά το παλιό hash. Ο χρήστης νόμιζε ότι έθεσε νέο PIN και ανακάλυπτε το
+πρόβλημα μόνο στο lock screen (περιστατικό S317). Ανατέθηκε η **Ο13** ως ενιαία αλλαγή.
+
+### Απόφαση σχεδίασης
+- Στο enable: `appLockPinHash == null` → **αμετάβλητη** ροή (set-PIN dialog).
+- `appLockPinHash != null` → νέο `showEnableLockPinChoiceDialog` με:
+  - **«Ορισμός νέου PIN»** → set-PIN dialog → αντικατάσταση hash.
+  - **«Χρήση υπάρχοντος PIN»** → **επαλήθευση** με το υπάρχον PIN **πριν** το κλείδωμα.
+  - **«Ακύρωση»** → `null` → κανένα write, switch μένει OFF.
+- Γιατί έλεγχος στο «υπάρχον»: δεν υπάρχει in-app recovery path — λάθος/ξεχασμένο PIN
+  θα οδηγούσε σε μη αναστρέψιμο lock.
+- Δεν χρησιμοποιήθηκε `ConfirmDialog` (επιστρέφει `bool`: η ακύρωση θα ταυτιζόταν σιωπηλά
+  με «χρήση υπάρχοντος»).
+- Χωρίς `_resetLockout` στο «υπάρχον» (η επαλήθευση περνά από το κανονικό gate).
+
+### Αλλαγές κώδικα
+| Αρχείο | Τι |
+|---|---|
+| `lib/features/settings/settings_pin_dialogs.dart` | `enum AppLockEnablePinChoice { newPin, useExisting }` + `showEnableLockPinChoiceDialog` (μετά το `validatePinPair`)· στενό import `../../shared/widgets/safe_dialog.dart` |
+| `lib/features/settings/settings_app_lock_section.dart` | enable branch (γρ. 85-103): choice → newPin/useExisting → verify |
+| `test/settings_app_lock_section_test.dart` | 4 νέα tests στο group `toggle` |
+
+### Έλεγχοι
+- `flutter analyze` → **No issues found**.
+- `flutter test` → **721/721 PASS** (baseline 717 → +4, 12/12 στο app-lock file).
+- Build: `flutter build apk --release` → 69.9MB · `adb install -r` **Success** ·
+  `versionName=1.2.1`, `versionCode=5` · UI «1.2.1 (build 5)».
+
+### Device test (POCO X3 `9593c01e`, 1080x2400) — `device-test/s319/summary.md`
+| Σενάριο | Αποτέλεσμα |
+|---|---|
+| Enable **χωρίς** hash → set-PIN dialog (regression) | ✅ αμετάβλητο |
+| Re-enable **με** hash → choice dialog | ✅ εμφανίστηκε (key evidence `10_choice_dialog.png`) |
+| «Χρήση υπάρχοντος» + επαλήθευση `582964` → lock → unlock `582964` | ✅ hash **αμετάβλητο** |
+| «Ορισμός νέου PIN» `715309` → lock → unlock `715309` | ✅ αντικατάσταση hash |
+| «Ακύρωση» | ✅ switch **OFF**, κανένα write |
+
+- **0-byte PNG όσο το lock είναι ON** = αναμενόμενο `FLAG_SECURE` (evidence ότι το lock
+  ενεργό)· `uiautomator dump` δουλεύει κανονικά για navigation.
+- Καθαρισμός: διαγράφηκαν `/sdcard/s319.png` + `/sdcard/ui.xml`, lock επανήλθε **OFF**,
+  κανένα δεδομένο χρήστη δεν δημιουργήθηκε.
+
+### Versioning (κανόνας 13)
+`1.2.0+4` → **`1.2.1+5`** — **PATCH** (`X.Y.Z+1`): fix χωρίς νέο feature/schema· `+N` +1.
+Συγχρονίστηκαν: `pubspec.yaml`, `supernote.md` (`| Version |`), `note_eco_new.iss`
+(`AppVersion=1.2.1` + `VersionInfoVersion=1.2.1.5`). Το `supernote.md` πήρε μόνο
+metadata (Version + test counter ×2) — **καμία αλλαγή αρχιτεκτονικής**.
+
+### Backups & tracker
+- `backups/s319_e51_20261115_214150/` — 8 `.bak` (pin_dialogs, app_lock_section, test,
+  pubspec, .iss, supernote, oldsessions, error_list) + `error_list.md.final`.
+- `error_list.md`: **E51 ✅ CLOSED**, **Ο13 κλειστή** → αρχειοθέτηση + διαγραφή (precedent
+  S305) ⇒ **0 ανοιχτά**.
+
+### Commit
+`fix(settings): explicit PIN choice on app-lock enable (E51/Ο13)` +
+`chore(release): bump 1.2.1+5` (ξεχωριστά, κανόνας 13).
+
+### Μαθήματα
+- **Σιωπηλή επανάχρηση = παγίδα UX:** ό,τι κάνει το σύστημα «αυτόματα» σε θέμα
+  ασφαλείας πρέπει να είναι **ορατό** στην ίδια ενέργεια που το προκαλεί.
+- **Επιβεβαίωση ΠΡΙΝ το κλείδωμα:** χωρίς recovery path, η απόδειξη γνώσης του PIN
+  είναι η μόνη δικλείδα κατά του μη αναστρέψιμου lock.
+- **`bool` dialogs για τριπλές επιλογές = λάθος εργαλείο:** `null` ≠ `false` χρειάστηκε
+  ρητό nullable enum.
+- **Το `FLAG_SECURE` παράγει 0-byte screenshots** — μη το μπερδέψεις με αποτυχία capture·
+  είναι evidence.
+
 
 
 
