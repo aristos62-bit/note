@@ -87,6 +87,25 @@ class _SettingsAppLockSectionState extends ConsumerState<SettingsAppLockSection>
       if (v && _s.appLockPinHash == null) {
         pin = await showSetPinDialog(context, ref);
         if (pin == null || !mounted) return;
+      } else if (v) {
+        // E51/Ο13: υπάρχει ήδη PIN (π.χ. μετά από απενεργοποίηση — το hash
+        // διατηρείται) → ρητή επιλογή αντί σιωπηλής επαναχρήσης, που ο
+        // χρήστης την ανακάλυπτε μόνο στο lock screen (S317).
+        final choice = await showEnableLockPinChoiceDialog(context);
+        if (choice == null || !mounted) return; // Ακύρωση = καμία αλλαγή
+        if (choice == AppLockEnablePinChoice.newPin) {
+          pin = await showSetPinDialog(context, ref);
+          if (pin == null || !mounted) return;
+        } else {
+          // «Υπάρχον»: απόδειξη γνώσης ΠΡΙΝ το κλείδωμα. Χωρίς αυτό, λάθος
+          // PIN θα οδηγούσε σε μη αναστρέψιμο lock (δεν υπάρχει recovery).
+          final ok = await showCurrentPinDialog(
+            context,
+            ref,
+            subtitle: 'Επιβεβαιώστε το PIN που χρησιμοποιείτε για ξεκλείδωμα',
+          );
+          if (!ok || !mounted) return;
+        }
       }
 
       final updated = await _write((s) {

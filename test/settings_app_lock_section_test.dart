@@ -296,6 +296,135 @@ void main() {
       await tester.pumpAndSettle();
       expect(calls, 1);
     });
+
+    testWidgets('enable με υπάρχον PIN → «Ορισμός νέου PIN» → νέο hash + lock',
+        (tester) async {
+      const newPin = '715309';
+      final oldHash = _realHash();
+      final writes = <AppSettings>[];
+      final c = _container((updater) async {
+        final s = _base(hash: oldHash);
+        updater(s);
+        writes.add(s);
+        return s;
+      });
+
+      await tester.pumpWidget(_app(c, _base(hash: oldHash)));
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      // E51/Ο13: ρητή επιλογή — κανένα write πριν την απόφαση.
+      expect(find.text('Ενεργοποίηση κλειδώματος'), findsOneWidget);
+      expect(writes, isEmpty);
+
+      await tester.tap(find.text('Ορισμός νέου PIN'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ορισμός PIN'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).at(0), newPin);
+      await tester.enterText(find.byType(TextField).at(1), newPin);
+      await tester.pump(); // flush το onChanged/rebuild πριν το tap
+
+      await tester.tap(find.text('Ορισμός'));
+      await tester.pumpAndSettle();
+
+      expect(writes, hasLength(1));
+      expect(writes.single.appLockEnabled, isTrue);
+      expect(writes.single.appLockPinHash, isNot(oldHash));
+      expect(writes.single.appLockPinLength, 6);
+      expect(AppLockService.instance.isLocked, isTrue);
+    });
+
+    testWidgets(
+        'enable με υπάρχον PIN → «Χρήση υπάρχοντος» + επαλήθευση → '
+        'hash αμετάβλητο', (tester) async {
+      final oldHash = _realHash();
+      final forStore = _lockedSettings(); // γνωστό PIN για το store
+      final writes = <AppSettings>[];
+      final c = _container(
+        (updater) async {
+          final s = _base(hash: oldHash);
+          updater(s);
+          writes.add(s);
+          return s;
+        },
+        reader: () async => forStore,
+      );
+
+      await tester.pumpWidget(_app(c, _base(hash: oldHash)));
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Χρήση υπάρχοντος PIN'));
+      await tester.pumpAndSettle();
+
+      // Απόδειξη γνώσης του υπάρχοντος PIN πριν το κλείδωμα.
+      expect(find.text('Επιβεβαίωση'), findsOneWidget);
+      expect(writes, isEmpty);
+
+      await tester.enterText(find.byType(TextField).first, _pin);
+      await tester.pump();
+      await tester.tap(find.text('Επαλήθευση'));
+      await tester.pumpAndSettle();
+
+      expect(writes, hasLength(1));
+      expect(writes.single.appLockEnabled, isTrue);
+      expect(writes.single.appLockPinHash, oldHash); // αμετάβλητο
+      expect(writes.single.appLockPinLength, 6);
+      expect(AppLockService.instance.isLocked, isTrue);
+    });
+
+    testWidgets(
+        'enable με υπάρχον PIN → «Χρήση υπάρχοντος» → ακύρωση '
+        'επαλήθευσης → κανένα write', (tester) async {
+      final oldHash = _realHash();
+      final writes = <AppSettings>[];
+      final c = _container(
+        (updater) async {
+          final s = _base(hash: oldHash);
+          updater(s);
+          writes.add(s);
+          return s;
+        },
+        reader: () async => _lockedSettings(),
+      );
+
+      await tester.pumpWidget(_app(c, _base(hash: oldHash)));
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Χρήση υπάρχοντος PIN'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ακύρωση'));
+      await tester.pumpAndSettle();
+
+      expect(writes, isEmpty);
+      expect(c.read(appLockStateProvider), isFalse);
+      expect(AppLockService.instance.isLocked, isFalse);
+    });
+
+    testWidgets('enable με υπάρχον PIN → Ακύρωση επιλογής → κανένα write',
+        (tester) async {
+      final oldHash = _realHash();
+      final writes = <AppSettings>[];
+      final c = _container((updater) async {
+        final s = _base(hash: oldHash);
+        updater(s);
+        writes.add(s);
+        return s;
+      });
+
+      await tester.pumpWidget(_app(c, _base(hash: oldHash)));
+      await tester.tap(find.byType(Switch).first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ακύρωση'));
+      await tester.pumpAndSettle();
+
+      expect(writes, isEmpty);
+      expect(c.read(appLockStateProvider), isFalse);
+      expect(AppLockService.instance.isLocked, isFalse);
+    });
   });
 
   group('SettingsLockTimeoutTile', () {

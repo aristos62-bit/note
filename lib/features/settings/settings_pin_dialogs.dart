@@ -11,6 +11,7 @@ import '../../core/core.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
+import '../../shared/widgets/safe_dialog.dart';
 
 /// Pure PIN validation (testable): null = έγκυρο ζεύγος.
 /// S-03: νέο PIN = τουλάχιστον 6 ψηφία + όχι τετριμμένο.
@@ -19,6 +20,74 @@ String? validatePinPair(String pin, String confirm) {
   if (AppLockService.isWeakPin(pin)) return AppErrors.pinTooWeak;
   if (pin != confirm) return AppErrors.pinMismatch;
   return null;
+}
+
+/// E51/Ο13: επιλογή κατά την ενεργοποίηση όταν υπάρχει ήδη PIN.
+enum AppLockEnablePinChoice { newPin, useExisting }
+
+/// E51/Ο13: ρητή επιλογή «νέο PIN» / «υπάρχον» πριν το enable.
+///
+/// Επιστρέφει `null` σε ακύρωση (κουμπί/back/barrier) — ο caller δεν γράφει
+/// τίποτα. Δεν χρησιμοποιείται `ConfirmDialog` (επιστρέφει `bool`): εκεί η
+/// ακύρωση θα ταυτιζόταν σιωπηλά με το «χρήση υπάρχοντος».
+Future<AppLockEnablePinChoice?> showEnableLockPinChoiceDialog(
+  BuildContext context,
+) {
+  DebugConfig.nav('Settings: open enable-lock PIN choice dialog');
+
+  return showDialog<AppLockEnablePinChoice>(
+    context: context,
+    useRootNavigator: true,
+    builder: (ctx) => AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.lock_outline_rounded),
+          SizedBox(width: Spacing.sm),
+          Expanded(child: Text('Ενεργοποίηση κλειδώματος')),
+        ],
+      ),
+      content: SafeDialogBody(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Υπάρχει ήδη PIN από προηγούμενη χρήση του κλειδώματος.',
+              style: ctx.bodyMd,
+            ),
+            const SizedBox(height: Spacing.md),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.pin_rounded, color: ctx.cPrimary),
+              title: Text('Ορισμός νέου PIN', style: ctx.bodyMd),
+              subtitle: Text(
+                'Αντικαθιστά το παλιό',
+                style: ctx.bodySm.withColor(ctx.cText2),
+              ),
+              onTap: () => Navigator.pop(ctx, AppLockEnablePinChoice.newPin),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.lock_open_rounded, color: ctx.cText2),
+              title: Text('Χρήση υπάρχοντος PIN', style: ctx.bodyMd),
+              subtitle: Text(
+                'Θα ζητηθεί μία φορά επιβεβαίωση',
+                style: ctx.bodySm.withColor(ctx.cText2),
+              ),
+              onTap: () =>
+                  Navigator.pop(ctx, AppLockEnablePinChoice.useExisting),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, null),
+          child: const Text('Ακύρωση'),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<String?> showSetPinDialog(BuildContext context, WidgetRef ref) async {
