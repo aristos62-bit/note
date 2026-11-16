@@ -1,6 +1,6 @@
 # SuperNote — Πλήρης Τεκμηρίωση Εφαρμογής
 
-> **⚠️ ΕΚΚΡΕΜΟΤΗΤΕΣ & ΠΡΟΟΔΟΣ (15/11/2026, S319):** **0 ανοιχτές εκκρεμότητες** — ο tracker **`error_list.md`** αρχειοθετήθηκε στο `backups/s319_e51_20261115_214150/error_list.md.final` και διαγράφηκε (τελικά: E51/Ο13/S319, E52/S317, E49/S304, E50/S305)· αν προκύψει **νέο εύρημα**, το `error_list.md` **επαναδημιουργείται** (μοναδική πηγή, AGENTS.md #6/#9). Η **πρόοδος** καταγράφεται στο **`oldsessions.md`** — και εδώ **μόνο** αν άλλαξε αρχιτεκτονική — όταν μια εκκρεμότητα κλείσει **οριστικά** (AGENTS.md #9). Το παρόν αρχείο περιέχει **μόνο αρχιτεκτονική**· τυχόν status/lists εδώ (Error Handling, Performance Notes, test counter κ.λπ.) είναι **ενδεικτικά και πιθανόν stale** — δεν αποτελούν tracker και **δεν** ενημερώνονται για εκκρεμότητες.
+> **⚠️ ΕΚΚΡΕΜΟΤΗΤΕΣ & ΠΡΟΟΔΟΣ (16/11/2026, S321):** **0 ανοιχτές εκκρεμότητες** — ο tracker **`error_list.md`** αρχειοθετήθηκε στο `backups/s321_plugin_fork_20261116/error_list.md.final` και διαγράφηκε (τελικά: E53/S321, E51/Ο13/S319, E52/S317, E49/S304, E50/S305)· αν προκύψει **νέο εύρημα**, το `error_list.md` **επαναδημιουργείται** (μοναδική πηγή, AGENTS.md #6/#9). Η **πρόοδος** καταγράφεται στο **`oldsessions.md`** — και εδώ **μόνο** αν άλλαξε αρχιτεκτονική — όταν μια εκκρεμότητα κλείσει **οριστικά** (AGENTS.md #9). Το παρόν αρχείο περιέχει **μόνο αρχιτεκτονική**· τυχόν status/lists εδώ (Error Handling, Performance Notes, test counter κ.λπ.) είναι **ενδεικτικά και πιθανόν stale** — δεν αποτελούν tracker και **δεν** ενημερώνονται για εκκρεμότητες.
 
 ## Στοιχεία Έργου
 
@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **721/721** (`flutter test`, 15/11/2026 — `flutter analyze` clean) |
+| Test suite | **742/742** (`flutter test`, 16/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -1159,7 +1159,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (721/721 🟢) |
+| `flutter test` | Πλήρες suite (742/742 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

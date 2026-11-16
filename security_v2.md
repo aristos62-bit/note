@@ -1,6 +1,6 @@
-# SuperNote — Έκθεση Ασφάλειας (v2.7)
+# SuperNote — Έκθεση Ασφάλειας (v2.8)
 
-**Έκδοση:** v2.7 · 15/11/2026 · **v2.6:** 15/11/2026 · **v2.5:** 15/11/2026 · **v2.4:** 14/11/2026 · **v2.3:** 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
+**Έκδοση:** v2.8 · 16/11/2026 · **v2.7:** 15/11/2026 · **v2.6:** 15/11/2026 · **v2.5:** 15/11/2026 · **v2.4:** 14/11/2026 · **v2.3:** 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
 **Βάση ελέγχου:** `2cf7df6` (main), επαληθευμένη ξανά στο `b1bb623` (S295). Η v1 ελέγχθηκε στο `7f4f6f5`· τα commits `6da3ba7`/`e3c9ab3`/`a14a3e6`/`2cf7df6` είναι κώδικας E39 + docs και **δεν** αλλάζουν ευρήματα· από το `2cf7df6` έως το `b1bb623` άλλαξαν μόνο UI/docs (S294/S295) — κανένα security finding δεν άλλαξε.
 **Μέθοδος:** ανάγνωση κώδικα, manifest, gradle, installer, git history **και πηγής πακέτων** (`open_filex 4.7.0`, `share_plus 12.0.2`, `archive 4.3.0`). **Καμία** εκτέλεση σε συσκευή για την αρχική έκθεση (v1)· από το **S316/S317** τα σχετικά ευρήματα επαληθεύονται και σε συσκευή (POCO X3 / Windows 11 build 26100).
 
@@ -51,6 +51,12 @@
 |---|---|---|
 | 1 | **S-25** — νέο εύρημα μεσαίας σοβαρότητας: το άνοιγμα στο Windows περνά στο `ShellExecuteW`, που **εκτελεί** εκτελέσιμους τύπους | Ο S-16/1β αφαίρεσε το `cmd` (injection) αλλά **όχι** την εκτέλεση: `.bat`/`.exe` από backup zip ή share intent εκτελούνταν με ένα tap |
 | 2 | **P0 βήμα 1γ** — `isRiskyToLaunch` στον `AttachmentPathGuard` + `ConfirmDialog` + fail-safe `allowRisky` | Ίδιο SPoT με S-18 (μηδέν νέο αρχείο), ρητή επιβεβαίωση αντί σιωπηλής εκτέλεσης |
+
+### Διορθώσεις v2.8 (16/11/2026)
+
+| # | Διόρθωση | Λόγος |
+|---|---|---|
+| 1 | **S-13 (native σκέλος) — κλεισμένο (S321/E53)**: vendored fork `packages/receive_sharing_intent/` (1.9.0) + `dependency_overrides`· `FileDirectory.kt` αντιγράφει **πάντα** `content://` μέσω `ContentResolver` σε `cacheDir/intake_<ts>_<n>/` (sanitize ονόματος, 100 MB/αρχείο + 100 MB/intent streaming, διαγραφή partial)· `ReceiveSharingIntentPlugin.kt` nullable record με `error: unreadable|tooLarge`, `EXTRA_TEXT` → `message`, αφαίρεση thumbnail/duration· Dart tolerant `fromMap` + `AppErrors.shareIntakeUnreadable` + inline προειδοποίηση πριν το save. | Το upstream `openInputStream` **χωρίς** try/catch προκαλούσε crash στο main thread με `content://` χωρίς grant· το `ExternalStorageProvider` path επέστρεφε εξωτερική διαδρομή **χωρίς** αντίγραφο, το `path ?: text` **έχανε** το `EXTRA_TEXT` και το `path: null` έσκαγε σε `TypeError` στο Dart — με μηδέν όρια/sanitize και orphan thumbnail PNG. Λεπτομέρειες + διαδικασία sync: `packages/receive_sharing_intent/FORK.md`. |
 
 ### Διορθώσεις v2.7 (15/11/2026)
 
@@ -204,7 +210,7 @@
 | | 17 | **Android 12+ extraction rules** + τεκμηρίωση FLAG_SECURE scope — ✅ S316 (D2D κλειστό) + ✅ S317 (Windows capture affinity, `WDA_EXCLUDEFROMCAPTURE`) | S-21 | Μικρό | Πολύ χαμηλό |
 | **P4 — Απόφαση** | 18 | **Κρυπτογράφηση βάσης**: (1) Windows path, (2) field encryption, (3) SQLCipher, ή (4) τεκμηρίωση limitation | S-01 | Μικρό → πολύ μεγάλο | Υψηλό για (2)/(3) |
 
-**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302), **6/S-05** (S300) και **7/S-06** (S309, masking OS κειμένου + toggle «Απόκρυψη περιεχομένου»), καθώς και το **S-24** (S301, ατομικό toggle lock) και τα **S-14/S-20** (S310, repo hygiene: untrack 151 αρχείων + relative paths εγκαταστάτη + `.gitignore` για keystore) και το **S-09** (S312, release keystore + `gr.gavrielatos.supernote` + Windows `Gavrielatos`/`SuperNote`) και το **S-07** (S313: guard έκδοσης schema πριν την επαναφορά + strip `appLockTimeoutSeconds` + normalize μελλοντικού `lastAutoBackupAt` + ενημέρωση για το «Κλείδωμα αντιγράφου») και το **S-11** (S315: σίγαση `error`/`warning` στο release με compile-time `SN_RELEASE_LOGS` + redact URL) και το **S-21/D2D σκέλος** (S316: `dataExtractionRules` + `fullBackupContent="false"` + regression test) και το **S-21/Windows σκέλος** (S317: `WDA_EXCLUDEFROMCAPTURE` fail-closed στο `OnCreate` + κανάλι `super_note/security`) και το **S-13** (S320: ceiling 100 MB + `effectiveMaxAttachmentMB`, `inbound_share.dart` με classify/plan/clamp, S-13b text/* αρχεία, S-13c cache cleanup). Το παρόν παραμένει η έκθεση v2.7 + πλάνο για τα υπόλοιπα.
+**Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302), **6/S-05** (S300) και **7/S-06** (S309, masking OS κειμένου + toggle «Απόκρυψη περιεχομένου»), καθώς και το **S-24** (S301, ατομικό toggle lock) και τα **S-14/S-20** (S310, repo hygiene: untrack 151 αρχείων + relative paths εγκαταστάτη + `.gitignore` για keystore) και το **S-09** (S312, release keystore + `gr.gavrielatos.supernote` + Windows `Gavrielatos`/`SuperNote`) και το **S-07** (S313: guard έκδοσης schema πριν την επαναφορά + strip `appLockTimeoutSeconds` + normalize μελλοντικού `lastAutoBackupAt` + ενημέρωση για το «Κλείδωμα αντιγράφου») και το **S-11** (S315: σίγαση `error`/`warning` στο release με compile-time `SN_RELEASE_LOGS` + redact URL) και το **S-21/D2D σκέλος** (S316: `dataExtractionRules` + `fullBackupContent="false"` + regression test) και το **S-21/Windows σκέλος** (S317: `WDA_EXCLUDEFROMCAPTURE` fail-closed στο `OnCreate` + κανάλι `super_note/security`) και το **S-13** (S320: ceiling 100 MB + `effectiveMaxAttachmentMB`, `inbound_share.dart` με classify/plan/clamp, S-13b text/* αρχεία, S-13c cache cleanup) και το **S-13/native σκέλος** (S321: E53 CLOSED — vendored fork `packages/receive_sharing_intent/` με copy-through-resolver, όρια 100 MB, sanitize, error contract `unreadable|tooLarge`). Το παρόν παραμένει η έκθεση v2.8 + πλάνο για τα υπόλοιπα.
 
 ---
 
