@@ -48,6 +48,16 @@ void main() {
     expect(AppErrors.oversizeSkipped(2), contains('2'));
   });
 
+  test('S-321 share intake: ενικό/πληθυντικό + μη κενό', () {
+    expect(AppErrors.shareIntakeUnreadable(1), isNot(contains('1')));
+    expect(AppErrors.shareIntakeUnreadable(1), contains('αρχείου'));
+    expect(AppErrors.shareIntakeUnreadable(3), contains('3'));
+    expect(AppErrors.shareIntakeUnreadable(3), contains('αρχείων'));
+    for (final n in [1, 2, 20]) {
+      expect(AppErrors.shareIntakeUnreadable(n), isNotEmpty);
+    }
+  });
+
   test('S-17 lock gate: 4 μηνύματα, non-empty + ασφαλή νοήματα', () {
     expect(AppErrors.lockGateReadFailed, contains('κλειδωμένη'));
     expect(AppErrors.lockGatePinMissing, contains('PIN'));

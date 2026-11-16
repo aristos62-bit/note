@@ -42,6 +42,10 @@ class SharedSaveResult {
   /// S-13: το κείμενο περικόπηκε στο `ShareLimits.maxTextChars`.
   final bool textTruncated;
 
+  /// S-321: το native δεν μπόρεσε να διαβάσει τόσα αρχεία (content:// χωρίς
+  /// άδεια, κατεστραμμένο stream).
+  final int unreadable;
+
   final String? error;
 
   const SharedSaveResult({
@@ -50,6 +54,7 @@ class SharedSaveResult {
     this.attachments = 0,
     this.skippedOversize = 0,
     this.textTruncated = false,
+    this.unreadable = 0,
     this.error,
   });
 
@@ -281,12 +286,28 @@ class SharedIntentService {
           await file.delete();
           removed++;
         }
+        await _pruneIntakeDir(root, file.parent);
       } catch (e) {
         DebugConfig.warning(
             'SharedIntent cache cleanup failed (${e.runtimeType})');
       }
     }
     DebugConfig.db('SharedIntent cache cleaned n=$removed/${paths.length}');
+  }
+
+  /// S-321: ο fork αντιγράφει σε `cacheDir/intake_<ts>_<n>/` — όταν το τελευταίο
+  /// αρχείο του φακέλου σβηστεί, σβήνεται και ο (άδειος) φάκελος. Μόνο εντός
+  /// temp root και μόνο με το γνωστό πρόθεμα (ποτέ ξένος φάκελος).
+  Future<void> _pruneIntakeDir(String root, Directory dir) async {
+    try {
+      if (!p.basename(dir.path).startsWith(InboundShare.intakeDirPrefix)) return;
+      if (!p.isWithin(root, dir.path)) return;
+      if (!await dir.exists()) return;
+      if (await dir.list().isEmpty) await dir.delete();
+    } catch (e) {
+      DebugConfig.warning(
+          'SharedIntent prune intake dir failed (${e.runtimeType})');
+    }
   }
 
   // ─────────────────────────────────────────────────────────
@@ -331,6 +352,8 @@ class SharedIntentService {
         int maxMB,
         InboundPlan plan,
         List<String> sources,
+        int unreadable,
+        int nativeTooLarge,
       })> _prepare(
     List<SharedMediaFile> files,
     int perFileBytes,
@@ -345,6 +368,7 @@ class SharedIntentService {
     DebugConfig.db(
         'SharedIntent plan: files=${content.filePaths.length} '
         'accepted=${plan.accepted.length} skipped=${plan.skippedCount} '
+        'unreadable=${content.unreadable} nativeTooLarge=${content.nativeTooLarge} '
         'textLen=${clamped.text.length} truncated=${clamped.truncated} '
         'perFile=$perFileBytes');
     return (
@@ -353,12 +377,25 @@ class SharedIntentService {
       maxMB: maxMB,
       plan: plan,
       sources: content.filePaths,
+      unreadable: content.unreadable,
+      nativeTooLarge: content.nativeTooLarge,
     );
   }
 
   /// Μήνυμα όταν δεν μένει τίποτα αποθηκεύσιμο.
-  String _emptyMessage(InboundPlan plan, int maxMB) {
-    if (plan.hasLimitSkips) return AppErrors.attachTooLarge(maxMB);
+  ///
+  /// S-321: προτεραιότητα = όρια (Dart ή native ceiling) → αδυναμία ανάγνωσης
+  /// → κενή κοινοποίηση.
+  String _emptyMessage(
+    InboundPlan plan,
+    int maxMB, {
+    required int nativeTooLarge,
+    required int unreadable,
+  }) {
+    if (plan.hasLimitSkips || nativeTooLarge > 0) {
+      return AppErrors.attachTooLarge(maxMB);
+    }
+    if (unreadable > 0) return AppErrors.shareIntakeUnreadable(unreadable);
     return 'Κενή κοινοποίηση';
   }
 
@@ -390,9 +427,15 @@ class SharedIntentService {
         await _cleanupIntentCache(prep.sources);
         return SharedSaveResult(
           target: SharedTarget.note,
-          skippedOversize: prep.plan.limitSkippedCount,
+          skippedOversize: prep.plan.limitSkippedCount + prep.nativeTooLarge,
           textTruncated: prep.truncated,
-          error: _emptyMessage(prep.plan, prep.maxMB),
+          unreadable: prep.unreadable,
+          error: _emptyMessage(
+            prep.plan,
+            prep.maxMB,
+            nativeTooLarge: prep.nativeTooLarge,
+            unreadable: prep.unreadable,
+          ),
         );
       }
 
@@ -431,8 +474,9 @@ class SharedIntentService {
         await _cleanupIntentCache(prep.sources);
         return SharedSaveResult(
           target: SharedTarget.note,
-          skippedOversize: prep.plan.limitSkippedCount,
+          skippedOversize: prep.plan.limitSkippedCount + prep.nativeTooLarge,
           textTruncated: prep.truncated,
+          unreadable: prep.unreadable,
           error: AppErrors.attachSaveFailed,
         );
       }
@@ -454,8 +498,9 @@ class SharedIntentService {
           item: created,
           target: SharedTarget.note,
           attachments: res.saved,
-          skippedOversize: prep.plan.limitSkippedCount,
-          textTruncated: prep.truncated);
+          skippedOversize: prep.plan.limitSkippedCount + prep.nativeTooLarge,
+          textTruncated: prep.truncated,
+          unreadable: prep.unreadable);
     } catch (e, stack) {
       DebugConfig.error('SharedIntent saveAsNote', e, stack);
       final item = created;
@@ -500,9 +545,15 @@ class SharedIntentService {
         await _cleanupIntentCache(prep.sources);
         return SharedSaveResult(
           target: SharedTarget.event,
-          skippedOversize: prep.plan.limitSkippedCount,
+          skippedOversize: prep.plan.limitSkippedCount + prep.nativeTooLarge,
           textTruncated: prep.truncated,
-          error: _emptyMessage(prep.plan, prep.maxMB),
+          unreadable: prep.unreadable,
+          error: _emptyMessage(
+            prep.plan,
+            prep.maxMB,
+            nativeTooLarge: prep.nativeTooLarge,
+            unreadable: prep.unreadable,
+          ),
         );
       }
 
@@ -547,8 +598,9 @@ class SharedIntentService {
         await _cleanupIntentCache(prep.sources);
         return SharedSaveResult(
           target: SharedTarget.event,
-          skippedOversize: prep.plan.limitSkippedCount,
+          skippedOversize: prep.plan.limitSkippedCount + prep.nativeTooLarge,
           textTruncated: prep.truncated,
+          unreadable: prep.unreadable,
           error: AppErrors.attachSaveFailed,
         );
       }
@@ -569,8 +621,9 @@ class SharedIntentService {
           item: created,
           target: SharedTarget.event,
           attachments: res.saved,
-          skippedOversize: prep.plan.limitSkippedCount,
-          textTruncated: prep.truncated);
+          skippedOversize: prep.plan.limitSkippedCount + prep.nativeTooLarge,
+          textTruncated: prep.truncated,
+          unreadable: prep.unreadable);
     } catch (e, stack) {
       DebugConfig.error('SharedIntent saveAsEvent', e, stack);
       final item = created;

@@ -12,12 +12,14 @@ SharedMediaFile _media(
   String path, {
   String? message,
   String? mimeType,
+  SharedMediaIntakeError? intakeError,
 }) =>
     SharedMediaFile(
       path: path,
       type: type,
       message: message,
       mimeType: mimeType,
+      intakeError: intakeError,
     );
 
 void main() {
@@ -91,6 +93,82 @@ void main() {
         exists: (_) async => false,
       );
       expect(c.filePaths, ['/cache/a.jpg']);
+    });
+  });
+
+  group('classify — S-321 intake errors', () {
+    test('unreadable: κανένα path, μετράει χωριστά', () async {
+      final c = await InboundShare.classify(
+        [
+          _media(SharedMediaType.image, '',
+              intakeError: SharedMediaIntakeError.unreadable),
+        ],
+        exists: (_) async => true,
+      );
+      expect(c.filePaths, isEmpty);
+      expect(c.text, isEmpty);
+      expect(c.unreadable, 1);
+      expect(c.nativeTooLarge, 0);
+    });
+
+    test('tooLarge: μετράει ως nativeTooLarge, όχι unreadable', () async {
+      final c = await InboundShare.classify(
+        [
+          _media(SharedMediaType.video, '',
+              intakeError: SharedMediaIntakeError.tooLarge),
+        ],
+        exists: (_) async => false,
+      );
+      expect(c.filePaths, isEmpty);
+      expect(c.nativeTooLarge, 1);
+      expect(c.unreadable, 0);
+    });
+
+    test('unreadable + EXTRA_TEXT: το κείμενο σώζεται', () async {
+      final c = await InboundShare.classify(
+        [
+          _media(SharedMediaType.file, '',
+              intakeError: SharedMediaIntakeError.unreadable,
+              message: 'δες αυτό'),
+        ],
+        exists: (_) async => false,
+      );
+      expect(c.text, 'δες αυτό');
+      expect(c.unreadable, 1);
+    });
+
+    test('ανάμιξη: 2 unreadable + 1 αρχείο + 1 text', () async {
+      final c = await InboundShare.classify(
+        [
+          _media(SharedMediaType.image, '',
+              intakeError: SharedMediaIntakeError.unreadable),
+          _media(SharedMediaType.image, '/cache/ok.jpg'),
+          _media(SharedMediaType.image, '',
+              intakeError: SharedMediaIntakeError.unreadable),
+          _media(SharedMediaType.text, 'σχόλιο'),
+        ],
+        exists: (_) async => false,
+      );
+      expect(c.filePaths, ['/cache/ok.jpg']);
+      expect(c.text, 'σχόλιο');
+      expect(c.unreadable, 2);
+    });
+
+    test('SharedMediaFile.fromMap: error/άγνωστο type/path null → tolerant',
+        () {
+      final f = SharedMediaFile.fromMap({
+        'path': null,
+        'type': 'άγνωστο',
+        'error': 'tooLarge',
+      });
+      expect(f.path, '');
+      expect(f.type, SharedMediaType.file);
+      expect(f.intakeError, SharedMediaIntakeError.tooLarge);
+      expect(f.toMap()['error'], 'tooLarge');
+
+      final g = SharedMediaFile.fromMap({'path': '/a', 'type': 'image'});
+      expect(g.intakeError, isNull);
+      expect(g.toMap().containsKey('error'), isFalse);
     });
   });
 

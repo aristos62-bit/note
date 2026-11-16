@@ -102,6 +102,11 @@ class AppErrors {
   static String shareTextTruncated(int maxChars) =>
       'Το κείμενο ήταν πολύ μεγάλο — αποθηκεύτηκαν οι πρώτοι '
       '$maxChars χαρακτήρες';
+  /// S-321: το native δεν μπόρεσε να διαβάσει το κοινόχρηστο αρχείο
+  /// (π.χ. `content://` χωρίς άδεια ανάγνωσης ή κατεστραμμένο stream).
+  static String shareIntakeUnreadable(int n) => n == 1
+      ? 'Δεν ήταν δυνατή η ανάγνωση του αρχείου'
+      : 'Δεν ήταν δυνατή η ανάγνωση $n αρχείων';
   /// E39: η πλατφόρμα δεν υποστηρίζει κοινοποίηση αρχείων (π.χ. παλιά
   /// Windows) → στάλθηκε μόνο το κείμενο.
   static const shareFilesUnsupported =

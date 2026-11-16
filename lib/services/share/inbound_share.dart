@@ -11,6 +11,11 @@
 // `text/*` (txt/md/csv/json/html) που ήρθαν με `EXTRA_STREAM` — στο `path`
 // μπαίνει το cache path. Η ταξινόμηση γίνεται με έλεγχο ύπαρξης, αλλιώς θα
 // γράφαμε εσωτερικό path ως σώμα σημείωσης και θα χάναμε το αρχείο.
+//
+// S-321 (E53): ο vendored fork του plugin στέλνει πλέον και `intakeError` για
+// εγγραφές που **απέρριψε** το native (content:// χωρίς grant, ceiling 100 MB).
+// Αυτές δεν είναι ούτε κείμενο ούτε αρχείο: μετριούνται ξεχωριστά ώστε ο
+// χρήστης να βλέπει γιατί δεν αποθηκεύτηκαν.
 
 import 'dart:io';
 
@@ -45,10 +50,22 @@ class InboundFile {
 
 /// Αποτέλεσμα ταξινόμησης: κείμενο + πραγματικά αρχεία (σειρά εισόδου).
 class InboundContent {
-  const InboundContent({required this.text, required this.filePaths});
+  const InboundContent({
+    required this.text,
+    required this.filePaths,
+    this.unreadable = 0,
+    this.nativeTooLarge = 0,
+  });
 
   final String text;
   final List<String> filePaths;
+
+  /// S-321: το native δεν μπόρεσε να διαβάσει την εγγραφή (π.χ. `content://`
+  /// χωρίς άδεια ανάγνωσης).
+  final int unreadable;
+
+  /// S-321: το native σταμάτησε την αντιγραφή λόγω ceiling (100 MB).
+  final int nativeTooLarge;
 }
 
 /// Αποτέλεσμα του πλάνου ορίων. Ντετερμινιστικό (greedy, σειρά εισόδου).
@@ -78,6 +95,11 @@ class ClampedText {
 class InboundShare {
   InboundShare._();
 
+  /// S-321: πρόθεμα του προσωρινού φακέλου αντιγράφου του fork — ΠΡΕΠΕΙ να
+  /// συμφωνεί με το `FileDirectory.INTAKE_DIR_PREFIX` (Kotlin). Χρησιμοποιείται
+  /// από τον καθαρισμό για αφαίρεση του φακέλου όταν αδειάσει.
+  static const String intakeDirPrefix = 'intake_';
+
   // ── ΤΑΞΙΝΟΜΗΣΗ (S-13b) ─────────────────────────────────────
 
   /// Χωρίζει το intent σε `text` και `filePaths`.
@@ -92,18 +114,30 @@ class InboundShare {
     final hasFile = exists ?? _defaultExists;
     final textParts = <String>[];
     final filePaths = <String>[];
+    var unreadable = 0;
+    var nativeTooLarge = 0;
 
     for (final f in files) {
-      final raw = f.path.trim();
-      if (raw.isNotEmpty) {
-        if (f.type == SharedMediaType.text || f.type == SharedMediaType.url) {
-          if (p.isAbsolute(raw) && await hasFile(raw)) {
-            if (!filePaths.contains(raw)) filePaths.add(raw);
-          } else if (!textParts.contains(raw)) {
-            textParts.add(raw);
+      // S-321: απόρριψη από το native — δεν έχει path. Κρατάμε μόνο το τυχόν
+      // μήνυμα (π.χ. text + αποτυχημένο stream) και μετράμε τον λόγο.
+      if (f.intakeError != null) {
+        if (f.intakeError == SharedMediaIntakeError.tooLarge) {
+          nativeTooLarge++;
+        } else {
+          unreadable++;
+        }
+      } else {
+        final raw = f.path.trim();
+        if (raw.isNotEmpty) {
+          if (f.type == SharedMediaType.text || f.type == SharedMediaType.url) {
+            if (p.isAbsolute(raw) && await hasFile(raw)) {
+              if (!filePaths.contains(raw)) filePaths.add(raw);
+            } else if (!textParts.contains(raw)) {
+              textParts.add(raw);
+            }
+          } else if (!filePaths.contains(raw)) {
+            filePaths.add(raw);
           }
-        } else if (!filePaths.contains(raw)) {
-          filePaths.add(raw);
         }
       }
       final msg = f.message?.trim() ?? '';
@@ -113,6 +147,8 @@ class InboundShare {
     return InboundContent(
       text: textParts.join('\n').trim(),
       filePaths: filePaths,
+      unreadable: unreadable,
+      nativeTooLarge: nativeTooLarge,
     );
   }
 

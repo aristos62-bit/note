@@ -12,6 +12,9 @@ analyzer:
     - macos/**
     - linux/**
     - backups/**
+    # S321: vendored fork του receive_sharing_intent — ελέγχεται ξεχωριστά με
+    # `dart analyze packages/receive_sharing_intent` (δικό του pubspec).
+    - packages/**
 # This file configures the analyzer, which statically analyzes Dart code to
 # check for errors, warnings, and lints.
 #

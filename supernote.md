@@ -66,7 +66,7 @@
 ### App Lock, Share & Archive
 - `local_auth` (`^2.3.0`) — biometrics
 - `crypto` (`^3.0.6`) — SHA-256 (PIN hashing)
-- `receive_sharing_intent` (`^1.9.0`) — λήψη κοιν/νου content
+- `receive_sharing_intent` (`^1.9.0`) — λήψη κοιν/νου content (**vendored fork**: `packages/receive_sharing_intent/` + `dependency_overrides`, S-321/E53 — βλ. `FORK.md`)
 - `url_launcher` (`^6.3.3`) — άνοιγμα URLs + Windows file opener (`Uri.file` → `ShellExecuteW`)
 - `archive` (`^4.3.0`) — zip backup/restore
 - `cryptography` (`^2.9.0`) — AES-256-GCM + PBKDF2 (κρυπτογραφημένο backup `.snb`· S-307: προεπιλογή = **ενσωματωμένο κλειδί** στο header, PBKDF2 μόνο με «Κλείδωμα αντιγράφου»)
@@ -294,6 +294,11 @@ lib/
         ├── attachments_strip.dart — Shared attachments strip SPoT (S136)
         ├── notification_hint.dart — Μόνιμα hints ειδοποιήσεων SPoT (E08)
         └── reminder_recurrence_picker.dart — Recurrence picker (split S166)
+```
+
+```
+packages/
+└── receive_sharing_intent/      — Vendored fork 1.9.0 (S-321/E53) + FORK.md
 ```
 
 ---
@@ -637,6 +642,7 @@ final db = SuperNoteHelper.instance;
 - **S-13 (ενιαίο όριο):** `AppSettings.maxAttachmentCeilingMB = 100` (const) + `effectiveMaxAttachmentMB` (legacy `0`/αρνητικό/`>100` → 100)· `attachmentMaxBytes` **ποτέ null**· η επιλογή «Χωρίς όριο» καταργήθηκε· safety net στο `AttachmentService.saveFile` (πάνω από ceiling → `FormatException(attachTooLarge)`, πριν το copy)· «ακριβώς στο όριο» περνά. **Μηδέν** αλλαγή Isar/schema.
 - **S-13 (rollback + S-13c cache):** «τίποτα αποθηκεύσιμο» ⇒ **κανένα** item (pre-check, ίδιο note/event)· αποτυχία μετά τη δημιουργία ⇒ `items.hardDelete` (cascade + φυσικά αρχεία). Το αντίγραφο που κάνει το plugin στο `cacheDir` σβήνεται σε επιτυχία/rollback **μόνο** αν είναι `p.isWithin(tempRoot, …)` (ποτέ πρωτότυπο αρχείο)· σε απλό exception μένει για retry.
 - **S-13 (UI/S-314 parity):** το excerpt υπολογίζεται **μία φορά** στο `initState` (όχι `combineText` ανά build)· `waitUntilContentUnblocked` **πριν** το `pop` (μετά το `ref` είναι άκυρο)· ένα SnackBar για περικοπή + παραλείψεις· **η αποτυχία δείχνεται inline μέσα στο sheet** (`_error`, κόκκινο κείμενο — ένα SnackBar ζωγραφίζεται πίσω από το modal και δεν φαίνεται)· ίδιο pattern στο `AttachmentsStrip._add`· το settings tile δείχνει το **ενεργό** όριο (`effectiveMaxAttachmentMB`) και περιμένει το write (`settingsSaveFailed`).
+- **S-321 (vendored fork plugin / E53):** `packages/receive_sharing_intent/` = fork του 1.9.0 με `dependency_overrides` (`source: path`) — **κάθε** `content://` αντιγράφεται μέσω `ContentResolver` σε `cacheDir/intake_<ts>_<n>/` (sanitize ονόματος, streaming ceiling 100 MB/αρχείο + 100 MB/intent, διαγραφή partial), το record φέρνει `error: unreadable|tooLarge`, το `EXTRA_TEXT` → `message` όταν συνυπάρχει stream, **χωρίς** thumbnail/duration, `handleIntent` σε `try/catch`· Dart: `InboundContent.unreadable/nativeTooLarge` → `SharedSaveResult.unreadable` → `AppErrors.shareIntakeUnreadable` (inline `cWarning` πριν το save + SnackBar μετά)· `_pruneIntakeDir` σβήνει **άδειους** `intake_*` (ποτέ στο `sweepStaleArtifacts`, που τρέχει πριν το `init()`). Σταθερές/συγχρονισμός: `FORK.md`.
 
 ### SecurityService (`lib/services/security_service.dart`)
 - Android `MethodChannel("super_note/security")` → `FLAG_SECURE` — πρώτο MethodChannel (S165)

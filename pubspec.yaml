@@ -57,6 +57,14 @@ dependencies:
   url_launcher: ^6.3.3
   archive: ^4.3.0
 
+# S321 (E53): vendored fork του `receive_sharing_intent` 1.9.0 — διορθώνει το
+# native crash του content:// copy, την απώλεια του EXTRA_TEXT, το overwrite
+# ίδιων ονομάτων, τα orphan thumbnail PNG και προσθέτει όρια/error contract.
+# Βλ. `packages/receive_sharing_intent/FORK.md`.
+dependency_overrides:
+  receive_sharing_intent:
+    path: packages/receive_sharing_intent
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

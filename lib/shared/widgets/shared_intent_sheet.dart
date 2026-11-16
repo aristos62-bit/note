@@ -122,6 +122,13 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
   /// χρήστης δεν έβλεπε τίποτα και το sheet φαινόταν «παγωμένο».
   String? _error;
 
+  /// S-321: το native απέρριψε τόσες εγγραφές (content:// χωρίς άδεια
+  /// ανάγνωσης) — εμφανίζονται ως προειδοποίηση **πριν** την αποθήκευση.
+  int _unreadable = 0;
+
+  /// S-321: το native σταμάτησε την αντιγραφή λόγω ceiling (100 MB).
+  int _nativeTooLarge = 0;
+
   @override
   void initState() {
     super.initState();
@@ -139,9 +146,22 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
     } else if (nFiles > 0) {
       excerpt = nFiles == 1 ? '1 αρχείο' : '$nFiles αρχεία';
     }
-    if (mounted && excerpt.isNotEmpty) {
-      setState(() => _excerpt = excerpt);
-    }
+    if (!mounted) return;
+    setState(() {
+      if (excerpt.isNotEmpty) _excerpt = excerpt;
+      _unreadable = content.unreadable;
+      _nativeTooLarge = content.nativeTooLarge;
+    });
+  }
+
+  /// S-321: προειδοποίηση για εγγραφές που το native δεν μπόρεσε να διαβάσει
+  /// ή απέρριψε λόγω ορίου — ο χρήστης πρέπει να το ξέρει **πριν** πατήσει
+  /// Αποθήκευση (μετά, το SnackBar το λέει ξανά).
+  String? get _intakeWarning {
+    final parts = <String>[];
+    if (_unreadable > 0) parts.add(AppErrors.shareIntakeUnreadable(_unreadable));
+    if (_nativeTooLarge > 0) parts.add(AppErrors.oversizeSkipped(_nativeTooLarge));
+    return parts.isEmpty ? null : parts.join('\n');
   }
 
   Future<void> _pickDate() async {
@@ -205,6 +225,10 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
       if (res.skippedOversize > 0) {
         notes.add(AppErrors.oversizeSkipped(res.skippedOversize));
       }
+      // S-321: εγγραφές που το native απέρριψε (content:// χωρίς άδεια).
+      if (res.unreadable > 0) {
+        notes.add(AppErrors.shareIntakeUnreadable(res.unreadable));
+      }
       var unlocked = true;
       if (notes.isNotEmpty) {
         unlocked = await waitUntilContentUnblocked(ref);
@@ -253,6 +277,24 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                   style: context.bodySm.withColor(context.cError),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis),
+            ],
+            // S-321: το native απέρριψε αρχεία — προειδοποίηση πριν το save.
+            if (_intakeWarning != null) ...[
+              const SizedBox(height: Spacing.sm),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 16, color: context.cWarning),
+                  const SizedBox(width: Spacing.xs),
+                  Expanded(
+                    child: Text(_intakeWarning!,
+                        style: context.bodySm.withColor(context.cWarning),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
             ],
             const SizedBox(height: Spacing.md),
             ItemTypePicker(
