@@ -98,6 +98,10 @@ class AppErrors {
   static const shareFailed = 'Αποτυχία κοινοποίησης';
   static String oversizeSkipped(int n) =>
       '$n αρχείο(α) παραλείφθηκαν (όριο κοινοποίησης)';
+  /// S-13: το κείμενο της κοινοποίησης ξεπέρασε το όριο και περικόπηκε.
+  static String shareTextTruncated(int maxChars) =>
+      'Το κείμενο ήταν πολύ μεγάλο — αποθηκεύτηκαν οι πρώτοι '
+      '$maxChars χαρακτήρες';
   /// E39: η πλατφόρμα δεν υποστηρίζει κοινοποίηση αρχείων (π.χ. παλιά
   /// Windows) → στάλθηκε μόνο το κείμενο.
   static const shareFilesUnsupported =

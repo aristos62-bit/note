@@ -10,16 +10,22 @@
 //
 // ΔΙΑΧΩΡΙΣΜΟΣ: αποθηκεύει Items (note/event) — ΠΟΤΕ Reminder rows.
 // Οι ειδοποιήσεις μπαίνουν μόνο από την καμπάνα (ReminderSection).
+//
+// S-13: η καθαρή λογική (ταξινόμηση/όρια/clamp) ζει στο
+// `share/inbound_share.dart` — εδώ μένει orchestration, rollback και
+// καθαρισμός του cache αντιγράφου του plugin.
 import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../core/core.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
 import 'attachment_service.dart';
+import 'share/inbound_share.dart';
 
 /// Προορισμός κοινοποίησης (επιλογή χρήστη στο sheet).
 enum SharedTarget { note, event }
@@ -29,7 +35,13 @@ class SharedSaveResult {
   final Item? item;
   final SharedTarget target;
   final int attachments;
+
+  /// Πόσα αρχεία παραλείφθηκαν λόγω ορίων (πλήθος/μέγεθος/σύνολο). S-13.
   final int skippedOversize;
+
+  /// S-13: το κείμενο περικόπηκε στο `ShareLimits.maxTextChars`.
+  final bool textTruncated;
+
   final String? error;
 
   const SharedSaveResult({
@@ -37,6 +49,7 @@ class SharedSaveResult {
     required this.target,
     this.attachments = 0,
     this.skippedOversize = 0,
+    this.textTruncated = false,
     this.error,
   });
 
@@ -118,6 +131,9 @@ class SharedIntentService {
   // ─────────────────────────────────────────────────────────
 
   /// Αρχεία προς αποθήκευση (τα text/url/message γίνονται κείμενο).
+  ///
+  /// S-13: η **πραγματική** ταξινόμηση γίνεται στο `InboundShare.classify`
+  /// (ελέγχει αν το `path` είναι υπαρκτό αρχείο — βλ. S-13b).
   static bool isFileType(SharedMediaFile f) =>
       f.type == SharedMediaType.image ||
       f.type == SharedMediaType.video ||
@@ -234,60 +250,151 @@ class SharedIntentService {
   }
 
   // ─────────────────────────────────────────────────────────
-  // SAVE — Σημείωση
+  // S-13c — καθαρισμός του cache αντιγράφου του plugin
   // ─────────────────────────────────────────────────────────
 
-  /// Κοινός attachment-loop (Φ4a βήμα 16 — SPoT για saveAsNote/saveAsEvent).
-  Future<({List<String> lines, int saved, int skipped})> _saveAttachments({
-    required int itemId,
-    required List<SharedMediaFile> media,
-    required int? maxBytes,
-  }) async {
-    final attachLines = <String>[];
-    var saved = 0;
-    var skipped = 0;
-    for (final f in media) {
+  /// Το `receive_sharing_intent` **αντιγράφει** κάθε κοινόχρηστο αρχείο στο
+  /// `cacheDir` πριν το δώσει στο Dart. Χωρίς καθαρισμό κάθε share αφήνει
+  /// μόνιμο αντίγραφο (το `sweepStaleArtifacts` αγγίζει μόνο `_backup_*`).
+  ///
+  /// ΑΣΦΑΛΕΙΑ: διαγράφουμε **μόνο** ό,τι βρίσκεται μέσα στο temp root. Το
+  /// `path` μπορεί να είναι η αρχική διαδρομή του χρήστη (ExternalStorage
+  /// provider) — ένα τέτοιο αρχείο **δεν** πρέπει να σβηστεί ποτέ.
+  Future<void> _cleanupIntentCache(List<String> paths) async {
+    if (paths.isEmpty) return;
+    Directory tempRoot;
+    try {
+      tempRoot = await getTemporaryDirectory();
+    } catch (e) {
+      DebugConfig.warning(
+          'SharedIntent cache cleanup: temp dir unavailable (${e.runtimeType})');
+      return;
+    }
+    final root = p.normalize(tempRoot.path);
+    var removed = 0;
+    for (final raw in paths) {
       try {
-        final src = File(f.path);
-        if (!await src.exists()) continue;
-        final size = await src.length();
-        if (maxBytes != null && size > maxBytes) {
-          skipped++;
-          DebugConfig.warning(
-              'SharedIntent oversize ${f.path} ($size > $maxBytes bytes)');
-          continue;
+        final path = p.normalize(raw);
+        if (!p.isWithin(root, path)) continue;
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          removed++;
         }
+      } catch (e) {
+        DebugConfig.warning(
+            'SharedIntent cache cleanup failed (${e.runtimeType})');
+      }
+    }
+    DebugConfig.db('SharedIntent cache cleaned n=$removed/${paths.length}');
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // SAVE — κοινά βήματα
+  // ─────────────────────────────────────────────────────────
+
+  /// Αντιγράφει τα αποδεκτά αρχεία ως συνημμένα. Επιστρέφει τις γραμμές 📎.
+  Future<({List<String> lines, int saved})> _saveAttachments({
+    required int itemId,
+    required List<InboundFile> accepted,
+  }) async {
+    final lines = <String>[];
+    var saved = 0;
+    for (final f in accepted) {
+      try {
         final att = await AttachmentService.instance.saveFile(
           itemId: itemId,
           sourcePath: f.path,
         );
         saved++;
-        attachLines.add(
-            '📎 ${att.fileName} (${att.readableSize})');
+        lines.add('📎 ${att.fileName} (${att.readableSize})');
         final disp = p.basename(f.path);
         if (disp != att.fileName) {
-          DebugConfig.db('SharedIntent sanitize: ${AppStringUtils.redact(disp, label: 'file')} → ${AppStringUtils.redact(att.fileName, label: 'file')}');
+          DebugConfig.db(
+              'SharedIntent sanitize: ${AppStringUtils.redact(disp, label: 'file')} → ${AppStringUtils.redact(att.fileName, label: 'file')}');
         }
       } catch (e, stack) {
-        DebugConfig.error('SharedIntent saveFile ${AppStringUtils.redact(f.path, label: 'path')}', e, stack);
+        DebugConfig.error(
+            'SharedIntent saveFile ${AppStringUtils.redact(f.path, label: 'path')}',
+            e,
+            stack);
       }
     }
-    return (lines: attachLines, saved: saved, skipped: skipped);
+    return (lines: lines, saved: saved);
   }
+
+  /// Ταξινόμηση + clamp + πλάνο ορίων, με **ένα** μέτρημα ανά αρχείο.
+  Future<
+      ({
+        String text,
+        bool truncated,
+        int maxMB,
+        InboundPlan plan,
+        List<String> sources,
+      })> _prepare(
+    List<SharedMediaFile> files,
+    int perFileBytes,
+    int maxMB,
+  ) async {
+    final content = await InboundShare.classify(files);
+    final clamped = InboundShare.clampText(content.text);
+    final plan = await InboundShare.planFor(
+      content.filePaths,
+      perFileBytes: perFileBytes,
+    );
+    DebugConfig.db(
+        'SharedIntent plan: files=${content.filePaths.length} '
+        'accepted=${plan.accepted.length} skipped=${plan.skippedCount} '
+        'textLen=${clamped.text.length} truncated=${clamped.truncated} '
+        'perFile=$perFileBytes');
+    return (
+      text: clamped.text,
+      truncated: clamped.truncated,
+      maxMB: maxMB,
+      plan: plan,
+      sources: content.filePaths,
+    );
+  }
+
+  /// Μήνυμα όταν δεν μένει τίποτα αποθηκεύσιμο.
+  String _emptyMessage(InboundPlan plan, int maxMB) {
+    if (plan.hasLimitSkips) return AppErrors.attachTooLarge(maxMB);
+    return 'Κενή κοινοποίηση';
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // SAVE — Σημείωση
+  // ─────────────────────────────────────────────────────────
 
   Future<SharedSaveResult> saveAsNote({
     required List<SharedMediaFile> files,
     int? folderId,
     void Function()? onSaved,
   }) async {
+    Item? created;
     try {
       if (!SuperNoteHelper.isInitialized) {
         return const SharedSaveResult(
             target: SharedTarget.note, error: 'Η βάση δεν είναι έτοιμη');
       }
       final helper = SuperNoteHelper.instance;
-      final text = combineText(files);
-      final media = files.where(isFileType).toList();
+      final settings = await helper.settings.get();
+      final prep = await _prepare(
+        files,
+        settings.attachmentMaxBytes,
+        settings.effectiveMaxAttachmentMB,
+      );
+
+      // Τίποτα αποθηκεύσιμο (όλα oversize/άκυρα) → κανένα item, καθαρό cache.
+      if (prep.text.isEmpty && prep.plan.accepted.isEmpty) {
+        await _cleanupIntentCache(prep.sources);
+        return SharedSaveResult(
+          target: SharedTarget.note,
+          skippedOversize: prep.plan.limitSkippedCount,
+          textTruncated: prep.truncated,
+          error: _emptyMessage(prep.plan, prep.maxMB),
+        );
+      }
 
       final wsId = await _resolveWorkspace(helper);
       if (wsId == null) {
@@ -296,15 +403,12 @@ class SharedIntentService {
       }
       final resolvedFolderId =
           await _resolveFolder(helper, wsId, preferred: folderId);
-      final title =
-          shareTitle(text: text, filePaths: media.map((f) => f.path).toList());
+      final title = shareTitle(
+        text: prep.text,
+        filePaths: prep.plan.accepted.map((f) => f.path).toList(),
+      );
 
-      final settings = await helper.settings.get();
-      final maxBytes = settings.maxAttachmentSizeMB <= 0
-          ? null
-          : settings.maxAttachmentSizeMB * 1024 * 1024;
-
-      final item = await helper.items.create(
+      created = await helper.items.create(
         type: ItemType.note,
         workspaceId: wsId,
         title: title,
@@ -313,50 +417,57 @@ class SharedIntentService {
 
       // Αρχεία → attachments/ (copy, sanitize, dedup — από το service).
       final res = await _saveAttachments(
-        itemId: item.id,
-        media: media,
-        maxBytes: maxBytes,
+        itemId: created.id,
+        accepted: prep.plan.accepted,
       );
-      final attachLines = res.lines;
-      final saved = res.saved;
-      final skipped = res.skipped;
 
       final bodyParts = <String>[];
-      if (text.isNotEmpty) bodyParts.add(text);
-      if (attachLines.isNotEmpty) bodyParts.add(attachLines.join('\n'));
+      if (prep.text.isNotEmpty) bodyParts.add(prep.text);
+      if (res.lines.isNotEmpty) bodyParts.add(res.lines.join('\n'));
       if (bodyParts.isEmpty) {
-        // Τίποτα αποθηκεύσιμο (π.χ. όλα oversize) — καθάρισε το κενό item.
-        await helper.items.softDelete(item.id);
-        if (skipped > 0) {
-          return SharedSaveResult(
-              target: SharedTarget.note,
-              skippedOversize: skipped,
-              error:
-                  'Το αρχείο υπερβαίνει το όριο των ${settings.maxAttachmentSizeMB}MB');
-        }
-        return const SharedSaveResult(
-            target: SharedTarget.note, error: 'Κενή κοινοποίηση');
+        // Π.χ. όλα τα αρχεία απέτυχαν στην αντιγραφή — μη μένει κενό item.
+        await helper.items.hardDelete(created.id);
+        created = null;
+        await _cleanupIntentCache(prep.sources);
+        return SharedSaveResult(
+          target: SharedTarget.note,
+          skippedOversize: prep.plan.limitSkippedCount,
+          textTruncated: prep.truncated,
+          error: AppErrors.attachSaveFailed,
+        );
       }
 
       // ΜΟΝΟ text blocks — τα image/file/link δεν προβάλλονται στις σημειώσεις.
       await helper.blocks.create(
-        itemId: item.id,
+        itemId: created.id,
         type: BlockType.text,
         text: bodyParts.join('\n\n'),
       );
 
+      await _cleanupIntentCache(prep.sources);
+
       onSaved?.call();
       DebugConfig.db(
-          'SharedIntent saved note id=${item.id} blocks=1 attachments=$saved skipped=$skipped');
+          'SharedIntent saved note id=${created.id} blocks=1 '
+          'attachments=${res.saved} skipped=${prep.plan.skippedCount}');
       return SharedSaveResult(
-          item: item,
+          item: created,
           target: SharedTarget.note,
-          attachments: saved,
-          skippedOversize: skipped);
+          attachments: res.saved,
+          skippedOversize: prep.plan.limitSkippedCount,
+          textTruncated: prep.truncated);
     } catch (e, stack) {
       DebugConfig.error('SharedIntent saveAsNote', e, stack);
-      return SharedSaveResult(
-          target: SharedTarget.note, error: '${AppErrors.attachSaveFailed}: $e');
+      final item = created;
+      if (item != null) {
+        try {
+          await SuperNoteHelper.instance.items.hardDelete(item.id);
+        } catch (err, st) {
+          DebugConfig.error('SharedIntent rollback note', err, st);
+        }
+      }
+      return const SharedSaveResult(
+          target: SharedTarget.note, error: AppErrors.attachSaveFailed);
     }
   }
 
@@ -370,14 +481,30 @@ class SharedIntentService {
     required DateTime start,
     void Function()? onSaved,
   }) async {
+    Item? created;
     try {
       if (!SuperNoteHelper.isInitialized) {
         return const SharedSaveResult(
             target: SharedTarget.event, error: 'Η βάση δεν είναι έτοιμη');
       }
       final helper = SuperNoteHelper.instance;
-      final text = combineText(files);
-      final media = files.where(isFileType).toList();
+      final settings = await helper.settings.get();
+      final prep = await _prepare(
+        files,
+        settings.attachmentMaxBytes,
+        settings.effectiveMaxAttachmentMB,
+      );
+
+      // S-13 (Δ5): ενιαία πολιτική με τη σημείωση — ποτέ κενό συμβάν.
+      if (prep.text.isEmpty && prep.plan.accepted.isEmpty) {
+        await _cleanupIntentCache(prep.sources);
+        return SharedSaveResult(
+          target: SharedTarget.event,
+          skippedOversize: prep.plan.limitSkippedCount,
+          textTruncated: prep.truncated,
+          error: _emptyMessage(prep.plan, prep.maxMB),
+        );
+      }
 
       final wsId = await _resolveWorkspace(helper);
       if (wsId == null) {
@@ -386,62 +513,76 @@ class SharedIntentService {
       }
       final resolvedFolderId =
           await _resolveFolder(helper, wsId, preferred: folderId);
-      final title =
-          shareTitle(text: text, filePaths: media.map((f) => f.path).toList());
-
-      final settings = await helper.settings.get();
-      final maxBytes = settings.maxAttachmentSizeMB <= 0
-          ? null
-          : settings.maxAttachmentSizeMB * 1024 * 1024;
+      final title = shareTitle(
+        text: prep.text,
+        filePaths: prep.plan.accepted.map((f) => f.path).toList(),
+      );
 
       final norm =
           DateTime(start.year, start.month, start.day, start.hour, start.minute);
       final end = norm.add(const Duration(hours: 1));
 
-      final item = await helper.items.create(
+      created = await helper.items.create(
         type: ItemType.event,
         workspaceId: wsId,
         title: title,
         folderId: resolvedFolderId,
       );
-      await helper.properties.setDate(item.id, 'start_time', norm);
-      await helper.properties.setDate(item.id, 'end_time', end);
+      await helper.properties.setDate(created.id, 'start_time', norm);
+      await helper.properties.setDate(created.id, 'end_time', end);
       await helper.properties.set(
-          itemId: item.id, key: 'all_day', value: 'false');
+          itemId: created.id, key: 'all_day', value: 'false');
 
       final res = await _saveAttachments(
-        itemId: item.id,
-        media: media,
-        maxBytes: maxBytes,
+        itemId: created.id,
+        accepted: prep.plan.accepted,
       );
-      final attachLines = res.lines;
-      final saved = res.saved;
-      final skipped = res.skipped;
 
       final notesParts = <String>[];
-      if (text.isNotEmpty) notesParts.add(text);
-      if (attachLines.isNotEmpty) notesParts.add(attachLines.join('\n'));
-      if (notesParts.isNotEmpty) {
-        await helper.properties.set(
-          itemId: item.id,
-          key: 'notes',
-          value: notesParts.join('\n\n'),
+      if (prep.text.isNotEmpty) notesParts.add(prep.text);
+      if (res.lines.isNotEmpty) notesParts.add(res.lines.join('\n'));
+      if (notesParts.isEmpty) {
+        await helper.items.hardDelete(created.id);
+        created = null;
+        await _cleanupIntentCache(prep.sources);
+        return SharedSaveResult(
+          target: SharedTarget.event,
+          skippedOversize: prep.plan.limitSkippedCount,
+          textTruncated: prep.truncated,
+          error: AppErrors.attachSaveFailed,
         );
       }
+      await helper.properties.set(
+        itemId: created.id,
+        key: 'notes',
+        value: notesParts.join('\n\n'),
+      );
+
+      await _cleanupIntentCache(prep.sources);
 
       onSaved?.call();
       DebugConfig.db(
-          'SharedIntent saved event id=${item.id} start=$norm attachments=$saved skipped=$skipped');
-      DebugConfig.nav('SharedIntent → /calendar/${item.id}');
+          'SharedIntent saved event id=${created.id} start=$norm '
+          'attachments=${res.saved} skipped=${prep.plan.skippedCount}');
+      DebugConfig.nav('SharedIntent → /calendar/${created.id}');
       return SharedSaveResult(
-          item: item,
+          item: created,
           target: SharedTarget.event,
-          attachments: saved,
-          skippedOversize: skipped);
+          attachments: res.saved,
+          skippedOversize: prep.plan.limitSkippedCount,
+          textTruncated: prep.truncated);
     } catch (e, stack) {
       DebugConfig.error('SharedIntent saveAsEvent', e, stack);
-      return SharedSaveResult(
-          target: SharedTarget.event, error: '${AppErrors.attachSaveFailed}: $e');
+      final item = created;
+      if (item != null) {
+        try {
+          await SuperNoteHelper.instance.items.hardDelete(item.id);
+        } catch (err, st) {
+          DebugConfig.error('SharedIntent rollback event', err, st);
+        }
+      }
+      return const SharedSaveResult(
+          target: SharedTarget.event, error: AppErrors.attachSaveFailed);
     }
   }
 }

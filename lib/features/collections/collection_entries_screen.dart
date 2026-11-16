@@ -864,8 +864,8 @@ class _CollectionEntryDetailScreenState
       }
 
       final settings = await SuperNoteHelper.instance.settings.get();
-      final maxMB = settings.maxAttachmentSizeMB;
-      final maxBytes = maxMB > 0 ? maxMB * 1024 * 1024 : null;
+      // S-13: ενιαίο ενεργό όριο (SPoT: AppSettings.attachmentMaxBytes).
+      final maxBytes = settings.attachmentMaxBytes;
       final attachment = await AttachmentService.instance.pickAndSave(
         itemId: widget.entryId,
         allowedExtensions: field.allowedExtensions.isNotEmpty

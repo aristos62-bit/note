@@ -197,21 +197,32 @@ class SettingsMaxAttachmentSizeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = settings.maxAttachmentSizeMB;
-    final label = value == 0 ? 'Χωρίς όριο' : '$value MB';
+    // S-13: εμφανίζουμε το **ενεργό** όριο (legacy 0/εκτός λίστας → 100 MB),
+    // ώστε η ετικέτα να συμφωνεί πάντα με τον πραγματικό έλεγχο.
+    final value = settings.effectiveMaxAttachmentMB;
+    final label = '$value MB';
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
       leading: Icon(Icons.file_upload_outlined, color: context.cText2, size: 22),
       title: Text('Ορισμός μέγιστου μεγέθους συνημμένου', style: context.bodyMd),
-      subtitle: Text(label, style: context.bodySm.withColor(context.cText2)),
+      subtitle: Text('$label · ισχύει και για αρχεία από άλλες εφαρμογές',
+          style: context.bodySm.withColor(context.cText2)),
       trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: context.cDisabled),
       onTap: () => _showSizePicker(context, ref),
     );
   }
 
   void _showSizePicker(BuildContext context, WidgetRef ref) {
-    final current = settings.maxAttachmentSizeMB;
-    final options = [1, 5, 10, 20, 50, 100, 0];
+    final current = settings.effectiveMaxAttachmentMB;
+    // S-13 (Δ4): καταργήθηκε το «Χωρίς όριο» — ανώτατο 100 MB (ceiling).
+    final options = <int>[
+      1,
+      5,
+      10,
+      20,
+      50,
+      AppSettings.maxAttachmentCeilingMB,
+    ];
     DebugConfig.nav('Settings: open size picker');
     showSafeSheet<void>(
       context,
@@ -228,13 +239,24 @@ class SettingsMaxAttachmentSizeTile extends StatelessWidget {
                   color: isActive ? ctx.cPrimary : ctx.cText2,
                 ),
                 title: Text(
-                  mb == 0 ? 'Χωρίς όριο' : '$mb MB',
+                  '$mb MB',
                   style: ctx.bodyMd,
                 ),
-                onTap: () {
+                onTap: () async {
                   DebugConfig.provider('Settings: maxAttachmentSizeMB=$mb');
-                  ref.read(settingsNotifierProvider.notifier).updateSettings((s) => s.maxAttachmentSizeMB = mb);
-                  Navigator.pop(ctx);
+                  final messenger = ScaffoldMessenger.of(ctx);
+                  final errColor = ctx.cError;
+                  // S-24 parity: περίμενε το write — σε αποτυχία ενημέρωσε.
+                  final updated = await ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateSettings((s) => s.maxAttachmentSizeMB = mb);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (updated == null) {
+                    messenger.showSnackBar(SnackBar(
+                      content: const Text(AppErrors.settingsSaveFailed),
+                      backgroundColor: errColor,
+                    ));
+                  }
                 },
               );
             }),

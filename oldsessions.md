@@ -6231,9 +6231,105 @@ metadata (Version + test counter ×2) — **καμία αλλαγή αρχιτε
 - **Το `FLAG_SECURE` παράγει 0-byte screenshots** — μη το μπερδέψεις με αποτυχία capture·
   είναι evidence.
 
+## Session 320 — 16/11/2026 (S-13: όρια εισερχόμενου share intent + όριο κειμένου)
 
+### Στόχος
+Το **S-13** (πλάνο ασφάλειας #15): το share intent δεχόταν `*/*` και με
+`maxAttachmentSizeMB ≤ 0` («Χωρίς όριο») **δεν** υπήρχε όριο· το ίδιο στο picker των
+collection entries· το κοινόχρηστο κείμενο δεν είχε όριο. Εντός scope και δύο ευρήματα
+του device test: **S-13b** (αρχεία `text/*` γράφονταν ως εσωτερικό path στο σώμα) και
+**S-13c** (μόνιμο αντίγραφο κάθε share στο `cacheDir`).
 
+### Αποφάσεις (Δ1–Δ12, εγκεκριμένες)
+- Ceiling **100 MB** (`AppSettings.maxAttachmentCeilingMB`, const) + `effectiveMaxAttachmentMB`:
+  legacy `0`/αρνητικό/`>100` → **100**· `attachmentMaxBytes` **ποτέ null**· «Χωρίς όριο»
+  καταργήθηκε (options `1,5,10,20,50,100`).
+- Επανάχρηση `ShareLimits` (**20 αρχεία / 100 MB σύνολο**) για τα εισερχόμενα· κείμενο
+  **100.000** χαρακτήρες (ίδιο με το εξερχόμενο) με μήνυμα περικοπής.
+- **S-13b:** `type=text|url` με **απόλυτο + υπαρκτό** path = αρχείο (cache αντίγραφο),
+  όχι κείμενο.
+- **S-13c:** διαγραφή του cache αντιγράφου του plugin **μόνο** εντός temp root
+  (`p.isWithin`) — ποτέ αρχείο του χρήστη· σε exception μένει για retry.
+- Rollback: «τίποτα αποθηκεύσιμο» ⇒ **κανένα** item (pre-check, note + event)· αποτυχία
+  μετά τη δημιουργία ⇒ `items.hardDelete` (cascade).
+- Manifest **αμετάβλητο** (`*/*` — D9)· μηδέν schema/`build_runner`.
+- **F1/F2/F3 (τελικός έλεγχος):** το tile δείχνει το **ενεργό** όριο· cleanup σε κάθε
+  **τερματικό** σημείο (όχι σε exception)· phantom column id 10 αγνοείται.
 
+### Αλλαγές κώδικα
+| Αρχείο | Τι |
+|---|---|
+| `lib/services/share/inbound_share.dart` | **ΝΕΟ** — καθαρή λογική (χωρίς Flutter/Isar): `classify` (S-13b), `planFor`/`plan` (`InboundSkip` tooLarge/tooMany/overTotal/missing), `clampText` |
+| `lib/services/shared_intent_service.dart` | orchestration `_prepare`/`_saveAttachments`/`_cleanupIntentCache`/`_emptyMessage`· `textTruncated`· rollback `hardDelete`· αφαίρεση `: $e` από user-facing μήνυμα |
+| `lib/models/app_settings.dart` | ceiling const + `effectiveMaxAttachmentMB` + non-null `attachmentMaxBytes` |
+| `lib/services/attachment_service.dart` | safety net: > ceiling → `FormatException(attachTooLarge)` **πριν** το copy |
+| `lib/features/settings/settings_tiles.dart` | ενεργό όριο σε label/subtitle/isActive· await write + `settingsSaveFailed` |
+| `lib/features/collections/collection_entries_screen.dart` | ενιαίο `settings.attachmentMaxBytes` |
+| `lib/shared/widgets/shared_intent_sheet.dart` | excerpt **1×** στο `initState`· `waitUntilContentUnblocked` **πριν** το pop· ενιαίο SnackBar (περικοπή + παραλείψεις)· **inline `_error`** (βλ. device #3) |
+| `lib/shared/widgets/attachments_strip.dart` | `_add(context, ref)` + wait πριν το μήνυμα (S-314 parity) |
+| `lib/core/utils/app_errors.dart` | `shareTextTruncated(int maxChars)` |
+| `test/inbound_share_test.dart` | **ΝΕΟ** — 16 tests (classify/plan/clamp) |
+| `test/attachments_helpers_test.dart` | 0/-5/200/1000 → ceiling |
+
+### Έλεγχοι
+- `flutter analyze` → **No issues found**.
+- `flutter test` → **736/736 PASS** (baseline 721 → +15)· targeted 48/48.
+- Build: `flutter build apk --release` → 69.9MB · `aapt dump badging` →
+  `versionCode='6' versionName='1.3.0'` · `adb install -r` **Success** · UI «1.3.0 (build 6)».
+
+### Device test (POCO X3 `9593c01e`, 1080x2400) — `device-test/s320/`
+| Σενάριο | Αποτέλεσμα |
+|---|---|
+| #1 κείμενο (`EXTRA_TEXT`) → sheet excerpt → Αποθήκευση → «Γενικά» | ✅ σημείωση με σώμα (`02_sheet_text`, `04_note_after_save`) |
+| #2 **S-13b** `.txt` (`file://` app-owned) → sheet «1 αρχείο» → σημείωση | ✅ **📎 s320_note.txt (219B)**, **όχι** path στο σώμα (`24`, `26`) |
+| #3 ρύθμιση **1 MB** από το tile → oversize 2.000.000 B | ✅ tile «1 MB · ισχύει και για αρχεία από άλλες εφαρμογές»· inline κόκκινο «Το αρχείο υπερβαίνει το όριο των 1 MB» (`30`,`31`,`38`) |
+| #4 oversize ⇒ **κανένα** item (pre-check/rollback) | ✅ καμία `s320_big.txt` στη λίστα (`37`) |
+| #5 Συμβάν + `.txt` | ✅ συμβάν 16/11 09:00, Σημειώσεις «📎 s320_note.txt (219B)» (`41`) |
+| #6 S-13c cache cleanup | ⚠️ **μη επαληθεύσιμο** σε release build (χωρίς `run-as`/πρόσβαση στο `cacheDir`) — καλύπτεται από unit tests + guard `p.isWithin` |
+
+- **Εύρημα από το device #3 (διορθώθηκε):** το SnackBar αποτυχίας ζωγραφιζόταν **πίσω**
+  από το modal sheet → ο χρήστης δεν έβλεπε τίποτα και το sheet φαινόταν «παγωμένο».
+  Λύση: `_error` state + κόκκινο κείμενο **μέσα** στο sheet (καθαρίζεται σε νέα
+  προσπάθεια, κρατά retry). Επαληθεύτηκε στο device (`38_big_inline_error.png`).
+- **Residual (εκτός scope, προϋπάρχον plugin bug):** το `receive_sharing_intent` **δεν**
+  κάνει try/catch στο `copyTo` → `SecurityException` όταν το `content://` φτάνει χωρίς
+  grant (`am` δεν κάνει grant για `EXTRA_STREAM`, ούτε με `-f 0x1`/`-d`) ⇒ **crash** του
+  app (`W0.c.onNewIntent` → `a.a.A`). Γι' αυτό τα tests έγιναν με `file://` σε app-owned
+  διαδρομή. Να μπει σε μελλοντικό `error_list` (νέο εύρημα ⇒ επαναδημιουργία).
+- **Device quirks:** `uiautomator dump` αποτυγχάνει (MIUI `theme_config`) → συντεταγμένες
+  από screenshots (κλίμακα 1.2)· `screencap` **0 bytes** όσο είναι μπροστά το keyguard ή
+  stale MIUI error dialog (το `keyevent 4` δεν το κλείνει — χρειάστηκε reboot + manual
+  unlock από τον χρήστη).
+- **Καθαρισμός:** διαγράφηκαν οριστικά (Κάδος → «Οριστική») οι 3 δοκιμαστικές εγγραφές,
+  `/sdcard/Download/s320`, `/sdcard/Android/data/…/files/s320`, όλα τα `s320_*.png` +
+  `/data/local/tmp/*.png`, και τα MediaStore rows `1000009561/62/63`· ρύθμιση επανήλθε
+  **50 MB**· `svc power stayon false`. Τα PNG/summary κρατήθηκαν τοπικά στο
+  `device-test/s320/` (gitignored).
+
+### Versioning (κανόνας 13)
+`1.2.1+5` → **`1.3.0+6`** — **MINOR** (`X.Y+1.0`): νέο feature/UX (όρια + ταξινόμηση
+`text/*`)· `+N` +1. Συγχρονίστηκαν: `pubspec.yaml`, `supernote.md` (`| Version |`),
+`note_eco_new.iss` (`AppVersion=1.3.0` + `VersionInfoVersion=1.3.0.6`).
+
+### Backups & tracker
+- `backups/s320_s13_20261116/` — 14 αρχεία (8 lib/test + pubspec, supernote, .iss,
+  oldsessions, security_v2) + `shared_intent_sheet.dart.step2.bak` (πριν το inline fix).
+- `error_list.md`: **0 ανοιχτά** — δεν άνοιξε νέο (το S-13 έκλεισε)· το plugin crash
+  καταγράφεται εδώ ως residual για μελλοντική καταχώριση.
+
+### Commit
+`feat(share): inbound share limits, text clamp and text/* classification (S-13)` +
+`chore(release): bump 1.3.0+6` (ξεχωριστά, κανόνας 13).
+
+### Μαθήματα
+- **Ένα plugin που αντιγράφει σε cache = μόνιμα αρχεία** αν δεν καθαρίσεις· το «προσωρινό»
+  αντίγραφο δεν σβήνεται μόνο του.
+- **`type=text` δεν σημαίνει κείμενο:** για `text/*` αρχεία το plugin δίνει `path` = cache
+  αντίγραφο → χρειάζεται έλεγχος ύπαρξης, αλλιώς γράφεις εσωτερικό path ως περιεχόμενο.
+- **SnackBar ≠ ορατό μέσα σε modal:** τα terminal μηνύματα αποτυχίας πρέπει να μένουν στο
+  ίδιο surface με το κουμπί που τα προκάλεσε (inline), όχι πίσω από το barrier.
+- **Το device test βρίσκει ό,τι δεν βλέπουν 736 tests:** η αόρατη αποτυχία ήταν αόρατη και
+  στα tests.
 
 
 

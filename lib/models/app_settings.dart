@@ -62,13 +62,29 @@ class AppSettings {
   /// Πόσα ψηφία έχει το PIN (4-6). Νέα PIN = 6· 4-5 μόνο legacy.
   int appLockPinLength = 6;
 
-  /// Μέγιστο μέγεθος αρχείου σε MB για συνημμένα (0 = χωρίς όριο)
+  /// S-13: απόλυτο ανώτατο όριο ανά αρχείο (100 MB). Ανεξάρτητο από τη
+  /// ρύθμιση — ισχύει ακόμη κι αν η αποθηκευμένη τιμή είναι εκτός λίστας.
+  /// Δεν είναι πεδίο Isar (getter/const — μηδέν schema/migration/codegen).
+  static const int maxAttachmentCeilingMB = 100;
+
+  /// Μέγιστο μέγεθος αρχείου σε MB για συνημμένα. Legacy `0`, αρνητικό ή
+  /// τιμή πάνω από το ceiling διαβάζονται ως [maxAttachmentCeilingMB]
+  /// (S-13 Δ1/Δ4 — το «χωρίς όριο» καταργήθηκε).
   int maxAttachmentSizeMB = 20;
 
-  /// Όριο σε bytes (null = χωρίς όριο). Getter — δεν είναι πεδίο Isar,
-  /// άρα μηδέν schema/migration/codegen.
-  int? get attachmentMaxBytes =>
-      maxAttachmentSizeMB > 0 ? maxAttachmentSizeMB * 1024 * 1024 : null;
+  /// **Ενεργό** όριο σε MB — πάντα μέσα στο `1..maxAttachmentCeilingMB`.
+  /// SPoT για εμφάνιση (settings tile) και για έλεγχο (attachments/share).
+  int get effectiveMaxAttachmentMB {
+    final mb = maxAttachmentSizeMB;
+    if (mb <= 0 || mb > maxAttachmentCeilingMB) {
+      return maxAttachmentCeilingMB;
+    }
+    return mb;
+  }
+
+  /// Ενεργό όριο σε bytes — **ποτέ null**. Getter, όχι πεδίο Isar, άρα
+  /// μηδέν schema/migration/codegen.
+  int get attachmentMaxBytes => effectiveMaxAttachmentMB * 1024 * 1024;
 
   // ── Auto-backup ──────────────────────────────────────────────
   /// Αυτόματο zip-αντίγραφο (DB + attachments) στο background.

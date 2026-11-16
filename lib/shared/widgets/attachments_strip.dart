@@ -42,7 +42,7 @@ class AttachmentsStrip extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (atts.isEmpty)
-                _AddButton(labeled: true, onPressed: () => _add(context))
+                _AddButton(labeled: true, onPressed: () => _add(context, ref))
               else ...[
                 Row(
                   children: [
@@ -54,7 +54,7 @@ class AttachmentsStrip extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    _AddButton(labeled: false, onPressed: () => _add(context)),
+                    _AddButton(labeled: false, onPressed: () => _add(context, ref)),
                   ],
                 ),
                 const SizedBox(height: Spacing.sm),
@@ -80,7 +80,10 @@ class AttachmentsStrip extends ConsumerWidget {
 
   /// Προσθήκη αρχείου (E09): επιλογή → όριο από settings → αποθήκευση.
   /// Το stream ενημερώνει μόνο του το strip (χωρίς invalidate).
-  Future<void> _add(BuildContext context) async {
+  ///
+  /// S-314 parity (S-13): το μήνυμα περιμένει τυχόν ξεκλείδωμα — αλλιώς
+  /// ζωγραφίζεται κάτω από το lock overlay και λήγει αόρατο.
+  Future<void> _add(BuildContext context, WidgetRef ref) async {
     try {
       final settings = await SuperNoteHelper.instance.settings.get();
       await AttachmentService.instance.pickAndSave(
@@ -89,9 +92,11 @@ class AttachmentsStrip extends ConsumerWidget {
       );
     } on FormatException catch (e) {
       DebugConfig.warning('AttachmentsStrip _add validation: ${e.message}');
+      if (!await waitUntilContentUnblocked(ref)) return;
       if (context.mounted) _snack(context, e.message);
     } catch (e, stack) {
       DebugConfig.error('AttachmentsStrip _add', e, stack);
+      if (!await waitUntilContentUnblocked(ref)) return;
       if (context.mounted) _snack(context, AppErrors.attachSaveFailed);
     }
   }

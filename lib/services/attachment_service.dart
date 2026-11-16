@@ -7,6 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 import '../helpers/super_note_helper.dart';
+import '../models/app_settings.dart';
 import '../models/attachment.dart';
 import '../core/utils/app_errors.dart';
 import '../core/utils/app_paths.dart';
@@ -105,6 +106,15 @@ class AttachmentService {
       }
       final mimeType = lookupMimeType(sourcePath) ?? 'application/octet-stream';
       final fileSize = await sourceFile.length();
+
+      // S-13: δικτυωμένη ασφάλεια — κανένα αρχείο πάνω από το απόλυτο
+      // ceiling δεν αντιγράφεται, ακόμη κι αν ο caller δεν έδωσε όριο.
+      if (fileSize > AppSettings.maxAttachmentCeilingMB * 1024 * 1024) {
+        DebugConfig.warning(
+            'saveFile: over ceiling ($fileSize bytes) — rejected');
+        throw FormatException(
+            AppErrors.attachTooLarge(AppSettings.maxAttachmentCeilingMB));
+      }
 
       final destDir = await _getAttachmentsDir();
       destPath = p.join(
