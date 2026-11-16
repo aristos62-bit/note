@@ -7,7 +7,7 @@
 | Πεδίο | Τιμή |
 |---|---|
 | Όνομα | super_note (SuperNote) |
-| Version | 1.3.1+7 |
+| Version | 1.4.0+8 |
 | Flutter | 3.47.8 (stable) |
 | Dart | 3.13.7 |
 | GitHub | https://github.com/aristos62-bit/note |
@@ -16,7 +16,7 @@
 | Multi-platform | Android, iOS, Linux, macOS, Windows, Web (web not supported — Isar) |
 | Γλώσσα UI | Ελληνικά (με δυνατότητα English/Auto) |
 | Στόχοι | real-time (streams/reactive) · responsive (mobile/tablet/desktop) · dark mode |
-| Test suite | **742/742** (`flutter test`, 16/11/2026 — `flutter analyze` clean) |
+| Test suite | **766/766** (`flutter test`, 16/11/2026 — `flutter analyze` clean) |
 
 ---
 
@@ -65,7 +65,7 @@
 
 ### App Lock, Share & Archive
 - `local_auth` (`^2.3.0`) — biometrics
-- `crypto` (`^3.0.6`) — SHA-256 (PIN hashing)
+- `crypto` (`^3.0.6`) — SHA-256: **μόνο** για legacy PIN hash (64-hex) + iterated-SHA-256 v1 (`core/crypto/pin_kdf.dart`)
 - `receive_sharing_intent` (`^1.9.0`) — λήψη κοιν/νου content (**vendored fork**: `packages/receive_sharing_intent/` + `dependency_overrides`, S-321/E53 — βλ. `FORK.md`)
 - `url_launcher` (`^6.3.3`) — άνοιγμα URLs + Windows file opener (`Uri.file` → `ShellExecuteW`)
 - `archive` (`^4.3.0`) — zip backup/restore
@@ -83,7 +83,8 @@ lib/
 ├── core/
 │   ├── core.dart                 — Barrel export
 │   ├── crypto/
-│   │   └── kdf.dart              — BackupKdf: PBKDF2-HMAC-SHA256 wrapper + randomBytes (S-02)
+│   │   ├── kdf.dart              — BackupKdf: PBKDF2-HMAC-SHA256 wrapper + randomBytes (S-02)
+│   │   └── pin_kdf.dart          — PinKdf: SPoT PIN hash — v2 PBKDF2 (120k), v1 + legacy 64-hex (ανάγνωση/auto-upgrade) (S-323)
 │   ├── router/
 │   │   └── app_router.dart       — GoRouter + ShellRoute + AppShell
 │   └── theme/
@@ -167,7 +168,7 @@ lib/
 │   │   ├── backup_db_probe.dart   — Trial open + strip lock fields + consistent snapshot (S-02)
 │   │   ├── backup_rotation.dart   — auto_* listing/rotation + partial sweep (S-02)
 │   │   └── backup_passphrase_cache.dart — Κωδικός αντιγράφου ΜΟΝΟ σε μνήμη συνεδρίας (D2=i)
-│   ├── app_lock_service.dart     — PIN hash (iterated SHA-256) + biometric + lockout/weak-PIN policy (S-03)
+│   ├── app_lock_service.dart     — Λεπτοί delegates στο `PinKdf` (hash/verify) + biometric + lockout/weak-PIN policy (S-03/S-323)
 │   ├── shared_intent_service.dart — Λήψη κοιν/νου content (share intent)
 │   ├── contact_import_service.dart — Import device contacts
 │   ├── share_service.dart        — Share orchestrator: Load → Choose → Render → Share (E39/S292)
@@ -443,7 +444,7 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - `preferredFolderId` — legacy πεδίο Isar (δεν χρησιμοποιείται από S272/E38)
 - `itemTypeColorsJson` — JSON map `{"typeName":"#RRGGBB"}` for per-type card colors
 - `hasCompletedOnboarding`
-- App lock (S-03/S-04): `appLockEnabled`, `appLockPinHash`, `appLockPinLength` (νέο PIN = 6· 4-5 μόνο legacy), `appLockTimeoutSeconds`, `biometricEnabled`
+- App lock (S-03/S-04): `appLockEnabled`, `appLockPinHash` (**μορφή `v2$pbkdf2-sha256$120000$<saltB64>$<hashB64>`** από S-323 — διαβάζονται και `v1$…` + legacy 64-hex με auto-upgrade· **0 schema change**), `appLockPinLength` (νέο PIN = 6· 4-5 μόνο legacy), `appLockTimeoutSeconds`, `biometricEnabled`
 - Persisted lockout: `appLockFailedAttempts`, `appLockLockoutUntilEpochMs`, `appLockLockoutDurationSeconds`, `appLockLockoutMonoMs` (άγκυρα `elapsedRealtime`), `appLockLastSeenWallMs` (ανίχνευση rollback)
 
 ---
@@ -660,6 +661,7 @@ final db = SuperNoteHelper.instance;
 - Timeouts: cold 5s · resume 2s · retry 5s (injectable `lockGateTimeoutsProvider`)
 - `resolveCold()` pre-runApp · `resolveResume(pausedAt, {elapsedSeconds})` στο resumed (S-03: προτιμά monotonic `elapsedRealtime`· wall fallback· αρνητική διαφορά ⇒ fail-closed) · `retry()` από failure UI · `markPaused()` ακυρώνει in-flight resolves
 - **Persisted lockout (S-03):** `AppLockAttemptsStore` / `appLockAttemptsStoreProvider` — μία πύλη `snapshot`/`verify`/`finishSuccess` (lockout → verify → καταγραφή αποτυχίας)· tiers 5→30δ, 6→60δ, 7→120δ, 8→240δ, 9-14→5λ, 15-19→15λ, 20-29→30λ, ≥30→1 ώρα· μηδενισμός μετρητών μόνο σε επιτυχία/νέο PIN/disable. Επιβιώνει kill/restart (Isar) — όχι in-memory.
+- **PIN KDF v2 (S-323):** `PinKdf` (`core/crypto/pin_kdf.dart`) — γράφει **μόνο** `v2$pbkdf2-sha256$120000$…`, διαβάζει `v2`/`v1`/legacy 64-hex· `PinVerifyOutcome {ok, mismatch, unsupported}`· το `unsupported` (άγνωστο `vN$…` — downgrade) **δεν** αυξάνει τον μετρητή αποτυχιών. `pinKdfUseIsolateProvider` (default `true`) = seam για widget tests (FakeAsync). Auto-upgrade v1/legacy → v2 στο επόμενο επιτυχές unlock· το hash υπολογίζεται **πριν** το `writeTxn`.
 - **Sensitive gate (S-04):** `confirmSensitiveAction` (`settings_pin_dialogs.dart`) — βιομετρικό (αν ενεργό, bypass lockout) → PIN· πύλη **πριν** από dialogs/file picker σε export/import/wipe και disable lock· fail-closed όταν τα settings δεν διαβάζονται
 - `applySettings(AppSettings)` (S-24) — εφαρμόζει **committed** snapshot μετά επιτυχές write του toggle, χωρίς 2η ανάγνωση DB και χωρίς ενδιάμεσο `resolving` (generation bump → ακυρώνει τυχόν in-flight resolve)
 - Fail-closed: `null`/σφάλμα/timeout ή `enabled && pinHash == null` ⇒ locked + `FLAG_SECURE(true)` + failure UI (retry / inline νέο PIN)
@@ -1159,7 +1161,7 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 |---|---|
 | `flutter pub run build_runner build --delete-conflicting-outputs` | After Isar model changes |
 | `flutter analyze` | Lint check (excludes `*.g.dart`) |
-| `flutter test` | Πλήρες suite (742/742 🟢) |
+| `flutter test` | Πλήρες suite (766/766 🟢) |
 | `flutter build apk` | Android APK build |
 | `flutter build ios` | iOS build |
 | `flutter build windows` | Windows build |

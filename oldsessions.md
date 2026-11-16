@@ -6479,6 +6479,81 @@ first-run restore prompt (E50-B). Γράφτηκε ως «**ΜΕΡΙΚΩΣ ΥΛ�
 - **Οι εκθέσεις ασφάλειας γερνούν σιωπηλά:** το S-02 φαινόταν ανοιχτό ενώ είχε
   κλείσει μερικώς· η επαλήθευση έγινε διαβάζοντας **κώδικα**, όχι docs.
 
+---
+
+## Session 323 — 16/11/2026 (S-15: PIN KDF v2 — PBKDF2 + legacy auto-upgrade)
+
+### Στόχος
+Κλείσιμο του **S-15**: το stored PIN hash ήταν **iterated SHA-256 (100k)** με
+salt 16B — αποδεκτό αλλά όχι KDF-πρότυπο, και το legacy **unsalted** SHA-256
+(64-hex) ήταν ακόμη δεκτό. Ζητούμενο: μία **μορφή v2** με PBKDF2, ανάγνωση
+όλων των παλιών μορφών και **αυτόματη** αναβάθμιση, χωρίς migration βάσης.
+
+### Μορφή & όρια
+| Στοιχείο | Τιμή |
+|---|---|
+| Γράφεται | `v2$pbkdf2-sha256$120000$<saltB64>$<hashB64>` |
+| Διαβάζονται | `v2$…` · `v1$iter$salt$hash` (1.3.x) · 64-hex (προ-salt legacy) |
+| Παράμετροι | salt 16B, key 32B, iterations **120.000** (min 10k / max 1M) |
+| Guards | stored ≤ 256 χαρ., salt ≥ 8B, v2 hash **ακριβώς** 32B, base64 failures → `mismatch` (ποτέ exception) |
+| Αποτέλεσμα | `PinVerifyOutcome {ok, mismatch, unsupported}` |
+
+**Γιατί 120k και όχι 210k:** το PBKDF2 του `cryptography` είναι **pure Dart**
+(`DartPbkdf2`, ~2 blocks SHA-256/επανάληψη — επιβεβαιωμένο στο source του
+πακέτου, χωρίς `cryptography_flutter`), άρα 210k θα κόστιζε ~4× το σημερινό
+unlock **σε κάθε** ξεκλείδωμα. Ένα 6ψήφιο PIN έχει 10⁶ συνδυασμούς: κανένα
+εφικτό iteration count δεν το σώζει από offline επίθεση — οι πραγματικές άμυνες
+είναι το **persisted lockout (S-03)**, η απομονωμένη αποθήκευση και το
+FLAG_SECURE. Το 120k ταιριάζει με το `.snb` (S-02) και το ratchet
+(`needsUpgrade`) επιτρέπει αύξηση με **1 γραμμή**, χωρίς migration.
+
+### Τι άλλαξε
+| Αρχείο | Αλλαγή |
+|---|---|
+| `lib/core/crypto/pin_kdf.dart` | **νέο** SPoT: `PinKdf.hash/verify/needsUpgrade/hashLegacy` + `PinVerifyOutcome` + `PinKdfException`· κατέχει **και τις 3** μορφές |
+| `lib/core/crypto/crypto.dart` | `export 'pin_kdf.dart';` |
+| `lib/core/crypto/kdf.dart` | σχόλιο: το `BackupKdf` εξυπηρετεί **και** το PIN KDF v2 |
+| `lib/services/app_lock_service.dart` | `hashPin`/`verifyPin`/`hashPinLegacy`/`shouldUpgradeHash` = **λεπτοί delegates**· αφαίρεση `dart:convert`, `dart:math`, `package:crypto`· `kHashIterations` = legacy-v1 (μόνο ανάγνωση) |
+| `lib/providers/app_lock_provider.dart` | `PinCheckStatus.unsupported`· `verify` await + map + log χρόνου· `finishSuccess` υπολογίζει hash **μόνο** αν `needsUpgrade`· `pinKdfUseIsolateProvider` (seam, default `true`) |
+| `lib/features/lock/lock_screen.dart` | spinner 18×18/stroke 2 στο **υπάρχον 72×72** slot (0 layout shift) + case `unsupported` |
+| `lib/features/settings/settings_pin_dialogs.dart` | spinner στο `FilledButton` + case `unsupported` |
+| `lib/features/settings/settings_app_lock_section.dart` | hash **πριν** το `_write` (2 σημεία: `_toggle`, `_changePin`) |
+| `lib/features/lock/lock_gate_screen.dart` | `await hashPin` (πριν το `settings.update`) |
+| `lib/core/utils/app_errors.dart` | `pinHashUnsupported` |
+| Tests | **νέο** `test/pin_kdf_test.dart` (22) + `lock_security` (rewrite KDF groups), `lockout_store` (+unsupported), `lock_screen` (memoized fixtures + `_pumpVerify`), `settings_app_lock_section` (memoized fixtures) |
+
+### Κρίσιμο σημείο: το KDF **έξω** από το `writeTxn`
+Το `SettingsRepository.update` τρέχει τον updater **μέσα** σε `writeTxn` — εκεί
+κρυπτογραφία/isolation είναι απαγορευτική. Το hash υπολογίζεται πριν, και το
+transaction κάνει μόνο αναθέσεις (μικρότερο writeTxn, μηδέν lost-update).
+
+### Tests & επαλήθευση
+- `flutter analyze --no-pub` → **No issues found!**
+- `flutter test` → **766/766** (baseline 742 + 24 νέα/ενημερωμένα).
+- Τα 5 lock/pin αρχεία: **93/93**.
+
+### Μαθήματα
+- **FakeAsync × isolate:** τα widget tests τρέχουν σε `FakeAsync`; ένα πραγματικό
+  isolate **δεν** ολοκληρώνεται χωρίς `runAsync` (το λέει και το SDK στο
+  `runAsync` doc). Γι' αυτό το seam `pinKdfUseIsolateProvider` — `false` στα
+  widget tests, `true` στην παραγωγή.
+- **`pumpAndSettle` + ατέρμονο animation = timeout:** ο spinner του KDF μένει
+  ορατός μετά το **επιτυχές** unlock (το `LockScreen` αντικαθίσταται στην
+  εφαρμογή, αλλά στο test μένει mounted) → `pumpAndSettle` δεν τερματίζει ποτέ.
+  Λύση: σταθερός αριθμός pumps (`_pumpVerify`).
+- **Memoized fixtures:** hash στο **default** iterations, υπολογισμένο **μία
+  φορά** στο `setUpAll` (έξω από το FakeAsync). Fixtures με λιγότερα iterations
+  θα πυροδοτούσαν auto-upgrade και θα έσπαγαν τα `writes` counts.
+- **`unsupported` ≠ λάθος PIN:** άγνωστο `vN$…` (downgrade) δεν πρέπει να
+  αυξάνει τον μετρητή αποτυχιών — αλλιώς ο χρήστης τιμωρείται για κάτι που δεν
+  έφταιξε.
+
+### Έκδοση
+`1.3.1+7` → **`1.4.0+8`** (MINOR: νέα μορφή αποθηκευμένου hash/UX spinner·
+κανένα schema change — το `appLockPinHash` παραμένει `String?`, `schemaVersion`
+v6 άθικτο).
+
+
 
 
 
