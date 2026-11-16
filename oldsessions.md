@@ -6492,20 +6492,23 @@ salt 16B — αποδεκτό αλλά όχι KDF-πρότυπο, και το le
 ### Μορφή & όρια
 | Στοιχείο | Τιμή |
 |---|---|
-| Γράφεται | `v2$pbkdf2-sha256$120000$<saltB64>$<hashB64>` |
+| Γράφεται | `v2$pbkdf2-sha256$60000$<saltB64>$<hashB64>` |
 | Διαβάζονται | `v2$…` · `v1$iter$salt$hash` (1.3.x) · 64-hex (προ-salt legacy) |
-| Παράμετροι | salt 16B, key 32B, iterations **120.000** (min 10k / max 1M) |
+| Παράμετροι | salt 16B, key 32B, iterations **60.000** (min 10k / max 1M) |
 | Guards | stored ≤ 256 χαρ., salt ≥ 8B, v2 hash **ακριβώς** 32B, base64 failures → `mismatch` (ποτέ exception) |
 | Αποτέλεσμα | `PinVerifyOutcome {ok, mismatch, unsupported}` |
 
-**Γιατί 120k και όχι 210k:** το PBKDF2 του `cryptography` είναι **pure Dart**
+**Γιατί 60k και όχι 210k:** το PBKDF2 του `cryptography` είναι **pure Dart**
 (`DartPbkdf2`, ~2 blocks SHA-256/επανάληψη — επιβεβαιωμένο στο source του
-πακέτου, χωρίς `cryptography_flutter`), άρα 210k θα κόστιζε ~4× το σημερινό
-unlock **σε κάθε** ξεκλείδωμα. Ένα 6ψήφιο PIN έχει 10⁶ συνδυασμούς: κανένα
-εφικτό iteration count δεν το σώζει από offline επίθεση — οι πραγματικές άμυνες
-είναι το **persisted lockout (S-03)**, η απομονωμένη αποθήκευση και το
-FLAG_SECURE. Το 120k ταιριάζει με το `.snb` (S-02) και το ratchet
-(`needsUpgrade`) επιτρέπει αύξηση με **1 γραμμή**, χωρίς migration.
+πακέτου, χωρίς `cryptography_flutter`). Μετρήθηκε **στη συσκευή** (POCO X3,
+release AOT): **120k ⇒ ~1190ms** σε κάθε επαλήθευση, **60k ⇒ ~610-630ms**.
+Επειδή το app κλειδώνει «Αμέσως» στο resume, το 1.2s το έβλεπε ο χρήστης
+συνέχεια → **60k**. Ένα 6ψήφιο PIN έχει 10⁶ συνδυασμούς: κανένα εφικτό iteration
+count δεν το σώζει από offline επίθεση — οι πραγματικές άμυνες είναι το
+**persisted lockout (S-03)**, η απομονωμένη αποθήκευση και το FLAG_SECURE. Το
+ratchet (`needsUpgrade`) επιτρέπει αλλαγή με **1 γραμμή**, χωρίς migration·
+ένα hash 120k που έχει ήδη γραφτεί **δεν** υποβαθμίζεται (`120000 > 60000` ⇒
+`needsUpgrade` = false).
 
 ### Τι άλλαξε
 | Αρχείο | Αλλαγή |
@@ -6531,6 +6534,27 @@ transaction κάνει μόνο αναθέσεις (μικρότερο writeTxn,
 - `flutter analyze --no-pub` → **No issues found!**
 - `flutter test` → **766/766** (baseline 742 + 24 νέα/ενημερωμένα).
 - Τα 5 lock/pin αρχεία: **93/93**.
+
+### Device tests (POCO X3, Android 12/API 31, release build)
+| Έλεγχος | Αποτέλεσμα |
+|---|---|
+| Έκδοση μετά την εγκατάσταση | `versionName=1.4.0`, `versionCode=8` (`dumpsys package`) |
+| Ρυθμίσεις → Κλείδωμα εφαρμογής | «Υπάρχει ήδη PIN από προηγούμενη χρήση» (legacy v1 hash από 1.3.1) → «Ορισμός νέου PIN» |
+| Λάθος PIN σε dialog (`showCurrentPinDialog`) | «Το PIN δεν είναι σωστό» — το legacy v1 hash επαληθεύτηκε ως **mismatch** (όχι exception/unsupported) |
+| Ορισμός PIN (hash σε isolate) | spinner στο `FilledButton`, lock screen εμφανίστηκε αμέσως μετά |
+| Λάθος PIN στο lock screen | «Το PIN δεν είναι σωστό» + μετρητής αποτυχιών |
+| Σωστό PIN → unlock | ✅ `AppLock: PIN verified (lockout store, 608ms)` (60k) |
+| Kill/relaunch (force-stop) | LockScreen στην εκκίνηση (persisted lock) |
+| Home → resume | LockScreen ξανά («Αμέσως») + `632ms` |
+| Αλλαγή PIN (τρέχον `582964` → νέο) | verify `1192ms` (hash 120k) → νέο PIN γράφτηκε |
+| Απενεργοποίηση (S-04 gate) | ζητά ταυτότητα → verify `1188ms` → απενεργοποιήθηκε |
+| Χρόνος KDF (3 μετρήσεις/τιμή) | 120k: **1198 / 1192 / 1188ms** · 60k: **608 / 632ms** |
+
+> Το legacy **auto-upgrade** (v1/legacy → v2) δεν επαληθεύτηκε στη συσκευή: το
+> παλιό v1 hash υπήρχε, αλλά το PIN του ήταν άγνωστο (δεν τηρείται). Καλύπτεται
+> από unit tests (`pin_kdf_test` v1/legacy verify + `needsUpgrade`,
+> `lockout_store` «legacy hash → upgrade μόνο μετά από verified hash»).
+
 
 ### Μαθήματα
 - **FakeAsync × isolate:** τα widget tests τρέχουν σε `FakeAsync`; ένα πραγματικό

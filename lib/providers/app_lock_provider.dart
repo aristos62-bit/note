@@ -265,7 +265,7 @@ class AppLockAttemptsStore {
 final appLockAttemptsStoreProvider =
     Provider<AppLockAttemptsStore>((ref) => AppLockAttemptsStore(ref));
 
-/// S-323: το PIN KDF (PBKDF2 120k) τρέχει σε isolate στην παραγωγή, ώστε το
+/// S-323: το PIN KDF (PBKDF2) τρέχει σε isolate στην παραγωγή, ώστε το
 /// UI να μη «παγώνει». Τα widget tests τρέχουν σε FakeAsync, όπου ένα
 /// πραγματικό isolate δεν ολοκληρώνεται χωρίς `runAsync` → override `false`.
 final pinKdfUseIsolateProvider = Provider<bool>((ref) => true);

@@ -84,7 +84,7 @@ lib/
 │   ├── core.dart                 — Barrel export
 │   ├── crypto/
 │   │   ├── kdf.dart              — BackupKdf: PBKDF2-HMAC-SHA256 wrapper + randomBytes (S-02)
-│   │   └── pin_kdf.dart          — PinKdf: SPoT PIN hash — v2 PBKDF2 (120k), v1 + legacy 64-hex (ανάγνωση/auto-upgrade) (S-323)
+│   │   └── pin_kdf.dart          — PinKdf: SPoT PIN hash — v2 PBKDF2 (60k), v1 + legacy 64-hex (ανάγνωση/auto-upgrade) (S-323)
 │   ├── router/
 │   │   └── app_router.dart       — GoRouter + ShellRoute + AppShell
 │   └── theme/
@@ -444,7 +444,7 @@ none(0), low(1), medium(2), high(3), urgent(4)
 - `preferredFolderId` — legacy πεδίο Isar (δεν χρησιμοποιείται από S272/E38)
 - `itemTypeColorsJson` — JSON map `{"typeName":"#RRGGBB"}` for per-type card colors
 - `hasCompletedOnboarding`
-- App lock (S-03/S-04): `appLockEnabled`, `appLockPinHash` (**μορφή `v2$pbkdf2-sha256$120000$<saltB64>$<hashB64>`** από S-323 — διαβάζονται και `v1$…` + legacy 64-hex με auto-upgrade· **0 schema change**), `appLockPinLength` (νέο PIN = 6· 4-5 μόνο legacy), `appLockTimeoutSeconds`, `biometricEnabled`
+- App lock (S-03/S-04): `appLockEnabled`, `appLockPinHash` (**μορφή `v2$pbkdf2-sha256$60000$<saltB64>$<hashB64>`** από S-323 — διαβάζονται και `v1$…` + legacy 64-hex με auto-upgrade· **0 schema change**), `appLockPinLength` (νέο PIN = 6· 4-5 μόνο legacy), `appLockTimeoutSeconds`, `biometricEnabled`
 - Persisted lockout: `appLockFailedAttempts`, `appLockLockoutUntilEpochMs`, `appLockLockoutDurationSeconds`, `appLockLockoutMonoMs` (άγκυρα `elapsedRealtime`), `appLockLastSeenWallMs` (ανίχνευση rollback)
 
 ---
@@ -661,7 +661,7 @@ final db = SuperNoteHelper.instance;
 - Timeouts: cold 5s · resume 2s · retry 5s (injectable `lockGateTimeoutsProvider`)
 - `resolveCold()` pre-runApp · `resolveResume(pausedAt, {elapsedSeconds})` στο resumed (S-03: προτιμά monotonic `elapsedRealtime`· wall fallback· αρνητική διαφορά ⇒ fail-closed) · `retry()` από failure UI · `markPaused()` ακυρώνει in-flight resolves
 - **Persisted lockout (S-03):** `AppLockAttemptsStore` / `appLockAttemptsStoreProvider` — μία πύλη `snapshot`/`verify`/`finishSuccess` (lockout → verify → καταγραφή αποτυχίας)· tiers 5→30δ, 6→60δ, 7→120δ, 8→240δ, 9-14→5λ, 15-19→15λ, 20-29→30λ, ≥30→1 ώρα· μηδενισμός μετρητών μόνο σε επιτυχία/νέο PIN/disable. Επιβιώνει kill/restart (Isar) — όχι in-memory.
-- **PIN KDF v2 (S-323):** `PinKdf` (`core/crypto/pin_kdf.dart`) — γράφει **μόνο** `v2$pbkdf2-sha256$120000$…`, διαβάζει `v2`/`v1`/legacy 64-hex· `PinVerifyOutcome {ok, mismatch, unsupported}`· το `unsupported` (άγνωστο `vN$…` — downgrade) **δεν** αυξάνει τον μετρητή αποτυχιών. `pinKdfUseIsolateProvider` (default `true`) = seam για widget tests (FakeAsync). Auto-upgrade v1/legacy → v2 στο επόμενο επιτυχές unlock· το hash υπολογίζεται **πριν** το `writeTxn`.
+- **PIN KDF v2 (S-323):** `PinKdf` (`core/crypto/pin_kdf.dart`) — γράφει **μόνο** `v2$pbkdf2-sha256$60000$…`, διαβάζει `v2`/`v1`/legacy 64-hex· `PinVerifyOutcome {ok, mismatch, unsupported}`· το `unsupported` (άγνωστο `vN$…` — downgrade) **δεν** αυξάνει τον μετρητή αποτυχιών. `pinKdfUseIsolateProvider` (default `true`) = seam για widget tests (FakeAsync). Auto-upgrade v1/legacy → v2 στο επόμενο επιτυχές unlock· το hash υπολογίζεται **πριν** το `writeTxn`. Χρόνος (POCO X3, release): 60k ⇒ **~620ms** (120k ⇒ ~1190ms — απορρίφθηκε).
 - **Sensitive gate (S-04):** `confirmSensitiveAction` (`settings_pin_dialogs.dart`) — βιομετρικό (αν ενεργό, bypass lockout) → PIN· πύλη **πριν** από dialogs/file picker σε export/import/wipe και disable lock· fail-closed όταν τα settings δεν διαβάζονται
 - `applySettings(AppSettings)` (S-24) — εφαρμόζει **committed** snapshot μετά επιτυχές write του toggle, χωρίς 2η ανάγνωση DB και χωρίς ενδιάμεσο `resolving` (generation bump → ακυρώνει τυχόν in-flight resolve)
 - Fail-closed: `null`/σφάλμα/timeout ή `enabled && pinHash == null` ⇒ locked + `FLAG_SECURE(true)` + failure UI (retry / inline νέο PIN)
