@@ -6464,9 +6464,10 @@ first-run restore prompt (E50-B). Γράφτηκε ως «**ΜΕΡΙΚΩΣ ΥΛ�
   (API `size` ~126 MB, forks **0**) — πλήρης εκκαθάριση = αίτημα στο Support.
 
 ### S-09 / S-21
-- **S-09:** ✅ device-verified (χρήστης) — νέα εγκατάσταση + restore από backup.
-  **Παραμένει:** αντίγραφο `.jks`/`key.properties` εκτός μηχανής (ενέργεια
-  χρήστη) + iOS/macOS/Linux bundle ids (`com.example.superNote`).
+- **S-09:** ✅ **πλήρως κλειστό** — device-verified (νέα εγκατάσταση + restore
+  από backup) **και** αντίγραφο `.jks`/`key.properties` **εκτός μηχανής**
+  (χρήστης, 16/11/2026). Παραμένουν μόνο τα iOS/macOS/Linux bundle ids
+  (`com.example.superNote` — release hygiene, όχι εύρημα ασφάλειας).
 - **S-21:** ✅ device-verified σε **2η συσκευή** (όλα OK) — η OEM εξάρτηση του
   D2D καλύπτεται πλέον από 2 συσκευές· **S-318** (macOS/Linux capture) παραμένει.
 
