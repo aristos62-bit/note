@@ -3,8 +3,8 @@
 // S-02: SPoT για key derivation του κρυπτογραφημένου αντιγράφου.
 //
 // Λεπτό wrapper πάνω στο `Pbkdf2` του πακέτου `cryptography` — καμία
-// χειροποίητη κρυπτογραφία (C1). Το `crypto` του project μένει για το
-// υπάρχον ΑΠΟΘΗΚΕΥΜΕΝΟ PIN hash (S-03) και δεν αγγίζεται εδώ.
+// χειροποίητη κρυπτογραφία (C1). Χρησιμοποιείται και από το PIN KDF v2
+// (`pin_kdf.dart`, S-323) ώστε ένα μόνο primitive να συντηρείται.
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';

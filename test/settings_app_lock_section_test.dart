@@ -30,8 +30,12 @@ AppSettings _base({
 
 const _pin = '582964';
 
+/// S-323: το PIN hash είναι πλέον PBKDF2 (async). Υπολογίζεται **μία φορά**
+/// ανά PIN στο `setUpAll` (έξω από το FakeAsync των widget tests).
+final Map<String, String> _hashCache = {};
+
 /// Πραγματικό hash — το S-04 gate επαληθεύει με verifyPin.
-String _realHash() => AppLockService.instance.hashPin(_pin);
+String _realHash() => _hashCache[_pin]!;
 
 AppSettings _lockedSettings() {
   final hash = _realHash();
@@ -47,6 +51,7 @@ ProviderContainer _container(
 }) {
   final container = ProviderContainer(overrides: [
     appLockSettingsWriterProvider.overrideWithValue(writer),
+    pinKdfUseIsolateProvider.overrideWithValue(false),
     if (reader != null)
       lockGateSettingsReaderProvider.overrideWithValue(reader),
   ]);
@@ -71,6 +76,13 @@ Widget _app(ProviderContainer container, AppSettings settings) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const ch = MethodChannel('super_note/security');
+
+  setUpAll(() async {
+    for (final pin in [_pin, '715309']) {
+      _hashCache[pin] =
+          await AppLockService.instance.hashPin(pin, useIsolate: false);
+    }
+  });
 
   setUp(() {
     AppLockService.instance.unlock();

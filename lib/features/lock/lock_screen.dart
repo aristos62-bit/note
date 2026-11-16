@@ -200,6 +200,13 @@ class _LockScreenState extends ConsumerState<LockScreen> {
           _pin = '';
           _error = AppErrors.sensitiveAuthUnavailable;
         });
+      case PinCheckStatus.unsupported:
+        // S-323: μορφή hash από άλλη (νεότερη) έκδοση — όχι λάθος PIN.
+        setState(() {
+          _verifying = false;
+          _pin = '';
+          _error = AppErrors.pinHashUnsupported;
+        });
     }
   }
 
@@ -298,6 +305,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
               hasDigits: _pin.isNotEmpty,
               showBiometric: _bioEnabled,
               onBiometric: _tryBiometric,
+              verifying: _verifying,
             ),
           ],
         ),
@@ -319,6 +327,9 @@ class _PinPad extends StatelessWidget {
   final bool showBiometric;
   final VoidCallback onBiometric;
 
+  /// S-323: όσο τρέχει το KDF, το κουμπί επιβεβαίωσης δείχνει spinner.
+  final bool verifying;
+
   const _PinPad({
     required this.onDigit,
     required this.onBackspace,
@@ -326,6 +337,7 @@ class _PinPad extends StatelessWidget {
     required this.hasDigits,
     required this.showBiometric,
     required this.onBiometric,
+    required this.verifying,
   });
 
   @override
@@ -356,6 +368,7 @@ class _PinPad extends StatelessWidget {
                 _ActionButton(
                   icon: Icons.check,
                   onTap: onSubmit,
+                  busy: verifying,
                 )
               else if (showBiometric)
                 _ActionButton(
@@ -408,7 +421,14 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _ActionButton({required this.icon, required this.onTap});
+  /// S-323: spinner στη θέση του εικονιδίου (ίδιο 72×72 slot → 0 layout shift).
+  final bool busy;
+
+  const _ActionButton({
+    required this.icon,
+    required this.onTap,
+    this.busy = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -417,13 +437,22 @@ class _ActionButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: busy ? null : onTap,
           borderRadius: BorderRadius.circular(36),
           child: Container(
             width: 72,
             height: 72,
             alignment: Alignment.center,
-            child: Icon(icon, size: 28, color: context.cText2),
+            child: busy
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: context.cText2,
+                    ),
+                  )
+                : Icon(icon, size: 28, color: context.cText2),
           ),
         ),
       ),

@@ -108,11 +108,28 @@ class _SettingsAppLockSectionState extends ConsumerState<SettingsAppLockSection>
         }
       }
 
+      // S-323: το KDF τρέχει ΕΚΤΟΣ του writeTxn (isolate) — υπολογισμός πριν.
+      String? pinHash;
+      if (pin != null) {
+        try {
+          pinHash = await AppLockService.instance.hashPin(
+            pin,
+            useIsolate: ref.read(pinKdfUseIsolateProvider),
+          );
+        } on PinKdfException catch (e, st) {
+          DebugConfig.error('Settings: PIN hash failed', e, st);
+          if (!mounted) return;
+          _showError(AppErrors.settingsSaveFailed);
+          return;
+        }
+        if (!mounted) return;
+      }
+
       final updated = await _write((s) {
         s.appLockEnabled = v;
-        if (pin != null) {
-          s.appLockPinHash = AppLockService.instance.hashPin(pin);
-          s.appLockPinLength = pin.length;
+        if (pinHash != null) {
+          s.appLockPinHash = pinHash;
+          s.appLockPinLength = pin!.length;
           _resetLockout(s);
         }
         if (!v) _resetLockout(s);
@@ -143,8 +160,23 @@ class _SettingsAppLockSectionState extends ConsumerState<SettingsAppLockSection>
       final pin = await showSetPinDialog(context, ref);
       if (pin == null || !mounted) return;
 
+      // S-323: hash ΕΚΤΟΣ του writeTxn (βλ. _toggle).
+      final String pinHash;
+      try {
+        pinHash = await AppLockService.instance.hashPin(
+          pin,
+          useIsolate: ref.read(pinKdfUseIsolateProvider),
+        );
+      } on PinKdfException catch (e, st) {
+        DebugConfig.error('Settings: PIN hash failed (change)', e, st);
+        if (!mounted) return;
+        _showError(AppErrors.lockGatePinSetupFailed);
+        return;
+      }
+      if (!mounted) return;
+
       final updated = await _write((s) {
-        s.appLockPinHash = AppLockService.instance.hashPin(pin);
+        s.appLockPinHash = pinHash;
         s.appLockPinLength = pin.length;
         _resetLockout(s);
       });

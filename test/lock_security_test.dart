@@ -2,43 +2,100 @@
 //
 // Lock-πακέτο (Session 161): pure tests — salted hash, shouldLockOnResume,
 // nextLockoutSeconds. Χωρίς Isar/channels (οι pure statics δεν τα αγγίζουν).
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_note/core/crypto/pin_kdf.dart';
 import 'package:super_note/services/app_lock_service.dart';
 
+/// S-323: παράγει hash της **legacy** μορφής v1 (iterated SHA-256), όπως το
+/// έγραφε η 1.3.x — για να ελεγχθεί η ανάγνωση + auto-upgrade.
+String _v1Hash(String pin) {
+  final salt = List<int>.generate(16, (i) => i);
+  var current = <int>[...utf8.encode(pin), ...salt];
+  for (var i = 0; i < AppLockService.kHashIterations; i++) {
+    current = sha256.convert(current).bytes;
+  }
+  return 'v1\$${AppLockService.kHashIterations}\$'
+      '${base64Encode(salt)}\$${base64Encode(current)}';
+}
+
 void main() {
-  group('salted hash (L2)', () {
-    test('format v1\$iter\$salt\$hash', () {
-      final h = AppLockService.instance.hashPin('1234');
+  group('PIN KDF v2 (L2/S-323)', () {
+    test('format v2\$pbkdf2-sha256\$iter\$salt\$hash', () async {
+      final h =
+          await AppLockService.instance.hashPin('1234', useIsolate: false);
       final parts = h.split('\$');
-      expect(parts.length, 4);
-      expect(parts[0], 'v1');
-      expect(parts[1], '${AppLockService.kHashIterations}');
+      expect(parts.length, 5);
+      expect(parts[0], 'v2');
+      expect(parts[1], PinKdf.scheme);
+      expect(parts[2], '${PinKdf.defaultIterations}');
+      expect(base64Decode(parts[3]).length, PinKdf.saltLength);
+      expect(base64Decode(parts[4]).length, PinKdf.hashLengthBytes);
     });
 
-    test('roundtrip + salts διαφέρουν', () {
-      final a = AppLockService.instance.hashPin('1234');
-      final b = AppLockService.instance.hashPin('1234');
+    test('roundtrip + salts διαφέρουν', () async {
+      final a =
+          await AppLockService.instance.hashPin('1234', useIsolate: false);
+      final b =
+          await AppLockService.instance.hashPin('1234', useIsolate: false);
       expect(a == b, isFalse);
-      expect(AppLockService.instance.verifyPin('1234', a), isTrue);
-      expect(AppLockService.instance.verifyPin('1234', b), isTrue);
+      expect(await AppLockService.instance.verifyPin('1234', a),
+          PinVerifyOutcome.ok);
+      expect(await AppLockService.instance.verifyPin('1234', b),
+          PinVerifyOutcome.ok);
     });
 
-    test('λάθος PIN απορρίπτεται', () {
-      final h = AppLockService.instance.hashPin('1234');
-      expect(AppLockService.instance.verifyPin('0000', h), isFalse);
+    test('λάθος PIN απορρίπτεται', () async {
+      final h =
+          await AppLockService.instance.hashPin('1234', useIsolate: false);
+      expect(await AppLockService.instance.verifyPin('0000', h),
+          PinVerifyOutcome.mismatch);
     });
 
-    test('legacy (64 hex) επαληθεύεται παλιά', () {
+    test('v1 (iterated SHA-256) επαληθεύεται + θέλει upgrade', () async {
+      final v1 = _v1Hash('1234');
+      expect(await AppLockService.instance.verifyPin('1234', v1),
+          PinVerifyOutcome.ok);
+      expect(await AppLockService.instance.verifyPin('0000', v1),
+          PinVerifyOutcome.mismatch);
+      expect(AppLockService.shouldUpgradeHash(v1), isTrue);
+    });
+
+    test('legacy (64 hex) επαληθεύεται + θέλει upgrade', () async {
       final legacy = AppLockService.instance.hashPinLegacy('1234');
       expect(legacy.length, 64);
-      expect(AppLockService.instance.verifyPin('1234', legacy), isTrue);
-      expect(AppLockService.instance.verifyPin('0000', legacy), isFalse);
+      expect(await AppLockService.instance.verifyPin('1234', legacy),
+          PinVerifyOutcome.ok);
+      expect(await AppLockService.instance.verifyPin('0000', legacy),
+          PinVerifyOutcome.mismatch);
+      expect(AppLockService.shouldUpgradeHash(legacy), isTrue);
     });
 
-    test('πειραγμένο hash απορρίπτεται', () {
-      expect(AppLockService.instance.verifyPin('1234', 'v1\$x'), isFalse);
-      expect(AppLockService.instance.verifyPin('1234', 'garbage'), isFalse);
-      expect(AppLockService.instance.verifyPin('1234', ''), isFalse);
+    test('πειραγμένο/άκυρο hash → mismatch (όχι exception)', () async {
+      for (final bad in [
+        'v1\$x',
+        'v2\$pbkdf2-sha256\$1000\$aa\$bb', // κάτω από το min iterations
+        'v2\$pbkdf2-sha256\$120000\$!!\$!!', // μη έγκυρο base64
+        'v2\$argon2id\$120000\$aa\$bb', // άγνωστο σχήμα
+        'garbage',
+        '',
+      ]) {
+        expect(
+          await AppLockService.instance.verifyPin('1234', bad),
+          PinVerifyOutcome.mismatch,
+          reason: bad,
+        );
+      }
+    });
+
+    test('άγνωστη μορφή vN → unsupported (όχι λάθος PIN)', () async {
+      expect(
+        await AppLockService.instance
+            .verifyPin('1234', 'v3\$argon2id\$x\$y\$z'),
+        PinVerifyOutcome.unsupported,
+      );
     });
   });
 
@@ -279,14 +336,18 @@ void main() {
     });
   });
 
-  group('shouldUpgradeHash (salt-upgrade)', () {
-    test('legacy → true· νέο/άδειο/null → false', () {
+  group('shouldUpgradeHash (KDF v2 ratchet)', () {
+    test('legacy/v1 → true· v2/άδειο/null/άγνωστο → false', () async {
       final legacy = AppLockService.instance.hashPinLegacy('1234');
       expect(AppLockService.shouldUpgradeHash(legacy), isTrue);
-      final fresh = AppLockService.instance.hashPin('1234');
+      expect(AppLockService.shouldUpgradeHash(_v1Hash('1234')), isTrue);
+      final fresh =
+          await AppLockService.instance.hashPin('1234', useIsolate: false);
       expect(AppLockService.shouldUpgradeHash(fresh), isFalse);
       expect(AppLockService.shouldUpgradeHash(''), isFalse);
       expect(AppLockService.shouldUpgradeHash(null), isFalse);
+      expect(AppLockService.shouldUpgradeHash('v3\$argon2id\$x\$y\$z'),
+          isFalse);
     });
   });
 }

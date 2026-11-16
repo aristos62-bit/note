@@ -1,14 +1,15 @@
-import 'dart:convert';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:local_auth/local_auth.dart';
+
+import '../core/crypto/pin_kdf.dart';
 import '../core/utils/debug_config.dart';
 
 class AppLockService {
   AppLockService._();
   static final AppLockService instance = AppLockService._();
 
-  /// Iterations iterated-SHA256 (κόστος/brute-force· σπάνιο op).
+  /// Iterations της **legacy** μορφής `v1$…` (iterated SHA-256).
+  /// S-323: μόνο για ανάγνωση — τα νέα hashes γράφονται με `PinKdf`
+  /// (`v2$pbkdf2-sha256$…`).
   static const int kHashIterations = 100000;
 
   /// Μέγιστο lockout (cap) — 1 ώρα.
@@ -146,61 +147,29 @@ class AppLockService {
   bool _locked = false;
   bool get isLocked => _locked;
 
-  /// Format `v1$iterations$saltB64$hashB64` — salt+iterations, ίδιο πεδίο
-  /// (χωρίς migration). Legacy (64 hex, χωρίς `$`) επαληθεύεται παλιά.
-  String hashPin(String pin) {
-    final salt =
-        List<int>.generate(16, (_) => Random.secure().nextInt(256));
-    final hash = _stretch(utf8.encode(pin), salt, kHashIterations);
-    return 'v1\$$kHashIterations\$${base64Encode(salt)}\$${base64Encode(hash)}';
-  }
+  /// S-323: το KDF μετακόμισε στο `core/crypto/pin_kdf.dart` (SPoT για τις 3
+  /// μορφές: v2 PBKDF2, v1 iterated-SHA256, legacy 64-hex). Το service μένει
+  /// το documented σημείο πρόσβασης για UI/tests — λεπτοί delegates μόνο.
+  ///
+  /// Παράγει πάντα μορφή `v2$pbkdf2-sha256$<iter>$<saltB64>$<hashB64>`.
+  /// [useIsolate] false = ίδιο isolate (tests με FakeAsync).
+  Future<String> hashPin(String pin, {bool useIsolate = true}) =>
+      PinKdf.hash(pin, useIsolate: useIsolate);
 
-  bool verifyPin(String pin, String hash) {
-    if (!hash.contains('\$')) {
-      // Legacy pre-salt — επαληθεύεται παλιά (αναβάθμιση στο επόμενο set).
-      return hashPinLegacy(pin) == hash;
-    }
-    try {
-      final parts = hash.split('\$');
-      if (parts.length != 4 || parts[0] != 'v1') return false;
-      final iterations = int.tryParse(parts[1]);
-      if (iterations == null || iterations < 1) return false;
-      final salt = base64Decode(parts[2]);
-      final expected = base64Decode(parts[3]);
-      final actual = _stretch(utf8.encode(pin), salt, iterations);
-      return _constantTimeEquals(actual, expected);
-    } catch (_) {
-      return false;
-    }
-  }
+  /// Επαληθεύει PIN σε οποιαδήποτε υποστηριζόμενη μορφή.
+  Future<PinVerifyOutcome> verifyPin(
+    String pin,
+    String hash, {
+    bool useIsolate = true,
+  }) =>
+      PinKdf.verify(pin, hash, useIsolate: useIsolate);
 
   /// Legacy SHA-256 (προ-salt) — μόνο για επαλήθευση παλιών hashes.
-  String hashPinLegacy(String pin) {
-    final bytes = utf8.encode(pin);
-    return sha256.convert(bytes).toString();
-  }
+  String hashPinLegacy(String pin) => PinKdf.hashLegacy(pin);
 
-  /// true = legacy hash προς αναβάθμιση (χωρίς `$`)· άδειο/νέο → false.
+  /// true = το αποθηκευμένο hash πρέπει να ξαναγραφτεί σε v2.
   /// Καλείται ΜΟΝΟ μετά επιτυχές verify (garbage αποκλείεται από το verify).
-  static bool shouldUpgradeHash(String? stored) =>
-      stored != null && stored.isNotEmpty && !stored.contains('\$');
-
-  List<int> _stretch(List<int> pin, List<int> salt, int iterations) {
-    var current = <int>[...pin, ...salt];
-    for (var i = 0; i < iterations; i++) {
-      current = sha256.convert(current).bytes;
-    }
-    return current;
-  }
-
-  bool _constantTimeEquals(List<int> a, List<int> b) {
-    if (a.length != b.length) return false;
-    var diff = 0;
-    for (var i = 0; i < a.length; i++) {
-      diff |= a[i] ^ b[i];
-    }
-    return diff == 0;
-  }
+  static bool shouldUpgradeHash(String? stored) => PinKdf.needsUpgrade(stored);
 
   void lock() {
     _locked = true;

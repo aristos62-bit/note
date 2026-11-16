@@ -30,6 +30,11 @@ class AppErrors {
   static String pinLockedOut(int seconds) =>
       'Πολλές προσπάθειες — δοκιμάστε ξανά σε '
       '${AppDateUtils.formatWaitSeconds(seconds)}';
+  /// S-323: το αποθηκευμένο PIN hash είναι σε μορφή που αυτή η έκδοση δεν
+  /// γνωρίζει (downgrade εγκατάστασης / μελλοντική μορφή).
+  static const pinHashUnsupported =
+      'Η μορφή του αποθηκευμένου PIN δεν υποστηρίζεται από αυτή την έκδοση. '
+      'Ορίστε νέο PIN από τις Ρυθμίσεις.';
 
   // ── Sensitive actions gate (S-04) ───────────────────────────
   static const sensitiveAuthRequired =

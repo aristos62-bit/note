@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/crypto/pin_kdf.dart';
 import '../core/utils/debug_config.dart';
 import '../helpers/super_note_helper.dart';
 import '../models/models.dart';
@@ -28,7 +29,7 @@ final appLockStateProvider = StateProvider<bool>((ref) {
 // S-03 — persisted lockout store (ενιαία πύλη επαλήθευσης PIN)
 // ─────────────────────────────────────────────────────────────────
 
-enum PinCheckStatus { ok, wrong, lockedOut, unavailable }
+enum PinCheckStatus { ok, wrong, lockedOut, unavailable, unsupported }
 
 class PinCheckResult {
   const PinCheckResult(
@@ -141,16 +142,37 @@ class AppLockAttemptsStore {
     }
 
     final hash = s.appLockPinHash!;
-    if (!AppLockService.instance.verifyPin(pin, hash)) {
-      final secs = await _recordFailure(nowMs: nowMs, nowMonoMs: mono);
-      return PinCheckResult(
-        PinCheckStatus.wrong,
-        remainingSeconds: secs,
+    final started = DateTime.now();
+    final PinVerifyOutcome outcome;
+    try {
+      outcome = await AppLockService.instance.verifyPin(
+        pin,
+        hash,
+        useIsolate: _ref.read(pinKdfUseIsolateProvider),
       );
+    } on PinKdfException catch (e, st) {
+      // Σφάλμα KDF/isolate — δεν είναι λάθος PIN: κανένας μετρητής.
+      DebugConfig.error('AppLock: PIN verify (KDF) failed', e, st);
+      return const PinCheckResult(PinCheckStatus.unavailable);
     }
+    final elapsedMs = DateTime.now().difference(started).inMilliseconds;
 
-    DebugConfig.notif('AppLock: PIN verified (lockout store)');
-    return PinCheckResult(PinCheckStatus.ok, verifiedHash: hash);
+    switch (outcome) {
+      case PinVerifyOutcome.ok:
+        DebugConfig.notif(
+            'AppLock: PIN verified (lockout store, ${elapsedMs}ms)');
+        return PinCheckResult(PinCheckStatus.ok, verifiedHash: hash);
+      case PinVerifyOutcome.unsupported:
+        // Μορφή από νεότερη έκδοση (downgrade) — ούτε λάθος PIN ούτε lockout.
+        DebugConfig.warning('AppLock: unsupported stored PIN hash format');
+        return const PinCheckResult(PinCheckStatus.unsupported);
+      case PinVerifyOutcome.mismatch:
+        final secs = await _recordFailure(nowMs: nowMs, nowMonoMs: mono);
+        return PinCheckResult(
+          PinCheckStatus.wrong,
+          remainingSeconds: secs,
+        );
+    }
   }
 
   Future<int> _recordFailure({
@@ -202,7 +224,17 @@ class AppLockAttemptsStore {
         verifiedHash != null &&
         s.appLockPinHash == verifiedHash &&
         AppLockService.shouldUpgradeHash(verifiedHash)) {
-      newHash = AppLockService.instance.hashPin(pin);
+      // S-323: το KDF τρέχει ΕΚΤΟΣ του writeTxn (isolate) — υπολογισμός πριν.
+      try {
+        newHash = await AppLockService.instance.hashPin(
+          pin,
+          useIsolate: _ref.read(pinKdfUseIsolateProvider),
+        );
+      } on PinKdfException catch (e, st) {
+        // Best-effort: το ξεκλείδωμα ισχύει· το hash μένει όπως ήταν.
+        DebugConfig.error('AppLock: hash upgrade (KDF) failed', e, st);
+        newHash = null;
+      }
     }
 
     if (!needsReset && newHash == null) return;
@@ -224,7 +256,7 @@ class AppLockAttemptsStore {
     } else {
       if (needsReset) DebugConfig.notif('AppLock: lockout counter reset');
       if (newHash != null) {
-        DebugConfig.notif('AppLock: hash upgraded to v1 (store)');
+        DebugConfig.notif('AppLock: hash upgraded to v2 (store)');
       }
     }
   }
@@ -232,6 +264,11 @@ class AppLockAttemptsStore {
 
 final appLockAttemptsStoreProvider =
     Provider<AppLockAttemptsStore>((ref) => AppLockAttemptsStore(ref));
+
+/// S-323: το PIN KDF (PBKDF2 120k) τρέχει σε isolate στην παραγωγή, ώστε το
+/// UI να μη «παγώνει». Τα widget tests τρέχουν σε FakeAsync, όπου ένα
+/// πραγματικό isolate δεν ολοκληρώνεται χωρίς `runAsync` → override `false`.
+final pinKdfUseIsolateProvider = Provider<bool>((ref) => true);
 
 // ─────────────────────────────────────────────────────────────────
 // S-17 — Lock gate state

@@ -240,6 +240,12 @@ Future<bool> showCurrentPinDialog(
           busy = false;
           message = AppErrors.sensitiveAuthUnavailable;
         });
+      case PinCheckStatus.unsupported:
+        // S-323: μορφή hash από άλλη (νεότερη) έκδοση — όχι λάθος PIN.
+        setModal(() {
+          busy = false;
+          message = AppErrors.pinHashUnsupported;
+        });
     }
   }
 
@@ -307,7 +313,16 @@ Future<bool> showCurrentPinDialog(
               onPressed: !canSubmit
                   ? null
                   : () => unawaited(submit(ctx, setModal)),
-              child: const Text('Επαλήθευση'),
+              child: busy
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Theme.of(ctx).colorScheme.onPrimary,
+                      ),
+                    )
+                  : const Text('Επαλήθευση'),
             ),
           ],
         );

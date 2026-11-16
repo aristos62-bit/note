@@ -13,6 +13,12 @@ import 'package:super_note/providers/providers.dart';
 import 'package:super_note/services/app_lock_service.dart';
 import 'package:super_note/services/security_service.dart';
 
+/// S-323: το PIN hash είναι πλέον PBKDF2 (async) — υπολογίζεται **μία φορά**
+/// ανά PIN στο `setUpAll` (έξω από το FakeAsync των widget tests).
+final Map<String, String> _hashes = {};
+
+String _hashOf(String pin) => _hashes[pin]!;
+
 AppSettings _settings({
   required String pin,
   int pinLength = 6,
@@ -24,7 +30,7 @@ AppSettings _settings({
   return AppSettings()
     ..appLockEnabled = true
     ..appLockPinLength = pinLength
-    ..appLockPinHash = AppLockService.instance.hashPin(pin)
+    ..appLockPinHash = _hashOf(pin)
     ..appLockFailedAttempts = attempts
     ..appLockLockoutDurationSeconds = duration
     ..appLockLockoutMonoMs = monoMs
@@ -38,6 +44,7 @@ ProviderContainer _container(AppSettings settings) {
       updater(settings);
       return settings;
     }),
+    pinKdfUseIsolateProvider.overrideWithValue(false),
   ]);
   addTearDown(c.dispose);
   return c;
@@ -60,9 +67,25 @@ Future<void> _tapDigits(WidgetTester tester, String digits) async {
   }
 }
 
+/// S-323: μετά από **επιτυχές** unlock το `LockScreen` μένει mounted στο test
+/// με τον spinner του KDF (στην εφαρμογή αντικαθίσταται αμέσως από το
+/// περιεχόμενο) → `pumpAndSettle` δεν τερματίζει ποτέ. Σταθερός αριθμός pumps.
+Future<void> _pumpVerify(WidgetTester tester) async {
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const ch = MethodChannel('super_note/security');
+
+  setUpAll(() async {
+    for (final pin in ['123456', '1234']) {
+      _hashes[pin] =
+          await AppLockService.instance.hashPin(pin, useIsolate: false);
+    }
+  });
 
   setUp(() {
     SecurityService.resetForTest();
@@ -97,7 +120,7 @@ void main() {
     expect(AppLockService.instance.isLocked, isTrue);
 
     await _tapDigits(tester, '123456');
-    await tester.pumpAndSettle();
+    await _pumpVerify(tester);
     expect(c.read(appLockStateProvider), isFalse);
     expect(AppLockService.instance.isLocked, isFalse);
   });
@@ -137,7 +160,7 @@ void main() {
     expect(c.read(appLockStateProvider), isTrue);
 
     await tester.tap(find.byIcon(Icons.check));
-    await tester.pumpAndSettle();
+    await _pumpVerify(tester);
 
     expect(c.read(appLockStateProvider), isFalse);
     expect(AppLockService.instance.isLocked, isFalse);

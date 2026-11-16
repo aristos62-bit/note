@@ -5,6 +5,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_note/core/crypto/pin_kdf.dart';
 import 'package:super_note/models/models.dart';
 import 'package:super_note/providers/providers.dart';
 import 'package:super_note/services/app_lock_service.dart';
@@ -39,6 +40,9 @@ void main() {
   late int writes;
   late int monoNow;
 
+  /// S-323: ένα PBKDF2 hash για όλα τα tests (υπολογισμός εκτός test body).
+  late String pinHash;
+
   ProviderContainer container(AppSettings initial) {
     state = initial;
     writes = 0;
@@ -49,10 +53,15 @@ void main() {
         updater(state);
         return state;
       }),
+      pinKdfUseIsolateProvider.overrideWithValue(false),
     ]);
     addTearDown(c.dispose);
     return c;
   }
+
+  setUpAll(() async {
+    pinHash = await AppLockService.instance.hashPin(_pin, useIsolate: false);
+  });
 
   setUp(() {
     monoNow = 1000000;
@@ -120,7 +129,7 @@ void main() {
   group('verify', () {
     test('ενεργό lockout → lockedOut, χωρίς write', () async {
       final c = container(_settings(
-        hash: AppLockService.instance.hashPin(_pin),
+        hash: pinHash,
         attempts: 5,
         duration: 300,
         monoMs: 1000000,
@@ -133,7 +142,7 @@ void main() {
     });
 
     test('σωστό PIN → ok + verifiedHash, χωρίς write', () async {
-      final hash = AppLockService.instance.hashPin(_pin);
+      final hash = pinHash;
       final c = container(_settings(hash: hash));
 
       final r = await c.read(appLockAttemptsStoreProvider).verify(_pin);
@@ -144,7 +153,7 @@ void main() {
 
     test('λάθος PIN (κάτω από το tier) → wrong, καμία lockout', () async {
       final c = container(
-        _settings(hash: AppLockService.instance.hashPin(_pin)),
+        _settings(hash: pinHash),
       );
 
       final r = await c.read(appLockAttemptsStoreProvider).verify('999999');
@@ -158,7 +167,7 @@ void main() {
 
     test('5η αποτυχία → 30δ lockout persisted (wall + mono)', () async {
       final c = container(_settings(
-        hash: AppLockService.instance.hashPin(_pin),
+        hash: pinHash,
         attempts: 4,
       ));
 
@@ -185,12 +194,22 @@ void main() {
       expect(r.status, PinCheckStatus.unavailable);
       expect(writes, 0);
     });
+
+    test('άγνωστη μορφή hash (v9) → unsupported, χωρίς write/μετρητή',
+        () async {
+      final c = container(_settings(hash: 'v9\$future\$x'));
+
+      final r = await c.read(appLockAttemptsStoreProvider).verify(_pin);
+      expect(r.status, PinCheckStatus.unsupported);
+      expect(r.remainingSeconds, 0);
+      expect(writes, 0);
+    });
   });
 
   group('finishSuccess', () {
     test('μηδενίζει μετρητές όταν χρειάζεται', () async {
       final c = container(_settings(
-        hash: AppLockService.instance.hashPin(_pin),
+        hash: pinHash,
         attempts: 3,
       ));
 
@@ -204,7 +223,7 @@ void main() {
 
     test('no-op όταν είναι ήδη καθαρό', () async {
       final c = container(_settings(
-        hash: AppLockService.instance.hashPin(_pin),
+        hash: pinHash,
       ));
 
       await c.read(appLockAttemptsStoreProvider).finishSuccess();
@@ -224,9 +243,10 @@ void main() {
           .finishSuccess(pin: _pin, verifiedHash: r.verifiedHash);
       expect(writes, 1);
       expect(state.appLockPinHash, isNot(legacy));
+      expect(state.appLockPinHash!.startsWith('v2\$'), isTrue);
       expect(
-        AppLockService.instance.verifyPin(_pin, state.appLockPinHash!),
-        isTrue,
+        await AppLockService.instance.verifyPin(_pin, state.appLockPinHash!),
+        PinVerifyOutcome.ok,
       );
     });
   });

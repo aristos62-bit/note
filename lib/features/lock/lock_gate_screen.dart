@@ -139,7 +139,11 @@ class _PinSetupGateState extends ConsumerState<_PinSetupGate> {
     });
 
     try {
-      final hash = AppLockService.instance.hashPin(pin);
+      // S-323: hash σε isolate πριν το write (await).
+      final hash = await AppLockService.instance.hashPin(
+        pin,
+        useIsolate: ref.read(pinKdfUseIsolateProvider),
+      );
       await SuperNoteHelper.instance.settings.update((s) {
         s.appLockEnabled = true;
         s.appLockPinHash = hash;
