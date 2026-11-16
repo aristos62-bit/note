@@ -6419,6 +6419,65 @@ window και θα διπλασίαζε το contract). Μηδέν αλλαγή 
   πραγματικό sender ή unit test — και το tolerant `parcelable*` κρατά την
   εφαρμογή ζωντανή όταν το extra είναι λάθος τύπου.
 
+## Session 322 — 16/11/2026 (docs sync + S-02 μερικώς + S-14 history rewrite + S-09/S-21 verification)
+
+### Στόχος
+(α) Έλεγχος **όλων** των `.md` και συγχρονισμός stale σημείων (tracker, version,
+test counts). (β) Αποκατάσταση της αλήθειας για το **S-02** (backup encryption) —
+ήταν καταγεγραμμένο ως ανοιχτό ενώ το S-307 το είχε υλοποιήσει **μερικώς**.
+(γ) **S-14**: οριστικό κλείσιμο (τα 287 blobs των `backups/`, `Dependencies/`,
+`InstallerOutput/` ζούσαν ακόμη στο history δημόσιου repo). (δ) Καταγραφή των
+device-verified κλεισιμάτων **S-09** (νέα εγκατάσταση + restore) και **S-21**
+(2η συσκευή).
+
+### Docs sync (`b299495`, `bf9933e`)
+| Αρχείο | Αλλαγή |
+|---|---|
+| `supernote.md` | tracker → 16/11/2026 S321 + `backups/s321_plugin_fork_20261116/error_list.md.final` · test suite 721 → **742/742** (2 σημεία) |
+| `README.md` | `security_v2.md` **v2.8** · εκκρεμότητες 16/11 S321 · «Τρέχουσα κατάσταση» **742/742** |
+| `AGENTS.md` | κανόνες 6 & 9 → 16/11/2026 (S321) + E53 + νέο archive path |
+| `security_v2.md` | v2.8 + «Διορθώσεις v2.8» + S-02 **μερικώς** (3 σημεία) + S-13/native |
+
+### S-02 — τι βρήκε ο έλεγχος
+Το `.snb` container (S-307) = **AES-256-GCM πάντα** (STREAM nonce, AAD/chunk,
+`plaintextLength` στο header, `.partial`+rename) + strip lock fields
+(`backup_db_probe.dart:95-120`) + decrypt/tag-verify **πριν** το `Isar.open`.
+**Δεν** έκλεισε: (α) default `keyMode = embedded` ⇒ ακεραιότητα, **όχι**
+εμπιστευτικότητα (χρειάζεται «Κλείδωμα αντιγράφου»), (β) auto backup σε
+`getApplicationSupportDirectory()/SuperNoteBackups` (E50/S305) και **κανένα**
+first-run restore prompt (E50-B). Γράφτηκε ως «**ΜΕΡΙΚΩΣ ΥΛΟΠΟΙΗΘΗΚΕ**».
+
+### S-14 — history rewrite
+- Πριν: pack **128.19 MiB**, **287 blobs** στα 3 paths (49 + 2 + 8 commits).
+- Μέθοδος: `git filter-branch --force --index-filter "git rm -r --cached
+  --ignore-unmatch backups Dependencies InstallerOutput" --prune-empty -- --all`
+  (το `git-filter-repo` θέλει Python — δεν υπάρχει στο μηχάνημα) →
+  `update-ref -d refs/original/*` → `reflog expire --expire=now --all` →
+  `gc --prune=now` → **force-push**.
+- Αποτέλεσμα: pack **4.58 MiB**, 622 commits (ίδιο πλήθος), 472 tracked,
+  **0** hits σε `git rev-list --objects --all`, remote `main` = `bf9933e`.
+- **Mirror ασφαλείας** πριν την επέμβαση: `backups/s321_s14_mirror.git`
+  (622 commits, 128.19 MiB).
+- **Συνέπεια:** όλα τα SHAs άλλαξαν — τα παλιά (π.χ. `2b98e3a`, `c256b75`) δεν
+  υπάρχουν πια· προστέθηκε σημείωση στο header του `security_v2.md`.
+- **Υπολειπόμενο πλατφόρμας:** το GitHub κρατά unreachable objects μέχρι GC
+  (API `size` ~126 MB, forks **0**) — πλήρης εκκαθάριση = αίτημα στο Support.
+
+### S-09 / S-21
+- **S-09:** ✅ device-verified (χρήστης) — νέα εγκατάσταση + restore από backup.
+  **Παραμένει:** αντίγραφο `.jks`/`key.properties` εκτός μηχανής (ενέργεια
+  χρήστη) + iOS/macOS/Linux bundle ids (`com.example.superNote`).
+- **S-21:** ✅ device-verified σε **2η συσκευή** (όλα OK) — η OEM εξάρτηση του
+  D2D καλύπτεται πλέον από 2 συσκευές· **S-318** (macOS/Linux capture) παραμένει.
+
+### Μαθήματα
+- **«Untracked» ≠ «διαγραμμένο»:** το `git rm --cached` καθαρίζει μόνο το HEAD·
+  το history θέλει rewrite + force-push — και **όλα** τα SHAs αλλάζουν.
+- **Πριν από κάθε rewrite: mirror clone** (`git clone --mirror . backups/...`) —
+  η μόνη επιστροφή αν κάτι πάει στραβά.
+- **Οι εκθέσεις ασφάλειας γερνούν σιωπηλά:** το S-02 φαινόταν ανοιχτό ενώ είχε
+  κλείσει μερικώς· η επαλήθευση έγινε διαβάζοντας **κώδικα**, όχι docs.
+
 
 
 
