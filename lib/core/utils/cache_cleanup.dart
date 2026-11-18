@@ -166,6 +166,7 @@ class CacheCleanup {
       final file = File(path);
       if (!await file.exists()) return false;
       await file.delete();
+      DebugConfig.db('CacheCleanup: temp file deleted ($path)');
       await _pruneEmptyParent(path);
       return true;
     } catch (e) {
