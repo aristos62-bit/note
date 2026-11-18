@@ -489,6 +489,13 @@ final db = SuperNoteHelper.instance;
 - `AppPaths.activeDataRoot()` = η ρίζα που χρησιμοποιείται **τώρα** (μπορεί να είναι η legacy μετά από rollback). **Όλοι** οι call sites (`AttachmentService`, `BackupService`, wipe, migration snapshots) χρησιμοποιούν αυτό — ποτέ σκέτο `dataRoot()` μετά το init.
 - Περιεχόμενα ρίζας: `super_note_db.isar` (+ Isar lock `super_note_db.isar-lck`), `attachments/`, `.migration_safety/` (plaintext snapshots schema/S-01), `.staging/` (μόνο κατά τη μετανάστευση).
 
+### Ασφάλεια δεδομένων σε ηρεμία (S-01 — τεκμηρίωση, **όχι** κρυπτογράφηση)
+- **Τα δεδομένα δεν είναι κρυπτογραφημένα.** `Isar.open` **χωρίς κλειδί** (`super_note_helper.dart:123-126`) και τα συνημμένα απλά αρχεία στο `attachments/`. Το «Κλείδωμα εφαρμογής» (PIN/βιομετρικό) είναι **κλείδωμα οθόνης**: `LockGateScreen` overlay + `appContentBlockedProvider` (`main.dart:288-304`, S-05/S-17) — προστατεύει από **χρήση** της UI, όχι από **ανάγνωση** των αρχείων.
+- **PIN hash στην ίδια βάση:** το `appLockPinHash` (`models/app_settings.dart:60`, PBKDF2 v2 — S-15/S-323) ζει μέσα στην `super_note_db.isar` ⇒ όποιος πάρει το αρχείο κάνει offline brute force· το φράγμα εκεί είναι **μόνο** το KDF (60k iter, min 6 ψηφία), όχι το κλείδωμα.
+- **Μοντέλο απειλής (τι καλύπτεται):** Android — app sandbox + `allowBackup=false` (S-21) ⇒ ρίσκο κυρίως root/forensics. Windows — `%LOCALAPPDATA%\SuperNoteData` έχει ACL **λογαριασμού**: εκτός Documents/OneDrive και εκτός backup-ορατών φακέλων, αλλά **ορατό** σε κάθε διεργασία του ίδιου λογαριασμού (και σε admin/forensics).
+- **Απόφαση (S-01/S328):** δεν υιοθετείται κρυπτογράφηση βάσης — key σε `flutter_secure_storage` (Keystore/DPAPI) + selective field encryption **χάνει** full-text search/indexes, και Drift+SQLCipher είναι πλήρης αντικατάσταση. Καταγράφεται ως **αποδεκτός κίνδυνος** για προσωπική, μη εμπορική χρήση· η αντιστάθμιση είναι το κρυπτογραφημένο `.snb` (AES-256-GCM, S-02/S-307) και τα όρια επαναφοράς (S-08). Αν αλλάξει το πλαίσιο (μοιραζόμενη συσκευή, τρίτοι), οι δύο επιλογές παραμένουν ανοιχτές και τεκμηριωμένες στο `security_v2.md` (S-01).
+- **Σε μία γραμμή:** «Κλείδωμα» = η οθόνη κλειδώνει· **όχι** «τα δεδομένα είναι κρυπτογραφημένα».
+
 ### Μετανάστευση (`lib/services/data_root_migration.dart`)
 - **Commit point** = `rename(.staging/super_note_db.isar → <root>/super_note_db.isar)`, **τελευταίο** βήμα. Πριν από αυτό η legacy βάση είναι ακέραιη· κάθε αποτυχία (disk full, AV lock, cross-volume) καταλήγει σε `abortedLegacy` ⇒ η εφαρμογή ανοίγει όπως πριν.
 - Σειρά: αντιγραφή DB (`.partial` → size check → rename) → μετακίνηση `attachments/` (rename· fallback copy **χωρίς** διαγραφή πηγής) → commit rename DB.

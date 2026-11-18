@@ -1,6 +1,6 @@
-# SuperNote — Έκθεση Ασφάλειας (v2.12)
+# SuperNote — Έκθεση Ασφάλειας (v2.13)
 
-**Έκδοση:** v2.12 · 18/11/2026 · **v2.11:** 18/11/2026 · **v2.10:** 18/11/2026 · **v2.9:** 16/11/2026 · **v2.8:** 16/11/2026 · **v2.7:** 15/11/2026 · **v2.6:** 15/11/2026 · **v2.5:** 15/11/2026 · **v2.4:** 14/11/2026 · **v2.3:** 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
+**Έκδοση:** v2.13 · 18/11/2026 · **v2.12:** 18/11/2026 · **v2.11:** 18/11/2026 · **v2.10:** 18/11/2026 · **v2.9:** 16/11/2026 · **v2.8:** 16/11/2026 · **v2.7:** 15/11/2026 · **v2.6:** 15/11/2026 · **v2.5:** 15/11/2026 · **v2.4:** 14/11/2026 · **v2.3:** 08/11/2026 · **v2.2:** 06/11/2026 · **v2.1:** 06/11/2026 · **v2:** 05/11/2026 (S294) · **v1:** 05/11/2026
 **Βάση ελέγχου:** `2cf7df6` (main), επαληθευμένη ξανά στο `b1bb623` (S295). Η v1 ελέγχθηκε στο `7f4f6f5`· τα commits `6da3ba7`/`e3c9ab3`/`a14a3e6`/`2cf7df6` είναι κώδικας E39 + docs και **δεν** αλλάζουν ευρήματα· από το `2cf7df6` έως το `b1bb623` άλλαξαν μόνο UI/docs (S294/S295) — κανένα security finding δεν άλλαξε.
 **Μέθοδος:** ανάγνωση κώδικα, manifest, gradle, installer, git history **και πηγής πακέτων** (`open_filex 4.7.0`, `share_plus 12.0.2`, `archive 4.3.0`). **Καμία** εκτέλεση σε συσκευή για την αρχική έκθεση (v1)· από το **S316/S317** τα σχετικά ευρήματα επαληθεύονται και σε συσκευή (POCO X3 / Windows 11 build 26100). **⚠️ 16/11/2026 (S-322):** το git history **ξαναγράφτηκε** για το S-14 (`filter-branch` + force-push) — **όλα** τα SHAs που αναφέρονται σε αυτό το αρχείο ανήκουν στο **προ-rewrite** history και δεν ανοίγουν πια· το περιεχόμενο/τα ευρήματα δεν αλλάζουν.
 
@@ -16,7 +16,7 @@
 4. **Επανάληψη PIN σε κρίσιμες ενέργειες + κρυφές ειδοποιήσεις** (S-04 ✅ **S302** — `confirmSensitiveAction` σε export/import/wipe/disable· S-06), και **μπλοκάρισμα της ζωντανής UI** κάτω από το lock (S-05 ✅ μηχανισμός S300).
 5. **Κρυπτογράφηση backup + αφαίρεση hash PIN** (S-02) — ✅ **μερικώς S-307**: `.snb` container **AES-256-GCM** (anti-tamper/truncation) + strip lock fields + decrypt/tag-verify **πριν** το `Isar.open`. **Υπολειπόμενο:** το default κλειδί είναι `embedded` (ακεραιότητα, **όχι** εμπιστευτικότητα) — εμπιστευτικότητα μόνο με «Κλείδωμα αντιγράφου» ON (PBKDF2)· auto backup σε support dir χωρίς first-run prompt (E50-B).
 
-Η κρυπτογράφηση της ίδιας της βάσης (S-01) παραμένει το πιο ουσιαστικό αλλά και το πιο ακριβό μέτρο· περιγράφεται με επιλογές και κόστος.
+Η κρυπτογράφηση της ίδιας της βάσης (S-01) παραμένει το πιο ουσιαστικό αλλά και το πιο ακριβό μέτρο· περιγράφεται με επιλογές και κόστος. **S328:** αποφασίστηκε ρητά **όχι** — καταγράφεται ως τεκμηριωμένος περιορισμός (βλ. S-01 και `supernote.md` §«Ασφάλεια δεδομένων σε ηρεμία»).
 
 ## Τι άλλαξε σε σχέση με τη v1
 
@@ -51,6 +51,12 @@
 |---|---|---|
 | 1 | **S-25** — νέο εύρημα μεσαίας σοβαρότητας: το άνοιγμα στο Windows περνά στο `ShellExecuteW`, που **εκτελεί** εκτελέσιμους τύπους | Ο S-16/1β αφαίρεσε το `cmd` (injection) αλλά **όχι** την εκτέλεση: `.bat`/`.exe` από backup zip ή share intent εκτελούνταν με ένα tap |
 | 2 | **P0 βήμα 1γ** — `isRiskyToLaunch` στον `AttachmentPathGuard` + `ConfirmDialog` + fail-safe `allowRisky` | Ίδιο SPoT με S-18 (μηδέν νέο αρχείο), ρητή επιβεβαίωση αντί σιωπηλής εκτέλεσης |
+
+### Διορθώσεις v2.13 (18/11/2026)
+
+| # | Διόρθωση | Λόγος |
+|---|---|---|
+| 1 | **S-01 — κλεισμένο (S328)**: το σκέλος (4) της διόρθωσης **υλοποιήθηκε** ως τεκμηρίωση στο `supernote.md` → §«Ασφάλεια δεδομένων σε ηρεμία (S-01)»: μηδέν κρυπτογράφηση (`Isar.open` χωρίς κλειδί), PIN = κλείδωμα **οθόνης** (`LockGateScreen`/`appContentBlockedProvider`), `appLockPinHash` στην ίδια βάση (φράγμα μόνο το KDF), μοντέλο απειλής ανά πλατφόρμα, ρητή **απόφαση** να μη γίνει κρυπτογράφηση βάσης (απώλεια search/indexes· Drift+SQLCipher εκτός πλάνου) και αντιστάθμιση από `.snb` AES-256-GCM + όρια επαναφοράς. Επαληθεύτηκε ο κώδικας: `app_paths.dart:55-137` (`%LOCALAPPDATA%\SuperNoteData`), `super_note_helper.dart:82-126` (`DataRootMigration.ensure` → `Isar.open` χωρίς key), `app_settings.dart:60`, `main.dart:288-304`. | Το (1) Windows ✅ S-01 και τα (2)/(3) είχαν **απορριφθεί** σιωπηλά· έλειπε μόνο η ρητή καταγραφή, ώστε κανείς (και ο μελλοντικός εαυτός) να μη θεωρεί το PIN κρυπτογράφηση. |
 
 ### Διορθώσεις v2.12 (18/11/2026)
 
@@ -128,7 +134,8 @@
 
 # Ευρήματα υψηλής σοβαρότητας (4)
 
-## S-01 — Τα δεδομένα δεν είναι κρυπτογραφημένα· το κλείδωμα είναι μόνο οθόνη
+## S-01 — Τα δεδομένα δεν είναι κρυπτογραφημένα· το κλείδωμα είναι μόνο οθόνη — ✅ **ΚΛΕΙΣΜΕΝΟ S328** (κώδικας S-01 + τεκμηρίωση)
+- **Κατάσταση:** (1) ✅ **S-01** Windows data root · (4) ✅ **S328** τεκμηρίωση στο `supernote.md` §«Ασφάλεια δεδομένων σε ηρεμία» · (2)/(3) **απορρίφθηκαν ρητά** (βλ. Διόρθωση) — ο κίνδυνος είναι **αποδεκτός και καταγεγραμμένος**, όχι ανοιχτός.
 - **Πού:** `lib/core/utils/app_paths.dart` (`dataRoot()` → `%LOCALAPPDATA%\SuperNoteData`· `:159` legacy `getApplicationDocumentsDirectory`) + `lib/services/data_root_migration.dart` (S-01 μετανάστευση) · `Isar.open` **χωρίς κλειδί** · `lib/main.dart` (LockScreen ως overlay πάνω στο `child!`).
 - **Σενάριο:** όποιος διαβάσει `super_note_db.isar` + `attachments/` βλέπει τα πάντα, με ή χωρίς PIN. Android: sandbox + `allowBackup=false` ⇒ ρίσκο κυρίως root/forensics. **Windows (ιστορικό, προ S-01):** η βάση ζούσε στα **Documents** του χρήστη — την διάβαζε **οποιαδήποτε** διεργασία του ίδιου λογαριασμού. **Από το S-01** ζει στο `%LOCALAPPDATA%\SuperNoteData`: ίδιο ACL λογαριασμού (το ρίσκο δεν εξαφανίζεται), αλλά εκτός `Documents`/OneDrive και εκτός backup-ορατών φακέλων.
 - **Επιπλέον:** το `appLockPinHash` είναι **μέσα στην ίδια, απλή βάση** (`app_settings.dart:55`) ⇒ offline brute force χωρίς καν backup.
@@ -136,7 +143,7 @@
   1. **Windows — ✅ S-01:** μετακίνηση βάσης/συνημμένων στο `AppPaths.dataRoot()` (`%LOCALAPPDATA%\SuperNoteData`) με crash-safe μετανάστευση (`data_root_migration.dart`, `.migration_safety/pre_s01_*.isar`, κανένα delete πριν το commit point). Δεν χρησιμοποιήθηκε `getApplicationSupportDirectory()` (`%APPDATA%`): το data root είναι ανά-χρήστη τοπικό και δεν συγχρονίζεται.
   2. Κλειδί σε `flutter_secure_storage` (Keystore/DPAPI) + κρυπτογράφηση ευαίσθητων πεδίων (χάνεται search/indexes).
   3. Drift + SQLCipher (πλήρης αλλαγή, δεν συνιστάται τώρα).
-  4. Αν μείνει προσωπική: **τεκμηρίωση** στο `supernote.md` ότι το PIN = κλείδωμα οθόνης, όχι κρυπτογράφηση.
+  4. Αν μείνει προσωπική: **τεκμηρίωση** στο `supernote.md` ότι το PIN = κλείδωμα οθόνης, όχι κρυπτογράφηση — ✅ **S328**: `supernote.md` §«Ασφάλεια δεδομένων σε ηρεμία (S-01)» (μηδέν κρυπτογράφηση, PIN hash στην ίδια βάση, μοντέλο απειλής, απόφαση + αντιστάθμιση).
 
 ## S-02 — Backups χωρίς κρυπτογράφηση, με το hash του PIN μέσα — ⚠️ **ΜΕΡΙΚΩΣ ΥΛΟΠΟΙΗΘΗΚΕ S-307**
 - **Πού:** `backup_archive.dart:40-97` (όλη η βάση + όλα τα συνημμένα σε απλό zip) · `backup_service.dart:194-263` (export σε τοποθεσία επιλογής), `:279-331` (share), `:523-530` (**auto backup σε cache**), `:613-661` (validation μόνο με compressed size).
@@ -235,7 +242,7 @@
 | | 15 | **Share limits** (hard cap + text cap) — ✅ S320 | S-13 | Μικρό | Χαμηλό |
 | | 16 | **KDF v2** (PBKDF2/Argon2) + κλιμάκωση — ✅ **S323** (`v2$pbkdf2-sha256$60000$…`, legacy read + auto-upgrade) | S-15 | Μικρό | Χαμηλό (legacy verify) |
 | | 17 | **Android 12+ extraction rules** + τεκμηρίωση FLAG_SECURE scope — ✅ S316 (D2D κλειστό) + ✅ S317 (Windows capture affinity, `WDA_EXCLUDEFROMCAPTURE`) + ✅ S-322 (2η συσκευή) | S-21 | Μικρό | Πολύ χαμηλό |
-| **P4 — Απόφαση** | 18 | **Κρυπτογράφηση βάσης**: (1) Windows path, (2) field encryption, (3) SQLCipher, ή (4) τεκμηρίωση limitation | S-01 | Μικρό → πολύ μεγάλο | Υψηλό για (2)/(3) |
+| **P4 — Απόφαση** | 18 | **Κρυπτογράφηση βάσης**: (1) Windows path ✅ S-01, (2) field encryption ✗, (3) SQLCipher ✗, ή (4) τεκμηρίωση limitation ✅ **S328** | S-01 | Μικρό → πολύ μεγάλο | Υψηλό για (2)/(3) |
 
 **Κατάσταση υλοποίησης:** έχουν υλοποιηθεί τα P0 βήματα **1α**, **1β** (S298), **1γ/S-25** (S303), **2/S-17** (S300) και **3/S-22/S-12** (S299), τα P1 βήματα **4/S-03** + **5/S-04** (S302), **6/S-05** (S300) και **7/S-06** (S309, masking OS κειμένου + toggle «Απόκρυψη περιεχομένου»), καθώς και το **S-24** (S301, ατομικό toggle lock) και τα **S-14/S-20** (S310, repo hygiene: untrack 151 αρχείων + relative paths εγκαταστάτη + `.gitignore` για keystore) και το **S-09** (S312, release keystore + `gr.gavrielatos.supernote` + Windows `Gavrielatos`/`SuperNote`) και το **S-07** (S313: guard έκδοσης schema πριν την επαναφορά + strip `appLockTimeoutSeconds` + normalize μελλοντικού `lastAutoBackupAt` + ενημέρωση για το «Κλείδωμα αντιγράφου») και το **S-11** (S315: σίγαση `error`/`warning` στο release με compile-time `SN_RELEASE_LOGS` + redact URL) και το **S-21/D2D σκέλος** (S316: `dataExtractionRules` + `fullBackupContent="false"` + regression test) και το **S-21/Windows σκέλος** (S317: `WDA_EXCLUDEFROMCAPTURE` fail-closed στο `OnCreate` + κανάλι `super_note/security`) και το **S-13** (S320: ceiling 100 MB + `effectiveMaxAttachmentMB`, `inbound_share.dart` με classify/plan/clamp, S-13b text/* αρχεία, S-13c cache cleanup) και το **S-13/native σκέλος** (S321: E53 CLOSED — vendored fork `packages/receive_sharing_intent/` με copy-through-resolver, όρια 100 MB, sanitize, error contract `unreadable|tooLarge`) και το **S-02/μερικώς** (S-307: `.snb` AES-256-GCM container + strip lock fields + tag verify **πριν** το `Isar.open` — **υπολειπόμενο:** εμπιστευτικότητα by default `embedded` key, auto backup σε φάκελο χρήστη + first-run prompt) και το **S-15** (S323: PIN KDF v2 - `PinKdf` SPoT, `v2$pbkdf2-sha256$60000$…`, ανάγνωση `v1$`/legacy + auto-upgrade, `unsupported` χωρίς αύξηση μετρητή). **S-322 (16/11/2026):** S-14 **οριστικά κλειστό** (history rewrite, 128.19 → 4.58 MiB), S-09 **πλήρως κλειστό** (device: νέα εγκατάσταση + restore · keystore εκτός μηχανής) και S-21 **device-verified σε 2η συσκευή**. Το παρόν παραμένει η έκθεση v2.8 + πλάνο για τα υπόλοιπα.
 
