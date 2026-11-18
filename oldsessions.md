@@ -6826,6 +6826,55 @@ Evidence: `device-test/s08_summary.md` + `s08_*.png` (τοπικό, gitignored).
 - `error_list.md`: **δεν** επαναδημιουργείται (0 ανοιχτά bugs, κανένα νέο εύρημα — ο κίνδυνος
   είναι αποδεκτός και τεκμηριωμένος, όχι bug).
 
+## Session 329 — 18/11/2026 (S-10: installer ACL + self-signed signing + SHA-256)
+
+### Στόχος
+Το τελευταίο ανοιχτό εύρημα μεσαίας σοβαρότητας: ο Windows installer έδινε
+**`users-full`** σε κάθε λογαριασμό του PC, το setup ήταν **NotSigned** και δεν υπήρχε
+δημοσιευμένο **hash** για επαλήθευση κατεβάσματος. Ζητήθηκε και τα 3, με **self-signed**
+υπογραφή.
+
+### Απόφαση
+| Θέμα | Απόφαση |
+|---|---|
+| ACL | **Καμία** custom `Permissions`· default Windows ACL (χρήστης + admins/system) + **reset** παλιών ρητών ACE (`icacls /reset /T`) |
+| Υπογραφή | **Self-signed** cert (5 έτη) στο `Cert:\CurrentUser\My` — μηδέν CA, μηδέν κόστος, **μηδέν secret στο repo** |
+| Τι υπογράφεται | `super_note.exe` (πριν το ISCC) **και** `SuperNoteSetup.exe` (μετά) |
+| Timestamp | **Όχι** (self-signed, offline· χωρίς νόημα χωρίς CA) |
+| Hashes | `InstallerOutput\SHA256SUMS.txt` (έκδοση + SHA-256), δημοσίευση μαζί με το setup |
+
+### Υλοποίηση
+| # | Αρχείο | Αλλαγή |
+|---|---|---|
+| 1 | `note_eco_new.iss` | Αφαίρεση `[Dirs]` με `users-full`· νέο `[Run]` με `icacls "{app}" /reset /T /C /Q` + legacy `{userappdata}\super_note` (`Check: LegacyUserAppDataExists`) για να καθαρίσουν τα ACE σε **upgrade** |
+| 2 | `scripts/new_codesign_cert.ps1` (νέο) | Idempotent δημιουργία self-signed code-signing cert· `-TrustLocal` για τοπικό «Valid» (προαιρετικό) |
+| 3 | `scripts/release_windows.ps1` (νέο) | build → sign exe → ISCC → sign setup → verify + **tamper self-test** → `SHA256SUMS.txt` (auto-detect signtool/cert, `-SkipBuild`/`-SkipInstaller`) |
+| 4 | `supernote.md` | Νέα §«Windows release & signing (S-10)» + γραμμή στο Commands |
+
+- **Γιατί reset ACL και όχι μόνο αφαίρεση του `[Dirs]`:** το `users-full` ήταν **ρητό** ACE
+  στο φάκελο· σε upgrade ο φάκελος υπάρχει ήδη και το ACE θα έμενε για πάντα. Το
+  `/reset /T` επαναφέρει τα inherited (default) δικαιώματα.
+- Το `{app}\data` δεν δημιουργείται πλέον (η εφαρμογή γράφει στο
+  `%LOCALAPPDATA%\SuperNoteData`, S-01)· το `[UninstallDelete]` δεν άλλαξε.
+
+### Επαλήθευση
+- Cert: `F6C4F0AA26CEA2C7D6DDE9C11AAB2065F3376A03`, `CN=Aris Gavrielatos (SuperNote), O=Gavrielatos, C=GR`, λήγει **18/11/2031**.
+- `flutter build windows --release` → **OK** (131,7 s) · `ISCC` → **Successful compile**.
+- Υπογραφές: `Get-AuthenticodeSignature` → signer = το cert, status `UnknownError`
+  («chain terminated in a root certificate which is not trusted» — **αναμενόμενο** για
+  self-signed χωρίς trust· **όχι** `NotSigned`).
+- **Tamper test** (στο script): αλλαγή **1 byte** στο μεσαίο του αρχείου → `HashMismatch`
+  για exe **και** setup.
+- **ACL test σε scratch folder** (μίμηση παλιάς κατάστασης): `icacls /grant Users:F` →
+  μετά `/reset /T` η εγγραφή `BUILTIN\Users` **εξαφανίστηκε** (μένουν SYSTEM,
+  Administrators, χρήστης).
+- **Δεν** έγινε εγκατάσταση/απεγκατάσταση στο πραγματικό Windows setup (δεν ζητήθηκε) —
+  ο installer επαληθεύτηκε με compile + τα παραπάνω.
+
+### Έκδοση
+`1.4.3+11` → **`1.4.4+12`** (PATCH: security fix στον installer, χωρίς νέο feature/schema).
+Το setup ξαναχτίστηκε μετά το bump ώστε exe/setup/`SHA256SUMS.txt` να φέρουν τον τελικό αριθμό.
+
 
 
 

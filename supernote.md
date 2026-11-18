@@ -1175,3 +1175,12 @@ project:    light #B8D9FF  / dark Colors.green.shade800
 | `flutter build windows` | Windows build |
 | `flutter build linux` | Linux build |
 | `flutter build macos` | macOS build |
+| `powershell -File scripts\release_windows.ps1` | Windows release: build → sign → installer → SHA-256 (S-10) |
+
+## Windows release & signing (S-10)
+
+- **Πιστοποιητικό (μία φορά ανά μηχάνημα):** `scripts\new_codesign_cert.ps1` → **self-signed** code-signing cert στο `Cert:\CurrentUser\My` (`CN=Aris Gavrielatos (SuperNote)`, 5 έτη). Κλειδί/`.pfx`/password **ποτέ** στο repo· το script το βρίσκει από το Subject. `-TrustLocal` = προαιρετικά στα Trusted Root/Publishers **του χρήστη** (μόνο τοπικά δείχνει «Valid»).
+- **Release script:** `scripts\release_windows.ps1 [-SkipBuild] [-SkipInstaller]` — `flutter build windows --release` → **υπογραφή `super_note.exe`** → `ISCC note_eco_new.iss` → **υπογραφή `SuperNoteSetup.exe`** → verify (`Get-AuthenticodeSignature`) + **tamper self-test** (1 byte αλλαγμένο ⇒ `HashMismatch`) → `InstallerOutput\SHA256SUMS.txt`.
+- **Δικαιώματα:** εγκατάσταση **per-user** (`{localappdata}\SuperNote`, `PrivilegesRequired=lowest`) με **default ACL** — κανένα `Permissions:` στο `[Dirs]`. Ο installer κάνει `icacls "{app}" /reset /T /C /Q` (και στο legacy `{userappdata}\super_note`) ώστε να **καθαρίσει** το παλιό `users-full` σε upgrades.
+- **Όρια self-signed:** αποδεικνύει **ακεραιότητα** (κάθε αλλοίωση σπάει την υπογραφή), **όχι ταυτότητα** — το SmartScreen δείχνει «άγνωστος εκδότης» σε τρίτους μέχρι CA cert (OV/EV) ή εγκατάσταση του cert στους trusted publishers του αποδέκτη.
+- **Διανομή:** `SuperNoteSetup.exe` + `SHA256SUMS.txt` μαζί σε GitHub Release· ποτέ binaries στο git (`InstallerOutput/`, `Dependencies/` είναι gitignored).

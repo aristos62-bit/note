@@ -1,4 +1,4 @@
-; ========================================
+﻿; ========================================
 ; Προσωπικός Βοηθός - Super Note
 ; ========================================
 
@@ -50,10 +50,11 @@ Source: "{#SourcePath}build\windows\x64\runner\Release\*"; DestDir: "{app}"; Fla
 ; Το VC++ Redistributable
 Source: "{#SourcePath}Dependencies\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
-[Dirs]
-Name: "{app}"; Permissions: users-full
-Name: "{app}\data"; Permissions: users-full
-Name: "{userappdata}\super_note"; Permissions: users-full
+; S-10: ΚΑΜΙΑ custom Permissions. Ο φάκελος ζει στο {localappdata} του χρήστη που
+; κάνει την εγκατάσταση, άρα τα default Windows ACL (μόνο αυτός + admins/system)
+; είναι το επιθυμητό. Το παλιό `users-full` έδινε σε ΚΑΘΕ λογαριασμό του PC
+; δικαίωμα να αντικαταστήσει το exe ή να πειράξει τα δεδομένα.
+; (Τα δεδομένα δεν ζουν εδώ: %LOCALAPPDATA%\SuperNoteData — S-01.)
 
 [Icons]
 Name: "{group}\Προσωπικός Βοηθός"; Filename: "{app}\super_note.exe"; WorkingDir: "{app}"; Comment: "Προσωπικός Βοηθός"
@@ -61,6 +62,10 @@ Name: "{group}\Απεγκατάσταση"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Προσωπικός Βοηθός"; Filename: "{app}\super_note.exe"; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "Προσωπικός Βοηθός"
 
 [Run]
+; S-10: reset ACLs σε προηγούμενες εγκαταστάσεις που είχαν ρητό `users-full` στο
+; {app} (παλιό [Dirs]). Χωρίς αυτό, το upgrade θα κρατούσε το permissive ACE.
+Filename: "{sys}\icacls.exe"; Parameters: """{app}"" /reset /T /C /Q"; Flags: runhidden waituntilterminated; StatusMsg: "Διόρθωση δικαιωμάτων φακέλου..."
+Filename: "{sys}\icacls.exe"; Parameters: """{userappdata}\super_note"" /reset /T /C /Q"; Flags: runhidden waituntilterminated; Check: LegacyUserAppDataExists; StatusMsg: "Διόρθωση δικαιωμάτων (legacy φάκελος)..."
 ; Εγκατάσταση του VC Redist αν λείπει (Silent install)
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; Check: VCRedistNeedsInstall; StatusMsg: "Εγκατάσταση απαραίτητων στοιχείων συστήματος (Visual C++)..."
 ; Εκκίνηση εφαρμογής μετά το setup
@@ -98,6 +103,12 @@ begin
     MsgBox('Η εφαρμογή λειτουργεί μόνο σε 64-bit Windows.', mbError, MB_OK);
     Abort();
   end;
+end;
+
+// S-10: υπάρχει ακόμη ο legacy φάκελος που παλιές εκδόσεις δημιουργούσαν με users-full;
+function LegacyUserAppDataExists(): Boolean;
+begin
+  Result := DirExists(ExpandConstant('{userappdata}\super_note'));
 end;
 
 function InitializeUninstall(): Boolean;
