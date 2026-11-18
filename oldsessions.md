@@ -6650,6 +6650,55 @@ gitignored).
 `1.4.0+8` → **`1.4.1+9`** (PATCH: fix χωρίς νέο feature/schema).
 
 
+## Session 325 — 18/11/2026 (S-18/S-23: device test με κακόβουλο raw `.isar`)
+
+### Στόχος
+Το **S-18** (read-time guard του `Attachment.localPath`) και το **S-23** (FileProvider
+`root-path="."`) ήταν κλειστά **μόνο με tests**. Το σενάριο «restore **raw `.isar`** με
+`localPath` εκτός `attachments/`» είναι το **μοναδικό** σημείο όπου το `localPath` δεν
+περνά από rebase (S-07) — άρα έπρεπε να αποδειχθεί στη συσκευή ότι ο guard κόβει
+**open / delete / share** (και όχι μόνο στα tests).
+
+### Μεθοδολογία (χωρίς Isar writer — μηδέν αλλαγή κώδικα)
+| Βήμα | Τι έγινε |
+|---|---|
+| 1 | Εξαγωγή δεδομένων από την εφαρμογή → `super_note_backup_2026-11-18T11-57-04.snb` (97 MB) |
+| 2 | `BackupContainer.decryptFileTo` (keyMode **embedded**, χωρίς passphrase) → zip |
+| 3 | `BackupArchive.extractBackupZipDbOnly` → `super_note_db.isar` (5 MB) |
+| 4 | **In-place binary patch** 3 `localPath` σε `/data/local/tmp/evilN.txtxx` με **ίδιο μήκος bytes** (filler `'/a/../' * k + '/./' * m` ώστε `p.posix.normalize(new) == target`) — το Isar format μένει άθικτο |
+| 5 | Εισαγωγή του patched `.isar` («Το backup είναι έγκυρο» → «Επιτυχής εισαγωγή» = το patch δεν χάλασε το format) |
+| 6 | Canary `/data/local/tmp/evilN.txtxx` (12 B) — το app **δεν** έχει πρόσβαση εκεί, άρα η απόδειξη βασίζεται στο **logcat** (όχι σε διαγραφή) |
+
+Παγίδες που λύθηκαν: (α) το `a/../` **χωρίς** leading `/` έτρωγε το basename
+(πρώτη απόπειρα)· (β) στο Windows context το `p.normalize` δίνει `\data\local\tmp` →
+χρησιμοποιήθηκε `p.posix.normalize`· (γ) το `+` padding στο basename ώστε
+`diff % 3 == 0` (filler 6k+3m).
+
+### Αποτελέσματα (POCO X3 — 9593c01e, Android 12, build 1.4.1+9)
+Build release με `--dart-define=SN_RELEASE_LOGS=true` (κανένα edit κώδικα· το
+`DebugConfig.warning` περνά μόνο με αυτό — S-11 άθικτο). Evidence:
+`device-test/s18_logcat.txt` (τοπικό, gitignored).
+
+| # | Σενάριο | Αποτέλεσμα | Log |
+|---|---|---|---|
+| T1 | **OPEN** συνημμένου («s98 pdf» → `personal_term.pdf`) | **PASS** | `⚠️ WRN \| AttachmentPathGuard: rejected (outside root) [path 93ch]` (14:03:29) — 93 ch = μήκος του evil1 path |
+| T2 | **DELETE** («Διαγραφή αρχείου» → Διαγραφή) | **PASS** | `⚠️ WRN \| [AttachmentService] file outside attachments root — skipped (id=45)` (14:50:41) + canaries **ακέραια** |
+| T3 | **SHARE** (Κοινοποίηση item `IMG_20250324_100700.jpg`) | **PASS** | `⚠️ WRN \| ShareAttachments: outside attachments root id=44` (14:51:30) — 0 αρχεία |
+| T4 | **THUMB/SAVE** | **N/A** | Δεν είναι διακριτά με αυτό το canary (το app δεν έχει πρόσβαση στο `/data/local/tmp` → θα έδειχνε placeholder/αποτυχία έτσι κι αλλιώς). Καλύπτονται από tests + κοινό SPoT (`AttachmentPathGuard.resolve`) |
+
+### Επαναφορά & καθαρισμός
+- Εισαγωγή του αρχικού `s18_current.snb` → «Επιτυχής εισαγωγή»· το `personal_term.pdf`
+  ανοίγει ξανά (καμία γραμμή `rejected`).
+- Διαγράφηκαν: canaries `/data/local/tmp/evil*`, `/sdcard/Download/s18_patched.isar`,
+  `s18_current.snb`, το export του test· έμεινε μόνο το παλιό
+  `super_note_backup_2026-11-13T14-53-31.snb` (αρχική κατάσταση).
+- Επανεγκατάσταση **clean release** (χωρίς define): versionName=1.4.1 / versionCode=9,
+  `adb logcat -s flutter` → **3 γραμμές** Impeller μόνο.
+
+### Έκδοση
+**Καμία αλλαγή** (`1.4.1+9`) — μηδέν αλλαγή κώδικα, μόνο verification + docs.
+
+
 
 
 
