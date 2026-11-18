@@ -6875,6 +6875,28 @@ Evidence: `device-test/s08_summary.md` + `s08_*.png` (τοπικό, gitignored).
 `1.4.3+11` → **`1.4.4+12`** (PATCH: security fix στον installer, χωρίς νέο feature/schema).
 Το setup ξαναχτίστηκε μετά το bump ώστε exe/setup/`SHA256SUMS.txt` να φέρουν τον τελικό αριθμό.
 
+### Συνέχεια (B): bundling + auto-trust + αυτόματο όνομα APK
+Αίτημα χρήστη: να μη στέλνει 4 αρχεία — **μόνο το setup**.
+
+- `note_eco_new.iss`: 3 νέα `[Files]` από `InstallerOutput\setup_extra\`
+  (`SHA256SUMS-app.txt`, `SuperNote-codesign.cer`, `ΕΓΚΑΤΑΣΤΑΣΗ.txt` → `{app}`) + 2 `[Run]`
+  `certutil -addstore -user Root` / `-user TrustedPublisher` (per-user, χωρίς admin).
+- `scripts\release_windows.ps1`: **6 βήματα** — build → sign exe → **extras** → ISCC → sign setup
+  → verify/tamper + `SHA256SUMS.txt`. Τα extras **πριν** το ISCC (πακετάρονται μέσα).
+- `build_and_setup_new 2.bat`: STEP 4 = `release_windows.ps1 -SkipBuild` (πριν: σκέτο ISCC ⇒
+  άυπογραφο setup)· όνομα APK από `pubspec.yaml` (πριν: hardcoded `v1.0`).
+
+**Αυγό/κότα:** μέσα στο setup μπαίνει hash του **exe** (`SHA256SUMS-app.txt`), **όχι** του setup —
+το setup δεν μπορεί να περιέχει το hash του εαυτού του· το `SHA256SUMS.txt` (exe+setup+cer) μένει
+ξεχωριστό για έλεγχο του κατεβάσματος.
+
+**Επαλήθευση (πραγματική, από τον χρήστη):** `build_and_setup_new 2.bat` → APK
+`SuperNote_v1.4.4.apk` (70,12 MB, σωστό αυτόματο όνομα), setup 29,65 MB
+`Status: Valid` / `Signature verified.` (exe **και** setup), tamper → `HashMismatch`.
+Πειραματικά επιβεβαιώθηκε ότι **μόνο** `TrustedPublisher` δεν αρκεί (`UnknownError`) — χρειάζεται
+και `Root`. **Κανένα bump** (build tooling, η εφαρμογή μένει `1.4.4+12`).
+Commits: `1e2214a` (ACL+signing) · `c472d08` (bump) · `7b425a5` (bundling B) → pushed.
+
 
 
 
