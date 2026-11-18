@@ -351,6 +351,13 @@ class BackupService {
     );
     final tempNoSpace = await _checkFreeSpace(workDir.path, estimate * 2);
     if (tempNoSpace != null) throw tempNoSpace;
+    // S-08: το export **δεν** φράσσεται (Δ3/S-307) — μόνο προειδοποίηση: ένα
+    // αντίγραφο πάνω από τα όρια επαναφοράς θα εξαχθεί αλλά δεν θα μπορεί να
+    // επαναφερθεί.
+    if (estimate > BackupArchive.maxTotalBytes) {
+      DebugConfig.warning('export: source=$estimate bytes > restore limit '
+          '${BackupArchive.maxTotalBytes} — το αντίγραφο δεν θα επαναφέρεται');
+    }
     final destDir = p.dirname(destSnbPath);
     if (!p.equals(destDir, workDir.path)) {
       final destNoSpace = await _checkFreeSpace(destDir, estimate);
@@ -1085,11 +1092,29 @@ class BackupService {
           await _cleanupDir(workDir);
           return BackupPrepareResult.failure(e.message);
         }
+        // S-08: 2ος έλεγχος χώρου — τώρα με τα **δηλωμένα** (unpacked) μεγέθη.
+        // Το payload είναι ήδη στον δίσκο, άρα οι μελλοντικές εγγραφές είναι
+        // unpacked + snapshot της βάσης ≈ 2× declared.
+        final declared = await BackupArchive.declaredUncompressedBytes(
+            payload.path);
+        if (declared > BackupArchive.maxTotalBytes) {
+          await _cleanupDir(workDir);
+          return const BackupPrepareResult.failure(AppErrors.backupTooLarge);
+        }
+        final unpackNoSpace = await _checkFreeSpace(
+          workDir.path,
+          declared * 2 + 32 * 1024 * 1024,
+        );
+        if (unpackNoSpace != null) {
+          await _cleanupDir(workDir);
+          return BackupPrepareResult.failure(unpackNoSpace.message);
+        }
         final names = await BackupArchive.extractBackupZip(
           payload.path,
           unpackDir.path,
           onProgress: onProgress,
           isCancelled: isCancelled,
+          declaredBytes: declared,
         );
         if (!names.contains(BackupArchive.dbEntryName)) {
           await _cleanupDir(workDir);
@@ -1101,11 +1126,27 @@ class BackupService {
         await _deleteFileSilently(payload);
         payloadFormat = BackupFormat.zip;
       } else if (format == BackupFormat.zip) {
+        // S-08: ίδιος 2ος έλεγχος χώρου για απευθείας zip (χωρίς snb payload).
+        final declared =
+            await BackupArchive.declaredUncompressedBytes(backupPath);
+        if (declared > BackupArchive.maxTotalBytes) {
+          await _cleanupDir(workDir);
+          return const BackupPrepareResult.failure(AppErrors.backupTooLarge);
+        }
+        final unpackNoSpace = await _checkFreeSpace(
+          workDir.path,
+          declared * 2 + 32 * 1024 * 1024,
+        );
+        if (unpackNoSpace != null) {
+          await _cleanupDir(workDir);
+          return BackupPrepareResult.failure(unpackNoSpace.message);
+        }
         final names = await BackupArchive.extractBackupZip(
           backupPath,
           unpackDir.path,
           onProgress: onProgress,
           isCancelled: isCancelled,
+          declaredBytes: declared,
         );
         if (!names.contains(BackupArchive.dbEntryName)) {
           await _cleanupDir(workDir);
@@ -1167,6 +1208,10 @@ class BackupService {
       await _cleanupDir(workDir);
       return const BackupPrepareResult.cancelled();
     } on BackupSpaceException catch (e) {
+      await _cleanupDir(workDir);
+      return BackupPrepareResult.failure(e.message);
+    } on BackupLimitException catch (e) {
+      DebugConfig.warning('prepare: limit rejected — ${e.message}');
       await _cleanupDir(workDir);
       return BackupPrepareResult.failure(e.message);
     } catch (e, s) {

@@ -82,3 +82,16 @@ class BackupSpaceException implements Exception {
   @override
   String toString() => 'BackupSpaceException: $message';
 }
+
+/// S-08: το αντίγραφο ξεπερνά τα όρια επαναφοράς (zip bomb / πλήρωση δίσκου).
+///
+/// Πετιέται **μόνο** στην είσοδο (prepare/extract) — ποτέ στην εξαγωγή
+/// αντιγράφου — ώστε ένα κακόβουλο αρχείο να μη μπορεί να γεμίσει τον δίσκο.
+/// Ξεχωριστό από το [BackupSpaceException]: εκείνο σημαίνει «δεν χωράει τώρα»,
+/// αυτό «δεν επιτρέπεται ποτέ».
+class BackupLimitException implements Exception {
+  final String message;
+  const BackupLimitException(this.message);
+  @override
+  String toString() => 'BackupLimitException: $message';
+}

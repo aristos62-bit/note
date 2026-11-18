@@ -233,4 +233,132 @@ void main() {
       expect(total, 500);
     });
   });
+
+  // ── S-08: όρια επαναφοράς (zip bomb / disk fill) ─────────────────
+  group('S-08 limits', () {
+    late Directory tmp;
+
+    setUp(() async {
+      tmp = await Directory.systemTemp.createTemp('snb_limits_');
+    });
+
+    tearDown(() async {
+      try {
+        if (await tmp.exists()) await tmp.delete(recursive: true);
+      } catch (_) {}
+    });
+
+    Future<String> writeZip(Archive archive) async {
+      final path = p.join(tmp.path, 'in.zip');
+      await File(path).writeAsBytes(ZipEncoder().encode(archive));
+      return path;
+    }
+
+    test('stored entry πάνω από το όριο πιάνεται (writeStream)', () async {
+      final big = List<int>.filled(2 * 1024 * 1024, 7);
+      final file = ArchiveFile.bytes('attachments/big.bin', big)
+        ..compression = CompressionType.none;
+      final zipPath = await writeZip(Archive()..addFile(file));
+      final outDir = p.join(tmp.path, 'out');
+      await Directory(outDir).create();
+
+      await expectLater(
+        BackupArchive.extractBackupZip(
+          zipPath,
+          outDir,
+          entryLimit: 1024 * 1024,
+        ),
+        throwsA(isA<BackupLimitException>()),
+      );
+    });
+
+    test('deflated entry με ψεύτικο μικρό size πιάνεται (πραγματικά bytes)',
+        () async {
+      // 4 MB συμπιέσιμων δεδομένων, αλλά το header δηλώνει 64 bytes.
+      final payload = List<int>.filled(4 * 1024 * 1024, 0);
+      final file = ArchiveFile.bytes('attachments/liar.bin', payload)..size = 64;
+      final zipPath = await writeZip(Archive()..addFile(file));
+
+      // Το preflight βλέπει 64 bytes → περνά· ο μετρητής όμως όχι.
+      final declared = await BackupArchive.declaredUncompressedBytes(zipPath);
+      expect(declared, 64);
+
+      final outDir = p.join(tmp.path, 'out');
+      await Directory(outDir).create();
+      await expectLater(
+        BackupArchive.extractBackupZip(
+          zipPath,
+          outDir,
+          entryLimit: 1024 * 1024,
+          declaredBytes: declared,
+        ),
+        throwsA(isA<BackupLimitException>()),
+      );
+    });
+
+    test('συνολικό όριο across entries', () async {
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes(
+            'attachments/a.bin', List<int>.filled(700 * 1024, 1)))
+        ..addFile(ArchiveFile.bytes(
+            'attachments/b.bin', List<int>.filled(700 * 1024, 2)));
+      final zipPath = await writeZip(archive);
+      final outDir = p.join(tmp.path, 'out');
+      await Directory(outDir).create();
+
+      await expectLater(
+        BackupArchive.extractBackupZip(
+          zipPath,
+          outDir,
+          totalLimit: 1024 * 1024,
+        ),
+        throwsA(isA<BackupLimitException>()),
+      );
+    });
+
+    test('preflight: δηλωμένο σύνολο > όριο → απόρριψη πριν γραφτεί byte',
+        () async {
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes(
+            'attachments/a.bin', List<int>.filled(1024, 1)));
+      final zipPath = await writeZip(archive);
+      final outDir = p.join(tmp.path, 'out');
+      await Directory(outDir).create();
+
+      await expectLater(
+        BackupArchive.extractBackupZip(
+          zipPath,
+          outDir,
+          totalLimit: 100,
+        ),
+        throwsA(isA<BackupLimitException>()),
+      );
+      expect(Directory(outDir).listSync(), isEmpty);
+    });
+
+    test('declaredUncompressedBytes: μόνο επιτρεπτά, όχι dirs', () async {
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes(
+            'super_note_db.isar', List<int>.filled(100, 0)))
+        ..addFile(ArchiveFile.bytes(
+            'attachments/a.bin', List<int>.filled(50, 0)))
+        ..addFile(ArchiveFile.bytes(
+            'attachments/nested/b.bin', List<int>.filled(999, 0)))
+        ..addFile(ArchiveFile.directory('attachments/dir/'));
+      final zipPath = await writeZip(archive);
+      expect(await BackupArchive.declaredUncompressedBytes(zipPath), 150);
+    });
+
+    test('isNoSpaceError: ENOSPC 28 / Windows 112+39 / μήνυμα', () {
+      FileSystemException fs(int code) =>
+          FileSystemException('write', '', OSError('full', code));
+      expect(BackupArchive.isNoSpaceError(fs(28)), true);
+      expect(BackupArchive.isNoSpaceError(fs(112)), true);
+      expect(BackupArchive.isNoSpaceError(fs(39)), true);
+      expect(BackupArchive.isNoSpaceError(fs(13)), false);
+      expect(BackupArchive.isNoSpaceError('OS Error: No space left on device'),
+          true);
+      expect(BackupArchive.isNoSpaceError('other'), false);
+    });
+  });
 }

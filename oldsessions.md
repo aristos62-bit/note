@@ -6700,5 +6700,61 @@ Build release με `--dart-define=SN_RELEASE_LOGS=true` (κανένα edit κώ�
 
 
 
+## Session 326 — 18/11/2026 (S-08: όρια επαναφοράς zip — disk-fill)
+
+### Στόχος
+Το **S-08** (zip bomb / disk-fill) ήταν το τελευταίο ανοιχτό εύρημα. Μετά το S-307 το
+zip create/extract είναι streaming + allowlist, αλλά **χωρίς όρια μεγέθους**: το
+`size` του κεντρικού ευρετηρίου είναι **attacker-controlled** και το `archive 4.3.0`
+**δεν** προσφέρει όριο εξόδου (`zip_file.dart` αγνοεί το `uncompressedSize`) — ένα zip
+μερικών KB μπορούσε να γράψει απεριόριστα bytes μέχρι το `ENOSPC`.
+
+### Απόφαση (εγκεκριμένη)
+| Θέμα | Απόφαση |
+|---|---|
+| Όρια | **512 MB/entry** (5× το `AppSettings.maxAttachmentCeilingMB = 100`, S-13) · **2 GB/σύνολο** |
+| Export | **Χωρίς** φράγμα (Δ3) — μόνο `DebugConfig.warning` πάνω από 2 GB |
+| Εξαίρεση | Νέο `BackupLimitException` δίπλα στο `BackupSpaceException` (σημασιολογικά διαφορετικά) |
+| `ENOSPC` | Χαρτογράφηση **στο zip layer** → υπάρχον `BackupSpaceException` (μηδέν νέο catch στο service) |
+| `archive` | Μένει **4.3.0** (κανένα output limit στο API) |
+
+### Υλοποίηση (4 φράγματα, μόνο στην επαναφορά)
+| # | Φράγμα | Πού |
+|---|---|---|
+| 1 | **Preflight** στα δηλωμένα uncompressed μεγέθη (`declaredUncompressedBytes` / `declaredBytesOf`, overflow-safe, μετρά **μόνο** επιτρεπτά entries) | `backup_archive.dart` |
+| 2 | **Μετρητής πραγματικών bytes** στην έξοδο: `_LimitedOutputFileStream` μετρά `writeBytes` **και** `writeStream` (τα stored entries γράφονται απευθείας στο handle και παρακάμπτουν το `writeBytes`) | `backup_archive.dart` |
+| 3 | **2ος έλεγχος ελεύθερου χώρου** πριν την εξαγωγή, με τα δηλωμένα (`declared*2 + 32 MB`) | `backup_service.dart` (`prepare`) |
+| 4 | **`ENOSPC`** (POSIX 28 · Windows 112/39 · fallback μηνύματος) → `BackupSpaceException` | `backup_archive.dart` |
+
+- `BackupLimitException` + `AppErrors.backupTooLarge` (SPoT εξαιρέσεων/μηνυμάτων) · ρηστό
+  `on BackupLimitException` στο `prepare` (χωρίς αυτό έβγαινε «Σφάλμα επικύρωσης: …»).
+- Μηδέν αλλαγή σε UI/providers/schema/`.snb`/manifest: το `settings_backup.dart` δείχνει
+  ήδη το `prep.error`. Η live DB δεν αγγίζεται (απόρριψη πριν το `restorePrepared`).
+- Ενημερώθηκαν 2 σχόλια που θα γίνονταν ψευδή (`backup_archive.dart` header,
+  `backup_container.dart:305`).
+
+### Επαλήθευση (τοπική)
+- `flutter analyze --no-pub` → **No issues found**.
+- `flutter test` → **797/797** (6 νέα στο `test/backup_archive_test.dart`: stored entry
+  πάνω από όριο, deflated με **ψεύτικο μικρό `size`**, συνολικό όριο, preflight πριν
+  γραφτεί byte, `declaredUncompressedBytes` φίλτρο, `isNoSpaceError` 28/112/39).
+- **Πραγματικό bomb** (600 MB μηδενικά, header patched σε 1 KB — `device-test/s08_tools/`)
+  → `BackupLimitException` με τα **default** όρια (temp test, δεν committed).
+
+### Device test (POCO X3)
+- Στάδια: εγκατάσταση release **1.4.2+10** → εισαγωγή του patched zip (αναμονή «Το
+  αντίγραφο υπερβαίνει το μέγιστο επιτρεπτό μέγεθος») → έλεγχος έγκυρου `.snb` (preview,
+  ακύρωση πριν την επιβεβαίωση) → καθαρισμός.
+- **Κατάσταση:** ολοκληρώθηκε το build + εγκατάσταση· η εκτέλεση των tests διακόπηκε
+  λόγω αποσύνδεσης της συσκευής (adb: no devices) — **εκκρεμεί επανάληψη/ολοκλήρωση**.
+
+### Έκδοση
+`1.4.1+9` → **`1.4.2+10`** (PATCH: fix χωρίς νέο feature/schema· `+10` build). Συγχρονίστηκαν
+`pubspec.yaml` · `supernote.md` · `note_eco_new.iss` (1.4.2 / 1.4.2.10). Επαληθεύτηκε με
+`aapt dump badging`: `versionCode=10`, `versionName=1.4.2`.
+
+
+
+
 
 

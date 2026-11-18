@@ -302,7 +302,8 @@ class BackupContainer {
 
   /// Διαβάζει/επικυρώνει το header χωρίς να αποκρυπτογραφήσει τίποτα.
   ///
-  /// S-307: χωρίς όριο plaintext — το μέγεθος ακολουθεί τη βάση.
+  /// S-307: χωρίς όριο plaintext εδώ — το μέγεθος ακολουθεί τη βάση· τα όρια
+  /// του S-08 εφαρμόζονται πιο κάτω, στην εξαγωγή του zip.
   static Future<SnbHeader> readHeader(File file) async {
     final length = await file.length();
     if (length < SnbHeader.minFileLength) {
