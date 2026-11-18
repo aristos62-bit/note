@@ -160,8 +160,8 @@ lib/
 │   ├── search_service.dart       — Full-text search
 │   ├── habit_service.dart        — Habit stats, streak, progress
 │   ├── attachment_service.dart   — File pick + save + delete + open (S-25 policy)
-│   ├── backup_service.dart       — Export/import Isar DB (`.snb` χωρίς όρια μεγέθους, progress + cancel, S-307)
-│   ├── backup_archive.dart       — Zip create/extract **streaming** + allowlist entries (C7/S-307)
+│   ├── backup_service.dart       — Export/import Isar DB (`.snb`: export χωρίς όρια, **restore με όρια** 512 MB/entry + 2 GB, progress + cancel, S-307/S-08)
+│   ├── backup_archive.dart       — Zip create/extract **streaming** + allowlist entries (C7/S-307) + όρια εξαγωγής & `ENOSPC` (S-08)
 │   ├── backup/
 │   │   ├── backup_container.dart  — `.snb` header v2 (`keyMode`: embedded/pbkdf2) + STREAM AES-256-GCM (S-02/S-307)
 │   │   ├── backup_progress.dart   — BackupPhase/BackupProgress + cancel/space exceptions (S-307)
