@@ -569,27 +569,29 @@ class BackupService {
     }
   }
 
+  /// S-19: το αντίγραφο του `share_plus` (`cache/share_plus`) μένει μέχρι το
+  /// επόμενο share (το plugin καθαρίζει μόνο στην αρχή του επόμενου) → delayed
+  /// cleanup μετά το κλείσιμο του share sheet.
   Future<void> _shareFile(String path) async {
-    await SharePlus.instance.share(ShareParams(
-      files: [
-        XFile(path, mimeType: 'application/octet-stream'),
-      ],
-      subject: 'SuperNote Backup',
-      text: 'Αντίγραφο ασφαλείας SuperNote',
-    ));
+    try {
+      await SharePlus.instance.share(ShareParams(
+        files: [
+          XFile(path, mimeType: 'application/octet-stream'),
+        ],
+        subject: 'SuperNote Backup',
+        text: 'Αντίγραφο ασφαλείας SuperNote',
+      ));
+    } finally {
+      CacheCleanup.scheduleSharePlusCleanup();
+    }
   }
 
   /// Το share sheet χρειάζεται το αρχείο ανοιχτό· καθαρισμός μετά.
-  void _scheduleTempCleanup(Directory dir) {
-    Future.delayed(const Duration(seconds: 10), () async {
-      try {
-        await dir.delete(recursive: true);
-        DebugConfig.db('export: delayed temp dir deleted');
-      } catch (e) {
-        DebugConfig.warning('export: delayed temp cleanup failed: $e');
-      }
-    });
-  }
+  /// S-19: η λογική ζει πλέον στο `CacheCleanup` (κοινή για backup + share).
+  void _scheduleTempCleanup(Directory dir) => CacheCleanup.scheduleTempDir(
+        dir.path,
+        delay: CacheCleanup.backupTempDelay,
+      );
 
   /// Desktop copy με πρόοδο (256 KiB chunks) + partial + rename.
   Future<void> _copyWithProgress(

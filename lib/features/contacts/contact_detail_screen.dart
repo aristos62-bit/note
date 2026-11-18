@@ -274,8 +274,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
   }
 
   Future<void> _pickGallery(BuildContext context) async {
+    // S-19: το `image_picker` γράφει αντίγραφο στο temp (resized) — το σβήνουμε
+    // μετά την αποθήκευση ως base64. Στο desktop είναι η αρχική διαδρομή.
+    XFile? image;
     try {
-      final image = await ImagePicker().pickImage(
+      image = await ImagePicker().pickImage(
         source: ImageSource.gallery,
         maxWidth: 1024,
         maxHeight: 1024,
@@ -287,12 +290,15 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
       await _storePickedPhoto(bytes, 'gallery', context);
     } catch (e, s) {
       DebugConfig.error('_pickGallery', e, s);
+    } finally {
+      await CacheCleanup.deletePickedFile(image?.path);
     }
   }
 
   Future<void> _pickCamera() async {
+    XFile? image;
     try {
-      final image = await ImagePicker().pickImage(
+      image = await ImagePicker().pickImage(
         source: ImageSource.camera,
         maxWidth: 1024,
         maxHeight: 1024,
@@ -302,6 +308,8 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen>
       await _storePickedPhoto(await image.readAsBytes(), 'camera');
     } catch (e, s) {
       DebugConfig.error('_pickCamera', e, s);
+    } finally {
+      await CacheCleanup.deletePickedFile(image?.path);
     }
   }
 

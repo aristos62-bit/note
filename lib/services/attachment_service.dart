@@ -12,6 +12,7 @@ import '../models/attachment.dart';
 import '../core/utils/app_errors.dart';
 import '../core/utils/app_paths.dart';
 import '../core/utils/attachment_path_guard.dart';
+import '../core/utils/cache_cleanup.dart';
 import '../core/utils/debug_config.dart';
 import '../core/utils/string_utils.dart';
 
@@ -30,6 +31,10 @@ class AttachmentService {
     int? maxSizeBytes,
   }) async {
     DebugConfig.db('pickAndSave itemId=$itemId extensions=$allowedExtensions maxBytes=$maxSizeBytes');
+    // S-19: το picked αρχείο είναι ΑΝΤΙΓΡΑΦΟ στο temp (Android/iOS) — μετά το
+    // `saveFile` (ή σε dedupe/σφάλμα) δεν χρειάζεται. Στο desktop είναι η
+    // αρχική διαδρομή → το `deletePickedFile` δεν την αγγίζει.
+    String? pickedPath;
     try {
       final result = await FilePicker.platform.pickFiles(
         type: allowedExtensions != null ? FileType.custom : FileType.any,
@@ -41,6 +46,7 @@ class AttachmentService {
       if (result == null || result.files.isEmpty) return null;
       final file = result.files.first;
       if (file.path == null) return null;
+      pickedPath = file.path;
 
       // E09: το `PlatformFile.size` είναι 0 όταν ο provider δεν το δίνει
       // (content-URI) → θα περνούσε το όριο. Παίρνουμε το πραγματικό μέγεθος.
@@ -83,6 +89,8 @@ class AttachmentService {
     } catch (e, stack) {
       DebugConfig.error('[AttachmentService] pickAndSave failed', e, stack);
       rethrow;
+    } finally {
+      await CacheCleanup.deletePickedFile(pickedPath);
     }
   }
 

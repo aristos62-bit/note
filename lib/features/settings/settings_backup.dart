@@ -153,8 +153,30 @@ Future<void> importBackup(BuildContext context, WidgetRef ref,
 
   // 1. Επιλογή αρχείου (ή έτοιμο path από αυτόματα αντίγραφα)
   final srcPath = fromPath ?? await BackupService.instance.pickBackupFile();
-  if (srcPath == null || !context.mounted) return;
+  if (srcPath == null) return;
+  if (!context.mounted) {
+    await CacheCleanup.deletePickedFile(srcPath);
+    return;
+  }
 
+  // S-19: το picked αρχείο είναι ΑΝΤΙΓΡΑΦΟ στο temp (Android/iOS) και δεν
+  // χρειάζεται μετά το prepare/restore → καθαρισμός σε κάθε έξοδο. Στο desktop
+  // είναι η αρχική διαδρομή του χρήστη και δεν αγγίζεται (platform gate).
+  try {
+    await _importBackupFlow(context, ref, messenger, srcPath);
+  } finally {
+    await CacheCleanup.deletePickedFile(srcPath);
+  }
+}
+
+/// S-19: το σώμα της εισαγωγής, ώστε ο καθαρισμός του picked temp να γίνεται
+/// σε ένα `finally` αντί σε κάθε early return.
+Future<void> _importBackupFlow(
+  BuildContext context,
+  WidgetRef ref,
+  ScaffoldMessengerState messenger,
+  String srcPath,
+) async {
   // 2. Μορφή από magic bytes — τα extensions δεν αρκούν (N1).
   final format = await BackupContainer.detectFormat(srcPath);
   if (!context.mounted) return;

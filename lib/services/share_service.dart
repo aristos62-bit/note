@@ -114,6 +114,11 @@ class ShareService {
       if (context.mounted) {
         _showMessage(context, AppErrors.shareFilesUnsupported);
       }
+    } finally {
+      // S-19: το `share_plus` αντιγράφει τα files στο `cache/share_plus` και τα
+      // καθαρίζει μόνο στην αρχή του επόμενου share → delayed cleanup (60s).
+      // Μόνο όταν στάλθηκαν αρχεία· τα text-only shares δεν αφήνουν αντίγραφα.
+      if (files.isNotEmpty) CacheCleanup.scheduleSharePlusCleanup();
     }
   }
 
