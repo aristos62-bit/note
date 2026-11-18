@@ -6577,6 +6577,53 @@ transaction κάνει μόνο αναθέσεις (μικρότερο writeTxn,
 κανένα schema change — το `appLockPinHash` παραμένει `String?`, `schemaVersion`
 v6 άθικτο).
 
+## Session 324 — 18/11/2026 (S-19: delayed cache cleanup — share_plus + picker temp)
+
+### Στόχος
+Κλείσιμο του **S-19**: το `share_plus` αντιγράφει κάθε shared αρχείο σε
+`cache/share_plus/` και το καθαρίζει **μόνο στην αρχή** του επόμενου share
+(`12.0.2 Share.kt:60`) — αν δεν ακολουθήσει άλλο share, το τελευταίο αντίγραφο
+(μαζί με ολόκληρο backup zip) μένει επ' αόριστον. Ζητούμενο: delayed cleanup
+μετά το κλείσιμο του chooser + καθαρισμός των picked temp (`file_picker`,
+`image_picker`, εισαγωγή backup) χωρίς να αγγίζεται κανένα αρχείο του χρήστη.
+
+### Σχεδιαστικές αποφάσεις
+| Απόφαση | Γιατί |
+|---|---|
+| Νέο SPoT `CacheCleanup` (`lib/core/utils/cache_cleanup.dart`) | Μία πολιτική για 4 ροές· ίδιο πρότυπο με `AttachmentPathGuard` (λεξικός guard, fail-closed) |
+| Share cleanup **60s** μετά το κλείσιμο του chooser | Ο παραλήπτης διαβάζει ακόμη το αντίγραφο· σε Android το `share()` ολοκληρώνεται όταν κλείσει ο chooser (`withResult=true`) |
+| **Generation token** | Διαδοχικά shares: παλιό timer δεν πρέπει να σβήσει τα νεότερα αντίγραφα |
+| Backup temp **10s** | Μεταφορά του `_scheduleTempCleanup` στην κοινή util — ίδια συμπεριφορά |
+| Picked temp με **platform gate** (Android/iOS) | Στο desktop οι pickers επιστρέφουν την **αρχική** διαδρομή (file_picker Windows/Linux/macOS, image_picker μέσω `file_selector`) — αν βρίσκεται στο `%TEMP%`, το απλό guard θα το **έσβηνε** (data loss) |
+| `prepare()` μένει pure | Η ζωή του picked αρχείου ανήκει στο `importBackup`: wrapper + `_importBackupFlow` + **ένα** `finally` αντί 12 early-return cleanups |
+| `FilePicker.clearTemporaryFiles()` **όχι** | Σβήνει **όλο** το `cache/file_picker/` (και τυχόν ταυτόχρονο pick) και είναι `UnimplementedError` σε desktop |
+| `shared_intent_service._cleanupIntentCache` **ανέγγιχτο** | Κλειστό S-13c, δικός του μηχανισμός |
+
+### Τι άλλαξε
+| Αρχείο | Αλλαγή |
+|---|---|
+| `lib/core/utils/cache_cleanup.dart` | **νέο**: `isWithinTemp`, `deleteTempFile` (+ prune άδειου γονικού), `deletePickedFile`, `deleteTempDir`, `scheduleTempDir`, `scheduleSharePlusCleanup`, `tempRootProvider`/`pickerCopiesToTempProvider` (seams), `reset()` — **exception-free** |
+| `lib/core/core.dart` | + export |
+| `lib/services/backup_service.dart` | `_shareFile` → `finally` schedule· `_scheduleTempCleanup` → delegate |
+| `lib/services/share_service.dart` | `_share` → `finally` (μόνο αν στάλθηκαν αρχεία) |
+| `lib/services/attachment_service.dart` | `pickAndSave` → `finally` `deletePickedFile` (καλύπτει dedupe/oversize/σφάλμα) |
+| `lib/features/contacts/contact_detail_screen.dart` | `_pickGallery`/`_pickCamera` → `finally` (τα bytes είναι ήδη base64 στη DB) |
+| `lib/features/settings/settings_backup.dart` | `importBackup` → wrapper + `_importBackupFlow` + `finally` |
+| `test/cache_cleanup_test.dart` | **νέο** — 25 tests (guard, prune, platform gate, scheduling, generation token, provider που πετά) |
+
+### Tests & επαλήθευση
+- `flutter analyze --no-pub` → **No issues found!**
+- `flutter test` → **791/791** (baseline 766 + 25 νέα).
+- `flutter test test/cache_cleanup_test.dart` → **25/25**.
+
+### Υπολειπόμενα (τεκμηριωμένα στο `security_v2.md`)
+- App killed πριν το timer → τα αντίγραφα μένουν μέχρι το επόμενο share ή το Wipe.
+- Παραλήπτης με lazy read >60s (π.χ. Gmail draft) μπορεί να χάσει το συνημμένο.
+- iOS `/var` vs `/private/var` → το guard **απορρίπτει** (fail-closed, χωρίς data loss).
+
+### Έκδοση
+`1.4.0+8` → **`1.4.1+9`** (PATCH: fix χωρίς νέο feature/schema).
+
 
 
 

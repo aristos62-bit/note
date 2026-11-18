@@ -631,6 +631,7 @@ final db = SuperNoteHelper.instance;
   - **Share:** `SharePlus.instance.share(ShareParams)` + `sharePositionOrigin` (iPad/macOS popover)· `unavailable` = σιωπή (όχι σφάλμα), `UnimplementedError` (παλιά Windows) → retry **text-only** + ενημέρωση χρήστη.
 - **Guards:** re-entrancy (`_sharing`), `context.mounted` μετά από κάθε await, item που διαγράφηκε → σιωπηλή έξοδος, πραγματικό σφάλμα → `AppErrors.shareFailed`.
 - **Συνημμένα:** συλλέγονται **όλα** τα item-level + όσα αναφέρονται σε `attachment` fields συλλογής (dedupe)· **κανένα αντίγραφο αρχείου** (D9 — ο παραλήπτης βλέπει το basename του path).
+- **S-19 (cache cleanup):** τα αντίγραφα του `share_plus` (`cache/share_plus/`) σβήνονται **60s** μετά το κλείσιμο του chooser μέσω `CacheCleanup` (`core/utils/cache_cleanup.dart` — SPoT, generation token)· ίδια util για backup temp (**10s**) και picked temp (`file_picker`/`image_picker`, μόνο Android/iOS — στο desktop ο picker επιστρέφει την αρχική διαδρομή του χρήστη).
 
 ### SharedIntentService (`lib/services/shared_intent_service.dart`)
 - Singleton (S59) — stream `incoming` (warm+cold)· dedup 2s (`isDuplicate`)· `reset` μετά το initial
