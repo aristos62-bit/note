@@ -6758,6 +6758,46 @@ Evidence: `device-test/s08_summary.md` + `s08_*.png` (τοπικό, gitignored).
 `pubspec.yaml` · `supernote.md` · `note_eco_new.iss` (1.4.2 / 1.4.2.10). Επαληθεύτηκε με
 `aapt dump badging`: `versionCode=10`, `versionName=1.4.2`.
 
+## Session 327 — 18/11/2026 (S-08 residual: όριο πλήθους entries — μνήμη)
+
+### Στόχος
+Το τεκμηριωμένο υπολειπόμενο του S-08: τα όρια του S326 μετρούν **bytes** (δίσκο), αλλά το
+`ZipDecoder.decodeStream` χτίζει **ένα αντικείμενο header ανά entry** πριν τρέξει
+οποιοσδήποτε μετρητής. Ένα zip με εκατομμύρια entries (~46 bytes/entry στο κεντρικό
+ευρετήριο) δεσμεύει εκατοντάδες MB RAM → OOM. Ζητήθηκε ρητά από τον χρήστη το κλείσιμο.
+
+### Απόφαση
+| Θέμα | Απόφαση |
+|---|---|
+| Πού μετράμε | **Κεντρικό ευρετήριο**, πριν το decode (EOCD + κεφαλίδες 46 bytes) — όχι `archive.files.length` (θα ήταν αργά) |
+| Όριο | **50.000 entries** (`BackupArchive.maxEntries`) ≈ 15–25 MB στο decode· νόμιμο 2 GB αντίγραφο με 50k αρχεία = 40 KB/αρχείο |
+| Μη-zip αρχείο | Επιστρέφει **0** → καμία αλλαγή στο υπάρχον μήνυμα σφάλματος του decoder |
+| Σφάλμα | Υπάρχον `BackupLimitException` → `AppErrors.backupTooLarge` (μηδέν νέο μήνυμα/exception) |
+
+### Υλοποίηση (`backup_archive.dart` μόνο)
+| # | Τι | Πού |
+|---|---|---|
+| 1 | `countCentralDirectoryEntries(zipPath, {limit})`: EOCD scan (παράθυρο 22 + 64 KB σχόλιο), **zip64-aware** locator/record, μετά μόνο οι σταθερές κεφαλίδες 46 bytes (`0x02014b50`) με skip `name/extra/comment`, stop στο `limit + 1`· αν το δηλωμένο CD ξεπερνά το αρχείο κόβεται στο EOF (ίδιο με το subset του decoder) | `backup_archive.dart` |
+| 2 | `ensureEntryCountWithinLimit(...)` → `BackupLimitException` | `backup_archive.dart` |
+| 3 | Κλήση σε `declaredUncompressedBytes` (άρα και στα 2 branches του `prepare`) + `extractBackupZip` + `extractBackupZipDbOnly`, με injectable `entryCountLimit` (tests) | `backup_archive.dart` |
+
+- **Καμία** αλλαγή σε `backup_service.dart`, UI, schema, `.snb`, manifest — το
+  `on BackupLimitException` του `prepare` καλύπτει ήδη την περίπτωση.
+- Γιατί όχι EOCD count: το `totalEntries` του EOCD είναι attacker-controlled (μπορεί να
+  δηλώνει 1 με 1M κεφαλίδες στο CD) — μετράμε τις **πραγματικές** κεφαλίδες.
+
+### Επαλήθευση
+- `flutter analyze --no-pub` → **No issues found**.
+- `flutter test` → **802/802** (5 νέα στο `test/backup_archive_test.dart`: μέτρηση 3 entries,
+  όριο 2 → απόρριψη / όριο 3 → περνά, `extractBackupZip` με `entryCountLimit: 2` χωρίς
+  εγγραφή byte, έγκυρο zip με default όριο, μη-zip/ανύπαρκτο αρχείο → 0 / `FileSystemException`).
+- **Χωρίς device test** (καθαρή Dart λογική, απόδειξη = analyze + tests, κατά κανόνα 9).
+
+### Έκδοση
+`1.4.2+10` → **`1.4.3+11`** (PATCH + build). Συγχρονίστηκαν `pubspec.yaml` · `supernote.md` ·
+`note_eco_new.iss` (1.4.3 / 1.4.3.11). Docs: `security_v2.md` **v2.12** (S-08 πλήρως κλεισμένο),
+`supernote.md` §BackupService (5 φράγματα) + tree.
+
 
 
 

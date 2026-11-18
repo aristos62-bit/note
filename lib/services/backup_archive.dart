@@ -9,9 +9,12 @@
 // S-08: όρια **μόνο στην επαναφορά** (η εξαγωγή αντιγράφου μένει χωρίς όρια):
 //  1. preflight στα **δηλωμένα** μεγέθη (φθηνή, attacker-controlled ένδειξη),
 //  2. μετρητής **πραγματικών** bytes στην έξοδο (writeBytes + writeStream),
-//  3. `ENOSPC` → καθαρό μήνυμα «δεν υπάρχει χώρος».
-// Η πραγματική άμυνα είναι το (2): ο επιτιθέμενος ελέγχει το header, όχι τα
-// bytes που βγαίνουν από το inflate.
+//  3. `ENOSPC` → καθαρό μήνυμα «δεν υπάρχει χώρος»,
+//  4. πλήθος entries από το κεντρικό ευρετήριο **πριν** το decode (μνήμη).
+// Η πραγματική άμυνα για τον δίσκο είναι το (2): ο επιτιθέμενος ελέγχει το
+// header, όχι τα bytes που βγαίνουν από το inflate. Για τη μνήμη, το (4): το
+// decode φτιάχνει ένα header αντικείμενο ανά entry, οπότε εκατομμύρια entries
+// θα κατανάλωναν εκατοντάδες MB πριν προλάβει να τρέξει οποιοσδήποτε μετρητής.
 //
 // Δομή zip:
 //   super_note_db.isar            (η βάση)
@@ -49,6 +52,15 @@ class BackupArchive {
   /// `DebugConfig.warning` στο export).
   static const int maxTotalBytes = 2 * 1024 * 1024 * 1024;
 
+  /// S-08 residual: μέγιστο πλήθος entries του zip (50.000).
+  ///
+  /// Ο μετρητής bytes δεν προστατεύει τη **μνήμη**: το `decodeStream` χτίζει
+  /// ένα header αντικείμενο ανά entry πριν ελεγχθεί οτιδήποτε, άρα ένα zip με
+  /// εκατομμύρια entries δεσμεύει εκατοντάδες MB. 50k ≈ 15–25 MB στο decode
+  /// (~4 MB κεντρικό ευρετήριο) — πρακτικά απρόσιτο για νόμιμο αντίγραφο: ένα
+  /// 2 GB αντίγραφο με 50k αρχεία θα είχε μέσο όρο 40 KB/αρχείο.
+  static const int maxEntries = 50000;
+
   static bool isBackupZip(String path) =>
       path.toLowerCase().endsWith('.zip');
 
@@ -70,6 +82,132 @@ class BackupArchive {
     return true;
   }
 
+  /// S-08 residual: πλήθος entries από το **κεντρικό ευρετήριο**, χωρίς decode.
+  ///
+  /// Διαβάζει το EOCD (τέλος αρχείου) και μετά μόνο τις σταθερές κεφαλίδες των
+  /// 46 bytes του κεντρικού ευρετηρίου, πηδώντας name/extra/comment — καμία
+  /// δομή ανά entry. Σταματά στο [limit] + 1 (το ακριβές πλήθος δεν χρειάζεται).
+  ///
+  /// Επιστρέφει 0 όταν το αρχείο δεν είναι zip ή δεν βρεθεί EOCD: τότε το
+  /// σφάλμα το δίνει ο decoder με το υπάρχον μήνυμα.
+  static int countCentralDirectoryEntries(
+    String zipPath, {
+    int limit = maxEntries,
+  }) {
+    RandomAccessFile? raf;
+    try {
+      raf = File(zipPath).openSync();
+      final fileLength = raf.lengthSync();
+      final eocd = _findEocd(raf, fileLength);
+      if (eocd < 0) return 0;
+      final eocdBytes = _readAt(raf, eocd + 12, 8);
+      if (eocdBytes == null) return 0;
+      final eocdView = ByteData.sublistView(eocdBytes);
+      var cdSize = eocdView.getUint32(0, Endian.little);
+      var cdOffset = eocdView.getUint32(4, Endian.little);
+      if (cdOffset == 0xFFFFFFFF || cdSize == 0xFFFFFFFF) {
+        final zip64 = _readZip64Directory(raf, eocd);
+        if (zip64 == null) return 0;
+        cdOffset = zip64.$1;
+        cdSize = zip64.$2;
+      }
+      if (cdOffset < 0 || cdOffset >= fileLength) return 0;
+      // Δηλωμένο CD μεγαλύτερο από το αρχείο → κόβεται στο πραγματικό μέγεθος
+      // (το `decodeStream` κάνει το ίδιο: το subset του σταματά στο EOF).
+      if (cdOffset + cdSize > fileLength) cdSize = fileLength - cdOffset;
+      if (cdSize < 46) return 0;
+
+      var pos = 0;
+      var count = 0;
+      final header = Uint8List(46);
+      while (pos + 46 <= cdSize) {
+        if (!_readInto(raf, cdOffset + pos, header)) break;
+        final view = ByteData.sublistView(header);
+        // 0x02014b50 = central directory file header· ίδιο σημείο τερματισμού
+        // με τον βρόχο του `ZipDecoder`.
+        if (view.getUint32(0, Endian.little) != 0x02014b50) break;
+        count++;
+        if (count > limit) break;
+        pos += 46 +
+            view.getUint16(28, Endian.little) +
+            view.getUint16(30, Endian.little) +
+            view.getUint16(32, Endian.little);
+      }
+      return count;
+    } finally {
+      raf?.closeSync();
+    }
+  }
+
+  /// S-08 residual: απόρριψη zip με περισσότερα από [limit] entries **πριν**
+  /// το decode (άρα πριν δεσμευτεί μνήμη ανά entry).
+  static void ensureEntryCountWithinLimit(
+    String zipPath, {
+    int limit = maxEntries,
+  }) {
+    if (countCentralDirectoryEntries(zipPath, limit: limit) > limit) {
+      throw const BackupLimitException(AppErrors.backupTooLarge);
+    }
+  }
+
+  static const int _eocdSignature = 0x06054b50;
+
+  /// Αναζήτηση του EOCD record από το τέλος (με έως 64 KB σχόλιο zip).
+  /// Επιστρέφει απόλυτο offset ή -1.
+  static int _findEocd(RandomAccessFile raf, int fileLength) {
+    const eocdSize = 22;
+    const maxComment = 0xFFFF;
+    if (fileLength < eocdSize) return -1;
+    final window = fileLength < eocdSize + maxComment
+        ? fileLength
+        : eocdSize + maxComment;
+    final start = fileLength - window;
+    final bytes = _readAt(raf, start, window);
+    if (bytes == null) return -1;
+    for (var i = window - 4; i >= 0; i--) {
+      if (bytes[i] == (_eocdSignature & 0xFF) &&
+          bytes[i + 1] == ((_eocdSignature >> 8) & 0xFF) &&
+          bytes[i + 2] == ((_eocdSignature >> 16) & 0xFF) &&
+          bytes[i + 3] == ((_eocdSignature >> 24) & 0xFF)) {
+        return start + i;
+      }
+    }
+    return -1;
+  }
+
+  /// zip64: `(cdOffset, cdSize)` από τον locator + το zip64 EOCD record.
+  static (int, int)? _readZip64Directory(RandomAccessFile raf, int eocd) {
+    final locator = _readAt(raf, eocd - 20, 20);
+    if (locator == null) return null;
+    final loc = ByteData.sublistView(locator);
+    if (loc.getUint32(0, Endian.little) != 0x07064b50) return null;
+    final record = _readAt(raf, loc.getUint64(8, Endian.little), 56);
+    if (record == null) return null;
+    final rec = ByteData.sublistView(record);
+    if (rec.getUint32(0, Endian.little) != 0x06064b50) return null;
+    return (
+      rec.getUint64(48, Endian.little),
+      rec.getUint64(40, Endian.little),
+    );
+  }
+
+  static Uint8List? _readAt(RandomAccessFile raf, int offset, int length) {
+    final buffer = Uint8List(length);
+    return _readInto(raf, offset, buffer) ? buffer : null;
+  }
+
+  static bool _readInto(RandomAccessFile raf, int offset, Uint8List buffer) {
+    if (offset < 0) return false;
+    raf.setPositionSync(offset);
+    var read = 0;
+    while (read < buffer.length) {
+      final n = raf.readIntoSync(buffer, read);
+      if (n <= 0) break;
+      read += n;
+    }
+    return read == buffer.length;
+  }
+
   /// S-08: άθροισμα **δηλωμένων** (uncompressed) μεγεθών των επιτρεπτών entries.
   ///
   /// Τα μεγέθη προέρχονται από το κεντρικό ευρετήριο και είναι
@@ -80,6 +218,7 @@ class BackupArchive {
   /// Μετρά **μόνο** ό,τι θα γραφτεί (`isAllowedEntry`), ώστε ένα τεράστιο
   /// μη-επιτρεπτό entry να μην απορρίπτει έγκυρο αντίγραφο.
   static Future<int> declaredUncompressedBytes(String zipPath) async {
+    ensureEntryCountWithinLimit(zipPath);
     final input = InputFileStream(zipPath);
     try {
       return declaredBytesOf(ZipDecoder().decodeStream(input));
@@ -269,8 +408,9 @@ class BackupArchive {
   /// αλλά γράφει στον δίσκο μόνο όσα περνούν το [isAllowedEntry] (C7).
   ///
   /// S-08: αν [declaredBytes] δοθεί (το έχει ήδη υπολογίσει ο caller), δεν
-  /// ξαναδιαβάζεται το κεντρικό ευρετήριο. Τα [entryLimit]/[totalLimit] είναι
-  /// injectable για tests — οι default είναι τα όρια του S-08.
+  /// ξαναδιαβάζεται το κεντρικό ευρετήριο. Τα [entryLimit]/[totalLimit]/
+  /// [entryCountLimit] είναι injectable για tests — οι default είναι τα όρια
+  /// του S-08.
   static Future<List<String>> extractBackupZip(
     String zipPath,
     String outDir, {
@@ -279,9 +419,12 @@ class BackupArchive {
     int? declaredBytes,
     int entryLimit = maxEntryBytes,
     int totalLimit = maxTotalBytes,
+    int entryCountLimit = maxEntries,
   }) async {
     final input = InputFileStream(zipPath);
     try {
+      // S-08 residual: πρώτα το πλήθος entries (μνήμη), μετά το decode.
+      ensureEntryCountWithinLimit(zipPath, limit: entryCountLimit);
       final archive = ZipDecoder().decodeStream(input);
       final names = <String>[];
       var written = 0;
@@ -364,9 +507,11 @@ class BackupArchive {
     bool Function()? isCancelled,
     int entryLimit = maxEntryBytes,
     int totalLimit = maxTotalBytes,
+    int entryCountLimit = maxEntries,
   }) async {
     final input = InputFileStream(zipPath);
     try {
+      ensureEntryCountWithinLimit(zipPath, limit: entryCountLimit);
       final archive = ZipDecoder().decodeStream(input);
       final names = <String>[];
       for (final f in archive.files) {

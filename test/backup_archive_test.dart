@@ -361,4 +361,90 @@ void main() {
       expect(BackupArchive.isNoSpaceError('other'), false);
     });
   });
+
+  group('S-08 residual: entry count', () {
+    late Directory tmp;
+
+    setUp(() async {
+      tmp = await Directory.systemTemp.createTemp('snb_entries_');
+    });
+
+    tearDown(() async {
+      try {
+        if (await tmp.exists()) await tmp.delete(recursive: true);
+      } catch (_) {}
+    });
+
+    Future<String> writeZip(int entries, {String name = 'in.zip'}) async {
+      final archive = Archive();
+      for (var i = 0; i < entries; i++) {
+        archive.addFile(
+            ArchiveFile.bytes('attachments/f$i.bin', utf8.encode('x$i')));
+      }
+      final path = p.join(tmp.path, name);
+      await File(path).writeAsBytes(ZipEncoder().encode(archive));
+      return path;
+    }
+
+    test('μετρά τις εγγραφές του κεντρικού ευρετηρίου', () async {
+      final zipPath = await writeZip(3);
+      expect(BackupArchive.countCentralDirectoryEntries(zipPath), 3);
+    });
+
+    test('πάνω από το όριο → BackupLimitException, στο όριο → περνά', () async {
+      final zipPath = await writeZip(3);
+      expect(
+        () => BackupArchive.ensureEntryCountWithinLimit(zipPath, limit: 2),
+        throwsA(isA<BackupLimitException>()),
+      );
+      expect(
+        () => BackupArchive.ensureEntryCountWithinLimit(zipPath, limit: 3),
+        returnsNormally,
+      );
+    });
+
+    test('extractBackupZip: το όριο entries εφαρμόζεται πριν το decode',
+        () async {
+      final zipPath = await writeZip(3);
+      final outDir = p.join(tmp.path, 'out');
+      await Directory(outDir).create();
+
+      await expectLater(
+        BackupArchive.extractBackupZip(zipPath, outDir, entryCountLimit: 2),
+        throwsA(isA<BackupLimitException>()),
+      );
+      expect(Directory(outDir).listSync(), isEmpty);
+    });
+
+    test('έγκυρο zip περνά το default όριο (καμία παλινδρόμηση)', () async {
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes(
+            'super_note_db.isar', utf8.encode('db')))
+        ..addFile(ArchiveFile.bytes(
+            'attachments/a.bin', utf8.encode('a')));
+      final zipPath = p.join(tmp.path, 'ok.zip');
+      await File(zipPath).writeAsBytes(ZipEncoder().encode(archive));
+      final outDir = p.join(tmp.path, 'out');
+      await Directory(outDir).create();
+
+      await BackupArchive.extractBackupZip(zipPath, outDir);
+      expect(File(p.join(outDir, 'super_note_db.isar')).existsSync(), true);
+    });
+
+    test('μη-zip / πολύ μικρό αρχείο → 0, καμία απόρριψη', () async {
+      final path = p.join(tmp.path, 'not.zip');
+      await File(path).writeAsBytes(List<int>.filled(64, 7));
+      expect(BackupArchive.countCentralDirectoryEntries(path), 0);
+      expect(
+        () => BackupArchive.ensureEntryCountWithinLimit(path, limit: 0),
+        returnsNormally,
+      );
+      // Το ίδιο και για άνοιγμα ανύπαρκτου αρχείου: το σφάλμα μένει του caller.
+      expect(
+        () => BackupArchive.countCentralDirectoryEntries(
+            p.join(tmp.path, 'missing.zip')),
+        throwsA(isA<FileSystemException>()),
+      );
+    });
+  });
 }
