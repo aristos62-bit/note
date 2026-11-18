@@ -6854,8 +6854,11 @@ Evidence: `device-test/s08_summary.md` + `s08_*.png` (τοπικό, gitignored).
 - **Γιατί reset ACL και όχι μόνο αφαίρεση του `[Dirs]`:** το `users-full` ήταν **ρητό** ACE
   στο φάκελο· σε upgrade ο φάκελος υπάρχει ήδη και το ACE θα έμενε για πάντα. Το
   `/reset /T` επαναφέρει τα inherited (default) δικαιώματα.
-- Το `{app}\data` δεν δημιουργείται πλέον (η εφαρμογή γράφει στο
-  `%LOCALAPPDATA%\SuperNoteData`, S-01)· το `[UninstallDelete]` δεν άλλαξε.
+- Το `{app}\data` **είναι το bundle της Flutter** (`data\flutter_assets`, `app.so`,
+  `icudtl.dat`) — το δημιουργεί το `[Files]` (`recursesubdirs`), **όχι** η εφαρμογή· η παλιά
+  `[Dirs]` του έδινε `users-full` **χωρίς λόγο**. *(Διόρθωση S332: παλιότερη διατύπωση «δεν
+  δημιουργείται πλέον» ήταν λάθος — επαληθεύτηκε στην πραγματική εγκατάσταση.)* Τα δεδομένα
+  **χρήστη** είναι στο `%LOCALAPPDATA%\SuperNoteData` (S-01)· το `[UninstallDelete]` δεν άλλαξε.
 
 ### Επαλήθευση
 - Cert: `F6C4F0AA26CEA2C7D6DDE9C11AAB2065F3376A03`, `CN=Aris Gavrielatos (SuperNote), O=Gavrielatos, C=GR`, λήγει **18/11/2031**.
