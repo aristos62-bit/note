@@ -50,6 +50,15 @@ Source: "{#SourcePath}build\windows\x64\runner\Release\*"; DestDir: "{app}"; Fla
 ; Το VC++ Redistributable
 Source: "{#SourcePath}Dependencies\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
+; S-10 (B): αρχεία ελέγχου μέσα στο {app}. Ο installer τα εγκαθιστά μαζί με την
+; εφαρμογή, άρα ο χρήστης ΔΕΝ χρειάζεται να τα στείλει/κατεβάσει ξεχωριστά.
+; (SHA256SUMS-app.txt = hash του super_note.exe, ΟΧΙ του setup: το setup δεν μπορεί
+; να περιέχει το hash του εαυτού του.) Το setup_extra/ παράγεται από το
+; scripts\release_windows.ps1 ΠΡΙΝ το ISCC.
+Source: "{#SourcePath}InstallerOutput\setup_extra\SHA256SUMS-app.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourcePath}InstallerOutput\setup_extra\SuperNote-codesign.cer"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourcePath}InstallerOutput\setup_extra\ΕΓΚΑΤΑΣΤΑΣΗ.txt"; DestDir: "{app}"; Flags: ignoreversion
+
 ; S-10: ΚΑΜΙΑ custom Permissions. Ο φάκελος ζει στο {localappdata} του χρήστη που
 ; κάνει την εγκατάσταση, άρα τα default Windows ACL (μόνο αυτός + admins/system)
 ; είναι το επιθυμητό. Το παλιό `users-full` έδινε σε ΚΑΘΕ λογαριασμό του PC
@@ -66,6 +75,12 @@ Name: "{autodesktop}\Προσωπικός Βοηθός"; Filename: "{app}\super_
 ; {app} (παλιό [Dirs]). Χωρίς αυτό, το upgrade θα κρατούσε το permissive ACE.
 Filename: "{sys}\icacls.exe"; Parameters: """{app}"" /reset /T /C /Q"; Flags: runhidden waituntilterminated; StatusMsg: "Διόρθωση δικαιωμάτων φακέλου..."
 Filename: "{sys}\icacls.exe"; Parameters: """{userappdata}\super_note"" /reset /T /C /Q"; Flags: runhidden waituntilterminated; Check: LegacyUserAppDataExists; StatusMsg: "Διόρθωση δικαιωμάτων (legacy φάκελος)..."
+; S-10 (B): εμπιστοσύνη στον self-signed εκδότη ΜΟΝΟ για τον τρέχοντα χρήστη.
+; Χωρίς Root+TrustedPublisher, το setup/exe δείχνει "Άγνωστος εκδότης" και το
+; Get-AuthenticodeSignature επιστρέφει UnknownError (chain to untrusted root).
+; Αφαίρεση οποτεδήποτε: certmgr.msc -> Trusted Root -> "Aris Gavrielatos (SuperNote)".
+Filename: "{sys}\certutil.exe"; Parameters: "-addstore -user Root ""{app}\SuperNote-codesign.cer"""; Flags: runhidden waituntilterminated; StatusMsg: "Καταχώριση πιστοποιητικού εκδότη..."
+Filename: "{sys}\certutil.exe"; Parameters: "-addstore -user TrustedPublisher ""{app}\SuperNote-codesign.cer"""; Flags: runhidden waituntilterminated
 ; Εγκατάσταση του VC Redist αν λείπει (Silent install)
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; Check: VCRedistNeedsInstall; StatusMsg: "Εγκατάσταση απαραίτητων στοιχείων συστήματος (Visual C++)..."
 ; Εκκίνηση εφαρμογής μετά το setup

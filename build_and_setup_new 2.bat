@@ -7,7 +7,17 @@ title SuperNote - Universal Build Tool
 :: =========================
 set "INNO_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 set "ISS_PATH=%~dp0note_eco_new.iss"
-set "NEW_APK_NAME=SuperNote_v1.0.apk"
+
+:: Όνομα APK από το pubspec.yaml (μοναδική πηγή αλήθειας, κανόνας 13)
+:: "version: 1.4.4+12" -> VER_FULL=" 1.4.4+12" -> APP_VERSION="1.4.4"
+set "VER_FULL="
+set "APP_VERSION=1.0"
+for /f "tokens=2 delims=:" %%v in ('findstr /b /c:"version:" "%~dp0pubspec.yaml"') do set "VER_FULL=%%v"
+if not defined VER_FULL goto version_ready
+for /f "tokens=1 delims=+" %%v in ("%VER_FULL%") do set "APP_VERSION=%%v"
+set "APP_VERSION=%APP_VERSION: =%"
+:version_ready
+set "NEW_APK_NAME=SuperNote_v%APP_VERSION%.apk"
 
 set "APK_FLAG=%temp%\apk_done.flag"
 set "WIN_FLAG=%temp%\win_done.flag"
@@ -141,7 +151,7 @@ echo [DONE] Windows Release Built.
 :: =========================
 echo.
 echo ========================================================
-echo   STEP 4: Generating Windows Installer...
+echo   STEP 4: Signing + Windows Installer + SHA-256
 echo ========================================================
 
 if not exist "%ISS_PATH%" (
@@ -151,25 +161,27 @@ if not exist "%ISS_PATH%" (
     exit /b
 )
 
-if not exist "%INNO_PATH%" (
-    echo [ERROR] Inno Setup not found:
-    echo %INNO_PATH%
+if not exist "%~dp0scripts\release_windows.ps1" (
+    echo [ERROR] Release script not found:
+    echo %~dp0scripts\release_windows.ps1
     pause
     exit /b
 )
 
-echo [INFO] Building installer...
+echo [INFO] Signing exe, building installer, signing setup, hashing...
 
-"%INNO_PATH%" "%ISS_PATH%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\release_windows.ps1" -SkipBuild
 
 if errorlevel 1 (
     echo.
-    echo [ERROR] Inno Setup build FAILED.
+    echo [ERROR] Windows release failed (signing / installer / hashes).
+    echo         If the cert is missing, run once:
+    echo         powershell -ExecutionPolicy Bypass -File scripts\new_codesign_cert.ps1
     pause
     exit /b
 )
 
-echo [DONE] Windows Setup Created.
+echo [DONE] Windows Setup signed + SHA256SUMS.txt created.
 
 :: =========================
 echo.
@@ -177,7 +189,8 @@ echo ========================================================
 echo   BUILDS COMPLETED!
 echo.
 echo   - Android APK: build\app\outputs\flutter-apk\%NEW_APK_NAME%
-echo   - Windows EXE: InstallerOutput folder
+echo   - Windows EXE: InstallerOutput\SuperNoteSetup.exe (self-signed)
+echo   - Checksums : InstallerOutput\SHA256SUMS.txt
 echo ========================================================
 
 :: =========================
