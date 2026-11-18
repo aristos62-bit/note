@@ -1,7 +1,7 @@
 name: super_note
 description: A powerful all-in-one note taking and productivity app.
 publish_to: 'none'
-version: 1.4.1+9
+version: 1.4.2+10
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
