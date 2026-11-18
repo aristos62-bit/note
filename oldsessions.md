@@ -6621,6 +6621,31 @@ v6 άθικτο).
 - Παραλήπτης με lazy read >60s (π.χ. Gmail draft) μπορεί να χάσει το συνημμένο.
 - iOS `/var` vs `/private/var` → το guard **απορρίπτει** (fail-closed, χωρίς data loss).
 
+### Device test (POCO X3 — 9593c01e, Android 12, build 1.4.1+9)
+Release build με προσωρινό `_debug = true` (μόνο για logcat proof· επαναφορά σε
+`false` + rebuild στο τέλος). Evidence: `device-test/s19_logcat.txt` (τοπικό,
+gitignored).
+
+| # | Σενάριο | Αποτέλεσμα | Log |
+|---|---|---|---|
+| T1 | Συνημμένο σε σημείωση (file_picker) | **PASS** | `CacheCleanup: temp file deleted (.../cache/file_picker/1795000100413/sn19_attach.txt)` |
+| T2 | Κοινοποίηση σημείωσης (1 συνημμένο, «Κείμενο + αρχεία») | **PASS** | `Share itemId=513 … files=1` → `Share result=dismissed` → **+60s** `CacheCleanup: share_plus copies deleted` (2 φορές, 13:11:44 και 13:18:31) |
+| T3 | Κοινοποίηση backup (.snb) | **PASS** | `exportWithShare: snb ready` → **+10s** `CacheCleanup: delayed temp dir deleted` → **+60s** `CacheCleanup: share_plus copies deleted` |
+| T4 | Εισαγωγή backup (άκυρο .txt) | **PASS** | `Settings: import backup` → `CacheCleanup: temp file deleted (.../cache/file_picker/1795000563924/sn19_attach.txt)` |
+| T5 | Φωτογραφία επαφής (image_picker, gallery) | **PASS** | `_pickImage: saved 110706B as base64 (gallery)` → `CacheCleanup: temp file deleted (.../cache/scaled_1000008028.jpg)` |
+
+**Σημειώσεις device test:**
+- Το `share_plus` χρησιμοποιεί **νέο** timestamp φάκελο ανά share (`1795000100413`)
+  και μετονομάζει το αρχείο σε `<ts>_<name>` — επιβεβαιώθηκε στο MIUI chooser.
+- Το MIUI chooser κλείνει **μόνο** με «Ακύρωση» (το `keyevent 4` δεν το κλείνει)
+  → το `Share result=dismissed` έρχεται τότε και ξεκινά ο timer.
+- Σε **release** build (`_debug=false`) το `adb logcat -s flutter` μετά την
+  εκκίνηση έχει **μόνο** 3 γραμμές Impeller → σιωπηλό release (S-11 άθικτο).
+- Καθαρισμός: σημείωση «SN19 cache test» + επαφή «SN19 contact» οριστικά
+  διαγραμμένες (Κάδος άδειος), `/sdcard/Download/sn19_attach.txt` και
+  `/sdcard/device test/sn19_attach.txt` σβήστηκαν, app επανεγκαταστάθηκε με
+  `_debug=false` (versionName=1.4.1 / versionCode=9).
+
 ### Έκδοση
 `1.4.0+8` → **`1.4.1+9`** (PATCH: fix χωρίς νέο feature/schema).
 
