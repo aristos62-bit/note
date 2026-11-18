@@ -7,7 +7,7 @@
 | Πεδίο | Τιμή |
 |---|---|
 | Όνομα | super_note (SuperNote) |
-| Version | 1.4.2+10 |
+| Version | 1.4.3+11 |
 | Flutter | 3.47.8 (stable) |
 | Dart | 3.13.7 |
 | GitHub | https://github.com/aristos62-bit/note |

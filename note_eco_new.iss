@@ -5,8 +5,8 @@
 [Setup]
 AppId={{A13E92D4-7F5B-4A5F-8C11-2B7D99887766}}
 AppName=Προσωπικός Βοηθός
-AppVersion=1.4.2
-VersionInfoVersion=1.4.2.10
+AppVersion=1.4.3
+VersionInfoVersion=1.4.3.11
 AppPublisher=Aris Gavrielatos
 AppPublisherURL=https://github.com/aristos62-bit/note
 AppSupportURL=https://github.com/aristos62-bit/note/issues
